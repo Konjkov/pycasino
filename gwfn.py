@@ -6,11 +6,10 @@ from numba.typed import Dict
 
 
 @nb.jit(nopython=True)
-def angular_part(r, l, m):
+def angular_part(x, y, z, l, m):
     """
     :return:
     """
-    x, y, z = r
     r2 = x * x + y * y + z * z
     if l == 0:
         return 1
@@ -75,18 +74,20 @@ def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coe
 
     param r: coordinat
     param mo: MO
-    param spin: [ up | down ]
     """
 
     sum = 0.0
     ao = 0
     p = 0
     for shell in range(nshell):
-        rI = r - shell_positions[shell]  # half time demand
-        r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
+        I = shell_positions[shell]
+        x = r[0] - I[0]
+        y = r[1] - I[1]
+        z = r[2] - I[2]
+        r2 = x * x + y * y + z * z
         l = shell_types[shell]
         for m in range(2*l+1):
-            angular = angular_part(rI, l, m)
+            angular = angular_part(x, y, z, l, m)
 
             prim_sum = 0.0
             for primitive in range(p, p+primitives[shell]):
