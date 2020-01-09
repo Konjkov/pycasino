@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
+from math import exp
+
 import numpy as np
 import numba as nb
-from numba.typed import Dict
+from numba.typed import List
 
 
-@nb.jit(nopython=True)
+@nb.jit(nopython=True, cache=True)
 def angular_part(x, y, z, l, m):
     """
     :return:
@@ -68,7 +70,7 @@ def angular_part(x, y, z, l, m):
     return 0
 
 
-@nb.jit(nopython=True)
+@nb.jit(nopython=True, cache=True)
 def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """single electron wfn on the point.
 
@@ -91,7 +93,7 @@ def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coe
 
             prim_sum = 0.0
             for primitive in range(p, p+primitives[shell]):
-                prim_sum += angular * contraction_coefficients[primitive] * np.exp(-exponents[primitive] * r2)
+                prim_sum += angular * contraction_coefficients[primitive] * exp(-exponents[primitive] * r2)
 
             sum += prim_sum * mo[ao]
             ao += 1
