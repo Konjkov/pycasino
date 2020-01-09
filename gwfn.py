@@ -35,38 +35,38 @@ def angular_part(x, y, z, l, m):
             return x * y
     elif l == 3:
         if m == 0:
-            z * (5 * z ** 2 - 3 * r2) / 2
+            return z * (5 * z ** 2 - 3 * r2) / 2
         if m == 1:
-            3 * x * (5 * z ** 2 - 3 * r2) / 2
+            return 3 * x * (5 * z ** 2 - 3 * r2) / 2
         if m == 2:
-            3 * y * (5 * z ** 2 - 3 * r2) / 2
+            return 3 * y * (5 * z ** 2 - 3 * r2) / 2
         if m == 3:
-            15 * z * (x ** 2 - y ** 2)
+            return 15 * z * (x ** 2 - y ** 2)
         if m == 4:
-            30 * x * y * z
+            return 30 * x * y * z
         if m == 5:
-            15 * x * (x ** 2 - 3 * y ** 2)
+            return 15 * x * (x ** 2 - 3 * y ** 2)
         if m == 6:
-            15 * y * (3 * x ** 2 - y * 2)
+            return 15 * y * (3 * x ** 2 - y * 2)
     elif l == 4:
         if m == 0:
-            (35 * z * z * z * z - 30 * z * z * r2 + 3 * r2 * r2) / 8
+            return (35 * z * z * z * z - 30 * z * z * r2 + 3 * r2 * r2) / 8
         if m == 1:
-            5 * x * z * (7 * z * z - 3 * r2) / 2
+            return 5 * x * z * (7 * z * z - 3 * r2) / 2
         if m == 2:
-            5 * y * z * (7 * z * z - 3 * r2) / 2
+            return 5 * y * z * (7 * z * z - 3 * r2) / 2
         if m == 3:
-            15 * (x * x - y * y) * (7 * z * z - r2) / 2
+            return 15 * (x * x - y * y) * (7 * z * z - r2) / 2
         if m == 4:
-            30 * x * y * (7 * z * z - r2) / 2
+            return 30 * x * y * (7 * z * z - r2) / 2
         if m == 5:
-            105 * x * z * (x * x - 3 * y * y)
+            return 105 * x * z * (x * x - 3 * y * y)
         if m == 6:
-            105 * y * z * (3 * x * x - y * y)
+            return 105 * y * z * (3 * x * x - y * y)
         if m == 7:
-            105 * (x * x * x * x - 6 * x * x * y * y + y * y * y * y)
+            return 105 * (x * x * x * x - 6 * x * x * y * y + y * y * y * y)
         if m == 8:
-            420 * x * y * (x * x - y * y)
+            return 420 * x * y * (x * x - y * y)
     return 0
 
 
@@ -78,7 +78,7 @@ def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coe
     param mo: MO
     """
 
-    sum = 0.0
+    res = 0.0
     ao = 0
     p = 0
     for shell in range(nshell):
@@ -95,10 +95,10 @@ def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coe
             for primitive in range(p, p+primitives[shell]):
                 prim_sum += angular * contraction_coefficients[primitive] * exp(-exponents[primitive] * r2)
 
-            sum += prim_sum * mo[ao]
+            res += prim_sum * mo[ao]
             ao += 1
         p += primitives[shell]
-    return sum
+    return res
 
 
 class Gwfn:
