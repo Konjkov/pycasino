@@ -93,9 +93,9 @@ def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coe
 
             prim_sum = 0.0
             for primitive in range(p, p+primitives[shell]):
-                prim_sum += angular * contraction_coefficients[primitive] * exp(-exponents[primitive] * r2)
+                prim_sum += contraction_coefficients[primitive] * exp(-exponents[primitive] * r2)
 
-            res += prim_sum * mo[ao]
+            res += prim_sum * angular * mo[ao]
             ao += 1
         p += primitives[shell]
     return res
