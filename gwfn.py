@@ -8,11 +8,10 @@ from numba.typed import List
 
 
 @nb.jit(nopython=True, cache=True)
-def angular_part(x, y, z, l, m):
+def angular_part(x, y, z, l, m, r2):
     """
     :return:
     """
-    r2 = x * x + y * y + z * z
     if l == 0:
         return 1
     elif l == 1:
@@ -86,18 +85,18 @@ def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coe
         x = r[0] - I[0]
         y = r[1] - I[1]
         z = r[2] - I[2]
+        # radial part
         r2 = x * x + y * y + z * z
+        prim_sum = 0.0
+        for primitive in range(p, p + primitives[shell]):
+            prim_sum += contraction_coefficients[primitive] * exp(-exponents[primitive] * r2)
+        p += primitives[shell]
+        # angular part
         l = shell_types[shell]
         for m in range(2*l+1):
-            angular = angular_part(x, y, z, l, m)
-
-            prim_sum = 0.0
-            for primitive in range(p, p+primitives[shell]):
-                prim_sum += contraction_coefficients[primitive] * exp(-exponents[primitive] * r2)
-
+            angular = angular_part(x, y, z, l, m, r2)
             res += prim_sum * angular * mo[ao]
             ao += 1
-        p += primitives[shell]
     return res
 
 
@@ -206,9 +205,10 @@ if __name__ == '__main__':
 
     # gwfn = Gwfn('be/HF/cc-pVQZ/gwfn.data')
     gwfn = Gwfn('acetic/HF/cc-pVQZ/gwfn.data')
+    # gwfn = Gwfn('acetaldehyde/HF/cc-pVQZ/gwfn.data')
     mo = gwfn.mo[0, 0]
 
-    steps = 100
+    steps = 140
     l = 10.0
 
     x_steps = y_steps = z_steps = steps
