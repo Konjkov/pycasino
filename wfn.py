@@ -9,7 +9,7 @@ from readers.gwfn import Gwfn
 
 
 @nb.jit(nopython=True, cache=True)
-def wfn_angular_part(x, y, z, l, m, r2):
+def angular_part(x, y, z, l, m, r2):
     """Angular part of gaussian WFN.
     :return:
     """
@@ -71,33 +71,6 @@ def wfn_angular_part(x, y, z, l, m, r2):
 
 
 @nb.jit(nopython=True, cache=True)
-def laplacian_angular_part(x, y, z, l, m, r2):
-    """Angular part of laplacian WFN.
-    :return:
-    """
-    if l == 0:
-        return 2 * r2 - 3
-    elif l == 1:
-        if m == 0:
-            return x * (2 * r2 - 5)
-        elif m == 1:
-            return y * (2 * r2 - 5)
-        elif m == 2:
-            return z * (2 * r2 - 5)
-    elif l == 2:
-        if m == 0:
-            return 2 * z**2 * (x**2 + y**2 + 2 * z**2) + 7 * (x**2 + y**2 - 2 * z**2) - 2 * (x**2 + y**2)**2
-        if m == 1:
-            return x * z * (2 * r2 - 7)
-        if m == 2:
-            return y * z * (2 * r2 - 7)
-        if m == 3:
-            return (x - y) * (x + y) * (2 * r2 - 7)
-        if m == 4:
-            return x * y * (2 * r2 - 7)
-
-
-@nb.jit(nopython=True, cache=True)
 def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """single electron wfn on the point.
 
@@ -113,19 +86,17 @@ def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coe
         x = r[0] - I[0]
         y = r[1] - I[1]
         z = r[2] - I[2]
+        # angular momentum
+        l = shell_types[shell]
         # radial part
         r2 = x * x + y * y + z * z
         prim_sum = 0.0
         for primitive in range(p, p + primitives[shell]):
-            prim_sum += contraction_coefficients[primitive] * exp(-exponents[primitive] * r2)
+            prim_sum += contraction_coefficients[primitive] * exp(-exponents[primitive] * r2)  # * 2 * exponents[primitive] * (2 * exponents[primitive] * r2 - 2*l - 3)
         p += primitives[shell]
         # angular part
-        l = shell_types[shell]
         for m in range(2*l+1):
-            if True:
-                angular = wfn_angular_part(x, y, z, l, m, r2)
-            else:
-                angular = laplacian_angular_part(x, y, z, l, m, r2) * 2 * exponents[primitive] * exponents[primitive]
+            angular = angular_part(x, y, z, l, m, r2)
             res += prim_sum * angular * mo[ao]
             ao += 1
     return res
