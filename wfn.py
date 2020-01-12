@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from math import exp
+from math import exp, sqrt
 
 import numpy as np
 import numba as nb
@@ -92,7 +92,8 @@ def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coe
         r2 = x * x + y * y + z * z
         prim_sum = 0.0
         for primitive in range(p, p + primitives[shell]):
-            prim_sum += contraction_coefficients[primitive] * exp(-exponents[primitive] * r2)  # * 2 * exponents[primitive] * (2 * exponents[primitive] * r2 - 2*l - 3)
+            alpha = exponents[primitive]
+            prim_sum += contraction_coefficients[primitive] * exp(-alpha * r2)
         p += primitives[shell]
         # angular part
         for m in range(2*l+1):
@@ -102,7 +103,63 @@ def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coe
     return res
 
 
-def vmc(equlib, stat, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+@nb.jit(nopython=True, cache=True)
+def kinetic(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+    """single electron kinetic energy on the point.
+
+    laplacian(phi) / 2
+
+    param r: coordinat
+    param mo: MO
+    """
+
+    res = 0.0
+    ao = 0
+    p = 0
+    for shell in range(nshell):
+        I = shell_positions[shell]
+        x = r[0] - I[0]
+        y = r[1] - I[1]
+        z = r[2] - I[2]
+        # angular momentum
+        l = shell_types[shell]
+        # radial part
+        r2 = x * x + y * y + z * z
+        prim_sum = 0.0
+        for primitive in range(p, p + primitives[shell]):
+            alpha = exponents[primitive]
+            prim_sum += contraction_coefficients[primitive] * exp(-alpha * r2) * alpha * (2 * alpha * r2 - 2 * l - 3)
+        p += primitives[shell]
+        # angular part
+        for m in range(2*l+1):
+            angular = angular_part(x, y, z, l, m, r2)
+            res += prim_sum * angular * mo[ao]
+            ao += 1
+    return -res
+
+
+@nb.jit(nopython=True, cache=True)
+def coulomb(r, natom, atomic_positions, atom_charges):
+    """Coulomb attraction between the electron and nucleus."""
+    res = 0.0
+    for atom in range(natom):
+        charge = atom_charges[atom]
+        I = atomic_positions[atom]
+        x = r[0] - I[0]
+        y = r[1] - I[1]
+        z = r[2] - I[2]
+        r2 = x * x + y * y + z * z
+        res += charge / sqrt(r2)
+    return -res
+
+
+@nb.jit(nopython=True, cache=True)
+def local_energy(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, natom, atomic_positions, atom_charges):
+    return coulomb(r, natom, atomic_positions, atom_charges) + kinetic(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) / wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+
+
+@nb.jit(nopython=True, cache=True)
+def vmc(equlib, stat, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, natom, atomic_positions, atom_charges):
     dX_max = 0.4
     X = np.random.uniform(-dX_max, dX_max, size=3)
     p = wfn(X, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
@@ -120,11 +177,18 @@ def vmc(equlib, stat, mo, nshell, shell_types, shell_positions, primitives, cont
         if (new_p/p)**2 > np.random.random_sample(1)[0]:
             X, p = new_X, new_p
             j += 1
-            sum += wfn.local_energy(X)
+            sum += local_energy(X, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, natom, atomic_positions, atom_charges)
     return sum/j
 
 
 if __name__ == '__main__':
+    """
+    0.9999801848563324
+
+    real    104m15,862s
+    user    94m59,727s
+    sys     0m56,136s
+    """
 
     # gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
     gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
@@ -150,5 +214,3 @@ if __name__ == '__main__':
     integral = sum(wfn(r, mo, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents) ** 2 for r in grid) * dV
 
     print(integral)
-
-    # print(gwfn.vmc(500, 500000))

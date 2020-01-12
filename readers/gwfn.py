@@ -58,7 +58,7 @@ class Gwfn:
                 elif line.startswith('Atomic numbers for each atom'):
                     self.atom_numbers = read_ints(self.natom)
                 elif line.startswith('Valence charges for each atom'):
-                    self.atom_charges = read_floats(self.natom)
+                    self.atom_charges = np.array(read_floats(self.natom))
                 # BASIS SET
                 # ---------
                 elif line.startswith('Number of Gaussian centres'):
