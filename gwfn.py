@@ -245,9 +245,9 @@ class Gwfn:
 
 if __name__ == '__main__':
 
-    # gwfn = Gwfn('be/HF/cc-pVQZ/gwfn.data')
-    gwfn = Gwfn('acetic/HF/cc-pVQZ/gwfn.data')
-    # gwfn = Gwfn('acetaldehyde/HF/cc-pVQZ/gwfn.data')
+    # gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
+    gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
+    # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
     print(gwfn.integral())
 
     # print(gwfn.vmc(500, 500000))
