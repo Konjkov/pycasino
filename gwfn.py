@@ -100,6 +100,28 @@ def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coe
     return res
 
 
+def vmc(equlib, stat, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+    dX_max = 0.4
+    X = np.random.uniform(-dX_max, dX_max, size=3)
+    p = wfn(X, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    for i in range(equlib):
+        new_X = X + np.random.uniform(-dX_max, dX_max, size=3)
+        new_p = wfn(new_X, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+        if new_p*new_p/p/p > np.random.random_sample(1)[0]:
+            X, p = new_X, new_p
+
+    j = 0
+    sum = 0.0
+    for dX in range(stat):
+        new_X = X + np.random.uniform(-dX_max, dX_max, size=3)
+        new_p = wfn(new_X, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+        if (new_p/p)**2 > np.random.random_sample(1)[0]:
+            X, p = new_X, new_p
+            j += 1
+            sum += wfn.local_energy(X)
+    return sum/j
+
+
 class Gwfn:
     """Gaussian wfn reader from file."""
 
@@ -191,14 +213,34 @@ class Gwfn:
                     mo = read_floats((self.unrestricted + 1) * self.nbasis_functions * self.nbasis_functions)
                     self.mo = np.array(mo).reshape(self.unrestricted + 1, self.nbasis_functions, self.nbasis_functions)
 
-    def wfn(self, r, mo):
+    def integral(self):
         """single electron wfn on the point.
 
         param r: coordinat
         param mo: MO-orbital
         param spin: [ up | down ]
         """
-        return wfn(r, mo, self.nshell, self.shell_types, self.shell_positions, self.primitives, self.contraction_coefficients, self.exponents)
+        mo = self.mo[0, 0]
+        steps = 140
+        l = 10.0
+
+        x_steps = y_steps = z_steps = steps
+        x_min = y_min = z_min = -l
+        x_max = y_max = z_max = l
+
+        dV = 2 * l / (steps - 1) * 2 * l / (steps - 1) * 2 * l / (steps - 1)
+
+        x = np.linspace(x_min, x_max, x_steps)
+        y = np.linspace(y_min, y_max, y_steps)
+        z = np.linspace(z_min, z_max, z_steps)
+
+        grid = np.vstack(np.meshgrid(x, y, z)).reshape(3, -1).T
+
+        return sum(wfn(r, mo, self.nshell, self.shell_types, self.shell_positions, self.primitives, self.contraction_coefficients, self.exponents) ** 2 for r in grid) * dV
+
+    def vmc(self, equlib, stat):
+        mo = self.mo[0, 0]
+        return vmc(equlib, stat, mo, self.nshell, self.shell_types, self.shell_positions, self.primitives, self.contraction_coefficients, self.exponents)
 
 
 if __name__ == '__main__':
@@ -206,23 +248,6 @@ if __name__ == '__main__':
     # gwfn = Gwfn('be/HF/cc-pVQZ/gwfn.data')
     gwfn = Gwfn('acetic/HF/cc-pVQZ/gwfn.data')
     # gwfn = Gwfn('acetaldehyde/HF/cc-pVQZ/gwfn.data')
-    mo = gwfn.mo[0, 0]
+    print(gwfn.integral())
 
-    steps = 140
-    l = 10.0
-
-    x_steps = y_steps = z_steps = steps
-    x_min = y_min = z_min = -l
-    x_max = y_max = z_max = l
-
-    dV = 2*l/(steps-1) * 2*l/(steps-1) * 2*l/(steps-1)
-
-    x = np.linspace(x_min, x_max, x_steps)
-    y = np.linspace(y_min, y_max, y_steps)
-    z = np.linspace(z_min, z_max, z_steps)
-
-    grid = np.vstack(np.meshgrid(x, y, z)).reshape(3, -1).T
-
-    integral = sum(gwfn.wfn(r, mo)**2 for r in grid) * dV
-
-    print(integral)
+    # print(gwfn.vmc(500, 500000))
