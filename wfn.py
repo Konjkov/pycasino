@@ -30,7 +30,7 @@ def wfn_angular_part(x, y, z, l, m, r2):
         elif m == 2:
             return y * z
         elif m == 3:
-            return x*x + y*y
+            return x*x - y*y
         elif m == 4:
             return x*y
     elif l == 3:
@@ -76,25 +76,25 @@ def laplacian_angular_part(x, y, z, l, m, r2):
     :return:
     """
     if l == 0:
-        return 2 * (2 * r2 - 3)
+        return 2 * r2 - 3
     elif l == 1:
         if m == 0:
-            return 2 * x * (2 * r2 - 5)
+            return x * (2 * r2 - 5)
         elif m == 1:
-            return 2 * y * (2 * r2 - 5)
+            return y * (2 * r2 - 5)
         elif m == 2:
-            return 2 * z * (2 * r2 - 5)
+            return z * (2 * r2 - 5)
     elif l == 2:
         if m == 0:
-            return 4 * x**2 * z**2 + 4 * y**2 * z**2 + 8 * z**4 + 14 * x**2 + 14 * y**2 - 28 * z**2 - (4 * x**4 + 8 * x**2 * y**2 + 4 * y**4)
+            return 2 * z**2 * (x**2 + y**2 + 2 * z**2) + 7 * (x**2 + y**2 - 2 * z**2) - 2 * (x**2 + y**2)**2
         if m == 1:
-            return 2 * x * z * (2 * r2 - 7)
+            return x * z * (2 * r2 - 7)
         if m == 2:
-            return 2 * y * z * (2 * r2 - 7)
+            return y * z * (2 * r2 - 7)
         if m == 3:
-            return 2 * (2*x**4 + 2*x**2*z**2 - 2*y**4 - 2*y**2*z**2 - 7*x**2 + 7*y**2)
+            return (x - y) * (x + y) * (2 * r2 - 7)
         if m == 4:
-            return 2 * x * y * (2 * r2 - 7)
+            return x * y * (2 * r2 - 7)
 
 
 @nb.jit(nopython=True, cache=True)
@@ -125,7 +125,7 @@ def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coe
             if True:
                 angular = wfn_angular_part(x, y, z, l, m, r2)
             else:
-                angular = laplacian_angular_part(x, y, z, l, m, r2) * exponents[primitive] * exponents[primitive]
+                angular = laplacian_angular_part(x, y, z, l, m, r2) * 2 * exponents[primitive] * exponents[primitive]
             res += prim_sum * angular * mo[ao]
             ao += 1
     return res
