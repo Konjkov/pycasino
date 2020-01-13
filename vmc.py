@@ -5,7 +5,7 @@ from random import random
 import numpy as np
 import numba as nb
 
-from wfn import wfn, local_energy
+from gaussian import wfn, local_energy
 from readers.gwfn import Gwfn
 
 
