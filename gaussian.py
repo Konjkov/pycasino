@@ -6,6 +6,7 @@ import numpy as np
 import numba as nb
 
 from readers.gwfn import Gwfn
+from readers.input import Input
 
 
 @nb.jit(nopython=True, cache=True)
@@ -192,25 +193,27 @@ if __name__ == '__main__':
 
     # gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
     gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
+    # input = Input('test/acetic/HF/cc-pVQZ/input')
     # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
 
     mo = gwfn.mo[0, 0]
 
-    steps = 140
-    l = 10.0
+    @nb.jit(nopython=True, cache=True)
+    def test(mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+        steps = 140
+        l = 10.0
 
-    x_steps = y_steps = z_steps = steps
-    x_min = y_min = z_min = -l
-    x_max = y_max = z_max = l
+        x_steps = y_steps = z_steps = steps
+        x_min = y_min = z_min = -l
+        x_max = y_max = z_max = l
 
-    dV = 2 * l / (steps - 1) * 2 * l / (steps - 1) * 2 * l / (steps - 1)
+        dV = 2 * l / (steps - 1) * 2 * l / (steps - 1) * 2 * l / (steps - 1)
+        integral = 0.0
+        for x in np.linspace(x_min, x_max, x_steps):
+            for y in np.linspace(y_min, y_max, y_steps):
+                for z in np.linspace(z_min, z_max, z_steps):
+                    integral += wfn([x, y, z], mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) ** 2
 
-    x = np.linspace(x_min, x_max, x_steps)
-    y = np.linspace(y_min, y_max, y_steps)
-    z = np.linspace(z_min, z_max, z_steps)
+        return integral * dV
 
-    grid = np.vstack(np.meshgrid(x, y, z)).reshape(3, -1).T
-
-    integral = sum(wfn(r, mo, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents) ** 2 for r in grid) * dV
-
-    print(integral)
+    print(test(mo, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents))
