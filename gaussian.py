@@ -82,15 +82,14 @@ def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coe
     res = 0.0
     ao = 0
     p = 0
+    rI = np.zeros((3,))
     for shell in range(nshell):
-        I = shell_positions[shell]
-        x = r[0] - I[0]
-        y = r[1] - I[1]
-        z = r[2] - I[2]
+        for i in range(3):
+            rI[i] = r[i] - shell_positions[shell][i]
         # angular momentum
         l = shell_types[shell]
         # radial part
-        r2 = x * x + y * y + z * z
+        r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
         prim_sum = 0.0
         for primitive in range(p, p + primitives[shell]):
             alpha = exponents[primitive]
@@ -98,7 +97,7 @@ def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coe
         p += primitives[shell]
         # angular part
         for m in range(2*l+1):
-            angular = angular_part(x, y, z, l, m, r2)
+            angular = angular_part(rI[0], rI[1], rI[2], l, m, r2)
             res += prim_sum * angular * mo[ao]
             ao += 1
     return res
@@ -182,13 +181,33 @@ def vmc(equlib, stat, mo, nshell, shell_types, shell_positions, primitives, cont
     return sum/j
 
 
+@nb.jit(nopython=True, cache=True)
+def main(mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+    steps = 140
+    l = 10.0
+
+    x_steps = y_steps = z_steps = steps
+    x_min = y_min = z_min = -l
+    x_max = y_max = z_max = l
+
+    dV = 2 * l / (steps - 1) * 2 * l / (steps - 1) * 2 * l / (steps - 1)
+    integral = 0.0
+    for x in np.linspace(x_min, x_max, x_steps):
+        for y in np.linspace(y_min, y_max, y_steps):
+            for z in np.linspace(z_min, z_max, z_steps):
+                integral += wfn(np.array([x, y, z]), mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) ** 2
+
+    return integral * dV
+
+
 if __name__ == '__main__':
     """
-    0.9999801848563324
+    0.999980184928134
 
-    real    104m15,862s
-    user    94m59,727s
-    sys     0m56,136s
+    real    75m40,030s
+    user    75m40,454s
+    sys     0m0,656s
+
     """
 
     # gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
@@ -198,22 +217,4 @@ if __name__ == '__main__':
 
     mo = gwfn.mo[0, 0]
 
-    @nb.jit(nopython=True, cache=True)
-    def test(mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
-        steps = 140
-        l = 10.0
-
-        x_steps = y_steps = z_steps = steps
-        x_min = y_min = z_min = -l
-        x_max = y_max = z_max = l
-
-        dV = 2 * l / (steps - 1) * 2 * l / (steps - 1) * 2 * l / (steps - 1)
-        integral = 0.0
-        for x in np.linspace(x_min, x_max, x_steps):
-            for y in np.linspace(y_min, y_max, y_steps):
-                for z in np.linspace(z_min, z_max, z_steps):
-                    integral += wfn([x, y, z], mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) ** 2
-
-        return integral * dV
-
-    print(test(mo, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents))
+    print(main(mo, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents))
