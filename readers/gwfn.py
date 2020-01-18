@@ -54,7 +54,7 @@ class Gwfn:
                     self.natom = read_int()
                 elif line.startswith('Atomic positions'):
                     pos = read_floats(self.natom * 3)
-                    self.atomic_positions = np.array(pos).reshape(self.natom, 3)
+                    self.atomic_positions = np.array(pos).reshape((self.natom, 3))
                 elif line.startswith('Atomic numbers for each atom'):
                     self.atom_numbers = read_ints(self.natom)
                 elif line.startswith('Valence charges for each atom'):
@@ -85,10 +85,10 @@ class Gwfn:
                     self.contraction_coefficients = np.array(read_floats(self.nprimitives))
                 elif line.startswith('Position of each shell (au)'):
                     pos = read_floats(3 * self.nshell)
-                    self.shell_positions = np.array(pos).reshape(self.nshell, 3)
+                    self.shell_positions = np.array(pos).reshape((self.nshell, 3))
                 # ORBITAL COEFFICIENTS
                 # --------------------
                 elif line.startswith('ORBITAL COEFFICIENTS'):
                     fp.readline()  # skip line
                     mo = read_floats((self.unrestricted + 1) * self.nbasis_functions * self.nbasis_functions)
-                    self.mo = np.array(mo).reshape(self.unrestricted + 1, self.nbasis_functions, self.nbasis_functions)
+                    self.mo = np.array(mo).reshape((self.unrestricted + 1, self.nbasis_functions, self.nbasis_functions))
