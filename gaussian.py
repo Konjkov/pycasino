@@ -99,19 +99,17 @@ def orbitals(r, nbasis_functions, nshell, shell_types, shell_positions, primitiv
     return res
 
 
-@nb.jit(nopython=True, cache=True)
+# @nb.jit(nopython=True, cache=True)
 def wfn(r, mo, neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """single electron wfn on the point.
 
     param r: coordinat
     param mo: MO
     """
-    orb = orbitals(r, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    # return np.einsum('ij,j', mo, orb)  # not supported
-    res = np.zeros((neu,))
+    res = np.zeros((neu, neu))
     for i in range(neu):
-        for j in range(nbasis_functions):
-            res[i] += mo[i, j] * orb[j]
+        orb = orbitals(r[i], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+        res[i] = np.einsum('ij,j', mo, orb)
     return res
 
 
@@ -193,10 +191,10 @@ def vmc(equlib, stat, mo, nshell, shell_types, shell_positions, primitives, cont
     return sum/j
 
 
-@nb.jit(nopython=True, cache=True)
+# @nb.jit(nopython=True, cache=True)
 def main(mo, neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
-    steps = 10 * 1000 * 1000
-    offset = 5.0
+    steps = 1000 * 100
+    offset = 2.0
 
     x_min = np.min(shell_positions[:, 0]) - offset
     y_min = np.min(shell_positions[:, 1]) - offset
@@ -204,15 +202,14 @@ def main(mo, neu, nbasis_functions, nshell, shell_types, shell_positions, primit
     x_max = np.max(shell_positions[:, 0]) + offset
     y_max = np.max(shell_positions[:, 1]) + offset
     z_max = np.max(shell_positions[:, 2]) + offset
-    # not supported
-    # low = np.array([x_min, y_min, z_min])
-    # high = np.array([x_max, y_max, z_max])
+    low = np.array([x_min, y_min, z_min])
+    high = np.array([x_max, y_max, z_max])
 
     dV = (x_max - x_min) * (y_max - y_min) * (z_max - z_min) / steps
-    integral = np.zeros((neu,))
+    integral = np.zeros((neu, neu))
+    # integral = 0.0
     for i in range(steps):
-        # X = np.random.uniform(low, high)
-        X = np.array([uniform(x_min, x_max), uniform(y_min, y_max), uniform(z_min, z_max)])
+        X = np.random.uniform(low, high, (neu, 3))
         integral += wfn(X, mo, neu,  nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) ** 2
 
     return integral * dV
@@ -228,13 +225,13 @@ if __name__ == '__main__':
 
     """
 
-    # gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
-    # input = Input('test/be/HF/cc-pVQZ/input')
-    gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
-    input = Input('test/acetic/HF/cc-pVQZ/input')
+    gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
+    input = Input('test/be/HF/cc-pVQZ/input')
+    # gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
+    # input = Input('test/acetic/HF/cc-pVQZ/input')
     # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
     # input = Input('test/acetaldehyde/HF/cc-pVQZ/input')
 
-    mo = gwfn.mo[0]
+    mo = gwfn.mo[0, :input.neu]
 
     print(main(mo, input.neu, gwfn.nbasis_functions, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents))
