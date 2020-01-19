@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from math import exp, sqrt
+from random import uniform
 
 import numpy as np
 import numba as nb
@@ -194,23 +195,25 @@ def vmc(equlib, stat, mo, nshell, shell_types, shell_positions, primitives, cont
 
 @nb.jit(nopython=True, cache=True)
 def main(mo, neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
-    steps = 100
-    offset = 3.0
+    steps = 10 * 1000 * 1000
+    offset = 5.0
 
-    x_steps = y_steps = z_steps = steps
     x_min = np.min(shell_positions[:, 0]) - offset
     y_min = np.min(shell_positions[:, 1]) - offset
     z_min = np.min(shell_positions[:, 2]) - offset
     x_max = np.max(shell_positions[:, 0]) + offset
     y_max = np.max(shell_positions[:, 1]) + offset
     z_max = np.max(shell_positions[:, 2]) + offset
+    # not supported
+    # low = np.array([x_min, y_min, z_min])
+    # high = np.array([x_max, y_max, z_max])
 
-    dV = (x_max - x_min) / (x_steps - 1) * (y_max - y_min) / (y_steps - 1) * (z_max - z_min) / (z_steps - 1)
+    dV = (x_max - x_min) * (y_max - y_min) * (z_max - z_min) / steps
     integral = np.zeros((neu,))
-    for x in np.linspace(x_min, x_max, x_steps):
-        for y in np.linspace(y_min, y_max, y_steps):
-            for z in np.linspace(z_min, z_max, z_steps):
-                integral += wfn(np.array([x, y, z]), mo, neu,  nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) ** 2
+    for i in range(steps):
+        # X = np.random.uniform(low, high)
+        X = np.array([uniform(x_min, x_max), uniform(y_min, y_max), uniform(z_min, z_max)])
+        integral += wfn(X, mo, neu,  nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) ** 2
 
     return integral * dV
 
@@ -226,9 +229,11 @@ if __name__ == '__main__':
     """
 
     # gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
+    # input = Input('test/be/HF/cc-pVQZ/input')
     gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
     input = Input('test/acetic/HF/cc-pVQZ/input')
     # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
+    # input = Input('test/acetaldehyde/HF/cc-pVQZ/input')
 
     mo = gwfn.mo[0]
 
