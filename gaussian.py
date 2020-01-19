@@ -72,14 +72,9 @@ def angular_part(x, y, z, l, m, r2):
 
 
 @nb.jit(nopython=True, cache=True)
-def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
-    """single electron wfn on the point.
-
-    param r: coordinat
-    param mo: MO
-    """
-
-    res = 0.0
+def orbitals(r, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+    """Orbital coefficients for every AO at electron position r."""
+    res = np.zeros((nbasis_functions,))
     ao = 0
     p = 0
     rI = np.zeros((3,))
@@ -98,8 +93,24 @@ def wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coe
         # angular part
         for m in range(2*l+1):
             angular = angular_part(rI[0], rI[1], rI[2], l, m, r2)
-            res += prim_sum * angular * mo[ao]
+            res[ao] = prim_sum * angular
             ao += 1
+    return res
+
+
+@nb.jit(nopython=True, cache=True)
+def wfn(r, mo, neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+    """single electron wfn on the point.
+
+    param r: coordinat
+    param mo: MO
+    """
+    orb = orbitals(r, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    # return np.einsum('ij,j', mo, orb)  # not supported
+    res = np.zeros((neu,))
+    for i in range(neu):
+        for j in range(nbasis_functions):
+            res[i] += mo[i, j] * orb[j]
     return res
 
 
@@ -182,20 +193,24 @@ def vmc(equlib, stat, mo, nshell, shell_types, shell_positions, primitives, cont
 
 
 @nb.jit(nopython=True, cache=True)
-def main(mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
-    steps = 140
-    l = 10.0
+def main(mo, neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+    steps = 100
+    offset = 3.0
 
     x_steps = y_steps = z_steps = steps
-    x_min = y_min = z_min = -l
-    x_max = y_max = z_max = l
+    x_min = np.min(shell_positions[:, 0]) - offset
+    y_min = np.min(shell_positions[:, 1]) - offset
+    z_min = np.min(shell_positions[:, 2]) - offset
+    x_max = np.max(shell_positions[:, 0]) + offset
+    y_max = np.max(shell_positions[:, 1]) + offset
+    z_max = np.max(shell_positions[:, 2]) + offset
 
-    dV = 2 * l / (steps - 1) * 2 * l / (steps - 1) * 2 * l / (steps - 1)
-    integral = 0.0
+    dV = (x_max - x_min) / (x_steps - 1) * (y_max - y_min) / (y_steps - 1) * (z_max - z_min) / (z_steps - 1)
+    integral = np.zeros((neu,))
     for x in np.linspace(x_min, x_max, x_steps):
         for y in np.linspace(y_min, y_max, y_steps):
             for z in np.linspace(z_min, z_max, z_steps):
-                integral += wfn(np.array([x, y, z]), mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) ** 2
+                integral += wfn(np.array([x, y, z]), mo, neu,  nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) ** 2
 
     return integral * dV
 
@@ -212,9 +227,9 @@ if __name__ == '__main__':
 
     # gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
     gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
-    # input = Input('test/acetic/HF/cc-pVQZ/input')
+    input = Input('test/acetic/HF/cc-pVQZ/input')
     # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
 
-    mo = gwfn.mo[0, 0]
+    mo = gwfn.mo[0]
 
-    print(main(mo, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents))
+    print(main(mo, input.neu, gwfn.nbasis_functions, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents))
