@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-from math import exp, sqrt
-from random import uniform
+from math import exp, sqrt, factorial
 
 import numpy as np
 import numba as nb
@@ -101,16 +100,15 @@ def orbitals(r, nbasis_functions, nshell, shell_types, shell_positions, primitiv
 
 # @nb.jit(nopython=True, cache=True)
 def wfn(r, mo, neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
-    """single electron wfn on the point.
+    """all electron wfn on the points without norm factor 1/sqrt(N!).
 
-    param r: coordinat
-    param mo: MO
+    param r: coordinates
     """
     res = np.zeros((neu, neu))
     for i in range(neu):
         orb = orbitals(r[i], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
         res[i] = np.einsum('ij,j', mo, orb)
-    return res
+    return np.linalg.det(res)
 
 
 @nb.jit(nopython=True, cache=True)
@@ -193,8 +191,8 @@ def vmc(equlib, stat, mo, nshell, shell_types, shell_positions, primitives, cont
 
 # @nb.jit(nopython=True, cache=True)
 def main(mo, neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
-    steps = 1000 * 100
-    offset = 2.0
+    steps = 1000 * 1000
+    offset = 3.0
 
     x_min = np.min(shell_positions[:, 0]) - offset
     y_min = np.min(shell_positions[:, 1]) - offset
@@ -205,14 +203,14 @@ def main(mo, neu, nbasis_functions, nshell, shell_types, shell_positions, primit
     low = np.array([x_min, y_min, z_min])
     high = np.array([x_max, y_max, z_max])
 
-    dV = (x_max - x_min) * (y_max - y_min) * (z_max - z_min) / steps
-    integral = np.zeros((neu, neu))
-    # integral = 0.0
+    dV = (x_max - x_min)**neu * (y_max - y_min)**neu * (z_max - z_min)**neu / steps
+
+    integral = 0.0
     for i in range(steps):
         X = np.random.uniform(low, high, (neu, 3))
         integral += wfn(X, mo, neu,  nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) ** 2
 
-    return integral * dV
+    return integral * dV / factorial(neu)
 
 
 if __name__ == '__main__':
@@ -225,8 +223,12 @@ if __name__ == '__main__':
 
     """
 
-    gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
-    input = Input('test/be/HF/cc-pVQZ/input')
+    gwfn = Gwfn('test/h/HF/cc-pVQZ/gwfn.data')
+    input = Input('test/h/HF/cc-pVQZ/input')
+    # gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
+    # input = Input('test/be/HF/cc-pVQZ/input')
+    # gwfn = Gwfn('test/be2/HF/cc-pVQZ/gwfn.data')
+    # input = Input('test/be2/HF/cc-pVQZ/input')
     # gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
     # input = Input('test/acetic/HF/cc-pVQZ/input')
     # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
