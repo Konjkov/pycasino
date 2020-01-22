@@ -72,29 +72,30 @@ def angular_part(x, y, z, l, m, r2):
 
 
 @nb.jit(nopython=True, cache=True)
-def orbitals(r, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """Orbital coefficients for every AO at electron position r."""
-    res = np.zeros((nbasis_functions,))
-    ao = 0
-    p = 0
-    rI = np.zeros((3,))
-    for shell in range(nshell):
-        for i in range(3):
-            rI[i] = r[i] - shell_positions[shell][i]
-        # angular momentum
-        l = shell_types[shell]
-        # radial part
-        r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
-        prim_sum = 0.0
-        for primitive in range(p, p + primitives[shell]):
-            alpha = exponents[primitive]
-            prim_sum += contraction_coefficients[primitive] * exp(-alpha * r2)
-        p += primitives[shell]
-        # angular part
-        for m in range(2*l+1):
-            angular = angular_part(rI[0], rI[1], rI[2], l, m, r2)
-            res[ao] = prim_sum * angular
-            ao += 1
+    res = np.zeros((nbasis_functions, neu))
+    for i in range(neu):
+        ao = 0
+        p = 0
+        rI = np.zeros((3,))
+        for shell in range(nshell):
+            for j in range(3):
+                rI[j] = r[i, j] - shell_positions[shell][j]
+            # angular momentum
+            l = shell_types[shell]
+            # radial part
+            r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
+            prim_sum = 0.0
+            for primitive in range(p, p + primitives[shell]):
+                alpha = exponents[primitive]
+                prim_sum += contraction_coefficients[primitive] * exp(-alpha * r2)
+            p += primitives[shell]
+            # angular part
+            for m in range(2*l+1):
+                angular = angular_part(rI[0], rI[1], rI[2], l, m, r2)
+                res[ao, i] = prim_sum * angular
+                ao += 1
     return res
 
 
@@ -103,18 +104,17 @@ def wfn(r, mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions,
     """all electron wfn on the points without norm factor 1/sqrt(N!).
 
     param r: coordinates
+
+    Cauchy–Binet formula
+
     """
-    u_orb = np.zeros((neu, neu))
-    for i in range(neu):
-        orb = orbitals(r[i], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-        u_orb[i] = np.einsum('ij,j', mo[0][:input.neu], orb)
+    orb = orbitals(r[:neu], neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    u_orb = np.einsum('ij,jk', mo[0][:input.neu], orb)
     res = np.linalg.det(u_orb)
     if not ned:
         return res
-    d_orb = np.zeros((ned, ned))
-    for i in range(ned):
-        orb = orbitals(r[neu + i], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-        d_orb[i] = np.einsum('ij,j', mo[0][:input.ned], orb)
+    orb = orbitals(r[neu:], ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    d_orb = np.einsum('ij,jk', mo[0][:input.ned], orb)
     return res * np.linalg.det(d_orb)
 
 
@@ -199,7 +199,7 @@ def vmc(equlib, stat, mo, nshell, shell_types, shell_positions, primitives, cont
 # @nb.jit(nopython=True, cache=True)
 def main(mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     steps = 1000 * 1000
-    offset = 3.0
+    offset = 3.5
 
     x_min = np.min(shell_positions[:, 0]) - offset
     y_min = np.min(shell_positions[:, 1]) - offset
@@ -222,12 +222,16 @@ def main(mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, p
 
 if __name__ == '__main__':
     """
-    0.999980184928134
+    be HFcc-pVQZ
 
-    real    75m40,030s
-    user    75m40,454s
-    sys     0m0,656s
+    steps = 1000 * 1000 * 500
+    offset = 3.5
 
+    0.7789653396996061
+
+    real    364m31,210s
+    user    364m31,430s
+    sys     0m0,636s
     """
 
     # gwfn = Gwfn('test/h/HF/cc-pVQZ/gwfn.data')
