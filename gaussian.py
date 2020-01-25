@@ -11,13 +11,14 @@ from utils import einsum, factorial, uniform
 
 
 @nb.jit(nopython=True, cache=True)
-def angular_part(x, y, z, l, m, r2):
+def angular_part(r, l, m, r2):
     """Angular part of gaussian WFN.
     :return:
     """
     if l == 0:
         return 1
     elif l == 1:
+        x, y, z = r
         if m == 0:
             return x
         elif m == 1:
@@ -25,6 +26,7 @@ def angular_part(x, y, z, l, m, r2):
         elif m == 2:
             return z
     elif l == 2:
+        x, y, z = r
         if m == 0:
             return 3 * z*z - r2
         elif m == 1:
@@ -36,6 +38,7 @@ def angular_part(x, y, z, l, m, r2):
         elif m == 4:
             return x*y
     elif l == 3:
+        x, y, z = r
         if m == 0:
             return z * (5 * z*z - 3 * r2) / 2
         if m == 1:
@@ -51,6 +54,7 @@ def angular_part(x, y, z, l, m, r2):
         if m == 6:
             return 15 * y * (3 * x*x - y*y)
     elif l == 4:
+        x, y, z = r
         if m == 0:
             return (35 * z*z*z*z - 30 * z*z * r2 + 3 * r2 * r2) / 8
         if m == 1:
@@ -76,10 +80,10 @@ def angular_part(x, y, z, l, m, r2):
 def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """Orbital coefficients for every AO at electron position r."""
     res = np.zeros((nbasis_functions, neu))
+    rI = np.zeros((3,))
     for i in range(neu):
         ao = 0
         p = 0
-        rI = np.zeros((3,))
         for shell in range(nshell):
             for j in range(3):
                 rI[j] = r[i, j] - shell_positions[shell][j]
@@ -103,7 +107,7 @@ def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, pri
             p += primitives[shell]
             # angular part
             for m in range(2*l+1):
-                angular = angular_part(rI[0], rI[1], rI[2], l, m, r2)  # 10s from 60s
+                angular = angular_part(rI, l, m, r2)  # 10s from 60s
                 res[ao, i] = prim_sum * angular  # 17s from 60s
                 ao += 1  # 3s from 60s
     return res
