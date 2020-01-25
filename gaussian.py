@@ -104,7 +104,7 @@ def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, pri
             # angular part
             for m in range(2*l+1):
                 angular = angular_part(rI[0], rI[1], rI[2], l, m, r2)  # 10s from 60s
-                res[ao:ao+2*l+1, i] = prim_sum * angular  # 17s from 60s
+                res[ao, i] = prim_sum * angular  # 17s from 60s
                 ao += 1  # 3s from 60s
     return res
 
