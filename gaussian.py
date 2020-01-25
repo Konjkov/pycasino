@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-from math import exp, sqrt, factorial
+from math import exp, sqrt
 
 import numpy as np
 import numba as nb
 
 from readers.gwfn import Gwfn
 from readers.input import Input
+from utils import einsum, factorial, uniform
 
 
 @nb.jit(nopython=True, cache=True)
@@ -86,10 +87,19 @@ def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, pri
             l = shell_types[shell]
             # radial part
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
+            # grad_r = rI[0] + rI[1] + rI[2]
             prim_sum = 0.0
+            # prim_grad_sum = 0.0
+            # prim_lap_sum = 0.0
             for primitive in range(p, p + primitives[shell]):
                 alpha = exponents[primitive]
-                prim_sum += contraction_coefficients[primitive] * exp(-alpha * r2)
+                prim = contraction_coefficients[primitive] * exp(-alpha * r2)
+                # wfn
+                prim_sum += prim
+                # # gradient
+                # prim_grad_sum += 2 * alpha * grad_r * prim
+                # # laplacian
+                # prim_lap_sum += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * prim
             p += primitives[shell]
             # angular part
             for m in range(2*l+1):
@@ -99,7 +109,7 @@ def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, pri
     return res
 
 
-# @nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True, cache=True)
 def wfn(r, mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """all electron wfn on the points without norm factor 1/sqrt(N!).
 
@@ -109,13 +119,12 @@ def wfn(r, mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions,
 
     """
     orb = orbitals(r[:neu], neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    u_orb = np.einsum('ij,jk', mo[0][:input.neu], orb)
-    res = np.linalg.det(u_orb)
+    u_orb = einsum('ij,jk', mo[0][:neu], orb)
     if not ned:
-        return res
+        return np.linalg.det(u_orb)
     orb = orbitals(r[neu:], ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    d_orb = np.einsum('ij,jk', mo[0][:input.ned], orb)
-    return res * np.linalg.det(d_orb)
+    d_orb = einsum('ij,jk', mo[0][:ned], orb)
+    return np.linalg.det(u_orb) * np.linalg.det(d_orb)
 
 
 @nb.jit(nopython=True, cache=True)
@@ -196,9 +205,9 @@ def vmc(equlib, stat, mo, nshell, shell_types, shell_positions, primitives, cont
     return sum/j
 
 
-# @nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True, cache=True)
 def main(mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
-    steps = 1000 * 1000
+    steps = 1000 * 1000 * 500
     offset = 3.5
 
     x_min = np.min(shell_positions[:, 0]) - offset
@@ -214,7 +223,7 @@ def main(mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, p
 
     integral = 0.0
     for i in range(steps):
-        X = np.random.uniform(low, high, (neu + ned, 3))
+        X = uniform(low, high, (neu + ned, 3))
         integral += wfn(X, mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) ** 2
 
     return integral * dV / factorial(neu) / factorial(ned)
@@ -227,11 +236,11 @@ if __name__ == '__main__':
     steps = 1000 * 1000 * 500
     offset = 3.5
 
-    0.7789653396996061
+    0.7497301777768954
 
-    real    364m31,210s
-    user    364m31,430s
-    sys     0m0,636s
+    real    44m56,486s
+    user    44m56,677s
+    sys     0m0,324s
     """
 
     # gwfn = Gwfn('test/h/HF/cc-pVQZ/gwfn.data')
