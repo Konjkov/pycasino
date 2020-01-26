@@ -57,10 +57,10 @@ def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, pri
     """Orbital coefficients for every AO at electron position r."""
     result = np.zeros((nbasis_functions, neu))
     rI = np.zeros((3,))
-    ao = 0
-    p = 0
-    for shell in range(nshell):
-        for i in range(neu):
+    for i in range(neu):
+        ao = 0
+        p = 0
+        for shell in range(nshell):
             for j in range(3):
                 rI[j] = r[i, j] - shell_positions[shell][j]
             # angular momentum
@@ -80,10 +80,10 @@ def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, pri
                 # prim_grad_sum += 2 * alpha * grad_r * prim
                 # # laplacian
                 # prim_lap_sum += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * prim
+            p += primitives[shell]
             # angular part
             angular_part(rI, l, result[ao: ao+2*l+1, i], radial_part)  # 10s from 60s
-        ao += 2*l+1
-        p += primitives[shell]
+            ao += 2*l+1
     return result
 
 
