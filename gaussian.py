@@ -11,7 +11,7 @@ from utils import einsum, factorial, uniform
 
 
 @nb.jit(nopython=True, cache=True)
-def angular_part(r, l, r2, result, radial):
+def angular_part(r, l, result, radial):
     """Angular part of gaussian WFN.
     :return:
     """
@@ -24,22 +24,23 @@ def angular_part(r, l, r2, result, radial):
         result[2] = radial * z
     elif l == 2:
         x, y, z = r
-        result[0] = radial * (3 * z*z - r2)
+        result[0] = radial * (2 * z*z - x*x - y*y)
         result[1] = radial * x * z
         result[2] = radial * y * z
-        result[3] = radial * (x*x - y*y)
+        result[3] = radial * (x * x - y * y)
         result[4] = radial * x * y
     elif l == 3:
         x, y, z = r
-        result[0] = radial * z * (5 * z*z - 3 * r2) / 2
-        result[1] = radial * 3 * x * (5 * z*z - r2) / 2
-        result[2] = radial * 3 * y * (5 * z*z - r2) / 2
+        result[0] = radial * z * (2 * z*z - 3 * x*x - 3 * y*y) / 2
+        result[1] = radial * 3 * x * (4 * z*z - x*x - y*y) / 2
+        result[2] = radial * 3 * y * (4 * z*z - x*x - y*y) / 2
         result[3] = radial * 15 * z * (x*x - y*y)
         result[4] = radial * 30 * x*y*z
         result[5] = radial * 15 * x * (x*x - 3 * y*y)
         result[6] = radial * 15 * y * (3 * x*x - y*y)
     elif l == 4:
         x, y, z = r
+        r2 = x * x + y * y + z * z
         result[0] = radial * (35 * z*z*z*z - 30 * z*z * r2 + 3 * r2 * r2) / 8
         result[1] = radial * 5 * x*z * (7 * z*z - 3 * r2) / 2
         result[2] = radial * 5 * y*z * (7 * z*z - 3 * r2) / 2
@@ -81,7 +82,7 @@ def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, pri
                 # prim_lap_sum += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * prim
             p += primitives[shell]
             # angular part
-            angular_part(rI, l, r2, res[ao: ao+2*l+1, i], radial_part)
+            angular_part(rI, l, res[ao: ao+2*l+1, i], radial_part)
             ao += 2*l+1
     return res
 
