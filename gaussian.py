@@ -55,7 +55,7 @@ def angular_part(r, l, result, radial):
 @nb.jit(nopython=True, cache=True)
 def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """Orbital coefficients for every AO at electron position r."""
-    res = np.zeros((nbasis_functions, neu))
+    result = np.zeros((nbasis_functions, neu))
     rI = np.zeros((3,))
     for i in range(neu):
         ao = 0
@@ -73,7 +73,7 @@ def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, pri
             # prim_lap_sum = 0.0
             for primitive in range(p, p + primitives[shell]):
                 alpha = exponents[primitive]
-                prim = contraction_coefficients[primitive] * exp(-alpha * r2)  # 20s from 60s
+                prim = contraction_coefficients[primitive] * np.exp(-alpha * r2)  # 20s from 60s
                 # wfn
                 radial_part += prim
                 # # gradient
@@ -82,9 +82,9 @@ def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, pri
                 # prim_lap_sum += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * prim
             p += primitives[shell]
             # angular part
-            angular_part(rI, l, res[ao: ao+2*l+1, i], radial_part)
+            angular_part(rI, l, result[ao: ao+2*l+1, i], radial_part)  # 10s from 60s
             ao += 2*l+1
-    return res
+    return result
 
 
 @nb.jit(nopython=True, cache=True)
@@ -96,12 +96,14 @@ def wfn(r, mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions,
     Cauchy–Binet formula
 
     """
+    u_orb = np.zeros((neu, neu))
     orb = orbitals(r[:neu], neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    u_orb = einsum('ij,jk', mo[0][:neu], orb)
+    einsum('ij,jk', mo[0][:neu], orb, u_orb)
     if not ned:
         return np.linalg.det(u_orb)
+    d_orb = np.zeros((ned, ned))
     orb = orbitals(r[neu:], ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    d_orb = einsum('ij,jk', mo[0][:ned], orb)
+    einsum('ij,jk', mo[0][:ned], orb, d_orb)
     return np.linalg.det(u_orb) * np.linalg.det(d_orb)  # 9s from 60s
 
 
