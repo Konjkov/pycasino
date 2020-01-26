@@ -11,69 +11,45 @@ from utils import einsum, factorial, uniform
 
 
 @nb.jit(nopython=True, cache=True)
-def angular_part(r, l, m, r2):
+def angular_part(r, l, r2, result, radial):
     """Angular part of gaussian WFN.
     :return:
     """
     if l == 0:
-        return 1
+        result[0] = radial
     elif l == 1:
         x, y, z = r
-        if m == 0:
-            return x
-        elif m == 1:
-            return y
-        elif m == 2:
-            return z
+        result[0] = radial * x
+        result[1] = radial * y
+        result[2] = radial * z
     elif l == 2:
         x, y, z = r
-        if m == 0:
-            return 3 * z*z - r2
-        elif m == 1:
-            return x * z
-        elif m == 2:
-            return y * z
-        elif m == 3:
-            return x*x - y*y
-        elif m == 4:
-            return x*y
+        result[0] = radial * (3 * z*z - r2)
+        result[1] = radial * x * z
+        result[2] = radial * y * z
+        result[3] = radial * (x*x - y*y)
+        result[4] = radial * x * y
     elif l == 3:
         x, y, z = r
-        if m == 0:
-            return z * (5 * z*z - 3 * r2) / 2
-        if m == 1:
-            return 3 * x * (5 * z*z - r2) / 2
-        if m == 2:
-            return 3 * y * (5 * z*z - r2) / 2
-        if m == 3:
-            return 15 * z * (x*x - y*y)
-        if m == 4:
-            return 30 * x*y*z
-        if m == 5:
-            return 15 * x * (x*x - 3 * y*y)
-        if m == 6:
-            return 15 * y * (3 * x*x - y*y)
+        result[0] = radial * z * (5 * z*z - 3 * r2) / 2
+        result[1] = radial * 3 * x * (5 * z*z - r2) / 2
+        result[2] = radial * 3 * y * (5 * z*z - r2) / 2
+        result[3] = radial * 15 * z * (x*x - y*y)
+        result[4] = radial * 30 * x*y*z
+        result[5] = radial * 15 * x * (x*x - 3 * y*y)
+        result[6] = radial * 15 * y * (3 * x*x - y*y)
     elif l == 4:
         x, y, z = r
-        if m == 0:
-            return (35 * z*z*z*z - 30 * z*z * r2 + 3 * r2 * r2) / 8
-        if m == 1:
-            return 5 * x*z * (7 * z*z - 3 * r2) / 2
-        if m == 2:
-            return 5 * y*z * (7 * z*z - 3 * r2) / 2
-        if m == 3:
-            return 15 * (x*x - y*y) * (7 * z*z - r2) / 2
-        if m == 4:
-            return 30 * x*y * (7 * z*z - r2) / 2
-        if m == 5:
-            return 105 * x*z * (x*x - 3 * y*y)
-        if m == 6:
-            return 105 * y*z * (3 * x*x - y*y)
-        if m == 7:
-            return 105 * (x*x*x*x - 6 * x*x*y*y + y*y*y*y)
-        if m == 8:
-            return 420 * x*y * (x*x - y*y)
-    return 0
+        result[0] = radial * (35 * z*z*z*z - 30 * z*z * r2 + 3 * r2 * r2) / 8
+        result[1] = radial * 5 * x*z * (7 * z*z - 3 * r2) / 2
+        result[2] = radial * 5 * y*z * (7 * z*z - 3 * r2) / 2
+        result[3] = radial * 15 * (x*x - y*y) * (7 * z*z - r2) / 2
+        result[4] = radial * 30 * x*y * (7 * z*z - r2) / 2
+        result[5] = radial * 105 * x*z * (x*x - 3 * y*y)
+        result[6] = radial * 105 * y*z * (3 * x*x - y*y)
+        result[7] = radial * 105 * (x*x*x*x - 6 * x*x*y*y + y*y*y*y)
+        result[8] = radial * 420 * x*y * (x*x - y*y)
+
 
 
 @nb.jit(nopython=True, cache=True)
@@ -106,8 +82,7 @@ def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, pri
                 # prim_lap_sum += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * prim
             p += primitives[shell]
             # angular part
-            for m in range(2*l+1):
-                res[ao+m, i] = prim_sum * angular_part(rI, l, m, r2)
+            angular_part(rI, l, r2, res[ao: ao+2*l+1, i], prim_sum)
             ao += 2*l+1
     return res
 
