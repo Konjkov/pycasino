@@ -51,7 +51,6 @@ def angular_part(r, l, r2, result, radial):
         result[8] = radial * 420 * x*y * (x*x - y*y)
 
 
-
 @nb.jit(nopython=True, cache=True)
 def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """Orbital coefficients for every AO at electron position r."""
@@ -68,21 +67,21 @@ def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, pri
             # radial part
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
             # grad_r = rI[0] + rI[1] + rI[2]
-            prim_sum = 0.0
+            radial_part = 0.0
             # prim_grad_sum = 0.0
             # prim_lap_sum = 0.0
             for primitive in range(p, p + primitives[shell]):
                 alpha = exponents[primitive]
                 prim = contraction_coefficients[primitive] * exp(-alpha * r2)  # 20s from 60s
                 # wfn
-                prim_sum += prim
+                radial_part += prim
                 # # gradient
                 # prim_grad_sum += 2 * alpha * grad_r * prim
                 # # laplacian
                 # prim_lap_sum += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * prim
             p += primitives[shell]
             # angular part
-            angular_part(rI, l, r2, res[ao: ao+2*l+1, i], prim_sum)
+            angular_part(rI, l, r2, res[ao: ao+2*l+1, i], radial_part)
             ao += 2*l+1
     return res
 
