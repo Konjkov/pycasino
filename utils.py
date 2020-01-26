@@ -7,14 +7,6 @@ TPB = 16
 
 
 @nb.jit(nopython=True, cache=True)
-def einsum(subscripts, x, y, z):
-    for i in range(x.shape[0]):
-        for j in range(x.shape[1]):
-            for k in range(y.shape[1]):
-                z[i, k] += x[i, j] * y[j, k]
-
-
-@nb.jit(nopython=True, cache=True)
 def factorial(n):
     result = 1.0
     for i in range(n, 0, -1):

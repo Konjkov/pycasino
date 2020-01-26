@@ -7,7 +7,7 @@ import numba as nb
 
 from readers.gwfn import Gwfn
 from readers.input import Input
-from utils import einsum, factorial, uniform
+from utils import factorial, uniform
 
 
 @nb.jit(nopython=True, cache=True)
@@ -96,14 +96,12 @@ def wfn(r, mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions,
     Cauchy–Binet formula
 
     """
-    u_orb = np.zeros((neu, neu))
     orb = orbitals(r[:neu], neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    einsum('ij,jk', mo[0][:neu], orb, u_orb)
+    u_orb = np.dot(mo[0][:neu], orb)
     if not ned:
         return np.linalg.det(u_orb)
-    d_orb = np.zeros((ned, ned))
     orb = orbitals(r[neu:], ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    einsum('ij,jk', mo[0][:ned], orb, d_orb)
+    d_orb = np.dot(mo[0][:ned], orb)
     return np.linalg.det(u_orb) * np.linalg.det(d_orb)  # 9s from 60s
 
 
