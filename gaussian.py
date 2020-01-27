@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-from math import exp, sqrt
+from math import exp, sqrt, gamma
 
 import numpy as np
 import numba as nb
 
 from readers.gwfn import Gwfn
 from readers.input import Input
-from utils import factorial, uniform
+from utils import uniform
 
 
 @nb.jit(nopython=True, cache=True)
@@ -253,7 +253,7 @@ def main(mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, p
         X = uniform(low, high, (neu + ned, 3))
         integral += wfn(X, mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) ** 2
 
-    return integral * dV / factorial(neu) / factorial(ned)
+    return integral * dV / gamma(neu+1) / gamma(ned+1)
 
 
 if __name__ == '__main__':
