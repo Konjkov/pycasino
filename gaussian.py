@@ -16,40 +16,40 @@ def angular_part(r, l, result, radial):
     :return:
     """
     if l == 0:
-        result[0] = radial
+        result[0] += radial
     elif l == 1:
         x, y, z = r
-        result[0] = radial * x
-        result[1] = radial * y
-        result[2] = radial * z
+        result[0] += radial * x
+        result[1] += radial * y
+        result[2] += radial * z
     elif l == 2:
         x, y, z = r
-        result[0] = radial * (2 * z*z - x*x - y*y)
-        result[1] = radial * x * z
-        result[2] = radial * y * z
-        result[3] = radial * (x * x - y * y)
-        result[4] = radial * x * y
+        result[0] += radial * (2 * z*z - x*x - y*y)
+        result[1] += radial * x * z
+        result[2] += radial * y * z
+        result[3] += radial * (x * x - y * y)
+        result[4] += radial * x * y
     elif l == 3:
         x, y, z = r
-        result[0] = radial * z * (2 * z*z - 3 * x*x - 3 * y*y) / 2
-        result[1] = radial * 3 * x * (4 * z*z - x*x - y*y) / 2
-        result[2] = radial * 3 * y * (4 * z*z - x*x - y*y) / 2
-        result[3] = radial * 15 * z * (x*x - y*y)
-        result[4] = radial * 30 * x*y*z
-        result[5] = radial * 15 * x * (x*x - 3 * y*y)
-        result[6] = radial * 15 * y * (3 * x*x - y*y)
+        result[0] += radial * z * (2 * z*z - 3 * x*x - 3 * y*y) / 2
+        result[1] += radial * 3 * x * (4 * z*z - x*x - y*y) / 2
+        result[2] += radial * 3 * y * (4 * z*z - x*x - y*y) / 2
+        result[3] += radial * 15 * z * (x*x - y*y)
+        result[4] += radial * 30 * x*y*z
+        result[5] += radial * 15 * x * (x*x - 3 * y*y)
+        result[6] += radial * 15 * y * (3 * x*x - y*y)
     elif l == 4:
         x, y, z = r
         r2 = x * x + y * y + z * z
-        result[0] = radial * (35 * z*z*z*z - 30 * z*z * r2 + 3 * r2 * r2) / 8
-        result[1] = radial * 5 * x*z * (7 * z*z - 3 * r2) / 2
-        result[2] = radial * 5 * y*z * (7 * z*z - 3 * r2) / 2
-        result[3] = radial * 15 * (x*x - y*y) * (7 * z*z - r2) / 2
-        result[4] = radial * 30 * x*y * (7 * z*z - r2) / 2
-        result[5] = radial * 105 * x*z * (x*x - 3 * y*y)
-        result[6] = radial * 105 * y*z * (3 * x*x - y*y)
-        result[7] = radial * 105 * (x*x*x*x - 6 * x*x*y*y + y*y*y*y)
-        result[8] = radial * 420 * x*y * (x*x - y*y)
+        result[0] += radial * (35 * z*z*z*z - 30 * z*z * r2 + 3 * r2 * r2) / 8
+        result[1] += radial * 5 * x*z * (7 * z*z - 3 * r2) / 2
+        result[2] += radial * 5 * y*z * (7 * z*z - 3 * r2) / 2
+        result[3] += radial * 15 * (x*x - y*y) * (7 * z*z - r2) / 2
+        result[4] += radial * 30 * x*y * (7 * z*z - r2) / 2
+        result[5] += radial * 105 * x*z * (x*x - 3 * y*y)
+        result[6] += radial * 105 * y*z * (3 * x*x - y*y)
+        result[7] += radial * 105 * (x*x*x*x - 6 * x*x*y*y + y*y*y*y)
+        result[8] += radial * 420 * x*y * (x*x - y*y)
 
 
 @nb.jit(nopython=True, cache=True)
@@ -92,22 +92,17 @@ def gradient_det(r, ne, mo, nbasis_functions, nshell, shell_types, shell_positio
             l = shell_types[shell]
             # radial part
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
-            # grad_r = rI[0] + rI[1] + rI[2]
-            radial_part = 0.0
-            # prim_grad_sum = 0.0
-            # prim_lap_sum = 0.0
+            grad_r = rI[0] + rI[1] + rI[2]
+            radial_part_1 = 0.0
+            radial_part_2 = 0.0
             for primitive in range(p, p + primitives[shell]):
                 alpha = exponents[primitive]
-                prim = contraction_coefficients[primitive] * np.exp(-alpha * r2)  # 20s from 60s
-                # wfn
-                radial_part += prim
-                # # gradient
-                # prim_grad_sum += 2 * alpha * grad_r * prim
-                # # laplacian
-                # prim_lap_sum += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * prim
+                exponent = np.exp(-alpha * r2)
+                radial_part_1 += 2 * alpha * grad_r * contraction_coefficients[primitive] * exponent   # 20s from 60s
+                radial_part_2 += exponent
             p += primitives[shell]
             # angular part
-            angular_part(rI, l, orbital[ao: ao+2*l+1, i], radial_part)  # 10s from 60s
+            angular_part(rI, l, orbital[ao: ao+2*l+1, i], radial_part_1)  # 10s from 60s
             ao += 2*l+1
     return np.linalg.det(np.dot(mo, orbital))   # 9s from 60s
 
