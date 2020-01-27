@@ -53,7 +53,32 @@ def angular_part(r, l, result, radial):
 
 
 @nb.jit(nopython=True, cache=True)
-def orbitals(r, ne, mo, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+def wfn_det(r, ne, mo, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+    """Orbital coefficients for every AO at electron position r."""
+    orbital = np.zeros((nbasis_functions, ne))
+    rI = np.zeros((3,))
+    for i in range(ne):
+        ao = 0
+        p = 0
+        for shell in range(nshell):
+            for j in range(3):
+                rI[j] = r[i, j] - shell_positions[shell][j]
+            # angular momentum
+            l = shell_types[shell]
+            # radial part
+            r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
+            radial_part = 0.0
+            for primitive in range(p, p + primitives[shell]):
+                radial_part += contraction_coefficients[primitive] * np.exp(-exponents[primitive] * r2)  # 20s from 60s
+            p += primitives[shell]
+            # angular part
+            angular_part(rI, l, orbital[ao: ao+2*l+1, i], radial_part)  # 10s from 60s
+            ao += 2*l+1
+    return np.linalg.det(np.dot(mo, orbital))   # 9s from 60s
+
+
+@nb.jit(nopython=True, cache=True)
+def gradient_det(r, ne, mo, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """Orbital coefficients for every AO at electron position r."""
     orbital = np.zeros((nbasis_functions, ne))
     rI = np.zeros((3,))
@@ -88,6 +113,32 @@ def orbitals(r, ne, mo, nbasis_functions, nshell, shell_types, shell_positions, 
 
 
 @nb.jit(nopython=True, cache=True)
+def laplacian_det(r, ne, mo, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+    """Orbital coefficients for every AO at electron position r."""
+    orbital = np.zeros((nbasis_functions, ne))
+    rI = np.zeros((3,))
+    for i in range(ne):
+        ao = 0
+        p = 0
+        for shell in range(nshell):
+            for j in range(3):
+                rI[j] = r[i, j] - shell_positions[shell][j]
+            # angular momentum
+            l = shell_types[shell]
+            # radial part
+            r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
+            radial_part = 0.0
+            for primitive in range(p, p + primitives[shell]):
+                alpha = exponents[primitive]
+                radial_part += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * contraction_coefficients[primitive] * np.exp(-alpha * r2)  # 20s from 60s
+            p += primitives[shell]
+            # angular part
+            angular_part(rI, l, orbital[ao: ao+2*l+1, i], radial_part)  # 10s from 60s
+            ao += 2*l+1
+    return np.linalg.det(np.dot(mo, orbital))   # 9s from 60s
+
+
+@nb.jit(nopython=True, cache=True)
 def wfn(r, mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """all electron wfn on the points without norm factor 1/sqrt(N!).
 
@@ -96,10 +147,10 @@ def wfn(r, mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions,
     Cauchy–Binet formula
 
     """
-    u_orb = orbitals(r[:neu], neu, mo[0][:neu], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    u_orb = wfn_det(r[:neu], neu, mo[0][:neu], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
     if not ned:
         return u_orb
-    d_orb = orbitals(r[neu:], ned, mo[0][:ned], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    d_orb = wfn_det(r[neu:], ned, mo[0][:ned], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
     return u_orb * d_orb
 
 
@@ -209,14 +260,14 @@ if __name__ == '__main__':
     """
     be HFcc-pVQZ
 
-    steps = 1000 * 1000 * 500
-    offset = 3.5
+    steps = 3 * 1000 * 1000 * 1000
+    offset = 3.7
 
-    0.7497301777768954
+    0.807685284646791
 
-    real    44m56,486s
-    user    44m56,677s
-    sys     0m0,324s
+    real    282m41,027s
+    user    282m40,507s
+    sys     0m0,452s
     """
 
     # gwfn = Gwfn('test/h/HF/cc-pVQZ/gwfn.data')
