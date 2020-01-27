@@ -53,11 +53,11 @@ def angular_part(r, l, result, radial):
 
 
 @nb.jit(nopython=True, cache=True)
-def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+def orbitals(r, ne, mo, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """Orbital coefficients for every AO at electron position r."""
-    result = np.zeros((nbasis_functions, neu))
+    orbital = np.zeros((nbasis_functions, ne))
     rI = np.zeros((3,))
-    for i in range(neu):
+    for i in range(ne):
         ao = 0
         p = 0
         for shell in range(nshell):
@@ -82,9 +82,9 @@ def orbitals(r, neu, nbasis_functions, nshell, shell_types, shell_positions, pri
                 # prim_lap_sum += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * prim
             p += primitives[shell]
             # angular part
-            angular_part(rI, l, result[ao: ao+2*l+1, i], radial_part)  # 10s from 60s
+            angular_part(rI, l, orbital[ao: ao+2*l+1, i], radial_part)  # 10s from 60s
             ao += 2*l+1
-    return result
+    return np.linalg.det(np.dot(mo, orbital))   # 9s from 60s
 
 
 @nb.jit(nopython=True, cache=True)
@@ -96,13 +96,11 @@ def wfn(r, mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions,
     Cauchy–Binet formula
 
     """
-    orb = orbitals(r[:neu], neu, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    u_orb = np.dot(mo[0][:neu], orb)
+    u_orb = orbitals(r[:neu], neu, mo[0][:neu], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
     if not ned:
-        return np.linalg.det(u_orb)
-    orb = orbitals(r[neu:], ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    d_orb = np.dot(mo[0][:ned], orb)
-    return np.linalg.det(u_orb) * np.linalg.det(d_orb)  # 9s from 60s
+        return u_orb
+    d_orb = orbitals(r[neu:], ned, mo[0][:ned], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    return u_orb * d_orb
 
 
 @nb.jit(nopython=True, cache=True)
