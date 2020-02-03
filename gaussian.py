@@ -91,11 +91,22 @@ def gradient_angular_part(r, l, result, radial):
 
 
 @nb.jit(nopython=True, cache=True)
-def wfn_det(r, ne, mo, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
-    """Orbital coefficients for every AO at electron position r."""
-    orbital = np.zeros((nbasis_functions, ne))
+def wfn_det(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+    """
+    Slater determinant
+    :param r: eletron coordinates shape = (nelec, 3)
+    :param mo: MO-coefficients shape = (nbasis_functions, nelec)
+    :param nshell:
+    :param shell_types: l-number of the shell shape = (nshell, )
+    :param shell_positions: centerd position of the shell shape = (nshell, 3)
+    :param primitives: number of primitives on each shell shape = (nshell,)
+    :param contraction_coefficients: contraction coefficients of a primitives shape = (nprimitives,)
+    :param exponents: exponents of a primitives shape = (nprimitives,)
+    :return: slater determinant shape = (nelec, nelec)
+    """
+    orbital = np.zeros((mo.shape[1], mo.shape[0]))
     rI = np.zeros((3,))
-    for i in range(ne):
+    for i in range(mo.shape[0]):
         ao = 0
         p = 0
         for shell in range(nshell):
@@ -112,15 +123,15 @@ def wfn_det(r, ne, mo, nbasis_functions, nshell, shell_types, shell_positions, p
             # angular part
             angular_part(rI, l, orbital[ao: ao+2*l+1, i], radial_part)  # 10s from 60s
             ao += 2*l+1
-    return np.linalg.det(np.dot(mo, orbital))   # 9s from 60s
+    return np.dot(mo, orbital)
 
 
 @nb.jit(nopython=True, cache=True)
-def gradient_det(r, ne, mo, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+def gradient_det(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """Orbital coefficients for every AO at electron position r."""
-    orbital = np.zeros((nbasis_functions, ne))
+    orbital = np.zeros((mo.shape[1], mo.shape[0]))
     rI = np.zeros((3,))
-    for i in range(ne):
+    for i in range(mo.shape[0]):
         ao = 0
         p = 0
         for shell in range(nshell):
@@ -143,15 +154,15 @@ def gradient_det(r, ne, mo, nbasis_functions, nshell, shell_types, shell_positio
             angular_part(rI, l, orbital[ao: ao+2*l+1, i], radial_part_1)  # 10s from 60s
             gradient_angular_part(rI, l, orbital[ao: ao+2*l+1, i], radial_part_2)  # 10s from 60s
             ao += 2*l+1
-    return np.linalg.det(np.dot(mo, orbital))   # 9s from 60s
+    return np.dot(mo, orbital)
 
 
 @nb.jit(nopython=True, cache=True)
-def laplacian_det(r, ne, mo, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+def laplacian_det(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """Orbital coefficients for every AO at electron position r."""
-    orbital = np.zeros((nbasis_functions, ne))
+    orbital = np.zeros((mo.shape[1], mo.shape[0]))
     rI = np.zeros((3,))
-    for i in range(ne):
+    for i in range(mo.shape[0]):
         ao = 0
         p = 0
         for shell in range(nshell):
@@ -169,49 +180,32 @@ def laplacian_det(r, ne, mo, nbasis_functions, nshell, shell_types, shell_positi
             # angular part
             angular_part(rI, l, orbital[ao: ao+2*l+1, i], radial_part)  # 10s from 60s
             ao += 2*l+1
-    return np.linalg.det(np.dot(mo, orbital))   # 9s from 60s
+    return np.dot(mo, orbital)
 
 
 @nb.jit(nopython=True, cache=True)
-def wfn(r, mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+def wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """all electron wfn on the points without norm factor 1/sqrt(N!).
 
-    param r: coordinates
-
     Cauchy–Binet formula
-
     """
-    u_orb = wfn_det(r[:neu], neu, mo[0][:neu], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    if not ned:
-        return u_orb
-    d_orb = wfn_det(r[neu:], ned, mo[0][:ned], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    return u_orb * d_orb
+    u_orb = wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    if not mo_u.shape[0]:
+        return np.linalg.det(u_orb)
+    d_orb = wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    return np.linalg.det(u_orb) * np.linalg.det(d_orb)
 
 
-def Fi(r, mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
-    """Kinetic energy Fi
-    https://web.ornl.gov/~kentpr/thesis/pkthnode27.html
+def gradient(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+    """gradient
     """
-    u_orb = wfn_det(r[:neu], neu, mo[0][:neu], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    u_gradient = gradient_det(r[:neu], neu, mo[0][:neu], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    if not ned:
-        return u_orb / u_gradient
-    d_orb = wfn_det(r[neu:], ned, mo[0][:ned], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    d_gradient = gradient_det(r[neu:], ned, mo[0][:ned], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    return u_orb / u_gradient + d_orb  / d_gradient
-
-
-def Ti(r, mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
-    """Kinetic energy Ti
-    https://web.ornl.gov/~kentpr/thesis/pkthnode27.html
-    """
-    u_orb = wfn_det(r[:neu], neu, mo[0][:neu], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    u_laplacian = laplacian_det(r[:neu], neu, mo[0][:neu], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    if not ned:
-        return u_orb
-    d_orb = wfn_det(r[neu:], ned, mo[0][:ned], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    d_laplacian = laplacian_det(r[neu:], ned, mo[0][:ned], nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    return u_orb / u_laplacian * d_orb / d_laplacian
+    u_orb = wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    u_grad = gradient_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    if not mo_u.shape[0]:
+        return np.linalg.det(u_orb)
+    d_orb = wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    d_grad = gradient_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    return np.linalg.det(u_orb) * np.linalg.det(d_orb)
 
 
 @nb.jit(nopython=True, cache=True)
@@ -294,8 +288,8 @@ def vmc(equlib, stat, mo, nshell, shell_types, shell_positions, primitives, cont
 
 @nb.jit(nopython=True, cache=True)
 def main(mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
-    steps = 5 * 1000 * 1000 * 1000
-    offset = 4.5
+    steps = 10 * 1000 * 1000
+    offset = 3.0
 
     x_min = np.min(shell_positions[:, 0]) - offset
     y_min = np.min(shell_positions[:, 1]) - offset
@@ -308,10 +302,14 @@ def main(mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, p
 
     dV = (x_max - x_min)**(neu + ned) * (y_max - y_min)**(neu + ned) * (z_max - z_min)**(neu + ned) / steps
 
+    mo_u = mo[0][:neu]
+    mo_d = mo[0][:ned]
+
     integral = 0.0
     for i in range(steps):
-        X = uniform(low, high, (neu + ned, 3))
-        integral += wfn(X, mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) ** 2
+        X_u = uniform(low, high, (neu, 3))
+        X_d = uniform(low, high, (ned, 3))
+        integral += wfn(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) ** 2
 
     return integral * dV / gamma(neu+1) / gamma(ned+1)
 
