@@ -129,7 +129,7 @@ def wfn_det(r, mo, nshell, shell_types, shell_positions, primitives, contraction
 @nb.jit(nopython=True, cache=True)
 def gradient_det(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """Orbital coefficients for every AO at electron position r."""
-    orbital = np.zeros((mo.shape[1], mo.shape[0]))
+    orbital = np.zeros(mo.shape)
     rI = np.zeros((3,))
     for i in range(mo.shape[0]):
         ao = 0
@@ -151,16 +151,16 @@ def gradient_det(r, mo, nshell, shell_types, shell_positions, primitives, contra
                 radial_part_2 += exponent
             p += primitives[shell]
             # angular part
-            angular_part(rI, l, orbital[ao: ao+2*l+1, i], radial_part_1)  # 10s from 60s
-            gradient_angular_part(rI, l, orbital[ao: ao+2*l+1, i], radial_part_2)  # 10s from 60s
+            angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part_1)  # 10s from 60s
+            gradient_angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part_2)  # 10s from 60s
             ao += 2*l+1
-    return np.dot(mo, orbital)
+    return np.dot(mo, orbital.T)
 
 
 @nb.jit(nopython=True, cache=True)
 def laplacian_det(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """Orbital coefficients for every AO at electron position r."""
-    orbital = np.zeros((mo.shape[1], mo.shape[0]))
+    orbital = np.zeros(mo.shape)
     rI = np.zeros((3,))
     for i in range(mo.shape[0]):
         ao = 0
@@ -178,9 +178,9 @@ def laplacian_det(r, mo, nshell, shell_types, shell_positions, primitives, contr
                 radial_part += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * contraction_coefficients[primitive] * np.exp(-alpha * r2)  # 20s from 60s
             p += primitives[shell]
             # angular part
-            angular_part(rI, l, orbital[ao: ao+2*l+1, i], radial_part)  # 10s from 60s
+            angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part)  # 10s from 60s
             ao += 2*l+1
-    return np.dot(mo, orbital)
+    return np.dot(mo, orbital.T)
 
 
 @nb.jit(nopython=True, cache=True)
@@ -196,6 +196,7 @@ def wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, 
     return np.linalg.det(u_orb) * np.linalg.det(d_orb)
 
 
+@nb.jit(nopython=True, cache=True)
 def gradient(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """gradient
     """
