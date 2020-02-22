@@ -275,25 +275,24 @@ def kinetic(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitiv
 def coulomb(r_u, r_d, atomic_positions, atom_charges):
     """Coulomb attraction between the electron and nucleus."""
     res = 0.0
-    for atom in range(r_u.shape[0]):
-        charge = atom_charges[atom]
+    for atom in range(atomic_positions.shape[0]):
         I = atomic_positions[atom]
-        x = r_u[atom][0] - I[0]
-        y = r_u[atom][1] - I[1]
-        z = r_u[atom][2] - I[2]
-        r2 = x * x + y * y + z * z
-        res += charge / sqrt(r2)
-
-    for atom in range(r_d.shape[0]):
         charge = atom_charges[atom]
-        I = atomic_positions[atom]
-        x = r_d[atom][0] - I[0]
-        y = r_d[atom][1] - I[1]
-        z = r_d[atom][2] - I[2]
-        r2 = x * x + y * y + z * z
-        res += charge / sqrt(r2)
+        for i in range(r_u.shape[0]):
+            x = r_u[i][0] - I[0]
+            y = r_u[i][1] - I[1]
+            z = r_u[i][2] - I[2]
+            r2 = x * x + y * y + z * z
+            res += charge / sqrt(r2)
 
-    return res
+        for i in range(r_d.shape[0]):
+            x = r_d[i][0] - I[0]
+            y = r_d[i][1] - I[1]
+            z = r_d[i][2] - I[2]
+            r2 = x * x + y * y + z * z
+            res += charge / sqrt(r2)
+
+    return -res
 
 
 @nb.jit(nopython=True, cache=True)
