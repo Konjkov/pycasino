@@ -94,7 +94,7 @@ def gradient_angular_part(r, l, result, radial):
 def wfn_det(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """
     Slater determinant
-    :param r: eletron coordinates shape = (nelec, 3)
+    :param r: electrons coordinates shape = (nelec, 3)
     :param mo: MO-coefficients shape = (nbasis_functions, nelec)
     :param nshell:
     :param shell_types: l-number of the shell shape = (nshell, )
@@ -210,7 +210,57 @@ def gradient(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primiti
 
 
 @nb.jit(nopython=True, cache=True)
-def kinetic(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+def numerical_gradient(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+    """Numerical gradient
+    :param r_u: up electrons coordinates shape = (nelec, 3)
+    :param r_d: down electrons coordinates shape = (nelec, 3)
+    """
+    delta = 0.001
+    sum = 0
+    for i in range(r_u.shape[0]):
+        for j in range(r_u.shape[1]):
+            r_u[i, j] -= delta
+            sum -= wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            r_u[i, j] += 2 * delta
+            sum += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            r_u[i, j] -= delta
+    for i in range(r_d.shape[0]):
+        for j in range(r_d.shape[1]):
+            r_d[i, j] -= delta
+            sum -= wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            r_d[i, j] += 2 * delta
+            sum += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            r_d[i, j] -= delta
+    return sum / delta
+
+
+@nb.jit(nopython=True, cache=True)
+def numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+    """Numerical gradient
+    :param r_u: up electrons coordinates shape = (nelec, 3)
+    :param r_d: down electrons coordinates shape = (nelec, 3)
+    """
+    delta = 0.001
+    sum = -2 * (r_u.shape[0] * r_u.shape[1] + r_d.shape[0] * r_d.shape[1]) * wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    for i in range(r_u.shape[0]):
+        for j in range(r_u.shape[1]):
+            r_u[i, j] -= delta
+            sum += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            r_u[i, j] += 2 * delta
+            sum += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            r_u[i, j] -= delta
+    for i in range(r_d.shape[0]):
+        for j in range(r_d.shape[1]):
+            r_d[i, j] -= delta
+            sum += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            r_d[i, j] += 2 * delta
+            sum += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            r_d[i, j] -= delta
+    return sum / delta
+
+
+@nb.jit(nopython=True, cache=True)
+def kinetic(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """single electron kinetic energy on the point.
 
     laplacian(phi) / 2
@@ -218,77 +268,72 @@ def kinetic(r, mo, nshell, shell_types, shell_positions, primitives, contraction
     param r: coordinat
     param mo: MO
     """
-
-    res = 0.0
-    ao = 0
-    p = 0
-    for shell in range(nshell):
-        I = shell_positions[shell]
-        x = r[0] - I[0]
-        y = r[1] - I[1]
-        z = r[2] - I[2]
-        # angular momentum
-        l = shell_types[shell]
-        # radial part
-        r2 = x * x + y * y + z * z
-        prim_sum = 0.0
-        for primitive in range(p, p + primitives[shell]):
-            alpha = exponents[primitive]
-            prim_sum += contraction_coefficients[primitive] * exp(-alpha * r2) * alpha * (2 * alpha * r2 - 2 * l - 3)
-        p += primitives[shell]
-        # angular part
-        for m in range(2*l+1):
-            angular = angular_part(x, y, z, l, m, r2)
-            res += prim_sum * angular * mo[ao]
-            ao += 1
-    return -res
+    return numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) / 2
 
 
 @nb.jit(nopython=True, cache=True)
-def coulomb(r, natom, atomic_positions, atom_charges):
+def coulomb(r_u, r_d, atomic_positions, atom_charges):
     """Coulomb attraction between the electron and nucleus."""
     res = 0.0
-    for atom in range(natom):
+    for atom in range(r_u.shape[0]):
         charge = atom_charges[atom]
         I = atomic_positions[atom]
-        x = r[0] - I[0]
-        y = r[1] - I[1]
-        z = r[2] - I[2]
+        x = r_u[0] - I[0]
+        y = r_u[1] - I[1]
+        z = r_u[2] - I[2]
         r2 = x * x + y * y + z * z
         res += charge / sqrt(r2)
+
+    for atom in range(r_d.shape[0]):
+        charge = atom_charges[atom]
+        I = atomic_positions[atom]
+        x = r_d[0] - I[0]
+        y = r_d[1] - I[1]
+        z = r_d[2] - I[2]
+        r2 = x * x + y * y + z * z
+        res += charge / sqrt(r2)
+
     return -res
 
 
 @nb.jit(nopython=True, cache=True)
-def local_energy(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, natom, atomic_positions, atom_charges):
-    return coulomb(r, natom, atomic_positions, atom_charges) + kinetic(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) / wfn(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+def local_energy(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
+    return coulomb(r_u, r_d, atomic_positions, atom_charges) + kinetic(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) / wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
 
 
 @nb.jit(nopython=True, cache=True)
-def vmc(equlib, stat, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, natom, atomic_positions, atom_charges):
+def vmc(equlib, stat, mo, neu, ned, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
+
     dX_max = 0.4
-    X = np.random.uniform(-dX_max, dX_max, size=3)
-    p = wfn(X, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+
+    mo_u = mo[0][:neu]
+    mo_d = mo[0][:ned]
+
+    X_u = uniform(-dX_max, dX_max, (neu, 3))
+    X_d = uniform(-dX_max, dX_max, (ned, 3))
+    p = wfn(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
     for i in range(equlib):
-        new_X = X + np.random.uniform(-dX_max, dX_max, size=3)
-        new_p = wfn(new_X, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+        new_X_u = X_u + np.random.uniform(-dX_max, dX_max, size=3)
+        new_X_d = X_d + np.random.uniform(-dX_max, dX_max, size=3)
+        new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
         if new_p*new_p/p/p > np.random.random_sample(1)[0]:
-            X, p = new_X, new_p
+            X_u, X_d, p = new_X_u, new_X_d, new_p
 
     j = 0
     sum = 0.0
     for dX in range(stat):
-        new_X = X + np.random.uniform(-dX_max, dX_max, size=3)
-        new_p = wfn(new_X, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+        new_X_u = X_u + np.random.uniform(-dX_max, dX_max, size=3)
+        new_X_d = X_d + np.random.uniform(-dX_max, dX_max, size=3)
+        new_p = wfn(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
         if (new_p/p)**2 > np.random.random_sample(1)[0]:
-            X, p = new_X, new_p
+            X_u, X_d, p = new_X_u, new_X_d, new_p
             j += 1
-            sum += local_energy(X, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, natom, atomic_positions, atom_charges)
+            sum += local_energy(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
     return sum/j
 
 
 @nb.jit(nopython=True, cache=True)
-def main(mo, neu, ned, nbasis_functions, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+def main(mo, neu, ned, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     steps = 10 * 1000 * 1000
     offset = 3.0
 
@@ -340,4 +385,4 @@ if __name__ == '__main__':
     # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
     # input = Input('test/acetaldehyde/HF/cc-pVQZ/input')
 
-    print(main(gwfn.mo, input.neu, input.ned, gwfn.nbasis_functions, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents))
+    print(main(gwfn.mo, input.neu, input.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents))
