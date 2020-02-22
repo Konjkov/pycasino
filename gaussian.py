@@ -231,7 +231,7 @@ def numerical_gradient(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_position
             r_d[i, j] += 2 * delta
             sum += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
             r_d[i, j] -= delta
-    return sum / delta
+    return sum / delta / 2
 
 
 @nb.jit(nopython=True, cache=True)
@@ -256,7 +256,7 @@ def numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positio
             r_d[i, j] += 2 * delta
             sum += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
             r_d[i, j] -= delta
-    return sum / delta
+    return sum / delta / delta
 
 
 @nb.jit(nopython=True, cache=True)
@@ -268,7 +268,7 @@ def kinetic(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitiv
     param r: coordinat
     param mo: MO
     """
-    return numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) / 2
+    return -numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) / 2
 
 
 @nb.jit(nopython=True, cache=True)
@@ -278,58 +278,27 @@ def coulomb(r_u, r_d, atomic_positions, atom_charges):
     for atom in range(r_u.shape[0]):
         charge = atom_charges[atom]
         I = atomic_positions[atom]
-        x = r_u[0] - I[0]
-        y = r_u[1] - I[1]
-        z = r_u[2] - I[2]
+        x = r_u[atom][0] - I[0]
+        y = r_u[atom][1] - I[1]
+        z = r_u[atom][2] - I[2]
         r2 = x * x + y * y + z * z
         res += charge / sqrt(r2)
 
     for atom in range(r_d.shape[0]):
         charge = atom_charges[atom]
         I = atomic_positions[atom]
-        x = r_d[0] - I[0]
-        y = r_d[1] - I[1]
-        z = r_d[2] - I[2]
+        x = r_d[atom][0] - I[0]
+        y = r_d[atom][1] - I[1]
+        z = r_d[atom][2] - I[2]
         r2 = x * x + y * y + z * z
         res += charge / sqrt(r2)
 
-    return -res
+    return res
 
 
 @nb.jit(nopython=True, cache=True)
 def local_energy(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
     return coulomb(r_u, r_d, atomic_positions, atom_charges) + kinetic(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) / wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-
-
-@nb.jit(nopython=True, cache=True)
-def vmc(equlib, stat, mo, neu, ned, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
-
-    dX_max = 0.4
-
-    mo_u = mo[0][:neu]
-    mo_d = mo[0][:ned]
-
-    X_u = uniform(-dX_max, dX_max, (neu, 3))
-    X_d = uniform(-dX_max, dX_max, (ned, 3))
-    p = wfn(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    for i in range(equlib):
-        new_X_u = X_u + np.random.uniform(-dX_max, dX_max, size=3)
-        new_X_d = X_d + np.random.uniform(-dX_max, dX_max, size=3)
-        new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-        if new_p*new_p/p/p > np.random.random_sample(1)[0]:
-            X_u, X_d, p = new_X_u, new_X_d, new_p
-
-    j = 0
-    sum = 0.0
-    for dX in range(stat):
-        new_X_u = X_u + np.random.uniform(-dX_max, dX_max, size=3)
-        new_X_d = X_d + np.random.uniform(-dX_max, dX_max, size=3)
-        new_p = wfn(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-        if (new_p/p)**2 > np.random.random_sample(1)[0]:
-            X_u, X_d, p = new_X_u, new_X_d, new_p
-            j += 1
-            sum += local_energy(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
-    return sum/j
 
 
 @nb.jit(nopython=True, cache=True)
