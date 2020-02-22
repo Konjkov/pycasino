@@ -216,22 +216,22 @@ def numerical_gradient(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_position
     :param r_d: down electrons coordinates shape = (nelec, 3)
     """
     delta = 0.001
-    sum = 0
+    res = 0
     for i in range(r_u.shape[0]):
         for j in range(r_u.shape[1]):
             r_u[i, j] -= delta
-            sum -= wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res -= wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
             r_u[i, j] += 2 * delta
-            sum += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
             r_u[i, j] -= delta
     for i in range(r_d.shape[0]):
         for j in range(r_d.shape[1]):
             r_d[i, j] -= delta
-            sum -= wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res -= wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
             r_d[i, j] += 2 * delta
-            sum += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
             r_d[i, j] -= delta
-    return sum / delta / 2
+    return res / delta / 2
 
 
 @nb.jit(nopython=True, cache=True)
@@ -240,23 +240,23 @@ def numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positio
     :param r_u: up electrons coordinates shape = (nelec, 3)
     :param r_d: down electrons coordinates shape = (nelec, 3)
     """
-    delta = 0.001
-    sum = -2 * (r_u.shape[0] * r_u.shape[1] + r_d.shape[0] * r_d.shape[1]) * wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    delta = 0.00001
+    res = -2 * (r_u.shape[0] * r_u.shape[1] + r_d.shape[0] * r_d.shape[1]) * wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
     for i in range(r_u.shape[0]):
         for j in range(r_u.shape[1]):
             r_u[i, j] -= delta
-            sum += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
             r_u[i, j] += 2 * delta
-            sum += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
             r_u[i, j] -= delta
     for i in range(r_d.shape[0]):
         for j in range(r_d.shape[1]):
             r_d[i, j] -= delta
-            sum += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
             r_d[i, j] += 2 * delta
-            sum += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
             r_d[i, j] -= delta
-    return sum / delta / delta
+    return res / delta / delta
 
 
 @nb.jit(nopython=True, cache=True)
@@ -283,16 +283,40 @@ def coulomb(r_u, r_d, atomic_positions, atom_charges):
             y = r_u[i][1] - I[1]
             z = r_u[i][2] - I[2]
             r2 = x * x + y * y + z * z
-            res += charge / sqrt(r2)
+            res -= charge / sqrt(r2)
 
         for i in range(r_d.shape[0]):
             x = r_d[i][0] - I[0]
             y = r_d[i][1] - I[1]
             z = r_d[i][2] - I[2]
             r2 = x * x + y * y + z * z
-            res += charge / sqrt(r2)
+            res -= charge / sqrt(r2)
 
-    return -res
+    for i in range(r_u.shape[0]):
+        for j in range(i + 1, r_u.shape[0]):
+            x = r_u[i][0] - r_u[j][0]
+            y = r_u[i][1] - r_u[j][1]
+            z = r_u[i][2] - r_u[j][2]
+            r2 = x * x + y * y + z * z
+            res += 1 / sqrt(r2)
+
+    for i in range(r_d.shape[0]):
+        for j in range(i + 1, r_d.shape[0]):
+            x = r_d[i][0] - r_d[j][0]
+            y = r_d[i][1] - r_d[j][1]
+            z = r_d[i][2] - r_d[j][2]
+            r2 = x * x + y * y + z * z
+            res += 1 / sqrt(r2)
+
+    for i in range(r_u.shape[0]):
+        for j in range(r_d.shape[0]):
+            x = r_u[i][0] - r_d[j][0]
+            y = r_u[i][1] - r_d[j][1]
+            z = r_u[i][2] - r_d[j][2]
+            r2 = x * x + y * y + z * z
+            res += 1 / sqrt(r2)
+
+    return res
 
 
 @nb.jit(nopython=True, cache=True)
@@ -345,7 +369,7 @@ if __name__ == '__main__':
     # gwfn = Gwfn('test/h/HF/cc-pVQZ/gwfn.data')
     # input = Input('test/h/HF/cc-pVQZ/input')
     gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
-    input = Input('test/be/HF/cc-pVQZ/input')
+    inp = Input('test/be/HF/cc-pVQZ/input')
     # gwfn = Gwfn('test/be2/HF/cc-pVQZ/gwfn.data')
     # input = Input('test/be2/HF/cc-pVQZ/input')
     # gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
@@ -353,4 +377,4 @@ if __name__ == '__main__':
     # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
     # input = Input('test/acetaldehyde/HF/cc-pVQZ/input')
 
-    print(main(gwfn.mo, input.neu, input.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents))
+    print(main(gwfn.mo, inp.neu, inp.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents))
