@@ -59,7 +59,7 @@ def vmc(equlib, stat, mo, neu, ned, nshell, shell_types, shell_positions, primit
 
 if __name__ == '__main__':
 
-    gwfn = Gwfn('test/be2/HF/cc-pVQZ/gwfn.data')
-    inp = Input('test/be2/HF/cc-pVQZ/input')
+    gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
+    inp = Input('test/be/HF/cc-pVQZ/input')
 
-    print(vmc(5000, 1000 * 1000, gwfn.mo, inp.neu, inp.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges))
+    print(vmc(5000, 10 * 1000 * 1000, gwfn.mo, inp.neu, inp.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges))

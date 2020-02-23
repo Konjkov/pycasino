@@ -190,8 +190,6 @@ def wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, 
     Cauchy–Binet formula
     """
     u_orb = wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    if not mo_u.shape[0]:
-        return np.linalg.det(u_orb)
     d_orb = wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
     return np.linalg.det(u_orb) * np.linalg.det(d_orb)
 
@@ -202,11 +200,44 @@ def gradient(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primiti
     """
     u_orb = wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
     u_grad = gradient_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    if not mo_u.shape[0]:
-        return np.linalg.det(u_orb)
+    res_u = 0
+    for i in range(r_u.shape[0]):
+        temp_det = np.copy(u_orb)
+        temp_det[i] = u_grad[i]
+        res_u += np.linalg.det(temp_det)
+
     d_orb = wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
     d_grad = gradient_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-    return np.linalg.det(u_orb) * np.linalg.det(d_orb)
+    res_d = 0
+    for i in range(r_d.shape[0]):
+        temp_det = np.copy(d_orb)
+        temp_det[i] = d_grad[i]
+        res_d += np.linalg.det(temp_det)
+
+    return res_u * np.linalg.det(d_orb) + res_d * np.linalg.det(u_orb)
+
+
+@nb.jit(nopython=True, cache=True)
+def laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+    """laplacian
+    """
+    u_orb = wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    u_lap = laplacian_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    res_u = 0
+    for i in range(r_u.shape[0]):
+        temp_det = np.copy(u_orb)
+        temp_det[i] = u_lap[i]
+        res_u += np.linalg.det(temp_det)
+
+    d_orb = wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    d_lap = laplacian_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    res_d = 0
+    for i in range(r_d.shape[0]):
+        temp_det = np.copy(d_orb)
+        temp_det[i] = d_lap[i]
+        res_d += np.linalg.det(temp_det)
+
+    return res_u * np.linalg.det(d_orb) + res_d * np.linalg.det(u_orb)
 
 
 @nb.jit(nopython=True, cache=True)
@@ -218,8 +249,6 @@ def numerical_gradient(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_position
     delta = 0.00001
 
     u_det = np.linalg.det(wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
-    d_det = np.linalg.det(wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
-
     res_u = 0
     for i in range(r_u.shape[0]):
         for j in range(r_u.shape[1]):
@@ -229,6 +258,7 @@ def numerical_gradient(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_position
             res_u += np.linalg.det(wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
             r_u[i, j] -= delta
 
+    d_det = np.linalg.det(wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
     res_d = 0
     for i in range(r_d.shape[0]):
         for j in range(r_d.shape[1]):
@@ -250,8 +280,6 @@ def numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positio
     delta = 0.00001
 
     u_det = np.linalg.det(wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
-    d_det = np.linalg.det(wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
-
     res_u = -2 * (r_u.shape[0] * r_u.shape[1]) * u_det
     for i in range(r_u.shape[0]):
         for j in range(r_u.shape[1]):
@@ -261,6 +289,7 @@ def numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positio
             res_u += np.linalg.det(wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
             r_u[i, j] -= delta
 
+    d_det = np.linalg.det(wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
     res_d = -2 * (r_d.shape[0] * r_d.shape[1]) * d_det
     for i in range(r_d.shape[0]):
         for j in range(r_d.shape[1]):
@@ -282,7 +311,8 @@ def kinetic(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitiv
     param r: coordinat
     param mo: MO
     """
-    return -numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) / 2
+    return -laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) / 2
+    # return -numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) / 2
 
 
 @nb.jit(nopython=True, cache=True)
@@ -381,14 +411,14 @@ if __name__ == '__main__':
     """
 
     # gwfn = Gwfn('test/h/HF/cc-pVQZ/gwfn.data')
-    # input = Input('test/h/HF/cc-pVQZ/input')
+    # inp = Input('test/h/HF/cc-pVQZ/input')
     gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
     inp = Input('test/be/HF/cc-pVQZ/input')
     # gwfn = Gwfn('test/be2/HF/cc-pVQZ/gwfn.data')
-    # input = Input('test/be2/HF/cc-pVQZ/input')
+    # inp = Input('test/be2/HF/cc-pVQZ/input')
     # gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
-    # input = Input('test/acetic/HF/cc-pVQZ/input')
+    # inp = Input('test/acetic/HF/cc-pVQZ/input')
     # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
-    # input = Input('test/acetaldehyde/HF/cc-pVQZ/input')
+    # inp = Input('test/acetaldehyde/HF/cc-pVQZ/input')
 
     print(main(gwfn.mo, inp.neu, inp.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents))
