@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import pyblock
 from math import sqrt
 from random import random
 
@@ -45,21 +46,36 @@ def vmc(equlib, stat, mo, neu, ned, nshell, shell_types, shell_positions, primit
             X_u, X_d, p = new_X_u, new_X_d, new_p
 
     j = 0
-    E = 0.0
+    E = np.zeros((stat,))
     while j < stat:
         new_X_u = X_u + uniform(-np.array([dX_max, dX_max, dX_max]), np.array([dX_max, dX_max, dX_max]), (neu, 3))
         new_X_d = X_d + uniform(-np.array([dX_max, dX_max, dX_max]), np.array([dX_max, dX_max, dX_max]), (ned, 3))
         new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
         if (new_p/p)**2 > random():
             X_u, X_d, p = new_X_u, new_X_d, new_p
+            E[j] = local_energy(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
             j += 1
-            E += local_energy(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
-    return E / stat + nuclear_repulsion(atomic_positions, atom_charges)
+    return E
 
 
 if __name__ == '__main__':
+    """
+    be HF/cc-pVQZ
+
+    stat = 1000 * 1000 * 1000
+
+    """
 
     gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
     inp = Input('test/be/HF/cc-pVQZ/input')
 
-    print(vmc(5000, 10 * 1000 * 1000, gwfn.mo, inp.neu, inp.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges))
+    E = vmc(5000, 1000 * 1000 * 1000, gwfn.mo, inp.neu, inp.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
+    print(np.mean(E) + nuclear_repulsion( gwfn.atomic_positions, gwfn.atom_charges))
+
+    reblock_data = pyblock.blocking.reblock(E)
+    for reblock_iter in reblock_data:
+        print(reblock_iter)
+
+    opt = pyblock.blocking.find_optimal_block(E.size, reblock_data)
+    print(opt)
+    print(reblock_data[opt[0]])

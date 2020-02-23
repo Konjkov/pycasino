@@ -9,7 +9,7 @@ class Input:
 
         with open(file_name, 'r') as fp:
             for line in fp:
-                # re,ove commets
+                # remove comments
                 line = line.partition('#')[0].strip()
                 if not line:
                     continue
