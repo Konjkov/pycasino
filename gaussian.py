@@ -215,48 +215,62 @@ def numerical_gradient(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_position
     :param r_u: up electrons coordinates shape = (nelec, 3)
     :param r_d: down electrons coordinates shape = (nelec, 3)
     """
-    delta = 0.001
-    res = 0
+    delta = 0.00001
+
+    u_det = np.linalg.det(wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
+    d_det = np.linalg.det(wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
+
+    res_u = 0
     for i in range(r_u.shape[0]):
         for j in range(r_u.shape[1]):
             r_u[i, j] -= delta
-            res -= wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res_u -= np.linalg.det(wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
             r_u[i, j] += 2 * delta
-            res += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res_u += np.linalg.det(wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
             r_u[i, j] -= delta
+
+    res_d = 0
     for i in range(r_d.shape[0]):
         for j in range(r_d.shape[1]):
             r_d[i, j] -= delta
-            res -= wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res_d -= np.linalg.det(wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
             r_d[i, j] += 2 * delta
-            res += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res_d += np.linalg.det(wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
             r_d[i, j] -= delta
-    return res / delta / 2
+
+    return (res_u * d_det + res_d * u_det) / delta / 2
 
 
 @nb.jit(nopython=True, cache=True)
 def numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
-    """Numerical gradient
+    """Numerical laplacian
     :param r_u: up electrons coordinates shape = (nelec, 3)
     :param r_d: down electrons coordinates shape = (nelec, 3)
     """
     delta = 0.00001
-    res = -2 * (r_u.shape[0] * r_u.shape[1] + r_d.shape[0] * r_d.shape[1]) * wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+
+    u_det = np.linalg.det(wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
+    d_det = np.linalg.det(wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
+
+    res_u = -2 * (r_u.shape[0] * r_u.shape[1]) * u_det
     for i in range(r_u.shape[0]):
         for j in range(r_u.shape[1]):
             r_u[i, j] -= delta
-            res += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res_u += np.linalg.det(wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
             r_u[i, j] += 2 * delta
-            res += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res_u += np.linalg.det(wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
             r_u[i, j] -= delta
+
+    res_d = -2 * (r_d.shape[0] * r_d.shape[1]) * d_det
     for i in range(r_d.shape[0]):
         for j in range(r_d.shape[1]):
             r_d[i, j] -= delta
-            res += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res_d += np.linalg.det(wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
             r_d[i, j] += 2 * delta
-            res += wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+            res_d += np.linalg.det(wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
             r_d[i, j] -= delta
-    return res / delta / delta
+
+    return (res_u * d_det + res_d * u_det) / delta / delta
 
 
 @nb.jit(nopython=True, cache=True)
