@@ -195,7 +195,7 @@ def wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, 
 
 
 @nb.jit(nopython=True, cache=True)
-def gradient(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+def gradient_log(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """gradient
     """
     u_orb = wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
@@ -214,11 +214,11 @@ def gradient(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primiti
         temp_det[i] = d_grad[i]
         res_d += np.linalg.det(temp_det)
 
-    return res_u * np.linalg.det(d_orb) + res_d * np.linalg.det(u_orb)
+    return res_u / np.linalg.det(u_orb) + res_d / np.linalg.det(d_orb)
 
 
 @nb.jit(nopython=True, cache=True)
-def laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+def laplacian_log(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """laplacian
     """
     u_orb = wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
@@ -237,11 +237,11 @@ def laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primit
         temp_det[i] = d_lap[i]
         res_d += np.linalg.det(temp_det)
 
-    return res_u * np.linalg.det(d_orb) + res_d * np.linalg.det(u_orb)
+    return res_u / np.linalg.det(u_orb) + res_d / np.linalg.det(d_orb)
 
 
 @nb.jit(nopython=True, cache=True)
-def numerical_gradient(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+def numerical_gradient_log(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """Numerical gradient
     :param r_u: up electrons coordinates shape = (nelec, 3)
     :param r_d: down electrons coordinates shape = (nelec, 3)
@@ -268,11 +268,11 @@ def numerical_gradient(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_position
             res_d += np.linalg.det(wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
             r_d[i, j] -= delta
 
-    return (res_u * d_det + res_d * u_det) / delta / 2
+    return (res_u / u_det + res_d / d_det) / delta / 2
 
 
 @nb.jit(nopython=True, cache=True)
-def numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+def numerical_laplacian_log(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """Numerical laplacian
     :param r_u: up electrons coordinates shape = (nelec, 3)
     :param r_d: down electrons coordinates shape = (nelec, 3)
@@ -280,7 +280,7 @@ def numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positio
     delta = 0.00001
 
     u_det = np.linalg.det(wfn_det(r_u, mo_u, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
-    res_u = -2 * (r_u.shape[0] * r_u.shape[1]) * u_det
+    res_u = 0
     for i in range(r_u.shape[0]):
         for j in range(r_u.shape[1]):
             r_u[i, j] -= delta
@@ -290,7 +290,7 @@ def numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positio
             r_u[i, j] -= delta
 
     d_det = np.linalg.det(wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
-    res_d = -2 * (r_d.shape[0] * r_d.shape[1]) * d_det
+    res_d = 0
     for i in range(r_d.shape[0]):
         for j in range(r_d.shape[1]):
             r_d[i, j] -= delta
@@ -299,20 +299,16 @@ def numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positio
             res_d += np.linalg.det(wfn_det(r_d, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents))
             r_d[i, j] -= delta
 
-    return (res_u * d_det + res_d * u_det) / delta / delta
+    return (res_u / u_det - 2 * r_u.size + res_d / d_det - 2 * r_d.size) / delta / delta
 
 
 @nb.jit(nopython=True, cache=True)
-def kinetic(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
-    """single electron kinetic energy on the point.
-
-    laplacian(phi) / 2
-
-    param r: coordinat
-    param mo: MO
+def local_kinetic(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+    """local kinetic energy on the point.
+    -1/2 * laplacian(phi) / phi
     """
-    return -laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) / 2
-    # return -numerical_laplacian(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) / 2
+    return -laplacian_log(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) / 2
+    # return -numerical_laplacian_log(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) / 2
 
 
 @nb.jit(nopython=True, cache=True)
@@ -365,7 +361,7 @@ def coulomb(r_u, r_d, atomic_positions, atom_charges):
 
 @nb.jit(nopython=True, cache=True)
 def local_energy(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
-    return coulomb(r_u, r_d, atomic_positions, atom_charges) + kinetic(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) / wfn(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    return coulomb(r_u, r_d, atomic_positions, atom_charges) + local_kinetic(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
 
 
 @nb.jit(nopython=True, cache=True)
@@ -398,7 +394,7 @@ def main(mo, neu, ned, nshell, shell_types, shell_positions, primitives, contrac
 
 if __name__ == '__main__':
     """
-    be HFcc-pVQZ
+    be HF/cc-pVQZ
 
     steps = 5 * 1000 * 1000 * 1000
     offset = 4.5
