@@ -1,14 +1,7 @@
 
-import numpy as np
-import numba as nb
 from numba import cuda, float32
 
 TPB = 16
-
-
-@nb.jit(nopython=True, cache=True)
-def uniform(low, high, size):
-    return np.dstack((np.random.uniform(low[0], high[0], size=size[0]), np.random.uniform(low[1], high[1], size=size[0]), np.random.uniform(low[2], high[2], size=size[0])))[0]
 
 
 @cuda.jit

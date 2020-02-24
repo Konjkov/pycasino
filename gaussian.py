@@ -11,6 +11,20 @@ from utils import uniform
 
 
 @nb.jit(nopython=True, cache=True)
+def nuclear_repulsion(atomic_positions, atom_charges):
+
+    res = 0.0
+    for i in range(atomic_positions.shape[0]):
+        for j in range(i+1, atomic_positions.shape[0]):
+            x = atomic_positions[i][0] - atomic_positions[j][0]
+            y = atomic_positions[i][1] - atomic_positions[j][1]
+            z = atomic_positions[i][2] - atomic_positions[j][2]
+            r2 = x * x + y * y + z * z
+            res += atom_charges[i] * atom_charges[j] / sqrt(r2)
+    return res
+
+
+@nb.jit(nopython=True, cache=True)
 def angular_part(r, l, result, radial):
     """Angular part of gaussian WFN.
     :return:
@@ -88,6 +102,12 @@ def gradient_angular_part(r, l, result, radial):
         result[6] += radial * (315.0*x**2*y + 315.0*x**2*z + 630.0*x*y*z - 105.0*y**3 - 315.0*y**2*z)
         result[7] += radial * (420.0*x**3 - 1260.0*x**2*y - 1260.0*x*y**2 + 420.0*y**3)
         result[8] += radial * (420.0*x**3 + 1260.0*x**2*y - 1260.0*x*y**2 - 420.0*y**3)
+
+
+@nb.jit(nopython=True, cache=True)
+def cusp():
+    """Cusp condition"""
+    cusp_control = 50
 
 
 @nb.jit(nopython=True, cache=True)
