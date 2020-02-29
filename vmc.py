@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from math import sqrt
 from random import random, randrange
 
 import pyblock
@@ -18,72 +19,88 @@ def initial_position(ne, atomic_positions):
     X = np.zeros((ne, 3))
     for i in range(ne):
         X[i] = atomic_positions[randrange(atoms)]
-    return X
+    return X + random_square_step(1.0, ne)
 
 
 @nb.jit(nopython=True, cache=True)
-def random_square_step(dX_max, ne):
+def optimal_vmc_step(neu, ned):
+    """vmc step width """
+    return 1 / (neu + ned)
+
+
+@nb.jit(nopython=True, cache=True)
+def random_square_step(dX, ne):
     """Random N-dim square distributed step"""
-    return np.random.uniform(-dX_max, dX_max, ne*3).reshape((ne, 3))
+    return np.random.uniform(-dX, dX, ne*3).reshape((ne, 3))
 
 
 @nb.jit(nopython=True, cache=True)
-def random_norrmal_step(scale, ne):
+def random_normal_step(dX, ne):
     """Random normal distributed step"""
-    return np.array([np.random.normal(0.0, scale) for i in range(ne*3)]).reshape((ne, 3))
+    return np.array([np.random.normal(0.0, dX/sqrt(3)) for i in range(ne*3)]).reshape((ne, 3))
 
 
 @nb.jit(nopython=True, cache=True)
 def random_step(dX_max, ne):
     """Random normal distributed step"""
-    return random_square_step(dX_max, ne)
+    return random_normal_step(dX_max, ne)
 
 
 @nb.jit(nopython=True, cache=True)
 def vmc(equlib, stat, mo, neu, ned, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
     """configuration-by-configuration sampling (CBCS)"""
 
-    dX_max = 1 / (neu + ned)
+    dX = optimal_vmc_step(neu, ned)
 
     mo_u = mo[0][:neu]
     mo_d = mo[0][:ned]
 
     X_u = initial_position(neu, atomic_positions)
     X_d = initial_position(ned, atomic_positions)
-    X_u += random_step(dX_max, neu)
-    X_d += random_step(dX_max, ned)
     p = wfn(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
 
     i = 0
     while i < equlib:
-        new_X_u = X_u + random_step(dX_max, neu)
-        new_X_d = X_d + random_step(dX_max, ned)
+        new_X_u = X_u + random_step(dX, neu)
+        new_X_d = X_d + random_step(dX, ned)
         new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
         if (new_p/p)**2 > random():
             X_u, X_d, p = new_X_u, new_X_d, new_p
             i += 1
 
     opt = 0
-    for i in range(1000):
-        new_X_u = X_u + random_step(dX_max, neu)
-        new_X_d = X_d + random_step(dX_max, ned)
+    for i in range(10000):
+        new_X_u = X_u + random_step(dX, neu)
+        new_X_d = X_d + random_step(dX, ned)
         new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
         if (new_p/p)**2 > random():
             X_u, X_d, p = new_X_u, new_X_d, new_p
             opt += 1
-    print(opt/1000)
+    print(opt/10000)
 
     j = 0
     E = np.zeros((stat,))
     while j < stat:
-        new_X_u = X_u + random_step(dX_max, neu)
-        new_X_d = X_d + random_step(dX_max, ned)
+        new_X_u = X_u + random_step(dX, neu)
+        new_X_d = X_d + random_step(dX, ned)
         new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
         if (new_p/p)**2 > random():
             X_u, X_d, p = new_X_u, new_X_d, new_p
             E[j] = local_energy(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
             j += 1
     return E
+
+    # E = np.zeros((stat,))
+    # loc_E = local_energy(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
+    # for j in range(stat):
+    #     new_X_u = X_u + random_step(dX, neu)
+    #     new_X_d = X_d + random_step(dX, ned)
+    #     new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    #     new_loc_E = local_energy(new_X_u, new_X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
+    #     E[j] = min((new_p/p)**2, 1) * new_loc_E + (1 - min((new_p/p)**2, 1)) * loc_E
+    #     if (new_p/p)**2 > random():
+    #         X_u, X_d, p, loc_E = new_X_u, new_X_d, new_p, new_loc_E
+    # return E
 
 
 if __name__ == '__main__':
@@ -96,6 +113,8 @@ if __name__ == '__main__':
 
     # gwfn = Gwfn('test/h/HF/cc-pVQZ/gwfn.data')
     # inp = Input('test/h/HF/cc-pVQZ/input')
+    # gwfn = Gwfn('test/he/HF/cc-pVQZ/gwfn.data')
+    # inp = Input('test/he/HF/cc-pVQZ/input')
     gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
     inp = Input('test/be/HF/cc-pVQZ/input')
     # gwfn = Gwfn('test/be2/HF/cc-pVQZ/gwfn.data')
@@ -107,7 +126,7 @@ if __name__ == '__main__':
     # gwfn = Gwfn('test/si2h6/HF/cc-pVQZ/gwfn.data')
     # inp = Input('test/si2h6/HF/cc-pVQZ/input')
 
-    E = vmc(50000, 1 * 1024 * 1024, gwfn.mo, inp.neu, inp.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
+    E = vmc(50000, 128 * 1024 * 1024, gwfn.mo, inp.neu, inp.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
     print(np.mean(E) + nuclear_repulsion( gwfn.atomic_positions, gwfn.atom_charges))
 
     reblock_data = pyblock.blocking.reblock(E)
