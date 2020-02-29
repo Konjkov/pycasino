@@ -7,7 +7,6 @@ import numba as nb
 
 from readers.gwfn import Gwfn
 from readers.input import Input
-from utils import uniform
 
 
 @nb.jit(nopython=True, cache=True)
@@ -385,6 +384,15 @@ def local_energy(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, pri
 
 
 @nb.jit(nopython=True, cache=True)
+def random_position(low, high, ne):
+    return np.dstack((
+        np.random.uniform(low[0], high[0], size=ne),
+        np.random.uniform(low[1], high[1], size=ne),
+        np.random.uniform(low[2], high[2], size=ne)
+    ))[0]
+
+
+@nb.jit(nopython=True, cache=True)
 def main(mo, neu, ned, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     steps = 10 * 1000 * 1000
     offset = 3.0
@@ -405,8 +413,8 @@ def main(mo, neu, ned, nshell, shell_types, shell_positions, primitives, contrac
 
     integral = 0.0
     for i in range(steps):
-        X_u = uniform(low, high, (neu, 3))
-        X_d = uniform(low, high, (ned, 3))
+        X_u = random_position(low, high, neu)
+        X_d = random_position(low, high, ned)
         integral += wfn(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents) ** 2
 
     return integral * dV / gamma(neu+1) / gamma(ned+1)

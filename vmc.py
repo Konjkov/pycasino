@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-import pyblock
-from random import random
+from math import sqrt
+from random import random, randrange
 
+import pyblock
 import numpy as np
 import numba as nb
 
@@ -12,35 +13,68 @@ from readers.input import Input
 
 
 @nb.jit(nopython=True, cache=True)
+def initial_position(ne, atomic_positions):
+    """Initial positions of electrons"""
+    atoms = atomic_positions.shape[0]
+    X = np.zeros((ne, 3))
+    for i in range(ne):
+        X[i] = atomic_positions[randrange(atoms)]
+    return X
+
+
+@nb.jit(nopython=True, cache=True)
+def random_square_step(dX_max, ne):
+    """Random N-dim square distributed step"""
+    return np.random.uniform(-dX_max, dX_max, ne*3).reshape((ne, 3))
+
+
+@nb.jit(nopython=True, cache=True)
+def random_norrmal_step(scale, ne):
+    """Random normal distributed step"""
+    return np.array([np.random.normal(0.0, scale) for i in range(ne*3)]).reshape((ne, 3))
+
+
+@nb.jit(nopython=True, cache=True)
 def random_step(dX_max, ne):
-    low = -np.array([dX_max, dX_max, dX_max])
-    high = np.array([dX_max, dX_max, dX_max])
-    return np.dstack((np.random.uniform(low[0], high[0], size=ne), np.random.uniform(low[1], high[1], size=ne), np.random.uniform(low[2], high[2], size=ne)))[0]
+    """Random normal distributed step"""
+    return random_square_step(dX_max, ne)
 
 
 @nb.jit(nopython=True, cache=True)
 def vmc(equlib, stat, mo, neu, ned, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
+    """configuration-by-configuration sampling (CBCS)"""
 
-    dX_max = 0.2
+    dX_max = sqrt(2/3) / max(atom_charges)
 
     mo_u = mo[0][:neu]
     mo_d = mo[0][:ned]
 
-    X_u = random_step(dX_max, neu)
-    X_d = random_step(dX_max, ned)
+    X_u = initial_position(neu, atomic_positions)
+    X_d = initial_position(ned, atomic_positions)
+    X_u += random_step(dX_max, neu)
+    X_d += random_step(dX_max, ned)
     p = wfn(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
     for i in range(equlib):
         new_X_u = X_u + random_step(dX_max, neu)
-        new_X_d = X_d + random_step(dX_max, neu)
+        new_X_d = X_d + random_step(dX_max, ned)
         new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
         if (new_p/p)**2 > random():
             X_u, X_d, p = new_X_u, new_X_d, new_p
+
+    # opt = 0
+    # for i in range(1000):
+    #     new_X_u = X_u + random_step(dX_max, neu)
+    #     new_X_d = X_d + random_step(dX_max, ned)
+    #     new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    #     if (new_p/p)**2 > random():
+    #         X_u, X_d, p = new_X_u, new_X_d, new_p
+    #         opt += 1
 
     j = 0
     E = np.zeros((stat,))
     while j < stat:
         new_X_u = X_u + random_step(dX_max, neu)
-        new_X_d = X_d + random_step(dX_max, neu)
+        new_X_d = X_d + random_step(dX_max, ned)
         new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
         if (new_p/p)**2 > random():
             X_u, X_d, p = new_X_u, new_X_d, new_p
@@ -59,8 +93,14 @@ if __name__ == '__main__':
 
     gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
     inp = Input('test/be/HF/cc-pVQZ/input')
+    # gwfn = Gwfn('test/be2/HF/cc-pVQZ/gwfn.data')
+    # inp = Input('test/be2/HF/cc-pVQZ/input')
+    # gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
+    # inp = Input('test/acetic/HF/cc-pVQZ/input')
+    # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
+    # inp = Input('test/acetaldehyde/HF/cc-pVQZ/input')
 
-    E = vmc(5000, 10 * 1000 * 1000, gwfn.mo, inp.neu, inp.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
+    E = vmc(50000, 1024 * 1024, gwfn.mo, inp.neu, inp.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
     print(np.mean(E) + nuclear_repulsion( gwfn.atomic_positions, gwfn.atom_charges))
 
     reblock_data = pyblock.blocking.reblock(E)
