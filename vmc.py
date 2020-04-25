@@ -29,6 +29,18 @@ def optimal_vmc_step(neu, ned):
 
 
 @nb.jit(nopython=True, cache=True)
+def random_laplace_step(dX, ne):
+    """Random N-dim laplace distributed step"""
+    return np.random.laplace(0.0, dX/2.2, ne*3).reshape((ne, 3))
+
+
+@nb.jit(nopython=True, cache=True)
+def random_triangular_step(dX, ne):
+    """Random N-dim triangular distributed step"""
+    return np.random.triangular(-1.5*dX, 0, 1.5*dX, ne*3).reshape((ne, 3))
+
+
+@nb.jit(nopython=True, cache=True)
 def random_square_step(dX, ne):
     """Random N-dim square distributed step"""
     return np.random.uniform(-dX, dX, ne*3).reshape((ne, 3))
@@ -40,10 +52,7 @@ def random_normal_step(dX, ne):
     return np.array([np.random.normal(0.0, dX/sqrt(3)) for i in range(ne*3)]).reshape((ne, 3))
 
 
-@nb.jit(nopython=True, cache=True)
-def random_step(dX_max, ne):
-    """Random normal distributed step"""
-    return random_normal_step(dX_max, ne)
+random_step = random_normal_step
 
 
 @nb.jit(nopython=True, cache=True)
@@ -143,6 +152,8 @@ if __name__ == '__main__':
     # inp = Input('test/acetaldehyde/HF/cc-pVQZ/input')
     # gwfn = Gwfn('test/si2h6/HF/cc-pVQZ/gwfn.data')
     # inp = Input('test/si2h6/HF/cc-pVQZ/input')
+    # gwfn = Gwfn('test/s4-c2v/HF/cc-pVQZ/gwfn.data')
+    # inp = Input('test/s4-c2v/HF/cc-pVQZ/input')
 
     E = vmc(50000, 1 * 1024 * 1024, gwfn.mo, inp.neu, inp.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
     print(np.mean(E) + nuclear_repulsion(gwfn.atomic_positions, gwfn.atom_charges))
