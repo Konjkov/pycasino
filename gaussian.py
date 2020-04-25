@@ -104,12 +104,6 @@ def gradient_angular_part(r, l, result, radial):
 
 
 @nb.jit(nopython=True, cache=True)
-def cusp():
-    """Cusp condition"""
-    cusp_control = 50
-
-
-@nb.jit(nopython=True, cache=True)
 def wfn_det(r, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """
     Slater determinant
