@@ -160,7 +160,7 @@ def gradient_det(r, mo, nshell, shell_types, shell_positions, primitives, contra
             for primitive in range(p, p + primitives[shell]):
                 alpha = exponents[primitive]
                 exponent = np.exp(-alpha * r2)
-                radial_part_1 += 2 * alpha * grad_r * contraction_coefficients[primitive] * exponent   # 20s from 60s
+                radial_part_1 -= 2 * alpha * grad_r * contraction_coefficients[primitive] * exponent   # 20s from 60s
                 radial_part_2 += exponent
             p += primitives[shell]
             # angular part

@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+
+import numpy as np
+import numba as nb
+
+from readers.gwfn import Gwfn
+from readers.input import Input
+
+
+def wfn_s(r, atom, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions):
+    """wfn of single electron of s-orbitals an each atom"""
+    orbital = np.zeros(mo.shape)
+    orbital_derivative = np.zeros(mo.shape)
+    orbital_second_derivative = np.zeros(mo.shape)
+    for i in range(mo.shape[0]):
+        ao = 0
+        p = 0
+        for shell in range(nshell):
+            # angular momentum
+            l = shell_types[shell]
+            s_part = 0.0
+            s_derivative_part = 0.0
+            s_second_derivative_part = 0.0
+            if np.allclose(shell_positions[shell], atomic_positions[atom]) and shell_types[shell] == 0:
+                for primitive in range(p, p + primitives[shell]):
+                    alpha = exponents[primitive]
+                    exponent = contraction_coefficients[primitive] * np.exp(-alpha * r * r)
+                    s_part += exponent
+                    s_derivative_part -= 2 * alpha * r * exponent
+                    s_second_derivative_part += 2 * alpha * (2 * alpha * r * r - 3) * exponent
+            p += primitives[shell]
+            orbital[i, ao] = s_part
+            orbital_derivative[i, ao] = s_derivative_part
+            orbital_second_derivative[i, ao] = s_second_derivative_part
+            ao += 2 * l + 1
+    return np.dot(mo, orbital.T)[:, 0], np.dot(mo, orbital_derivative.T)[:, 0], np.dot(mo, orbital_second_derivative.T)[:, 0]
+
+
+def initial_phi_data(mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
+    """Calculate initial phi coefficients."""
+    for atom in range(atomic_positions.shape[0]):
+        rc = 1/atom_charges[atom]
+        wfn_0, wfn_derivative_0, _ = wfn_s(0.0, atom, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions)
+        wfn_rc, wfn_derivative_rc,  wfn_second_derivative_rc = wfn_s(rc, atom, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions)
+        for i in range(mo.shape[0]):
+            C = 0 if np.sign(wfn_0[i]) == np.sign(wfn_rc[i]) else -wfn_rc[i]
+            print(f"atom {atom}, s-orbital at r=0 {wfn_0[i]}, at r=rc {wfn_rc[i]}, C={C}, psi-sign {np.sign(wfn_0[i])}")
+            X1 = np.log(np.abs(wfn_rc[i] - C))
+            X2 = wfn_derivative_rc[i] / (wfn_rc[i] - C)
+            X3 = wfn_second_derivative_rc[i] / (wfn_rc[i] - C)
+            X4 = wfn_derivative_0[i] / (wfn_0[i] - C)
+            X5 = np.log(np.abs(wfn_0[i] - C))
+            print(f"X1={X1} X2={X2} X3={X3} X4={X4} X5={X5}")
+
+
+@nb.jit(nopython=True, cache=True)
+def cusp_graph():
+    """In nuclear position dln(phi)/dr|r=r_nucl = -Z_nucl
+    """
+
+
+def ma_cusp():
+    """
+    Scheme for adding electron–nucleus cusps to Gaussian orbitals
+    A. Ma, M. D. Towler, N. D. Drummond, and R. J. Needs
+
+    An orbital, psi, expanded in a Gaussian basis set can be written as:
+    psi = phi + eta
+    where phi is the part of the orbital arising from the s-type Gaussian functions
+    centered on the nucleus in question (which, for convenience is at r = 0)
+
+    In our scheme we seek a corrected orbital, tilde_psi, which differs from psi
+    only in the part arising from the s-type Gaussian functions centered on the nucleus,
+    i.e., so that tilde_psi obeys the cusp condition at r=0
+
+    tilde_psi = tilde_phi + eta
+
+    We apply a cusp correction to each orbital at each nucleus at which it is nonzero.
+    Inside some cusp correction radius rc we replace phi, the part of the orbital arising
+    from s-type Gaussian functions centered on the nucleus in question, by:
+
+    tilde_phi = C + sign[tilde_phi(0)] * exp(p(r))
+
+    In this expression sign[tilde_phi(0)], reflecting the sign of tilde_phĩ at the nucleus,
+    and C is a shift chosen so that tilde_phi − C is of one sign within rc.
+    """
+
+
+if __name__ == '__main__':
+    """
+    """
+
+    # gwfn = Gwfn('test/h/HF/cc-pVQZ/gwfn.data')
+    # inp = Input('test/h/HF/cc-pVQZ/input')
+    gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
+    inp = Input('test/be/HF/cc-pVQZ/input')
+    # gwfn = Gwfn('test/be2/HF/cc-pVQZ/gwfn.data')
+    # inp = Input('test/be2/HF/cc-pVQZ/input')
+    # gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
+    # inp = Input('test/acetic/HF/cc-pVQZ/input')
+    # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
+    # inp = Input('test/acetaldehyde/HF/cc-pVQZ/input')
+
+    mo = gwfn.mo
+    neu = inp.neu
+    ned = inp.ned
+
+    mo_u = mo[0][:neu]
+    mo_d = mo[0][:ned]
+    # since neu => neb, only up-orbitals are needed to calculate wfn.
+    initial_phi_data(mo_u, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
+

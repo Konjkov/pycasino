@@ -72,7 +72,7 @@ def equilibration(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, nshell, shell_ty
 
 @nb.jit(nopython=True, cache=True)
 def accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
-    """VMC accumulation"""
+    """VMC simple accumulation"""
     j = 0
     E = np.zeros((steps,))
     while j < steps:
@@ -122,12 +122,6 @@ def vmc(equlib, stat, mo, neu, ned, nshell, shell_types, shell_positions, primit
     print(10000/opt)
 
     return accumulation(stat, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
-
-
-@nb.jit(nopython=True, cache=True)
-def cusp_graph():
-    """In nuclear position dln(phi)/dr|r=r_nucl = -Z_nucl
-    """
 
 
 if __name__ == '__main__':
