@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from math import exp, sqrt, gamma
+from timeit import default_timer
 
 import numpy as np
 import numba as nb
@@ -439,4 +440,7 @@ if __name__ == '__main__':
     # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
     # inp = Input('test/acetaldehyde/HF/cc-pVQZ/input')
 
+    start = default_timer()
     print(main(gwfn.mo, inp.neu, inp.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents))
+    end = default_timer()
+    print(f'total time {end-start}')

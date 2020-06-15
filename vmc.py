@@ -2,6 +2,7 @@
 
 from math import sqrt
 from random import random, randrange
+from timeit import default_timer
 
 import pyblock
 import numpy as np
@@ -149,13 +150,12 @@ if __name__ == '__main__':
     # gwfn = Gwfn('test/s4-c2v/HF/cc-pVQZ/gwfn.data')
     # inp = Input('test/s4-c2v/HF/cc-pVQZ/input')
 
+    start = default_timer()
     E = vmc(50000, 1 * 1024 * 1024, gwfn.mo, inp.neu, inp.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
-    print(np.mean(E) + nuclear_repulsion(gwfn.atomic_positions, gwfn.atom_charges))
-
+    end = default_timer()
     reblock_data = pyblock.blocking.reblock(E)
     # for reblock_iter in reblock_data:
     #     print(reblock_iter)
-
     opt = pyblock.blocking.find_optimal_block(E.size, reblock_data)
-    # print(opt)
     print(reblock_data[opt[0]])
+    print(f'total time {end-start}')

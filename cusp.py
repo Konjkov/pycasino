@@ -43,7 +43,7 @@ def initial_phi_data(mo, nshell, shell_types, shell_positions, primitives, contr
         wfn_0, wfn_derivative_0, _ = wfn_s(0.0, atom, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions)
         wfn_rc, wfn_derivative_rc,  wfn_second_derivative_rc = wfn_s(rc, atom, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions)
         for i in range(mo.shape[0]):
-            C = 0 if np.sign(wfn_0[i]) == np.sign(wfn_rc[i]) else -wfn_rc[i]
+            C = 0 if np.sign(wfn_0[i]) == np.sign(wfn_rc[i]) else 1.1 * wfn_rc[i]
             print(f"atom {atom}, s-orbital at r=0 {wfn_0[i]}, at r=rc {wfn_rc[i]}, C={C}, psi-sign {np.sign(wfn_0[i])}")
             X1 = np.log(np.abs(wfn_rc[i] - C))
             X2 = wfn_derivative_rc[i] / (wfn_rc[i] - C)
@@ -51,6 +51,11 @@ def initial_phi_data(mo, nshell, shell_types, shell_positions, primitives, contr
             X4 = wfn_derivative_0[i] / (wfn_0[i] - C)
             X5 = np.log(np.abs(wfn_0[i] - C))
             print(f"X1={X1} X2={X2} X3={X3} X4={X4} X5={X5}")
+            alpha0 = X5
+            alpha1 = X4
+            alpha2 = 6*X1/rc**2 - 3*X2/rc + X3/2 - 3*X4/rc - 6*X5/rc**2 - X2**2/2
+            alpha3 = -8*X1/rc**3 + 5*X2/rc**2 - X3/rc + 3*X4/rc**2 + 8*X5/rc**3 + X2**2/rc
+            alpha4 = 3*X1/rc**4 - 2*X2/rc**3 + X3/2/rc**2 - X4/rc**3 - 3*X5/rc**4 - X2**2/2/rc**2
 
 
 @nb.jit(nopython=True, cache=True)
