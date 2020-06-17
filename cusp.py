@@ -2,6 +2,7 @@
 
 import numpy as np
 import numba as nb
+import matplotlib.pyplot as plt
 
 from readers.gwfn import Gwfn
 from readers.input import Input
@@ -41,7 +42,7 @@ def initial_phi_data(mo, nshell, shell_types, shell_positions, primitives, contr
     for atom in range(atomic_positions.shape[0]):
         rc = 1/atom_charges[atom]
         wfn_0, wfn_derivative_0, _ = wfn_s(0.0, atom, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions)
-        wfn_rc, wfn_derivative_rc,  wfn_second_derivative_rc = wfn_s(rc, atom, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions)
+        wfn_rc, wfn_derivative_rc, wfn_second_derivative_rc = wfn_s(rc, atom, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions)
         for i in range(mo.shape[0]):
             C = 0 if np.sign(wfn_0[i]) == np.sign(wfn_rc[i]) else 1.1 * wfn_rc[i]
             print(f"atom {atom}, s-orbital at r=0 {wfn_0[i]}, at r=rc {wfn_rc[i]}, C={C}, psi-sign {np.sign(wfn_0[i])}")
@@ -58,10 +59,18 @@ def initial_phi_data(mo, nshell, shell_types, shell_positions, primitives, contr
             alpha4 = 3*X1/rc**4 - 2*X2/rc**3 + X3/2/rc**2 - X4/rc**3 - 3*X5/rc**4 - X2**2/2/rc**2
 
 
-@nb.jit(nopython=True, cache=True)
-def cusp_graph():
+#@nb.jit(nopython=True, cache=True)
+def cusp_graph(atom, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
     """In nuclear position dln(phi)/dr|r=r_nucl = -Z_nucl
     """
+    x = np.linspace(0, 6/atom_charges[atom]**2, 1000)
+#    x = np.linspace(0, 1, 100)
+    args = (atom, mo[:2], nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions)
+    wfn = [wfn_s(r, *args)[1]/wfn_s(r, *args)[0] for r in x]
+#    wfn = [wfn_s(r, *args)[0] for r in x]
+#    plt.plot(x, wfn)
+    plt.plot(x, wfn, x, -atom_charges[atom]*np.ones(1000))
+    plt.show()
 
 
 def ma_cusp():
@@ -113,5 +122,6 @@ if __name__ == '__main__':
     mo_u = mo[0][:neu]
     mo_d = mo[0][:ned]
     # since neu => neb, only up-orbitals are needed to calculate wfn.
-    initial_phi_data(mo_u, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
+    cusp_graph(0, mo_u, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
+    #initial_phi_data(mo_u, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
 

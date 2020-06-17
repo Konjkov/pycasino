@@ -380,6 +380,10 @@ def local_energy(r_u, r_d, mo_u, mo_d, nshell, shell_types, shell_positions, pri
 
 @nb.jit(nopython=True, cache=True)
 def random_position(low, high, ne):
+    """
+    The size argument is not supported.
+    https://numba.pydata.org/numba-doc/dev/reference/numpysupported.html#random
+    """
     return np.dstack((
         np.random.uniform(low[0], high[0], size=ne),
         np.random.uniform(low[1], high[1], size=ne),
