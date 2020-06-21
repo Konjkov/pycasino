@@ -57,13 +57,13 @@ random_step = random_normal_step
 
 
 @nb.jit(nopython=True, cache=True)
-def equilibration(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
+def equilibration(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, shell_types, shell_positions, primitives, contraction_coefficients, exponents):
     """VMC equilibration"""
     i = j = 0
     while i < steps:
         new_X_u = X_u + random_step(dX, neu)
         new_X_d = X_d + random_step(dX, ned)
-        new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+        new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
         j += 1
         if (new_p/p)**2 > random():
             X_u, X_d, p = new_X_u, new_X_d, new_p
@@ -72,31 +72,31 @@ def equilibration(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, nshell, shell_ty
 
 
 @nb.jit(nopython=True, cache=True)
-def accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
+def accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
     """VMC simple accumulation"""
     j = 0
     E = np.zeros((steps,))
     while j < steps:
         new_X_u = X_u + random_step(dX, neu)
         new_X_d = X_d + random_step(dX, ned)
-        new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+        new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
         if (new_p/p)**2 > random():
             X_u, X_d, p = new_X_u, new_X_d, new_p
-            E[j] = local_energy(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
+            E[j] = local_energy(X_u, X_d, mo_u, mo_d, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
             j += 1
     return E
 
 
 @nb.jit(nopython=True, cache=True)
-def averaging_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
+def averaging_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
     """VMC accumulation with averaging local energies over proposed moves"""
     E = np.zeros((steps,))
-    loc_E = local_energy(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
+    loc_E = local_energy(X_u, X_d, mo_u, mo_d, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
     for j in range(steps):
         new_X_u = X_u + random_step(dX, neu)
         new_X_d = X_d + random_step(dX, ned)
-        new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
-        new_loc_E = local_energy(new_X_u, new_X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
+        new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+        new_loc_E = local_energy(new_X_u, new_X_d, mo_u, mo_d, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
         E[j] = min((new_p/p)**2, 1) * new_loc_E + (1 - min((new_p/p)**2, 1)) * loc_E
         if (new_p/p)**2 > random():
             X_u, X_d, p, loc_E = new_X_u, new_X_d, new_p, new_loc_E
@@ -104,7 +104,7 @@ def averaging_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, nshell,
 
 
 @nb.jit(nopython=True, cache=True)
-def vmc(equlib, stat, mo, neu, ned, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
+def vmc(equlib, stat, mo, neu, ned, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
     """configuration-by-configuration sampling (CBCS)"""
 
     dX = optimal_vmc_step(neu, ned)
@@ -114,15 +114,15 @@ def vmc(equlib, stat, mo, neu, ned, nshell, shell_types, shell_positions, primit
 
     X_u = initial_position(neu, atomic_positions)
     X_d = initial_position(ned, atomic_positions)
-    p = wfn(X_u, X_d, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    p = wfn(X_u, X_d, mo_u, mo_d, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
 
-    equ = equilibration(equlib, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    equ = equilibration(equlib, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
     print(equlib/equ)
 
-    opt = equilibration(10000, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
+    opt = equilibration(10000, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, shell_types, shell_positions, primitives, contraction_coefficients, exponents)
     print(10000/opt)
 
-    return accumulation(stat, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
+    return accumulation(stat, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges)
 
 
 if __name__ == '__main__':
@@ -151,7 +151,7 @@ if __name__ == '__main__':
     # inp = Input('test/s4-c2v/HF/cc-pVQZ/input')
 
     start = default_timer()
-    E = vmc(50000, 1 * 1024 * 1024, gwfn.mo, inp.neu, inp.ned, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
+    E = vmc(50000, 1 * 1024 * 1024, gwfn.mo, inp.neu, inp.ned, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
     end = default_timer()
     reblock_data = pyblock.blocking.reblock(E)
     # for reblock_iter in reblock_data:

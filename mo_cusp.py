@@ -8,7 +8,7 @@ from readers.gwfn import Gwfn
 from readers.input import Input
 
 
-def wfn_s(r, atom, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions):
+def wfn_s(r, atom, mo, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions):
     """wfn of single electron of s-orbitals an each atom"""
     orbital = np.zeros(mo.shape)
     orbital_derivative = np.zeros(mo.shape)
@@ -16,7 +16,7 @@ def wfn_s(r, atom, mo, nshell, shell_types, shell_positions, primitives, contrac
     for i in range(mo.shape[0]):
         ao = 0
         p = 0
-        for shell in range(nshell):
+        for shell in range(shell_types.shape[0]):
             # angular momentum
             l = shell_types[shell]
             s_part = 0.0
@@ -37,7 +37,7 @@ def wfn_s(r, atom, mo, nshell, shell_types, shell_positions, primitives, contrac
     return np.dot(mo, orbital.T)[:, 0], np.dot(mo, orbital_derivative.T)[:, 0], np.dot(mo, orbital_second_derivative.T)[:, 0]
 
 
-def initial_phi_data(mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
+def initial_phi_data(mo, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
     """Calculate initial phi coefficients."""
     for atom in range(atomic_positions.shape[0]):
         rc = 1/atom_charges[atom]
@@ -60,7 +60,7 @@ def initial_phi_data(mo, nshell, shell_types, shell_positions, primitives, contr
 
 
 #@nb.jit(nopython=True, cache=True)
-def cusp_graph(atom, mo, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
+def cusp_graph(atom, mo, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions, atom_charges):
     """In nuclear position dln(phi)/dr|r=r_nucl = -Z_nucl
     """
     x = np.linspace(0, 1/atom_charges[atom]**2, 1000)
@@ -119,6 +119,6 @@ if __name__ == '__main__':
     mo_u = mo[0][:neu]
     mo_d = mo[0][:ned]
     # since neu => neb, only up-orbitals are needed to calculate wfn.
-    cusp_graph(0, mo_u, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
+    cusp_graph(0, mo_u, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
     #initial_phi_data(mo_u, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
 
