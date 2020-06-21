@@ -80,9 +80,9 @@ class Gwfn:
                 elif line.startswith('Sequence number of first shell on each centre'):
                     self.first_shells = np.array(read_ints(self.natom + 1))
                 elif line.startswith('Exponents of Gaussian primitives'):
-                    self.exponents = np.array(read_floats(self._nprimitives))
+                    self._exponents = np.array(read_floats(self._nprimitives))
                 elif line.startswith('Normalized contraction coefficients'):
-                    self.contraction_coefficients = np.array(read_floats(self._nprimitives))
+                    self._coefficients = np.array(read_floats(self._nprimitives))
                 elif line.startswith('Position of each shell (au)'):
                     pos = read_floats(3 * self._nshell)
                     self._shell_positions = np.array(pos).reshape((self._nshell, 3))
@@ -94,6 +94,25 @@ class Gwfn:
                     self.mo = np.array(mo).reshape((self.unrestricted + 1, self.nbasis_functions, self.nbasis_functions))
             # post-calculation
             self._shells = []
+            max_primitives = np.max(self._primitives)
+            p = 0
             for nshell in range(self._nshell):
-                self._shells.append((self._shell_types[nshell], self._shell_positions[nshell], self._primitives[nshell]))
-            self.shells = np.array(self._shells, dtype=[('type', 'f4'), ('position', '3f4'), ('primitives', 'i4')])
+                _coefficients = np.zeros((max_primitives,))
+                _coefficients[0:self._primitives[nshell]] = self._coefficients[p:p+self._primitives[nshell]]
+                _exponents = np.zeros((max_primitives,))
+                _exponents[0:self._primitives[nshell]] = self._exponents[p:p+self._primitives[nshell]]
+                self._shells.append((
+                    self._shell_types[nshell],
+                    self._shell_positions[nshell],
+                    self._primitives[nshell],
+                    _coefficients,
+                    _exponents
+                ))
+                p += self._primitives[nshell]
+            self.shells = np.array(self._shells, dtype=[
+                ('moment', np.float),
+                ('position', np.float, 3),
+                ('primitives', np.int),
+                ('coefficients', np.float, max_primitives),
+                ('exponents', np.float, max_primitives)
+            ])

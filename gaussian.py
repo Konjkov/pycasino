@@ -105,34 +105,33 @@ def gradient_angular_part(r, l, result, radial):
 
 
 @nb.jit(nopython=True, cache=True)
-def wfn_det(r, mo, shells, contraction_coefficients, exponents):
+def wfn_det(r, mo, shells):
     """
     Slater determinant
     :param r: electrons coordinates shape = (nelec, 3)
     :param mo: MO-coefficients shape = (nbasis_functions, nelec)
-    :param shell_types: l-number of the shell shape = (nshell, )
-    :param shell_positions: centerd position of the shell shape = (nshell, 3)
-    :param primitives: number of primitives on each shell shape = (nshell,)
-    :param contraction_coefficients: contraction coefficients of a primitives shape = (nprimitives,)
-    :param exponents: exponents of a primitives shape = (nprimitives,)
+    :param shell - struct of
+        moment: l-number of the shell shape = (nshell, )
+        shell_positions: centerd position of the shell shape = (nshell, 3)
+        primitives: number of primitives on each shell shape = (nshell,)
+        coefficients: contraction coefficients of a primitives shape = (nprimitives,)
+        exponents: exponents of a primitives shape = (nprimitives,)
     :return: slater determinant shape = (nelec, nelec)
     """
     orbital = np.zeros(mo.shape)
     rI = np.zeros((3,))
     for i in range(mo.shape[0]):
         ao = 0
-        p = 0
         for nshell in range(shells.shape[0]):
             for j in range(3):
                 rI[j] = r[i, j] - shells[nshell].position[j]
             # angular momentum
-            l = shells[nshell].type
+            l = shells[nshell].moment
             # radial part
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
             radial_part = 0.0
-            for primitive in range(p, p + shells[nshell].primitives):
-                radial_part += contraction_coefficients[primitive] * np.exp(-exponents[primitive] * r2)  # 20s from 60s
-            p += shells[nshell].primitives
+            for primitive in range(shells[nshell].primitives):
+                radial_part += shells[nshell].coefficients[primitive] * np.exp(-shells[nshell].exponents[primitive] * r2)  # 20s from 60s
             # angular part
             angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part)  # 10s from 60s
             ao += 2*l+1
@@ -140,29 +139,27 @@ def wfn_det(r, mo, shells, contraction_coefficients, exponents):
 
 
 @nb.jit(nopython=True, cache=True)
-def gradient_det(r, mo, shells, contraction_coefficients, exponents):
+def gradient_det(r, mo, shells):
     """Orbital coefficients for every AO at electron position r."""
     orbital = np.zeros(mo.shape)
     rI = np.zeros((3,))
     for i in range(mo.shape[0]):
         ao = 0
-        p = 0
         for nshell in range(shells.shape[0]):
             for j in range(3):
                 rI[j] = r[i, j] - shells[nshell].position[j]
             # angular momentum
-            l = shells[nshell].type
+            l = shells[nshell].moment
             # radial part
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
             grad_r = rI[0] + rI[1] + rI[2]
             radial_part_1 = 0.0
             radial_part_2 = 0.0
-            for primitive in range(p, p + shells[nshell].primitives):
-                alpha = exponents[primitive]
+            for primitive in range(shells[nshell].primitives):
+                alpha = shells[nshell].exponents[primitive]
                 exponent = np.exp(-alpha * r2)
-                radial_part_1 -= 2 * alpha * grad_r * contraction_coefficients[primitive] * exponent   # 20s from 60s
+                radial_part_1 -= 2 * alpha * grad_r * shells[nshell].coefficients[primitive] * exponent   # 20s from 60s
                 radial_part_2 += exponent
-            p += shells[nshell].primitives
             # angular part
             angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part_1)  # 10s from 60s
             gradient_angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part_2)  # 10s from 60s
@@ -171,25 +168,23 @@ def gradient_det(r, mo, shells, contraction_coefficients, exponents):
 
 
 @nb.jit(nopython=True, cache=True)
-def laplacian_det(r, mo, shells, contraction_coefficients, exponents):
+def laplacian_det(r, mo, shells):
     """Orbital coefficients for every AO at electron position r."""
     orbital = np.zeros(mo.shape)
     rI = np.zeros((3,))
     for i in range(mo.shape[0]):
         ao = 0
-        p = 0
         for nshell in range(shells.shape[0]):
             for j in range(3):
                 rI[j] = r[i, j] - shells[nshell].position[j]
             # angular momentum
-            l = shells[nshell].type
+            l = shells[nshell].moment
             # radial part
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
             radial_part = 0.0
-            for primitive in range(p, p + shells[nshell].primitives):
-                alpha = exponents[primitive]
-                radial_part += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * contraction_coefficients[primitive] * np.exp(-alpha * r2)  # 20s from 60s
-            p += shells[nshell].primitives
+            for primitive in range(shells[nshell].primitives):
+                alpha = shells[nshell].exponents[primitive]
+                radial_part += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * shells[nshell].coefficients[primitive] * np.exp(-alpha * r2)  # 20s from 60s
             # angular part
             angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part)  # 10s from 60s
             ao += 2*l+1
@@ -197,30 +192,30 @@ def laplacian_det(r, mo, shells, contraction_coefficients, exponents):
 
 
 @nb.jit(nopython=True, cache=True)
-def wfn(r_u, r_d, mo_u, mo_d, shells, contraction_coefficients, exponents):
+def wfn(r_u, r_d, mo_u, mo_d, shells):
     """all electron wfn on the points without norm factor 1/sqrt(N!).
 
     Cauchy–Binet formula
     """
-    u_orb = wfn_det(r_u, mo_u, shells, contraction_coefficients, exponents)
-    d_orb = wfn_det(r_d, mo_d, shells, contraction_coefficients, exponents)
+    u_orb = wfn_det(r_u, mo_u, shells)
+    d_orb = wfn_det(r_d, mo_d, shells)
     return np.linalg.det(u_orb) * np.linalg.det(d_orb)
 
 
 @nb.jit(nopython=True, cache=True)
-def gradient_log(r_u, r_d, mo_u, mo_d, shells, contraction_coefficients, exponents):
+def gradient_log(r_u, r_d, mo_u, mo_d, shells):
     """gradient
     """
-    u_orb = wfn_det(r_u, mo_u, shells, contraction_coefficients, exponents)
-    u_grad = gradient_det(r_u, mo_u, shells, contraction_coefficients, exponents)
+    u_orb = wfn_det(r_u, mo_u, shells)
+    u_grad = gradient_det(r_u, mo_u, shells)
     res_u = 0
     for i in range(r_u.shape[0]):
         temp_det = np.copy(u_orb)
         temp_det[i] = u_grad[i]
         res_u += np.linalg.det(temp_det)
 
-    d_orb = wfn_det(r_d, mo_d, shells, contraction_coefficients, exponents)
-    d_grad = gradient_det(r_d, mo_d, shells, contraction_coefficients, exponents)
+    d_orb = wfn_det(r_d, mo_d, shells)
+    d_grad = gradient_det(r_d, mo_d, shells)
     res_d = 0
     for i in range(r_d.shape[0]):
         temp_det = np.copy(d_orb)
@@ -231,19 +226,19 @@ def gradient_log(r_u, r_d, mo_u, mo_d, shells, contraction_coefficients, exponen
 
 
 @nb.jit(nopython=True, cache=True)
-def laplacian_log(r_u, r_d, mo_u, mo_d, shells, contraction_coefficients, exponents):
+def laplacian_log(r_u, r_d, mo_u, mo_d, shells):
     """laplacian
     """
-    u_orb = wfn_det(r_u, mo_u, shells, contraction_coefficients, exponents)
-    u_lap = laplacian_det(r_u, mo_u, shells, contraction_coefficients, exponents)
+    u_orb = wfn_det(r_u, mo_u, shells)
+    u_lap = laplacian_det(r_u, mo_u, shells)
     res_u = 0
     for i in range(r_u.shape[0]):
         temp_det = np.copy(u_orb)
         temp_det[i] = u_lap[i]
         res_u += np.linalg.det(temp_det)
 
-    d_orb = wfn_det(r_d, mo_d, shells, contraction_coefficients, exponents)
-    d_lap = laplacian_det(r_d, mo_d, shells, contraction_coefficients, exponents)
+    d_orb = wfn_det(r_d, mo_d, shells)
+    d_lap = laplacian_det(r_d, mo_d, shells)
     res_d = 0
     for i in range(r_d.shape[0]):
         temp_det = np.copy(d_orb)
@@ -254,73 +249,73 @@ def laplacian_log(r_u, r_d, mo_u, mo_d, shells, contraction_coefficients, expone
 
 
 @nb.jit(nopython=True, cache=True)
-def numerical_gradient_log(r_u, r_d, mo_u, mo_d, shells, contraction_coefficients, exponents):
+def numerical_gradient_log(r_u, r_d, mo_u, mo_d, shells):
     """Numerical gradient
     :param r_u: up electrons coordinates shape = (nelec, 3)
     :param r_d: down electrons coordinates shape = (nelec, 3)
     """
     delta = 0.00001
 
-    u_det = np.linalg.det(wfn_det(r_u, mo_u, shells, contraction_coefficients, exponents))
+    u_det = np.linalg.det(wfn_det(r_u, mo_u, shells))
     res_u = 0
     for i in range(r_u.shape[0]):
         for j in range(r_u.shape[1]):
             r_u[i, j] -= delta
-            res_u -= np.linalg.det(wfn_det(r_u, mo_u, shells, contraction_coefficients, exponents))
+            res_u -= np.linalg.det(wfn_det(r_u, mo_u, shells))
             r_u[i, j] += 2 * delta
-            res_u += np.linalg.det(wfn_det(r_u, mo_u, shells, contraction_coefficients, exponents))
+            res_u += np.linalg.det(wfn_det(r_u, mo_u, shells))
             r_u[i, j] -= delta
 
-    d_det = np.linalg.det(wfn_det(r_d, mo_d, shells, contraction_coefficients, exponents))
+    d_det = np.linalg.det(wfn_det(r_d, mo_d, shells))
     res_d = 0
     for i in range(r_d.shape[0]):
         for j in range(r_d.shape[1]):
             r_d[i, j] -= delta
-            res_d -= np.linalg.det(wfn_det(r_d, mo_d, shells, contraction_coefficients, exponents))
+            res_d -= np.linalg.det(wfn_det(r_d, mo_d, shells))
             r_d[i, j] += 2 * delta
-            res_d += np.linalg.det(wfn_det(r_d, mo_d, shells, contraction_coefficients, exponents))
+            res_d += np.linalg.det(wfn_det(r_d, mo_d, shells))
             r_d[i, j] -= delta
 
     return (res_u / u_det + res_d / d_det) / delta / 2
 
 
 @nb.jit(nopython=True, cache=True)
-def numerical_laplacian_log(r_u, r_d, mo_u, mo_d, shells, contraction_coefficients, exponents):
+def numerical_laplacian_log(r_u, r_d, mo_u, mo_d, shells):
     """Numerical laplacian
     :param r_u: up electrons coordinates shape = (nelec, 3)
     :param r_d: down electrons coordinates shape = (nelec, 3)
     """
     delta = 0.00001
 
-    u_det = np.linalg.det(wfn_det(r_u, mo_u, shells, contraction_coefficients, exponents))
+    u_det = np.linalg.det(wfn_det(r_u, mo_u, shells))
     res_u = 0
     for i in range(r_u.shape[0]):
         for j in range(r_u.shape[1]):
             r_u[i, j] -= delta
-            res_u += np.linalg.det(wfn_det(r_u, mo_u, shells, contraction_coefficients, exponents))
+            res_u += np.linalg.det(wfn_det(r_u, mo_u, shells))
             r_u[i, j] += 2 * delta
-            res_u += np.linalg.det(wfn_det(r_u, mo_u, shells, contraction_coefficients, exponents))
+            res_u += np.linalg.det(wfn_det(r_u, mo_u, shells))
             r_u[i, j] -= delta
 
-    d_det = np.linalg.det(wfn_det(r_d, mo_d, shells, contraction_coefficients, exponents))
+    d_det = np.linalg.det(wfn_det(r_d, mo_d, shells))
     res_d = 0
     for i in range(r_d.shape[0]):
         for j in range(r_d.shape[1]):
             r_d[i, j] -= delta
-            res_d += np.linalg.det(wfn_det(r_d, mo_d, shells, contraction_coefficients, exponents))
+            res_d += np.linalg.det(wfn_det(r_d, mo_d, shells))
             r_d[i, j] += 2 * delta
-            res_d += np.linalg.det(wfn_det(r_d, mo_d, shells, contraction_coefficients, exponents))
+            res_d += np.linalg.det(wfn_det(r_d, mo_d, shells))
             r_d[i, j] -= delta
 
     return (res_u / u_det - 2 * r_u.size + res_d / d_det - 2 * r_d.size) / delta / delta
 
 
 @nb.jit(nopython=True, cache=True)
-def local_kinetic(r_u, r_d, mo_u, mo_d, shells, contraction_coefficients, exponents):
+def local_kinetic(r_u, r_d, mo_u, mo_d, shells):
     """local kinetic energy on the point.
     -1/2 * laplacian(phi) / phi
     """
-    return -laplacian_log(r_u, r_d, mo_u, mo_d, shells, contraction_coefficients, exponents) / 2
+    return -laplacian_log(r_u, r_d, mo_u, mo_d, shells) / 2
     # return -numerical_laplacian_log(r_u, r_d, mo_u, mo_d, shells, contraction_coefficients, exponents) / 2
 
 
@@ -373,8 +368,8 @@ def coulomb(r_u, r_d, atomic_positions, atom_charges):
 
 
 @nb.jit(nopython=True, cache=True)
-def local_energy(r_u, r_d, mo_u, mo_d, shells, contraction_coefficients, exponents, atomic_positions, atom_charges):
-    return coulomb(r_u, r_d, atomic_positions, atom_charges) + local_kinetic(r_u, r_d, mo_u, mo_d, shells, contraction_coefficients, exponents)
+def local_energy(r_u, r_d, mo_u, mo_d, shells, atomic_positions, atom_charges):
+    return coulomb(r_u, r_d, atomic_positions, atom_charges) + local_kinetic(r_u, r_d, mo_u, mo_d, shells)
 
 
 @nb.jit(nopython=True, cache=True)
@@ -391,8 +386,8 @@ def random_position(low, high, ne):
 
 
 @nb.jit(nopython=True, cache=True)
-def main(mo, neu, ned, shells, contraction_coefficients, exponents):
-    steps = 100 * 1000 * 1000
+def main(mo, neu, ned, shells):
+    steps = 10 * 1000 * 1000
     offset = 3.0
 
     # x_min = np.min(shells.positions[0]) - offset
@@ -415,7 +410,7 @@ def main(mo, neu, ned, shells, contraction_coefficients, exponents):
     for i in range(steps):
         X_u = random_position(low, high, neu)
         X_d = random_position(low, high, ned)
-        integral += wfn(X_u, X_d, mo_u, mo_d, shells, contraction_coefficients, exponents) ** 2
+        integral += wfn(X_u, X_d, mo_u, mo_d, shells) ** 2
 
     return integral * dV / gamma(neu+1) / gamma(ned+1)
 
@@ -446,6 +441,6 @@ if __name__ == '__main__':
     # inp = Input('test/acetaldehyde/HF/cc-pVQZ/input')
 
     start = default_timer()
-    print(main(gwfn.mo, inp.neu, inp.ned, gwfn.shells, gwfn.contraction_coefficients, gwfn.exponents))
+    print(main(gwfn.mo, inp.neu, inp.ned, gwfn.shells))
     end = default_timer()
     print(f'total time {end-start}')
