@@ -8,17 +8,17 @@ from readers.gwfn import Gwfn
 from readers.input import Input
 
 
-def wfn_s(r, atom, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions):
+def wfn_s(r, atom, shells, primitives, contraction_coefficients, exponents, atomic_positions):
     """wfn of single electron of any s-orbital an each atom"""
     orbital = []
     p = 0
-    for shell in range(nshell):
+    for nshell in range((shells.shape[0])):
         s_part = 0.0
-        if np.allclose(shell_positions[shell], atomic_positions[atom]) and shell_types[shell] == 0:
-            for primitive in range(p, p + primitives[shell]):
+        if np.allclose(shells[nshell][1], atomic_positions[atom]) and shells[nshell][0] == 0:
+            for primitive in range(p, p + primitives[nshell]):
                 s_part += contraction_coefficients[primitive] * np.exp(-exponents[primitive] * r * r)
             orbital.append(s_part)
-        p += primitives[shell]
+        p += primitives[nshell]
     return orbital
 
 
@@ -46,7 +46,7 @@ def fit(fit_function, xdata, ydata, p0):
     return popt, perr
 
 
-def multiple_fits(nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions):
+def multiple_fits(shells, primitives, contraction_coefficients, exponents, atomic_positions):
     """Fit all orbitals in GTO basis
     use Laguerre polynomials
     """
@@ -72,7 +72,7 @@ def multiple_fits(nshell, shell_types, shell_positions, primitives, contraction_
 
     for atom in range(atomic_positions.shape[0]):
         xdata = np.linspace(0, 3.0, 50)
-        ydatas = wfn_s(xdata, atom, nshell, shell_types, shell_positions, primitives, contraction_coefficients, exponents, atomic_positions)
+        ydatas = wfn_s(xdata, atom, shells, primitives, contraction_coefficients, exponents, atomic_positions)
         for ydata in ydatas:
             popt, perr = fit(fit_function, xdata, ydata, p0)
             print(popt, perr)
@@ -93,4 +93,4 @@ if __name__ == '__main__':
     # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
     # inp = Input('test/acetaldehyde/HF/cc-pVQZ/input')
 
-    multiple_fits(gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions)
+    multiple_fits(gwfn.shells, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions)
