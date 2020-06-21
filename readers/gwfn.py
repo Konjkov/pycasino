@@ -68,7 +68,7 @@ class Gwfn:
                 elif line.startswith('Number of basis functions'):
                     self.nbasis_functions = read_int()
                 elif line.startswith('Number of Gaussian primitives'):
-                    self.nprimitives = read_int()
+                    self._nprimitives = read_int()
                 elif line.startswith('Highest shell angular momentum'):
                     self.highest_ang = read_int()
                 elif line.startswith('Code for shell types'):
@@ -76,13 +76,13 @@ class Gwfn:
                     # corrected shell_types
                     self._shell_types = np.array([self.shell_map[t] for t in self._shell_types])
                 elif line.startswith('Number of primitive Gaussians in each shell'):
-                    self.primitives = np.array(read_ints(self._nshell))
+                    self._primitives = np.array(read_ints(self._nshell))
                 elif line.startswith('Sequence number of first shell on each centre'):
                     self.first_shells = np.array(read_ints(self.natom + 1))
                 elif line.startswith('Exponents of Gaussian primitives'):
-                    self.exponents = np.array(read_floats(self.nprimitives))
+                    self.exponents = np.array(read_floats(self._nprimitives))
                 elif line.startswith('Normalized contraction coefficients'):
-                    self.contraction_coefficients = np.array(read_floats(self.nprimitives))
+                    self.contraction_coefficients = np.array(read_floats(self._nprimitives))
                 elif line.startswith('Position of each shell (au)'):
                     pos = read_floats(3 * self._nshell)
                     self._shell_positions = np.array(pos).reshape((self._nshell, 3))
@@ -94,6 +94,6 @@ class Gwfn:
                     self.mo = np.array(mo).reshape((self.unrestricted + 1, self.nbasis_functions, self.nbasis_functions))
             # post-calculation
             self._shells = []
-            for n in range(self._nshell):
-                self._shells.append((self._shell_types[n], self._shell_positions[n]))
-            self.shells = np.array(self._shells, dtype=[('type', 'f4'), ('position', '3f4')])
+            for nshell in range(self._nshell):
+                self._shells.append((self._shell_types[nshell], self._shell_positions[nshell], self._primitives[nshell]))
+            self.shells = np.array(self._shells, dtype=[('type', 'f4'), ('position', '3f4'), ('primitives', 'i4')])
