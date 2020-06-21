@@ -64,7 +64,7 @@ class Gwfn:
                 elif line.startswith('Number of Gaussian centres'):
                     self.natom = read_int()
                 elif line.startswith('Number of shells per primitive cell'):
-                    self.nshell = read_int()
+                    self._nshell = read_int()
                 elif line.startswith('Number of basis functions'):
                     self.nbasis_functions = read_int()
                 elif line.startswith('Number of Gaussian primitives'):
@@ -72,11 +72,11 @@ class Gwfn:
                 elif line.startswith('Highest shell angular momentum'):
                     self.highest_ang = read_int()
                 elif line.startswith('Code for shell types'):
-                    self._shell_types = read_ints(self.nshell)
+                    self._shell_types = read_ints(self._nshell)
                     # corrected shell_types
-                    self.shell_types = np.array([self.shell_map[t] for t in self._shell_types])
+                    self._shell_types = np.array([self.shell_map[t] for t in self._shell_types])
                 elif line.startswith('Number of primitive Gaussians in each shell'):
-                    self.primitives = np.array(read_ints(self.nshell))
+                    self.primitives = np.array(read_ints(self._nshell))
                 elif line.startswith('Sequence number of first shell on each centre'):
                     self.first_shells = np.array(read_ints(self.natom + 1))
                 elif line.startswith('Exponents of Gaussian primitives'):
@@ -84,11 +84,16 @@ class Gwfn:
                 elif line.startswith('Normalized contraction coefficients'):
                     self.contraction_coefficients = np.array(read_floats(self.nprimitives))
                 elif line.startswith('Position of each shell (au)'):
-                    pos = read_floats(3 * self.nshell)
-                    self.shell_positions = np.array(pos).reshape((self.nshell, 3))
+                    pos = read_floats(3 * self._nshell)
+                    self._shell_positions = np.array(pos).reshape((self._nshell, 3))
                 # ORBITAL COEFFICIENTS
                 # --------------------
                 elif line.startswith('ORBITAL COEFFICIENTS'):
                     fp.readline()  # skip line
                     mo = read_floats((self.unrestricted + 1) * self.nbasis_functions * self.nbasis_functions)
                     self.mo = np.array(mo).reshape((self.unrestricted + 1, self.nbasis_functions, self.nbasis_functions))
+            # post-calculation
+            self._shells = []
+            for n in range(self._nshell):
+                self._shells.append((self._shell_types[n], self._shell_positions[n]))
+            self.shells = np.array(self._shells, dtype=[('type', 'f4'), ('position', '3f4')])
