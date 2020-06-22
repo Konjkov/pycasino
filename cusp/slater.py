@@ -4,26 +4,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from scipy.optimize import curve_fit
-from readers.gwfn import Gwfn
-from readers.input import Input
 
 
-def wfn_s(r, shells, position):
-    """wfn of single electron of any s-orbital an each atom"""
-    orbital = []
-    for nshell in range((shells.shape[0])):
-        s_part = 0.0
-        if np.allclose(shells[nshell]['position'], position) and shells[nshell]['moment'] == 0:
-            for primitive in range(shells[nshell]['primitives']):
-                s_part += shells[nshell]['coefficients'][primitive] * np.exp(-shells[nshell]['exponents'][primitive] * r * r)
-            orbital.append(s_part)
-    return orbital
+def wfn_s(r, shell):
+    """wfn of single electron of any s-orbital"""
+    s_part = 0.0
+    for primitive in range(shell['primitives']):
+        s_part += shell['coefficients'][primitive] * np.exp(-shell['exponents'][primitive] * r * r)
+    return s_part
 
 
-def fit(fit_function, xdata, ydata, p0):
+def fit(fit_function, xdata, ydata, p0, plot):
     """Fit gaussian basis by slater"""
-
-    plot = True
 
     try:
         popt, pcov = curve_fit(fit_function, xdata, ydata, p0, maxfev=1000000)
@@ -44,51 +36,17 @@ def fit(fit_function, xdata, ydata, p0):
     return popt, perr
 
 
-def multiple_fits(shells, atoms):
-    """Fit all orbitals in GTO basis
-    use Laguerre polynomials
+def multiple_fits(shell):
+    """Fit all orbitals in GTO basis with slater orbitals
     """
 
-    def slater_1(r, a1, zeta1):
+    def slater(r, a1, zeta1):
         """dln(phi)/dr|r=r_nucl = -zeta1"""
         return a1*np.exp(-zeta1*r)
 
-    def slater_2(r, a1, zeta1, a2, zeta2):
-        """dln(phi)/dr|r=r_nucl = -(a1 * zeta1 + a2 * zeta2)/(a1 + a2)"""
-        return a1*np.exp(-zeta1*r) + a2*np.exp(-zeta2*r)
+    fit_function = slater
+    initial_guess = (1, 1)
 
-    def slater_3(r, a1, zeta1, a2, zeta2, a3, zeta3):
-        """Best fit for n=0 orbital from ano-pVDZ set for He-Ne"""
-        return a1*np.exp(-zeta1*r) + a2*np.exp(-zeta2*r) + a3*np.exp(-zeta3*r)
-
-    def slater_4(r, a1, zeta1, a2, zeta2, a3, zeta3, a4, zeta4):
-        """Best fit for n=0 orbital from ano-pVDZ set for He-Ne"""
-        return a1*np.exp(-zeta1*r) + a2*np.exp(-zeta2*r) + a3*np.exp(-zeta3*r) + a4*np.exp(-zeta4*r)
-
-    fit_function = slater_1
-    p0 = (1, 1)
-
-    for natom in range(atoms.shape[0]):
-        xdata = np.linspace(0, 3.0, 50)
-        ydatas = wfn_s(xdata, shells, atoms[natom]['position'])
-        for ydata in ydatas:
-            popt, perr = fit(fit_function, xdata, ydata, p0)
-            print(popt, perr)
-
-
-if __name__ == '__main__':
-    """
-    """
-
-    # gwfn = Gwfn('test/h/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/h/HF/cc-pVQZ/input')
-    gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
-    inp = Input('test/be/HF/cc-pVQZ/input')
-    # gwfn = Gwfn('test/be2/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/be2/HF/cc-pVQZ/input')
-    # gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/acetic/HF/cc-pVQZ/input')
-    # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/acetaldehyde/HF/cc-pVQZ/input')
-
-    multiple_fits(gwfn.shells, gwfn.atoms)
+    xdata = np.linspace(0, 3.0, 50)
+    ydata = wfn_s(xdata, shell)
+    return fit(fit_function, xdata, ydata, initial_guess, False)

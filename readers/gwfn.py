@@ -1,5 +1,6 @@
 
 import numpy as np
+from cusp.slater import multiple_fits
 
 
 class Gwfn:
@@ -53,14 +54,14 @@ class Gwfn:
                 # GEOMETRY
                 # --------
                 elif line.startswith('Number of atoms'):
-                    self.natom = read_int()
+                    self._natoms = read_int()
                 elif line.startswith('Atomic positions'):
-                    pos = read_floats(self.natom * 3)
-                    self._atomic_positions = np.array(pos).reshape((self.natom, 3))
+                    pos = read_floats(self._natoms * 3)
+                    self._atomic_positions = np.array(pos).reshape((self._natoms, 3))
                 elif line.startswith('Atomic numbers for each atom'):
-                    self._atom_numbers = read_ints(self.natom)
+                    self._atom_numbers = read_ints(self._natoms)
                 elif line.startswith('Valence charges for each atom'):
-                    self._atom_charges = read_floats(self.natom)
+                    self._atom_charges = read_floats(self._natoms)
                 # BASIS SET
                 # ---------
                 elif line.startswith('Number of Gaussian centres'):
@@ -79,8 +80,9 @@ class Gwfn:
                     self._shell_types = np.array([self.shell_map[t] for t in self._shell_types])
                 elif line.startswith('Number of primitive Gaussians in each shell'):
                     self._primitives = np.array(read_ints(self._nshell))
+                    self._max_primitives = np.max(self._primitives)
                 elif line.startswith('Sequence number of first shell on each centre'):
-                    self.first_shells = np.array(read_ints(self.natom + 1))
+                    self.first_shells = np.array(read_ints(self._natoms + 1))
                 elif line.startswith('Exponents of Gaussian primitives'):
                     self._exponents = read_floats(self._nprimitives)
                 elif line.startswith('Normalized contraction coefficients'):
@@ -97,10 +99,10 @@ class Gwfn:
 
         self.atoms = self.set_atoms()
         self.shells = self.set_shells()
+        self.set_cusp()
 
     def set_shells(self):
         _shells = []
-        max_primitives = np.max(self._primitives)
         p = 0
         for nshell in range(self._nshell):
             _shells.append((
@@ -108,17 +110,17 @@ class Gwfn:
                 self._shell_types[nshell],
                 self._shell_positions[nshell],
                 self._primitives[nshell],
-                self._coefficients[p:p+self._primitives[nshell]] + [0] * (max_primitives - self._primitives[nshell]),
-                self._exponents[p:p + self._primitives[nshell]] + [0] * (max_primitives - self._primitives[nshell]),
+                self._coefficients[p:p+self._primitives[nshell]] + [0] * (self._max_primitives - self._primitives[nshell]),
+                self._exponents[p:p + self._primitives[nshell]] + [0] * (self._max_primitives - self._primitives[nshell]),
             ))
             p += self._primitives[nshell]
         return np.array(_shells, dtype=[
             ('type', np.int),
-            ('moment', np.float),
+            ('moment', np.int),
             ('position', np.float, 3),
             ('primitives', np.int),
-            ('coefficients', np.float, max_primitives),
-            ('exponents', np.float, max_primitives)
+            ('coefficients', np.float, self._max_primitives),
+            ('exponents', np.float, self._max_primitives)
         ])
 
     def set_atoms(self):
@@ -131,3 +133,10 @@ class Gwfn:
 
     def set_cusp(self):
         """set cusped orbitals"""
+        for shell in self.shells:
+            if shell['moment'] == 0 and shell['primitives'] >= 3:
+                popt, perr = multiple_fits(shell)
+                shell['type'] = self.SLATER_TYPE
+                shell['primitives'] = 1
+                shell['coefficients'] = np.array([popt[0]] + [0] * (self._max_primitives - 1))
+                shell['exponents'] = np.array([popt[1]] + [0] * (self._max_primitives - 1))
