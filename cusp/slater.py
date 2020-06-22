@@ -47,6 +47,6 @@ def multiple_fits(shell):
     fit_function = slater
     initial_guess = (1, 1)
 
-    xdata = np.linspace(0, 3.0, 50)
+    xdata = np.linspace(0.1, 3.0, 50)
     ydata = wfn_s(xdata, shell)
     return fit(fit_function, xdata, ydata, initial_guess, False)

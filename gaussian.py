@@ -6,7 +6,7 @@ from timeit import default_timer
 import numpy as np
 import numba as nb
 
-from readers.gwfn import Gwfn
+from readers.gwfn import Gwfn, GAUSSIAN_TYPE, SLATER_TYPE
 from readers.input import Input
 
 
@@ -130,10 +130,10 @@ def wfn_det(r, mo, shells):
             # radial part
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
             radial_part = 0.0
-            if shells[nshell].type == 0:
+            if shells[nshell].type == GAUSSIAN_TYPE:
                 for primitive in range(shells[nshell].primitives):
                     radial_part += shells[nshell].coefficients[primitive] * np.exp(-shells[nshell].exponents[primitive] * r2)  # 20s from 60s
-            elif shells[nshell].type == 1:
+            elif shells[nshell].type == SLATER_TYPE:
                 sqrt_r = np.sqrt(r2)
                 for primitive in range(shells[nshell].primitives):
                     radial_part += shells[nshell].coefficients[primitive] * np.exp(-shells[nshell].exponents[primitive] * sqrt_r)
@@ -160,11 +160,15 @@ def gradient_det(r, mo, shells):
             grad_r = rI[0] + rI[1] + rI[2]
             radial_part_1 = 0.0
             radial_part_2 = 0.0
-            for primitive in range(shells[nshell].primitives):
-                alpha = shells[nshell].exponents[primitive]
-                exponent = np.exp(-alpha * r2)
-                radial_part_1 -= 2 * alpha * grad_r * shells[nshell].coefficients[primitive] * exponent   # 20s from 60s
-                radial_part_2 += exponent
+            if shells[nshell].type == GAUSSIAN_TYPE:
+                for primitive in range(shells[nshell].primitives):
+                    alpha = shells[nshell].exponents[primitive]
+                    exponent = np.exp(-alpha * r2)
+                    radial_part_1 -= 2 * alpha * grad_r * shells[nshell].coefficients[primitive] * exponent   # 20s from 60s
+                    radial_part_2 += exponent
+            elif shells[nshell].type == SLATER_TYPE:
+                sqrt_r = np.sqrt(r2)
+                return
             # angular part
             angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part_1)  # 10s from 60s
             gradient_angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part_2)  # 10s from 60s
@@ -187,9 +191,15 @@ def laplacian_det(r, mo, shells):
             # radial part
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
             radial_part = 0.0
-            for primitive in range(shells[nshell].primitives):
-                alpha = shells[nshell].exponents[primitive]
-                radial_part += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * shells[nshell].coefficients[primitive] * np.exp(-alpha * r2)  # 20s from 60s
+            if shells[nshell].type == GAUSSIAN_TYPE:
+                for primitive in range(shells[nshell].primitives):
+                    alpha = shells[nshell].exponents[primitive]
+                    radial_part += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * shells[nshell].coefficients[primitive] * np.exp(-alpha * r2)  # 20s from 60s
+            elif shells[nshell].type == SLATER_TYPE:
+                sqrt_r = np.sqrt(r2)
+                for primitive in range(shells[nshell].primitives):
+                    alpha = shells[nshell].exponents[primitive]
+                    radial_part += alpha * (alpha - 2*(l+1)/sqrt_r) * shells[nshell].coefficients[primitive] * np.exp(-alpha * sqrt_r)
             # angular part
             angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part)  # 10s from 60s
             ao += 2*l+1
@@ -321,7 +331,7 @@ def local_kinetic(r_u, r_d, mo_u, mo_d, shells):
     -1/2 * laplacian(phi) / phi
     """
     return -laplacian_log(r_u, r_d, mo_u, mo_d, shells) / 2
-    # return -numerical_laplacian_log(r_u, r_d, mo_u, mo_d, shells, contraction_coefficients, exponents) / 2
+    # return -numerical_laplacian_log(r_u, r_d, mo_u, mo_d, shells) / 2
 
 
 @nb.jit(nopython=True, cache=True)
@@ -395,14 +405,18 @@ def main(mo, neu, ned, shells):
     steps = 10 * 1000 * 1000
     offset = 3.0
 
-    # x_min = np.min(shells.positions[0]) - offset
-    # y_min = np.min(shells.positions[1]) - offset
-    # z_min = np.min(shells.positions[2]) - offset
-    # x_max = np.max(shells.positions[0]) + offset
-    # y_max = np.max(shells.positions[1]) + offset
-    # z_max = np.max(shells.positions[2]) + offset
-    x_min = y_min = z_min = -offset
-    x_max = y_max = z_max = offset
+    def min_max_position(dim):
+        _min = _max = 0.0
+        for nshell in range(shells.shape[0]):
+            if shells[nshell].position[dim] < _min:
+                _min = shells[nshell].position[dim]
+            if shells[nshell].position[dim] > _max:
+                _max = shells[nshell].position[dim]
+        return _min - offset, _max + offset
+
+    x_min, x_max = min_max_position(0)
+    y_min, y_max = min_max_position(1)
+    z_min, z_max = min_max_position(2)
     low = np.array([x_min, y_min, z_min])
     high = np.array([x_max, y_max, z_max])
 

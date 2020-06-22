@@ -2,14 +2,15 @@
 import numpy as np
 from cusp.slater import multiple_fits
 
+GAUSSIAN_TYPE = 0
+SLATER_TYPE = 1
+
 
 class Gwfn:
     """Gaussian wfn reader from file."""
 
     # shell types (s/sp/p/d/f... 1/2/3/4/5...) -> l
     shell_map = {1: 0, 2: 1, 3: 1, 4: 2, 5: 3, 6: 4}
-    GAUSSIAN_TYPE = 0
-    SLATER_TYPE = 1
 
     def __init__(self, file_name):
         """Open file and read gwfn data."""
@@ -106,7 +107,7 @@ class Gwfn:
         p = 0
         for nshell in range(self._nshell):
             _shells.append((
-                self.GAUSSIAN_TYPE,
+                GAUSSIAN_TYPE,
                 self._shell_types[nshell],
                 self._shell_positions[nshell],
                 self._primitives[nshell],
@@ -136,7 +137,8 @@ class Gwfn:
         for shell in self.shells:
             if shell['moment'] == 0 and shell['primitives'] >= 3:
                 popt, perr = multiple_fits(shell)
-                shell['type'] = self.SLATER_TYPE
-                shell['primitives'] = 1
-                shell['coefficients'] = np.array([popt[0]] + [0] * (self._max_primitives - 1))
-                shell['exponents'] = np.array([popt[1]] + [0] * (self._max_primitives - 1))
+                primitives = len(popt) // 2
+                shell['type'] = SLATER_TYPE
+                shell['primitives'] = primitives
+                shell['coefficients'] = np.append(popt[0::2], np.zeros((self._max_primitives - primitives,)))
+                shell['exponents'] = np.append(popt[1::2], np.zeros((self._max_primitives - primitives,)))
