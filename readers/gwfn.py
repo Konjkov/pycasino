@@ -136,9 +136,8 @@ class Gwfn:
         """set cusped orbitals"""
         for shell in self.shells:
             if shell['moment'] == 0 and shell['primitives'] >= 3:
-                popt, perr = multiple_fits(shell)
-                primitives = len(popt) // 2
+                primitives, coefficients, exponents = multiple_fits(shell, 4)
                 shell['type'] = SLATER_TYPE
                 shell['primitives'] = primitives
-                shell['coefficients'] = np.append(popt[0::2], np.zeros((self._max_primitives - primitives,)))
-                shell['exponents'] = np.append(popt[1::2], np.zeros((self._max_primitives - primitives,)))
+                shell['coefficients'] = np.append(coefficients, np.zeros((self._max_primitives - primitives,)))
+                shell['exponents'] = np.append(exponents, np.zeros((self._max_primitives - primitives,)))

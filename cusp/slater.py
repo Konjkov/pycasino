@@ -36,17 +36,36 @@ def fit(fit_function, xdata, ydata, p0, plot):
     return popt, perr
 
 
-def multiple_fits(shell):
+def multiple_fits(shell, Z):
     """Fit all orbitals in GTO basis with slater orbitals
     """
 
-    def slater(r, a1, zeta1):
-        """dln(phi)/dr|r=r_nucl = -zeta1"""
-        return a1*np.exp(-zeta1*r)
+    def slater_2(r, a1, zeta1, zeta2):
+        """dln(phi)/dr|r=r_nucl = -Z"""
+        return a1*np.exp(-zeta1*r)/(zeta1-Z) - a1*np.exp(-zeta2*r)/(zeta2-Z)
 
-    fit_function = slater
-    initial_guess = (1, 1)
+    def slater_3(r, a1, a2, zeta1, zeta2, zeta3):
+        """dln(phi)/dr|r=r_nucl = -Z"""
+        return a1*np.exp(-zeta1*r)/(zeta1-Z) + a2*np.exp(-zeta2*r)/(zeta2-Z) - (a1 + a2)*np.exp(-zeta3*r)/(zeta3-Z)
 
-    xdata = np.linspace(0.1, 3.0, 50)
+    def slater_4(r, a1, a2, a3, zeta1, zeta2, zeta3, zeta4):
+        """dln(phi)/dr|r=r_nucl = -Z"""
+        return a1*np.exp(-zeta1*r)/(zeta1-Z) + a2*np.exp(-zeta2*r)/(zeta2-Z) + a3*np.exp(-zeta3*r)/(zeta3-Z) - (a1 + a2 + a3)*np.exp(-zeta4*r)/(zeta4-Z)
+
+    fit_function = slater_2
+    initial_guess = (1, Z-1, Z+1)
+
+    # fit_function = slater_3
+    # initial_guess = (1, 1, Z-1, Z+0.1, Z+1)
+
+    # fit_function = slater_4
+    # initial_guess = (1, 1, -1, Z-1, Z-1, Z+1, Z+1)
+
+    xdata = np.linspace(0.01, 3.0, 50)
     ydata = wfn_s(xdata, shell)
-    return fit(fit_function, xdata, ydata, initial_guess, False)
+    popt, perr = fit(fit_function, xdata, ydata, initial_guess, True)
+    primitives = len(popt) // 2 + 1
+    exponents = popt[primitives-1:]
+    coefficients = np.append(popt[:primitives-1], -np.sum(popt[:primitives-1])) / (exponents - Z)
+    print('dln(phi)/dr|r=r_nucl =', np.sum(coefficients * exponents/np.sum(coefficients)))
+    return primitives, coefficients, exponents
