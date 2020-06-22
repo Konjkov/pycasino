@@ -54,15 +54,15 @@ class Gwfn:
                     self.natom = read_int()
                 elif line.startswith('Atomic positions'):
                     pos = read_floats(self.natom * 3)
-                    self.atomic_positions = np.array(pos).reshape((self.natom, 3))
+                    self._atomic_positions = np.array(pos).reshape((self.natom, 3))
                 elif line.startswith('Atomic numbers for each atom'):
-                    self.atom_numbers = read_ints(self.natom)
+                    self._atom_numbers = read_ints(self.natom)
                 elif line.startswith('Valence charges for each atom'):
-                    self.atom_charges = np.array(read_floats(self.natom))
+                    self._atom_charges = read_floats(self.natom)
                 # BASIS SET
                 # ---------
                 elif line.startswith('Number of Gaussian centres'):
-                    self.natom = read_int()
+                    self._natoms = read_int()
                 elif line.startswith('Number of shells per primitive cell'):
                     self._nshell = read_int()
                 elif line.startswith('Number of basis functions'):
@@ -80,9 +80,9 @@ class Gwfn:
                 elif line.startswith('Sequence number of first shell on each centre'):
                     self.first_shells = np.array(read_ints(self.natom + 1))
                 elif line.startswith('Exponents of Gaussian primitives'):
-                    self._exponents = np.array(read_floats(self._nprimitives))
+                    self._exponents = read_floats(self._nprimitives)
                 elif line.startswith('Normalized contraction coefficients'):
-                    self._coefficients = np.array(read_floats(self._nprimitives))
+                    self._coefficients = read_floats(self._nprimitives)
                 elif line.startswith('Position of each shell (au)'):
                     pos = read_floats(3 * self._nshell)
                     self._shell_positions = np.array(pos).reshape((self._nshell, 3))
@@ -97,16 +97,12 @@ class Gwfn:
             max_primitives = np.max(self._primitives)
             p = 0
             for nshell in range(self._nshell):
-                _coefficients = np.zeros((max_primitives,))
-                _coefficients[0:self._primitives[nshell]] = self._coefficients[p:p+self._primitives[nshell]]
-                _exponents = np.zeros((max_primitives,))
-                _exponents[0:self._primitives[nshell]] = self._exponents[p:p+self._primitives[nshell]]
                 self._shells.append((
                     self._shell_types[nshell],
                     self._shell_positions[nshell],
                     self._primitives[nshell],
-                    _coefficients,
-                    _exponents
+                    self._coefficients[p:p+self._primitives[nshell]] + [0] * (max_primitives - self._primitives[nshell]),
+                    self._exponents[p:p + self._primitives[nshell]] + [0] * (max_primitives - self._primitives[nshell]),
                 ))
                 p += self._primitives[nshell]
             self.shells = np.array(self._shells, dtype=[
@@ -116,3 +112,5 @@ class Gwfn:
                 ('coefficients', np.float, max_primitives),
                 ('exponents', np.float, max_primitives)
             ])
+            self._atoms = [(self._atom_numbers[natom], self._atom_charges[natom], self._atomic_positions[natom]) for natom in range(self._natoms)]
+            self.atoms = np.array(self._atoms, dtype=[('number', np.int), ('charge', np.int), ('position', np.float, 3)])

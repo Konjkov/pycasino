@@ -320,12 +320,12 @@ def local_kinetic(r_u, r_d, mo_u, mo_d, shells):
 
 
 @nb.jit(nopython=True, cache=True)
-def coulomb(r_u, r_d, atomic_positions, atom_charges):
+def coulomb(r_u, r_d, atoms):
     """Coulomb attraction between the electron and nucleus."""
     res = 0.0
-    for atom in range(atomic_positions.shape[0]):
-        I = atomic_positions[atom]
-        charge = atom_charges[atom]
+    for atom in range(atoms.shape[0]):
+        I = atoms[atom].position
+        charge = atoms[atom].charge
         for i in range(r_u.shape[0]):
             x = r_u[i][0] - I[0]
             y = r_u[i][1] - I[1]
@@ -368,8 +368,8 @@ def coulomb(r_u, r_d, atomic_positions, atom_charges):
 
 
 @nb.jit(nopython=True, cache=True)
-def local_energy(r_u, r_d, mo_u, mo_d, shells, atomic_positions, atom_charges):
-    return coulomb(r_u, r_d, atomic_positions, atom_charges) + local_kinetic(r_u, r_d, mo_u, mo_d, shells)
+def local_energy(r_u, r_d, mo_u, mo_d, shells, atoms):
+    return coulomb(r_u, r_d, atoms) + local_kinetic(r_u, r_d, mo_u, mo_d, shells)
 
 
 @nb.jit(nopython=True, cache=True)

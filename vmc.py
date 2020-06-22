@@ -8,18 +8,18 @@ import pyblock
 import numpy as np
 import numba as nb
 
-from gaussian import wfn, local_energy, nuclear_repulsion
+from gaussian import wfn, local_energy
 from readers.gwfn import Gwfn
 from readers.input import Input
 
 
 @nb.jit(nopython=True, cache=True)
-def initial_position(ne, atomic_positions):
+def initial_position(ne, atoms):
     """Initial positions of electrons"""
-    atoms = atomic_positions.shape[0]
+    natoms = atoms.shape[0]
     X = np.zeros((ne, 3))
     for i in range(ne):
-        X[i] = atomic_positions[randrange(atoms)]
+        X[i] = atoms[randrange(natoms)].position
     return X + random_normal_step(1.0, ne)
 
 
@@ -72,7 +72,7 @@ def equilibration(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, shells):
 
 
 @nb.jit(nopython=True, cache=True)
-def accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, shells, atomic_positions, atom_charges):
+def accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, shells, atoms):
     """VMC simple accumulation"""
     j = 0
     E = np.zeros((steps,))
@@ -82,7 +82,7 @@ def accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, shells, atomic_po
         new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, shells)
         if (new_p/p)**2 > random():
             X_u, X_d, p = new_X_u, new_X_d, new_p
-            E[j] = local_energy(X_u, X_d, mo_u, mo_d, shells, atomic_positions, atom_charges)
+            E[j] = local_energy(X_u, X_d, mo_u, mo_d, shells, atoms)
             j += 1
     return E
 
@@ -104,7 +104,7 @@ def averaging_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, shells,
 
 
 @nb.jit(nopython=True, cache=True)
-def vmc(equlib, stat, mo, neu, ned, shells, atomic_positions, atom_charges):
+def vmc(equlib, stat, mo, neu, ned, shells, atoms):
     """configuration-by-configuration sampling (CBCS)"""
 
     dX = optimal_vmc_step(neu, ned)
@@ -112,8 +112,8 @@ def vmc(equlib, stat, mo, neu, ned, shells, atomic_positions, atom_charges):
     mo_u = mo[0][:neu]
     mo_d = mo[0][:ned]
 
-    X_u = initial_position(neu, atomic_positions)
-    X_d = initial_position(ned, atomic_positions)
+    X_u = initial_position(neu, atoms)
+    X_d = initial_position(ned, atoms)
     p = wfn(X_u, X_d, mo_u, mo_d, shells)
 
     equ = equilibration(equlib, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, shells)
@@ -122,7 +122,7 @@ def vmc(equlib, stat, mo, neu, ned, shells, atomic_positions, atom_charges):
     opt = equilibration(10000, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, shells)
     print(10000/opt)
 
-    return accumulation(stat, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, shells, atomic_positions, atom_charges)
+    return accumulation(stat, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, shells, atoms)
 
 
 if __name__ == '__main__':
@@ -151,7 +151,7 @@ if __name__ == '__main__':
     # inp = Input('test/s4-c2v/HF/cc-pVQZ/input')
 
     start = default_timer()
-    E = vmc(50000, 1 * 1024 * 1024, gwfn.mo, inp.neu, inp.ned, gwfn.shells, gwfn.atomic_positions, gwfn.atom_charges)
+    E = vmc(50000, 1 * 1024 * 1024, gwfn.mo, inp.neu, inp.ned, gwfn.shells, gwfn.atoms)
     end = default_timer()
     reblock_data = pyblock.blocking.reblock(E)
     # for reblock_iter in reblock_data:
