@@ -7,6 +7,8 @@ class Gwfn:
 
     # shell types (s/sp/p/d/f... 1/2/3/4/5...) -> l
     shell_map = {1: 0, 2: 1, 3: 1, 4: 2, 5: 3, 6: 4}
+    GAUSSIAN_TYPE = 0
+    SLATER_TYPE = 1
 
     def __init__(self, file_name):
         """Open file and read gwfn data."""
@@ -92,25 +94,40 @@ class Gwfn:
                     fp.readline()  # skip line
                     mo = read_floats((self.unrestricted + 1) * self.nbasis_functions * self.nbasis_functions)
                     self.mo = np.array(mo).reshape((self.unrestricted + 1, self.nbasis_functions, self.nbasis_functions))
-            # post-calculation
-            self._shells = []
-            max_primitives = np.max(self._primitives)
-            p = 0
-            for nshell in range(self._nshell):
-                self._shells.append((
-                    self._shell_types[nshell],
-                    self._shell_positions[nshell],
-                    self._primitives[nshell],
-                    self._coefficients[p:p+self._primitives[nshell]] + [0] * (max_primitives - self._primitives[nshell]),
-                    self._exponents[p:p + self._primitives[nshell]] + [0] * (max_primitives - self._primitives[nshell]),
-                ))
-                p += self._primitives[nshell]
-            self.shells = np.array(self._shells, dtype=[
-                ('moment', np.float),
-                ('position', np.float, 3),
-                ('primitives', np.int),
-                ('coefficients', np.float, max_primitives),
-                ('exponents', np.float, max_primitives)
-            ])
-            self._atoms = [(self._atom_numbers[natom], self._atom_charges[natom], self._atomic_positions[natom]) for natom in range(self._natoms)]
-            self.atoms = np.array(self._atoms, dtype=[('number', np.int), ('charge', np.int), ('position', np.float, 3)])
+
+        self.atoms = self.set_atoms()
+        self.shells = self.set_shells()
+
+    def set_shells(self):
+        _shells = []
+        max_primitives = np.max(self._primitives)
+        p = 0
+        for nshell in range(self._nshell):
+            _shells.append((
+                self.GAUSSIAN_TYPE,
+                self._shell_types[nshell],
+                self._shell_positions[nshell],
+                self._primitives[nshell],
+                self._coefficients[p:p+self._primitives[nshell]] + [0] * (max_primitives - self._primitives[nshell]),
+                self._exponents[p:p + self._primitives[nshell]] + [0] * (max_primitives - self._primitives[nshell]),
+            ))
+            p += self._primitives[nshell]
+        return np.array(_shells, dtype=[
+            ('type', np.int),
+            ('moment', np.float),
+            ('position', np.float, 3),
+            ('primitives', np.int),
+            ('coefficients', np.float, max_primitives),
+            ('exponents', np.float, max_primitives)
+        ])
+
+    def set_atoms(self):
+        _atoms = [(
+            self._atom_numbers[natom],
+            self._atom_charges[natom],
+            self._atomic_positions[natom]
+        ) for natom in range(self._natoms)]
+        return np.array(_atoms, dtype=[('number', np.int), ('charge', np.int), ('position', np.float, 3)])
+
+    def set_cusp(self):
+        """set cusped orbitals"""

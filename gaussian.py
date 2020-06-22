@@ -130,8 +130,13 @@ def wfn_det(r, mo, shells):
             # radial part
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
             radial_part = 0.0
-            for primitive in range(shells[nshell].primitives):
-                radial_part += shells[nshell].coefficients[primitive] * np.exp(-shells[nshell].exponents[primitive] * r2)  # 20s from 60s
+            if shells[nshell].type == 0:
+                for primitive in range(shells[nshell].primitives):
+                    radial_part += shells[nshell].coefficients[primitive] * np.exp(-shells[nshell].exponents[primitive] * r2)  # 20s from 60s
+            elif shells[nshell].type == 1:
+                sqrt_r = np.sqrt(r2)
+                for primitive in range(shells[nshell].primitives):
+                    radial_part += shells[nshell].coefficients[primitive] * np.exp(-shells[nshell].exponents[primitive] * sqrt_r)  # 20s from 60s
             # angular part
             angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part)  # 10s from 60s
             ao += 2*l+1
