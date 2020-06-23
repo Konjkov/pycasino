@@ -11,17 +11,16 @@ from readers.input import Input
 
 
 @nb.jit(nopython=True, cache=True)
-def nuclear_repulsion(atomic_positions, atom_charges):
-
-    res = 0.0
-    for i in range(atomic_positions.shape[0]):
-        for j in range(i+1, atomic_positions.shape[0]):
-            x = atomic_positions[i][0] - atomic_positions[j][0]
-            y = atomic_positions[i][1] - atomic_positions[j][1]
-            z = atomic_positions[i][2] - atomic_positions[j][2]
-            r2 = x * x + y * y + z * z
-            res += atom_charges[i] * atom_charges[j] / sqrt(r2)
-    return res
+def nuclear_repulsion(atoms):
+    """nuclear-nuclear repulsion"""
+    result = 0.0
+    natoms = atoms.shape[0]
+    for natom1 in range(natoms):
+        for natom2 in range(natoms):
+            if natom1 > natom2:
+                r = atoms[natom1].position - atoms[natom2].position
+                result += atoms[natom1].charge * atoms[natom2].charge/np.linalg.norm(r)
+    return result
 
 
 @nb.jit(nopython=True, cache=True)
@@ -105,12 +104,13 @@ def gradient_angular_part(r, l, result, radial):
 
 
 @nb.jit(nopython=True, cache=True)
-def wfn_det(r, mo, shells):
+def wfn_det(r, mo, atoms, shells):
     """
     Slater determinant
     :param r: electrons coordinates shape = (nelec, 3)
     :param mo: MO-coefficients shape = (nbasis_functions, nelec)
-    :param shell - struct of
+    :param atoms - struct of
+    :param shells - struct of
         moment: l-number of the shell shape = (nshell, )
         shell_positions: centerd position of the shell shape = (nshell, 3)
         primitives: number of primitives on each shell shape = (nshell,)
@@ -122,115 +122,118 @@ def wfn_det(r, mo, shells):
     rI = np.zeros((3,))
     for i in range(mo.shape[0]):
         ao = 0
-        for nshell in range(shells.shape[0]):
+        for natom in range(atoms.shape[0]):
+            atom = atoms[natom]
             for j in range(3):
-                rI[j] = r[i, j] - shells[nshell].position[j]
-            # angular momentum
-            l = shells[nshell].moment
-            # radial part
+                rI[j] = r[i, j] - atom.position[j]
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
-            radial_part = 0.0
-            if shells[nshell].type == GAUSSIAN_TYPE:
-                for primitive in range(shells[nshell].primitives):
-                    radial_part += shells[nshell].coefficients[primitive] * np.exp(-shells[nshell].exponents[primitive] * r2)  # 20s from 60s
-            elif shells[nshell].type == SLATER_TYPE:
-                sqrt_r = np.sqrt(r2)
-                for primitive in range(shells[nshell].primitives):
-                    radial_part += shells[nshell].coefficients[primitive] * np.exp(-shells[nshell].exponents[primitive] * sqrt_r)
-            # angular part
-            angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part)  # 10s from 60s
-            ao += 2*l+1
+            sqrt_r = np.sqrt(r2)
+            for nshell in range(atom.shells[0], atom.shells[1]):
+                # radial part
+                radial_part = 0.0
+                if shells[nshell].type == GAUSSIAN_TYPE:
+                    for primitive in range(shells[nshell].primitives):
+                        radial_part += shells[nshell].coefficients[primitive] * np.exp(-shells[nshell].exponents[primitive] * r2)  # 20s from 60s
+                elif shells[nshell].type == SLATER_TYPE:
+                    for primitive in range(shells[nshell].primitives):
+                        radial_part += shells[nshell].coefficients[primitive] * np.exp(-shells[nshell].exponents[primitive] * sqrt_r)
+                # angular part
+                l = shells[nshell].moment
+                angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part)  # 10s from 60s
+                ao += 2*l+1
     return np.dot(mo, orbital.T)
 
 
 @nb.jit(nopython=True, cache=True)
-def gradient_det(r, mo, shells):
+def gradient_det(r, mo, atoms, shells):
     """Orbital coefficients for every AO at electron position r."""
     orbital = np.zeros(mo.shape)
     rI = np.zeros((3,))
     for i in range(mo.shape[0]):
         ao = 0
-        for nshell in range(shells.shape[0]):
+        for natom in range(atoms.shape[0]):
+            atom = atoms[natom]
             for j in range(3):
-                rI[j] = r[i, j] - shells[nshell].position[j]
-            # angular momentum
-            l = shells[nshell].moment
-            # radial part
+                rI[j] = r[i, j] - atom.position[j]
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
             grad_r = rI[0] + rI[1] + rI[2]
-            radial_part_1 = 0.0
-            radial_part_2 = 0.0
-            if shells[nshell].type == GAUSSIAN_TYPE:
-                for primitive in range(shells[nshell].primitives):
-                    alpha = shells[nshell].exponents[primitive]
-                    exponent = np.exp(-alpha * r2)
-                    radial_part_1 -= 2 * alpha * grad_r * shells[nshell].coefficients[primitive] * exponent   # 20s from 60s
-                    radial_part_2 += exponent
-            elif shells[nshell].type == SLATER_TYPE:
-                sqrt_r = np.sqrt(r2)
-                return
-            # angular part
-            angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part_1)  # 10s from 60s
-            gradient_angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part_2)  # 10s from 60s
-            ao += 2*l+1
+            for nshell in range(atom.shells[0], atom.shells[1]):
+                # radial part
+                radial_part_1 = 0.0
+                radial_part_2 = 0.0
+                if shells[nshell].type == GAUSSIAN_TYPE:
+                    for primitive in range(shells[nshell].primitives):
+                        alpha = shells[nshell].exponents[primitive]
+                        exponent = np.exp(-alpha * r2)
+                        radial_part_1 -= 2 * alpha * grad_r * shells[nshell].coefficients[primitive] * exponent   # 20s from 60s
+                        radial_part_2 += exponent
+                elif shells[nshell].type == SLATER_TYPE:
+                    sqrt_r = np.sqrt(r2)
+                    return
+                # angular part
+                l = shells[nshell].moment
+                angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part_1)  # 10s from 60s
+                gradient_angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part_2)  # 10s from 60s
+                ao += 2*l+1
     return np.dot(mo, orbital.T)
 
 
 @nb.jit(nopython=True, cache=True)
-def laplacian_det(r, mo, shells):
+def laplacian_det(r, mo, atoms, shells):
     """Orbital coefficients for every AO at electron position r."""
     orbital = np.zeros(mo.shape)
     rI = np.zeros((3,))
     for i in range(mo.shape[0]):
         ao = 0
-        for nshell in range(shells.shape[0]):
+        for natom in range(atoms.shape[0]):
+            atom = atoms[natom]
             for j in range(3):
-                rI[j] = r[i, j] - shells[nshell].position[j]
-            # angular momentum
-            l = shells[nshell].moment
-            # radial part
+                rI[j] = r[i, j] - atom.position[j]
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
-            radial_part = 0.0
-            if shells[nshell].type == GAUSSIAN_TYPE:
-                for primitive in range(shells[nshell].primitives):
-                    alpha = shells[nshell].exponents[primitive]
-                    radial_part += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * shells[nshell].coefficients[primitive] * np.exp(-alpha * r2)  # 20s from 60s
-            elif shells[nshell].type == SLATER_TYPE:
-                sqrt_r = np.sqrt(r2)
-                for primitive in range(shells[nshell].primitives):
-                    alpha = shells[nshell].exponents[primitive]
-                    radial_part += alpha * (alpha - 2*(l+1)/sqrt_r) * shells[nshell].coefficients[primitive] * np.exp(-alpha * sqrt_r)
-            # angular part
-            angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part)  # 10s from 60s
-            ao += 2*l+1
+            for nshell in range(atom.shells[0], atom.shells[1]):
+                l = shells[nshell].moment
+                # radial part
+                radial_part = 0.0
+                if shells[nshell].type == GAUSSIAN_TYPE:
+                    for primitive in range(shells[nshell].primitives):
+                        alpha = shells[nshell].exponents[primitive]
+                        radial_part += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * shells[nshell].coefficients[primitive] * np.exp(-alpha * r2)  # 20s from 60s
+                elif shells[nshell].type == SLATER_TYPE:
+                    sqrt_r = np.sqrt(r2)
+                    for primitive in range(shells[nshell].primitives):
+                        alpha = shells[nshell].exponents[primitive]
+                        radial_part += alpha * (alpha - 2*(l+1)/sqrt_r) * shells[nshell].coefficients[primitive] * np.exp(-alpha * sqrt_r)
+                # angular part
+                angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part)  # 10s from 60s
+                ao += 2*l+1
     return np.dot(mo, orbital.T)
 
 
 @nb.jit(nopython=True, cache=True)
-def wfn(r_u, r_d, mo_u, mo_d, shells):
+def wfn(r_u, r_d, mo_u, mo_d, atoms, shells):
     """all electron wfn on the points without norm factor 1/sqrt(N!).
 
     Cauchy–Binet formula
     """
-    u_orb = wfn_det(r_u, mo_u, shells)
-    d_orb = wfn_det(r_d, mo_d, shells)
+    u_orb = wfn_det(r_u, mo_u, atoms, shells)
+    d_orb = wfn_det(r_d, mo_d, atoms, shells)
     return np.linalg.det(u_orb) * np.linalg.det(d_orb)
 
 
 @nb.jit(nopython=True, cache=True)
-def gradient_log(r_u, r_d, mo_u, mo_d, shells):
+def gradient_log(r_u, r_d, mo_u, mo_d, atoms, shells):
     """gradient
     """
-    u_orb = wfn_det(r_u, mo_u, shells)
-    u_grad = gradient_det(r_u, mo_u, shells)
+    u_orb = wfn_det(r_u, mo_u, atoms, shells)
+    u_grad = gradient_det(r_u, mo_u, atoms, shells)
     res_u = 0
     for i in range(r_u.shape[0]):
         temp_det = np.copy(u_orb)
         temp_det[i] = u_grad[i]
         res_u += np.linalg.det(temp_det)
 
-    d_orb = wfn_det(r_d, mo_d, shells)
-    d_grad = gradient_det(r_d, mo_d, shells)
+    d_orb = wfn_det(r_d, mo_d, atoms, shells)
+    d_grad = gradient_det(r_d, mo_d, atoms, shells)
     res_d = 0
     for i in range(r_d.shape[0]):
         temp_det = np.copy(d_orb)
@@ -241,19 +244,19 @@ def gradient_log(r_u, r_d, mo_u, mo_d, shells):
 
 
 @nb.jit(nopython=True, cache=True)
-def laplacian_log(r_u, r_d, mo_u, mo_d, shells):
+def laplacian_log(r_u, r_d, mo_u, mo_d, atoms, shells):
     """laplacian
     """
-    u_orb = wfn_det(r_u, mo_u, shells)
-    u_lap = laplacian_det(r_u, mo_u, shells)
+    u_orb = wfn_det(r_u, mo_u, atoms, shells)
+    u_lap = laplacian_det(r_u, mo_u, atoms, shells)
     res_u = 0
     for i in range(r_u.shape[0]):
         temp_det = np.copy(u_orb)
         temp_det[i] = u_lap[i]
         res_u += np.linalg.det(temp_det)
 
-    d_orb = wfn_det(r_d, mo_d, shells)
-    d_lap = laplacian_det(r_d, mo_d, shells)
+    d_orb = wfn_det(r_d, mo_d, atoms, shells)
+    d_lap = laplacian_det(r_d, mo_d, atoms, shells)
     res_d = 0
     for i in range(r_d.shape[0]):
         temp_det = np.copy(d_orb)
@@ -264,74 +267,74 @@ def laplacian_log(r_u, r_d, mo_u, mo_d, shells):
 
 
 @nb.jit(nopython=True, cache=True)
-def numerical_gradient_log(r_u, r_d, mo_u, mo_d, shells):
+def numerical_gradient_log(r_u, r_d, mo_u, mo_d, atoms, shells):
     """Numerical gradient
     :param r_u: up electrons coordinates shape = (nelec, 3)
     :param r_d: down electrons coordinates shape = (nelec, 3)
     """
     delta = 0.00001
 
-    u_det = np.linalg.det(wfn_det(r_u, mo_u, shells))
+    u_det = np.linalg.det(wfn_det(r_u, mo_u, atoms, shells))
     res_u = 0
     for i in range(r_u.shape[0]):
         for j in range(r_u.shape[1]):
             r_u[i, j] -= delta
-            res_u -= np.linalg.det(wfn_det(r_u, mo_u, shells))
+            res_u -= np.linalg.det(wfn_det(r_u, mo_u, atoms, shells))
             r_u[i, j] += 2 * delta
-            res_u += np.linalg.det(wfn_det(r_u, mo_u, shells))
+            res_u += np.linalg.det(wfn_det(r_u, mo_u, atoms, shells))
             r_u[i, j] -= delta
 
-    d_det = np.linalg.det(wfn_det(r_d, mo_d, shells))
+    d_det = np.linalg.det(wfn_det(r_d, mo_d, atoms, shells))
     res_d = 0
     for i in range(r_d.shape[0]):
         for j in range(r_d.shape[1]):
             r_d[i, j] -= delta
-            res_d -= np.linalg.det(wfn_det(r_d, mo_d, shells))
+            res_d -= np.linalg.det(wfn_det(r_d, mo_d, atoms, shells))
             r_d[i, j] += 2 * delta
-            res_d += np.linalg.det(wfn_det(r_d, mo_d, shells))
+            res_d += np.linalg.det(wfn_det(r_d, mo_d, atoms, shells))
             r_d[i, j] -= delta
 
     return (res_u / u_det + res_d / d_det) / delta / 2
 
 
 @nb.jit(nopython=True, cache=True)
-def numerical_laplacian_log(r_u, r_d, mo_u, mo_d, shells):
+def numerical_laplacian_log(r_u, r_d, mo_u, mo_d, atoms, shells):
     """Numerical laplacian
     :param r_u: up electrons coordinates shape = (nelec, 3)
     :param r_d: down electrons coordinates shape = (nelec, 3)
     """
     delta = 0.00001
 
-    u_det = np.linalg.det(wfn_det(r_u, mo_u, shells))
+    u_det = np.linalg.det(wfn_det(r_u, mo_u, atoms, shells))
     res_u = 0
     for i in range(r_u.shape[0]):
         for j in range(r_u.shape[1]):
             r_u[i, j] -= delta
-            res_u += np.linalg.det(wfn_det(r_u, mo_u, shells))
+            res_u += np.linalg.det(wfn_det(r_u, mo_u, atoms, shells))
             r_u[i, j] += 2 * delta
-            res_u += np.linalg.det(wfn_det(r_u, mo_u, shells))
+            res_u += np.linalg.det(wfn_det(r_u, mo_u, atoms, shells))
             r_u[i, j] -= delta
 
-    d_det = np.linalg.det(wfn_det(r_d, mo_d, shells))
+    d_det = np.linalg.det(wfn_det(r_d, mo_d, atoms, shells))
     res_d = 0
     for i in range(r_d.shape[0]):
         for j in range(r_d.shape[1]):
             r_d[i, j] -= delta
-            res_d += np.linalg.det(wfn_det(r_d, mo_d, shells))
+            res_d += np.linalg.det(wfn_det(r_d, mo_d, atoms, shells))
             r_d[i, j] += 2 * delta
-            res_d += np.linalg.det(wfn_det(r_d, mo_d, shells))
+            res_d += np.linalg.det(wfn_det(r_d, mo_d, atoms, shells))
             r_d[i, j] -= delta
 
     return (res_u / u_det - 2 * r_u.size + res_d / d_det - 2 * r_d.size) / delta / delta
 
 
 @nb.jit(nopython=True, cache=True)
-def local_kinetic(r_u, r_d, mo_u, mo_d, shells):
+def local_kinetic(r_u, r_d, mo_u, mo_d, atoms, shells):
     """local kinetic energy on the point.
     -1/2 * laplacian(phi) / phi
     """
-    return -laplacian_log(r_u, r_d, mo_u, mo_d, shells) / 2
-    # return -numerical_laplacian_log(r_u, r_d, mo_u, mo_d, shells) / 2
+    return -laplacian_log(r_u, r_d, mo_u, mo_d, atoms, shells) / 2
+    # return -numerical_laplacian_log(r_u, r_d, mo_u, mo_d, atoms, shells) / 2
 
 
 @nb.jit(nopython=True, cache=True)
@@ -383,21 +386,8 @@ def coulomb(r_u, r_d, atoms):
 
 
 @nb.jit(nopython=True, cache=True)
-def nuclear_repulsion(atoms):
-    """nuclear-nuclear repulsion"""
-    result = 0.0
-    natoms = len(atoms)
-    for natom1 in range(natoms):
-        for natom2 in range(natoms):
-            if natom1 > natom2:
-                r = atoms[natom1].position - atoms[natom2].position
-                result += atoms[natom1].charge * atoms[natom2].charge/np.linalg.norm(r)
-    return result
-
-
-@nb.jit(nopython=True, cache=True)
-def local_energy(r_u, r_d, mo_u, mo_d, shells, atoms):
-    return coulomb(r_u, r_d, atoms) + local_kinetic(r_u, r_d, mo_u, mo_d, shells)
+def local_energy(r_u, r_d, mo_u, mo_d, atoms, shells):
+    return coulomb(r_u, r_d, atoms) + local_kinetic(r_u, r_d, mo_u, mo_d, atoms, shells)
 
 
 @nb.jit(nopython=True, cache=True)
@@ -414,7 +404,7 @@ def random_position(low, high, ne):
 
 
 @nb.jit(nopython=True, cache=True)
-def main(mo, neu, ned, shells):
+def main(mo, neu, ned, atoms, shells):
     steps = 10 * 1000 * 1000
     offset = 3.0
 
@@ -442,7 +432,7 @@ def main(mo, neu, ned, shells):
     for i in range(steps):
         X_u = random_position(low, high, neu)
         X_d = random_position(low, high, ned)
-        integral += wfn(X_u, X_d, mo_u, mo_d, shells) ** 2
+        integral += wfn(X_u, X_d, mo_u, mo_d, atoms, shells) ** 2
 
     return integral * dV / gamma(neu+1) / gamma(ned+1)
 
@@ -473,6 +463,6 @@ if __name__ == '__main__':
     # inp = Input('test/acetaldehyde/HF/cc-pVQZ/input')
 
     start = default_timer()
-    print(main(gwfn.mo, inp.neu, inp.ned, gwfn.shells))
+    print(main(gwfn.mo, inp.neu, inp.ned, gwfn.atoms, gwfn.shells))
     end = default_timer()
     print(f'total time {end-start}')

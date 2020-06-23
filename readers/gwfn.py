@@ -100,7 +100,7 @@ class Gwfn:
 
         self.atoms = self.set_atoms()
         self.shells = self.set_shells()
-        self.set_cusp()
+        # self.set_cusp()
 
     def set_shells(self):
         _shells = []
@@ -141,7 +141,7 @@ class Gwfn:
     def set_cusp(self):
         """set cusped orbitals"""
         for atom in self.atoms:
-            for shell in self.shells[atom['shells'][0]:atom['shells'][1]]:
+            for shell in self.shells[slice(*atom['shells'])]:
                 if shell['moment'] == 0 and shell['primitives'] >= 3:
                     primitives, coefficients, exponents = multiple_fits(shell, atom['charge'])
                     shell['type'] = SLATER_TYPE
