@@ -83,7 +83,7 @@ class Gwfn:
                     self._primitives = np.array(read_ints(self._nshell))
                     self._max_primitives = np.max(self._primitives)
                 elif line.startswith('Sequence number of first shell on each centre'):
-                    self.first_shells = np.array(read_ints(self._natoms + 1))
+                    self._first_shells = read_ints(self._natoms + 1)
                 elif line.startswith('Exponents of Gaussian primitives'):
                     self._exponents = read_floats(self._nprimitives)
                 elif line.startswith('Normalized contraction coefficients'):
@@ -128,16 +128,23 @@ class Gwfn:
         _atoms = [(
             self._atom_numbers[natom],
             self._atom_charges[natom],
-            self._atomic_positions[natom]
+            self._atomic_positions[natom],
+            [self._first_shells[natom]-1, self._first_shells[natom+1]-1],
         ) for natom in range(self._natoms)]
-        return np.array(_atoms, dtype=[('number', np.int), ('charge', np.int), ('position', np.float, 3)])
+        return np.array(_atoms, dtype=[
+            ('number', np.int),
+            ('charge', np.int),
+            ('position', np.float, 3),
+            ('shells', np.int, 2),
+        ])
 
     def set_cusp(self):
         """set cusped orbitals"""
-        for shell in self.shells:
-            if shell['moment'] == 0 and shell['primitives'] >= 3:
-                primitives, coefficients, exponents = multiple_fits(shell, 4)
-                shell['type'] = SLATER_TYPE
-                shell['primitives'] = primitives
-                shell['coefficients'] = np.append(coefficients, np.zeros((self._max_primitives - primitives,)))
-                shell['exponents'] = np.append(exponents, np.zeros((self._max_primitives - primitives,)))
+        for atom in self.atoms:
+            for shell in self.shells[atom['shells'][0]:atom['shells'][1]]:
+                if shell['moment'] == 0 and shell['primitives'] >= 3:
+                    primitives, coefficients, exponents = multiple_fits(shell, atom['charge'])
+                    shell['type'] = SLATER_TYPE
+                    shell['primitives'] = primitives
+                    shell['coefficients'] = np.append(coefficients, np.zeros((self._max_primitives - primitives,)))
+                    shell['exponents'] = np.append(exponents, np.zeros((self._max_primitives - primitives,)))
