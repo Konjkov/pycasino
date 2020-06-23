@@ -8,7 +8,7 @@ import pyblock
 import numpy as np
 import numba as nb
 
-from gaussian import wfn, local_energy
+from gaussian import wfn, local_energy, nuclear_repulsion
 from readers.gwfn import Gwfn
 from readers.input import Input
 
@@ -153,7 +153,7 @@ if __name__ == '__main__':
     start = default_timer()
     E = vmc(50000, 1 * 1024 * 1024, gwfn.mo, inp.neu, inp.ned, gwfn.shells, gwfn.atoms)
     end = default_timer()
-    reblock_data = pyblock.blocking.reblock(E)
+    reblock_data = pyblock.blocking.reblock(E + nuclear_repulsion(gwfn.atoms))
     # for reblock_iter in reblock_data:
     #     print(reblock_iter)
     opt = pyblock.blocking.find_optimal_block(E.size, reblock_data)

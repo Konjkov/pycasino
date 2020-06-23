@@ -383,6 +383,19 @@ def coulomb(r_u, r_d, atoms):
 
 
 @nb.jit(nopython=True, cache=True)
+def nuclear_repulsion(atoms):
+    """nuclear-nuclear repulsion"""
+    result = 0.0
+    natoms = len(atoms)
+    for natom1 in range(natoms):
+        for natom2 in range(natoms):
+            if natom1 > natom2:
+                r = atoms[natom1].position - atoms[natom2].position
+                result += atoms[natom1].charge * atoms[natom2].charge/np.linalg.norm(r)
+    return result
+
+
+@nb.jit(nopython=True, cache=True)
 def local_energy(r_u, r_d, mo_u, mo_d, shells, atoms):
     return coulomb(r_u, r_d, atoms) + local_kinetic(r_u, r_d, mo_u, mo_d, shells)
 
