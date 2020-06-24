@@ -100,12 +100,33 @@ class Gwfn(Casino):
                 # --------------------
                 elif line.startswith('ORBITAL COEFFICIENTS'):
                     fp.readline()  # skip line with -----------
-                    mo = self.read_floats((self.unrestricted + 1) * self.nbasis_functions * self.nbasis_functions)
-                    self.mo = np.array(mo).reshape((self.unrestricted + 1, self.nbasis_functions, self.nbasis_functions))
+                    if self.unrestricted:
+                        mo = self.read_floats(2 * self.nbasis_functions * self.nbasis_functions)
+                        mo_up = mo[:self.nbasis_functions * self.nbasis_functions]
+                        mo_down = mo[self.nbasis_functions * self.nbasis_functions:]
+                        self.mo_up = np.array(mo_up).reshape((self.nbasis_functions, self.nbasis_functions))
+                        self.mo_down = np.array(mo_down).reshape((self.nbasis_functions, self.nbasis_functions))
+                    else:
+                        mo_up = self.read_floats(self.nbasis_functions * self.nbasis_functions)
+                        self.mo_up = self.mo_down = np.array(mo_up).reshape((self.nbasis_functions, self.nbasis_functions))
 
         self.atoms = self.set_atoms()
         self.shells = self.set_shells()
-        # self.set_cusp()
+        self.set_cusp()
+
+    def set_atoms(self):
+        _atoms = [(
+            self._atom_numbers[natom],
+            self._atom_charges[natom],
+            self._atomic_positions[natom],
+            [self._first_shells[natom]-1, self._first_shells[natom+1]-1],
+        ) for natom in range(self._natoms)]
+        return np.array(_atoms, dtype=[
+            ('number', np.int),
+            ('charge', np.int),
+            ('position', np.float, 3),
+            ('shells', np.int, 2),
+        ])
 
     def set_shells(self):
         _shells = []
@@ -127,20 +148,6 @@ class Gwfn(Casino):
             ('primitives', np.int),
             ('coefficients', np.float, self._max_primitives),
             ('exponents', np.float, self._max_primitives)
-        ])
-
-    def set_atoms(self):
-        _atoms = [(
-            self._atom_numbers[natom],
-            self._atom_charges[natom],
-            self._atomic_positions[natom],
-            [self._first_shells[natom]-1, self._first_shells[natom+1]-1],
-        ) for natom in range(self._natoms)]
-        return np.array(_atoms, dtype=[
-            ('number', np.int),
-            ('charge', np.int),
-            ('position', np.float, 3),
-            ('shells', np.int, 2),
         ])
 
     def set_cusp(self):
@@ -193,7 +200,7 @@ class Stowfn(Casino):
                 elif line.startswith('Number of shells'):
                     self._nshell = self.read_int()
                 elif line.startswith('Sequence number of first shell on each centre'):
-                    self._first_shells = self.read_ints(self._natoms + 1)
+                    self._first_shells = self.read_ints(self._natoms)
                 elif line.startswith('Code for shell types'):
                     self._shell_types = self.read_ints(self._nshell)
                     # corrected shell_types
@@ -220,3 +227,17 @@ class Stowfn(Casino):
                         self.mo_down = np.array(mo_down).reshape((self.nbasis_functions, self.n_mo_down))
                     else:
                         self.mo_down = self.mo_up
+
+    def set_atoms(self):
+        _atoms = [(
+            self._atom_numbers[natom],
+            self._atom_charges[natom],
+            self._atomic_positions[natom],
+            # [self._first_shells[natom]-1, self._first_shells[natom+1]-1],
+        ) for natom in range(self._natoms)]
+        return np.array(_atoms, dtype=[
+            ('number', np.int),
+            ('charge', np.int),
+            ('position', np.float, 3),
+            # ('shells', np.int, 2),
+        ])

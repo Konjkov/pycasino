@@ -6,7 +6,7 @@ from timeit import default_timer
 import numpy as np
 import numba as nb
 
-from readers.wfn import Gwfn, GAUSSIAN_TYPE, SLATER_TYPE
+from readers.wfn import Gwfn, Stowfn, GAUSSIAN_TYPE, SLATER_TYPE
 from readers.input import Input
 
 
@@ -404,7 +404,7 @@ def random_position(low, high, ne):
 
 
 @nb.jit(nopython=True, cache=True)
-def main(mo, neu, ned, atoms, shells):
+def main(mo_up, mo_down, neu, ned, atoms, shells):
     steps = 10 * 1000 * 1000
     offset = 3.0
 
@@ -425,8 +425,8 @@ def main(mo, neu, ned, atoms, shells):
 
     dV = (x_max - x_min)**(neu + ned) * (y_max - y_min)**(neu + ned) * (z_max - z_min)**(neu + ned) / steps
 
-    mo_u = mo[0][:neu]
-    mo_d = mo[0][:ned]
+    mo_u = mo_up[:neu]
+    mo_d = mo_down[:ned]
 
     integral = 0.0
     for i in range(steps):
@@ -451,18 +451,21 @@ if __name__ == '__main__':
     sys     0m0,488s
     """
 
-    # gwfn = Gwfn('test/h/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/h/HF/cc-pVQZ/input')
-    gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
-    inp = Input('test/be/HF/cc-pVQZ/input')
-    # gwfn = Gwfn('test/be2/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/be2/HF/cc-pVQZ/input')
-    # gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/acetic/HF/cc-pVQZ/input')
-    # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/acetaldehyde/HF/cc-pVQZ/input')
+    # wfn_data = Gwfn('test/gwfn/h/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
+    wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
+    input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
+    # wfn_data = Gwfn('test/gwfn/be2/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/be2/HF/cc-pVQZ/input')
+    # wfn_data = Gwfn('test/gwfn/acetic/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/acetic/HF/cc-pVQZ/input')
+    # wfn_data = Gwfn('test/gwfn/acetaldehyde/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/acetaldehyde/HF/cc-pVQZ/input')
+
+    # wfn_data = Stowfn('test/stowfn/he/HF/DZ/stowfn.data')
+    # input_data = Input('test/stowfn/he/HF/DZ/input')
 
     start = default_timer()
-    print(main(gwfn.mo, inp.neu, inp.ned, gwfn.atoms, gwfn.shells))
+    print(main(wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells))
     end = default_timer()
     print(f'total time {end-start}')

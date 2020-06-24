@@ -52,11 +52,11 @@ def multiple_fits(shell, Z):
         """dln(phi)/dr|r=r_nucl = -Z"""
         return a1*np.exp(-zeta1*r)/(zeta1-Z) + a2*np.exp(-zeta2*r)/(zeta2-Z) + a3*np.exp(-zeta3*r)/(zeta3-Z) - (a1 + a2 + a3)*np.exp(-zeta4*r)/(zeta4-Z)
 
-    fit_function = slater_2
-    initial_guess = (1, Z-1, Z+1)
+    # fit_function = slater_2
+    # initial_guess = (1, Z-1, Z+1)
 
-    # fit_function = slater_3
-    # initial_guess = (1, 1, Z-1, Z+0.1, Z+1)
+    fit_function = slater_3
+    initial_guess = (1, 1, Z-1, Z+0.1, Z+1)
 
     # fit_function = slater_4
     # initial_guess = (1, 1, -1, Z-1, Z-1, Z+1, Z+1)

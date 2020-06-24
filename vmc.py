@@ -9,7 +9,7 @@ import numpy as np
 import numba as nb
 
 from gaussian import wfn, local_energy, nuclear_repulsion
-from readers.wfn import Gwfn
+from readers.wfn import Gwfn, Stowfn
 from readers.input import Input
 
 
@@ -104,13 +104,13 @@ def averaging_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, 
 
 
 @nb.jit(nopython=True, cache=True)
-def vmc(equlib, stat, mo, neu, ned, atoms, shells):
+def vmc(equlib, stat, mo_up, mo_down, neu, ned, atoms, shells):
     """configuration-by-configuration sampling (CBCS)"""
 
     dX = optimal_vmc_step(neu, ned)
 
-    mo_u = mo[0][:neu]
-    mo_d = mo[0][:ned]
+    mo_u = mo_up[:neu]
+    mo_d = mo_down[:ned]
 
     X_u = initial_position(neu, atoms)
     X_d = initial_position(ned, atoms)
@@ -133,27 +133,29 @@ if __name__ == '__main__':
 
     """
 
-    # gwfn = Gwfn('test/h/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/h/HF/cc-pVQZ/input')
-    # gwfn = Gwfn('test/he/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/he/HF/cc-pVQZ/input')
-    # gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/be/HF/cc-pVQZ/input')
-    gwfn = Gwfn('test/be2/HF/cc-pVQZ/gwfn.data')
-    inp = Input('test/be2/HF/cc-pVQZ/input')
-    # gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/acetic/HF/cc-pVQZ/input')
-    # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/acetaldehyde/HF/cc-pVQZ/input')
-    # gwfn = Gwfn('test/si2h6/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/si2h6/HF/cc-pVQZ/input')
-    # gwfn = Gwfn('test/s4-c2v/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/s4-c2v/HF/cc-pVQZ/input')
+    # gwfn_data = Gwfn('test/gwfn/h/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
+    # gwfn_data = Gwfn('test/gwfn/he/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/he/HF/cc-pVQZ/input')
+    # gwfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
+    gwfn_data = Gwfn('test/gwfn/b/HF/cc-pVQZ/gwfn.data')
+    input_data = Input('test/gwfn/b/HF/cc-pVQZ/input')
+    # gwfn_data = Gwfn('test/gwfn/be2/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/be2/HF/cc-pVQZ/input')
+    # gwfn_data = Gwfn('test/gwfn/acetic/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/acetic/HF/cc-pVQZ/input')
+    # gwfn_data = Gwfn('test/gwfn/acetaldehyde/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/acetaldehyde/HF/cc-pVQZ/input')
+    # gwfn_data = Gwfn('test/gwfn/si2h6/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/si2h6/HF/cc-pVQZ/input')
+    # gwfn_data = Gwfn('test/gwfn/s4-c2v/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/s4-c2v/HF/cc-pVQZ/input')
 
     start = default_timer()
-    E = vmc(50000, 1 * 1024 * 1024, gwfn.mo, inp.neu, inp.ned, gwfn.atoms, gwfn.shells)
+    E = vmc(50000, 16 * 1024 * 1024, gwfn_data.mo_up, gwfn_data.mo_down, input_data.neu, input_data.ned, gwfn_data.atoms, gwfn_data.shells)
     end = default_timer()
-    reblock_data = pyblock.blocking.reblock(E + nuclear_repulsion(gwfn.atoms))
+    reblock_data = pyblock.blocking.reblock(E + nuclear_repulsion(gwfn_data.atoms))
     # for reblock_iter in reblock_data:
     #     print(reblock_iter)
     opt = pyblock.blocking.find_optimal_block(E.size, reblock_data)
