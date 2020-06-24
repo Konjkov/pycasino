@@ -6,7 +6,7 @@ from timeit import default_timer
 import numpy as np
 import numba as nb
 
-from readers.gwfn import Gwfn, GAUSSIAN_TYPE, SLATER_TYPE
+from readers.wfn import Gwfn, GAUSSIAN_TYPE, SLATER_TYPE
 from readers.input import Input
 
 

@@ -9,7 +9,7 @@ import numpy as np
 import numba as nb
 
 from gaussian import wfn, local_energy, nuclear_repulsion
-from readers.gwfn import Gwfn
+from readers.wfn import Gwfn
 from readers.input import Input
 
 
