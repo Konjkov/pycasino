@@ -8,7 +8,7 @@ import pyblock
 import numpy as np
 import numba as nb
 
-from gaussian import wfn, local_energy, nuclear_repulsion
+from wfn import wfn, local_energy, nuclear_repulsion
 from readers.wfn import Gwfn, Stowfn
 from readers.input import Input
 
@@ -137,8 +137,8 @@ if __name__ == '__main__':
     # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/he/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/he/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
+    wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
+    input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/b/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/b/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/be2/HF/cc-pVQZ/gwfn.data')
@@ -152,11 +152,11 @@ if __name__ == '__main__':
     # wfn_data = Gwfn('test/gwfn/s4-c2v/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/s4-c2v/HF/cc-pVQZ/input')
 
-    wfn_data = Stowfn('test/stowfn/he/HF/SZ/stowfn.data')
-    input_data = Input('test/stowfn/he/HF/SZ/input')
+    # wfn_data = Stowfn('test/stowfn/he/HF/QZ4P/stowfn.data')
+    # input_data = Input('test/stowfn/he/HF/QZ4P/input')
 
     start = default_timer()
-    E = vmc(50000, 16 * 1024 * 1024, wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells)
+    E = vmc(50000, 1 * 1024 * 1024, wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells)
     end = default_timer()
     reblock_data = pyblock.blocking.reblock(E + nuclear_repulsion(wfn_data.atoms))
     # for reblock_iter in reblock_data:

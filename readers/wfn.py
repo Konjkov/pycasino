@@ -136,6 +136,7 @@ class Gwfn(Casino):
             _shells.append((
                 GAUSSIAN_TYPE,
                 self._shell_types[nshell],
+                0,
                 self._primitives[nshell],
                 self._coefficients[p:p+self._primitives[nshell]] + [0] * (self._max_primitives - self._primitives[nshell]),
                 self._exponents[p:p + self._primitives[nshell]] + [0] * (self._max_primitives - self._primitives[nshell]),
@@ -144,6 +145,7 @@ class Gwfn(Casino):
         return np.array(_shells, dtype=[
             ('type', np.int),
             ('moment', np.int),
+            ('order', np.int),
             ('primitives', np.int),
             ('coefficients', np.float, self._max_primitives),
             ('exponents', np.float, self._max_primitives)
@@ -205,7 +207,7 @@ class Stowfn(Casino):
                     # corrected shell_types
                     self._shell_types = np.array([self.shell_map[t] for t in self._shell_types])
                 elif line.startswith('Order of radial prefactor r in each shell'):
-                    self._radial_prefactor = self.read_ints(self._nshell)
+                    self._radial_prefactor_order = self.read_ints(self._nshell)
                 elif line.startswith('Exponent in each STO shell'):
                     self._exponents = self.read_floats(self._nshell)
                 elif line.startswith('Number of basis functions'):
@@ -220,10 +222,10 @@ class Stowfn(Casino):
                 elif line.startswith('ORBITAL COEFFICIENTS'):
                     fp.readline()  # skip line with -----------
                     mo_up = self.read_floats(self.nbasis_functions * self.n_mo_up)
-                    self.mo_up = np.array(mo_up).reshape((self.nbasis_functions, self.n_mo_up))
+                    self.mo_up = np.array(mo_up).reshape((self.n_mo_up, self.nbasis_functions))
                     if self.unrestricted:
                         mo_down = self.read_floats(self.nbasis_functions * self.n_mo_down)
-                        self.mo_down = np.array(mo_down).reshape((self.nbasis_functions, self.n_mo_down))
+                        self.mo_down = np.array(mo_down).reshape((self.n_mo_down, self.nbasis_functions))
                     else:
                         self.mo_down = self.mo_up
         self.atoms = self.set_atoms()
@@ -251,13 +253,15 @@ class Stowfn(Casino):
             _shells.append((
                 SLATER_TYPE,
                 self._shell_types[nshell],
+                self._radial_prefactor_order[nshell],
                 1,
-                [0.5*sqrt(1/pi) * (2*self._exponents[nshell])**n * sqrt(2*self._exponents[nshell]/factorial(2*n))],
+                [0.5/sqrt(pi) * (2*self._exponents[nshell])**n * sqrt(2*self._exponents[nshell]/factorial(2*n))],
                 [self._exponents[nshell]],
             ))
         return np.array(_shells, dtype=[
             ('type', np.int),
             ('moment', np.int),
+            ('order', np.int),
             ('primitives', np.int),
             ('coefficients', np.float, (1, )),
             ('exponents', np.float, (1, ))
