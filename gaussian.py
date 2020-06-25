@@ -410,11 +410,11 @@ def main(mo_up, mo_down, neu, ned, atoms, shells):
 
     def min_max_position(dim):
         _min = _max = 0.0
-        for nshell in range(shells.shape[0]):
-            if shells[nshell].position[dim] < _min:
-                _min = shells[nshell].position[dim]
-            if shells[nshell].position[dim] > _max:
-                _max = shells[nshell].position[dim]
+        for natom in range(atoms.shape[0]):
+            if atoms[natom].position[dim] < _min:
+                _min = atoms[natom].position[dim]
+            if atoms[natom].position[dim] > _max:
+                _max = atoms[natom].position[dim]
         return _min - offset, _max + offset
 
     x_min, x_max = min_max_position(0)
@@ -453,8 +453,8 @@ if __name__ == '__main__':
 
     # wfn_data = Gwfn('test/gwfn/h/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
-    wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
-    input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
+    # wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/be2/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/be2/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/acetic/HF/cc-pVQZ/gwfn.data')
@@ -462,8 +462,8 @@ if __name__ == '__main__':
     # wfn_data = Gwfn('test/gwfn/acetaldehyde/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/acetaldehyde/HF/cc-pVQZ/input')
 
-    # wfn_data = Stowfn('test/stowfn/he/HF/DZ/stowfn.data')
-    # input_data = Input('test/stowfn/he/HF/DZ/input')
+    wfn_data = Stowfn('test/stowfn/he/HF/DZ/stowfn.data')
+    input_data = Input('test/stowfn/he/HF/DZ/input')
 
     start = default_timer()
     print(main(wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells))

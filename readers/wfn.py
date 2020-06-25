@@ -1,3 +1,4 @@
+from math import factorial, pi, sqrt
 
 import numpy as np
 from cusp.slater import multiple_fits
@@ -135,7 +136,6 @@ class Gwfn(Casino):
             _shells.append((
                 GAUSSIAN_TYPE,
                 self._shell_types[nshell],
-                self._shell_positions[nshell],
                 self._primitives[nshell],
                 self._coefficients[p:p+self._primitives[nshell]] + [0] * (self._max_primitives - self._primitives[nshell]),
                 self._exponents[p:p + self._primitives[nshell]] + [0] * (self._max_primitives - self._primitives[nshell]),
@@ -144,7 +144,6 @@ class Gwfn(Casino):
         return np.array(_shells, dtype=[
             ('type', np.int),
             ('moment', np.int),
-            ('position', np.float, 3),
             ('primitives', np.int),
             ('coefficients', np.float, self._max_primitives),
             ('exponents', np.float, self._max_primitives)
@@ -206,8 +205,8 @@ class Stowfn(Casino):
                     # corrected shell_types
                     self._shell_types = np.array([self.shell_map[t] for t in self._shell_types])
                 elif line.startswith('Order of radial prefactor r in each shell'):
-                    pass
-                elif line.startswith('Exponents in each STO shell'):
+                    self._radial_prefactor = self.read_ints(self._nshell)
+                elif line.startswith('Exponent in each STO shell'):
                     self._exponents = self.read_floats(self._nshell)
                 elif line.startswith('Number of basis functions'):
                     self.nbasis_functions = self.read_int()
@@ -227,17 +226,39 @@ class Stowfn(Casino):
                         self.mo_down = np.array(mo_down).reshape((self.nbasis_functions, self.n_mo_down))
                     else:
                         self.mo_down = self.mo_up
+        self.atoms = self.set_atoms()
+        self.shells = self.set_shells()
 
     def set_atoms(self):
+        _first_shells = self._first_shells + [self._nshell+1]
         _atoms = [(
             self._atom_numbers[natom],
             self._atom_charges[natom],
             self._atomic_positions[natom],
-            # [self._first_shells[natom]-1, self._first_shells[natom+1]-1],
+            [_first_shells[natom]-1, _first_shells[natom+1]-1],
         ) for natom in range(self._natoms)]
         return np.array(_atoms, dtype=[
             ('number', np.int),
             ('charge', np.int),
             ('position', np.float, 3),
-            # ('shells', np.int, 2),
+            ('shells', np.int, 2),
+        ])
+
+    def set_shells(self):
+        _shells = []
+        for nshell in range(self._nshell):
+            n = self._shell_types[nshell]+1
+            _shells.append((
+                SLATER_TYPE,
+                self._shell_types[nshell],
+                1,
+                [0.5*sqrt(1/pi) * (2*self._exponents[nshell])**n * sqrt(2*self._exponents[nshell]/factorial(2*n))],
+                [self._exponents[nshell]],
+            ))
+        return np.array(_shells, dtype=[
+            ('type', np.int),
+            ('moment', np.int),
+            ('primitives', np.int),
+            ('coefficients', np.float, (1, )),
+            ('exponents', np.float, (1, ))
         ])
