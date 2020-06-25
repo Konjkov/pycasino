@@ -113,7 +113,7 @@ class Gwfn(Casino):
 
         self.atoms = self.set_atoms()
         self.shells = self.set_shells()
-        self.set_cusp()
+        # self.set_cusp()
 
     def set_atoms(self):
         _atoms = [(

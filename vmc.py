@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from math import sqrt
+from math import sqrt, pi
 from random import random, randrange
 from timeit import default_timer
 
@@ -32,7 +32,7 @@ def optimal_vmc_step(neu, ned):
 @nb.jit(nopython=True, cache=True)
 def random_laplace_step(dX, ne):
     """Random N-dim laplace distributed step"""
-    return np.random.laplace(0.0, dX/2.2, ne*3).reshape((ne, 3))
+    return np.random.laplace(0.0, dX/(3*pi/4), ne*3).reshape((ne, 3))
 
 
 @nb.jit(nopython=True, cache=True)
@@ -141,6 +141,12 @@ if __name__ == '__main__':
     input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/b/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/b/HF/cc-pVQZ/input')
+    # wfn_data = Gwfn('test/gwfn/n/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/n/HF/cc-pVQZ/input')
+    # wfn_data = Gwfn('test/gwfn/al/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/al/HF/cc-pVQZ/input')
+    # wfn_data = Gwfn('test/gwfn/h2/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/h2/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/be2/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/be2/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/acetic/HF/cc-pVQZ/gwfn.data')
