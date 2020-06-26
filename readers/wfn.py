@@ -248,6 +248,34 @@ class Stowfn(Casino):
 
     def set_shells(self):
         _shells = []
+        # polynorm[0] = sqrt(1./(4.*pi)); // 1
+        # polynorm[1] = sqrt(3./(4.*pi)); // x
+        # polynorm[2] = sqrt(3./(4.*pi)); // y
+        # polynorm[3] = sqrt(3./(4.*pi)); // z
+        #
+        # polynorm[4] = .5*sqrt(15./pi); // xy        -2
+        # polynorm[5] = .5*sqrt(15./pi); // yz        -1
+        # polynorm[6] = .5*sqrt(15./pi); // zx        +1
+        # polynorm[7] = .25*sqrt(5./pi); // 3*zz-r(2); 0
+        # polynorm[8] = .25*sqrt(15./pi); // xx-yy;   +2
+        #
+        # polynorm[ 9] = .25*sqrt(7./pi); // (2*zz-3*(xx+yy))*z;  0
+        # polynorm[10] = .25*sqrt(17.5/pi); // (4*zz-(xx+yy))*x; +1
+        # polynorm[11] = .25*sqrt(17.5/pi); // (4*zz-(xx+yy))*y; -1
+        # polynorm[12] = .25*sqrt(105./pi); // (xx-yy)*z;        +2
+        # polynorm[13] = .5*sqrt(105./pi); // xy*z;              -2
+        # polynorm[14] = .25*sqrt(10.5/pi); // (xx-3.0*yy)*x;    +3
+        # polynorm[15] = .25*sqrt(10.5/pi); // (3.0*xx-yy)*y;    -3
+        #
+        # polynorm[16] = .1875*sqrt(1./pi); // 35zzzz-30zzrr+3rrrr  0
+        # polynorm[17] = .75*sqrt(2.5/pi); // xz(7zz-3rr)          +1
+        # polynorm[18] = .75*sqrt(2.5/pi); // yz(7zz-3rr)          -1
+        # polynorm[19] = .375*sqrt(5./pi); // (xx-yy)(7zz-rr)      +2
+        # polynorm[20] = .75*sqrt(5./pi); // xy(7zz-rr)            -2
+        # polynorm[21] = .75*sqrt(17.5/pi); // xz(xx-3yy)          +3
+        # polynorm[22] = .75*sqrt(17.5/pi); // yz(3xx-yy)          -3
+        # polynorm[23] = .1875*sqrt(35./pi); // xxxx-6xxyy+yyyy    +4
+        # polynorm[24] = .75*sqrt(35./pi); // xxxy-xyyy            -4
         for nshell in range(self._nshell):
             n = self._shell_types[nshell]+1
             _shells.append((
@@ -255,7 +283,7 @@ class Stowfn(Casino):
                 self._shell_types[nshell],
                 self._radial_prefactor_order[nshell],
                 1,
-                [0.5/sqrt(pi) * (2*self._exponents[nshell])**n * sqrt(2*self._exponents[nshell]/factorial(2*n))],
+                [1/sqrt(4*pi) * (2*self._exponents[nshell])**n * sqrt(2*self._exponents[nshell]/factorial(2*n))],
                 [self._exponents[nshell]],
             ))
         return np.array(_shells, dtype=[

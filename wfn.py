@@ -38,10 +38,10 @@ def angular_part(r, l, result, radial):
     elif l == 2:
         x, y, z = r
         result[0] += radial * (2 * z*z - x*x - y*y)
-        result[1] += radial * x * z
-        result[2] += radial * y * z
-        result[3] += radial * (x * x - y * y)
-        result[4] += radial * x * y
+        result[1] += radial * x*z
+        result[2] += radial * y*z
+        result[3] += radial * (x*x - y*y)
+        result[4] += radial * x*y
     elif l == 3:
         x, y, z = r
         result[0] += radial * z * (2 * z*z - 3 * x*x - 3 * y*y) / 2
@@ -104,15 +104,15 @@ def gradient_angular_part(r, l, result, radial):
 
 
 @nb.jit(nopython=True, cache=True)
-def wfn_det(r, mo, atoms, shells):
+def wfn_det(re, mo, atoms, shells):
     """
     Slater determinant
-    :param r: electrons coordinates shape = (nelec, 3)
+    :param re: electrons coordinates shape = (nelec, 3)
     :param mo: MO-coefficients shape = (nbasis_functions, nelec)
     :param atoms - struct of
+        positions: centered position of the shell shape = (natom, 3)
     :param shells - struct of
         moment: l-number of the shell shape = (nshell, )
-        shell_positions: centerd position of the shell shape = (nshell, 3)
         primitives: number of primitives on each shell shape = (nshell,)
         coefficients: contraction coefficients of a primitives shape = (nprimitives,)
         exponents: exponents of a primitives shape = (nprimitives,)
@@ -125,9 +125,9 @@ def wfn_det(r, mo, atoms, shells):
         for natom in range(atoms.shape[0]):
             atom = atoms[natom]
             for j in range(3):
-                rI[j] = r[i, j] - atom.position[j]
+                rI[j] = re[i, j] - atom.position[j]
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
-            sqrt_r = np.sqrt(r2)
+            r = np.sqrt(r2)
             for nshell in range(atom.shells[0], atom.shells[1]):
                 # radial part
                 radial_part = 0.0
@@ -136,7 +136,7 @@ def wfn_det(r, mo, atoms, shells):
                         radial_part += shells[nshell].coefficients[primitive] * np.exp(-shells[nshell].exponents[primitive] * r2)  # 20s from 60s
                 elif shells[nshell].type == SLATER_TYPE:
                     for primitive in range(shells[nshell].primitives):
-                        radial_part += shells[nshell].coefficients[primitive] * np.exp(-shells[nshell].exponents[primitive] * sqrt_r)
+                        radial_part += r**shells[nshell].order * shells[nshell].coefficients[primitive] * np.exp(-shells[nshell].exponents[primitive] * r)
                 # angular part
                 l = shells[nshell].moment
                 angular_part(rI, l, orbital[i, ao: ao+2*l+1], radial_part)  # 10s from 60s
@@ -145,7 +145,7 @@ def wfn_det(r, mo, atoms, shells):
 
 
 @nb.jit(nopython=True, cache=True)
-def gradient_det(r, mo, atoms, shells):
+def gradient_det(re, mo, atoms, shells):
     """Orbital coefficients for every AO at electron position r."""
     orbital = np.zeros(mo.shape)
     rI = np.zeros((3,))
@@ -154,7 +154,7 @@ def gradient_det(r, mo, atoms, shells):
         for natom in range(atoms.shape[0]):
             atom = atoms[natom]
             for j in range(3):
-                rI[j] = r[i, j] - atom.position[j]
+                rI[j] = re[i, j] - atom.position[j]
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
             grad_r = rI[0] + rI[1] + rI[2]
             for nshell in range(atom.shells[0], atom.shells[1]):
@@ -168,7 +168,12 @@ def gradient_det(r, mo, atoms, shells):
                         radial_part_1 -= 2 * alpha * grad_r * shells[nshell].coefficients[primitive] * exponent   # 20s from 60s
                         radial_part_2 += exponent
                 elif shells[nshell].type == SLATER_TYPE:
-                    sqrt_r = np.sqrt(r2)
+                    r = np.sqrt(r2)
+                    for primitive in range(shells[nshell].primitives):
+                        alpha = shells[nshell].exponents[primitive]
+                        exponent = np.exp(-alpha * r)
+                        radial_part_1 -= (alpha * grad_r)/r * shells[nshell].coefficients[primitive] * exponent   # 20s from 60s
+                        radial_part_2 += exponent
                     return
                 # angular part
                 l = shells[nshell].moment
@@ -179,7 +184,7 @@ def gradient_det(r, mo, atoms, shells):
 
 
 @nb.jit(nopython=True, cache=True)
-def laplacian_det(r, mo, atoms, shells):
+def laplacian_det(re, mo, atoms, shells):
     """Orbital coefficients for every AO at electron position r."""
     orbital = np.zeros(mo.shape)
     rI = np.zeros((3,))
@@ -188,7 +193,7 @@ def laplacian_det(r, mo, atoms, shells):
         for natom in range(atoms.shape[0]):
             atom = atoms[natom]
             for j in range(3):
-                rI[j] = r[i, j] - atom.position[j]
+                rI[j] = re[i, j] - atom.position[j]
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
             for nshell in range(atom.shells[0], atom.shells[1]):
                 l = shells[nshell].moment
@@ -462,8 +467,10 @@ if __name__ == '__main__':
     # wfn_data = Gwfn('test/gwfn/acetaldehyde/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/acetaldehyde/HF/cc-pVQZ/input')
 
-    wfn_data = Stowfn('test/stowfn/he/HF/DZ/stowfn.data')
-    input_data = Input('test/stowfn/he/HF/DZ/input')
+    # wfn_data = Stowfn('test/stowfn/he/HF/DZ/stowfn.data')
+    # input_data = Input('test/stowfn/he/HF/DZ/input')
+    wfn_data = Stowfn('test/stowfn/be/HF/QZ4P/stowfn.data')
+    input_data = Input('test/stowfn/be/HF/QZ4P/input')
 
     start = default_timer()
     print(main(wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells))

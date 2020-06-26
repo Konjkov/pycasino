@@ -50,7 +50,20 @@ def random_square_step(dX, ne):
 @nb.jit(nopython=True, cache=True)
 def random_normal_step(dX, ne):
     """Random normal distributed step"""
-    return np.array([np.random.normal(0.0, dX/sqrt(3)) for i in range(ne*3)]).reshape((ne, 3))
+    return np.random.normal(0.0, dX/sqrt(3), ne*3).reshape((ne, 3))
+
+
+@nb.jit(nopython=True, cache=True)
+def random_on_sphere_step(dX, ne):
+    """Random on a sphere distributed step"""
+    result = []
+    for i in range(ne):
+        x = np.random.normal(0.0, 1, 3)
+        res = dX * x / np.linalg.norm(x)
+        result.append(res[0])
+        result.append(res[1])
+        result.append(res[2])
+    return np.array(result).reshape((ne, 3))
 
 
 random_step = random_normal_step
@@ -72,7 +85,7 @@ def equilibration(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells):
 
 
 @nb.jit(nopython=True, cache=True)
-def accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells):
+def simple_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells):
     """VMC simple accumulation"""
     j = 0
     E = np.zeros((steps,))
@@ -101,6 +114,9 @@ def averaging_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, 
         if (new_p/p)**2 > random():
             X_u, X_d, p, loc_E = new_X_u, new_X_d, new_p, new_loc_E
     return E
+
+
+accumulation = simple_accumulation
 
 
 @nb.jit(nopython=True, cache=True)
@@ -137,8 +153,8 @@ if __name__ == '__main__':
     # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/he/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/he/HF/cc-pVQZ/input')
-    wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
-    input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
+    # wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/b/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/b/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/n/HF/cc-pVQZ/gwfn.data')
@@ -160,6 +176,8 @@ if __name__ == '__main__':
 
     # wfn_data = Stowfn('test/stowfn/he/HF/QZ4P/stowfn.data')
     # input_data = Input('test/stowfn/he/HF/QZ4P/input')
+    wfn_data = Stowfn('test/stowfn/be/HF/QZ4P/stowfn.data')
+    input_data = Input('test/stowfn/be/HF/QZ4P/input')
 
     start = default_timer()
     E = vmc(50000, 1 * 1024 * 1024, wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells)
