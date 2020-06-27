@@ -23,7 +23,7 @@ def nuclear_repulsion(atoms):
     return result
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True, nogil=True, cache=True)
 def angular_part(r, l, result, radial):
     """Angular part of gaussian WFN.
     :return:
@@ -103,7 +103,7 @@ def gradient_angular_part(r, l, result, radial):
         result[8] += radial * (420.0*x**3 + 1260.0*x**2*y - 1260.0*x*y**2 - 420.0*y**3)
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True, nogil=True, cache=True)
 def wfn(re, mo, atoms, shells):
     """
     Slater matrix
@@ -210,7 +210,7 @@ def laplacian(re, mo, atoms, shells):
     return np.dot(mo, orbital.T)
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True, nogil=True, cache=True)
 def wfn_det(r_u, r_d, mo_u, mo_d, atoms, shells):
     """Slater determinant without norm factor 1/sqrt(N!).
     """
@@ -389,51 +389,42 @@ def local_energy(r_u, r_d, mo_u, mo_d, atoms, shells):
     return coulomb(r_u, r_d, atoms) + local_kinetic(r_u, r_d, mo_u, mo_d, atoms, shells)
 
 
-@nb.jit(nopython=True, cache=True)
-def random_position(low, high, ne):
-    """
-    The size argument is not supported.
-    https://numba.pydata.org/numba-doc/dev/reference/numpysupported.html#random
-    """
-    return np.dstack((
-        np.random.uniform(low[0], high[0], size=ne),
-        np.random.uniform(low[1], high[1], size=ne),
-        np.random.uniform(low[2], high[2], size=ne)
-    ))[0]
+@nb.jit(nopython=True, nogil=True, parallel=True, cache=True)
+def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells):
+    """"""
+    dV = np.prod(high - low) ** (neu + ned) / steps
+
+    def random_position(low, high, ne):
+        """
+        The size argument is not supported.
+        https://numba.pydata.org/numba-doc/dev/reference/numpysupported.html#random
+        """
+        return np.dstack((
+            np.random.uniform(low[0], high[0], size=ne),
+            np.random.uniform(low[1], high[1], size=ne),
+            np.random.uniform(low[2], high[2], size=ne)
+        ))[0]
+
+    result = 0.0
+    for i in nb.prange(4):
+        for j in range(steps/4):
+            X_u = random_position(low, high, neu)
+            X_d = random_position(low, high, ned)
+            result += wfn_det(X_u, X_d, mo_u, mo_d, atoms, shells) ** 2
+
+    return result * dV / gamma(neu+1) / gamma(ned+1)
 
 
-@nb.jit(nopython=True, cache=True)
 def main(mo_up, mo_down, neu, ned, atoms, shells):
     steps = 10 * 1024 * 1024
     offset = 3.0
 
-    def min_max_position(dim):
-        _min = _max = 0.0
-        for natom in range(atoms.shape[0]):
-            if atoms[natom].position[dim] < _min:
-                _min = atoms[natom].position[dim]
-            if atoms[natom].position[dim] > _max:
-                _max = atoms[natom].position[dim]
-        return _min - offset, _max + offset
-
-    x_min, x_max = min_max_position(0)
-    y_min, y_max = min_max_position(1)
-    z_min, z_max = min_max_position(2)
-    low = np.array([x_min, y_min, z_min])
-    high = np.array([x_max, y_max, z_max])
-
-    dV = (x_max - x_min)**(neu + ned) * (y_max - y_min)**(neu + ned) * (z_max - z_min)**(neu + ned) / steps
+    low = np.min(atoms['position'], axis=0) - offset
+    high = np.max(atoms['position'], axis=0) + offset
 
     mo_u = mo_up[:neu]
     mo_d = mo_down[:ned]
-
-    integral = 0.0
-    for i in range(steps):
-        X_u = random_position(low, high, neu)
-        X_d = random_position(low, high, ned)
-        integral += wfn_det(X_u, X_d, mo_u, mo_d, atoms, shells) ** 2
-
-    return integral * dV / gamma(neu+1) / gamma(ned+1)
+    return integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells)
 
 
 if __name__ == '__main__':
