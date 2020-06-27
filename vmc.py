@@ -8,7 +8,7 @@ import pyblock
 import numpy as np
 import numba as nb
 
-from wfn import wfn, local_energy, nuclear_repulsion
+from wfn import wfn_det, local_energy, nuclear_repulsion
 from readers.wfn import Gwfn, Stowfn
 from readers.input import Input
 
@@ -76,7 +76,7 @@ def equilibration(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells):
     while i < steps:
         new_X_u = X_u + random_step(dX, neu)
         new_X_d = X_d + random_step(dX, ned)
-        new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, atoms, shells)
+        new_p = wfn_det(new_X_u, new_X_d, mo_u, mo_d, atoms, shells)
         j += 1
         if (new_p/p)**2 > random():
             X_u, X_d, p = new_X_u, new_X_d, new_p
@@ -92,7 +92,7 @@ def simple_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, she
     while j < steps:
         new_X_u = X_u + random_step(dX, neu)
         new_X_d = X_d + random_step(dX, ned)
-        new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, atoms, shells)
+        new_p = wfn_det(new_X_u, new_X_d, mo_u, mo_d, atoms, shells)
         if (new_p/p)**2 > random():
             X_u, X_d, p = new_X_u, new_X_d, new_p
             E[j] = local_energy(X_u, X_d, mo_u, mo_d, atoms, shells)
@@ -108,7 +108,7 @@ def averaging_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, 
     for j in range(steps):
         new_X_u = X_u + random_step(dX, neu)
         new_X_d = X_d + random_step(dX, ned)
-        new_p = wfn(new_X_u, new_X_d, mo_u, mo_d, atoms, shells)
+        new_p = wfn_det(new_X_u, new_X_d, mo_u, mo_d, atoms, shells)
         new_loc_E = local_energy(new_X_u, new_X_d, mo_u, mo_d, atoms, shells)
         E[j] = min((new_p/p)**2, 1) * new_loc_E + (1 - min((new_p/p)**2, 1)) * loc_E
         if (new_p/p)**2 > random():
@@ -130,7 +130,7 @@ def vmc(equlib, stat, mo_up, mo_down, neu, ned, atoms, shells):
 
     X_u = initial_position(neu, atoms)
     X_d = initial_position(ned, atoms)
-    p = wfn(X_u, X_d, mo_u, mo_d, atoms, shells)
+    p = wfn_det(X_u, X_d, mo_u, mo_d, atoms, shells)
 
     equ = equilibration(equlib, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells)
     print(equlib/equ)
@@ -153,8 +153,8 @@ if __name__ == '__main__':
     # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/he/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/he/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
+    wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
+    input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/b/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/b/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/n/HF/cc-pVQZ/gwfn.data')
@@ -176,8 +176,8 @@ if __name__ == '__main__':
 
     # wfn_data = Stowfn('test/stowfn/he/HF/QZ4P/stowfn.data')
     # input_data = Input('test/stowfn/he/HF/QZ4P/input')
-    wfn_data = Stowfn('test/stowfn/be/HF/QZ4P/stowfn.data')
-    input_data = Input('test/stowfn/be/HF/QZ4P/input')
+    # wfn_data = Stowfn('test/stowfn/be/HF/QZ4P/stowfn.data')
+    # input_data = Input('test/stowfn/be/HF/QZ4P/input')
 
     start = default_timer()
     E = vmc(50000, 1 * 1024 * 1024, wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells)
