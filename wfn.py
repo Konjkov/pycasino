@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
 
+import os
 from math import exp, sqrt, gamma
 from timeit import default_timer
 
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
 import numpy as np
 import numba as nb
+
+# np.show_config()
 
 from readers.wfn import Gwfn, Stowfn, GAUSSIAN_TYPE, SLATER_TYPE
 from readers.input import Input
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
 def nuclear_repulsion(atoms):
     """nuclear-nuclear repulsion"""
     result = 0.0
@@ -23,7 +32,7 @@ def nuclear_repulsion(atoms):
     return result
 
 
-@nb.jit(nopython=True, nogil=True, cache=True)
+@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
 def angular_part(r, l, result, radial):
     """Angular part of gaussian WFN.
     :return:
@@ -65,7 +74,7 @@ def angular_part(r, l, result, radial):
         result[8] += radial * 420 * x*y * (x*x - y*y)
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
 def gradient_angular_part(r, l, result, radial):
     """Angular part of gaussian WFN.
     :return:
@@ -103,7 +112,7 @@ def gradient_angular_part(r, l, result, radial):
         result[8] += radial * (420.0*x**3 + 1260.0*x**2*y - 1260.0*x*y**2 - 420.0*y**3)
 
 
-@nb.jit(nopython=True, nogil=True, cache=True)
+@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
 def wfn(re, mo, atoms, shells):
     """
     Slater matrix
@@ -210,7 +219,7 @@ def laplacian(re, mo, atoms, shells):
     return np.dot(mo, orbital.T)
 
 
-@nb.jit(nopython=True, nogil=True, cache=True)
+@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
 def wfn_det(r_u, r_d, mo_u, mo_d, atoms, shells):
     """Slater determinant without norm factor 1/sqrt(N!).
     """
@@ -389,7 +398,7 @@ def local_energy(r_u, r_d, mo_u, mo_d, atoms, shells):
     return coulomb(r_u, r_d, atoms) + local_kinetic(r_u, r_d, mo_u, mo_d, atoms, shells)
 
 
-@nb.jit(nopython=True, nogil=True, parallel=True, cache=True)
+@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
 def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells):
     """"""
     dV = np.prod(high - low) ** (neu + ned) / steps
@@ -398,6 +407,8 @@ def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells):
         """
         The size argument is not supported.
         https://numba.pydata.org/numba-doc/dev/reference/numpysupported.html#random
+
+        https://numba.pydata.org/numba-doc/dev/extending/overloading-guide.html
         """
         return np.dstack((
             np.random.uniform(low[0], high[0], size=ne),
@@ -406,11 +417,10 @@ def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells):
         ))[0]
 
     result = 0.0
-    for i in nb.prange(4):
-        for j in range(steps/4):
-            X_u = random_position(low, high, neu)
-            X_d = random_position(low, high, ned)
-            result += wfn_det(X_u, X_d, mo_u, mo_d, atoms, shells) ** 2
+    for i in range(steps):
+        X_u = random_position(low, high, neu)
+        X_d = random_position(low, high, ned)
+        result += wfn_det(X_u, X_d, mo_u, mo_d, atoms, shells) ** 2
 
     return result * dV / gamma(neu+1) / gamma(ned+1)
 
@@ -451,6 +461,12 @@ if __name__ == '__main__':
     # input_data = Input('test/gwfn/acetic/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/acetaldehyde/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/acetaldehyde/HF/cc-pVQZ/input')
+    # wfn_data = Gwfn('test/gwfn/si2h6/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/si2h6/HF/cc-pVQZ/input')
+    # wfn_data = Gwfn('test/gwfn/alcl3/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/alcl3/HF/cc-pVQZ/input')
+    # wfn_data = Gwfn('test/gwfn/s4-c2v/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/s4-c2v/HF/cc-pVQZ/input')
 
     # wfn_data = Stowfn('test/stowfn/he/HF/DZ/stowfn.data')
     # input_data = Input('test/stowfn/he/HF/DZ/input')

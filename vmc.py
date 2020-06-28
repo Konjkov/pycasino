@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 
+import os
 from math import sqrt, pi
 from random import random, randrange
 from timeit import default_timer
+
+os.environ["OMP_NUM_THREADS"] = "1"  # openmp
+os.environ["OPENBLAS_NUM_THREADS"] = "1"  # openblas
+os.environ["MKL_NUM_THREADS"] = "1"  # mkl
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # accelerate
+os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
 
 import pyblock
 import numpy as np
@@ -26,7 +33,7 @@ def initial_position(ne, atoms):
 @nb.jit(nopython=True, cache=True)
 def optimal_vmc_step(neu, ned):
     """vmc step width """
-    return 1 / (neu + ned)
+    return 1 / (neu + ned) / 0.73
 
 
 @nb.jit(nopython=True, cache=True)
@@ -171,6 +178,8 @@ if __name__ == '__main__':
     # input_data = Input('test/gwfn/acetaldehyde/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/si2h6/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/si2h6/HF/cc-pVQZ/input')
+    # wfn_data = Gwfn('test/gwfn/alcl3/HF/cc-pVQZ/gwfn.data')
+    # input_data = Input('test/gwfn/alcl3/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/s4-c2v/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/s4-c2v/HF/cc-pVQZ/input')
 
