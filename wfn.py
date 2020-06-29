@@ -234,19 +234,19 @@ def gradient_log(r_u, r_d, mo_u, mo_d, atoms, shells):
     """
     u_orb = wfn(r_u, mo_u, atoms, shells)
     u_grad = gradient(r_u, mo_u, atoms, shells)
+    cond = np.arange(r_u.shape[0]) * np.ones(u_orb.shape)
+
     res_u = 0
     for i in range(r_u.shape[0]):
-        temp_det = np.copy(u_orb)
-        temp_det[i] = u_grad[i]
-        res_u += np.linalg.det(temp_det)
+        res_u += np.linalg.det(np.where(cond == i, u_grad, u_orb))
 
     d_orb = wfn(r_d, mo_d, atoms, shells)
     d_grad = gradient(r_d, mo_d, atoms, shells)
+    cond = np.arange(r_d.shape[0]) * np.ones(d_orb.shape)
+
     res_d = 0
     for i in range(r_d.shape[0]):
-        temp_det = np.copy(d_orb)
-        temp_det[i] = d_grad[i]
-        res_d += np.linalg.det(temp_det)
+        res_d += np.linalg.det(np.where(cond == i, d_grad, d_orb))
 
     return res_u / np.linalg.det(u_orb) + res_d / np.linalg.det(d_orb)
 
@@ -257,19 +257,19 @@ def laplacian_log(r_u, r_d, mo_u, mo_d, atoms, shells):
     """
     u_orb = wfn(r_u, mo_u, atoms, shells)
     u_lap = laplacian(r_u, mo_u, atoms, shells)
+    cond = np.arange(r_u.shape[0]) * np.ones(u_orb.shape)
+
     res_u = 0
     for i in range(r_u.shape[0]):
-        temp_det = np.copy(u_orb)
-        temp_det[i] = u_lap[i]
-        res_u += np.linalg.det(temp_det)
+        res_u += np.linalg.det(np.where(cond == i, u_lap, u_orb))
 
     d_orb = wfn(r_d, mo_d, atoms, shells)
     d_lap = laplacian(r_d, mo_d, atoms, shells)
+    cond = np.arange(r_d.shape[0]) * np.ones(d_orb.shape)
+
     res_d = 0
     for i in range(r_d.shape[0]):
-        temp_det = np.copy(d_orb)
-        temp_det[i] = d_lap[i]
-        res_d += np.linalg.det(temp_det)
+        res_d += np.linalg.det(np.where(cond == i, d_lap, d_orb))
 
     return res_u / np.linalg.det(u_orb) + res_d / np.linalg.det(d_orb)
 
