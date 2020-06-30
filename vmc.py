@@ -189,7 +189,7 @@ if __name__ == '__main__':
     # input_data = Input('test/stowfn/be/HF/QZ4P/input')
 
     start = default_timer()
-    E = vmc(50000, 1 * 1024 * 1024, wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells)
+    E = vmc(50000, 10 * 1024 * 1024, wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells)
     end = default_timer()
     reblock_data = pyblock.blocking.reblock(E + nuclear_repulsion(wfn_data.atoms))
     # for reblock_iter in reblock_data:

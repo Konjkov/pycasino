@@ -235,7 +235,7 @@ def gradient_log(r, mo, atoms, shells):
         res[i, 1] = np.linalg.det(np.where(cond == i, grad_y, orb))
         res[i, 2] = np.linalg.det(np.where(cond == i, grad_z, orb))
 
-    return np.linalg.norm(res) / np.linalg.det(orb)
+    return np.linalg.norm(res / np.linalg.det(orb))**2
 
 
 @nb.jit(nopython=True)
@@ -270,7 +270,7 @@ def numerical_gradient_log(r, mo, atoms, shells):
             res[i, j] += np.linalg.det(wfn(r, mo, atoms, shells))
             r[i, j] -= delta
 
-    return (np.linalg.norm(res) / det / delta / 2)**2
+    return np.linalg.norm(res / det / delta / 2)**2
 
 
 @nb.jit(nopython=True)
@@ -318,7 +318,7 @@ def T(r_u, r_d, mo_u, mo_d, atoms, shells, numeric=False):
 
 
 @nb.jit(nopython=True)
-def local_kinetic(r_u, r_d, mo_u, mo_d, atoms, shells, numeric=False, laplacian=False):
+def local_kinetic(r_u, r_d, mo_u, mo_d, atoms, shells, numeric=False, laplacian=True):
     """local kinetic energy on the point.
     -1/2 * ∇²(phi) / phi
     """
