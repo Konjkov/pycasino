@@ -265,9 +265,9 @@ def numerical_gradient_log(r, mo, atoms, shells):
             r[i, j] += 2 * delta
             res_1[j] += np.linalg.det(wfn(r, mo, atoms, shells))
             r[i, j] -= delta
-        res += res_1[0] * res_1[0] + res_1[1] * res_1[1] + res_1[2] * res_1[2]
+        res += np.linalg.norm(res_1)**2
 
-    return res / det / delta / 2
+    return res / (det * delta * 2)**2
 
 
 @nb.jit(nopython=True)
@@ -292,7 +292,7 @@ def numerical_laplacian_log(r, mo, atoms, shells):
 
 @nb.jit(nopython=True)
 def F(r_u, r_d, mo_u, mo_d, atoms, shells):
-    """sum(|Fi|)"""
+    """sum(|Fi|²)"""
     return (numerical_gradient_log(r_u, mo_u, atoms, shells) + numerical_gradient_log(r_d, mo_d, atoms, shells)) / 2
 
 
@@ -306,13 +306,17 @@ def T(r_u, r_d, mo_u, mo_d, atoms, shells):
 
 
 @nb.jit(nopython=True)
-def local_kinetic(r_u, r_d, mo_u, mo_d, atoms, shells):
+def local_kinetic(r_u, r_d, mo_u, mo_d, atoms, shells, numeric=False, laplacian=True):
     """local kinetic energy on the point.
     -1/2 * ∇²(phi) / phi
     """
-    # return -(laplacian_log(r_u, mo_u, atoms, shells) + laplacian_log(r_d, mo_d, atoms, shells)) / 2
-    return F(r_u, r_d, mo_u, mo_d, atoms, shells)
-    # return -(numerical_laplacian_log(r_u, mo_u, atoms, shells) + numerical_laplacian_log(r_d, mo_d, atoms, shells)) / 2
+    if numeric:
+        if laplacian:
+            return -(numerical_laplacian_log(r_u, mo_u, atoms, shells) + numerical_laplacian_log(r_d, mo_d, atoms, shells)) / 2
+        else:
+            return 2 * T(r_u, r_d, mo_u, mo_d, atoms, shells) - F(r_u, r_d, mo_u, mo_d, atoms, shells)
+    else:
+        return -(laplacian_log(r_u, mo_u, atoms, shells) + laplacian_log(r_d, mo_d, atoms, shells)) / 2
 
 
 @nb.jit(nopython=True)

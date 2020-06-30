@@ -94,16 +94,16 @@ def equilibration(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells):
 @nb.jit(nopython=True)
 def simple_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells):
     """VMC simple accumulation"""
-    j = 0
     E = np.zeros((steps,))
-    while j < steps:
+    loc_E = local_energy(X_u, X_d, mo_u, mo_d, atoms, shells)
+    for j in range(steps):
         new_X_u = X_u + random_step(dX, neu)
         new_X_d = X_d + random_step(dX, ned)
         new_p = wfn_det(new_X_u, new_X_d, mo_u, mo_d, atoms, shells)
+        E[j] = loc_E
         if (new_p/p)**2 > random():
             X_u, X_d, p = new_X_u, new_X_d, new_p
-            E[j] = local_energy(X_u, X_d, mo_u, mo_d, atoms, shells)
-            j += 1
+            loc_E = local_energy(X_u, X_d, mo_u, mo_d, atoms, shells)
     return E
 
 
