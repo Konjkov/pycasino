@@ -19,7 +19,7 @@ from readers.wfn import Gwfn, Stowfn, GAUSSIAN_TYPE, SLATER_TYPE
 from readers.input import Input
 
 
-@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
+@nb.jit(nopython=True, nogil=True, parallel=False)
 def nuclear_repulsion(atoms):
     """nuclear-nuclear repulsion"""
     result = 0.0
@@ -32,7 +32,7 @@ def nuclear_repulsion(atoms):
     return result
 
 
-@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
+@nb.jit(nopython=True, nogil=True, parallel=False)
 def angular_part(r):
     """Angular part of gaussian WFN.
     :return:
@@ -68,7 +68,7 @@ def angular_part(r):
     ])
 
 
-@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
+@nb.jit(nopython=True, nogil=True, parallel=False)
 def gradient_angular_part(r):
     """Angular part of gaussian WFN.
     :return:
@@ -103,7 +103,7 @@ def gradient_angular_part(r):
     ])
 
 
-@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
+@nb.jit(nopython=True, nogil=True, parallel=False)
 def wfn(re, mo, atoms, shells):
     """
     Slater matrix
@@ -144,7 +144,7 @@ def wfn(re, mo, atoms, shells):
     return np.dot(mo, orbital.T)
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def gradient(re, mo, atoms, shells):
     """Gradient matrix."""
     orbital = np.zeros(mo.shape)
@@ -180,7 +180,7 @@ def gradient(re, mo, atoms, shells):
     return np.dot(mo, orbital.T)
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def laplacian(re, mo, atoms, shells):
     """Laplacian matrix."""
     orbital = np.zeros(mo.shape)
@@ -209,7 +209,7 @@ def laplacian(re, mo, atoms, shells):
     return np.dot(mo, orbital.T)
 
 
-@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
+@nb.jit(nopython=True, nogil=True, parallel=False)
 def wfn_det(r_u, r_d, mo_u, mo_d, atoms, shells):
     """Slater determinant without norm factor 1/sqrt(N!).
     """
@@ -218,7 +218,7 @@ def wfn_det(r_u, r_d, mo_u, mo_d, atoms, shells):
     return np.linalg.det(u_orb) * np.linalg.det(d_orb)
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def gradient_log(r, mo, atoms, shells):
     """∇(phi)/phi.
     """
@@ -233,22 +233,7 @@ def gradient_log(r, mo, atoms, shells):
     return res / np.linalg.det(orb)
 
 
-@nb.jit(nopython=True, cache=True)
-def gradient_2_log(r, mo, atoms, shells):
-    """∇(phi)/phi.
-    """
-    orb = wfn(r, mo, atoms, shells)
-    grad = gradient(r, mo, atoms, shells)
-    cond = np.arange(r.shape[0]) * np.ones(orb.shape)
-
-    res = 0
-    for i in range(r.shape[0]):
-        res += np.linalg.det(np.where(cond == i, grad, orb))**2
-
-    return res / np.linalg.det(orb)**2
-
-
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def laplacian_log(r, mo, atoms, shells):
     """∇²(phi)/phi.
     """
@@ -263,27 +248,29 @@ def laplacian_log(r, mo, atoms, shells):
     return res / np.linalg.det(orb)
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def numerical_gradient_log(r, mo, atoms, shells):
     """Numerical gradient
     :param r: up/down electrons coordinates shape = (nelec, 3)
     """
     delta = 0.00001
 
-    u_det = np.linalg.det(wfn(r, mo, atoms, shells))
+    det = np.linalg.det(wfn(r, mo, atoms, shells))
     res = 0
     for i in range(r.shape[0]):
+        res_1 = np.zeros((3,))
         for j in range(r.shape[1]):
             r[i, j] -= delta
-            res -= np.linalg.det(wfn(r, mo, atoms, shells))
+            res_1[j] -= np.linalg.det(wfn(r, mo, atoms, shells))
             r[i, j] += 2 * delta
-            res += np.linalg.det(wfn(r, mo, atoms, shells))
+            res_1[j] += np.linalg.det(wfn(r, mo, atoms, shells))
             r[i, j] -= delta
+        res += res_1[0] * res_1[0] + res_1[1] * res_1[1] + res_1[2] * res_1[2]
 
-    return res / u_det / delta / 2
+    return res / det / delta / 2
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def numerical_laplacian_log(r, mo, atoms, shells):
     """Numerical laplacian
     :param r: up/down electrons coordinates shape = (nelec, 3)
@@ -303,30 +290,32 @@ def numerical_laplacian_log(r, mo, atoms, shells):
     return (res / det - 2 * r.size) / delta / delta
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def F(r_u, r_d, mo_u, mo_d, atoms, shells):
-    return (gradient_log(r_u, mo_u, atoms, shells) + gradient_log(r_d, mo_d, atoms, shells)) / sqrt(2)
+    """sum(|Fi|)"""
+    return (numerical_gradient_log(r_u, mo_u, atoms, shells) + numerical_gradient_log(r_d, mo_d, atoms, shells)) / 2
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def T(r_u, r_d, mo_u, mo_d, atoms, shells):
-    return - (
-            laplacian_log(r_u, mo_u, atoms, shells) + laplacian_log(r_d, mo_d, atoms, shells)
-            - gradient_2_log(r_u, mo_u, atoms, shells) - gradient_2_log(r_d, mo_d, atoms, shells)
+    """sum(Ti)"""
+    return (
+            numerical_gradient_log(r_u, mo_u, atoms, shells) - laplacian_log(r_u, mo_u, atoms, shells) +
+            numerical_gradient_log(r_d, mo_d, atoms, shells) - laplacian_log(r_d, mo_d, atoms, shells)
     ) / 4
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def local_kinetic(r_u, r_d, mo_u, mo_d, atoms, shells):
     """local kinetic energy on the point.
     -1/2 * ∇²(phi) / phi
     """
     # return -(laplacian_log(r_u, mo_u, atoms, shells) + laplacian_log(r_d, mo_d, atoms, shells)) / 2
-    return 2*T(r_u, r_d, mo_u, mo_d, atoms, shells) - F(r_u, r_d, mo_u, mo_d, atoms, shells)**2
+    return F(r_u, r_d, mo_u, mo_d, atoms, shells)
     # return -(numerical_laplacian_log(r_u, mo_u, atoms, shells) + numerical_laplacian_log(r_d, mo_d, atoms, shells)) / 2
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def coulomb(r_u, r_d, atoms):
     """Coulomb attraction between the electron and nucleus."""
     res = 0.0
@@ -374,12 +363,12 @@ def coulomb(r_u, r_d, atoms):
     return res
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def local_energy(r_u, r_d, mo_u, mo_d, atoms, shells):
     return coulomb(r_u, r_d, atoms) + local_kinetic(r_u, r_d, mo_u, mo_d, atoms, shells)
 
 
-@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
+@nb.jit(nopython=True, nogil=True, parallel=False)
 def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells):
     """"""
     dV = np.prod(high - low) ** (neu + ned) / steps

@@ -20,7 +20,7 @@ from readers.wfn import Gwfn, Stowfn
 from readers.input import Input
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def initial_position(ne, atoms):
     """Initial positions of electrons"""
     natoms = atoms.shape[0]
@@ -30,37 +30,37 @@ def initial_position(ne, atoms):
     return X + random_normal_step(1.0, ne)
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def optimal_vmc_step(neu, ned):
     """vmc step width """
-    return 1 / (neu + ned) / 0.73
+    return 1 / (neu + ned)
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def random_laplace_step(dX, ne):
     """Random N-dim laplace distributed step"""
     return np.random.laplace(0.0, dX/(3*pi/4), ne*3).reshape((ne, 3))
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def random_triangular_step(dX, ne):
     """Random N-dim triangular distributed step"""
     return np.random.triangular(-1.5*dX, 0, 1.5*dX, ne*3).reshape((ne, 3))
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def random_square_step(dX, ne):
     """Random N-dim square distributed step"""
     return np.random.uniform(-dX, dX, ne*3).reshape((ne, 3))
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def random_normal_step(dX, ne):
     """Random normal distributed step"""
     return np.random.normal(0.0, dX/sqrt(3), ne*3).reshape((ne, 3))
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def random_on_sphere_step(dX, ne):
     """Random on a sphere distributed step"""
     result = []
@@ -76,7 +76,7 @@ def random_on_sphere_step(dX, ne):
 random_step = random_normal_step
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def equilibration(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells):
     """VMC equilibration"""
     i = j = 0
@@ -91,7 +91,7 @@ def equilibration(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells):
     return j
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def simple_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells):
     """VMC simple accumulation"""
     j = 0
@@ -107,7 +107,7 @@ def simple_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, she
     return E
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def averaging_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells):
     """VMC accumulation with averaging local energies over proposed moves"""
     E = np.zeros((steps,))
@@ -126,7 +126,7 @@ def averaging_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, 
 accumulation = simple_accumulation
 
 
-@nb.jit(nopython=True, cache=True)
+@nb.jit(nopython=True)
 def vmc(equlib, stat, mo_up, mo_down, neu, ned, atoms, shells):
     """configuration-by-configuration sampling (CBCS)"""
 
