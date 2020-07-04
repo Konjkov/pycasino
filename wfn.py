@@ -17,6 +17,8 @@ import numba as nb
 
 from readers.wfn import Gwfn, Stowfn, GAUSSIAN_TYPE, SLATER_TYPE
 from readers.input import Input
+from readers.jastrow import Jastrow
+from jastrow import jastrow
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
@@ -385,7 +387,7 @@ def local_energy(r_u, r_d, mo_u, mo_d, atoms, shells):
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells):
+def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, c, u_parameters, u_cutoff):
     """"""
     dV = np.prod(high - low) ** (neu + ned) / steps
 
@@ -406,12 +408,12 @@ def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells):
     for i in range(steps):
         X_u = random_position(low, high, neu)
         X_d = random_position(low, high, ned)
-        result += wfn_det(X_u, X_d, mo_u, mo_d, atoms, shells) ** 2
+        result += jastrow(c, u_parameters, u_cutoff, X_u, X_d, atoms) * wfn_det(X_u, X_d, mo_u, mo_d, atoms, shells) ** 2
 
     return result * dV / gamma(neu+1) / gamma(ned+1)
 
 
-def main(mo_up, mo_down, neu, ned, atoms, shells):
+def main(mo_up, mo_down, neu, ned, atoms, shells, c, u_parameters, u_cutoff):
     steps = 10 * 1024 * 1024
     offset = 3.0
 
@@ -420,7 +422,7 @@ def main(mo_up, mo_down, neu, ned, atoms, shells):
 
     mo_u = mo_up[:neu]
     mo_d = mo_down[:ned]
-    return integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells)
+    return integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, c, u_parameters, u_cutoff)
 
 
 if __name__ == '__main__':
@@ -441,6 +443,7 @@ if __name__ == '__main__':
     # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
     wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
     input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
+    jastrow_data = Jastrow('test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/correlation.data')
     # wfn_data = Gwfn('test/gwfn/be2/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/be2/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/acetic/HF/cc-pVQZ/gwfn.data')
@@ -460,6 +463,6 @@ if __name__ == '__main__':
     # input_data = Input('test/stowfn/be/HF/QZ4P/input')
 
     start = default_timer()
-    print(main(wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells))
+    print(main(wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells, jastrow_data.c, jastrow_data.u_parameters, jastrow_data.u_cutoff))
     end = default_timer()
     print(f'total time {end-start}')

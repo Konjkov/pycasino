@@ -13,28 +13,28 @@ class Casino:
     shell_map = {1: 0, 2: 1, 3: 1, 4: 2, 5: 3, 6: 4}
 
     def read_bool(self):
-        return self.fp.readline().strip() == '.true.'
+        return self.f.readline().strip() == '.true.'
 
     def read_str(self):
-        return str(self.fp.readline())
+        return str(self.f.readline())
 
     def read_int(self):
-        return int(self.fp.readline())
+        return int(self.f.readline())
 
     def read_float(self):
-        return float(self.fp.readline())
+        return float(self.f.readline())
 
     def read_ints(self, n):
         result = list()
         while len(result) < n:
-            line = self.fp.readline()
+            line = self.f.readline()
             result += map(int, line.split())
         return result
 
     def read_floats(self, n):
         result = list()
         while len(result) < n:
-            line = self.fp.readline()
+            line = self.f.readline()
             result += map(float, [line[i * 20:(i + 1) * 20] for i in range(len(line) // 20)])
         return result
 
@@ -45,9 +45,9 @@ class Gwfn(Casino):
     def __init__(self, file_name):
         """Open file and read gwfn data."""
 
-        with open(file_name, 'r') as fp:
-            self.fp = fp
-            for line in fp:
+        with open(file_name, 'r') as f:
+            self.f = f
+            for line in f:
                 if line.startswith('TITLE'):
                     self.title = self.read_str()
                 # BASIC_INFO
@@ -100,7 +100,7 @@ class Gwfn(Casino):
                 # ORBITAL COEFFICIENTS
                 # --------------------
                 elif line.startswith('ORBITAL COEFFICIENTS'):
-                    fp.readline()  # skip line with -----------
+                    f.readline()  # skip line with -----------
                     if self.unrestricted:
                         mo = self.read_floats(2 * self.nbasis_functions * self.nbasis_functions)
                         mo_up = mo[:self.nbasis_functions * self.nbasis_functions]
@@ -168,9 +168,9 @@ class Stowfn(Casino):
 
     def __init__(self, file_name):
         """Open file and read stowfn data."""
-        with open(file_name, 'r') as fp:
-            self.fp = fp
-            for line in fp:
+        with open(file_name, 'r') as f:
+            self.fp = f
+            for line in f:
                 # BASIC_INFO
                 # ----------
                 if line.startswith('Spin unrestricted'):
