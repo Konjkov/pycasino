@@ -15,6 +15,7 @@ import pyblock
 import numpy as np
 import numba as nb
 
+from overload import subtract_outer
 from wfn import wfn_det, local_energy, nuclear_repulsion
 from readers.wfn import Gwfn, Stowfn
 from readers.input import Input
@@ -77,13 +78,16 @@ random_step = random_normal_step
 
 
 @nb.jit(nopython=True)
-def equilibration(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells):
+def equilibration(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions):
     """VMC equilibration"""
     i = j = 0
     while i < steps:
         new_X_u = X_u + random_step(dX, neu)
         new_X_d = X_d + random_step(dX, ned)
-        new_p = wfn_det(new_X_u, new_X_d, mo_u, mo_d, atoms, shells)
+
+        new_r_uI = subtract_outer(new_X_u, atomic_positions)
+        new_r_dI = subtract_outer(new_X_d, atomic_positions)
+        new_p = wfn_det(new_r_uI, new_r_dI, mo_u, mo_d, atoms, shells)
         j += 1
         if (new_p/p)**2 > random():
             X_u, X_d, p = new_X_u, new_X_d, new_p
@@ -92,18 +96,25 @@ def equilibration(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells):
 
 
 @nb.jit(nopython=True)
-def simple_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells):
+def simple_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions):
     """VMC simple accumulation"""
+    r_uI = subtract_outer(X_u, atomic_positions)
+    r_dI = subtract_outer(X_d, atomic_positions)
+
     E = np.zeros((steps,))
-    loc_E = local_energy(X_u, X_d, mo_u, mo_d, atoms, shells)
+    loc_E = local_energy(X_u, X_d, r_uI, r_dI, mo_u, mo_d, atoms, shells)
     for j in range(steps):
         new_X_u = X_u + random_step(dX, neu)
         new_X_d = X_d + random_step(dX, ned)
-        new_p = wfn_det(new_X_u, new_X_d, mo_u, mo_d, atoms, shells)
+        new_r_uI = subtract_outer(new_X_u, atomic_positions)
+        new_r_dI = subtract_outer(new_X_d, atomic_positions)
+
+        new_p = wfn_det(new_r_uI, new_r_dI, mo_u, mo_d, atoms, shells)
         E[j] = loc_E
         if (new_p/p)**2 > random():
             X_u, X_d, p = new_X_u, new_X_d, new_p
-            loc_E = local_energy(X_u, X_d, mo_u, mo_d, atoms, shells)
+            r_uI, r_dI = new_r_uI, new_r_dI
+            loc_E = local_energy(X_u, X_d, r_uI, r_dI, mo_u, mo_d, atoms, shells)
     return E
 
 
@@ -135,17 +146,24 @@ def vmc(equlib, stat, mo_up, mo_down, neu, ned, atoms, shells):
     mo_u = mo_up[:neu]
     mo_d = mo_down[:ned]
 
+    atomic_positions = np.zeros((atoms.shape[0], 3))
+    for natom in range(atoms.shape[0]):
+        atomic_positions[natom] = atoms[natom].position
+
     X_u = initial_position(neu, atoms)
     X_d = initial_position(ned, atoms)
-    p = wfn_det(X_u, X_d, mo_u, mo_d, atoms, shells)
 
-    equ = equilibration(equlib, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells)
+    r_uI = subtract_outer(X_u, atomic_positions)
+    r_dI = subtract_outer(X_d, atomic_positions)
+    p = wfn_det(r_uI, r_dI, mo_u, mo_d, atoms, shells)
+
+    equ = equilibration(equlib, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions)
     print(equlib/equ)
 
-    opt = equilibration(10000, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells)
+    opt = equilibration(10000, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions)
     print(10000/opt)
 
-    return accumulation(stat, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells)
+    return accumulation(stat, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions)
 
 
 if __name__ == '__main__':

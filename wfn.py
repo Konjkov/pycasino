@@ -15,6 +15,7 @@ import numba as nb
 
 # np.show_config()
 
+from overload import subtract_outer
 from readers.wfn import Gwfn, Stowfn, GAUSSIAN_TYPE, SLATER_TYPE
 from readers.input import Input
 from readers.jastrow import Jastrow
@@ -106,11 +107,11 @@ def gradient_angular_part(r):
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def wfn(re, mo, atoms, shells):
+def wfn(r_eI, mo, atoms, shells):
     """
     Slater matrix
-    :param re: electrons coordinates shape = (nelec, 3)
-    :param mo: MO-coefficients shape = (nbasis_functions, nelec)
+    :param r_eI: electrons coordinates shape = (nelec, natom, 3)
+    :param mo: MO-coefficients shape = (nelec, nbasis_functions)
     :param atoms - list (natom, ) of struct of
         number: atomic number shape = (1,)
         charge: charge shape = (1,)
@@ -127,7 +128,7 @@ def wfn(re, mo, atoms, shells):
     for i in range(mo.shape[0]):
         ao = 0
         for natom in range(atoms.shape[0]):
-            rI = re[i] - atoms[natom].position
+            rI = r_eI[i, natom]
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
             angular_part_data = angular_part(rI)
             for nshell in range(atoms[natom].shells[0], atoms[natom].shells[1]):
@@ -147,7 +148,7 @@ def wfn(re, mo, atoms, shells):
 
 
 @nb.jit(nopython=True)
-def gradient(re, mo, atoms, shells):
+def gradient(r_eI, mo, atoms, shells):
     """Gradient matrix."""
     orbital_x = np.zeros(mo.shape)
     orbital_y = np.zeros(mo.shape)
@@ -155,12 +156,11 @@ def gradient(re, mo, atoms, shells):
     for i in range(mo.shape[0]):
         ao = 0
         for natom in range(atoms.shape[0]):
-            atom = atoms[natom]
-            rI = re[i] - atom.position
+            rI = r_eI[i, natom]
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
             angular_part_data = angular_part(rI)
             gradient_angular_part_data = gradient_angular_part(rI)
-            for nshell in range(atom.shells[0], atom.shells[1]):
+            for nshell in range(atoms[natom].shells[0], atoms[natom].shells[1]):
                 radial_part_1 = 0.0
                 radial_part_2 = 0.0
                 if shells[nshell].type == GAUSSIAN_TYPE:
@@ -186,17 +186,16 @@ def gradient(re, mo, atoms, shells):
 
 
 @nb.jit(nopython=True)
-def laplacian(re, mo, atoms, shells):
+def laplacian(r_eI, mo, atoms, shells):
     """Laplacian matrix."""
     orbital = np.zeros(mo.shape)
     for i in range(mo.shape[0]):
         ao = 0
         for natom in range(atoms.shape[0]):
-            atom = atoms[natom]
-            rI = re[i] - atom.position
+            rI = r_eI[i, natom]
             r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
             angular_part_data = angular_part(rI)
-            for nshell in range(atom.shells[0], atom.shells[1]):
+            for nshell in range(atoms[natom].shells[0], atoms[natom].shells[1]):
                 l = shells[nshell].moment
                 radial_part = 0.0
                 if shells[nshell].type == GAUSSIAN_TYPE:
@@ -215,24 +214,24 @@ def laplacian(re, mo, atoms, shells):
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def wfn_det(r_u, r_d, mo_u, mo_d, atoms, shells):
+def wfn_det(r_uI, r_dI, mo_u, mo_d, atoms, shells):
     """Slater determinant without norm factor 1/sqrt(N!).
     """
-    u_orb = wfn(r_u, mo_u, atoms, shells)
-    d_orb = wfn(r_d, mo_d, atoms, shells)
+    u_orb = wfn(r_uI, mo_u, atoms, shells)
+    d_orb = wfn(r_dI, mo_d, atoms, shells)
     return np.linalg.det(u_orb) * np.linalg.det(d_orb)
 
 
 @nb.jit(nopython=True)
-def gradient_log(r, mo, atoms, shells):
+def gradient_log(r_eI, mo, atoms, shells):
     """∇(phi)/phi.
     """
-    orb = wfn(r, mo, atoms, shells)
-    grad_x, grad_y, grad_z = gradient(r, mo, atoms, shells)
-    cond = np.arange(r.shape[0]) * np.ones(orb.shape)
+    orb = wfn(r_eI, mo, atoms, shells)
+    grad_x, grad_y, grad_z = gradient(r_eI, mo, atoms, shells)
+    cond = np.arange(r_eI.shape[0]) * np.ones(orb.shape)
 
-    res = np.zeros(r.shape)
-    for i in range(r.shape[0]):
+    res = np.zeros((r_eI.shape[0], 3))
+    for i in range(r_eI.shape[0]):
         res[i, 0] = np.linalg.det(np.where(cond == i, grad_x, orb))
         res[i, 1] = np.linalg.det(np.where(cond == i, grad_y, orb))
         res[i, 2] = np.linalg.det(np.where(cond == i, grad_z, orb))
@@ -241,96 +240,96 @@ def gradient_log(r, mo, atoms, shells):
 
 
 @nb.jit(nopython=True)
-def laplacian_log(r, mo, atoms, shells):
+def laplacian_log(r_eI, mo, atoms, shells):
     """∇²(phi)/phi.
     """
-    orb = wfn(r, mo, atoms, shells)
-    lap = laplacian(r, mo, atoms, shells)
-    cond = np.arange(r.shape[0]) * np.ones(orb.shape)
+    orb = wfn(r_eI, mo, atoms, shells)
+    lap = laplacian(r_eI, mo, atoms, shells)
+    cond = np.arange(r_eI.shape[0]) * np.ones(orb.shape)
 
     res = 0
-    for i in range(r.shape[0]):
+    for i in range(r_eI.shape[0]):
         res += np.linalg.det(np.where(cond == i, lap, orb))
 
     return res / np.linalg.det(orb)
 
 
 @nb.jit(nopython=True)
-def numerical_gradient_log(r, mo, atoms, shells):
+def numerical_gradient_log(r_eI, mo, atoms, shells):
     """Numerical gradient
-    :param r: up/down electrons coordinates shape = (nelec, 3)
+    :param r_eI: up/down electrons coordinates shape = (nelec, natom, 3)
     """
     delta = 0.00001
 
-    det = np.linalg.det(wfn(r, mo, atoms, shells))
-    res = np.zeros(r.shape)
-    for i in range(r.shape[0]):
-        for j in range(r.shape[1]):
-            r[i, j] -= delta
-            res[i, j] -= np.linalg.det(wfn(r, mo, atoms, shells))
-            r[i, j] += 2 * delta
-            res[i, j] += np.linalg.det(wfn(r, mo, atoms, shells))
-            r[i, j] -= delta
+    det = np.linalg.det(wfn(r_eI, mo, atoms, shells))
+    res = np.zeros((r_eI.shape[0], 3))
+    for i in range(r_eI.shape[0]):
+        for j in range(3):
+            r_eI[i, :, j] -= delta
+            res[i, j] -= np.linalg.det(wfn(r_eI, mo, atoms, shells))
+            r_eI[i, :, j] += 2 * delta
+            res[i, j] += np.linalg.det(wfn(r_eI, mo, atoms, shells))
+            r_eI[i, :, j] -= delta
 
     return np.linalg.norm(res / det / delta / 2)**2
 
 
 @nb.jit(nopython=True)
-def numerical_laplacian_log(r, mo, atoms, shells):
+def numerical_laplacian_log(r_eI, mo, atoms, shells):
     """Numerical laplacian
-    :param r: up/down electrons coordinates shape = (nelec, 3)
+    :param r_eI: up/down electrons coordinates shape = (nelec, natom, 3)
     """
     delta = 0.00001
 
-    det = np.linalg.det(wfn(r, mo, atoms, shells))
+    det = np.linalg.det(wfn(r_eI, mo, atoms, shells))
     res = 0
-    for i in range(r.shape[0]):
-        for j in range(r.shape[1]):
-            r[i, j] -= delta
-            res += np.linalg.det(wfn(r, mo, atoms, shells))
-            r[i, j] += 2 * delta
-            res += np.linalg.det(wfn(r, mo, atoms, shells))
-            r[i, j] -= delta
+    for i in range(r_eI.shape[0]):
+        for j in range(3):
+            r_eI[i, :, j] -= delta
+            res += np.linalg.det(wfn(r_eI, mo, atoms, shells))
+            r_eI[i, :, j] += 2 * delta
+            res += np.linalg.det(wfn(r_eI, mo, atoms, shells))
+            r_eI[i, :, j] -= delta
 
-    return (res / det - 2 * r.size) / delta / delta
+    return (res / det - 2 * r_eI.shape[0] * 3) / delta / delta
 
 
 @nb.jit(nopython=True)
-def F(r_u, r_d, mo_u, mo_d, atoms, shells, numeric=False):
+def F(r_uI, r_dI, mo_u, mo_d, atoms, shells, numeric=False):
     """sum(|Fi|²)"""
     if numeric:
-        return (numerical_gradient_log(r_u, mo_u, atoms, shells) + numerical_gradient_log(r_d, mo_d, atoms, shells)) / 2
+        return (numerical_gradient_log(r_uI, mo_u, atoms, shells) + numerical_gradient_log(r_dI, mo_d, atoms, shells)) / 2
     else:
-        return (gradient_log(r_u, mo_u, atoms, shells) + gradient_log(r_d, mo_d, atoms, shells)) / 2
+        return (gradient_log(r_uI, mo_u, atoms, shells) + gradient_log(r_dI, mo_d, atoms, shells)) / 2
 
 
 @nb.jit(nopython=True)
-def T(r_u, r_d, mo_u, mo_d, atoms, shells, numeric=False):
+def T(r_uI, r_dI, mo_u, mo_d, atoms, shells, numeric=False):
     """sum(Ti)"""
     if numeric:
         return (
-                numerical_gradient_log(r_u, mo_u, atoms, shells) - numerical_laplacian_log(r_u, mo_u, atoms, shells) +
-                numerical_gradient_log(r_d, mo_d, atoms, shells) - numerical_laplacian_log(r_d, mo_d, atoms, shells)
+                numerical_gradient_log(r_uI, mo_u, atoms, shells) - numerical_laplacian_log(r_uI, mo_u, atoms, shells) +
+                numerical_gradient_log(r_dI, mo_d, atoms, shells) - numerical_laplacian_log(r_dI, mo_d, atoms, shells)
         ) / 4
     else:
         return (
-                gradient_log(r_u, mo_u, atoms, shells) - laplacian_log(r_u, mo_u, atoms, shells) +
-                gradient_log(r_d, mo_d, atoms, shells) - laplacian_log(r_d, mo_d, atoms, shells)
+                gradient_log(r_uI, mo_u, atoms, shells) - laplacian_log(r_uI, mo_u, atoms, shells) +
+                gradient_log(r_dI, mo_d, atoms, shells) - laplacian_log(r_dI, mo_d, atoms, shells)
         ) / 4
 
 
 @nb.jit(nopython=True)
-def local_kinetic(r_u, r_d, mo_u, mo_d, atoms, shells, numeric=False, laplacian=True):
+def local_kinetic(r_uI, r_dI, mo_u, mo_d, atoms, shells, numeric=False, laplacian=True):
     """local kinetic energy on the point.
     -1/2 * ∇²(phi) / phi
     """
     if laplacian:
         if numeric:
-            return -(numerical_laplacian_log(r_u, mo_u, atoms, shells) + numerical_laplacian_log(r_d, mo_d, atoms, shells)) / 2
+            return -(numerical_laplacian_log(r_uI, mo_u, atoms, shells) + numerical_laplacian_log(r_dI, mo_d, atoms, shells)) / 2
         else:
-            return -(laplacian_log(r_u, mo_u, atoms, shells) + laplacian_log(r_d, mo_d, atoms, shells)) / 2
+            return -(laplacian_log(r_uI, mo_u, atoms, shells) + laplacian_log(r_dI, mo_d, atoms, shells)) / 2
     else:
-        return 2 * T(r_u, r_d, mo_u, mo_d, atoms, shells) - F(r_u, r_d, mo_u, mo_d, atoms, shells)
+        return 2 * T(r_uI, r_dI, mo_u, mo_d, atoms, shells) - F(r_uI, r_dI, mo_u, mo_d, atoms, shells)
 
 
 @nb.jit(nopython=True)
@@ -382,14 +381,18 @@ def coulomb(r_u, r_d, atoms):
 
 
 @nb.jit(nopython=True)
-def local_energy(r_u, r_d, mo_u, mo_d, atoms, shells):
-    return coulomb(r_u, r_d, atoms) + local_kinetic(r_u, r_d, mo_u, mo_d, atoms, shells)
+def local_energy(r_u, r_d, r_uI, r_dI, mo_u, mo_d, atoms, shells):
+    return coulomb(r_u, r_d, atoms) + local_kinetic(r_uI, r_dI, mo_u, mo_d, atoms, shells)
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
 def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff):
     """"""
     dV = np.prod(high - low) ** (neu + ned) / steps
+
+    atomic_positions = np.zeros((atoms.shape[0], 3))
+    for natom in range(atoms.shape[0]):
+        atomic_positions[natom] = atoms[natom].position
 
     def random_position(low, high, ne):
         """
@@ -408,7 +411,9 @@ def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_par
     for i in range(steps):
         X_u = random_position(low, high, neu)
         X_d = random_position(low, high, ned)
-        result += jastrow(trunc, u_parameters, u_cutoff, X_u, X_d, atoms) * wfn_det(X_u, X_d, mo_u, mo_d, atoms, shells) ** 2
+        r_uI = subtract_outer(X_u, atomic_positions)
+        r_dI = subtract_outer(X_d, atomic_positions)
+        result += jastrow(trunc, u_parameters, u_cutoff, X_u, X_d, atoms) * wfn_det(r_uI, r_dI, mo_u, mo_d, atoms, shells) ** 2
 
     return result * dV / gamma(neu+1) / gamma(ned+1)
 
@@ -443,7 +448,7 @@ if __name__ == '__main__':
     # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
     wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
     input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
-    jastrow_data = Jastrow('test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/correlation.out.0')
+    jastrow_data = Jastrow('test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/correlation.data')
     # wfn_data = Gwfn('test/gwfn/be2/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/be2/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/acetic/HF/cc-pVQZ/gwfn.data')

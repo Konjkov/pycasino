@@ -14,6 +14,7 @@ def jastrow(trunc, u_parameters, u_cutoff, r_u, r_d, atoms):
     :param atoms:
     :return:
     """
+    return 1.0
     res = 0.0
 
     for i in range(r_u.shape[0]):
