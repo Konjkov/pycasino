@@ -73,7 +73,7 @@ def angular_part(r):
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
 def gradient_angular_part(r):
-    """Angular part of gaussian WFN.
+    """Angular part of gaussian WFN gradient.
     :return:
     """
     x, y, z = r
@@ -319,7 +319,7 @@ def T(r_uI, r_dI, mo_u, mo_d, atoms, shells, numeric=False):
 
 
 @nb.jit(nopython=True)
-def local_kinetic(r_uI, r_dI, mo_u, mo_d, atoms, shells, numeric=False, laplacian=True):
+def kinetic(r_uI, r_dI, mo_u, mo_d, atoms, shells, numeric=False, laplacian=True):
     """local kinetic energy on the point.
     -1/2 * ∇²(phi) / phi
     """
@@ -333,66 +333,40 @@ def local_kinetic(r_uI, r_dI, mo_u, mo_d, atoms, shells, numeric=False, laplacia
 
 
 @nb.jit(nopython=True)
-def coulomb(r_u, r_d, atoms):
+def coulomb(r_u, r_d, r_uI, r_dI, atoms):
     """Coulomb attraction between the electron and nucleus."""
     res = 0.0
     for atom in range(atoms.shape[0]):
-        I = atoms[atom].position
         charge = atoms[atom].charge
-        for i in range(r_u.shape[0]):
-            x = r_u[i][0] - I[0]
-            y = r_u[i][1] - I[1]
-            z = r_u[i][2] - I[2]
-            r2 = x * x + y * y + z * z
-            res -= charge / sqrt(r2)
-
-        for i in range(r_d.shape[0]):
-            x = r_d[i][0] - I[0]
-            y = r_d[i][1] - I[1]
-            z = r_d[i][2] - I[2]
-            r2 = x * x + y * y + z * z
-            res -= charge / sqrt(r2)
+        for i in range(r_uI.shape[0]):
+            res -= charge / np.linalg.norm(r_uI[i, atom])
+        for i in range(r_dI.shape[0]):
+            res -= charge / np.linalg.norm(r_dI[i, atom])
 
     for i in range(r_u.shape[0]):
         for j in range(i + 1, r_u.shape[0]):
-            x = r_u[i][0] - r_u[j][0]
-            y = r_u[i][1] - r_u[j][1]
-            z = r_u[i][2] - r_u[j][2]
-            r2 = x * x + y * y + z * z
-            res += 1 / sqrt(r2)
+            res += 1 / np.linalg.norm(r_u[i] - r_u[j])
 
     for i in range(r_d.shape[0]):
         for j in range(i + 1, r_d.shape[0]):
-            x = r_d[i][0] - r_d[j][0]
-            y = r_d[i][1] - r_d[j][1]
-            z = r_d[i][2] - r_d[j][2]
-            r2 = x * x + y * y + z * z
-            res += 1 / sqrt(r2)
+            res += 1 / np.linalg.norm(r_d[i] - r_d[j])
 
     for i in range(r_u.shape[0]):
         for j in range(r_d.shape[0]):
-            x = r_u[i][0] - r_d[j][0]
-            y = r_u[i][1] - r_d[j][1]
-            z = r_u[i][2] - r_d[j][2]
-            r2 = x * x + y * y + z * z
-            res += 1 / sqrt(r2)
+            res += 1 / np.linalg.norm(r_u[i] - r_d[j])
 
     return res
 
 
 @nb.jit(nopython=True)
 def local_energy(r_u, r_d, r_uI, r_dI, mo_u, mo_d, atoms, shells):
-    return coulomb(r_u, r_d, atoms) + local_kinetic(r_uI, r_dI, mo_u, mo_d, atoms, shells)
+    return coulomb(r_u, r_d, r_uI, r_dI, atoms) + kinetic(r_uI, r_dI, mo_u, mo_d, atoms, shells)
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff):
+def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, atomic_positions):
     """"""
     dV = np.prod(high - low) ** (neu + ned) / steps
-
-    atomic_positions = np.zeros((atoms.shape[0], 3))
-    for natom in range(atoms.shape[0]):
-        atomic_positions[natom] = atoms[natom].position
 
     def random_position(low, high, ne):
         """
@@ -425,9 +399,11 @@ def main(mo_up, mo_down, neu, ned, atoms, shells, trunc, u_parameters, u_cutoff)
     low = np.min(atoms['position'], axis=0) - offset
     high = np.max(atoms['position'], axis=0) + offset
 
+    atomic_positions = atoms['position']
+
     mo_u = mo_up[:neu]
     mo_d = mo_down[:ned]
-    return integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff)
+    return integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, atomic_positions)
 
 
 if __name__ == '__main__':

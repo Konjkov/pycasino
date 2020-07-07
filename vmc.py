@@ -78,31 +78,10 @@ random_step = random_normal_step
 
 
 @nb.jit(nopython=True)
-def equilibration(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions):
+def equilibration(steps, dX, X_u, X_d, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions):
     """VMC equilibration"""
-    i = j = 0
-    while i < steps:
-        new_X_u = X_u + random_step(dX, neu)
-        new_X_d = X_d + random_step(dX, ned)
-
-        new_r_uI = subtract_outer(new_X_u, atomic_positions)
-        new_r_dI = subtract_outer(new_X_d, atomic_positions)
-        new_p = wfn_det(new_r_uI, new_r_dI, mo_u, mo_d, atoms, shells)
-        j += 1
-        if (new_p/p)**2 > random():
-            X_u, X_d, p = new_X_u, new_X_d, new_p
-            i += 1
-    return j
-
-
-@nb.jit(nopython=True)
-def simple_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions):
-    """VMC simple accumulation"""
-    r_uI = subtract_outer(X_u, atomic_positions)
-    r_dI = subtract_outer(X_d, atomic_positions)
-
-    E = np.zeros((steps,))
-    loc_E = local_energy(X_u, X_d, r_uI, r_dI, mo_u, mo_d, atoms, shells)
+    i = 0
+    p = 0.0
     for j in range(steps):
         new_X_u = X_u + random_step(dX, neu)
         new_X_d = X_d + random_step(dX, ned)
@@ -110,11 +89,30 @@ def simple_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, she
         new_r_dI = subtract_outer(new_X_d, atomic_positions)
 
         new_p = wfn_det(new_r_uI, new_r_dI, mo_u, mo_d, atoms, shells)
-        E[j] = loc_E
-        if (new_p/p)**2 > random():
+        j += 1
+        if new_p**2 > random() * p**2:
+            X_u, X_d, p = new_X_u, new_X_d, new_p
+            i += 1
+    return i
+
+
+@nb.jit(nopython=True)
+def simple_accumulation(steps, dX, X_u, X_d, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions):
+    """VMC simple accumulation"""
+    p = loc_E = 0.0
+    E = np.zeros((steps,))
+    for j in range(steps):
+        new_X_u = X_u + random_step(dX, neu)
+        new_X_d = X_d + random_step(dX, ned)
+        new_r_uI = subtract_outer(new_X_u, atomic_positions)
+        new_r_dI = subtract_outer(new_X_d, atomic_positions)
+
+        new_p = wfn_det(new_r_uI, new_r_dI, mo_u, mo_d, atoms, shells)
+        if new_p**2 > random() * p**2:
             X_u, X_d, p = new_X_u, new_X_d, new_p
             r_uI, r_dI = new_r_uI, new_r_dI
             loc_E = local_energy(X_u, X_d, r_uI, r_dI, mo_u, mo_d, atoms, shells)
+        E[j] = loc_E
     return E
 
 
@@ -137,7 +135,6 @@ def averaging_accumulation(steps, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, 
 accumulation = simple_accumulation
 
 
-@nb.jit(nopython=True)
 def vmc(equlib, stat, mo_up, mo_down, neu, ned, atoms, shells):
     """configuration-by-configuration sampling (CBCS)"""
 
@@ -146,24 +143,18 @@ def vmc(equlib, stat, mo_up, mo_down, neu, ned, atoms, shells):
     mo_u = mo_up[:neu]
     mo_d = mo_down[:ned]
 
-    atomic_positions = np.zeros((atoms.shape[0], 3))
-    for natom in range(atoms.shape[0]):
-        atomic_positions[natom] = atoms[natom].position
+    atomic_positions = atoms['position']
 
     X_u = initial_position(neu, atoms)
     X_d = initial_position(ned, atoms)
 
-    r_uI = subtract_outer(X_u, atomic_positions)
-    r_dI = subtract_outer(X_d, atomic_positions)
-    p = wfn_det(r_uI, r_dI, mo_u, mo_d, atoms, shells)
+    equ = equilibration(equlib, dX, X_u, X_d, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions)
+    print(equ/equlib)
 
-    equ = equilibration(equlib, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions)
-    print(equlib/equ)
+    opt = equilibration(10000, dX, X_u, X_d, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions)
+    print(opt/10000)
 
-    opt = equilibration(10000, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions)
-    print(10000/opt)
-
-    return accumulation(stat, dX, X_u, X_d, p, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions)
+    return accumulation(stat, dX, X_u, X_d, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions)
 
 
 if __name__ == '__main__':
