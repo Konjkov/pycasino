@@ -14,14 +14,13 @@ def jastrow(trunc, u_parameters, u_cutoff, r_u, r_d, atoms):
     :param atoms:
     :return:
     """
-    return 1.0
     res = 0.0
 
     for i in range(r_u.shape[0]):
         for j in range(i + 1, r_u.shape[0]):
-            x = r_d[i][0] - r_d[j][0]
-            y = r_d[i][1] - r_d[j][1]
-            z = r_d[i][2] - r_d[j][2]
+            x = r_u[i][0] - r_u[j][0]
+            y = r_u[i][1] - r_u[j][1]
+            z = r_u[i][2] - r_u[j][2]
             r = sqrt(x * x + y * y + z * z)
             if r <= u_cutoff:
                 a = 0.0

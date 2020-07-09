@@ -42,7 +42,7 @@ def angular_part(r):
     """
     x, y, z = r
     r2 = x*x + y*y + z*z
-    return np.array([
+    return [
         1,
         x,
         y,
@@ -68,7 +68,7 @@ def angular_part(r):
         105 * y*z * (3 * x*x - y*y),
         105 * (x*x*x*x - 6 * x*x * y*y + y*y*y*y),
         420 * x*y * (x*x - y*y)
-    ])
+    ]
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
@@ -213,6 +213,42 @@ def laplacian(r_eI, mo, atoms, shells):
     return np.dot(mo, orbital.T)
 
 
+@nb.jit(nopython=True)
+def numerical_gradient(r_eI, mo, atoms, shells):
+    """Numerical gradient
+    :param r_eI: up/down electrons coordinates shape = (nelec, natom, 3)
+    """
+    delta = 0.00001
+
+    res = np.zeros((r_eI.shape[0], r_eI.shape[0], 3))
+    for j in range(3):
+        r_eI[:, :, j] -= delta
+        res[:, :, j] -= wfn(r_eI, mo, atoms, shells)
+        r_eI[:, :, j] += 2 * delta
+        res[:, :, j] += wfn(r_eI, mo, atoms, shells)
+        r_eI[:, :, j] -= delta
+
+    return res[:, :, 0] / delta / 2, res[:, :, 1] / delta / 2, res[:, :, 2] / delta / 2
+
+
+@nb.jit(nopython=True)
+def numerical_laplacian(r_eI, mo, atoms, shells):
+    """Numerical laplacian
+    :param r_eI: up/down electrons coordinates shape = (nelec, natom, 3)
+    """
+    delta = 0.00001
+
+    res = -6 * wfn(r_eI, mo, atoms, shells)
+    for j in range(3):
+        r_eI[:, :, j] -= delta
+        res += wfn(r_eI, mo, atoms, shells)
+        r_eI[:, :, j] += 2 * delta
+        res += wfn(r_eI, mo, atoms, shells)
+        r_eI[:, :, j] -= delta
+
+    return res / delta / delta
+
+
 @nb.jit(nopython=True, nogil=True, parallel=False)
 def wfn_det(r_uI, r_dI, mo_u, mo_d, atoms, shells):
     """Slater determinant without norm factor 1/sqrt(N!).
@@ -255,79 +291,27 @@ def laplacian_log(r_eI, mo, atoms, shells):
 
 
 @nb.jit(nopython=True)
-def numerical_gradient_log(r_eI, mo, atoms, shells):
-    """Numerical gradient
-    :param r_eI: up/down electrons coordinates shape = (nelec, natom, 3)
-    """
-    delta = 0.00001
-
-    det = np.linalg.det(wfn(r_eI, mo, atoms, shells))
-    res = np.zeros((r_eI.shape[0], 3))
-    for i in range(r_eI.shape[0]):
-        for j in range(3):
-            r_eI[i, :, j] -= delta
-            res[i, j] -= np.linalg.det(wfn(r_eI, mo, atoms, shells))
-            r_eI[i, :, j] += 2 * delta
-            res[i, j] += np.linalg.det(wfn(r_eI, mo, atoms, shells))
-            r_eI[i, :, j] -= delta
-
-    return np.linalg.norm(res / det / delta / 2)**2
-
-
-@nb.jit(nopython=True)
-def numerical_laplacian_log(r_eI, mo, atoms, shells):
-    """Numerical laplacian
-    :param r_eI: up/down electrons coordinates shape = (nelec, natom, 3)
-    """
-    delta = 0.00001
-
-    det = np.linalg.det(wfn(r_eI, mo, atoms, shells))
-    res = 0
-    for i in range(r_eI.shape[0]):
-        for j in range(3):
-            r_eI[i, :, j] -= delta
-            res += np.linalg.det(wfn(r_eI, mo, atoms, shells))
-            r_eI[i, :, j] += 2 * delta
-            res += np.linalg.det(wfn(r_eI, mo, atoms, shells))
-            r_eI[i, :, j] -= delta
-
-    return (res / det - 2 * r_eI.shape[0] * 3) / delta / delta
-
-
-@nb.jit(nopython=True)
-def F(r_uI, r_dI, mo_u, mo_d, atoms, shells, numeric=False):
+def F(r_uI, r_dI, mo_u, mo_d, atoms, shells):
     """sum(|Fi|²)"""
-    if numeric:
-        return (numerical_gradient_log(r_uI, mo_u, atoms, shells) + numerical_gradient_log(r_dI, mo_d, atoms, shells)) / 2
-    else:
-        return (gradient_log(r_uI, mo_u, atoms, shells) + gradient_log(r_dI, mo_d, atoms, shells)) / 2
+    return (gradient_log(r_uI, mo_u, atoms, shells) + gradient_log(r_dI, mo_d, atoms, shells)) / 2
 
 
 @nb.jit(nopython=True)
-def T(r_uI, r_dI, mo_u, mo_d, atoms, shells, numeric=False):
+def T(r_uI, r_dI, mo_u, mo_d, atoms, shells):
     """sum(Ti)"""
-    if numeric:
-        return (
-                numerical_gradient_log(r_uI, mo_u, atoms, shells) - numerical_laplacian_log(r_uI, mo_u, atoms, shells) +
-                numerical_gradient_log(r_dI, mo_d, atoms, shells) - numerical_laplacian_log(r_dI, mo_d, atoms, shells)
-        ) / 4
-    else:
-        return (
-                gradient_log(r_uI, mo_u, atoms, shells) - laplacian_log(r_uI, mo_u, atoms, shells) +
-                gradient_log(r_dI, mo_d, atoms, shells) - laplacian_log(r_dI, mo_d, atoms, shells)
-        ) / 4
+    return (
+            gradient_log(r_uI, mo_u, atoms, shells) - laplacian_log(r_uI, mo_u, atoms, shells) +
+            gradient_log(r_dI, mo_d, atoms, shells) - laplacian_log(r_dI, mo_d, atoms, shells)
+    ) / 4
 
 
 @nb.jit(nopython=True)
-def kinetic(r_uI, r_dI, mo_u, mo_d, atoms, shells, numeric=False, laplacian=True):
+def kinetic(r_uI, r_dI, mo_u, mo_d, atoms, shells, laplacian=True):
     """local kinetic energy on the point.
     -1/2 * ∇²(phi) / phi
     """
     if laplacian:
-        if numeric:
-            return -(numerical_laplacian_log(r_uI, mo_u, atoms, shells) + numerical_laplacian_log(r_dI, mo_d, atoms, shells)) / 2
-        else:
-            return -(laplacian_log(r_uI, mo_u, atoms, shells) + laplacian_log(r_dI, mo_d, atoms, shells)) / 2
+        return -(laplacian_log(r_uI, mo_u, atoms, shells) + laplacian_log(r_dI, mo_d, atoms, shells)) / 2
     else:
         return 2 * T(r_uI, r_dI, mo_u, mo_d, atoms, shells) - F(r_uI, r_dI, mo_u, mo_d, atoms, shells)
 
@@ -392,6 +376,14 @@ def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_par
     return result * dV / gamma(neu+1) / gamma(ned+1)
 
 
+@nb.jit(nopython=True, nogil=True, parallel=True)
+def p_integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, atomic_positions):
+    res = 0.0
+    for i in nb.prange(4):
+        res += integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, atomic_positions)
+    return res / 4
+
+
 def main(mo_up, mo_down, neu, ned, atoms, shells, trunc, u_parameters, u_cutoff):
     steps = 10 * 1024 * 1024
     offset = 3.0
@@ -403,7 +395,8 @@ def main(mo_up, mo_down, neu, ned, atoms, shells, trunc, u_parameters, u_cutoff)
 
     mo_u = mo_up[:neu]
     mo_d = mo_down[:ned]
-    return integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, atomic_positions)
+
+    return p_integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, atomic_positions)
 
 
 if __name__ == '__main__':

@@ -4,7 +4,7 @@ import numba as nb
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
 def subtract_outer(x, y):
-    """Outer subtract twi 1-D array."""
+    """Outer subtract two 1-D array."""
 
     res = np.empty((x.shape[0], y.shape[0], 3))
     for i in range(x.shape[0]):
