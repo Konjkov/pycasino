@@ -348,7 +348,7 @@ def local_energy(r_u, r_d, r_uI, r_dI, mo_u, mo_d, atoms, shells):
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, atomic_positions):
+def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, atomic_positions):
     """"""
     dV = np.prod(high - low) ** (neu + ned) / steps
 
@@ -371,20 +371,20 @@ def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_par
         X_d = random_position(low, high, ned)
         r_uI = subtract_outer(X_u, atomic_positions)
         r_dI = subtract_outer(X_d, atomic_positions)
-        result += jastrow(trunc, u_parameters, u_cutoff, X_u, X_d, atoms) * wfn_det(r_uI, r_dI, mo_u, mo_d, atoms, shells) ** 2
+        result += jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, X_u, X_d, atoms) * wfn_det(r_uI, r_dI, mo_u, mo_d, atoms, shells) ** 2
 
     return result * dV / gamma(neu+1) / gamma(ned+1)
 
 
 @nb.jit(nopython=True, nogil=True, parallel=True)
-def p_integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, atomic_positions):
+def p_integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, atomic_positions):
     res = 0.0
     for i in nb.prange(4):
-        res += integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, atomic_positions)
+        res += integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, atomic_positions)
     return res / 4
 
 
-def main(mo_up, mo_down, neu, ned, atoms, shells, trunc, u_parameters, u_cutoff):
+def main(mo_up, mo_down, neu, ned, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     steps = 10 * 1024 * 1024
     offset = 3.0
 
@@ -396,7 +396,7 @@ def main(mo_up, mo_down, neu, ned, atoms, shells, trunc, u_parameters, u_cutoff)
     mo_u = mo_up[:neu]
     mo_d = mo_down[:ned]
 
-    return p_integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, atomic_positions)
+    return integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, atomic_positions)
 
 
 if __name__ == '__main__':
@@ -417,7 +417,7 @@ if __name__ == '__main__':
     # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
     wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
     input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
-    jastrow_data = Jastrow('test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/correlation.data')
+    jastrow_data = Jastrow('test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/correlation.out.5', wfn_data.atoms)
     # wfn_data = Gwfn('test/gwfn/be2/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/be2/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/acetic/HF/cc-pVQZ/gwfn.data')
@@ -438,8 +438,10 @@ if __name__ == '__main__':
 
     start = default_timer()
     res = main(
-        wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells,
-        jastrow_data.trunc, jastrow_data.u_parameters, jastrow_data.u_cutoff
+        wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells, jastrow_data.trunc,
+        jastrow_data.u_parameters, jastrow_data.u_cutoff,
+        jastrow_data.chi_parameters, jastrow_data.chi_cutoff,
+        jastrow_data.f_parameters, jastrow_data.f_cutoff
     )
     print(res)
     end = default_timer()

@@ -9,10 +9,12 @@ class Jastrow:
     22.2 The u, χ and f terms in the Jastrow factor
     """
 
-    def __init__(self, file):
-        jastrow = False
-        self.u_parameters = self.chi_parameters = self.f_parameters = None
-        u_term = chi_term = f_term = False
+    def __init__(self, file, atoms):
+        self.u_parameters = np.zeros((0, 3), np.float)
+        self.chi_parameters = np.zeros((atoms.shape[0], 0, 2), np.float)
+        self.f_parameters = np.zeros((atoms.shape[0], 0, 0, 0, 3), np.float)
+        self.u_cutoff = self.chi_cutoff = self.f_cutoff = 0.0
+        jastrow = u_term = chi_term = f_term = False
         with open(file, 'r') as f:
             line = f.readline()
             while line:
@@ -43,12 +45,16 @@ class Jastrow:
                     elif line.strip().startswith('Parameter'):
                         # uu, ud, dd
                         self.u_parameters = np.zeros((u_order+1, 3), np.float)
-                        for i in range(u_spin_dep+1):
-                            for l in range(u_order+1):
+                        for i in range(u_spin_dep + 1):
+                            for l in range(u_order + 1):
                                 if l == 1:
                                     continue
                                 self.u_parameters[l][i] = float(f.readline().split()[0])
                 elif chi_term:
+                    if line.strip().startswith('START SET'):
+                        pass
+                    elif line.strip().startswith('Label'):
+                        atom_labels = list(map(int, f.readline().split()))
                     if line.strip().startswith('Expansion order'):
                         chi_order = int(f.readline())
                     elif line.strip().startswith('Spin dep'):
@@ -57,21 +63,29 @@ class Jastrow:
                         self.chi_cutoff = float(f.readline().split()[0])
                     elif line.strip().startswith('Parameter'):
                         # u, d
-                        self.chi_parameters = np.zeros((chi_order+1, 2), np.float)
-                        for i in range(chi_spin_dep+1):
-                            for m in range(chi_order):
+                        self.chi_parameters = np.zeros((atoms.shape[0], chi_order+1, 2), np.float)
+                        for i in range(chi_spin_dep + 1):
+                            for m in range(chi_order + 1):
                                 if m == 1:
                                     continue
-                                self.chi_parameters[m][i] = float(f.readline().split()[0])
+                                param = float(f.readline().split()[0])
+                                for atom in atom_labels:
+                                    self.chi_parameters[atom-1][m][i] = param
+                    elif line.strip().startswith('END_SET'):
+                        atom_labels = []
                 elif f_term:
-                    if line.strip().startswith('Electron-nucleus expansion order'):
+                    if line.strip().startswith('START SET'):
+                        pass
+                    elif line.strip().startswith('Label'):
+                        atom_labels = map(int, f.readline().split())
+                    elif line.strip().startswith('Electron-nucleus expansion order'):
                         f_en_order = int(f.readline())
-                    if line.strip().startswith('Electron-electron expansion order'):
+                    elif line.strip().startswith('Electron-electron expansion order'):
                         f_ee_order = int(f.readline())
                     elif line.strip().startswith('Spin dep'):
                         f_spin_dep = int(f.readline())
                     elif line.strip().startswith('Parameter'):
-                        self.f_parameters = np.zeros((f_en_order+1, f_en_order+1, f_ee_order+1, 3), np.float)
+                        self.f_parameters = np.zeros((atoms.shape[0], f_en_order+1, f_en_order+1, f_ee_order+1, 3), np.float)
                         for i in range(f_spin_dep+1):
                             for n in range(f_ee_order + 1):
                                 for m in range(f_en_order + 1):
@@ -86,22 +100,24 @@ class Jastrow:
                                             continue
                                         line = f.readline()
                                         print(line[:-1], l, m, n, i)
-                                        self.f_parameters[l][m][n][i] = float(line.split()[0])
-                                        if m != l:
-                                            #  γlmnI = γmlnI
-                                            self.f_parameters[m][l][n][i] = self.f_parameters[l][m][n][i]
-
+                                        param = float(line.split()[0])
+                                        for atom in atom_labels:
+                                            # γlmnI = γmlnI
+                                            self.f_parameters[atom-1][l][m][n][i] = self.f_parameters[m][l][n][i] = param
+                    elif line.strip().startswith('END_SET'):
+                        atom_labels = []
             if not jastrow:
                 print('No JASTROW section found')
                 exit(0)
-        if self.u_parameters is not None:
+        if self.u_cutoff:
             if u_spin_dep == 0:
                 self.u_parameters[:, 2] = self.u_parameters[:, 1] = self.u_parameters[:, 0]
             elif u_spin_dep == 1:
                 self.u_parameters[:, 2] = self.u_parameters[:, 0]
             self.u_parameters[1] = np.array([1/4, 1/2, 1/4])/(-self.u_cutoff)**self.trunc + self.u_parameters[0]*self.trunc/self.u_cutoff
-        if self.chi_parameters is not None:
-            Z = 1
-            self.chi_parameters[1] = Z/(-self.chi_cutoff)**self.trunc + self.u_parameters[0]*self.trunc/self.chi_cutoff
-        if self.f_parameters is not None:
-            pass
+        if self.chi_cutoff:
+            for atom in range(atoms.shape[0]):
+                self.chi_parameters[atom][1] = atoms[atom]['charge']/(-self.chi_cutoff)**self.trunc + self.chi_parameters[atom][0]*self.trunc/self.chi_cutoff
+        if self.f_cutoff:
+            for atom in range(atoms.shape[0]):
+                pass
