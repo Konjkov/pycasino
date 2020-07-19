@@ -93,17 +93,16 @@ class Jastrow:
                                         if n == 0 and (l == 0 or m == 0):
                                             continue
                                         # sum(γlm1I) = 0
-                                        if n == 1 and (l - m >= 2 or l == 0 or m == 0 or l == f_en_order or m == f_en_order):
+                                        if n == 1 and (l == 0 or m == 0 or l == f_en_order or m == f_en_order or l == f_en_order - 1 and m == 1):
                                             continue
-                                        # ???
                                         if l == f_en_order and m == 0:
                                             continue
                                         line = f.readline()
-                                        print(line[:-1], l, m, n, i)
+                                        # print(line[:-1], l, m, n, i)
                                         param = float(line.split()[0])
                                         for atom in atom_labels:
                                             # γlmnI = γmlnI
-                                            self.f_parameters[atom-1][l][m][n][i] = self.f_parameters[m][l][n][i] = param
+                                            self.f_parameters[atom-1][l][m][n][i] = self.f_parameters[atom-1][m][l][n][i] = param
                     elif line.strip().startswith('END_SET'):
                         atom_labels = []
             if not jastrow:

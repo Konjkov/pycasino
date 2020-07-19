@@ -343,7 +343,9 @@ def coulomb(r_u, r_d, r_uI, r_dI, atoms):
 
 
 @nb.jit(nopython=True)
-def local_energy(r_u, r_d, r_uI, r_dI, mo_u, mo_d, atoms, shells):
+def local_energy(r_u, r_d, mo_u, mo_d, atoms, shells, atomic_positions):
+    r_uI = subtract_outer(r_u, atomic_positions)
+    r_dI = subtract_outer(r_d, atomic_positions)
     return coulomb(r_u, r_d, r_uI, r_dI, atoms) + kinetic(r_uI, r_dI, mo_u, mo_d, atoms, shells)
 
 
