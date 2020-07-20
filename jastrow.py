@@ -147,9 +147,9 @@ def u_term_gradient(trunc, u_parameters, u_cutoff, r_u, r_d):
     :param r_d: down-electrons coordinates
     :return:
     """
-    gradient_x = np.zeros(r_u.shape[0])
-    gradient_y = np.zeros(r_u.shape[0])
-    gradient_z = np.zeros(r_u.shape[0])
+    gradient_u = np.zeros((r_u.shape[0], 3))
+    gradient_d = np.zeros((r_d.shape[0], 3))
+
     for i in range(r_u.shape[0]):
         for j in range(i + 1, r_u.shape[0]):
             r = np.linalg.norm(r_u[i] - r_u[j])  # FIXME to slow
@@ -163,12 +163,79 @@ def u_term_gradient(trunc, u_parameters, u_cutoff, r_u, r_d):
                 for k in range(u_parameters.shape[0]):
                     poly_diff += k * u_parameters[k, 0]*r**(k-1)
 
-                gradient = (r-u_cutoff)**(trunc-1) * (trunc + (r-u_cutoff)*poly_diff) / r
-                gradient_x[i] += x * gradient
-                gradient_y[i] += y * gradient
-                gradient_z[i] += z * gradient
+                gradient = (r-u_cutoff)**(trunc-1) * (trunc*poly + (r-u_cutoff)*poly_diff) / r
+                gradient_u[i, 0] += x * gradient
+                gradient_u[i, 1] += y * gradient
+                gradient_u[i, 2] += z * gradient
 
-    return gradient_x, gradient_y, gradient_z
+    for i in range(r_u.shape[0]):
+        for j in range(r_d.shape[0]):
+            r = np.linalg.norm(r_u[i] - r_d[j])  # FIXME to slow
+            x, y, z = r_u[i] - r_d[j]  # FIXME to slow
+            if r <= u_cutoff:
+                poly = 0.0
+                for k in range(u_parameters.shape[0]):
+                    poly += u_parameters[k, 0]*r**k
+
+                poly_diff = 0.0
+                for k in range(u_parameters.shape[0]):
+                    poly_diff += k * u_parameters[k, 0]*r**(k-1)
+
+                gradient = (r-u_cutoff)**(trunc-1) * (trunc*poly + (r-u_cutoff)*poly_diff) / r
+                gradient_u[i, 0] += x * gradient
+                gradient_u[i, 1] += y * gradient
+                gradient_u[i, 2] += z * gradient
+                gradient_d[j, 0] -= x * gradient
+                gradient_d[j, 1] -= y * gradient
+                gradient_d[j, 2] -= z * gradient
+
+    for i in range(r_d.shape[0]):
+        for j in range(i + 1, r_d.shape[0]):
+            r = np.linalg.norm(r_d[i] - r_d[j])  # FIXME to slow
+            x, y, z = r_d[i] - r_d[j]  # FIXME to slow
+            if r <= u_cutoff:
+                poly = 0.0
+                for k in range(u_parameters.shape[0]):
+                    poly += u_parameters[k, 0]*r**k
+
+                poly_diff = 0.0
+                for k in range(u_parameters.shape[0]):
+                    poly_diff += k * u_parameters[k, 0]*r**(k-1)
+
+                gradient = (r-u_cutoff)**(trunc-1) * (trunc*poly + (r-u_cutoff)*poly_diff) / r
+                gradient_d[i, 0] += x * gradient
+                gradient_d[i, 1] += y * gradient
+                gradient_d[i, 2] += z * gradient
+
+    return gradient_u, gradient_d
+
+
+@nb.jit(nopython=True)
+def chi_term_gradient(trunc, chi_parameters, chi_cutoff, r_u, r_d):
+    """Jastrow chi-term gradient
+    :param chi_parameters:
+    :param r_u: up-electrons coordinates
+    :param r_d: down-electrons coordinates
+    :return:
+    """
+    gradient_u = np.zeros((r_u.shape[0], 3))
+    gradient_d = np.zeros((r_u.shape[0], 3))
+
+    return gradient_u, gradient_d
+
+
+@nb.jit(nopython=True)
+def f_term_gradient(trunc, f_parameters, f_cutoff, r_u, r_d):
+    """Jastrow f-term gradient
+    :param f_parameters:
+    :param r_u: up-electrons coordinates
+    :param r_d: down-electrons coordinates
+    :return:
+    """
+    gradient_u = np.zeros((r_u.shape[0], 3))
+    gradient_d = np.zeros((r_u.shape[0], 3))
+
+    return gradient_u, gradient_d
 
 
 @nb.jit(nopython=True)
@@ -227,6 +294,28 @@ def u_term_laplacian(trunc, u_parameters, u_cutoff, r_u, r_d):
 
 
 @nb.jit(nopython=True)
+def chi_term_laplacian(trunc, chi_parameters, chi_cutoff, r_u, r_d, atoms):
+    """Jastrow chi-term laplacian
+    :param u_parameters:
+    :param r_u: up-electrons coordinates
+    :param r_d: down-electrons coordinates
+    :return:
+    """
+    return 0
+
+
+@nb.jit(nopython=True)
+def f_term_laplacian(trunc, f_parameters, f_cutoff, r_u, r_d, atoms):
+    """Jastrow f-term laplacian
+    :param u_parameters:
+    :param r_u: up-electrons coordinates
+    :param r_d: down-electrons coordinates
+    :return:
+    """
+    return 0
+
+
+@nb.jit(nopython=True)
 def jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms):
     """Jastrow
     :param u_parameters:
@@ -239,4 +328,18 @@ def jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_paramet
         u_term(trunc, u_parameters, u_cutoff, r_u, r_d) +
         chi_term(trunc, chi_parameters, chi_cutoff, r_u, r_d, atoms) +
         f_term(trunc, f_parameters, f_cutoff, r_u, r_d, atoms)
+    )
+
+
+@nb.jit(nopython=True)
+def jastrow_gradient(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms):
+    return u_term_gradient(trunc, u_parameters, u_cutoff, r_u, r_d)
+
+
+@nb.jit(nopython=True)
+def jastrow_laplacian(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms):
+    return (
+        u_term_laplacian(trunc, u_parameters, u_cutoff, r_u, r_d) +
+        chi_term_laplacian(trunc, chi_parameters, chi_cutoff, r_u, r_d, atoms) +
+        f_term_laplacian(trunc, f_parameters, f_cutoff, r_u, r_d, atoms)
     )

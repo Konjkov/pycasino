@@ -23,19 +23,6 @@ from jastrow import jastrow
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def nuclear_repulsion(atoms):
-    """nuclear-nuclear repulsion"""
-    result = 0.0
-    natoms = atoms.shape[0]
-    for natom1 in range(natoms):
-        for natom2 in range(natoms):
-            if natom1 > natom2:
-                r = atoms[natom1].position - atoms[natom2].position
-                result += atoms[natom1].charge * atoms[natom2].charge/np.linalg.norm(r)
-    return result
-
-
-@nb.jit(nopython=True, nogil=True, parallel=False)
 def angular_part(r):
     """Angular part of gaussian WFN.
     :return:
@@ -148,7 +135,7 @@ def wfn(r_eI, mo, atoms, shells):
 
 
 @nb.jit(nopython=True)
-def gradient(r_eI, mo, atoms, shells):
+def wfn_gradient(r_eI, mo, atoms, shells):
     """Gradient matrix."""
     orbital_x = np.zeros(mo.shape)
     orbital_y = np.zeros(mo.shape)
@@ -186,7 +173,7 @@ def gradient(r_eI, mo, atoms, shells):
 
 
 @nb.jit(nopython=True)
-def laplacian(r_eI, mo, atoms, shells):
+def wfn_laplacian(r_eI, mo, atoms, shells):
     """Laplacian matrix."""
     orbital = np.zeros(mo.shape)
     for i in range(mo.shape[0]):
@@ -214,7 +201,7 @@ def laplacian(r_eI, mo, atoms, shells):
 
 
 @nb.jit(nopython=True)
-def numerical_gradient(r_eI, mo, atoms, shells):
+def wfn_numerical_gradient(r_eI, mo, atoms, shells):
     """Numerical gradient
     :param r_eI: up/down electrons coordinates shape = (nelec, natom, 3)
     """
@@ -232,7 +219,7 @@ def numerical_gradient(r_eI, mo, atoms, shells):
 
 
 @nb.jit(nopython=True)
-def numerical_laplacian(r_eI, mo, atoms, shells):
+def wfn_numerical_laplacian(r_eI, mo, atoms, shells):
     """Numerical laplacian
     :param r_eI: up/down electrons coordinates shape = (nelec, natom, 3)
     """
@@ -259,11 +246,11 @@ def wfn_det(r_uI, r_dI, mo_u, mo_d, atoms, shells):
 
 
 @nb.jit(nopython=True)
-def gradient_log(r_eI, mo, atoms, shells):
+def wfn_gradient_log(r_eI, mo, atoms, shells):
     """∇(phi)/phi.
     """
     orb = wfn(r_eI, mo, atoms, shells)
-    grad_x, grad_y, grad_z = gradient(r_eI, mo, atoms, shells)
+    grad_x, grad_y, grad_z = wfn_gradient(r_eI, mo, atoms, shells)
     cond = np.arange(r_eI.shape[0]) * np.ones(orb.shape)
 
     res = np.zeros((r_eI.shape[0], 3))
@@ -272,15 +259,15 @@ def gradient_log(r_eI, mo, atoms, shells):
         res[i, 1] = np.linalg.det(np.where(cond == i, grad_y, orb))
         res[i, 2] = np.linalg.det(np.where(cond == i, grad_z, orb))
 
-    return np.linalg.norm(res / np.linalg.det(orb))**2
+    return res / np.linalg.det(orb)
 
 
 @nb.jit(nopython=True)
-def laplacian_log(r_eI, mo, atoms, shells):
+def wfn_laplacian_log(r_eI, mo, atoms, shells):
     """∇²(phi)/phi.
     """
     orb = wfn(r_eI, mo, atoms, shells)
-    lap = laplacian(r_eI, mo, atoms, shells)
+    lap = wfn_laplacian(r_eI, mo, atoms, shells)
     cond = np.arange(r_eI.shape[0]) * np.ones(orb.shape)
 
     res = 0
@@ -293,60 +280,24 @@ def laplacian_log(r_eI, mo, atoms, shells):
 @nb.jit(nopython=True)
 def F(r_uI, r_dI, mo_u, mo_d, atoms, shells):
     """sum(|Fi|²)"""
-    return (gradient_log(r_uI, mo_u, atoms, shells) + gradient_log(r_dI, mo_d, atoms, shells)) / 2
+    return (np.linalg.norm(wfn_gradient_log(r_uI, mo_u, atoms, shells))**2 + np.linalg.norm(wfn_gradient_log(r_dI, mo_d, atoms, shells)))**2 / 2
 
 
 @nb.jit(nopython=True)
 def T(r_uI, r_dI, mo_u, mo_d, atoms, shells):
     """sum(Ti)"""
     return (
-            gradient_log(r_uI, mo_u, atoms, shells) - laplacian_log(r_uI, mo_u, atoms, shells) +
-            gradient_log(r_dI, mo_d, atoms, shells) - laplacian_log(r_dI, mo_d, atoms, shells)
+            np.linalg.norm(wfn_gradient_log(r_uI, mo_u, atoms, shells))**2 - wfn_laplacian_log(r_uI, mo_u, atoms, shells) +
+            np.linalg.norm(wfn_gradient_log(r_dI, mo_d, atoms, shells))**2 - wfn_laplacian_log(r_dI, mo_d, atoms, shells)
     ) / 4
 
 
 @nb.jit(nopython=True)
-def kinetic(r_uI, r_dI, mo_u, mo_d, atoms, shells, laplacian=True):
+def wfn_kinetic(r_uI, r_dI, mo_u, mo_d, atoms, shells):
     """local kinetic energy on the point.
     -1/2 * ∇²(phi) / phi
     """
-    if laplacian:
-        return -(laplacian_log(r_uI, mo_u, atoms, shells) + laplacian_log(r_dI, mo_d, atoms, shells)) / 2
-    else:
-        return 2 * T(r_uI, r_dI, mo_u, mo_d, atoms, shells) - F(r_uI, r_dI, mo_u, mo_d, atoms, shells)
-
-
-@nb.jit(nopython=True)
-def coulomb(r_u, r_d, r_uI, r_dI, atoms):
-    """Coulomb attraction between the electron and nucleus."""
-    res = 0.0
-    for atom in range(atoms.shape[0]):
-        charge = atoms[atom].charge
-        for i in range(r_uI.shape[0]):
-            res -= charge / np.linalg.norm(r_uI[i, atom])
-        for i in range(r_dI.shape[0]):
-            res -= charge / np.linalg.norm(r_dI[i, atom])
-
-    for i in range(r_u.shape[0]):
-        for j in range(i + 1, r_u.shape[0]):
-            res += 1 / np.linalg.norm(r_u[i] - r_u[j])
-
-    for i in range(r_d.shape[0]):
-        for j in range(i + 1, r_d.shape[0]):
-            res += 1 / np.linalg.norm(r_d[i] - r_d[j])
-
-    for i in range(r_u.shape[0]):
-        for j in range(r_d.shape[0]):
-            res += 1 / np.linalg.norm(r_u[i] - r_d[j])
-
-    return res
-
-
-@nb.jit(nopython=True)
-def local_energy(r_u, r_d, mo_u, mo_d, atoms, shells, atomic_positions):
-    r_uI = subtract_outer(r_u, atomic_positions)
-    r_dI = subtract_outer(r_d, atomic_positions)
-    return coulomb(r_u, r_d, r_uI, r_dI, atoms) + kinetic(r_uI, r_dI, mo_u, mo_d, atoms, shells)
+    return 2 * T(r_uI, r_dI, mo_u, mo_d, atoms, shells) - F(r_uI, r_dI, mo_u, mo_d, atoms, shells)
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
