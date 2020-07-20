@@ -96,16 +96,14 @@ def local_energy(r_u, r_d, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u
     r_uI = subtract_outer(r_u, atomic_positions)
     r_dI = subtract_outer(r_d, atomic_positions)
     jg_u, jg_d = jastrow_gradient(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms)
+    j_l = jastrow_laplacian(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms)
+    wl_u = wfn_laplacian_log(r_uI, mo_u, atoms, shells)
+    wl_d = wfn_laplacian_log(r_dI, mo_d, atoms, shells)
     wg_u = wfn_gradient_log(r_uI, mo_u, atoms, shells)
     wg_d = wfn_gradient_log(r_dI, mo_d, atoms, shells)
-    return (
-        coulomb(r_u, r_d, r_uI, r_dI, atoms) +
-        - wfn_laplacian_log(r_uI, mo_u, atoms, shells) / 2
-        - wfn_laplacian_log(r_dI, mo_d, atoms, shells) / 2
-        - jastrow_laplacian(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms) / 2
-        - np.sum(jg_u * wg_u) / 2
-        - np.sum(jg_d * wg_d) / 2
-    )
+    F = (np.sum(wg_u * wg_u) + np.sum(wg_d * wg_d) + np.sum(jg_u * wg_u) + np.sum(jg_d * wg_d)) / 2
+    T = (np.sum(wg_u * wg_u) + np.sum(wg_d * wg_d) - wl_u - wl_d - j_l) / 4
+    return coulomb(r_u, r_d, r_uI, r_dI, atoms) + 2 * T - F
 
 
 @nb.jit(nopython=True)

@@ -277,29 +277,6 @@ def wfn_laplacian_log(r_eI, mo, atoms, shells):
     return res / np.linalg.det(orb)
 
 
-@nb.jit(nopython=True)
-def F(r_uI, r_dI, mo_u, mo_d, atoms, shells):
-    """sum(|Fi|²)"""
-    return (np.linalg.norm(wfn_gradient_log(r_uI, mo_u, atoms, shells))**2 + np.linalg.norm(wfn_gradient_log(r_dI, mo_d, atoms, shells)))**2 / 2
-
-
-@nb.jit(nopython=True)
-def T(r_uI, r_dI, mo_u, mo_d, atoms, shells):
-    """sum(Ti)"""
-    return (
-            np.linalg.norm(wfn_gradient_log(r_uI, mo_u, atoms, shells))**2 - wfn_laplacian_log(r_uI, mo_u, atoms, shells) +
-            np.linalg.norm(wfn_gradient_log(r_dI, mo_d, atoms, shells))**2 - wfn_laplacian_log(r_dI, mo_d, atoms, shells)
-    ) / 4
-
-
-@nb.jit(nopython=True)
-def wfn_kinetic(r_uI, r_dI, mo_u, mo_d, atoms, shells):
-    """local kinetic energy on the point.
-    -1/2 * ∇²(phi) / phi
-    """
-    return 2 * T(r_uI, r_dI, mo_u, mo_d, atoms, shells) - F(r_uI, r_dI, mo_u, mo_d, atoms, shells)
-
-
 @nb.jit(nopython=True, nogil=True, parallel=False)
 def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, atomic_positions):
     """"""
