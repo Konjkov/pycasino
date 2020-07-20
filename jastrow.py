@@ -170,6 +170,9 @@ def u_term_gradient(C, u_parameters, L, r_u, r_d):
                 gradient_u[i, 0] += x * gradient
                 gradient_u[i, 1] += y * gradient
                 gradient_u[i, 2] += z * gradient
+                gradient_u[j, 0] -= x * gradient
+                gradient_u[j, 1] -= y * gradient
+                gradient_u[j, 2] -= z * gradient
 
     for i in range(r_u.shape[0]):
         for j in range(r_d.shape[0]):
@@ -209,6 +212,9 @@ def u_term_gradient(C, u_parameters, L, r_u, r_d):
                 gradient_d[i, 0] += x * gradient
                 gradient_d[i, 1] += y * gradient
                 gradient_d[i, 2] += z * gradient
+                gradient_d[j, 0] -= x * gradient
+                gradient_d[j, 1] -= y * gradient
+                gradient_d[j, 2] -= z * gradient
 
     return gradient_u, gradient_d
 
