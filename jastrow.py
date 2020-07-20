@@ -160,7 +160,7 @@ def u_term_gradient(trunc, u_parameters, u_cutoff, r_u, r_d):
                     poly += u_parameters[k, 0]*r**k
 
                 poly_diff = 0.0
-                for k in range(u_parameters.shape[0]):
+                for k in range(1, u_parameters.shape[0]):
                     poly_diff += k * u_parameters[k, 0]*r**(k-1)
 
                 gradient = (r-u_cutoff)**(trunc-1) * (trunc*poly + (r-u_cutoff)*poly_diff) / r
@@ -178,7 +178,7 @@ def u_term_gradient(trunc, u_parameters, u_cutoff, r_u, r_d):
                     poly += u_parameters[k, 0]*r**k
 
                 poly_diff = 0.0
-                for k in range(u_parameters.shape[0]):
+                for k in range(1, u_parameters.shape[0]):
                     poly_diff += k * u_parameters[k, 0]*r**(k-1)
 
                 gradient = (r-u_cutoff)**(trunc-1) * (trunc*poly + (r-u_cutoff)*poly_diff) / r
@@ -199,7 +199,7 @@ def u_term_gradient(trunc, u_parameters, u_cutoff, r_u, r_d):
                     poly += u_parameters[k, 0]*r**k
 
                 poly_diff = 0.0
-                for k in range(u_parameters.shape[0]):
+                for k in range(1, u_parameters.shape[0]):
                     poly_diff += k * u_parameters[k, 0]*r**(k-1)
 
                 gradient = (r-u_cutoff)**(trunc-1) * (trunc*poly + (r-u_cutoff)*poly_diff) / r
@@ -259,7 +259,7 @@ def u_term_laplacian(trunc, u_parameters, u_cutoff, r_u, r_d):
                     poly += u_parameters[k, 0]*r**k
 
                 poly_diff = 0.0
-                for k in range(u_parameters.shape[0]):
+                for k in range(1, u_parameters.shape[0]):
                     poly_diff += k * u_parameters[k, 0]*r**(k-1)
 
                 poly_diff_2 = 0.0
@@ -279,7 +279,20 @@ def u_term_laplacian(trunc, u_parameters, u_cutoff, r_u, r_d):
                 poly = 0.0
                 for k in range(u_parameters.shape[0]):
                     poly += u_parameters[k, 1]*r**k
-                res += poly * (r - u_cutoff) ** trunc
+
+                poly_diff = 0.0
+                for k in range(1, u_parameters.shape[0]):
+                    poly_diff += k * u_parameters[k, 0]*r**(k-1)
+
+                poly_diff_2 = 0.0
+                for k in range(2, u_parameters.shape[0]):
+                    poly_diff_2 += k * (k-1) * u_parameters[k, 0]*r**(k-2)
+                C = trunc
+                L = u_cutoff
+                res += -(
+                        r*(C*(C - 1)*(r-L)**(C + 1)*poly + 2*C*(r-L)**(C + 2)*poly_diff + (r-L)**(C + 3)*poly_diff_2)
+                        - 2*(r-L)**2*(C*(r-L)**C*poly + (r-L)**(C + 1)*poly_diff)
+                )/(r*(L - r)**3)
 
     for i in range(r_d.shape[0]):
         for j in range(i + 1, r_d.shape[0]):
@@ -288,7 +301,20 @@ def u_term_laplacian(trunc, u_parameters, u_cutoff, r_u, r_d):
                 poly = 0.0
                 for k in range(u_parameters.shape[0]):
                     poly += u_parameters[k, 2]*r**k
-                res += poly * (r - u_cutoff) ** trunc
+
+                poly_diff = 0.0
+                for k in range(1, u_parameters.shape[0]):
+                    poly_diff += k * u_parameters[k, 0]*r**(k-1)
+
+                poly_diff_2 = 0.0
+                for k in range(2, u_parameters.shape[0]):
+                    poly_diff_2 += k * (k-1) * u_parameters[k, 0]*r**(k-2)
+                C = trunc
+                L = u_cutoff
+                res += -(
+                        r*(C*(C - 1)*(r-L)**(C + 1)*poly + 2*C*(r-L)**(C + 2)*poly_diff + (r-L)**(C + 3)*poly_diff_2)
+                        - 2*(r-L)**2*(C*(r-L)**C*poly + (r-L)**(C + 1)*poly_diff)
+                )/(r*(L - r)**3)
 
     return res
 
