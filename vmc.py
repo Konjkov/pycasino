@@ -103,7 +103,7 @@ def local_energy(r_u, r_d, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u
     wg_d = wfn_gradient_log(r_dI, mo_d, atoms, shells)
     F = (np.sum(wg_u * wg_u) + np.sum(wg_d * wg_d) + np.sum(jg_u * wg_u) + np.sum(jg_d * wg_d)) / 2
     T = (np.sum(wg_u * wg_u) + np.sum(wg_d * wg_d) - wl_u - wl_d - j_l) / 4
-    return coulomb(r_u, r_d, r_uI, r_dI, atoms) + 2 * T - F
+    return j_l
 
 
 @nb.jit(nopython=True)
@@ -194,9 +194,9 @@ if __name__ == '__main__':
     # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/he/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/he/HF/cc-pVQZ/input')
-    wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
-    input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
-    jastrow_data = Jastrow('test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/correlation.out.5', wfn_data.atoms)
+    wfn_data = Gwfn('test/gwfn/he/HF/cc-pVQZ/gwfn.data')
+    input_data = Input('test/gwfn/he/HF/cc-pVQZ/input')
+    jastrow_data = Jastrow('test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/correlation.out.5', wfn_data.atoms)
     # wfn_data = Gwfn('test/gwfn/b/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/b/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/n/HF/cc-pVQZ/gwfn.data')
