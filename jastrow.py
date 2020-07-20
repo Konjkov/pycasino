@@ -276,7 +276,7 @@ def u_term_laplacian(C, u_parameters, L, r_u, r_d):
                     poly_diff_2 += k * (k-1) * u_parameters[k, 0]*r**(k-2)
                 res += 2*(
                         r*(C*(C - 1)*(r-L)**(C + 1)*poly + 2*C*(r-L)**(C + 2)*poly_diff + (r-L)**(C + 3)*poly_diff_2)
-                        - 2*(r-L)**2*(C*(r-L)**C*poly + (r-L)**(C + 1)*poly_diff)
+                        + 2*(r-L)**2*(C*(r-L)**C*poly + (r-L)**(C + 1)*poly_diff)
                 )/(r*(r-L)**3)
 
     for i in range(r_u.shape[0]):
@@ -296,7 +296,7 @@ def u_term_laplacian(C, u_parameters, L, r_u, r_d):
                     poly_diff_2 += k * (k-1) * u_parameters[k, 1]*r**(k-2)
                 res += 2*(
                         r*(C*(C - 1)*(r-L)**(C + 1)*poly + 2*C*(r-L)**(C + 2)*poly_diff + (r-L)**(C + 3)*poly_diff_2)
-                        - 2*(r-L)**2*(C*(r-L)**C*poly + (r-L)**(C + 1)*poly_diff)
+                        + 2*(r-L)**2*(C*(r-L)**C*poly + (r-L)**(C + 1)*poly_diff)
                 )/(r*(r-L)**3)
 
     for i in range(r_d.shape[0] - 1):
@@ -316,7 +316,7 @@ def u_term_laplacian(C, u_parameters, L, r_u, r_d):
                     poly_diff_2 += k * (k-1) * u_parameters[k, 2]*r**(k-2)
                 res += 2*(
                         r*(C*(C - 1)*(r-L)**(C + 1)*poly + 2*C*(r-L)**(C + 2)*poly_diff + (r-L)**(C + 3)*poly_diff_2)
-                        - 2*(r-L)**2*(C*(r-L)**C*poly + (r-L)**(C + 1)*poly_diff)
+                        + 2*(r-L)**2*(C*(r-L)**C*poly + (r-L)**(C + 1)*poly_diff)
                 )/(r*(r-L)**3)
 
     return res

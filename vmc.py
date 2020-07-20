@@ -102,7 +102,7 @@ def local_energy(r_u, r_d, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u
     wg_u = wfn_gradient_log(r_uI, mo_u, atoms, shells)
     wg_d = wfn_gradient_log(r_dI, mo_d, atoms, shells)
     F = (np.sum((wg_u + jg_u) * (wg_u + jg_u)) + np.sum((wg_d + jg_d) * (wg_d + jg_d))) / 2
-    T = (np.sum(wg_u * wg_u) + np.sum(wg_d * wg_d) - wl_u - wl_d + j_l) / 4
+    T = (np.sum(wg_u * wg_u) + np.sum(wg_d * wg_d) - wl_u - wl_d - j_l) / 4
     return coulomb(r_u, r_d, r_uI, r_dI, atoms) + 2 * T - F
 
 
