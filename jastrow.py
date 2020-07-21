@@ -21,28 +21,28 @@ def u_term(C, u_parameters, L, r_u, r_d):
         for j in range(i + 1, r_u.shape[0]):
             r = np.linalg.norm(r_u[i] - r_u[j])  # FIXME to slow
             if r <= L:
-                a = 0.0
+                poly = 0.0
                 for k in range(u_parameters.shape[0]):
-                    a += u_parameters[k, 0]*r**k
-                res += a * (r - L)**C
+                    poly += u_parameters[k, 0]*r**k
+                res += poly * (r - L)**C
 
     for i in range(r_u.shape[0]):
         for j in range(r_d.shape[0]):
             r = np.linalg.norm(r_u[i] - r_d[j])  # FIXME to slow
             if r <= L:
-                a = 0.0
+                poly = 0.0
                 for k in range(u_parameters.shape[0]):
-                    a += u_parameters[k, 1]*r**k
-                res += a * (r - L) ** C
+                    poly += u_parameters[k, 1]*r**k
+                res += poly * (r - L) ** C
 
     for i in range(r_d.shape[0] - 1):
         for j in range(i + 1, r_d.shape[0]):
             r = np.linalg.norm(r_d[i] - r_d[j])  # FIXME to slow
             if r <= L:
-                a = 0.0
+                poly = 0.0
                 for k in range(u_parameters.shape[0]):
-                    a += u_parameters[k, 2]*r**k
-                res += a * (r - L) ** C
+                    poly += u_parameters[k, 2]*r**k
+                res += poly * (r - L) ** C
 
     return res
 
@@ -62,21 +62,21 @@ def chi_term(C, chi_parameters, L, r_u, r_d, atoms):
 
     for i in range(atoms.shape[0]):
         for j in range(r_u.shape[0]):
-            r = np.linalg.norm(atoms[i]['position'] - r_u[j])  # FIXME to slow
+            r = np.linalg.norm(r_u[j] - atoms[i]['position'])  # FIXME to slow
             if r <= L:
-                a = 0.0
+                poly = 0.0
                 for k in range(chi_parameters.shape[1]):
-                    a += chi_parameters[i, k, 0] * r ** k
-                res += a * (r - L) ** C
+                    poly += chi_parameters[i, k, 0] * r ** k
+                res += poly * (r - L) ** C
 
     for i in range(atoms.shape[0]):
         for j in range(r_d.shape[0]):
-            r = np.linalg.norm(atoms[i]['position'] - r_d[j])  # FIXME to slow
+            r = np.linalg.norm(r_d[j] - atoms[i]['position'])  # FIXME to slow
             if r <= L:
-                a = 0.0
+                poly = 0.0
                 for k in range(chi_parameters.shape[1]):
-                    a += chi_parameters[i, k, 1] * r ** k
-                res += a * (r - L) ** C
+                    poly += chi_parameters[i, k, 1] * r ** k
+                res += poly * (r - L) ** C
 
     return res
 
@@ -101,12 +101,12 @@ def f_term(C, f_parameters, L, r_u, r_d, atoms):
                 r_e1I = np.linalg.norm(atoms[i]['position'] - r_u[j])  # FIXME to slow
                 r_e2I = np.linalg.norm(atoms[i]['position'] - r_u[k])  # FIXME to slow
                 if r_e1I <= L and r_e2I <= L:
-                    a = 0.0
+                    poly = 0.0
                     for l1 in range(f_parameters.shape[1]):
                         for l2 in range(f_parameters.shape[1]):
                             for l3 in range(f_parameters.shape[1]):
-                                a += f_parameters[i, l1, l2, l3, 0] * r_e1I ** l1 * r_e2I ** l2 * r_ee * l3
-                    res += a * (r_e1I - L) ** C * (r_e2I - L) ** C
+                                poly += f_parameters[i, l1, l2, l3, 0] * r_e1I ** l1 * r_e2I ** l2 * r_ee * l3
+                    res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
 
     for i in range(atoms.shape[0]):
         for j in range(r_u.shape[0]):
@@ -115,12 +115,12 @@ def f_term(C, f_parameters, L, r_u, r_d, atoms):
                 r_e1I = np.linalg.norm(atoms[i]['position'] - r_u[j])  # FIXME to slow
                 r_e2I = np.linalg.norm(atoms[i]['position'] - r_u[k])  # FIXME to slow
                 if r_e1I <= L and r_e2I <= L:
-                    a = 0.0
+                    poly = 0.0
                     for l1 in range(f_parameters.shape[1]):
                         for l2 in range(f_parameters.shape[1]):
                             for l3 in range(f_parameters.shape[1]):
-                                a += f_parameters[i, l1, l2, l3, 1] * r_e1I ** l1 * r_e2I ** l2 * r_ee * l3
-                    res += a * (r_e1I - L) ** C * (r_e2I - L) ** C
+                                poly += f_parameters[i, l1, l2, l3, 1] * r_e1I ** l1 * r_e2I ** l2 * r_ee * l3
+                    res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
 
     for i in range(atoms.shape[0]):
         for j in range(r_d.shape[0] - 1):
@@ -129,12 +129,12 @@ def f_term(C, f_parameters, L, r_u, r_d, atoms):
                 r_e1I = np.linalg.norm(atoms[i]['position'] - r_u[j])  # FIXME to slow
                 r_e2I = np.linalg.norm(atoms[i]['position'] - r_u[k])  # FIXME to slow
                 if r_e1I <= L and r_e2I <= L:
-                    a = 0.0
+                    poly = 0.0
                     for l1 in range(f_parameters.shape[1]):
                         for l2 in range(f_parameters.shape[1]):
                             for l3 in range(f_parameters.shape[1]):
-                                a += f_parameters[i, l1, l2, l3, 2] * r_e1I ** l1 * r_e2I ** l2 * r_ee * l3
-                    res += a * (r_e1I - L) ** C * (r_e2I - L) ** C
+                                poly += f_parameters[i, l1, l2, l3, 2] * r_e1I ** l1 * r_e2I ** l2 * r_ee * l3
+                    res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
 
     return res
 
@@ -220,7 +220,7 @@ def u_term_gradient(C, u_parameters, L, r_u, r_d):
 
 
 @nb.jit(nopython=True)
-def chi_term_gradient(trunc, chi_parameters, chi_cutoff, r_u, r_d):
+def chi_term_gradient(C, chi_parameters, L, r_u, r_d, atoms):
     """Jastrow chi-term gradient
     :param chi_parameters:
     :param r_u: up-electrons coordinates
@@ -228,13 +228,52 @@ def chi_term_gradient(trunc, chi_parameters, chi_cutoff, r_u, r_d):
     :return:
     """
     gradient_u = np.zeros((r_u.shape[0], 3))
-    gradient_d = np.zeros((r_u.shape[0], 3))
+    gradient_d = np.zeros((r_d.shape[0], 3))
+
+    if not L:
+        return gradient_u, gradient_d
+
+    for i in range(atoms.shape[0]):
+        for j in range(r_u.shape[0]):
+            r = np.linalg.norm(r_u[j] - atoms[i]['position'])  # FIXME to slow
+            x, y, z = r_u[j] - atoms[i]['position']   # FIXME to slow
+            if r <= L:
+                poly = 0.0
+                for k in range(chi_parameters.shape[0]):
+                    poly += chi_parameters[i, k, 0]*r**k
+
+                poly_diff = 0.0
+                for k in range(1, chi_parameters.shape[0]):
+                    poly_diff += k * chi_parameters[i, k, 0]*r**(k-1)
+
+                gradient = (r-L)**(C-1) * (C*poly + (r-L)*poly_diff) / r
+                gradient_u[j, 0] += x * gradient
+                gradient_u[j, 1] += y * gradient
+                gradient_u[j, 2] += z * gradient
+
+    for i in range(atoms.shape[0]):
+        for j in range(r_d.shape[0]):
+            r = np.linalg.norm(r_d[j] - atoms[i]['position'])  # FIXME to slow
+            x, y, z = r_d[j] - atoms[i]['position']  # FIXME to slow
+            if r <= L:
+                poly = 0.0
+                for k in range(chi_parameters.shape[0]):
+                    poly += chi_parameters[i, k, 1]*r**k
+
+                poly_diff = 0.0
+                for k in range(1, chi_parameters.shape[0]):
+                    poly_diff += k * chi_parameters[i, k, 1]*r**(k-1)
+
+                gradient = (r-L)**(C-1) * (C*poly + (r-L)*poly_diff) / r
+                gradient_d[j, 0] += x * gradient
+                gradient_d[j, 1] += y * gradient
+                gradient_d[j, 2] += z * gradient
 
     return gradient_u, gradient_d
 
 
 @nb.jit(nopython=True)
-def f_term_gradient(trunc, f_parameters, f_cutoff, r_u, r_d):
+def f_term_gradient(C, f_parameters, L, r_u, r_d, atoms):
     """Jastrow f-term gradient
     :param f_parameters:
     :param r_u: up-electrons coordinates
@@ -242,7 +281,37 @@ def f_term_gradient(trunc, f_parameters, f_cutoff, r_u, r_d):
     :return:
     """
     gradient_u = np.zeros((r_u.shape[0], 3))
-    gradient_d = np.zeros((r_u.shape[0], 3))
+    gradient_d = np.zeros((r_d.shape[0], 3))
+
+    if not L:
+        return gradient_u, gradient_d
+
+    for i in range(atoms.shape[0]):
+        for j in range(r_u.shape[0] - 1):
+            for k in range(j+1, r_u.shape[0]):
+                r_ee = np.linalg.norm(r_u[j] - r_u[k])  # FIXME to slow
+                r_e1I = np.linalg.norm(atoms[i]['position'] - r_u[j])  # FIXME to slow
+                r_e2I = np.linalg.norm(atoms[i]['position'] - r_u[k])  # FIXME to slow
+                if r_e1I <= L and r_e2I <= L:
+                    poly = 0.0
+
+    for i in range(atoms.shape[0]):
+        for j in range(r_u.shape[0]):
+            for k in range(r_d.shape[0]):
+                r_ee = np.linalg.norm(r_u[j] - r_u[k])  # FIXME to slow
+                r_e1I = np.linalg.norm(atoms[i]['position'] - r_u[j])  # FIXME to slow
+                r_e2I = np.linalg.norm(atoms[i]['position'] - r_u[k])  # FIXME to slow
+                if r_e1I <= L and r_e2I <= L:
+                    poly = 0.0
+
+    for i in range(atoms.shape[0]):
+        for j in range(r_d.shape[0] - 1):
+            for k in range(j+1, r_d.shape[0]):
+                r_ee = np.linalg.norm(r_u[j] - r_u[k])  # FIXME to slow
+                r_e1I = np.linalg.norm(atoms[i]['position'] - r_u[j])  # FIXME to slow
+                r_e2I = np.linalg.norm(atoms[i]['position'] - r_u[k])  # FIXME to slow
+                if r_e1I <= L and r_e2I <= L:
+                    poly = 0.0
 
     return gradient_u, gradient_d
 
@@ -323,25 +392,100 @@ def u_term_laplacian(C, u_parameters, L, r_u, r_d):
 
 
 @nb.jit(nopython=True)
-def chi_term_laplacian(trunc, chi_parameters, chi_cutoff, r_u, r_d, atoms):
+def chi_term_laplacian(C, chi_parameters, L, r_u, r_d, atoms):
     """Jastrow chi-term laplacian
     :param u_parameters:
     :param r_u: up-electrons coordinates
     :param r_d: down-electrons coordinates
     :return:
     """
-    return 0
+    res = 0.0
+    if not L:
+        return res
+
+    for i in range(atoms.shape[0]):
+        for j in range(r_u.shape[0]):
+            r = np.linalg.norm(atoms[i]['position'] - r_u[j])  # FIXME to slow
+            if r <= L:
+                poly = 0.0
+                for k in range(chi_parameters.shape[0]):
+                    poly += chi_parameters[i, k, 0]*r**k
+
+                poly_diff = 0.0
+                for k in range(1, chi_parameters.shape[0]):
+                    poly_diff += k * chi_parameters[i, k, 0]*r**(k-1)
+
+                poly_diff_2 = 0.0
+                for k in range(2, chi_parameters.shape[0]):
+                    poly_diff_2 += k * (k-1) * chi_parameters[i, k, 0]*r**(k-2)
+                res += (
+                        r*(C*(C - 1)*(r-L)**(C + 1)*poly + 2*C*(r-L)**(C + 2)*poly_diff + (r-L)**(C + 3)*poly_diff_2)
+                        + 2*(r-L)**2*(C*(r-L)**C*poly + (r-L)**(C + 1)*poly_diff)
+                )/(r*(r-L)**3)
+
+    for i in range(atoms.shape[0]):
+        for j in range(r_d.shape[0]):
+            r = np.linalg.norm(atoms[i]['position'] - r_d[j])  # FIXME to slow
+            if r <= L:
+                poly = 0.0
+                for k in range(chi_parameters.shape[0]):
+                    poly += chi_parameters[i, k, 1] * r ** k
+
+                poly_diff = 0.0
+                for k in range(1, chi_parameters.shape[0]):
+                    poly_diff += k * chi_parameters[i, k, 1] * r ** (k - 1)
+
+                poly_diff_2 = 0.0
+                for k in range(2, chi_parameters.shape[0]):
+                    poly_diff_2 += k * (k - 1) * chi_parameters[i, k, 1] * r ** (k - 2)
+                res += (
+                        r*(C*(C - 1)*(r-L)**(C + 1)*poly + 2*C*(r-L)**(C + 2)*poly_diff + (r-L)**(C + 3)*poly_diff_2)
+                        + 2*(r-L)**2*(C*(r-L)**C*poly + (r-L)**(C + 1)*poly_diff)
+                )/(r*(r-L)**3)
+
+    return res
 
 
 @nb.jit(nopython=True)
-def f_term_laplacian(trunc, f_parameters, f_cutoff, r_u, r_d, atoms):
+def f_term_laplacian(C, f_parameters, L, r_u, r_d, atoms):
     """Jastrow f-term laplacian
     :param u_parameters:
     :param r_u: up-electrons coordinates
     :param r_d: down-electrons coordinates
     :return:
     """
-    return 0
+    res = 0.0
+    if not L:
+        return res
+
+    for i in range(atoms.shape[0]):
+        for j in range(r_u.shape[0] - 1):
+            for k in range(j + 1, r_u.shape[0]):
+                r_ee = np.linalg.norm(r_u[j] - r_u[k])  # FIXME to slow
+                r_e1I = np.linalg.norm(atoms[i]['position'] - r_u[j])  # FIXME to slow
+                r_e2I = np.linalg.norm(atoms[i]['position'] - r_u[k])  # FIXME to slow
+                if r_e1I <= L and r_e2I <= L:
+                    poly = 0.0
+
+    for i in range(atoms.shape[0]):
+        for j in range(r_u.shape[0]):
+            for k in range(r_d.shape[0]):
+                r_ee = np.linalg.norm(r_u[j] - r_u[k])  # FIXME to slow
+                r_e1I = np.linalg.norm(atoms[i]['position'] - r_u[j])  # FIXME to slow
+                r_e2I = np.linalg.norm(atoms[i]['position'] - r_u[k])  # FIXME to slow
+                if r_e1I <= L and r_e2I <= L:
+                    poly = 0.0
+
+    for i in range(atoms.shape[0]):
+        for j in range(r_d.shape[0] - 1):
+            for k in range(j + 1, r_d.shape[0]):
+                r_ee = np.linalg.norm(r_u[j] - r_u[k])  # FIXME to slow
+                r_e1I = np.linalg.norm(atoms[i]['position'] - r_u[j])  # FIXME to slow
+                r_e2I = np.linalg.norm(atoms[i]['position'] - r_u[k])  # FIXME to slow
+                if r_e1I <= L and r_e2I <= L:
+                    poly = 0.0
+
+    return res
 
 
 @nb.jit(nopython=True)
@@ -362,7 +506,10 @@ def jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_paramet
 
 @nb.jit(nopython=True)
 def jastrow_gradient(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms):
-    return u_term_gradient(trunc, u_parameters, u_cutoff, r_u, r_d)
+    jg_u_1, jg_d_1 = u_term_gradient(trunc, u_parameters, u_cutoff, r_u, r_d)
+    jg_u_2, jg_d_2 = chi_term_gradient(trunc, chi_parameters, chi_cutoff, r_u, r_d, atoms)
+    jg_u_3, jg_d_3 = f_term_gradient(trunc, f_parameters, f_cutoff, r_u, r_d, atoms)
+    return jg_u_1 + jg_u_2 + jg_u_3, jg_d_1 + jg_d_2 + jg_d_3
 
 
 @nb.jit(nopython=True)
