@@ -141,7 +141,7 @@ def simple_accumulation(steps, dX, r_u, r_d, neu, ned, mo_u, mo_d, atoms, shells
 
 
 @nb.jit(nopython=True)
-def averaging_accumulation(steps, dX, r_u, r_d, p, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions):
+def averaging_accumulation(steps, dX, r_u, r_d, p, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """VMC accumulation with averaging local energies over proposed moves"""
     E = np.zeros((steps,))
     loc_E = local_energy(r_u, r_d, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)

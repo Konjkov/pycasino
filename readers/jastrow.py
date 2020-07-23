@@ -14,6 +14,7 @@ class Jastrow:
         self.chi_parameters = np.zeros((atoms.shape[0], 0, 2), np.float)
         self.f_parameters = np.zeros((atoms.shape[0], 0, 0, 0, 3), np.float)
         self.u_cutoff = self.chi_cutoff = self.f_cutoff = 0.0
+        self.chi_cusp = False
         jastrow = u_term = chi_term = f_term = False
         with open(file, 'r') as f:
             line = f.readline()
@@ -55,7 +56,9 @@ class Jastrow:
                         pass
                     elif line.strip().startswith('Label'):
                         atom_labels = list(map(int, f.readline().split()))
-                    if line.strip().startswith('Expansion order'):
+                    elif line.strip().startswith('Impose electron-nucleus cusp'):
+                        self.chi_cusp = bool(int(f.readline()))
+                    elif line.strip().startswith('Expansion order'):
                         chi_order = int(f.readline())
                     elif line.strip().startswith('Spin dep'):
                         chi_spin_dep = int(f.readline())
@@ -116,7 +119,9 @@ class Jastrow:
             self.u_parameters[1] = np.array([1/4, 1/2, 1/4])/(-self.u_cutoff)**self.trunc + self.u_parameters[0]*self.trunc/self.u_cutoff
         if self.chi_cutoff:
             for atom in range(atoms.shape[0]):
-                self.chi_parameters[atom][1] = -atoms[atom]['charge']/(-self.chi_cutoff)**self.trunc + self.chi_parameters[atom][0]*self.trunc/self.chi_cutoff
+                self.chi_parameters[atom][1] = self.chi_parameters[atom][0]*self.trunc/self.chi_cutoff
+                if self.chi_cusp:
+                    self.chi_parameters[atom][1] = -atoms[atom]['charge']/(-self.chi_cutoff)**self.trunc
         if self.f_cutoff:
             for atom in range(atoms.shape[0]):
                 pass
