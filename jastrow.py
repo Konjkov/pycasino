@@ -239,11 +239,11 @@ def chi_term_gradient(C, chi_parameters, L, r_u, r_d, atoms):
             x, y, z = r_u[j] - atoms[i]['position']   # FIXME to slow
             if r <= L:
                 poly = 0.0
-                for k in range(chi_parameters.shape[0]):
+                for k in range(chi_parameters.shape[1]):
                     poly += chi_parameters[i, k, 0]*r**k
 
                 poly_diff = 0.0
-                for k in range(1, chi_parameters.shape[0]):
+                for k in range(1, chi_parameters.shape[1]):
                     poly_diff += k * chi_parameters[i, k, 0]*r**(k-1)
 
                 gradient = (r-L)**(C-1) * (C*poly + (r-L)*poly_diff) / r
@@ -257,11 +257,11 @@ def chi_term_gradient(C, chi_parameters, L, r_u, r_d, atoms):
             x, y, z = r_d[j] - atoms[i]['position']  # FIXME to slow
             if r <= L:
                 poly = 0.0
-                for k in range(chi_parameters.shape[0]):
+                for k in range(chi_parameters.shape[1]):
                     poly += chi_parameters[i, k, 1]*r**k
 
                 poly_diff = 0.0
-                for k in range(1, chi_parameters.shape[0]):
+                for k in range(1, chi_parameters.shape[1]):
                     poly_diff += k * chi_parameters[i, k, 1]*r**(k-1)
 
                 gradient = (r-L)**(C-1) * (C*poly + (r-L)*poly_diff) / r
@@ -408,15 +408,15 @@ def chi_term_laplacian(C, chi_parameters, L, r_u, r_d, atoms):
             r = np.linalg.norm(atoms[i]['position'] - r_u[j])  # FIXME to slow
             if r <= L:
                 poly = 0.0
-                for k in range(chi_parameters.shape[0]):
+                for k in range(chi_parameters.shape[1]):
                     poly += chi_parameters[i, k, 0]*r**k
 
                 poly_diff = 0.0
-                for k in range(1, chi_parameters.shape[0]):
+                for k in range(1, chi_parameters.shape[1]):
                     poly_diff += k * chi_parameters[i, k, 0]*r**(k-1)
 
                 poly_diff_2 = 0.0
-                for k in range(2, chi_parameters.shape[0]):
+                for k in range(2, chi_parameters.shape[1]):
                     poly_diff_2 += k * (k-1) * chi_parameters[i, k, 0]*r**(k-2)
                 res += (
                         r*(C*(C - 1)*(r-L)**(C + 1)*poly + 2*C*(r-L)**(C + 2)*poly_diff + (r-L)**(C + 3)*poly_diff_2)
@@ -428,15 +428,15 @@ def chi_term_laplacian(C, chi_parameters, L, r_u, r_d, atoms):
             r = np.linalg.norm(atoms[i]['position'] - r_d[j])  # FIXME to slow
             if r <= L:
                 poly = 0.0
-                for k in range(chi_parameters.shape[0]):
+                for k in range(chi_parameters.shape[1]):
                     poly += chi_parameters[i, k, 1] * r ** k
 
                 poly_diff = 0.0
-                for k in range(1, chi_parameters.shape[0]):
+                for k in range(1, chi_parameters.shape[1]):
                     poly_diff += k * chi_parameters[i, k, 1] * r ** (k - 1)
 
                 poly_diff_2 = 0.0
-                for k in range(2, chi_parameters.shape[0]):
+                for k in range(2, chi_parameters.shape[1]):
                     poly_diff_2 += k * (k - 1) * chi_parameters[i, k, 1] * r ** (k - 2)
                 res += (
                         r*(C*(C - 1)*(r-L)**(C + 1)*poly + 2*C*(r-L)**(C + 2)*poly_diff + (r-L)**(C + 3)*poly_diff_2)

@@ -118,10 +118,16 @@ class Jastrow:
                 self.u_parameters[:, 2] = self.u_parameters[:, 0]
             self.u_parameters[1] = np.array([1/4, 1/2, 1/4])/(-self.u_cutoff)**self.trunc + self.u_parameters[0]*self.trunc/self.u_cutoff
         if self.chi_cutoff:
+            if chi_spin_dep == 0:
+                self.chi_parameters[:, :, 1] = self.chi_parameters[:, :, 0]
             for atom in range(atoms.shape[0]):
                 self.chi_parameters[atom][1] = self.chi_parameters[atom][0]*self.trunc/self.chi_cutoff
                 if self.chi_cusp:
-                    self.chi_parameters[atom][1] = -atoms[atom]['charge']/(-self.chi_cutoff)**self.trunc
+                    self.chi_parameters[atom][1] -= atoms[atom]['charge']/(-self.chi_cutoff)**self.trunc
         if self.f_cutoff:
+            if f_spin_dep == 0:
+                self.f_parameters[:, :, :, :, 2] = self.f_parameters[:, :, :, :, 1] = self.f_parameters[:, :, :, :, 0]
+            elif f_spin_dep == 1:
+                self.f_parameters[:, :, :, :, 2] = self.f_parameters[:, :, :, :, 0]
             for atom in range(atoms.shape[0]):
                 pass
