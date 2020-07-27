@@ -80,23 +80,29 @@ class Jastrow:
                     if line.strip().startswith('START SET'):
                         pass
                     elif line.strip().startswith('Label'):
-                        atom_labels = map(int, f.readline().split())
+                        atom_labels = list(map(int, f.readline().split()))
+                    elif line.strip().startswith('Prevent duplication of u term'):
+                        no_dup_u_trem = bool(int(f.readline()))
+                    elif line.strip().startswith('Prevent duplication of chi term'):
+                        no_dup_chi_trem = bool(int(f.readline()))
                     elif line.strip().startswith('Electron-nucleus expansion order'):
                         f_en_order = int(f.readline())
                     elif line.strip().startswith('Electron-electron expansion order'):
                         f_ee_order = int(f.readline())
                     elif line.strip().startswith('Spin dep'):
                         f_spin_dep = int(f.readline())
+                    elif line.strip().startswith('Cutoff'):
+                        self.f_cutoff = float(f.readline().split()[0])
                     elif line.strip().startswith('Parameter'):
                         self.f_parameters = np.zeros((atoms.shape[0], f_en_order+1, f_en_order+1, f_ee_order+1, 3), np.float)
                         for i in range(f_spin_dep+1):
                             for n in range(f_ee_order + 1):
                                 for m in range(f_en_order + 1):
                                     for l in range(m, f_en_order + 1):
-                                        if n == 0 and (l == 0 or m == 0):
+                                        if n == 0 and m == 0:
                                             continue
                                         # sum(γlm1I) = 0
-                                        if n == 1 and (l == 0 or m == 0 or l == f_en_order or m == f_en_order or l == f_en_order - 1 and m == 1):
+                                        if n == 1 and (m == 0 or l == f_en_order or l == f_en_order - 1 and m == 1):
                                             continue
                                         if l == f_en_order and m == 0:
                                             continue
@@ -129,5 +135,52 @@ class Jastrow:
                 self.f_parameters[:, :, :, :, 2] = self.f_parameters[:, :, :, :, 1] = self.f_parameters[:, :, :, :, 0]
             elif f_spin_dep == 1:
                 self.f_parameters[:, :, :, :, 2] = self.f_parameters[:, :, :, :, 0]
+
+            no_constraints_gamma = (f_en_order + f_ee_order + 1) + (2 * f_en_order + 1)
+            if no_dup_u_trem:
+                no_constraints_gamma += f_ee_order + 1
+            if no_dup_chi_trem:
+                no_constraints_gamma += f_en_order + 1
+            print('no_constraints_gamma', no_constraints_gamma)
+
             for atom in range(atoms.shape[0]):
-                pass
+                """fix 2 * f_en_order conditions"""
+                for lm in range(2 * f_en_order + 1):
+                    lm_sum = 0.0
+                    for l in range(f_en_order + 1):
+                        for m in range(f_en_order + 1):
+                            if l + m == lm:
+                                lm_sum += self.f_parameters[atom, l, m, 1, 0]
+                    if lm < f_en_order:
+                        self.f_parameters[atom, 0, lm, 1, 0] = -lm_sum / 2
+                        self.f_parameters[atom, lm, 0, 1, 0] = -lm_sum / 2
+                    if lm > f_en_order:
+                        self.f_parameters[atom, f_en_order, lm - f_en_order, 1, 0] = -lm_sum / 2
+                        self.f_parameters[atom, lm - f_en_order, f_en_order, 1, 0] = -lm_sum / 2
+
+                """fix f_en_order+f_ee_order conditions"""
+                for mn in range(f_en_order + f_ee_order + 1):
+                    for m in range(f_en_order + 1):
+                        for n in range(f_ee_order + 1):
+                            if m + n == mn:
+                                pass
+
+    def check_f_constrains(self, atoms, f_en_order, f_ee_order):
+        """"""
+        for atom in range(atoms.shape[0]):
+            for lm in range(2 * f_en_order + 1):
+                lm_sum = 0.0
+                for l in range(f_en_order + 1):
+                    for m in range(f_en_order + 1):
+                        if l + m == lm:
+                            lm_sum += self.f_parameters[atom, l, m, 1, 0]
+                            print(lm, self.f_parameters[atom, l, m, 1, 0])
+                print(lm, 'lm_sum=', lm_sum)
+                print('-'*10)
+
+            for mn in range(f_en_order + f_ee_order + 1):
+                for m in range(f_en_order + 1):
+                    for n in range(f_ee_order + 1):
+                        if m + n == mn:
+                            print(mn, self.trunc * self.f_parameters[atom, 0, m, n, 0], self.f_cutoff * self.f_parameters[atom, 1, m, n, 0])
+                print('-'*10)
