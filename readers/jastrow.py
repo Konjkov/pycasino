@@ -136,51 +136,76 @@ class Jastrow:
             elif f_spin_dep == 1:
                 self.f_parameters[:, :, :, :, 2] = self.f_parameters[:, :, :, :, 0]
 
-            no_constraints_gamma = (f_en_order + f_ee_order + 1) + (2 * f_en_order + 1)
-            if no_dup_u_trem:
-                no_constraints_gamma += f_ee_order + 1
-            if no_dup_chi_trem:
-                no_constraints_gamma += f_en_order + 1
-            print('no_constraints_gamma', no_constraints_gamma)
+            # no_constraints_gamma = (f_en_order + f_ee_order + 1) + (2 * f_en_order + 1)
+            # if no_dup_u_trem:
+            #     no_constraints_gamma += f_ee_order + 1
+            # if no_dup_chi_trem:
+            #     no_constraints_gamma += f_en_order + 1
 
+            for spin_dep in range(3):
+                for atom in range(atoms.shape[0]):
+                    """fix 2 * f_en_order constrains"""
+                    for lm in range(2 * f_en_order + 1):
+                        lm_sum = 0.0
+                        for l in range(f_en_order + 1):
+                            for m in range(f_en_order + 1):
+                                if l + m == lm:
+                                    lm_sum += self.f_parameters[atom, l, m, 1, spin_dep]
+                        if lm < f_en_order:
+                            self.f_parameters[atom, 0, lm, 1, spin_dep] = -lm_sum / 2
+                            self.f_parameters[atom, lm, 0, 1, spin_dep] = -lm_sum / 2
+                        elif lm == f_en_order:
+                            temp_1 = -lm_sum / 2
+                        elif lm > f_en_order:
+                            self.f_parameters[atom, f_en_order, lm - f_en_order, 1, spin_dep] = -lm_sum / 2
+                            self.f_parameters[atom, lm - f_en_order, f_en_order, 1, spin_dep] = -lm_sum / 2
+
+                    """fix f_en_order+f_ee_order constrains"""
+                    for mn in reversed(range(f_en_order + f_ee_order + 1)):
+                        mn_sum = 0.0
+                        for m in range(f_en_order + 1):
+                            for n in range(f_ee_order + 1):
+                                if m + n == mn:
+                                    mn_sum += self.trunc * self.f_parameters[atom, 0, m, n, spin_dep] - self.f_cutoff * self.f_parameters[atom, 1, m, n, spin_dep]
+                        if mn < f_en_order:
+                            self.f_parameters[atom, 0, mn, 0, spin_dep] = -mn_sum / self.trunc
+                            self.f_parameters[atom, mn, 0, 0, spin_dep] = -mn_sum / self.trunc
+                        elif mn == f_en_order:
+                            temp_2 = -mn_sum / self.trunc
+                        elif mn > f_en_order:
+                            self.f_parameters[atom, 0, f_en_order, mn - f_en_order, spin_dep] = -mn_sum / self.trunc
+                            self.f_parameters[atom, f_en_order, 0, mn - f_en_order, spin_dep] = -mn_sum / self.trunc
+
+                    """fix (l=en_order - 1, m=1, n=1) term"""
+                    self.f_parameters[atom, f_en_order - 1, 1, 1, spin_dep] = temp_1 - self.f_parameters[atom, f_en_order, 0, 1, spin_dep]
+                    self.f_parameters[atom, 1, f_en_order - 1, 1, spin_dep] = temp_1 - self.f_parameters[atom, 0, f_en_order, 1, spin_dep]
+
+                    """fix (l=en_order, m=0, n=0) term"""
+                    self.f_parameters[atom, f_en_order, 0, 0, spin_dep] = temp_2 + self.f_cutoff * self.f_parameters[atom, f_en_order-1, 1, 1, spin_dep] / self.trunc
+                    self.f_parameters[atom, 0, f_en_order, 0, spin_dep] = temp_2 + self.f_cutoff * self.f_parameters[atom, 1, f_en_order-1, 1, spin_dep] / self.trunc
+
+        self.check_f_constrains(atoms, f_en_order, f_ee_order)
+
+    def check_f_constrains(self, atoms, f_en_order, f_ee_order):
+        """"""
+        for spin_dep in range(3):
             for atom in range(atoms.shape[0]):
-                """fix 2 * f_en_order conditions"""
                 for lm in range(2 * f_en_order + 1):
                     lm_sum = 0.0
                     for l in range(f_en_order + 1):
                         for m in range(f_en_order + 1):
                             if l + m == lm:
-                                lm_sum += self.f_parameters[atom, l, m, 1, 0]
-                    if lm < f_en_order:
-                        self.f_parameters[atom, 0, lm, 1, 0] = -lm_sum / 2
-                        self.f_parameters[atom, lm, 0, 1, 0] = -lm_sum / 2
-                    if lm > f_en_order:
-                        self.f_parameters[atom, f_en_order, lm - f_en_order, 1, 0] = -lm_sum / 2
-                        self.f_parameters[atom, lm - f_en_order, f_en_order, 1, 0] = -lm_sum / 2
+                                lm_sum += self.f_parameters[atom, l, m, 1, spin_dep]
+                                print(lm, self.f_parameters[atom, l, m, 1, spin_dep])
+                    print(lm, 'lm_sum=', lm_sum)
+                    print('-'*10)
 
-                """fix f_en_order+f_ee_order conditions"""
                 for mn in range(f_en_order + f_ee_order + 1):
+                    mn_sum = 0.0
                     for m in range(f_en_order + 1):
                         for n in range(f_ee_order + 1):
                             if m + n == mn:
-                                pass
-
-    def check_f_constrains(self, atoms, f_en_order, f_ee_order):
-        """"""
-        for atom in range(atoms.shape[0]):
-            for lm in range(2 * f_en_order + 1):
-                lm_sum = 0.0
-                for l in range(f_en_order + 1):
-                    for m in range(f_en_order + 1):
-                        if l + m == lm:
-                            lm_sum += self.f_parameters[atom, l, m, 1, 0]
-                            print(lm, self.f_parameters[atom, l, m, 1, 0])
-                print(lm, 'lm_sum=', lm_sum)
-                print('-'*10)
-
-            for mn in range(f_en_order + f_ee_order + 1):
-                for m in range(f_en_order + 1):
-                    for n in range(f_ee_order + 1):
-                        if m + n == mn:
-                            print(mn, self.trunc * self.f_parameters[atom, 0, m, n, 0], self.f_cutoff * self.f_parameters[atom, 1, m, n, 0])
-                print('-'*10)
+                                mn_sum += self.trunc * self.f_parameters[atom, 0, m, n, spin_dep] - self.f_cutoff * self.f_parameters[atom, 1, m, n, spin_dep]
+                                print(mn, (0, m, n), self.trunc * self.f_parameters[atom, 0, m, n, spin_dep], (1, m, n), self.f_cutoff * self.f_parameters[atom, 1, m, n, spin_dep])
+                    print(mn, 'mn_sum=', mn_sum)
+                    print('-'*10)
