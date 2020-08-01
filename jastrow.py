@@ -147,8 +147,8 @@ def u_term_gradient(C, u_parameters, L, r_u, r_d):
     :param r_d: down-electrons coordinates
     :return:
     """
-    gradient_u = np.zeros((r_u.shape[0], 3))
-    gradient_d = np.zeros((r_d.shape[0], 3))
+    gradient_u = np.zeros(r_u.shape)
+    gradient_d = np.zeros(r_d.shape)
 
     if not L:
         return gradient_u, gradient_d
@@ -227,8 +227,8 @@ def chi_term_gradient(C, chi_parameters, L, r_u, r_d, atoms):
     :param r_d: down-electrons coordinates
     :return:
     """
-    gradient_u = np.zeros((r_u.shape[0], 3))
-    gradient_d = np.zeros((r_d.shape[0], 3))
+    gradient_u = np.zeros(r_u.shape)
+    gradient_d = np.zeros(r_d.shape)
 
     if not L:
         return gradient_u, gradient_d
@@ -280,8 +280,8 @@ def f_term_gradient(C, f_parameters, L, r_u, r_d, atoms):
     :param r_d: down-electrons coordinates
     :return:
     """
-    gradient_u = np.zeros((r_u.shape[0], 3))
-    gradient_d = np.zeros((r_d.shape[0], 3))
+    gradient_u = np.zeros(r_u.shape)
+    gradient_d = np.zeros(r_d.shape)
 
     if not L:
         return gradient_u, gradient_d
@@ -541,6 +541,59 @@ def jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_paramet
         chi_term(trunc, chi_parameters, chi_cutoff, r_u, r_d, atoms) +
         f_term(trunc, f_parameters, f_cutoff, r_u, r_d, atoms)
     )
+
+
+@nb.jit(nopython=True)
+def jastrow_numerical_gradient(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms):
+    delta = 0.00001
+
+    gradient_u = np.zeros(r_u.shape)
+    gradient_d = np.zeros(r_d.shape)
+
+    for i in range(r_u.shape[0]):
+        for j in range(r_u.shape[1]):
+            r_u[i, j] -= delta
+            gradient_u[i, j] -= jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms)
+            r_u[i, j] += 2 * delta
+            gradient_u[i, j] += jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms)
+            r_u[i, j] -= delta
+
+    for i in range(r_d.shape[0]):
+        for j in range(r_d.shape[1]):
+            r_d[i, j] -= delta
+            gradient_d[i, j] -= jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms)
+            r_d[i, j] += 2 * delta
+            gradient_d[i, j] += jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms)
+            r_d[i, j] -= delta
+
+    return gradient_u, gradient_d
+
+
+@nb.jit(nopython=True)
+def jastrow_numerical_laplacian(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms):
+    delta = 0.00001
+
+    j_00 = jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms)
+
+    res_u = -2 * (r_u.shape[0] * r_u.shape[1]) * j_00
+    for i in range(r_u.shape[0]):
+        for j in range(r_u.shape[1]):
+            r_u[i, j] -= delta
+            res_u += jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms)
+            r_u[i, j] += 2 * delta
+            res_u += jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms)
+            r_u[i, j] -= delta
+
+    res_d = -2 * (r_d.shape[0] * r_d.shape[1]) * j_00
+    for i in range(r_d.shape[0]):
+        for j in range(r_d.shape[1]):
+            r_d[i, j] -= delta
+            res_d += jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms)
+            r_d[i, j] += 2 * delta
+            res_d += jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms)
+            r_d[i, j] -= delta
+
+    return (res_u + res_d) / delta / delta
 
 
 @nb.jit(nopython=True)

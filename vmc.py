@@ -4,8 +4,8 @@ import os
 from math import sqrt, pi
 from random import random, randrange
 from timeit import default_timer
-from wfn import wfn_det, wfn_gradient_log, wfn_laplacian_log
-from jastrow import jastrow, jastrow_gradient, jastrow_laplacian
+from wfn import wfn, wfn_gradient_log, wfn_laplacian_log, wfn_numerical_gradient, wfn_numerical_laplacian
+from jastrow import jastrow, jastrow_gradient, jastrow_laplacian, jastrow_numerical_gradient, jastrow_numerical_laplacian
 from coulomb import coulomb, nuclear_repulsion
 
 os.environ["OMP_NUM_THREADS"] = "1"  # openmp
@@ -81,13 +81,13 @@ random_step = random_normal_step
 
 
 @nb.jit(nopython=True)
-def wfn(r_u, r_d, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def guiding_function(r_u, r_d, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """wave function in general form"""
     r_uI = subtract_outer(r_u, atomic_positions)
     r_dI = subtract_outer(r_d, atomic_positions)
     return (
         jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms) *
-        wfn_det(r_uI, r_dI, mo_u, mo_d, atoms, shells)
+        np.linalg.det(wfn(r_uI, mo_u, atoms, shells)) * np.linalg.det(wfn(r_dI, mo_d, atoms, shells))
     )
 
 
@@ -115,7 +115,7 @@ def equilibration(steps, dX, r_u, r_d, neu, ned, mo_u, mo_d, atoms, shells, atom
         new_r_u = r_u + random_step(dX, neu)
         new_r_d = r_d + random_step(dX, ned)
 
-        new_p = wfn(new_r_u, new_r_d, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+        new_p = guiding_function(new_r_u, new_r_d, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         j += 1
         if new_p**2 > random() * p**2:
             r_u, r_d, p = new_r_u, new_r_d, new_p
@@ -132,7 +132,7 @@ def simple_accumulation(steps, dX, r_u, r_d, neu, ned, mo_u, mo_d, atoms, shells
         new_r_u = r_u + random_step(dX, neu)
         new_r_d = r_d + random_step(dX, ned)
 
-        new_p = wfn(new_r_u, new_r_d, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+        new_p = guiding_function(new_r_u, new_r_d, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         if new_p**2 > random() * p**2:
             r_u, r_d, p = new_r_u, new_r_d, new_p
             loc_E = local_energy(r_u, r_d, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
@@ -149,7 +149,7 @@ def averaging_accumulation(steps, dX, r_u, r_d, p, neu, ned, mo_u, mo_d, atoms, 
         new_r_u = r_u + random_step(dX, neu)
         new_r_d = r_d + random_step(dX, ned)
 
-        new_p = wfn(new_r_u, new_r_d, mo_u, mo_d, atoms, shells)
+        new_p = guiding_function(new_r_u, new_r_d, mo_u, mo_d, atoms, shells)
         new_loc_E = local_energy(new_r_u, new_r_d, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         E[j] = min((new_p/p)**2, 1) * new_loc_E + (1 - min((new_p/p)**2, 1)) * loc_E
         if (new_p/p)**2 > random():
@@ -196,7 +196,7 @@ if __name__ == '__main__':
     # input_data = Input('test/gwfn/he/HF/cc-pVQZ/input')
     wfn_data = Gwfn('test/gwfn/he/HF/cc-pVQZ/gwfn.data')
     input_data = Input('test/gwfn/he/HF/cc-pVQZ/input')
-    jastrow_data = Jastrow('test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/correlation.out.5', wfn_data.atoms)
+    jastrow_data = Jastrow('test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/correlation.out.5', wfn_data.atoms)
     # wfn_data = Gwfn('test/gwfn/b/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/b/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/n/HF/cc-pVQZ/gwfn.data')

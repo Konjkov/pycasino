@@ -18,8 +18,6 @@ import numba as nb
 from overload import subtract_outer
 from readers.wfn import Gwfn, Stowfn, GAUSSIAN_TYPE, SLATER_TYPE
 from readers.input import Input
-from readers.jastrow import Jastrow
-from jastrow import jastrow
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
@@ -236,15 +234,6 @@ def wfn_numerical_laplacian(r_eI, mo, atoms, shells):
     return res / delta / delta
 
 
-@nb.jit(nopython=True, nogil=True, parallel=False)
-def wfn_det(r_uI, r_dI, mo_u, mo_d, atoms, shells):
-    """Slater determinant without norm factor 1/sqrt(N!).
-    """
-    u_orb = wfn(r_uI, mo_u, atoms, shells)
-    d_orb = wfn(r_dI, mo_d, atoms, shells)
-    return np.linalg.det(u_orb) * np.linalg.det(d_orb)
-
-
 @nb.jit(nopython=True)
 def wfn_gradient_log(r_eI, mo, atoms, shells):
     """∇(phi)/phi.
@@ -278,8 +267,8 @@ def wfn_laplacian_log(r_eI, mo, atoms, shells):
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, atomic_positions):
-    """"""
+def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, atomic_positions):
+    """https://en.wikipedia.org/wiki/Monte_Carlo_integration"""
     dV = np.prod(high - low) ** (neu + ned) / steps
 
     def random_position(low, high, ne):
@@ -301,20 +290,20 @@ def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_par
         X_d = random_position(low, high, ned)
         r_uI = subtract_outer(X_u, atomic_positions)
         r_dI = subtract_outer(X_d, atomic_positions)
-        result += jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, X_u, X_d, atoms) * wfn_det(r_uI, r_dI, mo_u, mo_d, atoms, shells) ** 2
+        result += (np.linalg.det(wfn(r_uI, mo_u, atoms, shells)) * np.linalg.det(wfn(r_dI, mo_d, atoms, shells))) ** 2
 
     return result * dV / gamma(neu+1) / gamma(ned+1)
 
 
 @nb.jit(nopython=True, nogil=True, parallel=True)
-def p_integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, atomic_positions):
+def p_integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, atomic_positions):
     res = 0.0
     for i in nb.prange(4):
-        res += integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, atomic_positions)
+        res += integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, atomic_positions)
     return res / 4
 
 
-def main(mo_up, mo_down, neu, ned, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def main(mo_up, mo_down, neu, ned, atoms, shells):
     steps = 10 * 1024 * 1024
     offset = 3.0
 
@@ -326,7 +315,7 @@ def main(mo_up, mo_down, neu, ned, atoms, shells, trunc, u_parameters, u_cutoff,
     mo_u = mo_up[:neu]
     mo_d = mo_down[:ned]
 
-    return integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, atomic_positions)
+    return integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, atomic_positions)
 
 
 if __name__ == '__main__':
@@ -347,7 +336,6 @@ if __name__ == '__main__':
     # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
     wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
     input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
-    jastrow_data = Jastrow('test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/correlation.out.5', wfn_data.atoms)
     # wfn_data = Gwfn('test/gwfn/be2/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/be2/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/acetic/HF/cc-pVQZ/gwfn.data')
@@ -367,12 +355,7 @@ if __name__ == '__main__':
     # input_data = Input('test/stowfn/be/HF/QZ4P/input')
 
     start = default_timer()
-    res = main(
-        wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells, jastrow_data.trunc,
-        jastrow_data.u_parameters, jastrow_data.u_cutoff,
-        jastrow_data.chi_parameters, jastrow_data.chi_cutoff,
-        jastrow_data.f_parameters, jastrow_data.f_cutoff
-    )
+    res = main(wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells)
     print(res)
     end = default_timer()
     print(f'total time {end-start}')

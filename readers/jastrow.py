@@ -181,7 +181,7 @@ class Jastrow:
                 self.f_parameters[atom, f_en_order, 0, 0, :] = sum_2 + self.f_cutoff * self.f_parameters[atom, f_en_order-1, 1, 1, :] / self.trunc
                 self.f_parameters[atom, 0, f_en_order, 0, :] = sum_2 + self.f_cutoff * self.f_parameters[atom, 1, f_en_order-1, 1, :] / self.trunc
 
-        self.check_f_constrains(atoms, f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
+            self.check_f_constrains(atoms, f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
 
     def check_f_constrains(self, atoms, f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term):
         """"""
