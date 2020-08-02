@@ -286,10 +286,10 @@ def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, atomic_posit
 
     result = 0.0
     for i in range(steps):
-        X_u = random_position(low, high, neu)
-        X_d = random_position(low, high, ned)
-        r_uI = subtract_outer(X_u, atomic_positions)
-        r_dI = subtract_outer(X_d, atomic_positions)
+        r_u = random_position(low, high, neu)
+        r_d = random_position(low, high, ned)
+        r_uI = subtract_outer(r_u, atomic_positions)
+        r_dI = subtract_outer(r_d, atomic_positions)
         result += (np.linalg.det(wfn(r_uI, mo_u, atoms, shells)) * np.linalg.det(wfn(r_dI, mo_d, atoms, shells))) ** 2
 
     return result * dV / gamma(neu+1) / gamma(ned+1)

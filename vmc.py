@@ -194,6 +194,7 @@ if __name__ == '__main__':
     # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/he/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/he/HF/cc-pVQZ/input')
+    # jastrow_data = Jastrow('test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/correlation.out.5', wfn_data.atoms)
     wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
     input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
     jastrow_data = Jastrow('test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/correlation.out.5', wfn_data.atoms)

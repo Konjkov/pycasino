@@ -13,7 +13,9 @@ class Jastrow:
         self.u_parameters = np.zeros((0, 3), np.float)
         self.chi_parameters = np.zeros((atoms.shape[0], 0, 2), np.float)
         self.f_parameters = np.zeros((atoms.shape[0], 0, 0, 0, 3), np.float)
-        self.u_cutoff = self.chi_cutoff = self.f_cutoff = 0.0
+        self.u_cutoff = 0.0
+        self.chi_cutoff = np.zeros(atoms.shape[0])
+        self.f_cutoff = np.zeros(atoms.shape[0])
         self.chi_cusp = False
         jastrow = u_term = chi_term = f_term = False
         with open(file, 'r') as f:
@@ -63,7 +65,8 @@ class Jastrow:
                     elif line.strip().startswith('Spin dep'):
                         chi_spin_dep = int(f.readline())
                     elif line.strip().startswith('Cutoff'):
-                        self.chi_cutoff = float(f.readline().split()[0])
+                        for atom in atom_labels:
+                            self.chi_cutoff[atom-1] = float(f.readline().split()[0])
                     elif line.strip().startswith('Parameter'):
                         # u, d
                         self.chi_parameters = np.zeros((atoms.shape[0], chi_order+1, 2), np.float)
@@ -92,7 +95,8 @@ class Jastrow:
                     elif line.strip().startswith('Spin dep'):
                         f_spin_dep = int(f.readline())
                     elif line.strip().startswith('Cutoff'):
-                        self.f_cutoff = float(f.readline().split()[0])
+                        for atom in atom_labels:
+                            self.f_cutoff[atom-1] = float(f.readline().split()[0])
                     elif line.strip().startswith('Parameter'):
                         self.f_parameters = np.zeros((atoms.shape[0], f_en_order+1, f_en_order+1, f_ee_order+1, 3), np.float)
                         for i in range(f_spin_dep+1):
