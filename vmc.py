@@ -170,16 +170,16 @@ def vmc(equlib, stat, mo_up, mo_down, neu, ned, atoms, shells, trunc, u_paramete
 
     atomic_positions = atoms['position']
 
-    X_u = initial_position(neu, atoms)
-    X_d = initial_position(ned, atoms)
+    r_u = initial_position(neu, atoms)
+    r_d = initial_position(ned, atoms)
 
-    equ = equilibration(equlib, dX, X_u, X_d, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    equ = equilibration(equlib, dX, r_u, r_d, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
     print(equ/equlib)
 
-    opt = equilibration(10000, dX, X_u, X_d, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    opt = equilibration(10000, dX, r_u, r_d, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
     print(opt/10000)
 
-    return accumulation(stat, dX, X_u, X_d, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    return accumulation(stat, dX, r_u, r_d, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
 
 
 if __name__ == '__main__':
