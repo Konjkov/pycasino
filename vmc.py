@@ -86,7 +86,7 @@ def guiding_function(r_u, r_d, mo_u, mo_d, atoms, shells, atomic_positions, trun
     r_uI = subtract_outer(r_u, atomic_positions)
     r_dI = subtract_outer(r_d, atomic_positions)
     return (
-        jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms) *
+        np.exp(jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_u, r_d, atoms)) *
         np.linalg.det(wfn(r_uI, mo_u, atoms, shells)) * np.linalg.det(wfn(r_dI, mo_d, atoms, shells))
     )
 
@@ -194,9 +194,9 @@ if __name__ == '__main__':
     # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/he/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/he/HF/cc-pVQZ/input')
-    wfn_data = Gwfn('test/gwfn/he/HF/cc-pVQZ/gwfn.data')
-    input_data = Input('test/gwfn/he/HF/cc-pVQZ/input')
-    jastrow_data = Jastrow('test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/correlation.out.5', wfn_data.atoms)
+    wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
+    input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
+    jastrow_data = Jastrow('test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/correlation.out.5', wfn_data.atoms)
     # wfn_data = Gwfn('test/gwfn/b/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/b/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/n/HF/cc-pVQZ/gwfn.data')

@@ -105,35 +105,35 @@ def f_term(C, f_parameters, L, r_u, r_d, atoms):
                     for l1 in range(f_parameters.shape[1]):
                         for l2 in range(f_parameters.shape[2]):
                             for l3 in range(f_parameters.shape[3]):
-                                poly += f_parameters[i, l1, l2, l3, 0] * r_e1I ** l1 * r_e2I ** l2 * r_ee * l3
+                                poly += f_parameters[i, l1, l2, l3, 0] * r_e1I ** l1 * r_e2I ** l2 * r_ee ** l3
                     res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
 
     for i in range(atoms.shape[0]):
         for j in range(r_u.shape[0]):
             for k in range(r_d.shape[0]):
-                r_ee = np.linalg.norm(r_u[j] - r_u[k])  # FIXME to slow
+                r_ee = np.linalg.norm(r_u[j] - r_d[k])  # FIXME to slow
                 r_e1I = np.linalg.norm(r_u[j] - atoms[i]['position'])  # FIXME to slow
-                r_e2I = np.linalg.norm(r_u[k] - atoms[i]['position'])  # FIXME to slow
+                r_e2I = np.linalg.norm(r_d[k] - atoms[i]['position'])  # FIXME to slow
                 if r_e1I <= L and r_e2I <= L:
                     poly = 0.0
                     for l1 in range(f_parameters.shape[1]):
                         for l2 in range(f_parameters.shape[2]):
                             for l3 in range(f_parameters.shape[3]):
-                                poly += f_parameters[i, l1, l2, l3, 1] * r_e1I ** l1 * r_e2I ** l2 * r_ee * l3
+                                poly += f_parameters[i, l1, l2, l3, 1] * r_e1I ** l1 * r_e2I ** l2 * r_ee ** l3
                     res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
 
     for i in range(atoms.shape[0]):
         for j in range(r_d.shape[0] - 1):
             for k in range(j+1, r_d.shape[0]):
-                r_ee = np.linalg.norm(r_u[j] - r_u[k])  # FIXME to slow
-                r_e1I = np.linalg.norm(r_u[j] - atoms[i]['position'])  # FIXME to slow
-                r_e2I = np.linalg.norm(r_u[k] - atoms[i]['position'])  # FIXME to slow
+                r_ee = np.linalg.norm(r_d[j] - r_d[k])  # FIXME to slow
+                r_e1I = np.linalg.norm(r_d[j] - atoms[i]['position'])  # FIXME to slow
+                r_e2I = np.linalg.norm(r_d[k] - atoms[i]['position'])  # FIXME to slow
                 if r_e1I <= L and r_e2I <= L:
                     poly = 0.0
                     for l1 in range(f_parameters.shape[1]):
                         for l2 in range(f_parameters.shape[2]):
                             for l3 in range(f_parameters.shape[3]):
-                                poly += f_parameters[i, l1, l2, l3, 2] * r_e1I ** l1 * r_e2I ** l2 * r_ee * l3
+                                poly += f_parameters[i, l1, l2, l3, 2] * r_e1I ** l1 * r_e2I ** l2 * r_ee ** l3
                     res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
 
     return res
@@ -298,7 +298,7 @@ def f_term_gradient(C, f_parameters, L, r_u, r_d, atoms):
                     for l1 in range(f_parameters.shape[1]):
                         for l2 in range(f_parameters.shape[2]):
                             for l3 in range(f_parameters.shape[3]):
-                                poly += f_parameters[i, l1, l2, l3, 0] * r_e1I ** l1 * r_e2I ** l2 * r_ee * l3
+                                poly += f_parameters[i, l1, l2, l3, 0] * r_e1I ** l1 * r_e2I ** l2 * r_ee ** l3
                     gradient = poly * (r_e1I - L) ** C * (r_e2I - L) ** C
                     gradient_u[j, 0] += x * gradient
                     gradient_u[j, 1] += y * gradient
@@ -307,16 +307,16 @@ def f_term_gradient(C, f_parameters, L, r_u, r_d, atoms):
     for i in range(atoms.shape[0]):
         for j in range(r_u.shape[0]):
             for k in range(r_d.shape[0]):
-                r_ee = np.linalg.norm(r_u[j] - r_u[k])  # FIXME to slow
+                r_ee = np.linalg.norm(r_u[j] - r_d[k])  # FIXME to slow
                 r_e1I = np.linalg.norm(r_u[j] - atoms[i]['position'])  # FIXME to slow
-                r_e2I = np.linalg.norm(r_u[k] - atoms[i]['position'])  # FIXME to slow
+                r_e2I = np.linalg.norm(r_d[k] - atoms[i]['position'])  # FIXME to slow
                 if r_e1I <= L and r_e2I <= L:
                     x, y, z = r_u[i] - r_d[j]  # FIXME to slow
                     poly = 0.0
                     for l1 in range(f_parameters.shape[1]):
                         for l2 in range(f_parameters.shape[2]):
                             for l3 in range(f_parameters.shape[3]):
-                                poly += f_parameters[i, l1, l2, l3, 1] * r_e1I ** l1 * r_e2I ** l2 * r_ee * l3
+                                poly += f_parameters[i, l1, l2, l3, 1] * r_e1I ** l1 * r_e2I ** l2 * r_ee ** l3
                     gradient = poly * (r_e1I - L) ** C * (r_e2I - L) ** C
                     gradient_u[j, 0] += x * gradient
                     gradient_u[j, 1] += y * gradient
@@ -325,16 +325,16 @@ def f_term_gradient(C, f_parameters, L, r_u, r_d, atoms):
     for i in range(atoms.shape[0]):
         for j in range(r_d.shape[0] - 1):
             for k in range(j+1, r_d.shape[0]):
-                r_ee = np.linalg.norm(r_u[j] - r_u[k])  # FIXME to slow
-                r_e1I = np.linalg.norm(r_u[j] - atoms[i]['position'])  # FIXME to slow
-                r_e2I = np.linalg.norm(r_u[k] - atoms[i]['position'])  # FIXME to slow
+                r_ee = np.linalg.norm(r_d[j] - r_d[k])  # FIXME to slow
+                r_e1I = np.linalg.norm(r_d[j] - atoms[i]['position'])  # FIXME to slow
+                r_e2I = np.linalg.norm(r_d[k] - atoms[i]['position'])  # FIXME to slow
                 if r_e1I <= L and r_e2I <= L:
                     x, y, z = r_d[i] - r_d[j]  # FIXME to slow
                     poly = 0.0
                     for l1 in range(f_parameters.shape[1]):
                         for l2 in range(f_parameters.shape[2]):
                             for l3 in range(f_parameters.shape[3]):
-                                poly += f_parameters[i, l1, l2, l3, 2] * r_e1I ** l1 * r_e2I ** l2 * r_ee * l3
+                                poly += f_parameters[i, l1, l2, l3, 2] * r_e1I ** l1 * r_e2I ** l2 * r_ee ** l3
                     gradient = poly * (r_e1I - L) ** C * (r_e2I - L) ** C
                     gradient_d[j, 0] += x * gradient
                     gradient_d[j, 1] += y * gradient
@@ -496,33 +496,33 @@ def f_term_laplacian(C, f_parameters, L, r_u, r_d, atoms):
                     for l1 in range(f_parameters.shape[1]):
                         for l2 in range(f_parameters.shape[2]):
                             for l3 in range(f_parameters.shape[3]):
-                                poly += f_parameters[i, l1, l2, l3, 0] * r_e1I ** l1 * r_e2I ** l2 * r_ee * l3
+                                poly += f_parameters[i, l1, l2, l3, 0] * r_e1I ** l1 * r_e2I ** l2 * r_ee ** l3
 
     for i in range(atoms.shape[0]):
         for j in range(r_u.shape[0]):
             for k in range(r_d.shape[0]):
-                r_ee = np.linalg.norm(r_u[j] - r_u[k])  # FIXME to slow
+                r_ee = np.linalg.norm(r_u[j] - r_d[k])  # FIXME to slow
                 r_e1I = np.linalg.norm(r_u[j] - atoms[i]['position'])  # FIXME to slow
-                r_e2I = np.linalg.norm(r_u[k] - atoms[i]['position'])  # FIXME to slow
+                r_e2I = np.linalg.norm(r_d[k] - atoms[i]['position'])  # FIXME to slow
                 if r_e1I <= L and r_e2I <= L:
                     poly = 0.0
                     for l1 in range(f_parameters.shape[1]):
                         for l2 in range(f_parameters.shape[2]):
                             for l3 in range(f_parameters.shape[3]):
-                                poly += f_parameters[i, l1, l2, l3, 1] * r_e1I ** l1 * r_e2I ** l2 * r_ee * l3
+                                poly += f_parameters[i, l1, l2, l3, 1] * r_e1I ** l1 * r_e2I ** l2 * r_ee ** l3
 
     for i in range(atoms.shape[0]):
         for j in range(r_d.shape[0] - 1):
             for k in range(j + 1, r_d.shape[0]):
-                r_ee = np.linalg.norm(r_u[j] - r_u[k])  # FIXME to slow
-                r_e1I = np.linalg.norm(r_u[j] - atoms[i]['position'])  # FIXME to slow
-                r_e2I = np.linalg.norm(r_u[k] - atoms[i]['position'])  # FIXME to slow
+                r_ee = np.linalg.norm(r_d[j] - r_d[k])  # FIXME to slow
+                r_e1I = np.linalg.norm(r_d[j] - atoms[i]['position'])  # FIXME to slow
+                r_e2I = np.linalg.norm(r_d[k] - atoms[i]['position'])  # FIXME to slow
                 if r_e1I <= L and r_e2I <= L:
                     poly = 0.0
                     for l1 in range(f_parameters.shape[1]):
                         for l2 in range(f_parameters.shape[2]):
                             for l3 in range(f_parameters.shape[3]):
-                                poly += f_parameters[i, l1, l2, l3, 2] * r_e1I ** l1 * r_e2I ** l2 * r_ee * l3
+                                poly += f_parameters[i, l1, l2, l3, 2] * r_e1I ** l1 * r_e2I ** l2 * r_ee ** l3
 
     return res
 
@@ -536,7 +536,7 @@ def jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_paramet
     :param atoms:
     :return:
     """
-    return np.exp(
+    return (
         u_term(trunc, u_parameters, u_cutoff, r_u, r_d) +
         chi_term(trunc, chi_parameters, chi_cutoff, r_u, r_d, atoms) +
         f_term(trunc, f_parameters, f_cutoff, r_u, r_d, atoms)
