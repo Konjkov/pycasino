@@ -24,6 +24,8 @@ class Jastrow:
                 line = f.readline()
                 if line.strip().startswith('START JASTROW'):
                     jastrow = True
+                elif line.strip().startswith('END JASTROW'):
+                    jastrow = False
                 elif line.strip().startswith('Truncation order'):
                     self.trunc = float(f.readline().split()[0])
                 elif line.strip().startswith('START U TERM'):
@@ -124,7 +126,7 @@ class Jastrow:
                         atom_labels = []
             if not jastrow:
                 print('No JASTROW section found')
-                exit(0)
+                return
         if self.u_cutoff:
             if u_spin_dep == 0:
                 self.u_parameters[:, 2] = self.u_parameters[:, 1] = self.u_parameters[:, 0]
