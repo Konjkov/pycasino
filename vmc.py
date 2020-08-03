@@ -95,12 +95,10 @@ def local_energy(r_e, neu, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u
     r_eI = subtract_outer(r_e, atomic_positions)
     j_g = jastrow_gradient(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)
     j_l = jastrow_laplacian(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)
-    wl_u = wfn_laplacian_log(r_eI[:neu], mo_u, atoms, shells)
-    wl_d = wfn_laplacian_log(r_eI[neu:], mo_d, atoms, shells)
-    wg_u = wfn_gradient_log(r_eI[:neu], mo_u, atoms, shells)
-    wg_d = wfn_gradient_log(r_eI[neu:], mo_d, atoms, shells)
-    F = (np.sum((wg_u + j_g[:neu]) * (wg_u + j_g[:neu])) + np.sum((wg_d + j_g[neu:]) * (wg_d + j_g[neu:]))) / 2
-    T = (np.sum(wg_u * wg_u) + np.sum(wg_d * wg_d) - wl_u - wl_d - j_l) / 4
+    w_l = wfn_laplacian_log(r_eI[:neu], mo_u, atoms, shells) + wfn_laplacian_log(r_eI[neu:], mo_d, atoms, shells)
+    w_g = np.concatenate((wfn_gradient_log(r_eI[:neu], mo_u, atoms, shells), wfn_gradient_log(r_eI[neu:], mo_d, atoms, shells)))
+    F = np.sum((w_g + j_g) * (w_g + j_g)) / 2
+    T = (np.sum(w_g * w_g) - w_l - j_l) / 4
     return coulomb(r_e, r_eI, atoms) + 2 * T - F
 
 
@@ -188,10 +186,10 @@ if __name__ == '__main__':
     # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/he/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/he/HF/cc-pVQZ/input')
-    # jastrow_data = Jastrow('test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/correlation.out.5', wfn_data.atoms)
+    # jastrow_data = Jastrow('test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/correlation.out.5', wfn_data.atoms)
     wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
     input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
-    jastrow_data = Jastrow('test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/correlation.out.5', wfn_data.atoms)
+    jastrow_data = Jastrow('test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/correlation.out.5', wfn_data.atoms)
     # wfn_data = Gwfn('test/gwfn/b/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/b/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/n/HF/cc-pVQZ/gwfn.data')
