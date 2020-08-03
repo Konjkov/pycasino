@@ -26,26 +26,16 @@ def nuclear_repulsion(atoms):
 
 
 @nb.jit(nopython=True)
-def coulomb(r_u, r_d, r_uI, r_dI, atoms):
+def coulomb(r_e, r_eI, atoms):
     """Coulomb attraction between the electron and nucleus."""
     res = 0.0
     for atom in range(atoms.shape[0]):
         charge = atoms[atom].charge
-        for i in range(r_uI.shape[0]):
-            res -= charge / np.linalg.norm(r_uI[i, atom])
-        for i in range(r_dI.shape[0]):
-            res -= charge / np.linalg.norm(r_dI[i, atom])
+        for i in range(r_eI.shape[0]):
+            res -= charge / np.linalg.norm(r_eI[i, atom])
 
-    for i in range(r_u.shape[0]):
-        for j in range(i + 1, r_u.shape[0]):
-            res += 1 / np.linalg.norm(r_u[i] - r_u[j])
-
-    for i in range(r_d.shape[0]):
-        for j in range(i + 1, r_d.shape[0]):
-            res += 1 / np.linalg.norm(r_d[i] - r_d[j])
-
-    for i in range(r_u.shape[0]):
-        for j in range(r_d.shape[0]):
-            res += 1 / np.linalg.norm(r_u[i] - r_d[j])
+    for i in range(r_e.shape[0] - 1):
+        for j in range(i + 1, r_e.shape[0]):
+            res += 1 / np.linalg.norm(r_e[i] - r_e[j])
 
     return res
