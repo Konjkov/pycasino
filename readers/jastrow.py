@@ -124,9 +124,7 @@ class Jastrow:
                                             self.f_parameters[atom-1][l][m][n][i] = self.f_parameters[atom-1][m][l][n][i] = param
                     elif line.strip().startswith('END_SET'):
                         atom_labels = []
-            if not jastrow:
-                print('No JASTROW section found')
-                return
+
         if self.u_cutoff:
             if u_spin_dep == 0:
                 self.u_parameters[:, 2] = self.u_parameters[:, 1] = self.u_parameters[:, 0]
