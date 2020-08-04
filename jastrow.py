@@ -167,10 +167,10 @@ def f_term_gradient(C, f_parameters, L, r_e, neu, atoms):
         for j in range(r_e.shape[0] - 1):
             for k in range(j+1, r_e.shape[0]):
                 r_e1I_vec = r_e[j] - atoms[i]['position']  # FIXME to slow
-                r_e1I = np.linalg.norm(r_e1I_vec)
                 r_e2I_vec = r_e[k] - atoms[i]['position']  # FIXME to slow
-                r_e2I = np.linalg.norm(r_e2I_vec)
                 r_ee_vec = r_e[j] - r_e[k]  # FIXME to slow
+                r_e1I = np.linalg.norm(r_e1I_vec)
+                r_e2I = np.linalg.norm(r_e2I_vec)
                 r_ee = np.linalg.norm(r_ee_vec)
                 if r_e1I <= L[i] and r_e2I <= L[i]:
                     f_set = int(j >= neu) + int(k >= neu)
@@ -285,9 +285,16 @@ def chi_term_laplacian(C, chi_parameters, L, r_e, neu, atoms):
 @nb.jit(nopython=True)
 def f_term_laplacian(C, f_parameters, L, r_e, neu, atoms):
     """Jastrow f-term laplacian
+    f-term is a product of two spherically symmetric function f(r_eI) and g(r_ee) so
+        ∇²(f*g) = ∇²(f)*g + 2*∇(f)*∇(g) + f*∇²(g)
+    then Laplace operator of spherically symmetric function is
+        ∇²(f) = d²f/dr² + 2/r * df/dr
+    :param C: truncation order
     :param f_parameters:
+    :param L: cutoff length
     :param r_e: electrons coordinates
     :param neu: number of up electrons
+    :param atoms: atomic coordinates
     :return:
     """
     res = 0.0
@@ -297,9 +304,12 @@ def f_term_laplacian(C, f_parameters, L, r_e, neu, atoms):
     for i in range(atoms.shape[0]):
         for j in range(r_e.shape[0] - 1):
             for k in range(j + 1, r_e.shape[0]):
-                r_ee = np.linalg.norm(r_e[j] - r_e[k])  # FIXME to slow
-                r_e1I = np.linalg.norm(r_e[j] - atoms[i]['position'])  # FIXME to slow
-                r_e2I = np.linalg.norm(r_e[k] - atoms[i]['position'])  # FIXME to slow
+                r_e1I_vec = r_e[j] - atoms[i]['position']  # FIXME to slow
+                r_e2I_vec = r_e[k] - atoms[i]['position']  # FIXME to slow
+                r_ee_vec = r_e[j] - r_e[k]  # FIXME to slow
+                r_e1I = np.linalg.norm(r_e1I_vec)
+                r_e2I = np.linalg.norm(r_e2I_vec)
+                r_ee = np.linalg.norm(r_ee_vec)
                 if r_e1I <= L[i] and r_e2I <= L[i]:
                     f_set = int(j >= neu) + int(k >= neu)
                     poly = 0.0
@@ -362,6 +372,10 @@ def f_term_laplacian(C, f_parameters, L, r_e, neu, atoms):
                             for n in range(1, f_parameters.shape[3]):
                                 poly_diff_e2I_ee += f_parameters[i, l, m, n, f_set] * r_e1I ** l * m * r_e2I ** (m-1) * n * r_ee ** (n-1)
 
+                    # f-term = (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * f_parameters[i, l, m, n, f_set] * r_e1I ** l * r_e2I ** m * r_ee ** n
+                    # f(r_e1I) = (r_e1I - L[i]) ** C * r_e1I ** l or (r_e2I - L[i]) ** C * r_e2I ** m
+                    # g(r_ee) = r_ee ** n
+
                     gradient = (
                         (C * (r_e1I - L[i]) ** (C-1) * (r_e2I - L[i]) ** C * poly + (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_e1I) / r_e1I +
                         ((r_e1I - L[i]) ** C * C * (r_e2I - L[i]) ** (C-1) * poly + (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_e2I) / r_e2I +
@@ -373,12 +387,23 @@ def f_term_laplacian(C, f_parameters, L, r_e, neu, atoms):
                             (r_e1I - L[i]) ** C * C * (C - 1) * (r_e2I - L[i]) ** (C - 2) * poly +
                             (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * (poly_diff_e1I_2 + poly_diff_e2I_2 + 2 * poly_diff_ee_2) +
                             2 * C * (r_e1I - L[i]) ** (C - 1) * C * (r_e2I - L[i]) ** (C - 1) * poly +
-                            2 * (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * (poly_diff_e1I_e2I + 2 * poly_diff_e1I_ee + 2 * poly_diff_e2I_ee) +
-                            2 * C * (r_e1I - L[i]) ** (C - 1) * (r_e2I - L[i]) ** C * (poly_diff_e1I + poly_diff_e2I + 2 * poly_diff_ee) +
-                            2 * (r_e1I - L[i]) ** C * C * (r_e2I - L[i]) ** (C - 1) * (poly_diff_e1I + poly_diff_e2I + 2 * poly_diff_ee)
+                            2 * (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_e1I_e2I +
+                            2 * C * (r_e1I - L[i]) ** (C - 1) * (r_e2I - L[i]) ** C * (poly_diff_e1I + poly_diff_e2I) +
+                            2 * (r_e1I - L[i]) ** C * C * (r_e2I - L[i]) ** (C - 1) * (poly_diff_e1I + poly_diff_e2I)
                     )
 
-                    res += laplacian + 2 * gradient
+                    dot_product = (
+                            np.sum(r_e1I_vec * r_ee_vec) * (
+                                    C * (r_e1I - L[i]) ** (C-1) * (r_e2I - L[i]) ** C * poly_diff_ee +
+                                    (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_e1I_ee
+                            ) / r_e1I / r_ee +
+                            np.sum(r_e2I_vec * r_ee_vec) * (
+                                    (r_e1I - L[i]) ** C * C * (r_e2I - L[i]) ** (C-1) * poly_diff_ee +
+                                    (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_e2I_ee
+                            ) / r_e2I / r_ee
+                    )
+
+                    res += laplacian + 2 * gradient + 2 * dot_product
     return res
 
 
