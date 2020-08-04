@@ -365,21 +365,21 @@ def f_term_laplacian(C, f_parameters, L, r_e, neu, atoms):
                     gradient = (
                         (C * (r_e1I - L[i]) ** (C-1) * (r_e2I - L[i]) ** C * poly + (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_e1I) / r_e1I +
                         ((r_e1I - L[i]) ** C * C * (r_e2I - L[i]) ** (C-1) * poly + (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_e2I) / r_e2I +
-                        (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_ee / r_ee
+                        2 * (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_ee / r_ee
                     )
 
                     laplacian = (
                             C * (C - 1) * (r_e1I - L[i]) ** (C - 2) * (r_e2I - L[i]) ** C * poly +
                             (r_e1I - L[i]) ** C * C * (C - 1) * (r_e2I - L[i]) ** (C - 2) * poly +
-                            (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * (poly_diff_e1I_2 + poly_diff_e2I_2 + poly_diff_ee_2) +
+                            (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * (poly_diff_e1I_2 + poly_diff_e2I_2 + 2 * poly_diff_ee_2) +
                             2 * C * (r_e1I - L[i]) ** (C - 1) * C * (r_e2I - L[i]) ** (C - 1) * poly +
-                            2 * (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * (poly_diff_e1I_e2I + poly_diff_e1I_ee + poly_diff_e2I_ee) +
-                            2 * C * (r_e1I - L[i]) ** (C - 1) * (r_e2I - L[i]) ** C * (poly_diff_e1I + poly_diff_e2I + poly_diff_ee) +
-                            2 * (r_e1I - L[i]) ** C * C * (r_e2I - L[i]) ** (C - 1) * (poly_diff_e1I + poly_diff_e2I + poly_diff_ee)
+                            2 * (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * (poly_diff_e1I_e2I + 2 * poly_diff_e1I_ee + 2 * poly_diff_e2I_ee) +
+                            2 * C * (r_e1I - L[i]) ** (C - 1) * (r_e2I - L[i]) ** C * (poly_diff_e1I + poly_diff_e2I + 2 * poly_diff_ee) +
+                            2 * (r_e1I - L[i]) ** C * C * (r_e2I - L[i]) ** (C - 1) * (poly_diff_e1I + poly_diff_e2I + 2 * poly_diff_ee)
                     )
 
                     res += laplacian + 2 * gradient
-    return 2 * res
+    return res
 
 
 @nb.jit(nopython=True)
