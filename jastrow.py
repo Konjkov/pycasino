@@ -3,8 +3,6 @@
 import numpy as np
 import numba as nb
 
-from overload import polyval
-
 
 @nb.jit(nopython=True)
 def u_term(C, u_parameters, L, r_e, neu):

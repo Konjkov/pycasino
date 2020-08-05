@@ -83,23 +83,25 @@ random_step = random_normal_step
 @nb.jit(nopython=True)
 def guiding_function(r_e, neu, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """wave function in general form"""
-    r_eI = subtract_outer(r_e, atomic_positions)
+    # r_eI = subtract_outer(r_e, atomic_positions)
+    # r_ee = subtract_outer(r_e, r_e)
     return (
         np.exp(jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)) *
-        np.linalg.det(wfn(r_eI[:neu], mo_u, atoms, shells)) * np.linalg.det(wfn(r_eI[neu:], mo_d, atoms, shells))
+        np.linalg.det(wfn(r_e[:neu], mo_u, atoms, shells)) * np.linalg.det(wfn(r_e[neu:], mo_d, atoms, shells))
     )
 
 
 @nb.jit(nopython=True)
 def local_energy(r_e, neu, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
-    r_eI = subtract_outer(r_e, atomic_positions)
+    # r_eI = subtract_outer(r_e, atomic_positions)
+    # r_ee = subtract_outer(r_e, r_e)
     j_g = jastrow_gradient(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)
     j_l = jastrow_laplacian(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)
-    w_l = wfn_laplacian_log(r_eI[:neu], mo_u, atoms, shells) + wfn_laplacian_log(r_eI[neu:], mo_d, atoms, shells)
-    w_g = np.concatenate((wfn_gradient_log(r_eI[:neu], mo_u, atoms, shells), wfn_gradient_log(r_eI[neu:], mo_d, atoms, shells)))
+    w_l = wfn_laplacian_log(r_e[:neu], mo_u, atoms, shells) + wfn_laplacian_log(r_e[neu:], mo_d, atoms, shells)
+    w_g = np.concatenate((wfn_gradient_log(r_e[:neu], mo_u, atoms, shells), wfn_gradient_log(r_e[neu:], mo_d, atoms, shells)))
     F = np.sum((w_g + j_g) * (w_g + j_g)) / 2
     T = (np.sum(w_g * w_g) - w_l - j_l) / 4
-    return coulomb(r_e, r_eI, atoms) + 2 * T - F
+    return coulomb(r_e, atoms) + 2 * T - F
 
 
 @nb.jit(nopython=True)
@@ -200,7 +202,7 @@ if __name__ == '__main__':
     # input_data = Input('test/gwfn/h2/HF/cc-pVQZ/input')
     wfn_data = Gwfn('test/gwfn/be2/HF/cc-pVQZ/gwfn.data')
     input_data = Input('test/gwfn/be2/HF/cc-pVQZ/input')
-    jastrow_data = Jastrow('test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/correlation.out.5', wfn_data.atoms)
+    jastrow_data = Jastrow('test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/correlation.out.5', wfn_data.atoms)
     # wfn_data = Gwfn('test/gwfn/acetic/HF/cc-pVQZ/gwfn.data')
     # input_data = Input('test/gwfn/acetic/HF/cc-pVQZ/input')
     # wfn_data = Gwfn('test/gwfn/acetaldehyde/HF/cc-pVQZ/gwfn.data')

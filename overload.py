@@ -16,8 +16,16 @@ def subtract_outer(x, y):
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def polyval(x, c):
-    y = 0.0
+def horner(x, c):
+    res = 0.0
     for i in range(c.shape[0], 0, -1):
-        y = x * y + c[i - 1]
-    return y
+        res = x * res + c[i - 1]
+    return res
+
+
+@nb.jit(nopython=True, nogil=True, parallel=False)
+def polynom(x, c):
+    res = 0.0
+    for i in range(c.shape[0]):
+        res += c[i] * x ** i
+    return res
