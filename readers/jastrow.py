@@ -67,8 +67,9 @@ class Jastrow:
                     elif line.strip().startswith('Spin dep'):
                         chi_spin_dep = int(f.readline())
                     elif line.strip().startswith('Cutoff'):
+                        param = float(f.readline().split()[0])
                         for atom in atom_labels:
-                            self.chi_cutoff[atom-1] = float(f.readline().split()[0])
+                            self.chi_cutoff[atom-1] = param
                     elif line.strip().startswith('Parameter'):
                         # u, d
                         self.chi_parameters = np.zeros((atoms.shape[0], chi_order+1, 2), np.float)
@@ -97,8 +98,9 @@ class Jastrow:
                     elif line.strip().startswith('Spin dep'):
                         f_spin_dep = int(f.readline())
                     elif line.strip().startswith('Cutoff'):
+                        param = float(f.readline().split()[0])
                         for atom in atom_labels:
-                            self.f_cutoff[atom-1] = float(f.readline().split()[0])
+                            self.f_cutoff[atom-1] = param
                     elif line.strip().startswith('Parameter'):
                         self.f_parameters = np.zeros((atoms.shape[0], f_en_order+1, f_en_order+1, f_ee_order+1, 3), np.float)
                         for i in range(f_spin_dep+1):
@@ -131,14 +133,14 @@ class Jastrow:
             elif u_spin_dep == 1:
                 self.u_parameters[:, 2] = self.u_parameters[:, 0]
             self.u_parameters[1] = np.array([1/4, 1/2, 1/4])/(-self.u_cutoff)**self.trunc + self.u_parameters[0]*self.trunc/self.u_cutoff
-        if self.chi_cutoff:
+        if self.chi_cutoff.any():
             if chi_spin_dep == 0:
                 self.chi_parameters[:, :, 1] = self.chi_parameters[:, :, 0]
             for atom in range(atoms.shape[0]):
                 self.chi_parameters[atom][1] = self.chi_parameters[atom][0]*self.trunc/self.chi_cutoff
                 if self.chi_cusp:
                     self.chi_parameters[atom][1] -= atoms[atom]['charge']/(-self.chi_cutoff)**self.trunc
-        if self.f_cutoff:
+        if self.f_cutoff.any():
             if f_spin_dep == 0:
                 self.f_parameters[:, :, :, :, 2] = self.f_parameters[:, :, :, :, 1] = self.f_parameters[:, :, :, :, 0]
             elif f_spin_dep == 1:
