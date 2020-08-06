@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import os
-from math import exp, sqrt, gamma
+from math import gamma
 from timeit import default_timer
 
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -15,7 +15,6 @@ import numba as nb
 
 # np.show_config()
 
-from overload import subtract_outer
 from readers.wfn import Gwfn, Stowfn, GAUSSIAN_TYPE, SLATER_TYPE
 from readers.input import Input
 
@@ -167,7 +166,7 @@ def wfn_gradient(r_e, mo, atoms, shells):
                     orbital_y[i, ao+j] = radial_part_1 * rI[1] * angular_part_data[l*l+j] + radial_part_2 * gradient_angular_part_data[l*l+j, 1]
                     orbital_z[i, ao+j] = radial_part_1 * rI[2] * angular_part_data[l*l+j] + radial_part_2 * gradient_angular_part_data[l*l+j, 2]
                 ao += 2*l+1
-    return np.dot(mo, orbital_x.T), np.dot(mo, orbital_y.T), np.dot(mo, orbital_z.T)
+    return np.stack((np.dot(mo, orbital_x.T), np.dot(mo, orbital_y.T), np.dot(mo, orbital_z.T)))
 
 
 @nb.jit(nopython=True)
@@ -201,25 +200,25 @@ def wfn_laplacian(r_e, mo, atoms, shells):
 @nb.jit(nopython=True)
 def wfn_numerical_gradient(r_e, mo, atoms, shells):
     """Numerical gradient
-    :param r_eI: up/down electrons coordinates shape = (nelec, natom, 3)
+    :param r_e: up/down electrons coordinates shape = (nelec, 3)
     """
     delta = 0.00001
 
-    res = np.zeros((r_e.shape[0], r_e.shape[0], 3))
+    res = np.zeros((3, r_e.shape[0], r_e.shape[0]))
     for j in range(3):
         r_e[:, j] -= delta
-        res[:, :, j] -= wfn(r_e, mo, atoms, shells)
+        res[j, :, :] -= wfn(r_e, mo, atoms, shells)
         r_e[:, j] += 2 * delta
-        res[:, :, j] += wfn(r_e, mo, atoms, shells)
+        res[j, :, :] += wfn(r_e, mo, atoms, shells)
         r_e[:, j] -= delta
 
-    return res[:, :, 0] / delta / 2, res[:, :, 1] / delta / 2, res[:, :, 2] / delta / 2
+    return res / delta / 2
 
 
 @nb.jit(nopython=True)
 def wfn_numerical_laplacian(r_e, mo, atoms, shells):
     """Numerical laplacian
-    :param r_eI: up/down electrons coordinates shape = (nelec, natom, 3)
+    :param r_e: up/down electrons coordinates shape = (nelec, 3)
     """
     delta = 0.00001
 
@@ -239,14 +238,13 @@ def wfn_gradient_log(r_e, mo, atoms, shells):
     """∇(phi)/phi.
     """
     orb = wfn(r_e, mo, atoms, shells)
-    grad_x, grad_y, grad_z = wfn_gradient(r_e, mo, atoms, shells)
+    grad = wfn_gradient(r_e, mo, atoms, shells)
     cond = np.arange(r_e.shape[0]) * np.ones(orb.shape)
 
     res = np.zeros(r_e.shape)
     for i in range(r_e.shape[0]):
-        res[i, 0] = np.linalg.det(np.where(cond == i, grad_x, orb))
-        res[i, 1] = np.linalg.det(np.where(cond == i, grad_y, orb))
-        res[i, 2] = np.linalg.det(np.where(cond == i, grad_z, orb))
+        for j in range(3):
+            res[i, j] = np.linalg.det(np.where(cond == i, grad[j], orb))
 
     return res / np.linalg.det(orb)
 
