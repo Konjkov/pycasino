@@ -15,8 +15,8 @@ import numba as nb
 
 # np.show_config()
 
-from readers.wfn import Gwfn, Stowfn, GAUSSIAN_TYPE, SLATER_TYPE
-from readers.input import Input
+from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
+from readers.casino import Casino
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
@@ -25,34 +25,37 @@ def angular_part(r):
     :return:
     """
     x, y, z = r
-    r2 = x*x + y*y + z*z
-    return [
-        1,
+    x2 = x**2
+    y2 = y**2
+    z2 = z**2
+    r2 = x2 + y2 + z2
+    return np.array([
+        1.0,
         x,
         y,
         z,
-        3 * z*z - r2,
+        3.0 * z2 - r2,
         x*z,
         y*z,
-        x*x - y*y,
+        x2 - y2,
         x*y,
-        z * (5 * z*z - 3 * r2) / 2,
-        3 * x * (5 * z*z - r2) / 2,
-        3 * y * (5 * z*z - r2) / 2,
-        15 * z * (x*x - y*y),
-        30 * x * y*z,
-        15 * x * (x*x - 3 * y*y),
-        15 * y * (3 * x*x - y*y),
-        (35 * z*z*z*z - 30 * z*z * r2 + 3 * r2 * r2) / 8,
-        5 * x*z * (7 * z*z - 3 * r2) / 2,
-        5 * y*z * (7 * z*z - 3 * r2) / 2,
-        15 * (x*x - y*y) * (7 * z*z - r2) / 2,
-        30 * x*y * (7 * z*z - r2) / 2,
-        105 * x*z * (x*x - 3 * y*y),
-        105 * y*z * (3 * x*x - y*y),
-        105 * (x*x*x*x - 6 * x*x * y*y + y*y*y*y),
-        420 * x*y * (x*x - y*y)
-    ]
+        z * (5.0 * z2 - 3.0 * r2) / 2.0,
+        1.5 * x * (5 * z2 - r2),
+        1.5 * y * (5 * z2 - r2),
+        15.0 * z * (x2 - y2),
+        30.0 * x * y*z,
+        15.0 * x * (x2 - 3 * y2),
+        15.0 * y * (3 * x2 - y2),
+        (35.0 * z**4 - 30.0 * z2 * r2 + 3.0 * r2**2) / 8.0,
+        2.5 * x*z * (7 * z2 - 3 * r2),
+        2.5 * y*z * (7 * z2 - 3 * r2),
+        7.5 * (x2 - y2) * (7 * z2 - r2),
+        15 * x*y * (7 * z2 - r2),
+        105.0 * x*z * (x2 - 3 * y2),
+        105.0 * y*z * (3 * x2 - y2),
+        105.0 * (x2**2 - 6 * x2 * y2 + y2**2),
+        420.0 * x*y * (x2 - y2)
+    ])
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
@@ -61,6 +64,9 @@ def gradient_angular_part(r):
     :return:
     """
     x, y, z = r
+    x2 = x**2
+    y2 = y**2
+    z2 = z**2
     return np.array([
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
@@ -71,22 +77,22 @@ def gradient_angular_part(r):
         [0.0, z, y],
         [2.0*x, -2.0*y, 0.0],
         [y, x, 0.0],
-        [-3.0*x*z, -3.0*y*z, -1.5*x**2 - 1.5*y**2 + 3.0*z**2],
-        [-4.5*x**2 - 1.5*y**2 + 6.0*z**2, -3.0*x*y, 12.0*x*z],
-        [-3.0*x*y, -1.5*x**2 - 4.5*y**2 + 6.0*z**2, 12.0*y*z],
-        [30.0*x*z, -30.0*y*z, 15.0*x**2 - 15.0*y**2],
+        [-3.0*x*z, -3.0*y*z, -1.5*x2 - 1.5*y2 + 3.0*z2],
+        [-4.5*x2 - 1.5*y2 + 6.0*z2, -3.0*x*y, 12.0*x*z],
+        [-3.0*x*y, -1.5*x2 - 4.5*y2 + 6.0*z2, 12.0*y*z],
+        [30.0*x*z, -30.0*y*z, 15.0*x2 - 15.0*y2],
         [30.0*y*z, 30.0*x*z, 30.0*x*y],
-        [45.0*x**2 - 45.0*y**2, -90.0*x*y, 0],
-        [90.0*x*y, 45.0*x**2 - 45.0*y**2, 0],
-        [x*(1.5*x**2 + 1.5*y**2 - 6.0*z**2), y*(1.5*x**2 + 1.5*y**2 - 6.0*z**2), z*(-6.0*x**2 - 6.0*y**2 + 4.0*z**2)],
-        [z*(-22.5*x**2 - 7.5*y**2 + 10.0*z**2), -15.0*x*y*z, x*(-7.5*x**2 - 7.5*y**2 + 30.0*z**2)],
-        [-15.0*x*y*z, z*(-7.5*x**2 - 22.5*y**2 + 10.0*z**2), y*(-7.5*x**2 - 7.5*y**2 + 30.0*z**2)],
-        [x*(-30.0*x**2 + 90.0*z**2), y*(30.0*y**2 - 90.0*z**2), 90.0*z*(x**2 - y**2)],
-        [y*(-45.0*x**2 - 15.0*y**2 + 90.0*z**2), x*(-15.0*x**2 - 45.0*y**2 + 90.0*z**2), 180.0*x*y*z],
-        [315.0*z*(x**2 - y**2), -630.0*x*y*z, x*(105.0*x**2 - 315.0*y**2)],
-        [630.0*x*y*z, 315.0*z*(x**2 - y**2), y*(315.0*x**2 - 105.0*y**2)],
-        [x*(420.0*x**2 - 1260.0*y**2), y*(-1260.0*x**2 + 420.0*y**2), 0],
-        [y*(1260.0*x**2 - 420.0*y**2), x*(420.0*x**2 - 1260.0*y**2), 0]
+        [45.0*x2 - 45.0*y2, -90.0*x*y, 0],
+        [90.0*x*y, 45.0*x2 - 45.0*y2, 0],
+        [x*(1.5*x2 + 1.5*y2 - 6.0*z2), y*(1.5*x2 + 1.5*y2 - 6.0*z2), z*(-6.0*x2 - 6.0*y2 + 4.0*z2)],
+        [z*(-22.5*x2 - 7.5*y2 + 10.0*z2), -15.0*x*y*z, x*(-7.5*x2 - 7.5*y2 + 30.0*z2)],
+        [-15.0*x*y*z, z*(-7.5*x2 - 22.5*y2 + 10.0*z2), y*(-7.5*x2 - 7.5*y2 + 30.0*z2)],
+        [x*(-30.0*x2 + 90.0*z2), y*(30.0*y2 - 90.0*z2), 90.0*z*(x2 - y2)],
+        [y*(-45.0*x2 - 15.0*y2 + 90.0*z2), x*(-15.0*x2 - 45.0*y2 + 90.0*z2), 180.0*x*y*z],
+        [315.0*z*(x2 - y2), -630.0*x*y*z, x*(105.0*x2 - 315.0*y2)],
+        [630.0*x*y*z, 315.0*z*(x2 - y2), y*(315.0*x2 - 105.0*y2)],
+        [x*(420.0*x2 - 1260.0*y2), y*(-1260.0*x2 + 420.0*y2), 0],
+        [y*(1260.0*x2 - 420.0*y2), x*(420.0*x2 - 1260.0*y2), 0]
     ])
 
 
@@ -285,7 +291,6 @@ def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, atomic_posit
     result = 0.0
     for i in range(steps):
         r_e = random_position(low, high, neu + ned)
-        # r_eI = subtract_outer(r_e, atomic_positions)
         result += (np.linalg.det(wfn(r_e[:neu], mo_u, atoms, shells)) * np.linalg.det(wfn(r_e[neu:], mo_d, atoms, shells))) ** 2
 
     return result * dV / gamma(neu+1) / gamma(ned+1)
@@ -328,30 +333,20 @@ if __name__ == '__main__':
     sys     0m0,488s
     """
 
-    # wfn_data = Gwfn('test/gwfn/h/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
-    wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
-    input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/be2/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/be2/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/acetic/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/acetic/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/acetaldehyde/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/acetaldehyde/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/si2h6/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/si2h6/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/alcl3/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/alcl3/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/s4-c2v/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/s4-c2v/HF/cc-pVQZ/input')
+    # casino = Casino('test/gwfn/h/HF/cc-pVQZ/')
+    casino = Casino('test/gwfn/be/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/be2/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/acetic/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/acetaldehyde/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/si2h6/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/alcl3/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/s4-c2v/HF/cc-pVQZ/')
 
-    # wfn_data = Stowfn('test/stowfn/he/HF/DZ/stowfn.data')
-    # input_data = Input('test/stowfn/he/HF/DZ/input')
-    # wfn_data = Stowfn('test/stowfn/be/HF/QZ4P/stowfn.data')
-    # input_data = Input('test/stowfn/be/HF/QZ4P/input')
+    # casino = Casino('test/stowfn/he/HF/DZ/')
+    # casino = Casino('test/stowfn/be/HF/QZ4P/')
 
     start = default_timer()
-    res = main(wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells)
+    res = main(casino.wfn.mo_up, casino.wfn.mo_down, casino.input.neu, casino.input.ned, casino.wfn.atoms, casino.wfn.shells)
     print(res)
     end = default_timer()
     print(f'total time {end-start}')

@@ -18,10 +18,7 @@ import pyblock
 import numpy as np
 import numba as nb
 
-from overload import subtract_outer
-from readers.wfn import Gwfn, Stowfn
-from readers.input import Input
-from readers.jastrow import Jastrow
+from readers.casino import Casino
 
 
 @nb.jit(nopython=True)
@@ -81,10 +78,8 @@ random_step = random_normal_step
 
 
 @nb.jit(nopython=True)
-def guiding_function(r_e, neu, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def guiding_function(r_e, neu, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """wave function in general form"""
-    # r_eI = subtract_outer(r_e, atomic_positions)
-    # r_ee = subtract_outer(r_e, r_e)
     return (
         np.exp(jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)) *
         np.linalg.det(wfn(r_e[:neu], mo_u, atoms, shells)) * np.linalg.det(wfn(r_e[neu:], mo_d, atoms, shells))
@@ -92,9 +87,7 @@ def guiding_function(r_e, neu, mo_u, mo_d, atoms, shells, atomic_positions, trun
 
 
 @nb.jit(nopython=True)
-def local_energy(r_e, neu, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
-    # r_eI = subtract_outer(r_e, atomic_positions)
-    # r_ee = subtract_outer(r_e, r_e)
+def local_energy(r_e, neu, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     j_g = jastrow_gradient(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)
     j_l = jastrow_laplacian(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)
     w_l = wfn_laplacian_log(r_e[:neu], mo_u, atoms, shells) + wfn_laplacian_log(r_e[neu:], mo_d, atoms, shells)
@@ -105,14 +98,14 @@ def local_energy(r_e, neu, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u
 
 
 @nb.jit(nopython=True)
-def equilibration(steps, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def equilibration(steps, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """VMC equilibration"""
     i = 0
     p = 0.0
     for j in range(steps):
         new_r_e = r_e + random_step(dX, neu + ned)
 
-        new_p = guiding_function(new_r_e, neu, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+        new_p = guiding_function(new_r_e, neu, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         j += 1
         if new_p**2 > random() * p**2:
             r_e, p = new_r_e, new_p
@@ -121,26 +114,26 @@ def equilibration(steps, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, atomic_po
 
 
 @nb.jit(nopython=True)
-def simple_accumulation(steps, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def simple_accumulation(steps, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """VMC simple accumulation"""
     p = loc_E = 0.0
     E = np.zeros((steps,))
     for j in range(steps):
         new_r_e = r_e + random_step(dX, neu + ned)
 
-        new_p = guiding_function(new_r_e, neu, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+        new_p = guiding_function(new_r_e, neu, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         if new_p**2 > random() * p**2:
             r_e, p = new_r_e, new_p
-            loc_E = local_energy(r_e, neu, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+            loc_E = local_energy(r_e, neu, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         E[j] = loc_E
     return E
 
 
 @nb.jit(nopython=True)
-def averaging_accumulation(steps, dX, r_e, p, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def averaging_accumulation(steps, dX, r_e, p, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """VMC accumulation with averaging local energies over proposed moves"""
     E = np.zeros((steps,))
-    loc_E = local_energy(r_e, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    loc_E = local_energy(r_e, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
     for j in range(steps):
         new_r_e = r_e + random_step(dX, neu + ned)
 
@@ -167,13 +160,13 @@ def vmc(equlib, stat, mo_up, mo_down, neu, ned, atoms, shells, trunc, u_paramete
 
     r_e = initial_position(neu + ned, atoms)
 
-    equ = equilibration(equlib, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    equ = equilibration(equlib, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
     print(equ/equlib)
 
-    opt = equilibration(10000, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    opt = equilibration(10000, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
     print(opt/10000)
 
-    return accumulation(stat, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, atomic_positions, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    return accumulation(stat, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
 
 
 if __name__ == '__main__':
@@ -184,49 +177,31 @@ if __name__ == '__main__':
 
     """
 
-    # wfn_data = Gwfn('test/gwfn/h/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/h/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/he/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/he/HF/cc-pVQZ/input')
-    # jastrow_data = Jastrow('test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/correlation.out.5', wfn_data.atoms)
-    wfn_data = Gwfn('test/gwfn/be/HF/cc-pVQZ/gwfn.data')
-    input_data = Input('test/gwfn/be/HF/cc-pVQZ/input')
-    jastrow_data = Jastrow('test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/correlation.out.5', wfn_data.atoms)
-    # wfn_data = Gwfn('test/gwfn/b/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/b/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/n/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/n/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/al/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/al/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/h2/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/h2/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/be2/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/be2/HF/cc-pVQZ/input')
-    # jastrow_data = Jastrow('test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/correlation.out.5', wfn_data.atoms)
-    # wfn_data = Gwfn('test/gwfn/acetic/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/acetic/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/acetaldehyde/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/acetaldehyde/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/si2h6/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/si2h6/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/alcl3/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/alcl3/HF/cc-pVQZ/input')
-    # wfn_data = Gwfn('test/gwfn/s4-c2v/HF/cc-pVQZ/gwfn.data')
-    # input_data = Input('test/gwfn/s4-c2v/HF/cc-pVQZ/input')
+    # casino = Casino('test/gwfn/h/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/he/HF/cc-pVQZ/')
+    casino = Casino('test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term')
+    # casino = Casino('test/gwfn/b/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/n/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/al/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/h2/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/be2/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/acetic/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/acetaldehyde/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/si2h6/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/alcl3/HF/cc-pVQZ/')
+    # casino = Casino('test/gwfn/s4-c2v/HF/cc-pVQZ/')
 
-    # wfn_data = Stowfn('test/stowfn/he/HF/QZ4P/stowfn.data')
-    # input_data = Input('test/stowfn/he/HF/QZ4P/input')
-    # wfn_data = Stowfn('test/stowfn/be/HF/QZ4P/stowfn.data')
-    # input_data = Input('test/stowfn/be/HF/QZ4P/input')
+    # casino = Casino('test/stowfn/he/HF/QZ4P/')
+    # casino = Casino('test/stowfn/be/HF/QZ4P/')
 
     start = default_timer()
     E = vmc(
-        50000, 10 * 1024 * 1024, wfn_data.mo_up, wfn_data.mo_down, input_data.neu, input_data.ned, wfn_data.atoms, wfn_data.shells,
-        jastrow_data.trunc, jastrow_data.u_parameters, jastrow_data.u_cutoff, jastrow_data.chi_parameters, jastrow_data.chi_cutoff,
-        jastrow_data.f_parameters, jastrow_data.f_cutoff
+        50000, 10 * 1024 * 1024, casino.wfn.mo_up, casino.wfn.mo_down, casino.input.neu, casino.input.ned, casino.wfn.atoms, casino.wfn.shells,
+        casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff,
+        casino.jastrow.f_parameters, casino.jastrow.f_cutoff
     )
     end = default_timer()
-    reblock_data = pyblock.blocking.reblock(E + nuclear_repulsion(wfn_data.atoms))
+    reblock_data = pyblock.blocking.reblock(E + nuclear_repulsion(casino.wfn.atoms))
     # for reblock_iter in reblock_data:
     #     print(reblock_iter)
     opt = pyblock.blocking.find_optimal_block(E.size, reblock_data)

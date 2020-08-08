@@ -5,8 +5,8 @@ import numpy as np
 
 class Jastrow:
     """Jastrow reader from file.
-    CASINO manual
-    22.2 The u, χ and f terms in the Jastrow factor
+    1. CASINO manual, 22.2 The u, χ and f terms in the Jastrow factor
+    2. Jastrow correlation factor for atoms, molecules, and solids, N. D. Drummond, M. D. Towler, and R. J. Needs
     """
 
     def __init__(self, file, atoms):
@@ -17,15 +17,15 @@ class Jastrow:
         self.chi_cutoff = np.zeros(atoms.shape[0])
         self.f_cutoff = np.zeros(atoms.shape[0])
         self.chi_cusp = False
-        jastrow = u_term = chi_term = f_term = False
+        self.jastrow = u_term = chi_term = f_term = False
         with open(file, 'r') as f:
             line = f.readline()
             while line:
                 line = f.readline()
                 if line.strip().startswith('START JASTROW'):
-                    jastrow = True
+                    self.jastrow = True
                 elif line.strip().startswith('END JASTROW'):
-                    jastrow = False
+                    self.jastrow = False
                 elif line.strip().startswith('Truncation order'):
                     self.trunc = float(f.readline().split()[0])
                 elif line.strip().startswith('START U TERM'):

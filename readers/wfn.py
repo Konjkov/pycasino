@@ -7,7 +7,7 @@ GAUSSIAN_TYPE = 0
 SLATER_TYPE = 1
 
 
-class Casino:
+class Base:
 
     # shell types (s/sp/p/d/f... 1/2/3/4/5...) -> l
     shell_map = {1: 0, 2: 1, 3: 1, 4: 2, 5: 3, 6: 4}
@@ -39,11 +39,11 @@ class Casino:
         return result
 
 
-class Gwfn(Casino):
-    """Gaussian wfn reader from file."""
+class Gwfn(Base):
+    """Gaussian wfn reader from gwfn.data file."""
 
     def __init__(self, file_name):
-        """Open file and read gwfn data."""
+        """Open file and read gwfn.data"""
 
         with open(file_name, 'r') as f:
             self.f = f
@@ -163,13 +163,13 @@ class Gwfn(Casino):
                     shell['exponents'] = np.append(exponents, np.zeros((self._max_primitives - primitives,)))
 
 
-class Stowfn(Casino):
-    """Slater wfn reader from file."""
+class Stowfn(Base):
+    """Slater wfn reader from stowfn.data file."""
 
     def __init__(self, file_name):
-        """Open file and read stowfn data."""
+        """Open file and read stowfn.data"""
         with open(file_name, 'r') as f:
-            self.fp = f
+            self.f = f
             for line in f:
                 # BASIC_INFO
                 # ----------
@@ -220,7 +220,7 @@ class Stowfn(Casino):
                 # ORBITAL COEFFICIENTS
                 # --------------------
                 elif line.startswith('ORBITAL COEFFICIENTS'):
-                    fp.readline()  # skip line with -----------
+                    f.readline()  # skip line with -----------
                     mo_up = self.read_floats(self.nbasis_functions * self.n_mo_up)
                     self.mo_up = np.array(mo_up).reshape((self.n_mo_up, self.nbasis_functions))
                     if self.unrestricted:
