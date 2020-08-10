@@ -4,7 +4,7 @@ import os
 from math import sqrt, pi
 from random import random, randrange
 from timeit import default_timer
-from wfn import wfn, wfn_gradient_log, wfn_laplacian_log, wfn_numerical_gradient, wfn_numerical_laplacian
+from wfn import AO_wfn, wfn_gradient_log, wfn_laplacian_log, wfn_numerical_gradient, wfn_numerical_laplacian
 from jastrow import jastrow, jastrow_gradient, jastrow_laplacian, jastrow_numerical_gradient, jastrow_numerical_laplacian
 from coulomb import coulomb, nuclear_repulsion
 
@@ -80,9 +80,10 @@ random_step = random_normal_step
 @nb.jit(nopython=True)
 def guiding_function(r_e, neu, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """wave function in general form"""
+    ao = AO_wfn(r_e, mo_u.shape[1], atoms, shells)
     return (
         np.exp(jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)) *
-        np.linalg.det(wfn(r_e[:neu], mo_u, atoms, shells)) * np.linalg.det(wfn(r_e[neu:], mo_d, atoms, shells))
+        np.linalg.det(np.dot(mo_u, ao[:neu].T)) * np.linalg.det(np.dot(mo_d, ao[neu:].T))
     )
 
 
