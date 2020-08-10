@@ -97,11 +97,11 @@ def gradient_angular_part(r):
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def wfn(r_e, mo, atoms, shells):
+def AO_wfn(r_e, nbasis_functions, atoms, shells):
     """
     Slater matrix
     :param r_e: electrons coordinates shape = (nelec, 3)
-    :param mo: MO-coefficients shape = (nelec, nbasis_functions)
+    :param nbasis_functions:
     :param atoms - list (natom, ) of struct of
         number: atomic number shape = (1,)
         charge: charge shape = (1,)
@@ -112,9 +112,9 @@ def wfn(r_e, mo, atoms, shells):
         primitives: number of primitives on each shell shape = (1,)
         coefficients: contraction coefficients of a primitives shape = (nprimitives,)
         exponents: exponents of a primitives shape = (nprimitives,)
-    :return: slater matrix shape = (nelec, nelec)
+    :return: AO matrix shape = (nelec, nbasis_functions)
     """
-    orbital = np.zeros(mo.shape)
+    orbital = np.zeros((r_e.shape[0], nbasis_functions))
     for i in range(r_e.shape[0]):
         ao = 0
         for atom in range(atoms.shape[0]):
@@ -134,7 +134,12 @@ def wfn(r_e, mo, atoms, shells):
                 for j in range(2 * l + 1):
                     orbital[i, ao+j] = radial_part * angular_part_data[l*l+j]
                 ao += 2*l+1
-    return np.dot(mo, orbital.T)
+    return orbital
+
+
+@nb.jit(nopython=True, nogil=True, parallel=False)
+def wfn(r_e, mo, atoms, shells):
+    return np.dot(mo[:r_e.shape[0]], AO_wfn(r_e, mo.shape[1], atoms, shells).T)
 
 
 @nb.jit(nopython=True)
@@ -271,7 +276,7 @@ def wfn_laplacian_log(r_e, mo, atoms, shells):
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, atomic_positions):
+def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells):
     """https://en.wikipedia.org/wiki/Monte_Carlo_integration"""
     dV = np.prod(high - low) ** (neu + ned) / steps
 
@@ -291,32 +296,36 @@ def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, atomic_posit
     result = 0.0
     for i in range(steps):
         r_e = random_position(low, high, neu + ned)
-        result += (np.linalg.det(wfn(r_e[:neu], mo_u, atoms, shells)) * np.linalg.det(wfn(r_e[neu:], mo_d, atoms, shells))) ** 2
+        # ao_u = AO_wfn(r_e[:neu], mo_u.shape[1], atoms, shells)
+        # ao_d = AO_wfn(r_e[ned:], mo_d.shape[1], atoms, shells)
+        # det_1 = np.linalg.det(np.dot(mo_u[np.array([0, 1])], ao_u.T)) * np.linalg.det(np.dot(mo_d[np.array([0, 1])], ao_d.T))
+        # det_2 = np.linalg.det(np.dot(mo_u[np.array([0, 2])], ao_u.T)) * np.linalg.det(np.dot(mo_d[np.array([0, 2])], ao_d.T))
+        # det_3 = np.linalg.det(np.dot(mo_u[np.array([0, 3])], ao_u.T)) * np.linalg.det(np.dot(mo_d[np.array([0, 3])], ao_d.T))
+        # det_4 = np.linalg.det(np.dot(mo_u[np.array([0, 4])], ao_u.T)) * np.linalg.det(np.dot(mo_d[np.array([0, 4])], ao_d.T))
+        # result += (0.949672 * det_1 - 0.180853 * det_2 - 0.180853 * det_3 - 0.180853 * det_4) ** 2
+        result += (np.linalg.det(wfn(r_e[:neu], mo_u[:neu], atoms, shells)) * np.linalg.det(wfn(r_e[neu:], mo_d[:ned], atoms, shells))) ** 2
 
     return result * dV / gamma(neu+1) / gamma(ned+1)
 
 
 @nb.jit(nopython=True, nogil=True, parallel=True)
-def p_integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, atomic_positions):
+def p_integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells):
     res = 0.0
     for i in nb.prange(4):
-        res += integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, atomic_positions)
+        res += integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells)
     return res / 4
 
 
-def main(mo_up, mo_down, neu, ned, atoms, shells):
-    steps = 10 * 1024 * 1024
+def main(casino):
     offset = 3.0
 
-    low = np.min(atoms['position'], axis=0) - offset
-    high = np.max(atoms['position'], axis=0) + offset
+    low = np.min(casino.wfn.atoms['position'], axis=0) - offset
+    high = np.max(casino.wfn.atoms['position'], axis=0) + offset
 
-    atomic_positions = atoms['position']
-
-    mo_u = mo_up[:neu]
-    mo_d = mo_down[:ned]
-
-    return integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells, atomic_positions)
+    return integral(
+        low, high, casino.input.neu, casino.input.ned, casino.input.vmc_nstep,
+        casino.wfn.mo_up, casino.wfn.mo_down, casino.wfn.atoms, casino.wfn.shells
+    )
 
 
 if __name__ == '__main__':
@@ -333,20 +342,20 @@ if __name__ == '__main__':
     sys     0m0,488s
     """
 
-    # casino = Casino('test/gwfn/h/HF/cc-pVQZ/')
-    casino = Casino('test/gwfn/be/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/be2/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/acetic/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/acetaldehyde/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/si2h6/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/alcl3/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/s4-c2v/HF/cc-pVQZ/')
+    # path = 'test/gwfn/h/HF/cc-pVQZ/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/'
+    path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP'
+    # path = 'test/gwfn/be2/HF/cc-pVQZ/'
+    # path = 'test/gwfn/acetic/HF/cc-pVQZ/'
+    # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/'
+    # path = 'test/gwfn/si2h6/HF/cc-pVQZ/'
+    # path = 'test/gwfn/alcl3/HF/cc-pVQZ/'
+    # path = 'test/gwfn/s4-c2v/HF/cc-pVQZ/'
 
     # casino = Casino('test/stowfn/he/HF/DZ/')
     # casino = Casino('test/stowfn/be/HF/QZ4P/')
 
     start = default_timer()
-    res = main(casino.wfn.mo_up, casino.wfn.mo_down, casino.input.neu, casino.input.ned, casino.wfn.atoms, casino.wfn.shells)
-    print(res)
+    print(main(Casino(path)))
     end = default_timer()
     print(f'total time {end-start}')

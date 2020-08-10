@@ -98,12 +98,12 @@ def local_energy(r_e, neu, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cut
 
 
 @nb.jit(nopython=True)
-def equilibration(steps, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def equilibration(steps, tau, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """VMC equilibration"""
     i = 0
     p = 0.0
     for j in range(steps):
-        new_r_e = r_e + random_step(dX, neu + ned)
+        new_r_e = r_e + random_step(tau, neu + ned)
 
         new_p = guiding_function(new_r_e, neu, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         j += 1
@@ -114,12 +114,12 @@ def equilibration(steps, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_
 
 
 @nb.jit(nopython=True)
-def simple_accumulation(steps, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def simple_accumulation(steps, tau, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """VMC simple accumulation"""
     p = loc_E = 0.0
     E = np.zeros((steps,))
     for j in range(steps):
-        new_r_e = r_e + random_step(dX, neu + ned)
+        new_r_e = r_e + random_step(tau, neu + ned)
 
         new_p = guiding_function(new_r_e, neu, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         if new_p**2 > random() * p**2:
@@ -130,12 +130,12 @@ def simple_accumulation(steps, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, tru
 
 
 @nb.jit(nopython=True)
-def averaging_accumulation(steps, dX, r_e, p, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def averaging_accumulation(steps, tau, r_e, p, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """VMC accumulation with averaging local energies over proposed moves"""
     E = np.zeros((steps,))
     loc_E = local_energy(r_e, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
     for j in range(steps):
-        new_r_e = r_e + random_step(dX, neu + ned)
+        new_r_e = r_e + random_step(tau, neu + ned)
 
         new_p = guiding_function(new_r_e, neu, mo_u, mo_d, atoms, shells)
         new_loc_E = local_energy(new_r_e, neu, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
@@ -148,25 +148,22 @@ def averaging_accumulation(steps, dX, r_e, p, neu, ned, mo_u, mo_d, atoms, shell
 accumulation = simple_accumulation
 
 
-def vmc(equlib, stat, mo_up, mo_down, neu, ned, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def vmc(equlib, casino):
     """configuration-by-configuration sampling (CBCS)"""
 
-    dX = optimal_vmc_step(neu, ned)
+    (vmc_nstep, vmc_equil_nstep, mo_u, mo_d, neu, ned, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff) = \
+    (casino.input.vmc_nstep, casino.input.vmc_equil_nstep, casino.wfn.mo_up, casino.wfn.mo_down, casino.input.neu, casino.input.ned, casino.wfn.atoms,
+     casino.wfn.shells, casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff,
+     casino.jastrow.f_parameters, casino.jastrow.f_cutoff)
 
-    mo_u = mo_up[:neu]
-    mo_d = mo_down[:ned]
-
-    atomic_positions = atoms['position']
+    tau = optimal_vmc_step(neu, ned)
 
     r_e = initial_position(neu + ned, atoms)
 
-    equ = equilibration(equlib, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    equ = equilibration(equlib, tau, r_e, neu, ned, mo_u[:neu], mo_d[:ned], atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
     print(equ/equlib)
 
-    opt = equilibration(10000, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
-    print(opt/10000)
-
-    return accumulation(stat, dX, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    return accumulation(vmc_nstep, tau, r_e, neu, ned, mo_u[:neu], mo_d[:ned], atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
 
 
 if __name__ == '__main__':
@@ -177,29 +174,27 @@ if __name__ == '__main__':
 
     """
 
-    # casino = Casino('test/gwfn/h/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/he/HF/cc-pVQZ/')
-    casino = Casino('test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term')
-    # casino = Casino('test/gwfn/b/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/n/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/al/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/h2/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/be2/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/acetic/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/acetaldehyde/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/si2h6/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/alcl3/HF/cc-pVQZ/')
-    # casino = Casino('test/gwfn/s4-c2v/HF/cc-pVQZ/')
+    # path = 'test/gwfn/h/HF/cc-pVQZ/'
+    # path = 'test/gwfn/he/HF/cc-pVQZ/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term'
+    # path = 'test/gwfn/b/HF/cc-pVQZ/'
+    # path = 'test/gwfn/n/HF/cc-pVQZ/'
+    # path = 'test/gwfn/al/HF/cc-pVQZ/'
+    # path = 'test/gwfn/h2/HF/cc-pVQZ/'
+    # path = 'test/gwfn/be2/HF/cc-pVQZ/'
+    # path = 'test/gwfn/acetic/HF/cc-pVQZ/'
+    # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/'
+    # path = 'test/gwfn/si2h6/HF/cc-pVQZ/'
+    # path = 'test/gwfn/alcl3/HF/cc-pVQZ/'
+    # path = 'test/gwfn/s4-c2v/HF/cc-pVQZ/'
 
-    # casino = Casino('test/stowfn/he/HF/QZ4P/')
-    # casino = Casino('test/stowfn/be/HF/QZ4P/')
+    # path = 'test/stowfn/he/HF/QZ4P/'
+    # path = 'test/stowfn/be/HF/QZ4P/'
+
+    casino = Casino(path)
 
     start = default_timer()
-    E = vmc(
-        50000, 10 * 1024 * 1024, casino.wfn.mo_up, casino.wfn.mo_down, casino.input.neu, casino.input.ned, casino.wfn.atoms, casino.wfn.shells,
-        casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff,
-        casino.jastrow.f_parameters, casino.jastrow.f_cutoff
-    )
+    E = vmc(50000, casino)
     end = default_timer()
     reblock_data = pyblock.blocking.reblock(E + nuclear_repulsion(casino.wfn.atoms))
     # for reblock_iter in reblock_data:

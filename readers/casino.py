@@ -18,6 +18,4 @@ class Casino:
             self.wfn = Stowfn(os.path.join(base_path, 'stowfn.data'))
         if getattr(self.input, 'use_jastrow', False) or getattr(self.input, 'opt_jastrow', False):
             self.jastrow = Jastrow(os.path.join(base_path, 'correlation.out.5'), self.wfn.atoms)
-        else:
-            self.jastrow = False
-        # self.mdet = Mdet(os.path.join(base_path, 'correlation.out.5')
+        # self.mdet = Mdet(os.path.join(base_path, 'correlation.out.5'), self.wfn.atoms)
