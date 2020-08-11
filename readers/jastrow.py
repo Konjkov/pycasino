@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import os
+
 import numpy as np
 
 
@@ -18,8 +20,10 @@ class Jastrow:
         self.f_cutoff = np.zeros(atoms.shape[0])
         self.chi_cusp = False
         self.jastrow = u_term = chi_term = f_term = False
+        if not os.path.isfile(file):
+            return
         with open(file, 'r') as f:
-            line = f.readline()
+            line = True
             while line:
                 line = f.readline()
                 if line.strip().startswith('START JASTROW'):
