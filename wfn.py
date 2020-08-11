@@ -215,39 +215,41 @@ def AO_laplacian(r_e, nbasis_functions, atoms, shells):
 
 
 @nb.jit(nopython=True)
-def wfn_numerical_gradient(r_e, mo, atoms, shells):
+def wfn_numerical_gradient_log(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells):
     """Numerical gradient
-    :param r_e: up/down electrons coordinates shape = (nelec, 3)
+    :param r_e: electrons coordinates shape = (nelec, 3)
     """
     delta = 0.00001
 
-    res = np.zeros((3, r_e.shape[0], r_e.shape[0]))
-    for j in range(3):
-        r_e[:, j] -= delta
-        res[j, :, :] -= np.dot(mo[:r_e.shape[0]], AO_wfn(r_e, mo.shape[1], atoms, shells).T)
-        r_e[:, j] += 2 * delta
-        res[j, :, :] += np.dot(mo[:r_e.shape[0]], AO_wfn(r_e, mo.shape[1], atoms, shells).T)
-        r_e[:, j] -= delta
+    res = np.zeros(r_e.shape)
+    for i in range(r_e.shape[0]):
+        for j in range(r_e.shape[1]):
+            r_e[i, j] -= delta
+            res[i, j] -= wfn(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells)
+            r_e[i, j] += 2 * delta
+            res[i, j] += wfn(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells)
+            r_e[i, j] -= delta
 
-    return res / delta / 2
+    return res / delta / 2 / wfn(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells)
 
 
 @nb.jit(nopython=True)
-def wfn_numerical_laplacian(r_e, mo, atoms, shells):
+def wfn_numerical_laplacian_log(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells):
     """Numerical laplacian
-    :param r_e: up/down electrons coordinates shape = (nelec, 3)
+    :param r_e: electrons coordinates shape = (nelec, 3)
     """
     delta = 0.00001
 
-    res = -6 * np.dot(mo[:r_e.shape[0]], AO_wfn(r_e, mo.shape[1], atoms, shells).T)
-    for j in range(3):
-        r_e[:, j] -= delta
-        res += np.dot(mo[:r_e.shape[0]], AO_wfn(r_e, mo.shape[1], atoms, shells).T)
-        r_e[:, j] += 2 * delta
-        res += np.dot(mo[:r_e.shape[0]], AO_wfn(r_e, mo.shape[1], atoms, shells).T)
-        r_e[:, j] -= delta
+    res = 0.0
+    for i in range(r_e.shape[0]):
+        for j in range(r_e.shape[1]):
+            r_e[i, j] -= delta
+            res += wfn(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells)
+            r_e[i, j] += 2 * delta
+            res += wfn(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells)
+            r_e[i, j] -= delta
 
-    return res / delta / delta
+    return (res / wfn(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells) - 2 * r_e.size) / delta / delta
 
 
 @nb.jit(nopython=True)

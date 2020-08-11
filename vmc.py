@@ -4,7 +4,7 @@ import os
 from math import sqrt, pi
 from random import random, randrange
 from timeit import default_timer
-from wfn import wfn, wfn_gradient_log, wfn_laplacian_log, wfn_numerical_gradient, wfn_numerical_laplacian
+from wfn import wfn, wfn_gradient_log, wfn_laplacian_log, wfn_numerical_gradient_log, wfn_numerical_laplacian_log
 from jastrow import jastrow, jastrow_gradient, jastrow_laplacian, jastrow_numerical_gradient, jastrow_numerical_laplacian
 from coulomb import coulomb, nuclear_repulsion
 
