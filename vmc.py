@@ -4,7 +4,7 @@ import os
 from math import sqrt, pi
 from random import random, randrange
 from timeit import default_timer
-from wfn import wfn, wfn_gradient_log, wfn_laplacian_log, wfn_numerical_gradient_log, wfn_numerical_laplacian_log
+from wfn import wfn, wfn_gradient, wfn_laplacian, wfn_numerical_gradient, wfn_numerical_laplacian
 from jastrow import jastrow, jastrow_gradient, jastrow_laplacian, jastrow_numerical_gradient, jastrow_numerical_laplacian
 from coulomb import coulomb, nuclear_repulsion
 
@@ -91,8 +91,9 @@ def guiding_function(r_e, nbasis_functions, neu, mo_u, mo_d, atoms, shells, mdet
 def local_energy(r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, mdet, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     j_g = jastrow_gradient(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)
     j_l = jastrow_laplacian(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)
-    w_l = wfn_laplacian_log(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet)
-    w_g = wfn_gradient_log(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet)
+    w = wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet)
+    w_g = wfn_gradient(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet) / w
+    w_l = wfn_laplacian(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet) / w
     F = np.sum((w_g + j_g) * (w_g + j_g)) / 2
     T = (np.sum(w_g * w_g) - w_l - j_l) / 4
     return coulomb(r_e, atoms) + 2 * T - F
@@ -177,7 +178,9 @@ if __name__ == '__main__':
 
     # path = 'test/gwfn/h/HF/cc-pVQZ/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/'
+    # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/b/HF/cc-pVQZ/'
     # path = 'test/gwfn/n/HF/cc-pVQZ/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/'

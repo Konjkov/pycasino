@@ -12,6 +12,7 @@ class Jastrow:
     """
 
     def __init__(self, file, atoms):
+        self.trunc = 0
         self.u_parameters = np.zeros((0, 3), np.float)
         self.chi_parameters = np.zeros((atoms.shape[0], 0, 2), np.float)
         self.f_parameters = np.zeros((atoms.shape[0], 0, 0, 0, 3), np.float)

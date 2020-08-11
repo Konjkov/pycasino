@@ -214,7 +214,7 @@ def wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet):
 
 
 @nb.jit(nopython=True)
-def wfn_numerical_gradient_log(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet):
+def wfn_numerical_gradient(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet):
     """Numerical gradient
     :param r_e: electrons coordinates shape = (nelec, 3)
     """
@@ -224,16 +224,16 @@ def wfn_numerical_gradient_log(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atom
     for i in range(r_e.shape[0]):
         for j in range(r_e.shape[1]):
             r_e[i, j] -= delta
-            res[i, j] -= wfn(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet)
+            res[i, j] -= wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet)
             r_e[i, j] += 2 * delta
-            res[i, j] += wfn(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet)
+            res[i, j] += wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet)
             r_e[i, j] -= delta
 
-    return res / delta / 2 / wfn(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet)
+    return res / delta / 2
 
 
 @nb.jit(nopython=True)
-def wfn_numerical_laplacian_log(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet):
+def wfn_numerical_laplacian(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet):
     """Numerical laplacian
     :param r_e: electrons coordinates shape = (nelec, 3)
     """
@@ -243,68 +243,79 @@ def wfn_numerical_laplacian_log(r_e, nbasis_functions, mo_u, mo_d, neu, ned, ato
     for i in range(r_e.shape[0]):
         for j in range(r_e.shape[1]):
             r_e[i, j] -= delta
-            res += wfn(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet)
+            res += wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet)
             r_e[i, j] += 2 * delta
-            res += wfn(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet)
+            res += wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet)
             r_e[i, j] -= delta
+    res -= 2 * r_e.size * wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet)
 
-    return (res / wfn(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet) - 2 * r_e.size) / delta / delta
+    return res / delta / delta
 
 
 @nb.jit(nopython=True)
-def wfn_gradient_log(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet):
-    """∇(phi)/phi.
+def wfn_gradient(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet):
+    """∇(phi).
     """
     ao = AO_wfn(r_e, nbasis_functions, atoms, shells)
     gradient_x, gradient_y, gradient_z = AO_gradient(r_e, nbasis_functions, atoms, shells)
+    cond_u = np.arange(neu) * np.ones((neu, neu))
+    cond_d = np.arange(ned) * np.ones((neu, neu))
 
-    orb_u = np.dot(mo_u[:neu], ao[:neu].T)
-    grad_x, grad_y, grad_z = np.dot(mo_u[:neu], gradient_x[:neu].T), np.dot(mo_u[:neu], gradient_y[:neu].T), np.dot(mo_u[:neu], gradient_z[:neu].T)
-    cond_u = np.arange(neu) * np.ones(orb_u.shape)
+    res = np.zeros((neu + ned, 3))
+    for i in range(mdet.shape[0]):
 
-    res_u = np.zeros((neu, 3))
-    for i in range(neu):
-        res_u[i, 0] = np.linalg.det(np.where(cond_u == i, grad_x, orb_u))
-        res_u[i, 1] = np.linalg.det(np.where(cond_u == i, grad_y, orb_u))
-        res_u[i, 2] = np.linalg.det(np.where(cond_u == i, grad_z, orb_u))
+        wfn_u = np.dot(mo_u[mdet[i].up], ao[:neu].T)
+        grad_x, grad_y, grad_z = np.dot(mo_u[mdet[i].up], gradient_x[:neu].T), np.dot(mo_u[:neu], gradient_y[:neu].T), np.dot(mo_u[:neu], gradient_z[:neu].T)
 
-    orb_d = np.dot(mo_d[:ned], ao[neu:].T)
-    grad_x, grad_y, grad_z = np.dot(mo_d[:ned], gradient_x[neu:].T), np.dot(mo_d[:ned], gradient_y[neu:].T), np.dot(mo_d[:ned], gradient_z[neu:].T)
-    cond_d = np.arange(ned) * np.ones(orb_d.shape)
+        res_u = np.zeros((neu, 3))
+        for j in range(neu):
+            res_u[j, 0] = np.linalg.det(np.where(cond_u == j, grad_x, wfn_u))
+            res_u[j, 1] = np.linalg.det(np.where(cond_u == j, grad_y, wfn_u))
+            res_u[j, 2] = np.linalg.det(np.where(cond_u == j, grad_z, wfn_u))
 
-    res_d = np.zeros((ned, 3))
-    for i in range(ned):
-        res_d[i, 0] = np.linalg.det(np.where(cond_d == i, grad_x, orb_d))
-        res_d[i, 1] = np.linalg.det(np.where(cond_d == i, grad_y, orb_d))
-        res_d[i, 2] = np.linalg.det(np.where(cond_d == i, grad_z, orb_d))
+        wfn_d = np.dot(mo_d[mdet[i].down], ao[neu:].T)
+        grad_x, grad_y, grad_z = np.dot(mo_d[mdet[i].down], gradient_x[neu:].T), np.dot(mo_d[:ned], gradient_y[neu:].T), np.dot(mo_d[:ned], gradient_z[neu:].T)
 
-    return np.concatenate((res_u / np.linalg.det(orb_u), res_d / np.linalg.det(orb_d)))
+        res_d = np.zeros((ned, 3))
+        for j in range(ned):
+            res_d[j, 0] = np.linalg.det(np.where(cond_d == j, grad_x, wfn_d))
+            res_d[j, 1] = np.linalg.det(np.where(cond_d == j, grad_y, wfn_d))
+            res_d[j, 2] = np.linalg.det(np.where(cond_d == j, grad_z, wfn_d))
+
+        res += np.concatenate((res_u * np.linalg.det(wfn_d), res_d * np.linalg.det(wfn_u)))
+
+    return res
 
 
 @nb.jit(nopython=True)
-def wfn_laplacian_log(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet):
-    """∇²(phi)/phi.
+def wfn_laplacian(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet):
+    """∇²(phi).
     """
     ao = AO_wfn(r_e, nbasis_functions, atoms, shells)
     ao_laplacian = AO_laplacian(r_e, nbasis_functions, atoms, shells)
+    cond_u = np.arange(neu) * np.ones((neu, neu))
+    cond_d = np.arange(ned) * np.ones((ned, ned))
 
-    orb_u = np.dot(mo_u[:neu], ao[:neu].T)
-    lap_u = np.dot(mo_u[:neu], ao_laplacian[:neu].T)
-    cond_u = np.arange(neu) * np.ones(orb_u.shape)
+    res = 0
+    for i in range(mdet.shape[0]):
 
-    res_u = 0
-    for i in range(neu):
-        res_u += np.linalg.det(np.where(cond_u == i, lap_u, orb_u))
+        wfn_u = np.dot(mo_u[mdet[i].up], ao[:neu].T)
+        lap_u = np.dot(mo_u[mdet[i].up], ao_laplacian[:neu].T)
 
-    orb_d = np.dot(mo_d[:ned], ao[neu:].T)
-    lap_d = np.dot(mo_d[:ned], ao_laplacian[neu:].T)
-    cond_d = np.arange(ned) * np.ones(orb_d.shape)
+        res_u = 0
+        for j in range(neu):
+            res_u += np.linalg.det(np.where(cond_u == j, lap_u, wfn_u))
 
-    res_d = 0
-    for i in range(ned):
-        res_d += np.linalg.det(np.where(cond_d == i, lap_d, orb_d))
+        wfn_d = np.dot(mo_d[mdet[i].down], ao[neu:].T)
+        lap_d = np.dot(mo_d[mdet[i].down], ao_laplacian[neu:].T)
 
-    return res_u / np.linalg.det(orb_u) + res_d / np.linalg.det(orb_d)
+        res_d = 0
+        for j in range(ned):
+            res_d += np.linalg.det(np.where(cond_d == j, lap_d, wfn_d))
+
+        res += mdet[i].coeff * (res_u * np.linalg.det(wfn_d) + res_d * np.linalg.det(wfn_u))
+
+    return res
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
@@ -369,7 +380,7 @@ if __name__ == '__main__':
 
     # path = 'test/gwfn/h/HF/cc-pVQZ/'
     path = 'test/gwfn/be/HF/cc-pVQZ/'
-    # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP'
+    # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetic/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/'

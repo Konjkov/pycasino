@@ -30,17 +30,17 @@ class Mdet:
                 if mdet:
                     if line.strip().startswith('MD'):
                         self._n_dets = int(f.readline())
-                        self._coeff = np.zeros(self._n_dets)
+                        self._coeff = np.ones(self._n_dets)
                         self._up = np.stack([np.arange(neu)] * self._n_dets)
                         self._down = np.stack([np.arange(ned)] * self._n_dets)
                         for i in range(self._n_dets):
                             self._coeff[i] = float(f.readline().split()[0])
                     elif line.strip().startswith('DET'):
-                        _, n_det, spin, pr_type, from_orb, _, to_orb, _ = line.split()
-                        if pr_type == 'PR':
-                            if spin == '1':
+                        _, n_det, spin, operation, from_orb, _, to_orb, _ = line.split()
+                        if operation == 'PR':
+                            if int(spin) == 1:
                                 self._up[int(n_det)-1, int(from_orb)-1] = int(to_orb)-1
-                            elif spin == '2':
+                            elif int(spin) == 2:
                                 self._down[int(n_det)-1, int(from_orb)-1] = int(to_orb)-1
 
         self.mdet = self.set_mdet(neu, ned)
