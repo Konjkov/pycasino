@@ -4,7 +4,7 @@ import os
 from math import sqrt, pi
 from random import random, randrange
 from timeit import default_timer
-from wfn import AO_wfn, wfn_gradient_log, wfn_laplacian_log, wfn_numerical_gradient, wfn_numerical_laplacian
+from wfn import wfn, wfn_gradient_log, wfn_laplacian_log, wfn_numerical_gradient, wfn_numerical_laplacian
 from jastrow import jastrow, jastrow_gradient, jastrow_laplacian, jastrow_numerical_gradient, jastrow_numerical_laplacian
 from coulomb import coulomb, nuclear_repulsion
 
@@ -78,35 +78,35 @@ random_step = random_normal_step
 
 
 @nb.jit(nopython=True)
-def guiding_function(r_e, neu, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def guiding_function(r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """wave function in general form"""
-    ao = AO_wfn(r_e, mo_u.shape[1], atoms, shells)
+
     return (
         np.exp(jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)) *
-        np.linalg.det(np.dot(mo_u, ao[:neu].T)) * np.linalg.det(np.dot(mo_d, ao[neu:].T))
+        wfn(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells)
     )
 
 
 @nb.jit(nopython=True)
-def local_energy(r_e, neu, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def local_energy(r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     j_g = jastrow_gradient(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)
     j_l = jastrow_laplacian(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)
-    w_l = wfn_laplacian_log(r_e[:neu], mo_u, atoms, shells) + wfn_laplacian_log(r_e[neu:], mo_d, atoms, shells)
-    w_g = np.concatenate((wfn_gradient_log(r_e[:neu], mo_u, atoms, shells), wfn_gradient_log(r_e[neu:], mo_d, atoms, shells)))
+    w_l = wfn_laplacian_log(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells)
+    w_g = wfn_gradient_log(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells)
     F = np.sum((w_g + j_g) * (w_g + j_g)) / 2
     T = (np.sum(w_g * w_g) - w_l - j_l) / 4
     return coulomb(r_e, atoms) + 2 * T - F
 
 
 @nb.jit(nopython=True)
-def equilibration(steps, tau, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def equilibration(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """VMC equilibration"""
     i = 0
     p = 0.0
     for j in range(steps):
         new_r_e = r_e + random_step(tau, neu + ned)
 
-        new_p = guiding_function(new_r_e, neu, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+        new_p = guiding_function(new_r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         j += 1
         if new_p**2 > random() * p**2:
             r_e, p = new_r_e, new_p
@@ -115,23 +115,23 @@ def equilibration(steps, tau, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u
 
 
 @nb.jit(nopython=True)
-def simple_accumulation(steps, tau, r_e, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def simple_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """VMC simple accumulation"""
     p = loc_E = 0.0
     E = np.zeros((steps,))
     for j in range(steps):
         new_r_e = r_e + random_step(tau, neu + ned)
 
-        new_p = guiding_function(new_r_e, neu, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+        new_p = guiding_function(new_r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         if new_p**2 > random() * p**2:
             r_e, p = new_r_e, new_p
-            loc_E = local_energy(r_e, neu, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+            loc_E = local_energy(r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         E[j] = loc_E
     return E
 
 
 @nb.jit(nopython=True)
-def averaging_accumulation(steps, tau, r_e, p, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def averaging_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """VMC accumulation with averaging local energies over proposed moves"""
     E = np.zeros((steps,))
     loc_E = local_energy(r_e, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
@@ -152,19 +152,18 @@ accumulation = simple_accumulation
 def vmc(equlib, casino):
     """configuration-by-configuration sampling (CBCS)"""
 
-    (vmc_nstep, vmc_equil_nstep, mo_u, mo_d, neu, ned, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff) = \
-    (casino.input.vmc_nstep, casino.input.vmc_equil_nstep, casino.wfn.mo_up, casino.wfn.mo_down, casino.input.neu, casino.input.ned, casino.wfn.atoms,
-     casino.wfn.shells, casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff,
-     casino.jastrow.f_parameters, casino.jastrow.f_cutoff)
+    vmc_nstep, vmc_equil_nstep, neu, ned, nbasis_functions = casino.input.vmc_nstep, casino.input.vmc_equil_nstep, casino.input.neu, casino.input.ned, casino.wfn.nbasis_functions
+    mo_u, mo_d, atoms, shells = casino.wfn.mo_up, casino.wfn.mo_down, casino.wfn.atoms, casino.wfn.shells
+    trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff = casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff,   casino.jastrow.f_parameters, casino.jastrow.f_cutoff
 
     tau = optimal_vmc_step(neu, ned)
 
     r_e = initial_position(neu + ned, atoms)
 
-    equ = equilibration(equlib, tau, r_e, neu, ned, mo_u[:neu], mo_d[:ned], atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    equ = equilibration(equlib, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
     print(equ/equlib)
 
-    return accumulation(vmc_nstep, tau, r_e, neu, ned, mo_u[:neu], mo_d[:ned], atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    return accumulation(vmc_nstep, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
 
 
 if __name__ == '__main__':

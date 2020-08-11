@@ -176,6 +176,17 @@ def AO_gradient(r_e, nbasis_functions, atoms, shells):
 
 
 @nb.jit(nopython=True)
+def wfn(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells):
+    ao = AO_wfn(r_e, nbasis_functions, atoms, shells)
+    # det_1 = np.linalg.det(np.dot(mo_u[np.array([0, 1])], ao[:neu].T)) * np.linalg.det(np.dot(mo_d[np.array([0, 1])], ao[neu:].T))
+    # det_2 = np.linalg.det(np.dot(mo_u[np.array([0, 2])], ao[:neu].T)) * np.linalg.det(np.dot(mo_d[np.array([0, 2])], ao[neu:].T))
+    # det_3 = np.linalg.det(np.dot(mo_u[np.array([0, 3])], ao[:neu].T)) * np.linalg.det(np.dot(mo_d[np.array([0, 3])], ao[neu:].T))
+    # det_4 = np.linalg.det(np.dot(mo_u[np.array([0, 4])], ao[:neu].T)) * np.linalg.det(np.dot(mo_d[np.array([0, 4])], ao[neu:].T))
+    # return 0.949672 * det_1 - 0.180853 * det_2 - 0.180853 * det_3 - 0.180853 * det_4
+    return np.linalg.det(np.dot(mo_u[:neu], ao[:neu].T)) * np.linalg.det(np.dot(mo_d[:ned], ao[neu:].T))
+
+
+@nb.jit(nopython=True)
 def AO_laplacian(r_e, nbasis_functions, atoms, shells):
     """Laplacian matrix."""
     orbital = np.zeros((r_e.shape[0], nbasis_functions))
@@ -240,40 +251,63 @@ def wfn_numerical_laplacian(r_e, mo, atoms, shells):
 
 
 @nb.jit(nopython=True)
-def wfn_gradient_log(r_e, mo, atoms, shells):
+def wfn_gradient_log(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells):
     """∇(phi)/phi.
     """
-    orb = np.dot(mo[:r_e.shape[0]], AO_wfn(r_e, mo.shape[1], atoms, shells).T)
-    orbital_x, orbital_y, orbital_z = AO_gradient(r_e, mo.shape[1], atoms, shells)
-    grad_x, grad_y, grad_z = np.dot(mo, orbital_x.T), np.dot(mo, orbital_y.T), np.dot(mo, orbital_z.T)
-    cond = np.arange(r_e.shape[0]) * np.ones(orb.shape)
+    ao = AO_wfn(r_e, nbasis_functions, atoms, shells)
+    gradient_x, gradient_y, gradient_z = AO_gradient(r_e, nbasis_functions, atoms, shells)
 
-    res = np.zeros(r_e.shape)
-    for i in range(r_e.shape[0]):
-        res[i, 0] = np.linalg.det(np.where(cond == i, grad_x, orb))
-        res[i, 1] = np.linalg.det(np.where(cond == i, grad_y, orb))
-        res[i, 2] = np.linalg.det(np.where(cond == i, grad_z, orb))
+    orb_u = np.dot(mo_u[:neu], ao[:neu].T)
+    grad_x, grad_y, grad_z = np.dot(mo_u[:neu], gradient_x[:neu].T), np.dot(mo_u[:neu], gradient_y[:neu].T), np.dot(mo_u[:neu], gradient_z[:neu].T)
+    cond_u = np.arange(neu) * np.ones(orb_u.shape)
 
-    return res / np.linalg.det(orb)
+    res_u = np.zeros((neu, 3))
+    for i in range(neu):
+        res_u[i, 0] = np.linalg.det(np.where(cond_u == i, grad_x, orb_u))
+        res_u[i, 1] = np.linalg.det(np.where(cond_u == i, grad_y, orb_u))
+        res_u[i, 2] = np.linalg.det(np.where(cond_u == i, grad_z, orb_u))
+
+    orb_d = np.dot(mo_d[:ned], ao[neu:].T)
+    grad_x, grad_y, grad_z = np.dot(mo_d[:ned], gradient_x[neu:].T), np.dot(mo_d[:ned], gradient_y[neu:].T), np.dot(mo_d[:ned], gradient_z[neu:].T)
+    cond_d = np.arange(ned) * np.ones(orb_d.shape)
+
+    res_d = np.zeros((ned, 3))
+    for i in range(ned):
+        res_d[i, 0] = np.linalg.det(np.where(cond_d == i, grad_x, orb_d))
+        res_d[i, 1] = np.linalg.det(np.where(cond_d == i, grad_y, orb_d))
+        res_d[i, 2] = np.linalg.det(np.where(cond_d == i, grad_z, orb_d))
+
+    return np.concatenate((res_u / np.linalg.det(orb_u), res_d / np.linalg.det(orb_d)))
 
 
 @nb.jit(nopython=True)
-def wfn_laplacian_log(r_e, mo, atoms, shells):
+def wfn_laplacian_log(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells):
     """∇²(phi)/phi.
     """
-    orb = np.dot(mo[:r_e.shape[0]], AO_wfn(r_e, mo.shape[1], atoms, shells).T)
-    lap = np.dot(mo[:r_e.shape[0]], AO_laplacian(r_e, mo.shape[1], atoms, shells).T)
-    cond = np.arange(r_e.shape[0]) * np.ones(orb.shape)
+    ao = AO_wfn(r_e, nbasis_functions, atoms, shells)
+    ao_laplacian = AO_laplacian(r_e, nbasis_functions, atoms, shells)
 
-    res = 0
-    for i in range(r_e.shape[0]):
-        res += np.linalg.det(np.where(cond == i, lap, orb))
+    orb_u = np.dot(mo_u[:neu], ao[:neu].T)
+    lap_u = np.dot(mo_u[:neu], ao_laplacian[:neu].T)
+    cond_u = np.arange(neu) * np.ones(orb_u.shape)
 
-    return res / np.linalg.det(orb)
+    res_u = 0
+    for i in range(neu):
+        res_u += np.linalg.det(np.where(cond_u == i, lap_u, orb_u))
+
+    orb_d = np.dot(mo_d[:ned], ao[neu:].T)
+    lap_d = np.dot(mo_d[:ned], ao_laplacian[neu:].T)
+    cond_d = np.arange(ned) * np.ones(orb_d.shape)
+
+    res_d = 0
+    for i in range(ned):
+        res_d += np.linalg.det(np.where(cond_d == i, lap_d, orb_d))
+
+    return res_u / np.linalg.det(orb_u) + res_d / np.linalg.det(orb_d)
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells):
+def integral(low, high, neu, ned, steps, nbasis_functions, mo_u, mo_d, atoms, shells):
     """https://en.wikipedia.org/wiki/Monte_Carlo_integration"""
     dV = np.prod(high - low) ** (neu + ned) / steps
 
@@ -293,14 +327,7 @@ def integral(low, high, neu, ned, steps, mo_u, mo_d, atoms, shells):
     result = 0.0
     for i in range(steps):
         r_e = random_position(low, high, neu + ned)
-        ao = AO_wfn(r_e, mo_u.shape[1], atoms, shells)
-        # det_1 = np.linalg.det(np.dot(mo_u[np.array([0, 1])], ao[:neu].T)) * np.linalg.det(np.dot(mo_d[np.array([0, 1])], ao[neu:].T))
-        # det_2 = np.linalg.det(np.dot(mo_u[np.array([0, 2])], ao[:neu].T)) * np.linalg.det(np.dot(mo_d[np.array([0, 2])], ao[neu:].T))
-        # det_3 = np.linalg.det(np.dot(mo_u[np.array([0, 3])], ao[:neu].T)) * np.linalg.det(np.dot(mo_d[np.array([0, 3])], ao[neu:].T))
-        # det_4 = np.linalg.det(np.dot(mo_u[np.array([0, 4])], ao[:neu].T)) * np.linalg.det(np.dot(mo_d[np.array([0, 4])], ao[neu:].T))
-        # result += (0.949672 * det_1 - 0.180853 * det_2 - 0.180853 * det_3 - 0.180853 * det_4) ** 2
-        det = np.linalg.det(np.dot(mo_u[:neu], ao[:neu].T)) * np.linalg.det(np.dot(mo_d[:ned], ao[neu:].T))
-        result += det ** 2
+        result += wfn(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells) ** 2
 
     return result * dV / gamma(neu+1) / gamma(ned+1)
 
@@ -320,7 +347,7 @@ def main(casino):
     high = np.max(casino.wfn.atoms['position'], axis=0) + offset
 
     return integral(
-        low, high, casino.input.neu, casino.input.ned, casino.input.vmc_nstep,
+        low, high, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.nbasis_functions,
         casino.wfn.mo_up, casino.wfn.mo_down, casino.wfn.atoms, casino.wfn.shells
     )
 
