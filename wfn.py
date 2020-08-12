@@ -330,11 +330,11 @@ def integral(low, high, neu, ned, steps, nbasis_functions, mo_u, mo_d, atoms, sh
 
         https://numba.pydata.org/numba-doc/dev/extending/overloading-guide.html
         """
-        return np.dstack((
+        return np.stack((
             np.random.uniform(low[0], high[0], size=ne),
             np.random.uniform(low[1], high[1], size=ne),
             np.random.uniform(low[2], high[2], size=ne)
-        ))[0]
+        )).T
 
     result = 0.0
     for i in range(steps):

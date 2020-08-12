@@ -53,6 +53,6 @@ class Mdet:
         ) for i in range(self._n_dets)]
         return np.array(_mdet, dtype=[
             ('coeff', np.float),
-            ('up', np.int, neu),
-            ('down', np.int, ned),
+            ('up', np.int, (neu, )),
+            ('down', np.int, (ned, )),
         ])

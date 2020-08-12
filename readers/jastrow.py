@@ -55,9 +55,10 @@ class Jastrow:
                     elif line.strip().startswith('Parameter'):
                         # uu, ud, dd
                         self.u_parameters = np.zeros((u_order+1, 3), np.float)
+                        u_mask = self.get_u_mask(u_order)
                         for i in range(u_spin_dep + 1):
                             for l in range(u_order + 1):
-                                if l == 1:
+                                if not u_mask[l]:
                                     continue
                                 self.u_parameters[l][i] = float(f.readline().split()[0])
                 elif chi_term:
@@ -78,9 +79,10 @@ class Jastrow:
                     elif line.strip().startswith('Parameter'):
                         # u, d
                         self.chi_parameters = np.zeros((atoms.shape[0], chi_order+1, 2), np.float)
+                        chi_mask = self.get_chi_mask(chi_order)
                         for i in range(chi_spin_dep + 1):
                             for m in range(chi_order + 1):
-                                if m == 1:
+                                if not chi_mask[m]:
                                     continue
                                 param = float(f.readline().split()[0])
                                 for atom in atom_labels:
@@ -108,23 +110,15 @@ class Jastrow:
                             self.f_cutoff[atom-1] = param
                     elif line.strip().startswith('Parameter'):
                         self.f_parameters = np.zeros((atoms.shape[0], f_en_order+1, f_en_order+1, f_ee_order+1, 3), np.float)
+                        f_mask = self.get_f_mask(f_en_order, f_en_order, no_dup_u_term, no_dup_chi_term)
                         for i in range(f_spin_dep+1):
                             for n in range(f_ee_order + 1):
                                 for m in range(f_en_order + 1):
                                     for l in range(m, f_en_order + 1):
-                                        if n == 0 and m == 0:
-                                            continue
-                                        # sum(γlm1I) = 0
-                                        if n == 1 and (m == 0 or l == f_en_order or l == f_en_order - 1 and m == 1):
-                                            continue
-                                        if l == f_en_order and m == 0:
-                                            continue
-                                        if no_dup_u_term and (m == 0 and l == 0 or m == 1 and l == 1 and n == 0):
-                                            continue
-                                        if no_dup_chi_term and m == 1 and n == 0:
+                                        if not f_mask[l, m, n]:
                                             continue
                                         line = f.readline()
-                                        # print(line[:-1], l, m, n, i)
+                                        print(line[:-1], l, m, n, i)
                                         param = float(line.split()[0])
                                         for atom in atom_labels:
                                             # γlmnI = γmlnI
@@ -138,6 +132,7 @@ class Jastrow:
             elif u_spin_dep == 1:
                 self.u_parameters[:, 2] = self.u_parameters[:, 0]
             self.u_parameters[1] = np.array([1/4, 1/2, 1/4])/(-self.u_cutoff)**self.trunc + self.u_parameters[0]*self.trunc/self.u_cutoff
+
         if self.chi_cutoff.any():
             if chi_spin_dep == 0:
                 self.chi_parameters[:, :, 1] = self.chi_parameters[:, :, 0]
@@ -145,6 +140,7 @@ class Jastrow:
                 self.chi_parameters[atom][1] = self.chi_parameters[atom][0]*self.trunc/self.chi_cutoff
                 if self.chi_cusp:
                     self.chi_parameters[atom][1] -= atoms[atom]['charge']/(-self.chi_cutoff)**self.trunc
+
         if self.f_cutoff.any():
             if f_spin_dep == 0:
                 self.f_parameters[:, :, :, :, 2] = self.f_parameters[:, :, :, :, 1] = self.f_parameters[:, :, :, :, 0]
@@ -194,6 +190,37 @@ class Jastrow:
 
             self.check_f_constrains(atoms, f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
 
+    def get_u_mask(self, u_order):
+        """u-term mask for all spin-deps"""
+        mask = np.ones((u_order+1), dtype=np.bool)
+        mask[1] = False
+        return mask
+
+    def get_chi_mask(self, chi_order):
+        """chi-term mask for all spin-deps"""
+        mask = np.ones((chi_order+1), dtype=np.bool)
+        mask[1] = False
+        return mask
+
+    def get_f_mask(self, f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term):
+        """f-term mask for all spin-deps"""
+        mask = np.ones((f_en_order+1, f_en_order+1, f_ee_order+1), dtype=np.bool)
+        for n in range(f_ee_order + 1):
+            for m in range(f_en_order + 1):
+                for l in range(m, f_en_order + 1):
+                    if n == 0 and m == 0:
+                        mask[l, m, n] = mask[m, l, n] = False
+                    # sum(γlm1I) = 0
+                    if n == 1 and (m == 0 or l == f_en_order or l == f_en_order - 1 and m == 1):
+                        mask[l, m, n] = mask[m, l, n] = False
+                    if l == f_en_order and m == 0:
+                        mask[l, m, n] = mask[m, l, m] = False
+                    if no_dup_u_term and (m == 0 and l == 0 or m == 1 and l == 1 and n == 0):
+                        mask[l, m, n] = mask[m, l, n] = False
+                    if no_dup_chi_term and m == 1 and n == 0:
+                        mask[l, m, n] = mask[m, l, n] = False
+        return mask
+
     def check_f_constrains(self, atoms, f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term):
         """"""
         for atom in range(atoms.shape[0]):
@@ -213,9 +240,9 @@ class Jastrow:
                             mn_sum += self.trunc * self.f_parameters[atom, 0, m, n, :] - self.f_cutoff * self.f_parameters[atom, 1, m, n, :]
                 print('mn=', mn, 'sum=', mn_sum)
             if no_dup_u_term:
-                print(self.f_parameters[atom, 1, 1, 0, :])  # Должны не равняться нулю
-                print(self.f_parameters[atom, 0, 0, :, :])
+                print(self.f_parameters[atom, 1, 1, 0, :])  # should be equal to zero
+                print(self.f_parameters[atom, 0, 0, :, :])  # should be equal to zero
             if no_dup_chi_term:
-                print(self.f_parameters[atom, :, 1, 0, :])  # Должны не равняться нулю
-                print(self.f_parameters[atom, :, 0, 0, :])
+                print(self.f_parameters[atom, :, 0, 0, :])  # should be equal to zero
+
 

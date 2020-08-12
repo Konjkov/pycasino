@@ -178,9 +178,10 @@ if __name__ == '__main__':
 
     # path = 'test/gwfn/h/HF/cc-pVQZ/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/'
+    path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_chi/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/b/HF/cc-pVQZ/'
     # path = 'test/gwfn/n/HF/cc-pVQZ/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/'
