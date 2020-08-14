@@ -78,36 +78,36 @@ random_step = random_normal_step
 
 
 @nb.jit(nopython=True)
-def guiding_function(r_e, nbasis_functions, neu, mo_u, mo_d, atoms, shells, mdet, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def guiding_function(r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """wave function in general form"""
 
     return (
         np.exp(jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)) *
-        wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet)
+        wfn(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, atoms, shells)
     )
 
 
 @nb.jit(nopython=True)
-def local_energy(r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, mdet, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def local_energy(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     j_g = jastrow_gradient(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)
     j_l = jastrow_laplacian(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)
-    w = wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet)
-    w_g = wfn_gradient(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet) / w
-    w_l = wfn_laplacian(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet) / w
+    w = wfn(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, atoms, shells)
+    w_g = wfn_gradient(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, ned, atoms, shells) / w
+    w_l = wfn_laplacian(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, ned, atoms, shells) / w
     F = np.sum((w_g + j_g) * (w_g + j_g)) / 2
     T = (np.sum(w_g * w_g) - w_l - j_l) / 4
     return coulomb(r_e, atoms) + 2 * T - F
 
 
 @nb.jit(nopython=True)
-def equilibration(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, mdet, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def equilibration(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """VMC equilibration"""
     i = 0
     p = 0.0
     for j in range(steps):
         new_r_e = r_e + random_step(tau, neu + ned)
 
-        new_p = guiding_function(new_r_e, nbasis_functions, neu, mo_u, mo_d, atoms, shells, mdet, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+        new_p = guiding_function(new_r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         j += 1
         if new_p**2 > random() * p**2:
             r_e, p = new_r_e, new_p
@@ -116,31 +116,31 @@ def equilibration(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms
 
 
 @nb.jit(nopython=True)
-def simple_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, mdet, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def simple_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """VMC simple accumulation"""
     p = loc_E = 0.0
     E = np.zeros((steps,))
     for j in range(steps):
         new_r_e = r_e + random_step(tau, neu + ned)
 
-        new_p = guiding_function(new_r_e, nbasis_functions, neu, mo_u, mo_d, atoms, shells, mdet, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+        new_p = guiding_function(new_r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         if new_p**2 > random() * p**2:
             r_e, p = new_r_e, new_p
-            loc_E = local_energy(r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, mdet, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+            loc_E = local_energy(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         E[j] = loc_E
     return E
 
 
 @nb.jit(nopython=True)
-def averaging_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, mdet, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def averaging_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """VMC accumulation with averaging local energies over proposed moves"""
     E = np.zeros((steps,))
-    loc_E = local_energy(r_e, nbasis_functions, mo_u, mo_d, atoms, shells, mdet, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    loc_E = local_energy(r_e, nbasis_functions, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
     for j in range(steps):
         new_r_e = r_e + random_step(tau, neu + ned)
 
-        new_p = guiding_function(new_r_e, nbasis_functions, neu, mo_u, mo_d, atoms, shells, mdet)
-        new_loc_E = local_energy(new_r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, mdet, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+        new_p = guiding_function(new_r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells)
+        new_loc_E = local_energy(new_r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         E[j] = min((new_p/p)**2, 1) * new_loc_E + (1 - min((new_p/p)**2, 1)) * loc_E
         if (new_p/p)**2 > random():
             r_e, p, loc_E = new_r_e, new_p, new_loc_E
@@ -154,18 +154,18 @@ def vmc(casino):
     """configuration-by-configuration sampling (CBCS)"""
 
     vmc_nstep, vmc_equil_nstep, neu, ned, nbasis_functions = casino.input.vmc_nstep, casino.input.vmc_equil_nstep, casino.input.neu, casino.input.ned, casino.wfn.nbasis_functions
-    mo_u, mo_d, atoms, shells = casino.wfn.mo_up, casino.wfn.mo_down, casino.wfn.atoms, casino.wfn.shells
+    atoms, shells = casino.wfn.atoms, casino.wfn.shells
     trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff = casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff,   casino.jastrow.f_parameters, casino.jastrow.f_cutoff
-    mdet = casino.mdet.mdet
+    mo_u, mo_d, coeff = casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
 
     tau = optimal_vmc_step(neu, ned)
 
     r_e = initial_position(neu + ned, atoms)
 
-    equ = equilibration(vmc_equil_nstep, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, mdet, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    equ = equilibration(vmc_equil_nstep, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
     print(equ/vmc_equil_nstep)
 
-    return accumulation(vmc_nstep, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, atoms, shells, mdet, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    return accumulation(vmc_nstep, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
 
 
 if __name__ == '__main__':
@@ -178,10 +178,11 @@ if __name__ == '__main__':
 
     # path = 'test/gwfn/h/HF/cc-pVQZ/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/'
-    path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_chi/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/'
+    # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/be/HF/def2-QZVP/VMC_OPT_BF/emin_BF/8_8_44__9_9_33'
     # path = 'test/gwfn/b/HF/cc-pVQZ/'
     # path = 'test/gwfn/n/HF/cc-pVQZ/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/'

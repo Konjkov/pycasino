@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+from multiprocessing import Pool, Process, cpu_count
 from math import gamma
 from timeit import default_timer
 
@@ -204,17 +205,17 @@ def AO_laplacian(r_e, nbasis_functions, atoms, shells):
 
 
 @nb.jit(nopython=True)
-def wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet):
+def wfn(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, atoms, shells):
     ao = AO_wfn(r_e, nbasis_functions, atoms, shells)
 
     res = 0.0
-    for i in range(mdet.shape[0]):
-        res += mdet[i].coeff * np.linalg.det(np.dot(mo_u[mdet[i].up], ao[:neu].T)) * np.linalg.det(np.dot(mo_d[mdet[i].down], ao[neu:].T))
+    for i in range(coeff.shape[0]):
+        res += coeff[i] * np.linalg.det(np.dot(mo_u[i], ao[:neu].T)) * np.linalg.det(np.dot(mo_d[i], ao[neu:].T))
     return res
 
 
 @nb.jit(nopython=True)
-def wfn_numerical_gradient(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet):
+def wfn_numerical_gradient(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, ned, atoms, shells):
     """Numerical gradient
     :param r_e: electrons coordinates shape = (nelec, 3)
     """
@@ -224,16 +225,16 @@ def wfn_numerical_gradient(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, s
     for i in range(r_e.shape[0]):
         for j in range(r_e.shape[1]):
             r_e[i, j] -= delta
-            res[i, j] -= wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet)
+            res[i, j] -= wfn(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, atoms, shells)
             r_e[i, j] += 2 * delta
-            res[i, j] += wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet)
+            res[i, j] += wfn(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, atoms, shells)
             r_e[i, j] -= delta
 
     return res / delta / 2
 
 
 @nb.jit(nopython=True)
-def wfn_numerical_laplacian(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet):
+def wfn_numerical_laplacian(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, ned, atoms, shells):
     """Numerical laplacian
     :param r_e: electrons coordinates shape = (nelec, 3)
     """
@@ -243,17 +244,17 @@ def wfn_numerical_laplacian(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, 
     for i in range(r_e.shape[0]):
         for j in range(r_e.shape[1]):
             r_e[i, j] -= delta
-            res += wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet)
+            res += wfn(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, atoms, shells)
             r_e[i, j] += 2 * delta
-            res += wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet)
+            res += wfn(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, atoms, shells)
             r_e[i, j] -= delta
-    res -= 2 * r_e.size * wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet)
+    res -= 2 * r_e.size * wfn(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, atoms, shells)
 
     return res / delta / delta
 
 
 @nb.jit(nopython=True)
-def wfn_gradient(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet):
+def wfn_gradient(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, ned, atoms, shells):
     """∇(phi).
     """
     ao = AO_wfn(r_e, nbasis_functions, atoms, shells)
@@ -262,10 +263,10 @@ def wfn_gradient(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mde
     cond_d = np.arange(ned) * np.ones((neu, neu))
 
     res = np.zeros((neu + ned, 3))
-    for i in range(mdet.shape[0]):
+    for i in range(coeff.shape[0]):
 
-        wfn_u = np.dot(mo_u[mdet[i].up], ao[:neu].T)
-        grad_x, grad_y, grad_z = np.dot(mo_u[mdet[i].up], gradient_x[:neu].T), np.dot(mo_u[:neu], gradient_y[:neu].T), np.dot(mo_u[:neu], gradient_z[:neu].T)
+        wfn_u = np.dot(mo_u[i], ao[:neu].T)
+        grad_x, grad_y, grad_z = np.dot(mo_u[i], gradient_x[:neu].T), np.dot(mo_u[i], gradient_y[:neu].T), np.dot(mo_u[i], gradient_z[:neu].T)
 
         res_u = np.zeros((neu, 3))
         for j in range(neu):
@@ -273,8 +274,8 @@ def wfn_gradient(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mde
             res_u[j, 1] = np.linalg.det(np.where(cond_u == j, grad_y, wfn_u))
             res_u[j, 2] = np.linalg.det(np.where(cond_u == j, grad_z, wfn_u))
 
-        wfn_d = np.dot(mo_d[mdet[i].down], ao[neu:].T)
-        grad_x, grad_y, grad_z = np.dot(mo_d[mdet[i].down], gradient_x[neu:].T), np.dot(mo_d[:ned], gradient_y[neu:].T), np.dot(mo_d[:ned], gradient_z[neu:].T)
+        wfn_d = np.dot(mo_d[i], ao[neu:].T)
+        grad_x, grad_y, grad_z = np.dot(mo_d[i], gradient_x[neu:].T), np.dot(mo_d[i], gradient_y[neu:].T), np.dot(mo_d[i], gradient_z[neu:].T)
 
         res_d = np.zeros((ned, 3))
         for j in range(ned):
@@ -288,7 +289,7 @@ def wfn_gradient(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mde
 
 
 @nb.jit(nopython=True)
-def wfn_laplacian(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, mdet):
+def wfn_laplacian(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, ned, atoms, shells):
     """∇²(phi).
     """
     ao = AO_wfn(r_e, nbasis_functions, atoms, shells)
@@ -297,29 +298,29 @@ def wfn_laplacian(r_e, nbasis_functions, mo_u, mo_d, neu, ned, atoms, shells, md
     cond_d = np.arange(ned) * np.ones((ned, ned))
 
     res = 0
-    for i in range(mdet.shape[0]):
+    for i in range(coeff.shape[0]):
 
-        wfn_u = np.dot(mo_u[mdet[i].up], ao[:neu].T)
-        lap_u = np.dot(mo_u[mdet[i].up], ao_laplacian[:neu].T)
+        wfn_u = np.dot(mo_u[i], ao[:neu].T)
+        lap_u = np.dot(mo_u[i], ao_laplacian[:neu].T)
 
         res_u = 0
         for j in range(neu):
             res_u += np.linalg.det(np.where(cond_u == j, lap_u, wfn_u))
 
-        wfn_d = np.dot(mo_d[mdet[i].down], ao[neu:].T)
-        lap_d = np.dot(mo_d[mdet[i].down], ao_laplacian[neu:].T)
+        wfn_d = np.dot(mo_d[i], ao[neu:].T)
+        lap_d = np.dot(mo_d[i], ao_laplacian[neu:].T)
 
         res_d = 0
         for j in range(ned):
             res_d += np.linalg.det(np.where(cond_d == j, lap_d, wfn_d))
 
-        res += mdet[i].coeff * (res_u * np.linalg.det(wfn_d) + res_d * np.linalg.det(wfn_u))
+        res += coeff[i] * (res_u * np.linalg.det(wfn_d) + res_d * np.linalg.det(wfn_u))
 
     return res
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def integral(low, high, neu, ned, steps, nbasis_functions, mo_u, mo_d, atoms, shells, mdet):
+def integral(low, high, neu, ned, steps, nbasis_functions, mo_u, mo_d, coeff, atoms, shells):
     """https://en.wikipedia.org/wiki/Monte_Carlo_integration"""
     dV = np.prod(high - low) ** (neu + ned) / steps
 
@@ -339,17 +340,23 @@ def integral(low, high, neu, ned, steps, nbasis_functions, mo_u, mo_d, atoms, sh
     result = 0.0
     for i in range(steps):
         r_e = random_position(low, high, neu + ned)
-        result += wfn(r_e, nbasis_functions, mo_u, mo_d, neu, atoms, shells, mdet) ** 2
+        result += wfn(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, atoms, shells) ** 2
 
     return result * dV / gamma(neu+1) / gamma(ned+1)
 
 
-@nb.jit(nopython=True, nogil=True, parallel=True)
-def p_integral(low, high, neu, ned, steps, nbasis_functions, mo_u, mo_d, atoms, shells, mdet):
-    res = 0.0
-    for i in nb.prange(4):
-        res += integral(low, high, neu, ned, steps, nbasis_functions, mo_u, mo_d, atoms, shells, mdet)
-    return res / 4
+def multi_integral(low, high, neu, ned, steps, nbasis_functions, mo_u, mo_d, coeff, atoms, shells):
+    num_proc = cpu_count() // 2
+    async_result = []
+    pool = Pool(num_proc)
+    for i in range(num_proc):
+        async_result.append(pool.apply_async(integral, (low, high, neu, ned, steps, nbasis_functions, mo_u, mo_d, coeff, atoms, shells)))
+
+    res = []
+    for i in range(num_proc):
+        res.append(async_result[i].get())
+
+    return res
 
 
 def main(casino):
@@ -358,9 +365,9 @@ def main(casino):
     low = np.min(casino.wfn.atoms['position'], axis=0) - offset
     high = np.max(casino.wfn.atoms['position'], axis=0) + offset
 
-    return integral(
+    return multi_integral(
         low, high, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.nbasis_functions,
-        casino.wfn.mo_up, casino.wfn.mo_down, casino.wfn.atoms, casino.wfn.shells, casino.mdet.mdet
+        casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff, casino.wfn.atoms, casino.wfn.shells
     )
 
 
