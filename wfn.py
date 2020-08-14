@@ -345,18 +345,11 @@ def integral(low, high, neu, ned, steps, nbasis_functions, mo_u, mo_d, coeff, at
     return result * dV / gamma(neu+1) / gamma(ned+1)
 
 
-def multi_integral(low, high, neu, ned, steps, nbasis_functions, mo_u, mo_d, coeff, atoms, shells):
+def multi_integral(*args):
     num_proc = cpu_count() // 2
-    async_result = []
     pool = Pool(num_proc)
-    for i in range(num_proc):
-        async_result.append(pool.apply_async(integral, (low, high, neu, ned, steps, nbasis_functions, mo_u, mo_d, coeff, atoms, shells)))
-
-    res = []
-    for i in range(num_proc):
-        res.append(async_result[i].get())
-
-    return res
+    async_result = [pool.apply_async(integral, args) for i in range(num_proc)]
+    return [res.get() for res in async_result]
 
 
 def main(casino):
