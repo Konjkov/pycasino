@@ -18,6 +18,7 @@ import pyblock
 import numpy as np
 import numba as nb
 
+from decorators import multi_process
 from readers.casino import Casino
 
 

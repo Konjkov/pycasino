@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-from multiprocessing import Pool, Process, cpu_count
 from math import gamma
 from timeit import default_timer
 
@@ -16,6 +15,7 @@ import numba as nb
 
 # np.show_config()
 
+from decorators import multi_process
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from readers.casino import Casino
 
@@ -319,6 +319,7 @@ def wfn_laplacian(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, ned, atoms, she
     return res
 
 
+@multi_process
 @nb.jit(nopython=True, nogil=True, parallel=False)
 def integral(low, high, neu, ned, steps, nbasis_functions, mo_u, mo_d, coeff, atoms, shells):
     """https://en.wikipedia.org/wiki/Monte_Carlo_integration"""
@@ -345,20 +346,13 @@ def integral(low, high, neu, ned, steps, nbasis_functions, mo_u, mo_d, coeff, at
     return result * dV / gamma(neu+1) / gamma(ned+1)
 
 
-def multi_integral(*args):
-    num_proc = cpu_count() // 2
-    pool = Pool(num_proc)
-    async_result = [pool.apply_async(integral, args) for i in range(num_proc)]
-    return [res.get() for res in async_result]
-
-
 def main(casino):
     offset = 3.0
 
     low = np.min(casino.wfn.atoms['position'], axis=0) - offset
     high = np.max(casino.wfn.atoms['position'], axis=0) + offset
 
-    return multi_integral(
+    return integral(
         low, high, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.nbasis_functions,
         casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff, casino.wfn.atoms, casino.wfn.shells
     )
