@@ -1,5 +1,7 @@
 from multiprocessing import Pool, Process, cpu_count
 
+import numpy as np
+
 
 def multi_process(function):
     """https://www.ellicium.com/python-multiprocessing-pool-process/"""
@@ -10,6 +12,6 @@ def multi_process(function):
         async_result = [pool.apply_async(function, args) for i in range(num_proc)]
         pool.close()
         pool.join()
-        return [res.get() for res in async_result]
+        return np.array([res.get() for res in async_result])
 
     return wrapper

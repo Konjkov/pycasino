@@ -118,7 +118,7 @@ class Jastrow:
                                         if not f_mask[l, m, n]:
                                             continue
                                         line = f.readline()
-                                        print(line[:-1], l, m, n, i)
+                                        # print(line[:-1], l, m, n, i)
                                         param = float(line.split()[0])
                                         for atom in atom_labels:
                                             # γlmnI = γmlnI
@@ -188,7 +188,7 @@ class Jastrow:
                 self.f_parameters[atom, f_en_order, 0, 0, :] = sum_2 + self.f_cutoff * self.f_parameters[atom, f_en_order-1, 1, 1, :] / self.trunc
                 self.f_parameters[atom, 0, f_en_order, 0, :] = sum_2 + self.f_cutoff * self.f_parameters[atom, 1, f_en_order-1, 1, :] / self.trunc
 
-            self.check_f_constrains(atoms, f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
+            # self.check_f_constrains(atoms, f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
 
     def get_u_mask(self, u_order):
         """u-term mask for all spin-deps"""
@@ -244,5 +244,3 @@ class Jastrow:
                 print(self.f_parameters[atom, 0, 0, :, :])  # should be equal to zero
             if no_dup_chi_term:
                 print(self.f_parameters[atom, :, 0, 0, :])  # should be equal to zero
-
-

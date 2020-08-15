@@ -386,6 +386,7 @@ if __name__ == '__main__':
     # casino = Casino('test/stowfn/be/HF/QZ4P/')
 
     start = default_timer()
-    print(main(Casino(path)))
+    res = main(Casino(path))
+    print(np.mean(res), '+/-', np.var(res))
     end = default_timer()
     print(f'total time {end-start}')

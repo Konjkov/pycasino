@@ -3,6 +3,11 @@
 import numpy as np
 import numba as nb
 
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+from readers.casino import Casino
+
 
 @nb.jit(nopython=True)
 def u_term(C, u_parameters, L, r_e, neu):
@@ -458,3 +463,66 @@ def jastrow_laplacian(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff,
         chi_term_laplacian(trunc, chi_parameters, chi_cutoff, r_e, neu, atoms) +
         f_term_laplacian(trunc, f_parameters, f_cutoff, r_e, neu, atoms)
     )
+
+
+if __name__ == '__main__':
+    """
+    """
+
+    term = 'f'
+
+    # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+
+    casino = Casino(path)
+    trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff = casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff, casino.jastrow.f_parameters, casino.jastrow.f_cutoff
+
+    steps = 100
+
+    if term == 'u':
+        x_min, x_max = 0, u_cutoff
+        x_grid = np.linspace(x_min, x_max, steps)
+        for spin_dep in range(3):
+            y_grid = np.zeros(steps)
+            for i in range(100):
+                r_e = np.array([[0.0, 0.0, 0.0], [x_grid[i], 0.0, 0.0]])
+                y_grid[i] = u_term(trunc, u_parameters, u_cutoff, r_e, 2-spin_dep)
+            plt.plot(x_grid, y_grid, label=['uu', 'ud', 'dd'][spin_dep])
+        plt.xlabel('r_ee (au)')
+        plt.ylabel('polynomial part')
+        plt.title('JASTROW u-term')
+    elif term == 'chi':
+        x_min, x_max = 0, chi_cutoff[0]
+        x_grid = np.linspace(x_min, x_max, steps)
+        for spin_dep in range(2):
+            y_grid = np.zeros(steps)
+            for i in range(100):
+                r_e = np.array([[x_grid[i], 0.0, 0.0]])
+                y_grid[i] = chi_term(trunc, chi_parameters, chi_cutoff, r_e, 1-spin_dep, casino.wfn.atoms)
+            plt.plot(x_grid, y_grid, label=['u', 'd'][spin_dep])
+        plt.xlabel('r_eN (au)')
+        plt.ylabel('polynomial part')
+        plt.title('JASTROW chi-term')
+    elif term == 'f':
+        x_min, x_max = 0, f_cutoff[0]
+        y_min, y_max = 0, f_cutoff[0]
+        x = np.linspace(x_min, x_max, steps)
+        y = np.linspace(y_min, y_max, steps)
+        x_grid, y_grid = np.meshgrid(x, y)
+        figure = plt.figure()
+        axis = figure.add_subplot(111, projection='3d')
+        for spin_dep in range(3):
+            z_grid = np.zeros((steps, steps))
+            for i in range(100):
+                for j in range(100):
+                    r_e = np.array([[x_grid[i, j], 0.0, 0.0], [-y_grid[i, j], 0.0, 0.0]])
+                    z_grid[i, j] = f_term(trunc, f_parameters, f_cutoff, r_e, 2-spin_dep, casino.wfn.atoms)
+            axis.plot_wireframe(x_grid, y_grid, z_grid, label=['uu', 'ud', 'dd'][spin_dep])
+        axis.set_xlabel('r_e1N (au)')
+        axis.set_ylabel('r_e2N (au)')
+        axis.set_zlabel('polynomial part')
+        plt.title('JASTROW f-term')
+
+    plt.grid(True)
+    plt.legend()
+    plt.show()

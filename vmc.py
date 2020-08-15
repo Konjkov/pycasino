@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-from math import sqrt, pi
-from random import random, randrange
 from timeit import default_timer
 from wfn import wfn, wfn_gradient, wfn_laplacian, wfn_numerical_gradient, wfn_numerical_laplacian
 from jastrow import jastrow, jastrow_gradient, jastrow_laplacian, jastrow_numerical_gradient, jastrow_numerical_laplacian
@@ -28,7 +26,7 @@ def initial_position(ne, atoms):
     natoms = atoms.shape[0]
     X = np.zeros((ne, 3))
     for i in range(ne):
-        X[i] = atoms[randrange(natoms)].position
+        X[i] = atoms[np.random.randint(natoms)].position
     return X + random_normal_step(1.0, ne)
 
 
@@ -41,7 +39,7 @@ def optimal_vmc_step(neu, ned):
 @nb.jit(nopython=True)
 def random_laplace_step(dX, ne):
     """Random N-dim laplace distributed step"""
-    return np.random.laplace(0.0, dX/(3*pi/4), ne*3).reshape((ne, 3))
+    return np.random.laplace(0.0, dX/(3*np.pi/4), ne*3).reshape((ne, 3))
 
 
 @nb.jit(nopython=True)
@@ -59,7 +57,7 @@ def random_square_step(dX, ne):
 @nb.jit(nopython=True)
 def random_normal_step(dX, ne):
     """Random normal distributed step"""
-    return np.random.normal(0.0, dX/sqrt(3), ne*3).reshape((ne, 3))
+    return np.random.normal(0.0, dX/np.sqrt(3), ne*3).reshape((ne, 3))
 
 
 @nb.jit(nopython=True)
@@ -110,13 +108,13 @@ def equilibration(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff
 
         new_p = guiding_function(new_r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         j += 1
-        if new_p**2 > random() * p**2:
+        if new_p**2 > np.random.random() * p**2:
             r_e, p = new_r_e, new_p
             i += 1
     return i
 
 
-@nb.jit(nopython=True)
+@nb.jit(nopython=True, nogil=True, parallel=False)
 def simple_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """VMC simple accumulation"""
     p = loc_E = 0.0
@@ -125,7 +123,7 @@ def simple_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d,
         new_r_e = r_e + random_step(tau, neu + ned)
 
         new_p = guiding_function(new_r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
-        if new_p**2 > random() * p**2:
+        if new_p**2 > np.random.random() * p**2:
             r_e, p = new_r_e, new_p
             loc_E = local_energy(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         E[j] = loc_E
@@ -143,7 +141,7 @@ def averaging_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo
         new_p = guiding_function(new_r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells)
         new_loc_E = local_energy(new_r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
         E[j] = min((new_p/p)**2, 1) * new_loc_E + (1 - min((new_p/p)**2, 1)) * loc_E
-        if (new_p/p)**2 > random():
+        if (new_p/p)**2 > np.random.random():
             r_e, p, loc_E = new_r_e, new_p, new_loc_E
     return E
 
@@ -151,13 +149,10 @@ def averaging_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo
 accumulation = simple_accumulation
 
 
-def vmc(casino):
+# @multi_process
+@nb.jit(nopython=True, nogil=True, parallel=False)
+def vmc(vmc_nstep, vmc_equil_nstep, neu, ned, nbasis_functions, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """configuration-by-configuration sampling (CBCS)"""
-
-    vmc_nstep, vmc_equil_nstep, neu, ned, nbasis_functions = casino.input.vmc_nstep, casino.input.vmc_equil_nstep, casino.input.neu, casino.input.ned, casino.wfn.nbasis_functions
-    atoms, shells = casino.wfn.atoms, casino.wfn.shells
-    trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff = casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff,   casino.jastrow.f_parameters, casino.jastrow.f_cutoff
-    mo_u, mo_d, coeff = casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
 
     tau = optimal_vmc_step(neu, ned)
 
@@ -167,6 +162,16 @@ def vmc(casino):
     print(equ/vmc_equil_nstep)
 
     return accumulation(vmc_nstep, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+
+
+def main(casino):
+
+    vmc_nstep, vmc_equil_nstep, neu, ned, nbasis_functions = casino.input.vmc_nstep, casino.input.vmc_equil_nstep, casino.input.neu, casino.input.ned, casino.wfn.nbasis_functions
+    mo_u, mo_d, coeff = casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
+    atoms, shells = casino.wfn.atoms, casino.wfn.shells
+    trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff = casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff,   casino.jastrow.f_parameters, casino.jastrow.f_cutoff
+
+    return vmc(vmc_nstep, vmc_equil_nstep, neu, ned, nbasis_functions, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
 
 
 if __name__ == '__main__':
@@ -201,11 +206,13 @@ if __name__ == '__main__':
     casino = Casino(path)
 
     start = default_timer()
-    E = vmc(casino)
+    E = main(casino)
     end = default_timer()
     reblock_data = pyblock.blocking.reblock(E + nuclear_repulsion(casino.wfn.atoms))
     # for reblock_iter in reblock_data:
     #     print(reblock_iter)
     opt = pyblock.blocking.find_optimal_block(E.size, reblock_data)
-    print(reblock_data[opt[0]])
+    opt_data = reblock_data[opt[0]]
+    print(opt_data)
+    # print(np.mean(opt_data.mean), '+/-', np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size))
     print(f'total time {end-start}')
