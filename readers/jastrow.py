@@ -86,7 +86,7 @@ class Jastrow:
                                     continue
                                 param = float(f.readline().split()[0])
                                 for atom in atom_labels:
-                                    self.chi_parameters[atom-1][m][i] = param
+                                    self.chi_parameters[atom-1, m, i] = param
                     elif line.strip().startswith('END SET'):
                         atom_labels = []
                 elif f_term:
@@ -122,7 +122,7 @@ class Jastrow:
                                         param = float(line.split()[0])
                                         for atom in atom_labels:
                                             # γlmnI = γmlnI
-                                            self.f_parameters[atom-1][l][m][n][i] = self.f_parameters[atom-1][m][l][n][i] = param
+                                            self.f_parameters[atom-1, l, m, n, i] = self.f_parameters[atom-1][m][l][n][i] = param
                     elif line.strip().startswith('END SET'):
                         atom_labels = []
 
@@ -137,10 +137,9 @@ class Jastrow:
             if chi_spin_dep == 0:
                 self.chi_parameters[:, :, 1] = self.chi_parameters[:, :, 0]
             for atom in range(atoms.shape[0]):
-                self.chi_parameters[atom][1] = self.chi_parameters[atom][0]*self.trunc/self.chi_cutoff
+                self.chi_parameters[atom][1] = self.chi_parameters[atom][0]*self.trunc/self.chi_cutoff[atom]
                 if self.chi_cusp:
-                    self.chi_parameters[atom][1] -= atoms[atom]['charge']/(-self.chi_cutoff)**self.trunc
-
+                    self.chi_parameters[atom][1] -= atoms[atom]['charge']/(-self.chi_cutoff[atom])**self.trunc
         if self.f_cutoff.any():
             if f_spin_dep == 0:
                 self.f_parameters[:, :, :, :, 2] = self.f_parameters[:, :, :, :, 1] = self.f_parameters[:, :, :, :, 0]
@@ -170,7 +169,7 @@ class Jastrow:
                     for m in range(f_en_order + 1):
                         for n in range(f_ee_order + 1):
                             if m + n == mn:
-                                mn_sum += self.trunc * self.f_parameters[atom, 0, m, n, :] - self.f_cutoff * self.f_parameters[atom, 1, m, n, :]
+                                mn_sum += self.trunc * self.f_parameters[atom, 0, m, n, :] - self.f_cutoff[atom] * self.f_parameters[atom, 1, m, n, :]
                     if mn < f_en_order:
                         self.f_parameters[atom, 0, mn, 0, :] = -mn_sum / self.trunc
                         self.f_parameters[atom, mn, 0, 0, :] = -mn_sum / self.trunc
@@ -185,8 +184,8 @@ class Jastrow:
                 self.f_parameters[atom, 1, f_en_order - 1, 1, :] = sum_1 - self.f_parameters[atom, 0, f_en_order, 1, :]
 
                 """fix (l=en_order, m=0, n=0) term"""
-                self.f_parameters[atom, f_en_order, 0, 0, :] = sum_2 + self.f_cutoff * self.f_parameters[atom, f_en_order-1, 1, 1, :] / self.trunc
-                self.f_parameters[atom, 0, f_en_order, 0, :] = sum_2 + self.f_cutoff * self.f_parameters[atom, 1, f_en_order-1, 1, :] / self.trunc
+                self.f_parameters[atom, f_en_order, 0, 0, :] = sum_2 + self.f_cutoff[atom] * self.f_parameters[atom, f_en_order-1, 1, 1, :] / self.trunc
+                self.f_parameters[atom, 0, f_en_order, 0, :] = sum_2 + self.f_cutoff[atom] * self.f_parameters[atom, 1, f_en_order-1, 1, :] / self.trunc
 
             # self.check_f_constrains(atoms, f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
 
@@ -237,7 +236,7 @@ class Jastrow:
                 for m in range(f_en_order + 1):
                     for n in range(f_ee_order + 1):
                         if m + n == mn:
-                            mn_sum += self.trunc * self.f_parameters[atom, 0, m, n, :] - self.f_cutoff * self.f_parameters[atom, 1, m, n, :]
+                            mn_sum += self.trunc * self.f_parameters[atom, 0, m, n, :] - self.f_cutoff[atom] * self.f_parameters[atom, 1, m, n, :]
                 print('mn=', mn, 'sum=', mn_sum)
             if no_dup_u_term:
                 print(self.f_parameters[atom, 1, 1, 0, :])  # should be equal to zero

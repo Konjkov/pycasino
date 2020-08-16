@@ -288,9 +288,9 @@ def chi_term_laplacian(C, chi_parameters, L, r_e, neu, atoms):
 @nb.jit(nopython=True)
 def f_term_laplacian(C, f_parameters, L, r_e, neu, atoms):
     """Jastrow f-term laplacian
-    f-term is a product of two spherically symmetric function f(r_eI) and g(r_ee) so using
+    f-term is a product of two spherically symmetric functions f(r_eI) and g(r_ee) so using
         ∇²(f*g) = ∇²(f)*g + 2*∇(f)*∇(g) + f*∇²(g)
-    then Laplace operator of spherically symmetric function is
+    then Laplace operator of spherically symmetric function (in 3-D space) is
         ∇²(f) = d²f/dr² + 2/r * df/dr
     :param C: truncation order
     :param f_parameters:
@@ -472,8 +472,9 @@ if __name__ == '__main__':
     term = 'chi'
 
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
 
     casino = Casino(path)
     trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff = casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff, casino.jastrow.f_parameters, casino.jastrow.f_cutoff
@@ -488,19 +489,22 @@ if __name__ == '__main__':
             for i in range(100):
                 r_e = np.array([[0.0, 0.0, 0.0], [x_grid[i], 0.0, 0.0]])
                 y_grid[i] = u_term(trunc, u_parameters, u_cutoff, r_e, 2-spin_dep)
-            plt.plot(x_grid, y_grid, label=['uu', 'ud', 'dd'][spin_dep])
+                if spin_dep == 1:
+                    y_grid[i] /= 2.0
+            plt.plot(x_grid, y_grid, label=['uu', 'ud/2', 'dd'][spin_dep])
         plt.xlabel('r_ee (au)')
         plt.ylabel('polynomial part')
         plt.title('JASTROW u-term')
     elif term == 'chi':
         x_min, x_max = 0, chi_cutoff[0]
         x_grid = np.linspace(x_min, x_max, steps)
-        for spin_dep in range(2):
-            y_grid = np.zeros(steps)
-            for i in range(100):
-                r_e = np.array([[x_grid[i], 0.0, 0.0]])
-                y_grid[i] = chi_term(trunc, chi_parameters, chi_cutoff, r_e, 1-spin_dep, casino.wfn.atoms)
-            plt.plot(x_grid, y_grid, label=['u', 'd'][spin_dep])
+        for atom in range(casino.wfn.atoms.shape[0]):
+            for spin_dep in range(2):
+                y_grid = np.zeros(steps)
+                for i in range(100):
+                    r_e = np.array([[x_grid[i], 0.0, 0.0]]) + casino.wfn.atoms[atom]['position']
+                    y_grid[i] = chi_term(trunc, chi_parameters[atom:atom+1], chi_cutoff[atom:atom+1], r_e, 1-spin_dep, casino.wfn.atoms[atom:atom+1])
+                plt.plot(x_grid, y_grid, label=f'atom {atom} ' + ['u', 'd'][spin_dep])
         plt.xlabel('r_eN (au)')
         plt.ylabel('polynomial part')
         plt.title('JASTROW chi-term')
@@ -512,13 +516,14 @@ if __name__ == '__main__':
         x_grid, y_grid = np.meshgrid(x, y)
         figure = plt.figure()
         axis = figure.add_subplot(111, projection='3d')
-        for spin_dep in range(3):
-            z_grid = np.zeros((steps, steps))
-            for i in range(100):
-                for j in range(100):
-                    r_e = np.array([[x_grid[i, j], 0.0, 0.0], [-y_grid[i, j], 0.0, 0.0]])
-                    z_grid[i, j] = f_term(trunc, f_parameters, f_cutoff, r_e, 2-spin_dep, casino.wfn.atoms)
-            axis.plot_wireframe(x_grid, y_grid, z_grid, label=['uu', 'ud', 'dd'][spin_dep])
+        for atom in range(casino.wfn.atoms.shape[0]):
+            for spin_dep in range(3):
+                z_grid = np.zeros((steps, steps))
+                for i in range(100):
+                    for j in range(100):
+                        r_e = np.array([[x_grid[i, j], 0.0, 0.0], [-y_grid[i, j], 0.0, 0.0]]) + casino.wfn.atoms[atom]['position']
+                        z_grid[i, j] = f_term(trunc, f_parameters[atom:atom+1], f_cutoff[atom:atom+1], r_e, 2-spin_dep, casino.wfn.atoms[atom:atom+1])
+                axis.plot_wireframe(x_grid, y_grid, z_grid, label=['uu', 'ud', 'dd'][spin_dep])
         axis.set_xlabel('r_e1N (au)')
         axis.set_ylabel('r_e2N (au)')
         axis.set_zlabel('polynomial part')
