@@ -87,7 +87,7 @@ class Jastrow:
                                 param = float(f.readline().split()[0])
                                 for atom in atom_labels:
                                     self.chi_parameters[atom-1][m][i] = param
-                    elif line.strip().startswith('END_SET'):
+                    elif line.strip().startswith('END SET'):
                         atom_labels = []
                 elif f_term:
                     if line.strip().startswith('START SET'):
@@ -123,7 +123,7 @@ class Jastrow:
                                         for atom in atom_labels:
                                             # γlmnI = γmlnI
                                             self.f_parameters[atom-1][l][m][n][i] = self.f_parameters[atom-1][m][l][n][i] = param
-                    elif line.strip().startswith('END_SET'):
+                    elif line.strip().startswith('END SET'):
                         atom_labels = []
 
         if self.u_cutoff:

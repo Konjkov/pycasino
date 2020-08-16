@@ -469,10 +469,11 @@ if __name__ == '__main__':
     """
     """
 
-    term = 'f'
+    term = 'chi'
 
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/al/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
 
     casino = Casino(path)
     trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff = casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff, casino.jastrow.f_parameters, casino.jastrow.f_cutoff
