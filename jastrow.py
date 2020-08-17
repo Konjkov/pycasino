@@ -77,7 +77,7 @@ def f_term(C, f_parameters, L, r_e, neu, atoms):
                 r_ee = np.linalg.norm(r_e[j] - r_e[k])  # FIXME to slow
                 r_e1I = np.linalg.norm(r_e[j] - atoms[i]['position'])  # FIXME to slow
                 r_e2I = np.linalg.norm(r_e[k] - atoms[i]['position'])  # FIXME to slow
-                if r_e1I <= L and r_e2I <= L:
+                if r_e1I <= L[i] and r_e2I <= L[i]:
                     f_set = int(j >= neu) + int(k >= neu)
                     poly = 0.0
                     for l in range(f_parameters.shape[1]):
