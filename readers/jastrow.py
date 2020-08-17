@@ -37,8 +37,10 @@ class Jastrow:
                     u_term = True
                 elif line.strip().startswith('START CHI TERM'):
                     chi_term = True
+                    chi_parameters_list = [0] * atoms.shape[0]
                 elif line.strip().startswith('START F TERM'):
                     f_term = True
+                    f_parameters_list = [0] * atoms.shape[0]
                 elif line.strip().startswith('END U TERM'):
                     u_term = False
                 elif line.strip().startswith('END CHI TERM'):
@@ -78,15 +80,15 @@ class Jastrow:
                             self.chi_cutoff[atom-1] = param
                     elif line.strip().startswith('Parameter'):
                         # u, d
-                        self.chi_parameters = np.zeros((atoms.shape[0], chi_order+1, 2), np.float)
+                        chi_parameters = np.zeros((chi_order+1, 2), np.float)
                         chi_mask = self.get_chi_mask(chi_order)
                         for i in range(chi_spin_dep + 1):
                             for m in range(chi_order + 1):
                                 if not chi_mask[m]:
                                     continue
-                                param = float(f.readline().split()[0])
-                                for atom in atom_labels:
-                                    self.chi_parameters[atom-1, m, i] = param
+                                chi_parameters[m, i] = float(f.readline().split()[0])
+                        for atom in atom_labels:
+                            chi_parameters_list[atom-1] = chi_parameters
                     elif line.strip().startswith('END SET'):
                         atom_labels = []
                 elif f_term:
@@ -109,7 +111,7 @@ class Jastrow:
                         for atom in atom_labels:
                             self.f_cutoff[atom-1] = param
                     elif line.strip().startswith('Parameter'):
-                        self.f_parameters = np.zeros((atoms.shape[0], f_en_order+1, f_en_order+1, f_ee_order+1, 3), np.float)
+                        f_parameters = np.zeros((f_en_order+1, f_en_order+1, f_ee_order+1, 3), np.float)
                         f_mask = self.get_f_mask(f_en_order, f_en_order, no_dup_u_term, no_dup_chi_term)
                         for i in range(f_spin_dep+1):
                             for n in range(f_ee_order + 1):
@@ -119,10 +121,10 @@ class Jastrow:
                                             continue
                                         line = f.readline()
                                         # print(line[:-1], l, m, n, i)
-                                        param = float(line.split()[0])
-                                        for atom in atom_labels:
-                                            # γlmnI = γmlnI
-                                            self.f_parameters[atom-1, l, m, n, i] = self.f_parameters[atom-1][m][l][n][i] = param
+                                        # γlmnI = γmlnI
+                                        f_parameters[l, m, n, i] = f_parameters[m, l, n, i] = float(line.split()[0])
+                        for atom in atom_labels:
+                            f_parameters_list[atom-1] = f_parameters
                     elif line.strip().startswith('END SET'):
                         atom_labels = []
 
@@ -134,6 +136,7 @@ class Jastrow:
             self.u_parameters[1] = np.array([1/4, 1/2, 1/4])/(-self.u_cutoff)**self.trunc + self.u_parameters[0]*self.trunc/self.u_cutoff
 
         if self.chi_cutoff.any():
+            self.chi_parameters = np.stack(chi_parameters_list)
             if chi_spin_dep == 0:
                 self.chi_parameters[:, :, 1] = self.chi_parameters[:, :, 0]
             for atom in range(atoms.shape[0]):
@@ -141,6 +144,7 @@ class Jastrow:
                 if self.chi_cusp:
                     self.chi_parameters[atom][1] -= atoms[atom]['charge']/(-self.chi_cutoff[atom])**self.trunc
         if self.f_cutoff.any():
+            self.f_parameters = np.stack(f_parameters_list)
             if f_spin_dep == 0:
                 self.f_parameters[:, :, :, :, 2] = self.f_parameters[:, :, :, :, 1] = self.f_parameters[:, :, :, :, 0]
             elif f_spin_dep == 1:

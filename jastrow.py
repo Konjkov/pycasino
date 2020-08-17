@@ -496,14 +496,15 @@ if __name__ == '__main__':
         plt.ylabel('polynomial part')
         plt.title('JASTROW u-term')
     elif term == 'chi':
-        x_min, x_max = 0, chi_cutoff[0]
-        x_grid = np.linspace(x_min, x_max, steps)
         for atom in range(casino.wfn.atoms.shape[0]):
+            x_min, x_max = 0, chi_cutoff[atom]
+            x_grid = np.linspace(x_min, x_max, steps)
             for spin_dep in range(2):
                 y_grid = np.zeros(steps)
                 for i in range(100):
                     r_e = np.array([[x_grid[i], 0.0, 0.0]]) + casino.wfn.atoms[atom]['position']
-                    y_grid[i] = chi_term(trunc, chi_parameters[atom:atom+1], chi_cutoff[atom:atom+1], r_e, 1-spin_dep, casino.wfn.atoms[atom:atom+1])
+                    sl = slice(atom, atom+1)
+                    y_grid[i] = chi_term(trunc, chi_parameters[sl], chi_cutoff[sl], r_e, 1-spin_dep, casino.wfn.atoms[sl])
                 plt.plot(x_grid, y_grid, label=f'atom {atom} ' + ['u', 'd'][spin_dep])
         plt.xlabel('r_eN (au)')
         plt.ylabel('polynomial part')
@@ -522,8 +523,9 @@ if __name__ == '__main__':
                 for i in range(100):
                     for j in range(100):
                         r_e = np.array([[x_grid[i, j], 0.0, 0.0], [-y_grid[i, j], 0.0, 0.0]]) + casino.wfn.atoms[atom]['position']
-                        z_grid[i, j] = f_term(trunc, f_parameters[atom:atom+1], f_cutoff[atom:atom+1], r_e, 2-spin_dep, casino.wfn.atoms[atom:atom+1])
-                axis.plot_wireframe(x_grid, y_grid, z_grid, label=['uu', 'ud', 'dd'][spin_dep])
+                        sl = slice(atom, atom + 1)
+                        z_grid[i, j] = f_term(trunc, f_parameters[sl], f_cutoff[sl], r_e, 2-spin_dep, casino.wfn.atoms[sl])
+                axis.plot_wireframe(x_grid, y_grid, z_grid, label=f'atom {atom} ' + ['uu', 'ud', 'dd'][spin_dep])
         axis.set_xlabel('r_e1N (au)')
         axis.set_ylabel('r_e2N (au)')
         axis.set_zlabel('polynomial part')
