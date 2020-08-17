@@ -469,12 +469,13 @@ if __name__ == '__main__':
     """
     """
 
-    term = 'chi'
+    term = 'f'
 
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
-    path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
 
     casino = Casino(path)
     trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff = casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff, casino.jastrow.f_parameters, casino.jastrow.f_cutoff
@@ -510,19 +511,22 @@ if __name__ == '__main__':
         plt.ylabel('polynomial part')
         plt.title('JASTROW chi-term')
     elif term == 'f':
-        x_min, x_max = 0, f_cutoff[0]
-        y_min, y_max = 0, f_cutoff[0]
-        x = np.linspace(x_min, x_max, steps)
-        y = np.linspace(y_min, y_max, steps)
-        x_grid, y_grid = np.meshgrid(x, y)
         figure = plt.figure()
         axis = figure.add_subplot(111, projection='3d')
         for atom in range(casino.wfn.atoms.shape[0]):
+            x_min, x_max = -f_cutoff[atom], f_cutoff[atom]
+            y_min, y_max = -np.pi, np.pi
+            x = np.linspace(x_min, x_max, steps)
+            y = np.linspace(y_min, y_max, steps)
+            x_grid, y_grid = np.meshgrid(x, y)
             for spin_dep in range(3):
                 z_grid = np.zeros((steps, steps))
                 for i in range(100):
                     for j in range(100):
-                        r_e = np.array([[x_grid[i, j], 0.0, 0.0], [-y_grid[i, j], 0.0, 0.0]]) + casino.wfn.atoms[atom]['position']
+                        r_e = np.array([
+                            [x_grid[i, j] * np.cos(y_grid[i, j]), x_grid[i, j] * np.sin(y_grid[i, j]), 0.0],
+                            [x_grid[i, j], 0.0, 0.0]
+                        ]) + casino.wfn.atoms[atom]['position']
                         sl = slice(atom, atom + 1)
                         z_grid[i, j] = f_term(trunc, f_parameters[sl], f_cutoff[sl], r_e, 2-spin_dep, casino.wfn.atoms[sl])
                 axis.plot_wireframe(x_grid, y_grid, z_grid, label=f'atom {atom} ' + ['uu', 'ud', 'dd'][spin_dep])

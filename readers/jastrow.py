@@ -88,7 +88,7 @@ class Jastrow:
                             self.chi_cutoff[atom-1] = param
                     elif line.strip().startswith('Parameter'):
                         # u, d
-                        chi_parameters = np.zeros((chi_order+1, 2), np.float)
+                        chi_parameters = np.zeros((chi_order+1, chi_spin_dep + 1), np.float)
                         chi_mask = self.get_chi_mask(chi_order)
                         for i in range(chi_spin_dep + 1):
                             for m in range(chi_order + 1):
@@ -123,8 +123,8 @@ class Jastrow:
                         for atom in atom_labels:
                             self.f_cutoff[atom-1] = param
                     elif line.strip().startswith('Parameter'):
-                        f_parameters = np.zeros((f_en_order+1, f_en_order+1, f_ee_order+1, 3), np.float)
-                        f_mask = self.get_f_mask(f_en_order, f_en_order, no_dup_u_term, no_dup_chi_term)
+                        f_parameters = np.zeros((f_en_order+1, f_en_order+1, f_ee_order+1, f_spin_dep+1), np.float)
+                        f_mask = self.get_f_mask(f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
                         for i in range(f_spin_dep+1):
                             for n in range(f_ee_order + 1):
                                 for m in range(f_en_order + 1):
@@ -161,7 +161,7 @@ class Jastrow:
         if self.f_cutoff.any():
             self.f_parameters = np.zeros((atoms.shape[0], f_en_max_order+1, f_en_max_order+1, f_ee_max_order+1, 3), np.float)
             for i, f_parameters in enumerate(f_parameters_list):
-                self.f_parameters[i, :f_parameters.shape[0], :f_parameters.shape[1]] = f_parameters
+                self.f_parameters[i, :f_parameters.shape[0], :f_parameters.shape[1], :f_parameters.shape[2], :f_parameters.shape[3]] = f_parameters
                 if f_spin_dep_list[i] == 0:
                     self.f_parameters[:, :, :, :, 2] = self.f_parameters[:, :, :, :, 1] = self.f_parameters[:, :, :, :, 0]
                 elif f_spin_dep_list[i] == 1:
