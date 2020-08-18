@@ -40,7 +40,9 @@ class Base:
 
 
 class Gwfn(Base):
-    """Gaussian wfn reader from gwfn.data file."""
+    """Gaussian wfn reader from gwfn.data file.
+    CASINO manual: 7.10.1 gwfn.data file specification
+    """
 
     def __init__(self, file_name):
         """Open file and read gwfn.data"""
@@ -164,7 +166,9 @@ class Gwfn(Base):
 
 
 class Stowfn(Base):
-    """Slater wfn reader from stowfn.data file."""
+    """Slater wfn reader from stowfn.data file.
+    CASINO manual: 7.10.6 stowfn.data file specification
+    """
 
     def __init__(self, file_name):
         """Open file and read stowfn.data"""

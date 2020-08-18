@@ -7,8 +7,11 @@ import numpy as np
 
 class Jastrow:
     """Jastrow reader from file.
-    1. CASINO manual, 22.2 The u, χ and f terms in the Jastrow factor
-    2. Jastrow correlation factor for atoms, molecules, and solids, N. D. Drummond, M. D. Towler, and R. J. Needs
+    CASINO manual: 7.4.2 Jastrow factor
+                   22.2 The u, χ and f terms in the Jastrow factor
+    Jastrow correlation factor for atoms, molecules, and solids
+    N. D. Drummond, M. D. Towler, and R. J. Needs
+    Phys. Rev. B 70, 235119
     """
 
     def __init__(self, file, atoms):
@@ -163,13 +166,12 @@ class Jastrow:
 
             for atom in range(atoms.shape[0]):
                 f_parameters = self.fix_f(f_parameters_list[atom], self.f_cutoff[atom])
+                # self.check_f_constrains(f_parameters, self.f_cutoff[atom], no_dup_u_term, no_dup_chi_term)
                 self.f_parameters[atom, :f_parameters.shape[0], :f_parameters.shape[1], :f_parameters.shape[2], :f_parameters.shape[3]] = f_parameters
                 if f_spin_dep_list[atom] == 0:
                     self.f_parameters[atom, :, :, :, 2] = self.f_parameters[atom, :, :, :, 1] = self.f_parameters[atom, :, :, :, 0]
                 elif f_spin_dep_list[atom] == 1:
                     self.f_parameters[atom, :, :, :, 2] = self.f_parameters[atom, :, :, :, 0]
-
-            # self.check_f_constrains(atoms, f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
 
     def get_u_mask(self, u_order):
         """u-term mask for all spin-deps"""
@@ -254,26 +256,28 @@ class Jastrow:
 
         return f_parameters
 
-    def check_f_constrains(self, atoms, f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term):
+    def check_f_constrains(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
         """"""
-        for atom in range(atoms.shape[0]):
-            for lm in range(2 * f_en_order + 1):
-                lm_sum = np.zeros(3)
-                for l in range(f_en_order + 1):
-                    for m in range(f_en_order + 1):
-                        if l + m == lm:
-                            lm_sum += self.f_parameters[atom, l, m, 1, :]
-                print('lm=', lm, 'sum=', lm_sum)
-
-            for mn in range(f_en_order + f_ee_order + 1):
-                mn_sum = np.zeros(3)
+        f_en_order = f_parameters.shape[0] - 1
+        f_ee_order = f_parameters.shape[2] - 1
+        f_spin_dep = f_parameters.shape[3] - 1
+        for lm in range(2 * f_en_order + 1):
+            lm_sum = np.zeros(f_spin_dep + 1)
+            for l in range(f_en_order + 1):
                 for m in range(f_en_order + 1):
-                    for n in range(f_ee_order + 1):
-                        if m + n == mn:
-                            mn_sum += self.trunc * self.f_parameters[atom, 0, m, n, :] - self.f_cutoff[atom] * self.f_parameters[atom, 1, m, n, :]
-                print('mn=', mn, 'sum=', mn_sum)
-            if no_dup_u_term:
-                print(self.f_parameters[atom, 1, 1, 0, :])  # should be equal to zero
-                print(self.f_parameters[atom, 0, 0, :, :])  # should be equal to zero
-            if no_dup_chi_term:
-                print(self.f_parameters[atom, :, 0, 0, :])  # should be equal to zero
+                    if l + m == lm:
+                        lm_sum += f_parameters[l, m, 1, :]
+            print('lm=', lm, 'sum=', lm_sum)
+
+        for mn in range(f_en_order + f_ee_order + 1):
+            mn_sum = np.zeros(f_spin_dep + 1)
+            for m in range(f_en_order + 1):
+                for n in range(f_ee_order + 1):
+                    if m + n == mn:
+                        mn_sum += self.trunc * f_parameters[0, m, n, :] - f_cutoff * f_parameters[1, m, n, :]
+            print('mn=', mn, 'sum=', mn_sum)
+        if no_dup_u_term:
+            print(f_parameters[1, 1, 0, :])  # should be equal to zero
+            print(f_parameters[0, 0, :, :])  # should be equal to zero
+        if no_dup_chi_term:
+            print(f_parameters[:, 0, 0, :])  # should be equal to zero

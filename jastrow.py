@@ -472,8 +472,9 @@ if __name__ == '__main__':
     term = 'f'
 
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
-    path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/casl/8_8_44/10000/'
+    # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
 
@@ -515,7 +516,7 @@ if __name__ == '__main__':
         axis = figure.add_subplot(111, projection='3d')
         for atom in range(casino.wfn.atoms.shape[0]):
             x_min, x_max = -f_cutoff[atom], f_cutoff[atom]
-            y_min, y_max = -np.pi, np.pi
+            y_min, y_max = 0.0, np.pi
             x = np.linspace(x_min, x_max, steps)
             y = np.linspace(y_min, y_max, steps)
             x_grid, y_grid = np.meshgrid(x, y)
