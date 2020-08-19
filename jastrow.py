@@ -47,13 +47,14 @@ def chi_term(C, chi_parameters, L, r_e, neu, atoms):
         return res
 
     for i in range(atoms.shape[0]):
+        p = chi_parameters[i]
         for j in range(r_e.shape[0]):
             r = np.linalg.norm(r_e[j] - atoms[i]['position'])  # FIXME to slow
             if r <= L[i]:
                 chi_set = int(j >= neu)
                 poly = 0.0
-                for k in range(chi_parameters.shape[1]):
-                    poly += chi_parameters[i, k, chi_set] * r ** k
+                for k in range(p.shape[0]):
+                    poly += p[k, chi_set] * r ** k
                 res += poly * (r - L[i]) ** C
     return res
 
@@ -72,6 +73,7 @@ def f_term(C, f_parameters, L, r_e, neu, atoms):
         return res
 
     for i in range(atoms.shape[0]):
+        p = f_parameters[i]
         for j in range(r_e.shape[0] - 1):
             for k in range(j+1, r_e.shape[0]):
                 r_ee = np.linalg.norm(r_e[j] - r_e[k])  # FIXME to slow
@@ -80,10 +82,10 @@ def f_term(C, f_parameters, L, r_e, neu, atoms):
                 if r_e1I <= L[i] and r_e2I <= L[i]:
                     f_set = int(j >= neu) + int(k >= neu)
                     poly = 0.0
-                    for l in range(f_parameters.shape[1]):
-                        for m in range(f_parameters.shape[2]):
-                            for n in range(f_parameters.shape[3]):
-                                poly += f_parameters[i, l, m, n, f_set] * r_e1I ** l * r_e2I ** m * r_ee ** n
+                    for l in range(p.shape[0]):
+                        for m in range(p.shape[1]):
+                            for n in range(p.shape[2]):
+                                poly += p[l, m, n, f_set] * r_e1I ** l * r_e2I ** m * r_ee ** n
                     res += poly * (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C
     return res
 
@@ -135,18 +137,19 @@ def chi_term_gradient(C, chi_parameters, L, r_e, neu, atoms):
         return res
 
     for i in range(atoms.shape[0]):
+        p = chi_parameters[i]
         for j in range(r_e.shape[0]):
             r_vec = r_e[j] - atoms[i]['position']  # FIXME to slow
             r = np.linalg.norm(r_vec)
             if r <= L[i]:
                 chi_set = int(j >= neu)
                 poly = 0.0
-                for k in range(chi_parameters.shape[1]):
-                    poly += chi_parameters[i, k, chi_set] * r ** k
+                for k in range(p.shape[0]):
+                    poly += p[k, chi_set] * r ** k
 
                 poly_diff = 0.0
-                for k in range(1, chi_parameters.shape[1]):
-                    poly_diff += k * chi_parameters[i, k, chi_set] * r ** (k-1)
+                for k in range(1, p.shape[0]):
+                    poly_diff += k * p[k, chi_set] * r ** (k-1)
 
                 gradient = (C * (r-L[i]) ** (C-1) * poly + (r-L[i]) ** C * poly_diff) / r
                 res[j, :] += r_vec * gradient
@@ -167,6 +170,7 @@ def f_term_gradient(C, f_parameters, L, r_e, neu, atoms):
         return res
 
     for i in range(atoms.shape[0]):
+        p = f_parameters[i]
         for j in range(r_e.shape[0] - 1):
             for k in range(j+1, r_e.shape[0]):
                 r_e1I_vec = r_e[j] - atoms[i]['position']  # FIXME to slow
@@ -178,28 +182,28 @@ def f_term_gradient(C, f_parameters, L, r_e, neu, atoms):
                 if r_e1I <= L[i] and r_e2I <= L[i]:
                     f_set = int(j >= neu) + int(k >= neu)
                     poly = 0.0
-                    for l in range(f_parameters.shape[1]):
-                        for m in range(f_parameters.shape[2]):
-                            for n in range(f_parameters.shape[3]):
-                                poly += f_parameters[i, l, m, n, f_set] * r_e1I ** l * r_e2I ** m * r_ee ** n
+                    for l in range(p.shape[0]):
+                        for m in range(p.shape[1]):
+                            for n in range(p.shape[2]):
+                                poly += p[l, m, n, f_set] * r_e1I ** l * r_e2I ** m * r_ee ** n
 
                     poly_diff_e1I = 0.0
-                    for l in range(1, f_parameters.shape[1]):
-                        for m in range(f_parameters.shape[2]):
-                            for n in range(f_parameters.shape[3]):
-                                poly_diff_e1I += f_parameters[i, l, m, n, f_set] * l * r_e1I ** (l-1) * r_e2I ** m * r_ee ** n
+                    for l in range(1, p.shape[0]):
+                        for m in range(p.shape[1]):
+                            for n in range(p.shape[2]):
+                                poly_diff_e1I += p[l, m, n, f_set] * l * r_e1I ** (l-1) * r_e2I ** m * r_ee ** n
 
                     poly_diff_e2I = 0.0
-                    for l in range(f_parameters.shape[1]):
-                        for m in range(1, f_parameters.shape[2]):
-                            for n in range(f_parameters.shape[3]):
-                                poly_diff_e2I += f_parameters[i, l, m, n, f_set] * r_e1I ** l * m * r_e2I ** (m-1) * r_ee ** n
+                    for l in range(p.shape[0]):
+                        for m in range(1, p.shape[1]):
+                            for n in range(p.shape[2]):
+                                poly_diff_e2I += p[l, m, n, f_set] * r_e1I ** l * m * r_e2I ** (m-1) * r_ee ** n
 
                     poly_diff_ee = 0.0
-                    for l in range(f_parameters.shape[1]):
-                        for m in range(f_parameters.shape[2]):
-                            for n in range(1, f_parameters.shape[3]):
-                                poly_diff_ee += f_parameters[i, l, m, n, f_set] * r_e1I ** l * r_e2I ** m * n * r_ee ** (n-1)
+                    for l in range(p.shape[0]):
+                        for m in range(p.shape[1]):
+                            for n in range(1, p.shape[2]):
+                                poly_diff_ee += p[l, m, n, f_set] * r_e1I ** l * r_e2I ** m * n * r_ee ** (n-1)
 
                     gradient = (C * (r_e1I - L[i]) ** (C-1) * (r_e2I - L[i]) ** C * poly + (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_e1I) / r_e1I
                     res[j, :] += r_e1I_vec * gradient
@@ -262,21 +266,22 @@ def chi_term_laplacian(C, chi_parameters, L, r_e, neu, atoms):
         return res
 
     for i in range(atoms.shape[0]):
+        p = chi_parameters[i]
         for j in range(r_e.shape[0]):
             r = np.linalg.norm(r_e[j] - atoms[i]['position'])  # FIXME to slow
             if r <= L[i]:
                 chi_set = int(j >= neu)
                 poly = 0.0
-                for k in range(chi_parameters.shape[1]):
-                    poly += chi_parameters[i, k, chi_set] * r ** k
+                for k in range(p.shape[0]):
+                    poly += p[k, chi_set] * r ** k
 
                 poly_diff = 0.0
-                for k in range(1, chi_parameters.shape[1]):
-                    poly_diff += k * chi_parameters[i, k, chi_set] * r ** (k-1)
+                for k in range(1, p.shape[0]):
+                    poly_diff += k * p[k, chi_set] * r ** (k-1)
 
                 poly_diff_2 = 0.0
-                for k in range(2, chi_parameters.shape[1]):
-                    poly_diff_2 += k * (k-1) * chi_parameters[i, k, chi_set] * r ** (k-2)
+                for k in range(2, p.shape[0]):
+                    poly_diff_2 += k * (k-1) * p[k, chi_set] * r ** (k-2)
 
                 res += (
                     C*(C - 1)*(r-L[i])**(C - 2) * poly + 2*C*(r-L[i])**(C - 1) * poly_diff + (r-L[i])**C * poly_diff_2 +
@@ -305,6 +310,7 @@ def f_term_laplacian(C, f_parameters, L, r_e, neu, atoms):
         return res
 
     for i in range(atoms.shape[0]):
+        p = f_parameters[i]
         for j in range(r_e.shape[0] - 1):
             for k in range(j + 1, r_e.shape[0]):
                 r_e1I_vec = r_e[j] - atoms[i]['position']  # FIXME to slow
@@ -316,58 +322,58 @@ def f_term_laplacian(C, f_parameters, L, r_e, neu, atoms):
                 if r_e1I <= L[i] and r_e2I <= L[i]:
                     f_set = int(j >= neu) + int(k >= neu)
                     poly = 0.0
-                    for l in range(f_parameters.shape[1]):
-                        for m in range(f_parameters.shape[2]):
-                            for n in range(f_parameters.shape[3]):
-                                poly += f_parameters[i, l, m, n, f_set] * r_e1I ** l * r_e2I ** m * r_ee ** n
+                    for l in range(p.shape[0]):
+                        for m in range(p.shape[1]):
+                            for n in range(p.shape[2]):
+                                poly += p[l, m, n, f_set] * r_e1I ** l * r_e2I ** m * r_ee ** n
 
                     poly_diff_e1I = 0.0
-                    for l in range(1, f_parameters.shape[1]):
-                        for m in range(f_parameters.shape[2]):
-                            for n in range(f_parameters.shape[3]):
-                                poly_diff_e1I += f_parameters[i, l, m, n, f_set] * l * r_e1I ** (l-1) * r_e2I ** m * r_ee ** n
+                    for l in range(1, p.shape[0]):
+                        for m in range(p.shape[1]):
+                            for n in range(p.shape[2]):
+                                poly_diff_e1I += p[l, m, n, f_set] * l * r_e1I ** (l-1) * r_e2I ** m * r_ee ** n
 
                     poly_diff_e2I = 0.0
-                    for l in range(f_parameters.shape[1]):
-                        for m in range(1, f_parameters.shape[2]):
-                            for n in range(f_parameters.shape[3]):
-                                poly_diff_e2I += f_parameters[i, l, m, n, f_set] * r_e1I ** l * m * r_e2I ** (m-1) * r_ee ** n
+                    for l in range(p.shape[0]):
+                        for m in range(1, p.shape[1]):
+                            for n in range(p.shape[2]):
+                                poly_diff_e2I += p[l, m, n, f_set] * r_e1I ** l * m * r_e2I ** (m-1) * r_ee ** n
 
                     poly_diff_ee = 0.0
-                    for l in range(f_parameters.shape[1]):
-                        for m in range(f_parameters.shape[2]):
-                            for n in range(1, f_parameters.shape[3]):
-                                poly_diff_ee += f_parameters[i, l, m, n, f_set] * r_e1I ** l * r_e2I ** m * n * r_ee ** (n-1)
+                    for l in range(p.shape[0]):
+                        for m in range(p.shape[1]):
+                            for n in range(1, p.shape[2]):
+                                poly_diff_ee += p[l, m, n, f_set] * r_e1I ** l * r_e2I ** m * n * r_ee ** (n-1)
 
                     poly_diff_e1I_2 = 0.0
-                    for l in range(2, f_parameters.shape[1]):
-                        for m in range(f_parameters.shape[2]):
-                            for n in range(f_parameters.shape[3]):
-                                poly_diff_e1I_2 += f_parameters[i, l, m, n, f_set] * l * (l-1) * r_e1I ** (l-2) * r_e2I ** m * r_ee ** n
+                    for l in range(2, p.shape[0]):
+                        for m in range(p.shape[1]):
+                            for n in range(p.shape[2]):
+                                poly_diff_e1I_2 += p[l, m, n, f_set] * l * (l-1) * r_e1I ** (l-2) * r_e2I ** m * r_ee ** n
 
                     poly_diff_e2I_2 = 0.0
-                    for l in range(f_parameters.shape[1]):
-                        for m in range(2, f_parameters.shape[2]):
-                            for n in range(f_parameters.shape[3]):
-                                poly_diff_e2I_2 += f_parameters[i, l, m, n, f_set] * r_e1I ** l * m * (m-1) * r_e2I ** (m-2) * r_ee ** n
+                    for l in range(f_parameters[i].shape[0]):
+                        for m in range(2, f_parameters[i].shape[1]):
+                            for n in range(f_parameters[i].shape[2]):
+                                poly_diff_e2I_2 += p[l, m, n, f_set] * r_e1I ** l * m * (m-1) * r_e2I ** (m-2) * r_ee ** n
 
                     poly_diff_ee_2 = 0.0
-                    for l in range(f_parameters.shape[1]):
-                        for m in range(f_parameters.shape[2]):
-                            for n in range(2, f_parameters.shape[3]):
-                                poly_diff_ee_2 += f_parameters[i, l, m, n, f_set] * r_e1I ** l * r_e2I ** m * n * (n-1) * r_ee ** (n-2)
+                    for l in range(p.shape[0]):
+                        for m in range(p.shape[1]):
+                            for n in range(2, p.shape[2]):
+                                poly_diff_ee_2 += p[l, m, n, f_set] * r_e1I ** l * r_e2I ** m * n * (n-1) * r_ee ** (n-2)
 
                     poly_diff_e1I_ee = 0.0
-                    for l in range(1, f_parameters.shape[1]):
-                        for m in range(f_parameters.shape[2]):
-                            for n in range(1, f_parameters.shape[3]):
-                                poly_diff_e1I_ee += f_parameters[i, l, m, n, f_set] * l * r_e1I ** (l-1) * r_e2I ** m * n * r_ee ** (n-1)
+                    for l in range(1, p.shape[0]):
+                        for m in range(p.shape[1]):
+                            for n in range(1, p.shape[2]):
+                                poly_diff_e1I_ee += p[l, m, n, f_set] * l * r_e1I ** (l-1) * r_e2I ** m * n * r_ee ** (n-1)
 
                     poly_diff_e2I_ee = 0.0
-                    for l in range(f_parameters.shape[1]):
-                        for m in range(1, f_parameters.shape[2]):
-                            for n in range(1, f_parameters.shape[3]):
-                                poly_diff_e2I_ee += f_parameters[i, l, m, n, f_set] * r_e1I ** l * m * r_e2I ** (m-1) * n * r_ee ** (n-1)
+                    for l in range(p.shape[0]):
+                        for m in range(1, p.shape[1]):
+                            for n in range(1, p.shape[2]):
+                                poly_diff_e2I_ee += p[l, m, n, f_set] * r_e1I ** l * m * r_e2I ** (m-1) * n * r_ee ** (n-1)
 
                     gradient = (
                         (C * (r_e1I - L[i]) ** (C-1) * (r_e2I - L[i]) ** C * poly + (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_e1I) / r_e1I +
