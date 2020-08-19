@@ -18,49 +18,44 @@ class Jastrow:
     def __init__(self, file, atoms):
         self.trunc = 0
         self.u_parameters = np.zeros((0, 3), np.float)
-        self.chi_parameters = np.zeros((atoms.shape[0], 0, 2), np.float)
-        self.f_parameters = np.zeros((atoms.shape[0], 0, 0, 0, 3), np.float)
+        self.chi_parameters = nb.typed.List([np.zeros((0, 2), np.float)] * atoms.shape[0])
+        self.f_parameters = nb.typed.List([np.zeros((0, 0, 0, 3), np.float)] * atoms.shape[0])
         self.u_cutoff = 0.0
         self.chi_cutoff = np.zeros(atoms.shape[0])
         self.f_cutoff = np.zeros(atoms.shape[0])
         self.chi_cusp = np.zeros(atoms.shape[0])
-        self.jastrow = u_term = chi_term = f_term = False
         if not os.path.isfile(file):
             return
         with open(file, 'r') as f:
-            line = True
-            while line:
-                line = f.readline()
-                if line.strip().startswith('START JASTROW'):
-                    self.jastrow = True
-                elif line.strip().startswith('END JASTROW'):
-                    self.jastrow = False
-                elif line.strip().startswith('Truncation order'):
+            u_term = chi_term = f_term = False
+            for line in f:
+                line = line.strip()
+                if line.startswith('START JASTROW'):
+                    pass
+                elif line.startswith('END JASTROW'):
+                    break
+                elif line.startswith('Truncation order'):
                     self.trunc = float(f.readline().split()[0])
-                elif line.strip().startswith('START U TERM'):
+                elif line.startswith('START U TERM'):
                     u_term = True
-                elif line.strip().startswith('START CHI TERM'):
+                elif line.startswith('START CHI TERM'):
                     chi_term = True
-                    chi_parameters_list = [0] * atoms.shape[0]
-                    chi_spin_dep_list = [0] * atoms.shape[0]
-                elif line.strip().startswith('START F TERM'):
+                elif line.startswith('START F TERM'):
                     f_term = True
-                    f_parameters_list = [0] * atoms.shape[0]
-                    f_spin_dep_list = [0] * atoms.shape[0]
-                elif line.strip().startswith('END U TERM'):
+                elif line.startswith('END U TERM'):
                     u_term = False
-                elif line.strip().startswith('END CHI TERM'):
+                elif line.startswith('END CHI TERM'):
                     chi_term = False
-                elif line.strip().startswith('END F TERM'):
+                elif line.startswith('END F TERM'):
                     f_term = False
                 elif u_term:
-                    if line.strip().startswith('Expansion order'):
+                    if line.startswith('Expansion order'):
                         u_order = int(f.readline())
-                    elif line.strip().startswith('Spin dep'):
+                    elif line.startswith('Spin dep'):
                         u_spin_dep = int(f.readline())
-                    elif line.strip().startswith('Cutoff'):
+                    elif line.startswith('Cutoff'):
                         self.u_cutoff = float(f.readline().split()[0])
-                    elif line.strip().startswith('Parameter'):
+                    elif line.startswith('Parameter'):
                         # uu, ud, dd
                         self.u_parameters = np.zeros((u_order+1, 3), np.float)
                         u_mask = self.get_u_mask(u_order)
@@ -68,62 +63,65 @@ class Jastrow:
                             for l in range(u_order + 1):
                                 if not u_mask[l]:
                                     continue
-                                self.u_parameters[l][i] = float(f.readline().split()[0])
+                                self.u_parameters[l, i] = float(f.readline().split()[0])
+                                if u_spin_dep == 0:
+                                    self.u_parameters[l, 2] = self.u_parameters[l, 1] = self.u_parameters[l, 0]
+                                elif u_spin_dep == 1:
+                                    self.u_parameters[l, 2] = self.u_parameters[l, 0]
+                        self.u_parameters = self.fix_u(self.u_parameters, self.u_cutoff)
                 elif chi_term:
-                    if line.strip().startswith('START SET'):
+                    if line.startswith('START SET'):
                         pass
-                    elif line.strip().startswith('Label'):
-                        labels = list(map(int, f.readline().split()))
-                    elif line.strip().startswith('Impose electron-nucleus cusp'):
-                        param = bool(int(f.readline()))
-                        for label in labels:
-                            self.chi_cusp[label-1] = param
-                    elif line.strip().startswith('Expansion order'):
+                    elif line.startswith('Label'):
+                        chi_labels = list(map(int, f.readline().split()))
+                    elif line.startswith('Impose electron-nucleus cusp'):
+                        chi_cusp = bool(int(f.readline()))
+                        for label in chi_labels:
+                            self.chi_cusp[label-1] = chi_cusp
+                    elif line.startswith('Expansion order'):
                         chi_order = int(f.readline())
-                    elif line.strip().startswith('Spin dep'):
+                    elif line.startswith('Spin dep'):
                         chi_spin_dep = int(f.readline())
-                        for label in labels:
-                            chi_spin_dep_list[label-1] = chi_spin_dep
-                    elif line.strip().startswith('Cutoff'):
-                        param = float(f.readline().split()[0])
-                        for label in labels:
-                            self.chi_cutoff[label-1] = param
-                    elif line.strip().startswith('Parameter'):
+                    elif line.startswith('Cutoff'):
+                        chi_cutoff = float(f.readline().split()[0])
+                        for label in chi_labels:
+                            self.chi_cutoff[label-1] = chi_cutoff
+                    elif line.startswith('Parameter'):
                         # u, d
-                        parameters = np.zeros((chi_order+1, chi_spin_dep + 1), np.float)
+                        parameters = np.zeros((chi_order+1, 2), np.float)
                         chi_mask = self.get_chi_mask(chi_order)
                         for i in range(chi_spin_dep + 1):
                             for m in range(chi_order + 1):
                                 if not chi_mask[m]:
                                     continue
                                 parameters[m, i] = float(f.readline().split()[0])
-                        for label in labels:
-                            chi_parameters_list[label-1] = parameters
-                    elif line.strip().startswith('END SET'):
-                        labels = []
+                                if chi_spin_dep == 0:
+                                    parameters[m, 1] = parameters[m, 0]
+                        for label in chi_labels:
+                            self.chi_parameters[label-1] = self.fix_chi(parameters, chi_cutoff, chi_cusp, atoms[label-1]['charge'])
+                    elif line.startswith('END SET'):
+                        chi_labels = []
                 elif f_term:
-                    if line.strip().startswith('START SET'):
+                    if line.startswith('START SET'):
                         pass
-                    elif line.strip().startswith('Label'):
-                        labels = list(map(int, f.readline().split()))
-                    elif line.strip().startswith('Prevent duplication of u term'):
+                    elif line.startswith('Label'):
+                        f_labels = list(map(int, f.readline().split()))
+                    elif line.startswith('Prevent duplication of u term'):
                         no_dup_u_term = bool(int(f.readline()))
-                    elif line.strip().startswith('Prevent duplication of chi term'):
+                    elif line.startswith('Prevent duplication of chi term'):
                         no_dup_chi_term = bool(int(f.readline()))
-                    elif line.strip().startswith('Electron-nucleus expansion order'):
+                    elif line.startswith('Electron-nucleus expansion order'):
                         f_en_order = int(f.readline())
-                    elif line.strip().startswith('Electron-electron expansion order'):
+                    elif line.startswith('Electron-electron expansion order'):
                         f_ee_order = int(f.readline())
-                    elif line.strip().startswith('Spin dep'):
+                    elif line.startswith('Spin dep'):
                         f_spin_dep = int(f.readline())
-                        for label in labels:
-                            f_spin_dep_list[label-1] = f_spin_dep
-                    elif line.strip().startswith('Cutoff'):
-                        param = float(f.readline().split()[0])
-                        for label in labels:
-                            self.f_cutoff[label-1] = param
-                    elif line.strip().startswith('Parameter'):
-                        parameters = np.zeros((f_en_order+1, f_en_order+1, f_ee_order+1, f_spin_dep+1), np.float)
+                    elif line.startswith('Cutoff'):
+                        f_cutoff = float(f.readline().split()[0])
+                        for label in f_labels:
+                            self.f_cutoff[label-1] = f_cutoff
+                    elif line.startswith('Parameter'):
+                        parameters = np.zeros((f_en_order+1, f_en_order+1, f_ee_order+1, 3), np.float)
                         f_mask = self.get_f_mask(f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
                         for i in range(f_spin_dep+1):
                             for n in range(f_ee_order + 1):
@@ -135,40 +133,16 @@ class Jastrow:
                                         # print(line[:-1], l, m, n, i)
                                         # γlmnI = γmlnI
                                         parameters[l, m, n, i] = parameters[m, l, n, i] = float(line.split()[0])
-                        for label in labels:
-                            f_parameters_list[label-1] = parameters
-                    elif line.strip().startswith('END SET'):
-                        labels = []
-
-        if self.u_cutoff:
-            if u_spin_dep == 0:
-                self.u_parameters[:, 2] = self.u_parameters[:, 1] = self.u_parameters[:, 0]
-            elif u_spin_dep == 1:
-                self.u_parameters[:, 2] = self.u_parameters[:, 0]
-            self.u_parameters[1] = np.array([1/4, 1/2, 1/4])/(-self.u_cutoff)**self.trunc + self.u_parameters[0]*self.trunc/self.u_cutoff
-
-        if self.chi_cutoff.any():
-            self.chi_parameters = nb.typed.List()
-            for atom in range(atoms.shape[0]):
-                parameters = self.fix_chi(chi_parameters_list[atom], self.chi_cutoff[atom], self.chi_cusp[atom], atoms[atom]['charge'])
-                chi_parameters = np.zeros((parameters.shape[0], 2), np.float)
-                chi_parameters[:, :parameters.shape[1]] = parameters
-                if chi_spin_dep_list[atom] == 0:
-                    chi_parameters[:, 1] = chi_parameters[:, 0]
-                self.chi_parameters.append(chi_parameters)
-
-        if self.f_cutoff.any():
-            self.f_parameters = nb.typed.List()
-            for atom in range(atoms.shape[0]):
-                parameters = self.fix_f(f_parameters_list[atom], self.f_cutoff[atom])
-                # self.check_f_constrains(f_parameters, self.f_cutoff[atom], no_dup_u_term, no_dup_chi_term)
-                f_parameters = np.zeros((parameters.shape[0], parameters.shape[1], parameters.shape[2], 3), np.float)
-                f_parameters[:, :, :, :parameters.shape[3]] = parameters
-                if f_spin_dep_list[atom] == 0:
-                    f_parameters[:, :, :, 2] = f_parameters[:, :, :, 1] = f_parameters[:, :, :, 0]
-                elif f_spin_dep_list[atom] == 1:
-                    f_parameters[:, :, :, 2] = f_parameters[:, :, :, 0]
-                self.f_parameters.append(f_parameters)
+                                        if f_spin_dep == 0:
+                                            parameters[l, m, n, 2] = parameters[l, m, n, 1] = parameters[l, m, n, 0]
+                                            parameters[m, l, n, 2] = parameters[m, l, n, 1] = parameters[m, l, n, 0]
+                                        elif f_spin_dep == 1:
+                                            parameters[l, m, n, 2] = parameters[l, m, n, 0]
+                                            parameters[m, l, n, 2] = parameters[m, l, n, 0]
+                        for label in f_labels:
+                            self.f_parameters[label-1] = self.fix_f(parameters, f_cutoff)
+                    elif line.startswith('END SET'):
+                        f_labels = []
 
     def get_u_mask(self, u_order):
         """u-term mask for all spin-deps"""
@@ -200,6 +174,10 @@ class Jastrow:
                     if no_dup_chi_term and m == 1 and n == 0:
                         mask[l, m, n] = mask[m, l, n] = False
         return mask
+
+    def fix_u(self, u_parameters, u_cutoff):
+        u_parameters[1] = np.array([1/4, 1/2, 1/4]) / (-u_cutoff) ** self.trunc + u_parameters[0] * self.trunc / u_cutoff
+        return u_parameters
 
     def fix_chi(self, chi_parameters, chi_cutoff, chi_cusp, charge):
         chi_parameters[1] = chi_parameters[0] * self.trunc / chi_cutoff

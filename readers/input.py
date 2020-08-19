@@ -13,8 +13,8 @@ class Input:
         def read_str(line):
             return str(line.split(':')[1].strip())
 
-        with open(file_name, 'r') as fp:
-            for line in fp:
+        with open(file_name, 'r') as f:
+            for line in f:
                 # remove comments
                 line = line.partition('#')[0].strip()
                 if not line:

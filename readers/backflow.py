@@ -1,5 +1,6 @@
 
 import numpy as np
+import numba as nb
 
 
 class Backflow:
@@ -12,11 +13,11 @@ class Backflow:
         """Init."""
         self.trunc = 0
         self.eta_parameters = np.zeros((0, 3), np.float)
+        self.mu_parameters = nb.typed.List([np.zeros((0, 2), np.float)] * atoms.shape[0])
+        self.phi_parameters = nb.typed.List([np.zeros((0, 0, 0, 3), np.float)] * atoms.shape[0])
+        self.theta_parameters = nb.typed.List([np.zeros((0, 0, 0, 3), np.float)] * atoms.shape[0])
         self.eta_cutoff = np.zeros((2,), np.float)
-        self.mu_parameters = False
-        self.phi_parameters = False
-        self.theta_parameters = False
-        self.ae_cutoff = False
+        self.ae_cutoff = np.zeros(atoms.shape[0])
         self.read(file)
 
     def get_eta_mask(self, eta_order):
@@ -56,40 +57,37 @@ class Backflow:
     def read(self, file):
         """Open file and read backflow data."""
         with open(file, 'r') as f:
-            backflow = False
-            eta_term = False
-            mu_term = False
-            phi_term = False
-            ae_term = False
-            line = True
-            while line:
-                line = f.readline()
-                if line.strip().startswith('START BACKFLOW'):
-                    backflow = True
-                elif line.strip().startswith('Truncation order'):
+            eta_term = mu_term = phi_term = ae_term = False
+            for line in f:
+                line = line.strip()
+                if line.startswith('START BACKFLOW'):
+                    pass
+                elif line.startswith('END BACKFLOW'):
+                    break
+                elif line.startswith('Truncation order'):
                     self.trunc = float(f.readline().split()[0])
-                elif line.strip().startswith('START ETA TERM'):
+                elif line.startswith('START ETA TERM'):
                     eta_term = True
-                elif line.strip().startswith('END ETA TERM'):
+                elif line.startswith('END ETA TERM'):
                     eta_term = False
-                elif line.strip().startswith('START MU TERM'):
+                elif line.startswith('START MU TERM'):
                     mu_term = True
-                elif line.strip().startswith('END MU TERM'):
+                elif line.startswith('END MU TERM'):
                     mu_term = False
-                elif line.strip().startswith('START PHI TERM'):
+                elif line.startswith('START PHI TERM'):
                     phi_term = True
-                elif line.strip().startswith('END PHI TERM'):
+                elif line.startswith('END PHI TERM'):
                     phi_term = False
-                elif line.strip().startswith('START AE CUTOFFS'):
+                elif line.startswith('START AE CUTOFFS'):
                     ae_term = True
-                elif line.strip().startswith('END AE CUTOFFS'):
+                elif line.startswith('END AE CUTOFFS'):
                     ae_term = False
                 elif eta_term:
-                    if line.strip().startswith('Expansion order'):
+                    if line.startswith('Expansion order'):
                         eta_order = int(f.readline().split()[0])
-                    elif line.strip().startswith('Spin dep'):
+                    elif line.startswith('Spin dep'):
                         eta_spin_dep = int(f.readline().split()[0])
-                    elif line.strip().startswith('Cut-off radii'):
+                    elif line.startswith('Cut-off radii'):
                         line = f.readline().split()
                         self.eta_cutoff[0] = float(line[0])
                         for i in range(1, eta_spin_dep):
@@ -98,7 +96,7 @@ class Backflow:
                                 self.eta_cutoff[i] = float(line[0])
                             else:
                                 self.eta_cutoff[i] = float(f.readline().split()[0])
-                    elif line.strip().startswith('Parameter'):
+                    elif line.startswith('Parameter'):
                         self.eta_parameters = np.zeros((eta_order + 1, 3), np.float)
                         eta_mask = self.get_eta_mask(eta_order)
                         for i in range(eta_spin_dep + 1):
@@ -107,44 +105,42 @@ class Backflow:
                                     continue
                                 self.eta_parameters[j, i] = float(f.readline().split()[0])
                 elif mu_term:
-                    if line.strip().startswith('START SET'):
+                    if line.startswith('START SET'):
                         pass
-                    elif line.strip().startswith('Label'):
-                        atom_labels = list(map(int, f.readline().split()))
-                    elif line.strip().startswith('END SET'):
-                        atom_labels = []
-                    elif line.strip().startswith('Expansion order'):
+                    elif line.startswith('Label'):
+                        mu_labels = list(map(int, f.readline().split()))
+                    elif line.startswith('Expansion order'):
                         mu_order = int(f.readline().split()[0])
-                    elif line.strip().startswith('Spin dep'):
+                    elif line.startswith('Spin dep'):
                         mu_spin_dep = int(f.readline().split()[0])
-                    elif line.strip().startswith('Cutoff (a.u.)'):
+                    elif line.startswith('Cutoff (a.u.)'):
                         mu_cutoff = float(f.readline().split()[0])
-                    elif line.strip().startswith('Parameter values'):
-                        self.mu_parameters = np.zeros((mu_order, mu_spin_dep), np.float)
+                    elif line.startswith('Parameter values'):
+                        self.mu_parameters = np.zeros((mu_order, 2), np.float)
                         mu_mask = self.get_mu_mask(eta_order)
                         for i in range(mu_spin_dep + 1):
                             for j in range(mu_order + 1):
                                 if not mu_mask[j, i]:
                                     continue
                                 self.mu_parameters[j, i] = float(f.readline().split()[0])
+                    elif line.startswith('END SET'):
+                        mu_labels = []
                 elif phi_term:
-                    if line.strip().startswith('START SET'):
+                    if line.startswith('START SET'):
                         pass
-                    elif line.strip().startswith('Label'):
-                        atom_labels = list(map(int, f.readline().split()))
-                    elif line.strip().startswith('END SET'):
-                        atom_labels = []
-                    elif line.strip().startswith('Irrotational Phi'):
+                    elif line.startswith('Label'):
+                        phi_labels = list(map(int, f.readline().split()))
+                    elif line.startswith('Irrotational Phi'):
                         phi_irrotational = bool(int(f.readline().split()[0]))
-                    elif line.strip().startswith('Electron-nucleus expansion order'):
+                    elif line.startswith('Electron-nucleus expansion order'):
                         phi_en_order = int(f.readline().split()[0])
-                    elif line.strip().startswith('Electron-electron expansion order'):
+                    elif line.startswith('Electron-electron expansion order'):
                         phi_ee_order = int(f.readline().split()[0])
-                    elif line.strip().startswith('Spin dep'):
+                    elif line.startswith('Spin dep'):
                         phi_spin_dep = int(f.readline().split()[0])
-                    elif line.strip().startswith('Cutoff (a.u.)'):
+                    elif line.startswith('Cutoff (a.u.)'):
                         phi_cutoff = float(f.readline().split()[0])
-                    elif line.strip().startswith('Parameter values'):
+                    elif line.startswith('Parameter values'):
                         self.phi_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
                         if not phi_irrotational:
                             self.theta_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
@@ -153,9 +149,10 @@ class Backflow:
                                 if not mu_mask[j, i]:
                                     continue
                                 self.phi_parameters[j, i] = float(f.readline().split()[0])
+                    elif line.startswith('END SET'):
+                        phi_labels = []
                 elif ae_term:
-                    if line.strip().startswith('Nucleus'):
-                        self.AE_cutoff = float(f.readline().split()[2])
-            if not backflow:
-                print('No BACKLOW section found')
-                exit(0)
+                    if line.startswith('Nucleus'):
+                        for atom in range(self.ae_cutoff.shape[0]):
+                            line = f.readline().split()
+                            self.ae_cutoff[int(line[2])] = float(line[2])
