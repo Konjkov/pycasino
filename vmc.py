@@ -15,6 +15,7 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
 import pyblock
 import numpy as np
 import numba as nb
+import scipy as sp
 
 from decorators import multi_process
 from readers.casino import Casino
@@ -26,14 +27,22 @@ def initial_position(ne, atoms):
     natoms = atoms.shape[0]
     X = np.zeros((ne, 3))
     for i in range(ne):
-        X[i] = atoms[np.random.randint(natoms)].position
+        X[i] = atoms[np.random.randint(natoms)]['position']
     return X + random_normal_step(1.0, ne)
 
 
-@nb.jit(nopython=True)
-def optimal_vmc_step(neu, ned):
+def optimal_vmc_step(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """vmc step width """
-    return 1 / (neu + ned)
+
+    opt_steps = 10000
+
+    def callback(tau, acc_ration):
+        print(f'tau * electrons = {tau[0] * (neu + ned):.5f}, acc_ration = {acc_ration[0] + 0.5:.5f}')
+
+    def f(tau):
+        return equilibration(opt_steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff) - 0.5
+
+    return sp.optimize.root(f, 1/(neu+ned), method='diagbroyden', tol=1/np.sqrt(opt_steps), callback=callback, options=dict(jac_options=dict(alpha=1))).x
 
 
 @nb.jit(nopython=True)
@@ -111,7 +120,7 @@ def equilibration(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff
         if new_p**2 > np.random.random() * p**2:
             r_e, p = new_r_e, new_p
             i += 1
-    return i
+    return i / steps
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
@@ -150,16 +159,19 @@ accumulation = simple_accumulation
 
 
 # @multi_process
-@nb.jit(nopython=True, nogil=True, parallel=False)
+# @nb.jit(nopython=True, nogil=True, parallel=False)
 def vmc(vmc_nstep, vmc_equil_nstep, neu, ned, nbasis_functions, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """configuration-by-configuration sampling (CBCS)"""
 
-    tau = optimal_vmc_step(neu, ned)
-
     r_e = initial_position(neu + ned, atoms)
 
-    equ = equilibration(vmc_equil_nstep, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
-    print(equ/vmc_equil_nstep)
+    acc_ratio = equilibration(vmc_equil_nstep, 1/(neu + ned), r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    print(f'tau * electrons = 1.00000, acc_ration = {acc_ratio}')
+
+    tau = optimal_vmc_step(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+
+    acc_ratio = equilibration(vmc_equil_nstep, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    print(f'tau * electrons = {tau * (neu + ned):.5f}, acc_ration = {acc_ratio}')
 
     return accumulation(vmc_nstep, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
 

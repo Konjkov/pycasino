@@ -260,7 +260,7 @@ def wfn_gradient(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, ned, atoms, shel
     ao = AO_wfn(r_e, nbasis_functions, atoms, shells)
     gradient_x, gradient_y, gradient_z = AO_gradient(r_e, nbasis_functions, atoms, shells)
     cond_u = np.arange(neu) * np.ones((neu, neu))
-    cond_d = np.arange(ned) * np.ones((neu, neu))
+    cond_d = np.arange(ned) * np.ones((ned, ned))
 
     res = np.zeros((neu + ned, 3))
     for i in range(coeff.shape[0]):

@@ -24,22 +24,21 @@ class Mdet:
             return
 
         with open(file, 'r') as f:
-            line = True
-            while line:
-                line = f.readline()
-                if line.strip().startswith('START MDET'):
+            for line in f:
+                line = line.strip()
+                if line.startswith('START MDET'):
                     mdet = True
-                elif line.strip().startswith('END MDET'):
-                    mdet = False
+                elif line.startswith('END MDET'):
+                    break
                 if mdet:
-                    if line.strip().startswith('MD'):
+                    if line.startswith('MD'):
                         n_dets = int(f.readline())
                         self.coeff = np.ones(n_dets)
                         up = np.stack([np.arange(neu)] * n_dets)
                         down = np.stack([np.arange(ned)] * n_dets)
                         for i in range(n_dets):
                             self.coeff[i] = float(f.readline().split()[0])
-                    elif line.strip().startswith('DET'):
+                    elif line.startswith('DET'):
                         _, n_det, spin, operation, from_orb, _, to_orb, _ = line.split()
                         if operation == 'PR':
                             if int(spin) == 1:
