@@ -15,7 +15,7 @@ import numba as nb
 
 # np.show_config()
 
-from decorators import multi_process
+from decorators import pool, thread
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from readers.casino import Casino
 
@@ -319,7 +319,7 @@ def wfn_laplacian(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, ned, atoms, she
     return res
 
 
-@multi_process
+@pool
 @nb.jit(nopython=True, nogil=True, parallel=False)
 def integral(low, high, neu, ned, steps, nbasis_functions, mo_u, mo_d, coeff, atoms, shells):
     """https://en.wikipedia.org/wiki/Monte_Carlo_integration"""

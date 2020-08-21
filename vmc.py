@@ -17,7 +17,7 @@ import numpy as np
 import numba as nb
 import scipy as sp
 
-from decorators import multi_process
+from decorators import pool
 from readers.casino import Casino
 
 
@@ -25,10 +25,10 @@ from readers.casino import Casino
 def initial_position(ne, atoms):
     """Initial positions of electrons"""
     natoms = atoms.shape[0]
-    X = np.zeros((ne, 3))
+    r_e = np.zeros((ne, 3))
     for i in range(ne):
-        X[i] = atoms[np.random.randint(natoms)]['position']
-    return X + random_normal_step(1.0, ne)
+        r_e[i] = atoms[np.random.randint(natoms)]['position']
+    return r_e + random_normal_step(1.0, ne)
 
 
 def optimal_vmc_step(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
@@ -123,6 +123,7 @@ def equilibration(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff
     return i / steps
 
 
+# @pool
 @nb.jit(nopython=True, nogil=True, parallel=False)
 def simple_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """VMC simple accumulation"""
@@ -158,8 +159,6 @@ def averaging_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo
 accumulation = simple_accumulation
 
 
-# @multi_process
-# @nb.jit(nopython=True, nogil=True, parallel=False)
 def vmc(vmc_nstep, vmc_equil_nstep, neu, ned, nbasis_functions, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """configuration-by-configuration sampling (CBCS)"""
 
@@ -169,9 +168,6 @@ def vmc(vmc_nstep, vmc_equil_nstep, neu, ned, nbasis_functions, mo_u, mo_d, coef
     print(f'tau * electrons = 1.00000, acc_ration = {acc_ratio}')
 
     tau = optimal_vmc_step(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
-
-    acc_ratio = equilibration(vmc_equil_nstep, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
-    print(f'tau * electrons = {tau * (neu + ned):.5f}, acc_ration = {acc_ratio}')
 
     return accumulation(vmc_nstep, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
 
@@ -199,14 +195,14 @@ if __name__ == '__main__':
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF/def2-QZVP/VMC_OPT_BF/emin_BF/8_8_44__9_9_33'
     # path = 'test/gwfn/b/HF/cc-pVQZ/'
     # path = 'test/gwfn/n/HF/cc-pVQZ/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/'
     # path = 'test/gwfn/h2/HF/cc-pVQZ/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/'
-    path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/acetic/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
