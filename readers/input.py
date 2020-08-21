@@ -31,5 +31,7 @@ class Input:
                     self.atom_basis_type = read_str(line)
                 elif line.startswith('use_jastrow'):
                     self.use_jastrow = read_bool(line)
+                elif line.startswith('use_gjastrow'):
+                    self.use_gjastrow = read_bool(line)
                 elif line.startswith('opt_jastrow'):
                     self.opt_jastrow = read_bool(line)

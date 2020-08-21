@@ -1,6 +1,7 @@
 from math import factorial, pi, sqrt
 
 import numpy as np
+import numba as nb
 from cusp.slater import multiple_fits
 
 GAUSSIAN_TYPE = 0

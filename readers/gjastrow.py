@@ -4,7 +4,7 @@ import numpy as np
 from yaml import safe_load
 
 
-class Jastrow:
+class Gjastrow:
     """Jastrow reader from file.
     CASINO manual: 7.8 Wave function parameter file: parameters.casl
 
@@ -28,6 +28,15 @@ class Jastrow:
     def channels(self, term):
         return term['Linear parameters']
 
+    def trunc(self, term):
+        try:
+            return term['e-e cutoff']['Constants']['C']
+        except TypeError:
+            return term['e-e cutoff']['Constants'][0]['C']
+
+    def parameters(self, term, channel):
+        return term['e-e cutoff']['Parameters'][channel]['L'][0]
+
     def linear_parameters(self, term):
         """Load linear parameters into multidimensional array."""
         e_rank, n_rank = self.rank(term)
@@ -43,15 +52,21 @@ class Jastrow:
         for i, channel in enumerate(self.channels(term).values()):
             for key, val in channel.items():
                 index = tuple(map(lambda x: x-1, map(int, key.split('_')[1].split(','))))
-                linear_parameters[i][index] = val[0]
+                linear_parameters[i, index] = val[0]
         return linear_parameters
 
-    def __init__(self, file):
+    def __init__(self, file, atoms):
         with open(file, 'r') as f:
             self._jastrow_data = safe_load(f)['JASTROW']
         for key, term in self._jastrow_data.items():
             if key.startswith('TERM'):
-                self.parameters = self.linear_parameters(term)
+                self.trunc = self.trunc(term)
+                self.u_parameters = self.linear_parameters(term)
+                self.u_cutoff = self.parameters(term, 'Channel 2-2')
+                self.chi_parameters = False
+                self.chi_cutoff = False
+                self.f_parameters = False
+                self.f_cutoff = False
 
 
 if __name__ == '__main__':
@@ -59,4 +74,4 @@ if __name__ == '__main__':
     """
     path = 'parameters.casl'
 
-    Jastrow(path)
+    Gjastrow(path)

@@ -16,6 +16,16 @@ class Jastrow:
     """
 
     def __init__(self, file, atoms):
+        self.data = dict()
+        self.data['trunc'] = 0,
+        self.data['u_parameters'] = np.zeros((0, 3), np.float),
+        self.data['chi_parameters'] = nb.typed.List([np.zeros((0, 2), np.float)] * atoms.shape[0]),
+        self.data['f_parameters'] = nb.typed.List([np.zeros((0, 0, 0, 3), np.float)] * atoms.shape[0]),
+        self.data['u_cutoff'] = 0.0,
+        self.data['chi_cutoff'] = np.zeros(atoms.shape[0]),
+        self.data['f_cutoff'] = np.zeros(atoms.shape[0]),
+        self.data['chi_cusp'] = np.zeros(atoms.shape[0]),
+
         self.trunc = 0
         self.u_parameters = np.zeros((0, 3), np.float)
         self.chi_parameters = nb.typed.List([np.zeros((0, 2), np.float)] * atoms.shape[0])

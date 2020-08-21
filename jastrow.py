@@ -475,11 +475,11 @@ if __name__ == '__main__':
     """
     """
 
-    term = 'f'
+    term = 'u'
 
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/casl/8_8_44/10000/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/casl/8_8_44/10000/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
