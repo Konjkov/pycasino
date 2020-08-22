@@ -89,16 +89,13 @@ random_step = random_normal_step
 def guiding_function(r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells, jastrow):
     """wave function in general form"""
 
-    return (
-        np.exp(jastrow.jastrow(r_e, neu, atoms)) *
-        wfn(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, atoms, shells)
-    )
+    return np.exp(jastrow.value(r_e, neu, atoms)) * wfn(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, atoms, shells)
 
 
 @nb.jit(nopython=True)
 def local_energy(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, jastrow):
-    j_g = jastrow.jastrow_gradient(r_e, neu, atoms)
-    j_l = jastrow.jastrow_laplacian(r_e, neu, atoms)
+    j_g = jastrow.gradient(r_e, neu, atoms)
+    j_l = jastrow.laplacian(r_e, neu, atoms)
     w = wfn(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, atoms, shells)
     w_g = wfn_gradient(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, ned, atoms, shells) / w
     w_l = wfn_laplacian(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, ned, atoms, shells) / w

@@ -426,7 +426,7 @@ class Jastrow:
                         res += laplacian + 2 * gradient + 2 * dot_product
         return res
 
-    def jastrow(self, r_e, neu, atoms):
+    def value(self, r_e, neu, atoms):
         """Jastrow
         :param r_e: electrons coordinates
         :param neu: number of up electrons
@@ -435,7 +435,7 @@ class Jastrow:
         """
         return self.u_term(r_e, neu) + self.chi_term(r_e, neu, atoms) + self.f_term(r_e, neu, atoms)
 
-    def jastrow_numerical_gradient(self, r_e, neu, atoms):
+    def numerical_gradient(self, r_e, neu, atoms):
         delta = 0.00001
 
         res = np.zeros(r_e.shape)
@@ -450,7 +450,7 @@ class Jastrow:
 
         return res / delta / 2
 
-    def jastrow_numerical_laplacian(self, r_e, neu, atoms):
+    def numerical_laplacian(self, r_e, neu, atoms):
         delta = 0.00001
 
         res = -2 * r_e.size * self.jastrow(r_e, neu, atoms)
@@ -464,10 +464,10 @@ class Jastrow:
 
         return res / delta / delta
 
-    def jastrow_gradient(self, r_e, neu, atoms):
+    def gradient(self, r_e, neu, atoms):
         return self.u_term_gradient(r_e, neu) + self.chi_term_gradient(r_e, neu, atoms) + self.f_term_gradient(r_e, neu, atoms)
 
-    def jastrow_laplacian(self, r_e, neu, atoms):
+    def laplacian(self, r_e, neu, atoms):
         return self.u_term_laplacian(r_e, neu) + self.chi_term_laplacian(r_e, neu, atoms) + self.f_term_laplacian(r_e, neu, atoms)
 
 
