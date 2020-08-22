@@ -3,7 +3,7 @@
 import os
 from timeit import default_timer
 from wfn import wfn, wfn_gradient, wfn_laplacian, wfn_numerical_gradient, wfn_numerical_laplacian
-from jastrow import jastrow, jastrow_gradient, jastrow_laplacian, jastrow_numerical_gradient, jastrow_numerical_laplacian
+from jastrow import Jastrow
 from coulomb import coulomb, nuclear_repulsion
 
 os.environ["OMP_NUM_THREADS"] = "1"  # openmp
@@ -31,7 +31,7 @@ def initial_position(ne, atoms):
     return r_e + random_normal_step(1.0, ne)
 
 
-def optimal_vmc_step(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def optimal_vmc_step(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, jastrow):
     """vmc step width """
 
     opt_steps = 10000
@@ -40,7 +40,7 @@ def optimal_vmc_step(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, 
         print(f'tau * electrons = {tau[0] * (neu + ned):.5f}, acc_ration = {acc_ration[0] + 0.5:.5f}')
 
     def f(tau):
-        return equilibration(opt_steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff) - 0.5
+        return equilibration(opt_steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, jastrow) - 0.5
 
     return sp.optimize.root(f, 1/(neu+ned), method='diagbroyden', tol=1/np.sqrt(opt_steps), callback=callback, options=dict(jac_options=dict(alpha=1))).x
 
@@ -86,19 +86,19 @@ random_step = random_normal_step
 
 
 @nb.jit(nopython=True)
-def guiding_function(r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def guiding_function(r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells, jastrow):
     """wave function in general form"""
 
     return (
-        np.exp(jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)) *
+        np.exp(jastrow.jastrow(r_e, neu, atoms)) *
         wfn(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, atoms, shells)
     )
 
 
 @nb.jit(nopython=True)
-def local_energy(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
-    j_g = jastrow_gradient(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)
-    j_l = jastrow_laplacian(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff, r_e, neu, atoms)
+def local_energy(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, jastrow):
+    j_g = jastrow.jastrow_gradient(r_e, neu, atoms)
+    j_l = jastrow.jastrow_laplacian(r_e, neu, atoms)
     w = wfn(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, atoms, shells)
     w_g = wfn_gradient(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, ned, atoms, shells) / w
     w_l = wfn_laplacian(r_e, nbasis_functions, mo_u, mo_d, coeff, neu, ned, atoms, shells) / w
@@ -108,14 +108,14 @@ def local_energy(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shel
 
 
 @nb.jit(nopython=True)
-def equilibration(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def equilibration(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, jastrow):
     """VMC equilibration"""
     i = 0
     p = 0.0
     for j in range(steps):
         new_r_e = r_e + random_step(tau, neu + ned)
 
-        new_p = guiding_function(new_r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+        new_p = guiding_function(new_r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells, jastrow)
         j += 1
         if new_p**2 > np.random.random() * p**2:
             r_e, p = new_r_e, new_p
@@ -125,17 +125,17 @@ def equilibration(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff
 
 # @pool
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def simple_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def simple_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, jastrow):
     """VMC simple accumulation"""
     p = loc_E = 0.0
     E = np.zeros((steps,))
     for j in range(steps):
         new_r_e = r_e + random_step(tau, neu + ned)
 
-        new_p = guiding_function(new_r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+        new_p = guiding_function(new_r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells, jastrow)
         if new_p**2 > np.random.random() * p**2:
             r_e, p = new_r_e, new_p
-            loc_E = local_energy(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+            loc_E = local_energy(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, jastrow)
         E[j] = loc_E
     return E
 
@@ -164,12 +164,14 @@ def vmc(vmc_nstep, vmc_equil_nstep, neu, ned, nbasis_functions, mo_u, mo_d, coef
 
     r_e = initial_position(neu + ned, atoms)
 
-    acc_ratio = equilibration(vmc_equil_nstep, 1/(neu + ned), r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    jastrow = Jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+
+    acc_ratio = equilibration(vmc_equil_nstep, 1/(neu + ned), r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, jastrow)
     print(f'tau * electrons = 1.00000, acc_ration = {acc_ratio}')
 
-    tau = optimal_vmc_step(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    tau = optimal_vmc_step(r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, jastrow)
 
-    return accumulation(vmc_nstep, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    return accumulation(vmc_nstep, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, jastrow)
 
 
 def main(casino):

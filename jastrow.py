@@ -17,12 +17,15 @@ I guess when using classes + numba, @selslack's suggestion of creating a normal 
  which is not the most ideal because it leads to some obfuscation, is the best option.
 """
 
+u_parameters_type = nb.types.float64[:, :]
+chi_parameters_type = nb.types.float64[:, :]
+f_parameters_type = nb.float64[:, :, :, :]
 
 spec = [
     ('trunc', nb.int64),
-    ('u_parameters', nb.types.ListType(nb.float64[:, :])),
-    ('chi_parameters', nb.types.ListType(nb.float64[:, :])),
-    ('f_parameters', nb.types.ListType(nb.float64[:, :, :, :])),
+    ('u_parameters', nb.types.ListType(u_parameters_type)),
+    ('chi_parameters', nb.types.ListType(chi_parameters_type)),
+    ('f_parameters', nb.types.ListType(f_parameters_type)),
     ('u_cutoff', nb.float64[:]),
     ('chi_cutoff', nb.float64[:]),
     ('f_cutoff', nb.float64[:])
@@ -34,9 +37,12 @@ class Jastrow:
 
     def __init__(self, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
         self.trunc = trunc
-        self.u_parameters = u_parameters
-        self.chi_parameters = chi_parameters
-        self.f_parameters = f_parameters
+        self.u_parameters = nb.typed.List.empty_list(u_parameters_type)
+        [self.u_parameters.append(p) for p in u_parameters]
+        self.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)
+        [self.chi_parameters.append(p) for p in chi_parameters]
+        self.f_parameters = nb.typed.List.empty_list(f_parameters_type)
+        [self.f_parameters.append(p) for p in f_parameters]
         self.u_cutoff = u_cutoff
         self.chi_cutoff = chi_cutoff
         self.f_cutoff = f_cutoff
@@ -315,9 +321,6 @@ class Jastrow:
             ∇²(f*g) = ∇²(f)*g + 2*∇(f)*∇(g) + f*∇²(g)
         then Laplace operator of spherically symmetric function (in 3-D space) is
             ∇²(f) = d²f/dr² + 2/r * df/dr
-        :param C: truncation order
-        :param f_parameters:
-        :param L: cutoff length
         :param r_e: electrons coordinates
         :param neu: number of up electrons
         :param atoms: atomic coordinates
@@ -370,9 +373,9 @@ class Jastrow:
                                     poly_diff_e1I_2 += p[l, m, n, f_set] * l * (l-1) * r_e1I ** (l-2) * r_e2I ** m * r_ee ** n
 
                         poly_diff_e2I_2 = 0.0
-                        for l in range(f_parameters[i].shape[0]):
-                            for m in range(2, f_parameters[i].shape[1]):
-                                for n in range(f_parameters[i].shape[2]):
+                        for l in range(p.shape[0]):
+                            for m in range(2, p.shape[1]):
+                                for n in range(p.shape[2]):
                                     poly_diff_e2I_2 += p[l, m, n, f_set] * r_e1I ** l * m * (m-1) * r_e2I ** (m-2) * r_ee ** n
 
                         poly_diff_ee_2 = 0.0
@@ -425,7 +428,6 @@ class Jastrow:
 
     def jastrow(self, r_e, neu, atoms):
         """Jastrow
-        :param u_parameters:
         :param r_e: electrons coordinates
         :param neu: number of up electrons
         :param atoms:
@@ -463,25 +465,17 @@ class Jastrow:
         return res / delta / delta
 
     def jastrow_gradient(self, r_e, neu, atoms):
-        return (
-            self.u_term_gradient(r_e, neu) +
-            self.chi_term_gradient(r_e, neu, atoms) +
-            self.f_term_gradient(r_e, neu, atoms)
-        )
+        return self.u_term_gradient(r_e, neu) + self.chi_term_gradient(r_e, neu, atoms) + self.f_term_gradient(r_e, neu, atoms)
 
     def jastrow_laplacian(self, r_e, neu, atoms):
-        return (
-            self.u_term_laplacian(r_e, neu) +
-            self.chi_term_laplacian(neu, atoms) +
-            self.f_term_laplacian(r_e, neu, atoms)
-        )
+        return self.u_term_laplacian(r_e, neu) + self.chi_term_laplacian(r_e, neu, atoms) + self.f_term_laplacian(r_e, neu, atoms)
 
 
 if __name__ == '__main__':
     """
     """
 
-    term = 'u'
+    term = 'f'
 
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
@@ -491,7 +485,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
 
     casino = Casino(path)
-    j = Jastrow(
+    jastrow = Jastrow(
         casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff,
         casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff,
         casino.jastrow.f_parameters, casino.jastrow.f_cutoff
@@ -500,13 +494,13 @@ if __name__ == '__main__':
     steps = 100
 
     if term == 'u':
-        x_min, x_max = 0, j.u_cutoff[0]
+        x_min, x_max = 0, jastrow.u_cutoff[0]
         x_grid = np.linspace(x_min, x_max, steps)
         for spin_dep in range(3):
             y_grid = np.zeros(steps)
             for i in range(100):
                 r_e = np.array([[0.0, 0.0, 0.0], [x_grid[i], 0.0, 0.0]])
-                y_grid[i] = j.u_term(r_e, 2-spin_dep)
+                y_grid[i] = jastrow.u_term(r_e, 2-spin_dep)
                 if spin_dep == 1:
                     y_grid[i] /= 2.0
             plt.plot(x_grid, y_grid, label=['uu', 'ud/2', 'dd'][spin_dep])
@@ -515,15 +509,16 @@ if __name__ == '__main__':
         plt.title('JASTROW u-term')
     elif term == 'chi':
         for atom in range(casino.wfn.atoms.shape[0]):
-            x_min, x_max = 0, j.chi_cutoff[atom]
+            x_min, x_max = 0, jastrow.chi_cutoff[atom]
             x_grid = np.linspace(x_min, x_max, steps)
             for spin_dep in range(2):
                 y_grid = np.zeros(steps)
                 for i in range(100):
                     r_e = np.array([[x_grid[i], 0.0, 0.0]]) + casino.wfn.atoms[atom]['position']
                     sl = slice(atom, atom+1)
-                    j.chi_parameters = casino.jastrow.chi_parameters[sl]
-                    y_grid[i] = j.chi_term(r_e, 1-spin_dep, casino.wfn.atoms[sl])
+                    jastrow.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)
+                    [jastrow.chi_parameters.append(p) for p in casino.jastrow.chi_parameters[sl]]
+                    y_grid[i] = jastrow.chi_term(r_e, 1-spin_dep, casino.wfn.atoms[sl])
                 plt.plot(x_grid, y_grid, label=f'atom {atom} ' + ['u', 'd'][spin_dep])
         plt.xlabel('r_eN (au)')
         plt.ylabel('polynomial part')
@@ -532,7 +527,7 @@ if __name__ == '__main__':
         figure = plt.figure()
         axis = figure.add_subplot(111, projection='3d')
         for atom in range(casino.wfn.atoms.shape[0]):
-            x_min, x_max = -j.f_cutoff[atom], j.f_cutoff[atom]
+            x_min, x_max = -jastrow.f_cutoff[atom], jastrow.f_cutoff[atom]
             y_min, y_max = 0.0, np.pi
             x = np.linspace(x_min, x_max, steps)
             y = np.linspace(y_min, y_max, steps)
@@ -546,8 +541,9 @@ if __name__ == '__main__':
                             [x_grid[i, j], 0.0, 0.0]
                         ]) + casino.wfn.atoms[atom]['position']
                         sl = slice(atom, atom + 1)
-                        j.f_parameters = casino.jastrow.f_parameters[sl]
-                        z_grid[i, j] = j.f_term(r_e, 2-spin_dep, casino.wfn.atoms[sl])
+                        jastrow.f_parameters = nb.typed.List.empty_list(f_parameters_type)
+                        [jastrow.f_parameters.append(p) for p in casino.jastrow.f_parameters[sl]]
+                        z_grid[i, j] = jastrow.f_term(r_e, 2-spin_dep, casino.wfn.atoms[sl])
                 axis.plot_wireframe(x_grid, y_grid, z_grid, label=f'atom {atom} ' + ['uu', 'ud', 'dd'][spin_dep])
         axis.set_xlabel('r_e1N (au)')
         axis.set_ylabel('r_e2N (au)')
