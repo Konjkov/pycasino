@@ -356,8 +356,8 @@ def f_term_laplacian(C, f_parameters, L, r_e, neu, atoms):
 
                     poly_diff_e2I_2 = 0.0
                     for l in range(f_parameters[i].shape[0]):
-                        for m in range(2, f_parameters[i].shape[1]):
-                            for n in range(f_parameters[i].shape[2]):
+                        for m in range(2, p.shape[1]):
+                            for n in range(p.shape[2]):
                                 poly_diff_e2I_2 += p[l, m, n, f_set] * r_e1I ** l * m * (m-1) * r_e2I ** (m-2) * r_ee ** n
 
                     poly_diff_ee_2 = 0.0
