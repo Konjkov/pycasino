@@ -138,15 +138,15 @@ def simple_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d,
 
 
 @nb.jit(nopython=True)
-def averaging_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def averaging_accumulation(steps, tau, r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, jastrow):
     """VMC accumulation with averaging local energies over proposed moves"""
     E = np.zeros((steps,))
-    loc_E = local_energy(r_e, nbasis_functions, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    loc_E = local_energy(r_e, nbasis_functions, mo_u, mo_d, coeff, atoms, shells, jastrow)
     for j in range(steps):
         new_r_e = r_e + random_step(tau, neu + ned)
 
-        new_p = guiding_function(new_r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells)
-        new_loc_E = local_energy(new_r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+        new_p = guiding_function(new_r_e, nbasis_functions, neu, mo_u, mo_d, coeff, atoms, shells, jastrow)
+        new_loc_E = local_energy(new_r_e, nbasis_functions, neu, ned, mo_u, mo_d, coeff, atoms, shells, jastrow)
         E[j] = min((new_p/p)**2, 1) * new_loc_E + (1 - min((new_p/p)**2, 1)) * loc_E
         if (new_p/p)**2 > np.random.random():
             r_e, p, loc_E = new_r_e, new_p, new_loc_E

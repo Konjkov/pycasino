@@ -443,9 +443,9 @@ class Jastrow:
         for i in range(r_e.shape[0]):
             for j in range(r_e.shape[1]):
                 r_e[i, j] -= delta
-                res[i, j] -= self.jastrow(r_e, neu, atoms)
+                res[i, j] -= self.value(r_e, neu, atoms)
                 r_e[i, j] += 2 * delta
-                res[i, j] += self.jastrow(r_e, neu, atoms)
+                res[i, j] += self.value(r_e, neu, atoms)
                 r_e[i, j] -= delta
 
         return res / delta / 2
@@ -453,13 +453,13 @@ class Jastrow:
     def numerical_laplacian(self, r_e, neu, atoms):
         delta = 0.00001
 
-        res = -2 * r_e.size * self.jastrow(r_e, neu, atoms)
+        res = -2 * r_e.size * self.value(r_e, neu, atoms)
         for i in range(r_e.shape[0]):
             for j in range(r_e.shape[1]):
                 r_e[i, j] -= delta
-                res += self.jastrow(r_e, neu, atoms)
+                res += self.value(r_e, neu, atoms)
                 r_e[i, j] += 2 * delta
-                res += self.jastrow(r_e, neu, atoms)
+                res += self.value(r_e, neu, atoms)
                 r_e[i, j] -= delta
 
         return res / delta / delta
