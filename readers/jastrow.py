@@ -16,21 +16,11 @@ class Jastrow:
     """
 
     def __init__(self, file, atoms):
-        self.data = dict()
-        self.data['trunc'] = 0,
-        self.data['u_parameters'] = np.zeros((0, 3), np.float),
-        self.data['chi_parameters'] = nb.typed.List([np.zeros((0, 2), np.float)] * atoms.shape[0]),
-        self.data['f_parameters'] = nb.typed.List([np.zeros((0, 0, 0, 3), np.float)] * atoms.shape[0]),
-        self.data['u_cutoff'] = 0.0,
-        self.data['chi_cutoff'] = np.zeros(atoms.shape[0]),
-        self.data['f_cutoff'] = np.zeros(atoms.shape[0]),
-        self.data['chi_cusp'] = np.zeros(atoms.shape[0]),
-
         self.trunc = 0
-        self.u_parameters = np.zeros((0, 3), np.float)
+        self.u_parameters = nb.typed.List([np.zeros((0, 3), np.float)])
         self.chi_parameters = nb.typed.List([np.zeros((0, 2), np.float)] * atoms.shape[0])
         self.f_parameters = nb.typed.List([np.zeros((0, 0, 0, 3), np.float)] * atoms.shape[0])
-        self.u_cutoff = 0.0
+        self.u_cutoff = np.zeros((1, ))
         self.chi_cutoff = np.zeros(atoms.shape[0])
         self.f_cutoff = np.zeros(atoms.shape[0])
         self.chi_cusp = np.zeros(atoms.shape[0])
@@ -59,26 +49,31 @@ class Jastrow:
                 elif line.startswith('END F TERM'):
                     f_term = False
                 elif u_term:
-                    if line.startswith('Expansion order'):
+                    if line.startswith('START SET'):
+                        pass
+                    elif line.startswith('Expansion order'):
                         u_order = int(f.readline())
                     elif line.startswith('Spin dep'):
                         u_spin_dep = int(f.readline())
                     elif line.startswith('Cutoff'):
-                        self.u_cutoff = float(f.readline().split()[0])
+                        u_cutoff = float(f.readline().split()[0])
+                        self.u_cutoff[0] = u_cutoff
                     elif line.startswith('Parameter'):
                         # uu, ud, dd
-                        self.u_parameters = np.zeros((u_order+1, 3), np.float)
+                        parameters = np.zeros((u_order+1, 3), np.float)
                         u_mask = self.get_u_mask(u_order)
                         for i in range(u_spin_dep + 1):
                             for l in range(u_order + 1):
                                 if not u_mask[l]:
                                     continue
-                                self.u_parameters[l, i] = float(f.readline().split()[0])
+                                parameters[l, i] = float(f.readline().split()[0])
                                 if u_spin_dep == 0:
-                                    self.u_parameters[l, 2] = self.u_parameters[l, 1] = self.u_parameters[l, 0]
+                                    parameters[l, 2] = parameters[l, 1] = parameters[l, 0]
                                 elif u_spin_dep == 1:
-                                    self.u_parameters[l, 2] = self.u_parameters[l, 0]
-                        self.u_parameters = self.fix_u(self.u_parameters, self.u_cutoff)
+                                    parameters[l, 2] = parameters[l, 0]
+                        self.u_parameters[0] = self.fix_u(parameters, u_cutoff)
+                    elif line.startswith('END SET'):
+                        pass
                 elif chi_term:
                     if line.startswith('START SET'):
                         pass

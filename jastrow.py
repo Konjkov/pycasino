@@ -18,18 +18,19 @@ def u_term(C, u_parameters, L, r_e, neu):
     :return:
     """
     res = 0.0
-    if not L:
+    if not L.any():
         return res
 
+    p = u_parameters[0]
     for i in range(r_e.shape[0] - 1):
         for j in range(i + 1, r_e.shape[0]):
             r = np.linalg.norm(r_e[i] - r_e[j])  # FIXME to slow
-            if r <= L:
+            if r <= L[0]:
                 u_set = int(i >= neu) + int(j >= neu)
                 poly = 0.0
-                for k in range(u_parameters.shape[0]):
-                    poly += u_parameters[k, u_set] * r ** k
-                res += poly * (r - L) ** C
+                for k in range(p.shape[0]):
+                    poly += p[k, u_set] * r ** k
+                res += poly * (r - L[0]) ** C
     return res
 
 
@@ -100,24 +101,25 @@ def u_term_gradient(C, u_parameters, L, r_e, neu):
     """
     res = np.zeros(r_e.shape)
 
-    if not L:
+    if not L.any():
         return res
 
+    p = u_parameters[0]
     for i in range(r_e.shape[0] - 1):
         for j in range(i + 1, r_e.shape[0]):
             r_vec = r_e[i] - r_e[j]  # FIXME to slow
             r = np.linalg.norm(r_vec)
-            if r <= L:
+            if r <= L[0]:
                 u_set = int(i >= neu) + int(j >= neu)
                 poly = 0.0
-                for k in range(u_parameters.shape[0]):
-                    poly += u_parameters[k, u_set] * r ** k
+                for k in range(p.shape[0]):
+                    poly += p[k, u_set] * r ** k
 
                 poly_diff = 0.0
-                for k in range(1, u_parameters.shape[0]):
-                    poly_diff += k * u_parameters[k, u_set] * r ** (k-1)
+                for k in range(1, p.shape[0]):
+                    poly_diff += k * p[k, u_set] * r ** (k-1)
 
-                gradient = (C * (r-L) ** (C-1) * poly + (r-L) ** C * poly_diff) / r
+                gradient = (C * (r-L[0]) ** (C-1) * poly + (r-L[0]) ** C * poly_diff) / r
                 res[i, :] += r_vec * gradient
                 res[j, :] -= r_vec * gradient
     return res
@@ -226,29 +228,30 @@ def u_term_laplacian(C, u_parameters, L, r_e, neu):
     :return:
     """
     res = 0.0
-    if not L:
+    if not L.any():
         return res
 
+    p = u_parameters[0]
     for i in range(r_e.shape[0] - 1):
         for j in range(i + 1, r_e.shape[0]):
             r = np.linalg.norm(r_e[i] - r_e[j])  # FIXME to slow
-            if r <= L:
+            if r <= L[0]:
                 u_set = int(i >= neu) + int(j >= neu)
                 poly = 0.0
-                for k in range(u_parameters.shape[0]):
-                    poly += u_parameters[k, u_set] * r ** k
+                for k in range(p.shape[0]):
+                    poly += p[k, u_set] * r ** k
 
                 poly_diff = 0.0
-                for k in range(1, u_parameters.shape[0]):
-                    poly_diff += k * u_parameters[k, u_set] * r ** (k-1)
+                for k in range(1, p.shape[0]):
+                    poly_diff += k * p[k, u_set] * r ** (k-1)
 
                 poly_diff_2 = 0.0
-                for k in range(2, u_parameters.shape[0]):
-                    poly_diff_2 += k * (k-1) * u_parameters[k, u_set] * r ** (k-2)
+                for k in range(2, p.shape[0]):
+                    poly_diff_2 += k * (k-1) * p[k, u_set] * r ** (k-2)
 
                 res += (
-                    C*(C - 1)*(r-L)**(C - 2) * poly + 2*C*(r-L)**(C - 1) * poly_diff + (r-L)**C * poly_diff_2 +
-                    2 * (C * (r-L)**(C-1) * poly + (r-L)**C * poly_diff) / r
+                    C*(C - 1)*(r-L[0])**(C - 2) * poly + 2*C*(r-L[0])**(C - 1) * poly_diff + (r-L[0])**C * poly_diff_2 +
+                    2 * (C * (r-L[0])**(C-1) * poly + (r-L[0])**C * poly_diff) / r
                 )
     return 2 * res
 
@@ -478,8 +481,8 @@ if __name__ == '__main__':
     term = 'u'
 
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/casl/8_8_44/10000/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/casl/8_8_44/10000/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
@@ -490,7 +493,7 @@ if __name__ == '__main__':
     steps = 100
 
     if term == 'u':
-        x_min, x_max = 0, u_cutoff
+        x_min, x_max = 0, u_cutoff[0]
         x_grid = np.linspace(x_min, x_max, steps)
         for spin_dep in range(3):
             y_grid = np.zeros(steps)
