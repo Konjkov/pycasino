@@ -31,7 +31,7 @@ def initial_position(ne, atom_positions):
     return r_e + random_normal_step(1.0, ne)
 
 
-def optimal_vmc_step(r_e, neu, ned, mo_u, mo_d, coeff, atom_shells, atom_positions, shells, wfn, jastrow):
+def optimal_vmc_step(r_e, neu, ned, mo_u, mo_d, coeff, atom_positions, shells, wfn, jastrow):
     """vmc step width """
 
     opt_steps = 10000
@@ -40,7 +40,7 @@ def optimal_vmc_step(r_e, neu, ned, mo_u, mo_d, coeff, atom_shells, atom_positio
         print(f'tau * electrons = {tau[0] * (neu + ned):.5f}, acc_ration = {acc_ration[0] + 0.5:.5f}')
 
     def f(tau):
-        return equilibration(opt_steps, tau, r_e, neu, ned, mo_u, mo_d, coeff, atom_shells, atom_positions, shells, wfn, jastrow) - 0.5
+        return equilibration(opt_steps, tau, r_e, neu, ned, mo_u, mo_d, coeff, atom_positions, shells, wfn, jastrow) - 0.5
 
     return sp.optimize.root(f, 1/(neu+ned), method='diagbroyden', tol=1/np.sqrt(opt_steps), callback=callback, options=dict(jac_options=dict(alpha=1))).x
 
@@ -86,33 +86,33 @@ random_step = random_normal_step
 
 
 @nb.jit(nopython=True)
-def guiding_function(r_e, neu, mo_u, mo_d, coeff, atom_shells, atom_positions, shells, wfn, jastrow):
+def guiding_function(r_e, neu, mo_u, mo_d, coeff, atom_positions, shells, wfn, jastrow):
     """wave function in general form"""
 
-    return np.exp(jastrow.value(r_e, neu, atom_positions)) * wfn.value(r_e, mo_u, mo_d, coeff, neu, atom_shells, atom_positions, shells)
+    return np.exp(jastrow.value(r_e, neu, atom_positions)) * wfn.value(r_e, mo_u, mo_d, coeff, neu, atom_positions, shells)
 
 
 @nb.jit(nopython=True)
-def local_energy(r_e, neu, ned, mo_u, mo_d, coeff, atom_shells, atom_positions, shells, wfn, jastrow, atom_charges):
+def local_energy(r_e, neu, ned, mo_u, mo_d, coeff, atom_positions, shells, wfn, jastrow, atom_charges):
     j_g = jastrow.gradient(r_e, neu, atom_positions)
     j_l = jastrow.laplacian(r_e, neu, atom_positions)
-    w = wfn.value(r_e, mo_u, mo_d, coeff, neu, atom_shells, atom_positions, shells)
-    w_g = wfn.gradient(r_e, mo_u, mo_d, coeff, neu, ned, atom_shells, atom_positions, shells) / w
-    w_l = wfn.laplacian(r_e, mo_u, mo_d, coeff, neu, ned, atom_shells, atom_positions, shells) / w
+    w = wfn.value(r_e, mo_u, mo_d, coeff, neu, atom_positions, shells)
+    w_g = wfn.gradient(r_e, mo_u, mo_d, coeff, neu, ned, atom_positions, shells) / w
+    w_l = wfn.laplacian(r_e, mo_u, mo_d, coeff, neu, ned, atom_positions, shells) / w
     F = np.sum((w_g + j_g) * (w_g + j_g)) / 2
     T = (np.sum(w_g * w_g) - w_l - j_l) / 4
     return coulomb(r_e, atom_positions, atom_charges) + 2 * T - F
 
 
 @nb.jit(nopython=True)
-def equilibration(steps, tau, r_e, neu, ned, mo_u, mo_d, coeff, atom_shells, atom_positions, shells, wfn, jastrow):
+def equilibration(steps, tau, r_e, neu, ned, mo_u, mo_d, coeff, atom_positions, shells, wfn, jastrow):
     """VMC equilibration"""
     i = 0
     p = 0.0
     for j in range(steps):
         new_r_e = r_e + random_step(tau, neu + ned)
 
-        new_p = guiding_function(new_r_e, neu, mo_u, mo_d, coeff, atom_shells, atom_positions, shells, wfn, jastrow)
+        new_p = guiding_function(new_r_e, neu, mo_u, mo_d, coeff, atom_positions, shells, wfn, jastrow)
         j += 1
         if new_p**2 > np.random.random() * p**2:
             r_e, p = new_r_e, new_p
@@ -122,17 +122,17 @@ def equilibration(steps, tau, r_e, neu, ned, mo_u, mo_d, coeff, atom_shells, ato
 
 # @pool
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def simple_accumulation(steps, tau, r_e, neu, ned, mo_u, mo_d, coeff, atom_shells, atom_positions, shells, wfn, jastrow, atom_charges):
+def simple_accumulation(steps, tau, r_e, neu, ned, mo_u, mo_d, coeff, atom_positions, shells, wfn, jastrow, atom_charges):
     """VMC simple accumulation"""
     p = loc_E = 0.0
     E = np.zeros((steps,))
     for j in range(steps):
         new_r_e = r_e + random_step(tau, neu + ned)
 
-        new_p = guiding_function(new_r_e, neu, mo_u, mo_d, coeff, atom_shells, atom_positions, shells, wfn, jastrow)
+        new_p = guiding_function(new_r_e, neu, mo_u, mo_d, coeff, atom_positions, shells, wfn, jastrow)
         if new_p**2 > np.random.random() * p**2:
             r_e, p = new_r_e, new_p
-            loc_E = local_energy(r_e, neu, ned, mo_u, mo_d, coeff, atom_shells, atom_positions, shells, wfn, jastrow, atom_charges)
+            loc_E = local_energy(r_e, neu, ned, mo_u, mo_d, coeff, atom_positions, shells, wfn, jastrow, atom_charges)
         E[j] = loc_E
     return E
 
@@ -156,30 +156,30 @@ def averaging_accumulation(steps, tau, r_e, neu, ned, mo_u, mo_d, coeff, atoms, 
 accumulation = simple_accumulation
 
 
-def vmc(vmc_nstep, vmc_equil_nstep, neu, ned, nbasis_functions, mo_u, mo_d, coeff, atom_shells, atom_positions, atom_charges, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+def vmc(vmc_nstep, vmc_equil_nstep, neu, ned, nbasis_functions, mo_u, mo_d, coeff, atom_positions, atom_charges, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
     """configuration-by-configuration sampling (CBCS)"""
 
     r_e = initial_position(neu + ned, atom_positions)
 
     jastrow = Jastrow(trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
-    wfn = Wfn(nbasis_functions)
+    wfn = Wfn(nbasis_functions, casino.wfn.first_shells)
 
-    acc_ratio = equilibration(vmc_equil_nstep, 1/(neu + ned), r_e, neu, ned, mo_u, mo_d, coeff, atom_shells, atom_positions, shells, wfn, jastrow)
+    acc_ratio = equilibration(vmc_equil_nstep, 1/(neu + ned), r_e, neu, ned, mo_u, mo_d, coeff, atom_positions, shells, wfn, jastrow)
     print(f'tau * electrons = 1.00000, acc_ration = {acc_ratio}')
 
-    tau = optimal_vmc_step(r_e,neu, ned, mo_u, mo_d, coeff, atom_shells, atom_positions, shells, wfn, jastrow)
+    tau = optimal_vmc_step(r_e,neu, ned, mo_u, mo_d, coeff, atom_positions, shells, wfn, jastrow)
 
-    return accumulation(vmc_nstep, tau, r_e, neu, ned, mo_u, mo_d, coeff, atom_shells, atom_positions, shells, wfn, jastrow, atom_charges)
+    return accumulation(vmc_nstep, tau, r_e, neu, ned, mo_u, mo_d, coeff, atom_positions, shells, wfn, jastrow, atom_charges)
 
 
 def main(casino):
 
     vmc_nstep, vmc_equil_nstep, neu, ned, nbasis_functions = casino.input.vmc_nstep, casino.input.vmc_equil_nstep, casino.input.neu, casino.input.ned, casino.wfn.nbasis_functions
     mo_u, mo_d, coeff = casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
-    atom_shells, atom_positions, atom_charges, shells = casino.wfn.atom_shells,  casino.wfn.atom_positions, casino.wfn.atom_charges, casino.wfn.shells
+    atom_positions, atom_charges, shells = casino.wfn.atom_positions, casino.wfn.atom_charges, casino.wfn.shells
     trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff = casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff,   casino.jastrow.f_parameters, casino.jastrow.f_cutoff
 
-    return vmc(vmc_nstep, vmc_equil_nstep, neu, ned, nbasis_functions, mo_u, mo_d, coeff, atom_shells, atom_positions, atom_charges, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
+    return vmc(vmc_nstep, vmc_equil_nstep, neu, ned, nbasis_functions, mo_u, mo_d, coeff, atom_positions, atom_charges, shells, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff)
 
 
 if __name__ == '__main__':

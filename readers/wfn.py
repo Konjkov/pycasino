@@ -92,7 +92,7 @@ class Gwfn(Base):
                     self._primitives = np.array(self.read_ints(self._nshell))
                     self._max_primitives = np.max(self._primitives)
                 elif line.startswith('Sequence number of first shell on each centre'):
-                    self._first_shells = self.read_ints(self._natoms + 1)
+                    self.first_shells = np.array(self.read_ints(self._natoms + 1))
                 elif line.startswith('Exponents of Gaussian primitives'):
                     self._exponents = self.read_floats(self._nprimitives)
                 elif line.startswith('Normalized contraction coefficients'):
@@ -114,15 +114,8 @@ class Gwfn(Base):
                         mo_up = self.read_floats(self.nbasis_functions * self.nbasis_functions)
                         self.mo_up = self.mo_down = np.array(mo_up).reshape((self.nbasis_functions, self.nbasis_functions))
 
-        self.atom_shells = self.set_atoms()
         self.shells = self.set_shells()
         # self.set_cusp()
-
-    def set_atoms(self):
-        res = np.zeros((self._natoms, 2), np.int)
-        for natom in range(self._natoms):
-            res[natom] = [self._first_shells[natom]-1, self._first_shells[natom+1]-1]
-        return res
 
     def set_shells(self):
         _shells = []
@@ -148,8 +141,8 @@ class Gwfn(Base):
 
     def set_cusp(self):
         """set cusped orbitals"""
-        for atom in self.atom_shells:  # FIXME brocken
-            for shell in self.shells[slice(*atom['shells'])]:
+        for atom in range(self._natoms):  # FIXME brocken
+            for shell in self.shells[self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1]:
                 if shell['moment'] == 0 and shell['primitives'] >= 3:
                     primitives, coefficients, exponents = multiple_fits(shell, atom['charge'])
                     shell['type'] = SLATER_TYPE

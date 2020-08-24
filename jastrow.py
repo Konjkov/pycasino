@@ -19,7 +19,7 @@ I guess when using classes + numba, @selslack's suggestion of creating a normal 
 
 u_parameters_type = nb.types.float64[:, :]
 chi_parameters_type = nb.types.float64[:, :]
-f_parameters_type = nb.float64[:, :, :, :]
+f_parameters_type = nb.types.float64[:, :, :, :]
 
 spec = [
     ('trunc', nb.int64),
