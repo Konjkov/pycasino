@@ -85,18 +85,18 @@ class Gwfn(Base):
                 elif line.startswith('Highest shell angular momentum'):
                     self.highest_ang = self.read_int()
                 elif line.startswith('Code for shell types'):
-                    self._shell_types = self.read_ints(self._nshell)
+                    shell_types = self.read_ints(self._nshell)
                     # corrected shell_types
-                    self._shell_types = np.array([self.shell_map[t] for t in self._shell_types])
+                    self.shell_moments = np.array([self.shell_map[t] for t in shell_types])
                 elif line.startswith('Number of primitive Gaussians in each shell'):
-                    self._primitives = np.array(self.read_ints(self._nshell))
-                    self._max_primitives = np.max(self._primitives)
+                    self.primitives = np.array(self.read_ints(self._nshell))
+                    # self._max_primitives = np.max(self.primitives)
                 elif line.startswith('Sequence number of first shell on each centre'):
                     self.first_shells = np.array(self.read_ints(self._natoms + 1))
                 elif line.startswith('Exponents of Gaussian primitives'):
-                    self._exponents = self.read_floats(self._nprimitives)
+                    self.exponents = np.array(self.read_floats(self._nprimitives))
                 elif line.startswith('Normalized contraction coefficients'):
-                    self._coefficients = self.read_floats(self._nprimitives)
+                    self.coefficients = np.array(self.read_floats(self._nprimitives))
                 elif line.startswith('Position of each shell (au)'):
                     pos = self.read_floats(3 * self._nshell)
                     self._shell_positions = np.array(pos).reshape((self._nshell, 3))
@@ -114,30 +114,9 @@ class Gwfn(Base):
                         mo_up = self.read_floats(self.nbasis_functions * self.nbasis_functions)
                         self.mo_up = self.mo_down = np.array(mo_up).reshape((self.nbasis_functions, self.nbasis_functions))
 
-        self.shells = self.set_shells()
+        self.orbital_types = np.zeros((self._nprimitives, ), np.int)
+        self.slater_orders = np.zeros((self._nprimitives, ), np.int)
         # self.set_cusp()
-
-    def set_shells(self):
-        _shells = []
-        p = 0
-        for nshell in range(self._nshell):
-            _shells.append((
-                GAUSSIAN_TYPE,
-                self._shell_types[nshell],
-                0,
-                self._primitives[nshell],
-                self._coefficients[p:p+self._primitives[nshell]] + [0] * (self._max_primitives - self._primitives[nshell]),
-                self._exponents[p:p + self._primitives[nshell]] + [0] * (self._max_primitives - self._primitives[nshell]),
-            ))
-            p += self._primitives[nshell]
-        return np.array(_shells, dtype=[
-            ('type', np.int),
-            ('moment', np.int),
-            ('order', np.int),
-            ('primitives', np.int),
-            ('coefficients', np.float, self._max_primitives),
-            ('exponents', np.float, self._max_primitives)
-        ])
 
     def set_cusp(self):
         """set cusped orbitals"""

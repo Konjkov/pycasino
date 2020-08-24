@@ -100,33 +100,39 @@ def gradient_angular_part(r):
 spec = [
     ('nbasis_functions', nb.types.int64),
     ('first_shells', nb.int64[:]),
-    # ('type', nb.types.int64),
-    # ('moment', nb.types.int64),
-    # ('order', nb.types.int64),
-    # ('primitives', nb.types.int64),
-    # ('coefficients', nb.types.float64[:]),
-    # ('exponents', nb.types.float64[:])
+    ('orbital_types', nb.types.int64[:]),
+    ('shell_moments', nb.types.int64[:]),
+    ('slater_orders', nb.types.int64[:]),
+    ('primitives', nb.types.int64[:]),
+    ('coefficients', nb.types.float64[:]),
+    ('exponents', nb.types.float64[:]),
+    ('mo_up', nb.types.float64[:, :, :]),
+    ('mo_down', nb.types.float64[:, :, :]),
+    ('coeff', nb.types.float64[:]),
 ]
 
 
 @nb.experimental.jitclass(spec)
 class Wfn:
 
-    def __init__(self, nbasis_functions, first_shells):
+    def __init__(self, nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders, primitives, coefficients, exponents, mo_up, mo_down, coeff):
         self.nbasis_functions = nbasis_functions
         self.first_shells = first_shells
+        self.orbital_types = orbital_types
+        self.shell_moments = shell_moments
+        self.slater_orders = slater_orders
+        self.primitives = primitives
+        self.coefficients = coefficients
+        self.exponents = exponents
+        self.mo_up = mo_up
+        self.mo_down = mo_down
+        self.coeff = coeff
 
-    def AO_wfn(self, r_e, r_I, shells):
+    def AO_wfn(self, r_e, r_I):
         """
         Atomic orbitals for every electron
         :param r_e: electrons coordinates shape = (nelec, 3)
         :param r_I: atoms coordinates shape = (nelec, 3)
-        :param atom_shells shape = (natom, 2)
-        :param shells - list (nshell, ) of struct of
-            moment: l-number of the shell shape = (1,)
-            primitives: number of primitives on each shell shape = (1,)
-            coefficients: contraction coefficients of a primitives shape = (nprimitives,)
-            exponents: exponents of a primitives shape = (nprimitives,)
         :return: AO matrix shape = (nelec, nbasis_functions)
         """
         orbital = np.zeros((r_e.shape[0], self.nbasis_functions))
@@ -136,22 +142,24 @@ class Wfn:
                 rI = r_e[i] - r_I[atom]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
                 angular_part_data = angular_part(rI)
+                p = 0
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
-                    l = shells[nshell].moment
+                    l = self.shell_moments[nshell]
                     radial_part = 0.0
-                    if shells[nshell].type == GAUSSIAN_TYPE:
-                        for primitive in range(shells[nshell].primitives):
-                            radial_part += shells[nshell].coefficients[primitive] * np.exp(-shells[nshell].exponents[primitive] * r2)
-                    elif shells[nshell].type == SLATER_TYPE:
+                    if self.orbital_types[nshell] == GAUSSIAN_TYPE:
+                        for primitive in range(self.primitives[nshell]):
+                            radial_part += self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r2)
+                    elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
-                        for primitive in range(shells[nshell].primitives):
-                            radial_part += r**shells[nshell].order * shells[nshell].coefficients[primitive] * np.exp(-shells[nshell].exponents[primitive] * r)
+                        for primitive in range(self.primitives[nshell]):
+                            radial_part += r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r)
+                    p += self.primitives[nshell]
                     for j in range(2 * l + 1):
                         orbital[i, ao+j] = radial_part * angular_part_data[l*l+j]
                     ao += 2*l+1
         return orbital
 
-    def AO_gradient(self, r_e, r_I, shells):
+    def AO_gradient(self, r_e, r_I):
         """Gradient matrix."""
         orbital_x = np.zeros((r_e.shape[0], self.nbasis_functions))
         orbital_y = np.zeros((r_e.shape[0], self.nbasis_functions))
@@ -163,23 +171,25 @@ class Wfn:
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
                 angular_part_data = angular_part(rI)
                 gradient_angular_part_data = gradient_angular_part(rI)
+                p = 0
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     radial_part_1 = 0.0
                     radial_part_2 = 0.0
-                    if shells[nshell].type == GAUSSIAN_TYPE:
-                        for primitive in range(shells[nshell].primitives):
-                            alpha = shells[nshell].exponents[primitive]
-                            exponent = shells[nshell].coefficients[primitive] * np.exp(-alpha * r2)
+                    if self.orbital_types[nshell] == GAUSSIAN_TYPE:
+                        for primitive in range(self.primitives[nshell]):
+                            alpha = self.exponents[p + primitive]
+                            exponent = self.coefficients[p + primitive] * np.exp(-alpha * r2)
                             radial_part_1 -= 2 * alpha * exponent
                             radial_part_2 += exponent
-                    elif shells[nshell].type == SLATER_TYPE:
+                    elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
-                        for primitive in range(shells[nshell].primitives):
-                            alpha = shells[nshell].exponents[primitive]
-                            exponent = shells[nshell].coefficients[primitive] * np.exp(-alpha * r)
+                        for primitive in range(self.primitives[nshell]):
+                            alpha = self.exponents[p + primitive]
+                            exponent = self.coefficients[p + primitive] * np.exp(-alpha * r)
                             radial_part_1 -= alpha/r * exponent
                             radial_part_2 += exponent
-                    l = shells[nshell].moment
+                    p += self.primitives[nshell]
+                    l = self.shell_moments[nshell]
                     for j in range(2 * l + 1):
                         orbital_x[i, ao+j] = radial_part_1 * rI[0] * angular_part_data[l*l+j] + radial_part_2 * gradient_angular_part_data[l*l+j, 0]
                         orbital_y[i, ao+j] = radial_part_1 * rI[1] * angular_part_data[l*l+j] + radial_part_2 * gradient_angular_part_data[l*l+j, 1]
@@ -187,7 +197,7 @@ class Wfn:
                     ao += 2*l+1
         return orbital_x, orbital_y, orbital_z
 
-    def AO_laplacian(self, r_e, r_I, shells):
+    def AO_laplacian(self, r_e, r_I):
         """Laplacian matrix."""
         orbital = np.zeros((r_e.shape[0], self.nbasis_functions))
         for i in range(r_e.shape[0]):
@@ -196,32 +206,34 @@ class Wfn:
                 rI = r_e[i] - r_I[atom]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
                 angular_part_data = angular_part(rI)
+                p = 0
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
-                    l = shells[nshell].moment
+                    l = self.shell_moments[nshell]
                     radial_part = 0.0
-                    if shells[nshell].type == GAUSSIAN_TYPE:
-                        for primitive in range(shells[nshell].primitives):
-                            alpha = shells[nshell].exponents[primitive]
-                            radial_part += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * shells[nshell].coefficients[primitive] * np.exp(-alpha * r2)
-                    elif shells[nshell].type == SLATER_TYPE:
+                    if self.orbital_types[nshell] == GAUSSIAN_TYPE:
+                        for primitive in range(self.primitives[nshell]):
+                            alpha = self.exponents[p + primitive]
+                            radial_part += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * self.coefficients[p + primitive] * np.exp(-alpha * r2)
+                    elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
-                        for primitive in range(shells[nshell].primitives):
-                            alpha = shells[nshell].exponents[primitive]
-                            radial_part += alpha * (alpha - 2*(l+1)/r) * shells[nshell].coefficients[primitive] * np.exp(-alpha * r)
+                        for primitive in range(self.primitives[nshell]):
+                            alpha = self.exponents[p + primitive]
+                            radial_part += alpha * (alpha - 2*(l+1)/r) * self.coefficients[p + primitive] * np.exp(-alpha * r)
+                    p += self.primitives[nshell]
                     for j in range(2 * l + 1):
                         orbital[i, ao+j] = radial_part * angular_part_data[l*l+j]
                     ao += 2*l+1
         return orbital
 
-    def value(self, r_e, mo_u, mo_d, coeff, neu, atom_positions, shells):
-        ao = self.AO_wfn(r_e, atom_positions, shells)
+    def value(self, r_e, neu, atom_positions):
+        ao = self.AO_wfn(r_e, atom_positions)
 
         res = 0.0
-        for i in range(coeff.shape[0]):
-            res += coeff[i] * np.linalg.det(np.dot(mo_u[i], ao[:neu].T)) * np.linalg.det(np.dot(mo_d[i], ao[neu:].T))
+        for i in range(self.coeff.shape[0]):
+            res += self.coeff[i] * np.linalg.det(np.dot(self.mo_up[i], ao[:neu].T)) * np.linalg.det(np.dot(self.mo_down[i], ao[neu:].T))
         return res
 
-    def numerical_gradient(self, r_e, mo_u, mo_d, coeff, neu, ned, atoms, shells):
+    def numerical_gradient(self, r_e, neu, ned, atom_positions):
         """Numerical gradient
         :param r_e: electrons coordinates shape = (nelec, 3)
         """
@@ -231,14 +243,14 @@ class Wfn:
         for i in range(r_e.shape[0]):
             for j in range(r_e.shape[1]):
                 r_e[i, j] -= delta
-                res[i, j] -= self.wfn(r_e, mo_u, mo_d, coeff, neu, atoms, shells)
+                res[i, j] -= self.value(r_e, neu, atom_positions)
                 r_e[i, j] += 2 * delta
-                res[i, j] += self.wfn(r_e, mo_u, mo_d, coeff, neu, atoms, shells)
+                res[i, j] += self.value(r_e, neu, atom_positions)
                 r_e[i, j] -= delta
 
         return res / delta / 2
 
-    def numerical_laplacian(self, r_e, mo_u, mo_d, coeff, neu, ned, atoms, shells):
+    def numerical_laplacian(self, r_e, neu, ned, atom_positions):
         """Numerical laplacian
         :param r_e: electrons coordinates shape = (nelec, 3)
         """
@@ -248,27 +260,27 @@ class Wfn:
         for i in range(r_e.shape[0]):
             for j in range(r_e.shape[1]):
                 r_e[i, j] -= delta
-                res += self.wfn(r_e, mo_u, mo_d, coeff, neu, atoms, shells)
+                res += self.value(r_e, neu, atom_positions)
                 r_e[i, j] += 2 * delta
-                res += self.wfn(r_e, mo_u, mo_d, coeff, neu, atoms, shells)
+                res += self.value(r_e, neu, atom_positions)
                 r_e[i, j] -= delta
-        res -= 2 * r_e.size * self.wfn(r_e, mo_u, mo_d, coeff, neu, atoms, shells)
+        res -= 2 * r_e.size * self.value(r_e, neu, atom_positions)
 
         return res / delta / delta
 
-    def gradient(self, r_e, mo_u, mo_d, coeff, neu, ned, r_I, shells):
+    def gradient(self, r_e, neu, ned, r_I):
         """∇(phi).
         """
-        ao = self.AO_wfn(r_e, r_I, shells)
-        gradient_x, gradient_y, gradient_z = self.AO_gradient(r_e, r_I, shells)
+        ao = self.AO_wfn(r_e, r_I)
+        gradient_x, gradient_y, gradient_z = self.AO_gradient(r_e, r_I)
         cond_u = np.arange(neu) * np.ones((neu, neu))
         cond_d = np.arange(ned) * np.ones((ned, ned))
 
         res = np.zeros((neu + ned, 3))
-        for i in range(coeff.shape[0]):
+        for i in range(self.coeff.shape[0]):
 
-            wfn_u = np.dot(mo_u[i], ao[:neu].T)
-            grad_x, grad_y, grad_z = np.dot(mo_u[i], gradient_x[:neu].T), np.dot(mo_u[i], gradient_y[:neu].T), np.dot(mo_u[i], gradient_z[:neu].T)
+            wfn_u = np.dot(self.mo_up[i], ao[:neu].T)
+            grad_x, grad_y, grad_z = np.dot(self.mo_up[i], gradient_x[:neu].T), np.dot(self.mo_up[i], gradient_y[:neu].T), np.dot(self.mo_up[i], gradient_z[:neu].T)
 
             res_u = np.zeros((neu, 3))
             for j in range(neu):
@@ -276,8 +288,8 @@ class Wfn:
                 res_u[j, 1] = np.linalg.det(np.where(cond_u == j, grad_y, wfn_u))
                 res_u[j, 2] = np.linalg.det(np.where(cond_u == j, grad_z, wfn_u))
 
-            wfn_d = np.dot(mo_d[i], ao[neu:].T)
-            grad_x, grad_y, grad_z = np.dot(mo_d[i], gradient_x[neu:].T), np.dot(mo_d[i], gradient_y[neu:].T), np.dot(mo_d[i], gradient_z[neu:].T)
+            wfn_d = np.dot(self.mo_down[i], ao[neu:].T)
+            grad_x, grad_y, grad_z = np.dot(self.mo_down[i], gradient_x[neu:].T), np.dot(self.mo_down[i], gradient_y[neu:].T), np.dot(self.mo_down[i], gradient_z[neu:].T)
 
             res_d = np.zeros((ned, 3))
             for j in range(ned):
@@ -285,43 +297,43 @@ class Wfn:
                 res_d[j, 1] = np.linalg.det(np.where(cond_d == j, grad_y, wfn_d))
                 res_d[j, 2] = np.linalg.det(np.where(cond_d == j, grad_z, wfn_d))
 
-            res += np.concatenate((res_u * np.linalg.det(wfn_d), res_d * np.linalg.det(wfn_u)))
+            res += self.coeff[i] * np.concatenate((res_u * np.linalg.det(wfn_d), res_d * np.linalg.det(wfn_u)))
 
         return res
 
-    def laplacian(self, r_e, mo_u, mo_d, coeff, neu, ned, r_I, shells):
+    def laplacian(self, r_e, neu, ned, r_I):
         """∇²(phi).
         """
-        ao = self.AO_wfn(r_e, r_I, shells)
-        ao_laplacian = self.AO_laplacian(r_e, r_I, shells)
+        ao = self.AO_wfn(r_e, r_I)
+        ao_laplacian = self.AO_laplacian(r_e, r_I)
         cond_u = np.arange(neu) * np.ones((neu, neu))
         cond_d = np.arange(ned) * np.ones((ned, ned))
 
         res = 0
-        for i in range(coeff.shape[0]):
+        for i in range(self.coeff.shape[0]):
 
-            wfn_u = np.dot(mo_u[i], ao[:neu].T)
-            lap_u = np.dot(mo_u[i], ao_laplacian[:neu].T)
+            wfn_u = np.dot(self.mo_up[i], ao[:neu].T)
+            lap_u = np.dot(self.mo_up[i], ao_laplacian[:neu].T)
 
             res_u = 0
             for j in range(neu):
                 res_u += np.linalg.det(np.where(cond_u == j, lap_u, wfn_u))
 
-            wfn_d = np.dot(mo_d[i], ao[neu:].T)
-            lap_d = np.dot(mo_d[i], ao_laplacian[neu:].T)
+            wfn_d = np.dot(self.mo_down[i], ao[neu:].T)
+            lap_d = np.dot(self.mo_down[i], ao_laplacian[neu:].T)
 
             res_d = 0
             for j in range(ned):
                 res_d += np.linalg.det(np.where(cond_d == j, lap_d, wfn_d))
 
-            res += coeff[i] * (res_u * np.linalg.det(wfn_d) + res_d * np.linalg.det(wfn_u))
+            res += self.coeff[i] * (res_u * np.linalg.det(wfn_d) + res_d * np.linalg.det(wfn_u))
 
         return res
 
 
 # @pool
 @nb.jit(nopython=True, nogil=True)
-def integral(low, high, neu, ned, steps, mo_u, mo_d, coeff, atom_positions, shells, wfn):
+def integral(low, high, neu, ned, steps, atom_positions, wfn):
     """https://en.wikipedia.org/wiki/Monte_Carlo_integration"""
     dV = np.prod(high - low) ** (neu + ned) / steps
 
@@ -341,7 +353,7 @@ def integral(low, high, neu, ned, steps, mo_u, mo_d, coeff, atom_positions, shel
     result = 0.0
     for i in range(steps):
         r_e = random_position(low, high, neu + ned)
-        result += wfn.value(r_e, mo_u, mo_d, coeff, neu, atom_positions, shells) ** 2
+        result += wfn.value(r_e, neu, atom_positions) ** 2
 
     return result * dV / gamma(neu+1) / gamma(ned+1)
 
@@ -352,13 +364,13 @@ def main(casino):
     low = np.min(casino.wfn.atom_positions, axis=0) - offset
     high = np.max(casino.wfn.atom_positions, axis=0) + offset
 
-    wfn = Wfn(casino.wfn.nbasis_functions, casino.wfn.first_shells)
-
-    return integral(
-        low, high, casino.input.neu, casino.input.ned, casino.input.vmc_nstep,
-        casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff,
-        casino.wfn.atom_positions, casino.wfn.shells, wfn
+    wfn = Wfn(
+        casino.wfn.nbasis_functions, casino.wfn.first_shells, casino.wfn.orbital_types, casino.wfn.shell_moments,
+        casino.wfn.slater_orders, casino.wfn.primitives, casino.wfn.coefficients, casino.wfn.exponents,
+        casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
     )
+
+    return integral(low, high, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, wfn)
 
 
 if __name__ == '__main__':
