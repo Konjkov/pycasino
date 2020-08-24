@@ -13,44 +13,26 @@ import numba as nb
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def nuclear_repulsion(atoms):
+def nuclear_repulsion(atom_positions, atom_charges):
     """nuclear-nuclear repulsion"""
     result = 0.0
-    for atom1 in range(atoms.shape[0]):
-        for atom2 in range(atoms.shape[0]):
-            if atom1 > atom2:
-                r = atoms[atom1].position - atoms[atom2].position
-                result += atoms[atom1].charge * atoms[atom2].charge/np.linalg.norm(r)
+    for i in range(atom_positions.shape[0]):
+        for j in range(atom_positions.shape[0]):
+            if i > j:
+                result += atom_charges[i] * atom_charges[j]/np.linalg.norm(atom_positions[i] - atom_positions[j])
     return result
 
 
 @nb.jit(nopython=True)
-def coulomb(r_e, atoms):
+def coulomb(r_e, atom_positions, atom_charges):
     """Coulomb attraction between the electron and nucleus."""
     res = 0.0
-    for atom in range(atoms.shape[0]):
-        charge = atoms[atom].charge
-        for i in range(r_e.shape[0]):
-            res -= charge / np.linalg.norm(r_e[i] - atoms[atom].position)
+    for i in range(atom_positions.shape[0]):
+        for j in range(r_e.shape[0]):
+            res -= atom_charges[i] / np.linalg.norm(r_e[j] - atom_positions[i])
 
     for i in range(r_e.shape[0] - 1):
         for j in range(i + 1, r_e.shape[0]):
             res += 1 / np.linalg.norm(r_e[i] - r_e[j])
 
     return res
-
-
-# @nb.jit(nopython=True)
-# def coulomb(r_e, r_eI, atoms):
-#     """Coulomb attraction between the electron and nucleus."""
-#     res = 0.0
-#     for atom in range(atoms.shape[0]):
-#         charge = atoms[atom].charge
-#         for i in range(r_eI.shape[0]):
-#             res -= charge / np.linalg.norm(r_eI[i, atom])
-#
-#     for i in range(r_e.shape[0] - 1):
-#         for j in range(i + 1, r_e.shape[0]):
-#             res += 1 / np.linalg.norm(r_e[i] - r_e[j])
-#
-#     return res

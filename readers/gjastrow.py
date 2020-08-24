@@ -55,7 +55,7 @@ class Gjastrow:
                 linear_parameters[i, index] = val[0]
         return linear_parameters
 
-    def __init__(self, file, atoms):
+    def __init__(self, file, atom_charges):
         with open(file, 'r') as f:
             self._jastrow_data = safe_load(f)['JASTROW']
         for key, term in self._jastrow_data.items():

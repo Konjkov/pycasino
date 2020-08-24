@@ -67,11 +67,11 @@ class Gwfn(Base):
                     self._natoms = self.read_int()
                 elif line.startswith('Atomic positions'):
                     pos = self.read_floats(self._natoms * 3)
-                    self._atomic_positions = np.array(pos).reshape((self._natoms, 3))
+                    self.atom_positions = np.array(pos).reshape((self._natoms, 3))
                 elif line.startswith('Atomic numbers for each atom'):
-                    self._atom_numbers = self.read_ints(self._natoms)
+                    self.atom_numbers = self.read_ints(self._natoms)
                 elif line.startswith('Valence charges for each atom'):
-                    self._atom_charges = self.read_floats(self._natoms)
+                    self.atom_charges = np.array(self.read_floats(self._natoms))
                 # BASIS SET
                 # ---------
                 elif line.startswith('Number of Gaussian centres'):
@@ -114,23 +114,15 @@ class Gwfn(Base):
                         mo_up = self.read_floats(self.nbasis_functions * self.nbasis_functions)
                         self.mo_up = self.mo_down = np.array(mo_up).reshape((self.nbasis_functions, self.nbasis_functions))
 
-        self.atoms = self.set_atoms()
+        self.atom_shells = self.set_atoms()
         self.shells = self.set_shells()
         # self.set_cusp()
 
     def set_atoms(self):
-        _atoms = [(
-            self._atom_numbers[natom],
-            self._atom_charges[natom],
-            self._atomic_positions[natom],
-            [self._first_shells[natom]-1, self._first_shells[natom+1]-1],
-        ) for natom in range(self._natoms)]
-        return np.array(_atoms, dtype=[
-            ('number', np.int),
-            ('charge', np.int),
-            ('position', np.float, 3),
-            ('shells', np.int, 2),
-        ])
+        res = np.zeros((self._natoms, 2), np.int)
+        for natom in range(self._natoms):
+            res[natom] = [self._first_shells[natom]-1, self._first_shells[natom+1]-1]
+        return res
 
     def set_shells(self):
         _shells = []
@@ -156,7 +148,7 @@ class Gwfn(Base):
 
     def set_cusp(self):
         """set cusped orbitals"""
-        for atom in self.atoms:
+        for atom in self.atom_shells:  # FIXME brocken
             for shell in self.shells[slice(*atom['shells'])]:
                 if shell['moment'] == 0 and shell['primitives'] >= 3:
                     primitives, coefficients, exponents = multiple_fits(shell, atom['charge'])

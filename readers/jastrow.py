@@ -15,15 +15,15 @@ class Jastrow:
     Phys. Rev. B 70, 235119
     """
 
-    def __init__(self, file, atoms):
+    def __init__(self, file, atom_charges):
         self.trunc = 0
         self.u_parameters = nb.typed.List([np.zeros((0, 3), np.float)])
-        self.chi_parameters = nb.typed.List([np.zeros((0, 2), np.float)] * atoms.shape[0])
-        self.f_parameters = nb.typed.List([np.zeros((0, 0, 0, 3), np.float)] * atoms.shape[0])
+        self.chi_parameters = nb.typed.List([np.zeros((0, 2), np.float)] * atom_charges.size)
+        self.f_parameters = nb.typed.List([np.zeros((0, 0, 0, 3), np.float)] * atom_charges.size)
         self.u_cutoff = np.zeros((1, ))
-        self.chi_cutoff = np.zeros(atoms.shape[0])
-        self.f_cutoff = np.zeros(atoms.shape[0])
-        self.chi_cusp = np.zeros(atoms.shape[0])
+        self.chi_cutoff = np.zeros(atom_charges.size)
+        self.f_cutoff = np.zeros(atom_charges.size)
+        self.chi_cusp = np.zeros(atom_charges.size)
         if not os.path.isfile(file):
             return
         with open(file, 'r') as f:
@@ -103,7 +103,7 @@ class Jastrow:
                                 if chi_spin_dep == 0:
                                     parameters[m, 1] = parameters[m, 0]
                         for label in chi_labels:
-                            self.chi_parameters[label-1] = self.fix_chi(parameters, chi_cutoff, chi_cusp, atoms[label-1]['charge'])
+                            self.chi_parameters[label-1] = self.fix_chi(parameters, chi_cutoff, chi_cusp, atom_charges[label-1])
                     elif line.startswith('END SET'):
                         chi_labels = []
                 elif f_term:

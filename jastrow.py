@@ -69,21 +69,21 @@ class Jastrow:
                     res += poly * (r - self.u_cutoff[0]) ** self.trunc
         return res
 
-    def chi_term(self, r_e, neu, atoms):
+    def chi_term(self, r_e, neu, r_I):
         """Jastrow chi-term
         :param r_e: electrons coordinates
         :param neu: number of up electrons
-        :param atoms:
+        :param r_I: nucleus coordinates
         :return:
         """
         res = 0.0
         if not self.chi_cutoff.any():
             return res
 
-        for i in range(atoms.shape[0]):
+        for i in range(r_I.shape[0]):
             p = self.chi_parameters[i]
             for j in range(r_e.shape[0]):
-                r = np.linalg.norm(r_e[j] - atoms[i]['position'])  # FIXME to slow
+                r = np.linalg.norm(r_e[j] - r_I[i])  # FIXME to slow
                 if r <= self.chi_cutoff[i]:
                     chi_set = int(j >= neu)
                     poly = 0.0
@@ -92,24 +92,24 @@ class Jastrow:
                     res += poly * (r - self.chi_cutoff[i]) ** self.trunc
         return res
 
-    def f_term(self, r_e, neu, atoms):
+    def f_term(self, r_e, neu, r_I):
         """Jastrow f-term
         :param r_e: electrons coordinates
         :param ned: number of up electrons
-        :param atoms:
+        :param r_I: nucleus coordinates
         :return:
         """
         res = 0.0
         if not self.f_cutoff.any():
             return res
 
-        for i in range(atoms.shape[0]):
+        for i in range(r_I.shape[0]):
             p = self.f_parameters[i]
             for j in range(r_e.shape[0] - 1):
                 for k in range(j+1, r_e.shape[0]):
                     r_ee = np.linalg.norm(r_e[j] - r_e[k])  # FIXME to slow
-                    r_e1I = np.linalg.norm(r_e[j] - atoms[i]['position'])  # FIXME to slow
-                    r_e2I = np.linalg.norm(r_e[k] - atoms[i]['position'])  # FIXME to slow
+                    r_e1I = np.linalg.norm(r_e[j] - r_I[i])  # FIXME to slow
+                    r_e2I = np.linalg.norm(r_e[k] - r_I[i])  # FIXME to slow
                     if r_e1I <= self.f_cutoff[i] and r_e2I <= self.f_cutoff[i]:
                         f_set = int(j >= neu) + int(k >= neu)
                         poly = 0.0
@@ -151,10 +151,11 @@ class Jastrow:
                     res[j, :] -= r_vec * gradient
         return res
 
-    def chi_term_gradient(self, r_e, neu, atoms):
+    def chi_term_gradient(self, r_e, neu, r_I):
         """Jastrow chi-term gradient
         :param r_e: electrons coordinates
         :param neu: number of up electrons
+        :param r_I: nucleus coordinates
         :return:
         """
         res = np.zeros(r_e.shape)
@@ -162,10 +163,10 @@ class Jastrow:
         if not self.chi_cutoff.any():
             return res
 
-        for i in range(atoms.shape[0]):
+        for i in range(r_I.shape[0]):
             p = self.chi_parameters[i]
             for j in range(r_e.shape[0]):
-                r_vec = r_e[j] - atoms[i]['position']  # FIXME to slow
+                r_vec = r_e[j] - r_I[i]  # FIXME to slow
                 r = np.linalg.norm(r_vec)
                 if r <= self.chi_cutoff[i]:
                     chi_set = int(j >= neu)
@@ -181,10 +182,11 @@ class Jastrow:
                     res[j, :] += r_vec * gradient
         return res
 
-    def f_term_gradient(self, r_e, neu, atoms):
+    def f_term_gradient(self, r_e, neu, r_I):
         """Jastrow f-term gradient
         :param r_e: electrons coordinates
         :param neu: number of up electrons
+        :param r_I: nucleus coordinates
         :return:
         """
         res = np.zeros(r_e.shape)
@@ -192,12 +194,12 @@ class Jastrow:
         if not self.f_cutoff.any():
             return res
 
-        for i in range(atoms.shape[0]):
+        for i in range(r_I.shape[0]):
             p = self.f_parameters[i]
             for j in range(r_e.shape[0] - 1):
                 for k in range(j+1, r_e.shape[0]):
-                    r_e1I_vec = r_e[j] - atoms[i]['position']  # FIXME to slow
-                    r_e2I_vec = r_e[k] - atoms[i]['position']  # FIXME to slow
+                    r_e1I_vec = r_e[j] - r_I[i]  # FIXME to slow
+                    r_e2I_vec = r_e[k] - r_I[i]  # FIXME to slow
                     r_ee_vec = r_e[j] - r_e[k]  # FIXME to slow
                     r_e1I = np.linalg.norm(r_e1I_vec)
                     r_e2I = np.linalg.norm(r_e2I_vec)
@@ -280,20 +282,21 @@ class Jastrow:
                     )
         return 2 * res
 
-    def chi_term_laplacian(self, r_e, neu, atoms):
+    def chi_term_laplacian(self, r_e, neu, r_I):
         """Jastrow chi-term laplacian
         :param r_e: electrons coordinates
         :param neu: number of up electrons
+        :param r_I: nucleus coordinates
         :return:
         """
         res = 0.0
         if not self.chi_cutoff.any():
             return res
 
-        for i in range(atoms.shape[0]):
+        for i in range(r_I.shape[0]):
             p = self.chi_parameters[i]
             for j in range(r_e.shape[0]):
-                r = np.linalg.norm(r_e[j] - atoms[i]['position'])  # FIXME to slow
+                r = np.linalg.norm(r_e[j] - r_I[i])  # FIXME to slow
                 if r <= self.chi_cutoff[i]:
                     chi_set = int(j >= neu)
                     poly = 0.0
@@ -315,7 +318,7 @@ class Jastrow:
                     )
         return res
 
-    def f_term_laplacian(self, r_e, neu, atoms):
+    def f_term_laplacian(self, r_e, neu, r_I):
         """Jastrow f-term laplacian
         f-term is a product of two spherically symmetric functions f(r_eI) and g(r_ee) so using
             ∇²(f*g) = ∇²(f)*g + 2*∇(f)*∇(g) + f*∇²(g)
@@ -323,19 +326,19 @@ class Jastrow:
             ∇²(f) = d²f/dr² + 2/r * df/dr
         :param r_e: electrons coordinates
         :param neu: number of up electrons
-        :param atoms: atomic coordinates
+        :param r_I: nucleus coordinates
         :return:
         """
         res = 0.0
         if not self.f_cutoff.any():
             return res
 
-        for i in range(atoms.shape[0]):
+        for i in range(r_I.shape[0]):
             p = self.f_parameters[i]
             for j in range(r_e.shape[0] - 1):
                 for k in range(j + 1, r_e.shape[0]):
-                    r_e1I_vec = r_e[j] - atoms[i]['position']  # FIXME to slow
-                    r_e2I_vec = r_e[k] - atoms[i]['position']  # FIXME to slow
+                    r_e1I_vec = r_e[j] - r_I[i]  # FIXME to slow
+                    r_e2I_vec = r_e[k] - r_I[i]  # FIXME to slow
                     r_ee_vec = r_e[j] - r_e[k]  # FIXME to slow
                     r_e1I = np.linalg.norm(r_e1I_vec)
                     r_e2I = np.linalg.norm(r_e2I_vec)
@@ -426,16 +429,16 @@ class Jastrow:
                         res += laplacian + 2 * gradient + 2 * dot_product
         return res
 
-    def value(self, r_e, neu, atoms):
+    def value(self, r_e, neu, r_I):
         """Jastrow
         :param r_e: electrons coordinates
         :param neu: number of up electrons
-        :param atoms:
+        :param r_I: nucleus coordinates
         :return:
         """
-        return self.u_term(r_e, neu) + self.chi_term(r_e, neu, atoms) + self.f_term(r_e, neu, atoms)
+        return self.u_term(r_e, neu) + self.chi_term(r_e, neu, r_I) + self.f_term(r_e, neu, r_I)
 
-    def numerical_gradient(self, r_e, neu, atoms):
+    def numerical_gradient(self, r_e, neu, r_I):
         delta = 0.00001
 
         res = np.zeros(r_e.shape)
@@ -443,39 +446,39 @@ class Jastrow:
         for i in range(r_e.shape[0]):
             for j in range(r_e.shape[1]):
                 r_e[i, j] -= delta
-                res[i, j] -= self.value(r_e, neu, atoms)
+                res[i, j] -= self.value(r_e, neu, r_I)
                 r_e[i, j] += 2 * delta
-                res[i, j] += self.value(r_e, neu, atoms)
+                res[i, j] += self.value(r_e, neu, r_I)
                 r_e[i, j] -= delta
 
         return res / delta / 2
 
-    def numerical_laplacian(self, r_e, neu, atoms):
+    def numerical_laplacian(self, r_e, neu, r_I):
         delta = 0.00001
 
-        res = -2 * r_e.size * self.value(r_e, neu, atoms)
+        res = -2 * r_e.size * self.value(r_e, neu, r_I)
         for i in range(r_e.shape[0]):
             for j in range(r_e.shape[1]):
                 r_e[i, j] -= delta
-                res += self.value(r_e, neu, atoms)
+                res += self.value(r_e, neu, r_I)
                 r_e[i, j] += 2 * delta
-                res += self.value(r_e, neu, atoms)
+                res += self.value(r_e, neu, r_I)
                 r_e[i, j] -= delta
 
         return res / delta / delta
 
-    def gradient(self, r_e, neu, atoms):
-        return self.u_term_gradient(r_e, neu) + self.chi_term_gradient(r_e, neu, atoms) + self.f_term_gradient(r_e, neu, atoms)
+    def gradient(self, r_e, neu, r_I):
+        return self.u_term_gradient(r_e, neu) + self.chi_term_gradient(r_e, neu, r_I) + self.f_term_gradient(r_e, neu, r_I)
 
-    def laplacian(self, r_e, neu, atoms):
-        return self.u_term_laplacian(r_e, neu) + self.chi_term_laplacian(r_e, neu, atoms) + self.f_term_laplacian(r_e, neu, atoms)
+    def laplacian(self, r_e, neu, r_I):
+        return self.u_term_laplacian(r_e, neu) + self.chi_term_laplacian(r_e, neu, r_I) + self.f_term_laplacian(r_e, neu, r_I)
 
 
 if __name__ == '__main__':
     """
     """
 
-    term = 'f'
+    term = 'chi'
 
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
@@ -508,17 +511,17 @@ if __name__ == '__main__':
         plt.ylabel('polynomial part')
         plt.title('JASTROW u-term')
     elif term == 'chi':
-        for atom in range(casino.wfn.atoms.shape[0]):
+        for atom in range(casino.wfn.atom_positions.shape[0]):
             x_min, x_max = 0, jastrow.chi_cutoff[atom]
             x_grid = np.linspace(x_min, x_max, steps)
             for spin_dep in range(2):
                 y_grid = np.zeros(steps)
                 for i in range(100):
-                    r_e = np.array([[x_grid[i], 0.0, 0.0]]) + casino.wfn.atoms[atom]['position']
+                    r_e = np.array([[x_grid[i], 0.0, 0.0]]) + casino.wfn.atom_positions[atom]
                     sl = slice(atom, atom+1)
                     jastrow.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)
                     [jastrow.chi_parameters.append(p) for p in casino.jastrow.chi_parameters[sl]]
-                    y_grid[i] = jastrow.chi_term(r_e, 1-spin_dep, casino.wfn.atoms[sl])
+                    y_grid[i] = jastrow.chi_term(r_e, 1-spin_dep, casino.wfn.atom_positions[sl])
                 plt.plot(x_grid, y_grid, label=f'atom {atom} ' + ['u', 'd'][spin_dep])
         plt.xlabel('r_eN (au)')
         plt.ylabel('polynomial part')
@@ -526,7 +529,7 @@ if __name__ == '__main__':
     elif term == 'f':
         figure = plt.figure()
         axis = figure.add_subplot(111, projection='3d')
-        for atom in range(casino.wfn.atoms.shape[0]):
+        for atom in range(casino.wfn.atom_positions.shape[0]):
             x_min, x_max = -jastrow.f_cutoff[atom], jastrow.f_cutoff[atom]
             y_min, y_max = 0.0, np.pi
             x = np.linspace(x_min, x_max, steps)
@@ -539,7 +542,7 @@ if __name__ == '__main__':
                         r_e = np.array([
                             [x_grid[i, j] * np.cos(y_grid[i, j]), x_grid[i, j] * np.sin(y_grid[i, j]), 0.0],
                             [x_grid[i, j], 0.0, 0.0]
-                        ]) + casino.wfn.atoms[atom]['position']
+                        ]) + casino.wfn.atom_positions[atom]
                         sl = slice(atom, atom + 1)
                         jastrow.f_parameters = nb.typed.List.empty_list(f_parameters_type)
                         [jastrow.f_parameters.append(p) for p in casino.jastrow.f_parameters[sl]]
