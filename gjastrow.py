@@ -14,8 +14,8 @@ spec = [
 @nb.experimental.jitclass(spec)
 class Gjastrow:
 
-    def __init__(self, trunc):
-        self.trunc = trunc
+    def __init__(self):
+        pass
 
 
 if __name__ == '__main__':
@@ -24,12 +24,10 @@ if __name__ == '__main__':
 
     term = 'chi'
 
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/casl/8__2/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/casl/8_8__1/'
 
     casino = Casino(path)
-    gjastrow = Gjastrow(
-        casino.jastrow.trunc
-    )
+    gjastrow = Gjastrow()
 
     steps = 100
 
