@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 from readers.casino import Casino
+from overload import subtract_outer
 
 """
 https://github.com/numba/numba/issues/4522
@@ -22,13 +23,15 @@ chi_parameters_type = nb.types.float64[:, :]
 f_parameters_type = nb.types.float64[:, :, :, :]
 
 spec = [
-    ('trunc', nb.int64),
+    ('trunc', nb.types.int64),
     ('u_parameters', nb.types.ListType(u_parameters_type)),
     ('chi_parameters', nb.types.ListType(chi_parameters_type)),
     ('f_parameters', nb.types.ListType(f_parameters_type)),
-    ('u_cutoff', nb.float64[:]),
-    ('chi_cutoff', nb.float64[:]),
-    ('f_cutoff', nb.float64[:])
+    ('u_cutoff', nb.types.float64[:]),
+    ('chi_cutoff', nb.types.float64[:]),
+    ('f_cutoff', nb.types.float64[:]),
+    ('max_ee_order', nb.types.int64),
+    ('max_en_order', nb.types.int64),
 ]
 
 
@@ -46,8 +49,34 @@ class Jastrow:
         self.u_cutoff = u_cutoff
         self.chi_cutoff = chi_cutoff
         self.f_cutoff = f_cutoff
+        self.max_ee_order = max((
+            max([p.shape[0] for p in self.u_parameters]),
+            max([p.shape[2] for p in self.f_parameters]),
+        ))
+        self.max_en_order = max((
+            max([p.shape[0] for p in self.chi_parameters]),
+            max([p.shape[0] for p in self.f_parameters]),
+        ))
 
-    def u_term(self, r_e, neu):
+    def ee_powers(self, r_e):
+        res = np.zeros((r_e.shape[0], r_e.shape[0], self.max_ee_order))
+        for i in range(r_e.shape[0] - 1):
+            for j in range(i + 1, r_e.shape[0]):
+                r_ee = np.linalg.norm(r_e[i] - r_e[j])
+                for k in range(self.max_ee_order):
+                    res[i, j, k] = r_ee ** k
+        return res
+
+    def en_powers(self, r_e, r_I):
+        res = np.zeros((r_I.shape[0], r_e.shape[0], self.max_en_order))
+        for i in range(r_I.shape[0]):
+            for j in range(r_e.shape[0]):
+                r_eI = np.linalg.norm(r_e[j] - r_I[i])
+                for k in range(self.max_en_order):
+                    res[i, j, k] = r_eI ** k
+        return res
+
+    def u_term(self, e_powers, neu):
         """Jastrow u-term
         :param r_e: electrons coordinates
         :param neu: number of up electrons
@@ -58,18 +87,18 @@ class Jastrow:
             return res
 
         p = self.u_parameters[0]
-        for i in range(r_e.shape[0] - 1):
-            for j in range(i + 1, r_e.shape[0]):
-                r = np.linalg.norm(r_e[i] - r_e[j])  # FIXME to slow
+        for i in range(e_powers.shape[0] - 1):
+            for j in range(i + 1, e_powers.shape[1]):
+                r = e_powers[i, j, 1]
                 if r <= self.u_cutoff[0]:
                     u_set = int(i >= neu) + int(j >= neu)
                     poly = 0.0
                     for k in range(p.shape[0]):
-                        poly += p[k, u_set] * r ** k
+                        poly += p[k, u_set] * e_powers[i, j, k]
                     res += poly * (r - self.u_cutoff[0]) ** self.trunc
         return res
 
-    def chi_term(self, r_e, neu, r_I):
+    def chi_term(self, n_powers, neu):
         """Jastrow chi-term
         :param r_e: electrons coordinates
         :param neu: number of up electrons
@@ -80,19 +109,19 @@ class Jastrow:
         if not self.chi_cutoff.any():
             return res
 
-        for i in range(r_I.shape[0]):
+        for i in range(n_powers.shape[0]):
             p = self.chi_parameters[i]
-            for j in range(r_e.shape[0]):
-                r = np.linalg.norm(r_e[j] - r_I[i])  # FIXME to slow
+            for j in range(n_powers.shape[1]):
+                r = n_powers[i, j, 1]
                 if r <= self.chi_cutoff[i]:
                     chi_set = int(j >= neu)
                     poly = 0.0
                     for k in range(p.shape[0]):
-                        poly += p[k, chi_set] * r ** k
+                        poly += p[k, chi_set] * n_powers[i, j, k]
                     res += poly * (r - self.chi_cutoff[i]) ** self.trunc
         return res
 
-    def f_term(self, r_e, neu, r_I):
+    def f_term(self, e_powers, n_powers, neu):
         """Jastrow f-term
         :param r_e: electrons coordinates
         :param ned: number of up electrons
@@ -103,24 +132,25 @@ class Jastrow:
         if not self.f_cutoff.any():
             return res
 
-        for i in range(r_I.shape[0]):
+        for i in range(n_powers.shape[0]):
             p = self.f_parameters[i]
-            for j in range(r_e.shape[0] - 1):
-                for k in range(j+1, r_e.shape[0]):
-                    r_ee = np.linalg.norm(r_e[j] - r_e[k])  # FIXME to slow
-                    r_e1I = np.linalg.norm(r_e[j] - r_I[i])  # FIXME to slow
-                    r_e2I = np.linalg.norm(r_e[k] - r_I[i])  # FIXME to slow
+            for j in range(n_powers.shape[1] - 1):
+                for k in range(j+1, e_powers.shape[0]):
+                    r_e1I = n_powers[i, j, 1]
+                    r_e2I = n_powers[i, k, 1]
                     if r_e1I <= self.f_cutoff[i] and r_e2I <= self.f_cutoff[i]:
                         f_set = int(j >= neu) + int(k >= neu)
                         poly = 0.0
                         for l in range(p.shape[0]):
                             for m in range(p.shape[1]):
                                 for n in range(p.shape[2]):
-                                    poly += p[l, m, n, f_set] * r_e1I ** l * r_e2I ** m * r_ee ** n
-                        res += poly * (r_e1I - self.f_cutoff[i]) ** self.trunc * (r_e2I - self.f_cutoff[i]) ** self.trunc
+                                    poly += p[l, m, n, f_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
+                        C = self.trunc
+                        L = self.f_cutoff[i]
+                        res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
         return res
 
-    def u_term_gradient(self, r_e, neu):
+    def u_term_gradient(self, e_powers, neu, r_e):
         """Jastrow u-term gradient
         :param r_e: electrons coordinates
         :param neu: number of up electrons
@@ -132,26 +162,28 @@ class Jastrow:
             return res
 
         p = self.u_parameters[0]
-        for i in range(r_e.shape[0] - 1):
-            for j in range(i + 1, r_e.shape[0]):
+        for i in range(e_powers.shape[0] - 1):
+            for j in range(i + 1, e_powers.shape[1]):
                 r_vec = r_e[i] - r_e[j]  # FIXME to slow
-                r = np.linalg.norm(r_vec)
+                r = e_powers[i, j, 1]
                 if r <= self.u_cutoff[0]:
                     u_set = int(i >= neu) + int(j >= neu)
                     poly = 0.0
                     for k in range(p.shape[0]):
-                        poly += p[k, u_set] * r ** k
+                        poly += p[k, u_set] * e_powers[i, j, k]
 
                     poly_diff = 0.0
                     for k in range(1, p.shape[0]):
-                        poly_diff += k * p[k, u_set] * r ** (k-1)
+                        poly_diff += p[k, u_set] * k * e_powers[i, j, k-1]
 
-                    gradient = (self.trunc * (r-self.u_cutoff[0]) ** (self.trunc-1) * poly + (r-self.u_cutoff[0]) ** self.trunc * poly_diff) / r
+                    C = self.trunc
+                    L = self.u_cutoff[0]
+                    gradient = (C * (r-L) ** (C-1) * poly + (r-L) ** C * poly_diff) / r
                     res[i, :] += r_vec * gradient
                     res[j, :] -= r_vec * gradient
         return res
 
-    def chi_term_gradient(self, r_e, neu, r_I):
+    def chi_term_gradient(self, n_powers, neu, r_e, r_I):
         """Jastrow chi-term gradient
         :param r_e: electrons coordinates
         :param neu: number of up electrons
@@ -163,26 +195,28 @@ class Jastrow:
         if not self.chi_cutoff.any():
             return res
 
-        for i in range(r_I.shape[0]):
+        for i in range(n_powers.shape[0]):
             p = self.chi_parameters[i]
-            for j in range(r_e.shape[0]):
+            for j in range(n_powers.shape[1]):
                 r_vec = r_e[j] - r_I[i]  # FIXME to slow
-                r = np.linalg.norm(r_vec)
+                r = n_powers[i, j, 1]
                 if r <= self.chi_cutoff[i]:
                     chi_set = int(j >= neu)
                     poly = 0.0
                     for k in range(p.shape[0]):
-                        poly += p[k, chi_set] * r ** k
+                        poly += p[k, chi_set] * n_powers[i, j, k]
 
                     poly_diff = 0.0
                     for k in range(1, p.shape[0]):
-                        poly_diff += k * p[k, chi_set] * r ** (k-1)
+                        poly_diff += p[k, chi_set] * k * n_powers[i, j, k-1]
 
-                    gradient = (self.trunc * (r-self.chi_cutoff[i]) ** (self.trunc-1) * poly + (r-self.chi_cutoff[i]) ** self.trunc * poly_diff) / r
+                    C = self.trunc
+                    L = self.chi_cutoff[i]
+                    gradient = (C * (r-L) ** (C-1) * poly + (r-L) ** C * poly_diff) / r
                     res[j, :] += r_vec * gradient
         return res
 
-    def f_term_gradient(self, r_e, neu, r_I):
+    def f_term_gradient(self, e_powers, n_powers, neu, r_e, r_I):
         """Jastrow f-term gradient
         :param r_e: electrons coordinates
         :param neu: number of up electrons
@@ -194,60 +228,62 @@ class Jastrow:
         if not self.f_cutoff.any():
             return res
 
-        for i in range(r_I.shape[0]):
+        for i in range(n_powers.shape[0]):
             p = self.f_parameters[i]
-            for j in range(r_e.shape[0] - 1):
-                for k in range(j+1, r_e.shape[0]):
+            for j in range(n_powers.shape[1] - 1):
+                for k in range(j+1, e_powers.shape[0]):
                     r_e1I_vec = r_e[j] - r_I[i]  # FIXME to slow
                     r_e2I_vec = r_e[k] - r_I[i]  # FIXME to slow
                     r_ee_vec = r_e[j] - r_e[k]  # FIXME to slow
-                    r_e1I = np.linalg.norm(r_e1I_vec)
-                    r_e2I = np.linalg.norm(r_e2I_vec)
-                    r_ee = np.linalg.norm(r_ee_vec)
+                    r_e1I = n_powers[i, j, 1]
+                    r_e2I = n_powers[i, k, 1]
+                    r_ee = e_powers[j, k, 1]
                     if r_e1I <= self.f_cutoff[i] and r_e2I <= self.f_cutoff[i]:
                         f_set = int(j >= neu) + int(k >= neu)
                         poly = 0.0
                         for l in range(p.shape[0]):
                             for m in range(p.shape[1]):
                                 for n in range(p.shape[2]):
-                                    poly += p[l, m, n, f_set] * r_e1I ** l * r_e2I ** m * r_ee ** n
+                                    poly += p[l, m, n, f_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
 
                         poly_diff_e1I = 0.0
                         for l in range(1, p.shape[0]):
                             for m in range(p.shape[1]):
                                 for n in range(p.shape[2]):
-                                    poly_diff_e1I += p[l, m, n, f_set] * l * r_e1I ** (l-1) * r_e2I ** m * r_ee ** n
+                                    poly_diff_e1I += p[l, m, n, f_set] * l * n_powers[i, j, l-1] * n_powers[i, k, m] * e_powers[j, k, n]
 
                         poly_diff_e2I = 0.0
                         for l in range(p.shape[0]):
                             for m in range(1, p.shape[1]):
                                 for n in range(p.shape[2]):
-                                    poly_diff_e2I += p[l, m, n, f_set] * r_e1I ** l * m * r_e2I ** (m-1) * r_ee ** n
+                                    poly_diff_e2I += p[l, m, n, f_set] * m * n_powers[i, j, l] * n_powers[i, k, m-1] * e_powers[j, k, n]
 
                         poly_diff_ee = 0.0
                         for l in range(p.shape[0]):
                             for m in range(p.shape[1]):
                                 for n in range(1, p.shape[2]):
-                                    poly_diff_ee += p[l, m, n, f_set] * r_e1I ** l * r_e2I ** m * n * r_ee ** (n-1)
+                                    poly_diff_ee += p[l, m, n, f_set] * n * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n-1]
 
+                        C = self.trunc
+                        L = self.f_cutoff[i]
                         gradient = (
-                            self.trunc * (r_e1I - self.f_cutoff[i]) ** (self.trunc-1) * (r_e2I - self.f_cutoff[i]) ** self.trunc * poly +
-                            (r_e1I - self.f_cutoff[i]) ** self.trunc * (r_e2I - self.f_cutoff[i]) ** self.trunc * poly_diff_e1I
+                            C * (r_e1I - L) ** (C-1) * (r_e2I - L) ** C * poly +
+                            (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e1I
                         ) / r_e1I
                         res[j, :] += r_e1I_vec * gradient
 
                         gradient = (
-                            (r_e1I - self.f_cutoff[i]) ** self.trunc * self.trunc * (r_e2I - self.f_cutoff[i]) ** (self.trunc-1) * poly +
-                            (r_e1I - self.f_cutoff[i]) ** self.trunc * (r_e2I - self.f_cutoff[i]) ** self.trunc * poly_diff_e2I
+                            (r_e1I - L) ** C * C * (r_e2I - L) ** (C-1) * poly +
+                            (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e2I
                         ) / r_e2I
                         res[k, :] += r_e2I_vec * gradient
 
-                        gradient = (r_e1I - self.f_cutoff[i]) ** self.trunc * (r_e2I - self.f_cutoff[i]) ** self.trunc * poly_diff_ee / r_ee
+                        gradient = (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_ee / r_ee
                         res[j, :] += r_ee_vec * gradient
                         res[k, :] -= r_ee_vec * gradient
         return res
 
-    def u_term_laplacian(self, r_e, neu):
+    def u_term_laplacian(self, e_powers, neu):
         """Jastrow u-term laplacian
         :param r_e: electrons coordinates
         :param neu: number of up electrons
@@ -258,31 +294,33 @@ class Jastrow:
             return res
 
         p = self.u_parameters[0]
-        for i in range(r_e.shape[0] - 1):
-            for j in range(i + 1, r_e.shape[0]):
-                r = np.linalg.norm(r_e[i] - r_e[j])  # FIXME to slow
+        for i in range(e_powers.shape[0] - 1):
+            for j in range(i + 1, e_powers.shape[1]):
+                r = e_powers[i, j, 1]
                 if r <= self.u_cutoff[0]:
                     u_set = int(i >= neu) + int(j >= neu)
                     poly = 0.0
                     for k in range(p.shape[0]):
-                        poly += p[k, u_set] * r ** k
+                        poly += p[k, u_set] * e_powers[i, j, k]
 
                     poly_diff = 0.0
                     for k in range(1, p.shape[0]):
-                        poly_diff += k * p[k, u_set] * r ** (k-1)
+                        poly_diff += k * p[k, u_set] * e_powers[i, j, k-1]
 
                     poly_diff_2 = 0.0
                     for k in range(2, p.shape[0]):
-                        poly_diff_2 += k * (k-1) * p[k, u_set] * r ** (k-2)
+                        poly_diff_2 += k * (k-1) * p[k, u_set] * e_powers[i, j, k-2]
 
+                    C = self.trunc
+                    L = self.u_cutoff[0]
                     res += (
-                        self.trunc*(self.trunc - 1)*(r-self.u_cutoff[0])**(self.trunc - 2) * poly +
-                        2 * self.trunc*(r-self.u_cutoff[0])**(self.trunc - 1) * poly_diff + (r-self.u_cutoff[0])**self.trunc * poly_diff_2 +
-                        2 * (self.trunc * (r-self.u_cutoff[0])**(self.trunc-1) * poly + (r-self.u_cutoff[0])**self.trunc * poly_diff) / r
+                        C*(C - 1)*(r-L)**(C - 2) * poly +
+                        2 * C*(r-L)**(C - 1) * poly_diff + (r-L)**C * poly_diff_2 +
+                        2 * (C * (r-L)**(C-1) * poly + (r-L)**C * poly_diff) / r
                     )
         return 2 * res
 
-    def chi_term_laplacian(self, r_e, neu, r_I):
+    def chi_term_laplacian(self, e_powers, neu):
         """Jastrow chi-term laplacian
         :param r_e: electrons coordinates
         :param neu: number of up electrons
@@ -293,32 +331,34 @@ class Jastrow:
         if not self.chi_cutoff.any():
             return res
 
-        for i in range(r_I.shape[0]):
+        for i in range(e_powers.shape[0]):
             p = self.chi_parameters[i]
-            for j in range(r_e.shape[0]):
-                r = np.linalg.norm(r_e[j] - r_I[i])  # FIXME to slow
+            for j in range(e_powers.shape[1]):
+                r = e_powers[i, j, 1]
                 if r <= self.chi_cutoff[i]:
                     chi_set = int(j >= neu)
                     poly = 0.0
                     for k in range(p.shape[0]):
-                        poly += p[k, chi_set] * r ** k
+                        poly += p[k, chi_set] * e_powers[i, j, k]
 
                     poly_diff = 0.0
                     for k in range(1, p.shape[0]):
-                        poly_diff += k * p[k, chi_set] * r ** (k-1)
+                        poly_diff += k * p[k, chi_set] * e_powers[i, j, k-1]
 
                     poly_diff_2 = 0.0
                     for k in range(2, p.shape[0]):
-                        poly_diff_2 += k * (k-1) * p[k, chi_set] * r ** (k-2)
+                        poly_diff_2 += k * (k-1) * p[k, chi_set] * e_powers[i, j, k-2]
 
+                    C = self.trunc
+                    L = self.chi_cutoff[i]
                     res += (
-                        self.trunc*(self.trunc - 1)*(r-self.chi_cutoff[i])**(self.trunc - 2) * poly +
-                        2 * self.trunc*(r-self.chi_cutoff[i])**(self.trunc - 1) * poly_diff + (r-self.chi_cutoff[i])**self.trunc * poly_diff_2 +
-                        2 * (self.trunc * (r-self.chi_cutoff[i])**(self.trunc-1) * poly + (r-self.chi_cutoff[i])**self.trunc * poly_diff) / r
+                        C*(C - 1)*(r-L)**(C - 2) * poly +
+                        2 * C*(r-L)**(C - 1) * poly_diff + (r-L)**C * poly_diff_2 +
+                        2 * (C * (r-L)**(C-1) * poly + (r-L)**C * poly_diff) / r
                     )
         return res
 
-    def f_term_laplacian(self, r_e, neu, r_I):
+    def f_term_laplacian(self, e_powers, n_powers, neu, r_e, r_I):
         """Jastrow f-term laplacian
         f-term is a product of two spherically symmetric functions f(r_eI) and g(r_ee) so using
             ∇²(f*g) = ∇²(f)*g + 2*∇(f)*∇(g) + f*∇²(g)
@@ -333,96 +373,96 @@ class Jastrow:
         if not self.f_cutoff.any():
             return res
 
-        for i in range(r_I.shape[0]):
+        for i in range(n_powers.shape[0]):
             p = self.f_parameters[i]
-            for j in range(r_e.shape[0] - 1):
-                for k in range(j + 1, r_e.shape[0]):
+            for j in range(n_powers.shape[1] - 1):
+                for k in range(j + 1, e_powers.shape[0]):
                     r_e1I_vec = r_e[j] - r_I[i]  # FIXME to slow
                     r_e2I_vec = r_e[k] - r_I[i]  # FIXME to slow
                     r_ee_vec = r_e[j] - r_e[k]  # FIXME to slow
-                    r_e1I = np.linalg.norm(r_e1I_vec)
-                    r_e2I = np.linalg.norm(r_e2I_vec)
-                    r_ee = np.linalg.norm(r_ee_vec)
+                    r_e1I = n_powers[i, j, 1]
+                    r_e2I = n_powers[i, k, 1]
+                    r_ee = e_powers[j, k, 1]
                     if r_e1I <= self.f_cutoff[i] and r_e2I <= self.f_cutoff[i]:
                         f_set = int(j >= neu) + int(k >= neu)
                         poly = 0.0
                         for l in range(p.shape[0]):
                             for m in range(p.shape[1]):
                                 for n in range(p.shape[2]):
-                                    poly += p[l, m, n, f_set] * r_e1I ** l * r_e2I ** m * r_ee ** n
+                                    poly += p[l, m, n, f_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
 
                         poly_diff_e1I = 0.0
                         for l in range(1, p.shape[0]):
                             for m in range(p.shape[1]):
                                 for n in range(p.shape[2]):
-                                    poly_diff_e1I += p[l, m, n, f_set] * l * r_e1I ** (l-1) * r_e2I ** m * r_ee ** n
+                                    poly_diff_e1I += p[l, m, n, f_set] * l * n_powers[i, j, l-1] * n_powers[i, k, m] * e_powers[j, k, n]
 
                         poly_diff_e2I = 0.0
                         for l in range(p.shape[0]):
                             for m in range(1, p.shape[1]):
                                 for n in range(p.shape[2]):
-                                    poly_diff_e2I += p[l, m, n, f_set] * r_e1I ** l * m * r_e2I ** (m-1) * r_ee ** n
+                                    poly_diff_e2I += p[l, m, n, f_set] * m * n_powers[i, j, l] * n_powers[i, k, m-1] * e_powers[j, k, n]
 
                         poly_diff_ee = 0.0
                         for l in range(p.shape[0]):
                             for m in range(p.shape[1]):
                                 for n in range(1, p.shape[2]):
-                                    poly_diff_ee += p[l, m, n, f_set] * r_e1I ** l * r_e2I ** m * n * r_ee ** (n-1)
+                                    poly_diff_ee += p[l, m, n, f_set] * n * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n-1]
 
                         poly_diff_e1I_2 = 0.0
                         for l in range(2, p.shape[0]):
                             for m in range(p.shape[1]):
                                 for n in range(p.shape[2]):
-                                    poly_diff_e1I_2 += p[l, m, n, f_set] * l * (l-1) * r_e1I ** (l-2) * r_e2I ** m * r_ee ** n
+                                    poly_diff_e1I_2 += p[l, m, n, f_set] * l * (l-1) * n_powers[i, j, l-2] * n_powers[i, k, m] * e_powers[j, k, n]
 
                         poly_diff_e2I_2 = 0.0
                         for l in range(p.shape[0]):
                             for m in range(2, p.shape[1]):
                                 for n in range(p.shape[2]):
-                                    poly_diff_e2I_2 += p[l, m, n, f_set] * r_e1I ** l * m * (m-1) * r_e2I ** (m-2) * r_ee ** n
+                                    poly_diff_e2I_2 += p[l, m, n, f_set] * m * (m-1) * n_powers[i, j, l] * n_powers[i, k, m-2] * e_powers[j, k, n]
 
                         poly_diff_ee_2 = 0.0
                         for l in range(p.shape[0]):
                             for m in range(p.shape[1]):
                                 for n in range(2, p.shape[2]):
-                                    poly_diff_ee_2 += p[l, m, n, f_set] * r_e1I ** l * r_e2I ** m * n * (n-1) * r_ee ** (n-2)
+                                    poly_diff_ee_2 += p[l, m, n, f_set] * n * (n-1) * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n-2]
 
                         poly_diff_e1I_ee = 0.0
                         for l in range(1, p.shape[0]):
                             for m in range(p.shape[1]):
                                 for n in range(1, p.shape[2]):
-                                    poly_diff_e1I_ee += p[l, m, n, f_set] * l * r_e1I ** (l-1) * r_e2I ** m * n * r_ee ** (n-1)
+                                    poly_diff_e1I_ee += p[l, m, n, f_set] * l * n * n_powers[i, j, l-1] * n_powers[i, k, m] * e_powers[j, k, n-1]
 
                         poly_diff_e2I_ee = 0.0
                         for l in range(p.shape[0]):
                             for m in range(1, p.shape[1]):
                                 for n in range(1, p.shape[2]):
-                                    poly_diff_e2I_ee += p[l, m, n, f_set] * r_e1I ** l * m * r_e2I ** (m-1) * n * r_ee ** (n-1)
+                                    poly_diff_e2I_ee += p[l, m, n, f_set] * m * n * n_powers[i, j, l] * n_powers[i, k, m-1] * e_powers[j, k, n-1]
 
                         C = self.trunc
-                        L = self.f_cutoff
+                        L = self.f_cutoff[i]
                         gradient = (
-                            (C * (r_e1I - L[i]) ** (C-1) * (r_e2I - L[i]) ** C * poly + (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_e1I) / r_e1I +
-                            ((r_e1I - L[i]) ** C * C * (r_e2I - L[i]) ** (C-1) * poly + (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_e2I) / r_e2I +
-                            2 * (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_ee / r_ee
+                            (C * (r_e1I - L) ** (C-1) * (r_e2I - L) ** C * poly + (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e1I) / r_e1I +
+                            ((r_e1I - L) ** C * C * (r_e2I - L) ** (C-1) * poly + (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e2I) / r_e2I +
+                            2 * (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_ee / r_ee
                         )
 
                         laplacian = (
-                                C * (C - 1) * (r_e1I - L[i]) ** (C - 2) * (r_e2I - L[i]) ** C * poly +
-                                (r_e1I - L[i]) ** C * C * (C - 1) * (r_e2I - L[i]) ** (C - 2) * poly +
-                                (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * (poly_diff_e1I_2 + poly_diff_e2I_2 + 2 * poly_diff_ee_2) +
-                                2 * C * (r_e1I - L[i]) ** (C - 1) * (r_e2I - L[i]) ** C * poly_diff_e1I +
-                                2 * (r_e1I - L[i]) ** C * C * (r_e2I - L[i]) ** (C - 1) * poly_diff_e2I
+                                C * (C - 1) * (r_e1I - L) ** (C - 2) * (r_e2I - L) ** C * poly +
+                                (r_e1I - L) ** C * C * (C - 1) * (r_e2I - L) ** (C - 2) * poly +
+                                (r_e1I - L) ** C * (r_e2I - L) ** C * (poly_diff_e1I_2 + poly_diff_e2I_2 + 2 * poly_diff_ee_2) +
+                                2 * C * (r_e1I - L) ** (C - 1) * (r_e2I - L) ** C * poly_diff_e1I +
+                                2 * (r_e1I - L) ** C * C * (r_e2I - L) ** (C - 1) * poly_diff_e2I
                         )
 
                         dot_product = (
                                 np.sum(r_e1I_vec * r_ee_vec) * (
-                                        C * (r_e1I - L[i]) ** (C-1) * (r_e2I - L[i]) ** C * poly_diff_ee +
-                                        (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_e1I_ee
+                                        C * (r_e1I - L) ** (C-1) * (r_e2I - L) ** C * poly_diff_ee +
+                                        (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e1I_ee
                                 ) / r_e1I / r_ee -
                                 np.sum(r_e2I_vec * r_ee_vec) * (
-                                        (r_e1I - L[i]) ** C * C * (r_e2I - L[i]) ** (C-1) * poly_diff_ee +
-                                        (r_e1I - L[i]) ** C * (r_e2I - L[i]) ** C * poly_diff_e2I_ee
+                                        (r_e1I - L) ** C * C * (r_e2I - L) ** (C-1) * poly_diff_ee +
+                                        (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e2I_ee
                                 ) / r_e2I / r_ee
                         )
 
@@ -436,7 +476,10 @@ class Jastrow:
         :param r_I: nucleus coordinates
         :return:
         """
-        return self.u_term(r_e, neu) + self.chi_term(r_e, neu, r_I) + self.f_term(r_e, neu, r_I)
+        e_powers = self.ee_powers(r_e)
+        n_powers = self.en_powers(r_e, r_I)
+
+        return self.u_term(e_powers, neu) + self.chi_term(n_powers, neu) + self.f_term(e_powers, n_powers, neu)
 
     def numerical_gradient(self, r_e, neu, r_I):
         delta = 0.00001
@@ -468,17 +511,25 @@ class Jastrow:
         return res / delta / delta
 
     def gradient(self, r_e, neu, r_I):
-        return self.u_term_gradient(r_e, neu) + self.chi_term_gradient(r_e, neu, r_I) + self.f_term_gradient(r_e, neu, r_I)
+
+        e_powers = self.ee_powers(r_e)
+        n_powers = self.en_powers(r_e, r_I)
+
+        return self.u_term_gradient(e_powers, neu, r_e) + self.chi_term_gradient(n_powers, neu, r_e, r_I) + self.f_term_gradient(e_powers, n_powers, neu, r_e, r_I)
 
     def laplacian(self, r_e, neu, r_I):
-        return self.u_term_laplacian(r_e, neu) + self.chi_term_laplacian(r_e, neu, r_I) + self.f_term_laplacian(r_e, neu, r_I)
+
+        e_powers = self.ee_powers(r_e)
+        n_powers = self.en_powers(r_e, r_I)
+
+        return self.u_term_laplacian(e_powers, neu) + self.chi_term_laplacian(n_powers, neu) + self.f_term_laplacian(e_powers, n_powers, neu, r_e, r_I)
 
 
 if __name__ == '__main__':
     """
     """
 
-    term = 'chi'
+    term = 'f'
 
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
@@ -545,7 +596,7 @@ if __name__ == '__main__':
                         sl = slice(atom, atom + 1)
                         jastrow.f_parameters = nb.typed.List.empty_list(f_parameters_type)
                         [jastrow.f_parameters.append(p) for p in casino.jastrow.f_parameters[sl]]
-                        z_grid[i, j] = jastrow.f_term(r_e, 2-spin_dep, casino.wfn.atoms[sl])
+                        z_grid[i, j] = jastrow.f_term(r_e, 2-spin_dep, casino.wfn.atom_positions[sl])
                 axis.plot_wireframe(x_grid, y_grid, z_grid, label=f'atom {atom} ' + ['uu', 'ud', 'dd'][spin_dep])
         axis.set_xlabel('r_e1N (au)')
         axis.set_ylabel('r_e2N (au)')
