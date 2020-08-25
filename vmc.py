@@ -17,7 +17,7 @@ import numpy as np
 import numba as nb
 import scipy as sp
 
-from decorators import pool
+from decorators import pool, thread
 from readers.casino import Casino
 
 

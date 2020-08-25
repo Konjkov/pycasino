@@ -7,6 +7,13 @@ num_proc = cpu_count(logical=False)
 
 
 def pool(function):
+    """https://docs.python.org/3/library/concurrent.futures.html#processpoolexecutor
+
+    The ProcessPoolExecutor class is an Executor subclass that uses a pool of processes
+    to execute calls asynchronously. ProcessPoolExecutor uses the multiprocessing module,
+    which allows it to side-step the Global Interpreter Lock but also means that only
+    picklable objects can be executed and returned.
+    """
 
     def wrapper(*args):
         with ProcessPoolExecutor() as executor:

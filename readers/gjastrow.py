@@ -13,46 +13,49 @@ class Gjastrow:
     Phys. Rev. E 86, 036703
     """
 
-    def order(self, term):
+    def get_order(self, term):
         try:
             return term['Order']
         except TypeError:
             return term[1]['Order']
 
-    def rank(self, term):
+    def get_rank(self, term):
         if isinstance(term['Rank'], list):
             return term['Rank']
         elif isinstance(term['Rank'], str):
             return list(map(int, term['Rank'].split()))
 
-    def channels(self, term):
-        return term['Linear parameters']
-
-    def trunc(self, term):
+    def get_trunc(self, term):
         try:
             return term['e-e cutoff']['Constants']['C']
         except TypeError:
             return term['e-e cutoff']['Constants'][0]['C']
 
-    def parameters(self, term, channel):
-        return term['e-e cutoff']['Parameters'][channel]['L'][0]
+    def get_parameters(self, term):
+        """Load parameters into multidimensional array.
+        """
+        parameters = np.zeros(len(term['e-e cutoff']['Parameters']), np.float)
+        for i, channel in enumerate(term['e-e cutoff']['Parameters'].values()):
+            parameters[i] = channel['L'][0]
+        return parameters
 
-    def linear_parameters(self, term):
-        """Load linear parameters into multidimensional array."""
-        e_rank, n_rank = self.rank(term)
-        dims = [len(self.channels(term))]
+    def get_linear_parameters(self, term):
+        """Load linear parameters into multidimensional array.
+        """
+        e_rank, n_rank = self.get_rank(term)
+        dims = [len(term['Linear parameters'])]
         if e_rank > 1:
-            e_order = self.order(term['e-e basis'])
+            e_order = self.get_order(term['e-e basis'])
             dims += [e_order] * (e_rank * (e_rank-1) // 2)
         if n_rank > 0:
-            n_order = self.order(term['e-n basis'])
+            n_order = self.get_order(term['e-n basis'])
             dims += [n_order] * (e_rank * n_rank)
 
         linear_parameters = np.zeros(dims, np.float)
-        for i, channel in enumerate(self.channels(term).values()):
+        for i, channel in enumerate(term['Linear parameters'].values()):
             for key, val in channel.items():
-                index = tuple(map(lambda x: x-1, map(int, key.split('_')[1].split(','))))
-                linear_parameters[i, index] = val[0]
+                j = tuple(map(lambda x: x-1, map(int, key.split('_')[1].split(','))))
+                linear_parameters[i, j] = val[0]
         return linear_parameters
 
     def __init__(self, file, atom_charges):
@@ -60,13 +63,13 @@ class Gjastrow:
             self._jastrow_data = safe_load(f)['JASTROW']
         for key, term in self._jastrow_data.items():
             if key.startswith('TERM'):
-                self.trunc = self.trunc(term)
-                self.u_parameters = self.linear_parameters(term)
-                self.u_cutoff = self.parameters(term, 'Channel 2-2')
-                self.chi_parameters = False
-                self.chi_cutoff = False
-                self.f_parameters = False
-                self.f_cutoff = False
+                self.trunc = self.get_trunc(term)
+                self.parameters = self.get_parameters(term)
+                self.linear_parameters = self.get_linear_parameters(term)
+                self.permutation = []
+                print(self.trunc)
+                print(self.parameters)
+                print(self.linear_parameters)
 
 
 if __name__ == '__main__':
