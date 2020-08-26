@@ -19,6 +19,7 @@ import scipy as sp
 
 from decorators import pool, thread
 from readers.casino import Casino
+from overload import subtract_outer
 
 
 @nb.jit(nopython=True)
@@ -91,13 +92,20 @@ random_step = random_normal_step
 def guiding_function(r_e, neu, atom_positions, wfn, jastrow):
     """wave function in general form"""
 
-    return np.exp(jastrow.value(r_e, neu, atom_positions)) * wfn.value(r_e, neu, atom_positions)
+    e_vectors = subtract_outer(r_e, r_e)
+    n_vectors = subtract_outer(r_e, atom_positions)
+
+    return np.exp(jastrow.value(e_vectors, n_vectors, neu)) * wfn.value(r_e, neu, atom_positions)
 
 
 @nb.jit(nopython=True)
 def local_energy(r_e, neu, ned, atom_positions, wfn, jastrow, atom_charges):
-    j_g = jastrow.gradient(r_e, neu, atom_positions)
-    j_l = jastrow.laplacian(r_e, neu, atom_positions)
+
+    e_vectors = subtract_outer(r_e, r_e)
+    n_vectors = subtract_outer(r_e, atom_positions)
+
+    j_g = jastrow.gradient(e_vectors, n_vectors, neu)
+    j_l = jastrow.laplacian(e_vectors, n_vectors, neu)
     w = wfn.value(r_e, neu, atom_positions)
     w_g = wfn.gradient(r_e, neu, ned, atom_positions) / w
     w_l = wfn.laplacian(r_e, neu, ned, atom_positions) / w

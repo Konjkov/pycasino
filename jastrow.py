@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 from readers.casino import Casino
-from overload import subtract_outer
 
 """
 https://github.com/numba/numba/issues/4522
@@ -58,27 +57,27 @@ class Jastrow:
             max([p.shape[0] for p in self.f_parameters]),
         ))
 
-    def ee_powers(self, r_e):
-        res = np.zeros((r_e.shape[0], r_e.shape[0], self.max_ee_order))
-        for i in range(r_e.shape[0] - 1):
-            for j in range(i + 1, r_e.shape[0]):
-                r_ee = np.linalg.norm(r_e[i] - r_e[j])
+    def ee_powers(self, e_vectors):
+        res = np.zeros((e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
+        for i in range(e_vectors.shape[0] - 1):
+            for j in range(i + 1, e_vectors.shape[1]):
+                r_ee = np.linalg.norm(e_vectors[i, j])
                 for k in range(self.max_ee_order):
                     res[i, j, k] = r_ee ** k
         return res
 
-    def en_powers(self, r_e, r_I):
-        res = np.zeros((r_I.shape[0], r_e.shape[0], self.max_en_order))
-        for i in range(r_I.shape[0]):
-            for j in range(r_e.shape[0]):
-                r_eI = np.linalg.norm(r_e[j] - r_I[i])
+    def en_powers(self, n_vectors):
+        res = np.zeros((n_vectors.shape[1], n_vectors.shape[0], self.max_en_order))
+        for i in range(n_vectors.shape[1]):
+            for j in range(n_vectors.shape[0]):
+                r_eI = np.linalg.norm(n_vectors[j, i])
                 for k in range(self.max_en_order):
                     res[i, j, k] = r_eI ** k
         return res
 
     def u_term(self, e_powers, neu):
         """Jastrow u-term
-        :param r_e: electrons coordinates
+        :param e_powers: electrons coordinates
         :param neu: number of up electrons
         :return:
         """
@@ -100,9 +99,8 @@ class Jastrow:
 
     def chi_term(self, n_powers, neu):
         """Jastrow chi-term
-        :param r_e: electrons coordinates
+        :param n_powers: electrons coordinates
         :param neu: number of up electrons
-        :param r_I: nucleus coordinates
         :return:
         """
         res = 0.0
@@ -123,9 +121,9 @@ class Jastrow:
 
     def f_term(self, e_powers, n_powers, neu):
         """Jastrow f-term
-        :param r_e: electrons coordinates
+        :param e_powers: electrons coordinates
+        :param n_powers: nucleus coordinates
         :param ned: number of up electrons
-        :param r_I: nucleus coordinates
         :return:
         """
         res = 0.0
@@ -152,7 +150,8 @@ class Jastrow:
 
     def u_term_gradient(self, e_powers, e_vectors, neu):
         """Jastrow u-term gradient
-        :param r_e: electrons coordinates
+        :param e_powers: electrons coordinates
+        :param e_vectors: electrons coordinates
         :param neu: number of up electrons
         :return:
         """
@@ -185,9 +184,9 @@ class Jastrow:
 
     def chi_term_gradient(self, n_powers, n_vectors, neu):
         """Jastrow chi-term gradient
-        :param r_e: electrons coordinates
+        :param n_powers: electrons coordinates
+        :param n_vectors: nucleus coordinates
         :param neu: number of up electrons
-        :param r_I: nucleus coordinates
         :return:
         """
         res = np.zeros((n_vectors.shape[0], 3))
@@ -218,9 +217,11 @@ class Jastrow:
 
     def f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors, neu):
         """Jastrow f-term gradient
-        :param r_e: electrons coordinates
+        :param e_powers: electrons coordinates
+        :param n_powers: electrons coordinates
+        :param e_vectors: electrons coordinates
+        :param n_vectors: electrons coordinates
         :param neu: number of up electrons
-        :param r_I: nucleus coordinates
         :return:
         """
         res = np.zeros((e_vectors.shape[0], 3))
@@ -285,7 +286,7 @@ class Jastrow:
 
     def u_term_laplacian(self, e_powers, neu):
         """Jastrow u-term laplacian
-        :param r_e: electrons coordinates
+        :param e_powers: electrons coordinates
         :param neu: number of up electrons
         :return:
         """
@@ -320,34 +321,33 @@ class Jastrow:
                     )
         return 2 * res
 
-    def chi_term_laplacian(self, e_powers, neu):
+    def chi_term_laplacian(self, n_powers, neu):
         """Jastrow chi-term laplacian
-        :param r_e: electrons coordinates
+        :param n_powers: electrons coordinates
         :param neu: number of up electrons
-        :param r_I: nucleus coordinates
         :return:
         """
         res = 0.0
         if not self.chi_cutoff.any():
             return res
 
-        for i in range(e_powers.shape[0]):
+        for i in range(n_powers.shape[0]):
             p = self.chi_parameters[i]
-            for j in range(e_powers.shape[1]):
-                r = e_powers[i, j, 1]
+            for j in range(n_powers.shape[1]):
+                r = n_powers[i, j, 1]
                 if r <= self.chi_cutoff[i]:
                     chi_set = int(j >= neu)
                     poly = 0.0
                     for k in range(p.shape[0]):
-                        poly += p[k, chi_set] * e_powers[i, j, k]
+                        poly += p[k, chi_set] * n_powers[i, j, k]
 
                     poly_diff = 0.0
                     for k in range(1, p.shape[0]):
-                        poly_diff += k * p[k, chi_set] * e_powers[i, j, k-1]
+                        poly_diff += k * p[k, chi_set] * n_powers[i, j, k-1]
 
                     poly_diff_2 = 0.0
                     for k in range(2, p.shape[0]):
-                        poly_diff_2 += k * (k-1) * p[k, chi_set] * e_powers[i, j, k-2]
+                        poly_diff_2 += k * (k-1) * p[k, chi_set] * n_powers[i, j, k-2]
 
                     C = self.trunc
                     L = self.chi_cutoff[i]
@@ -364,9 +364,11 @@ class Jastrow:
             ∇²(f*g) = ∇²(f)*g + 2*∇(f)*∇(g) + f*∇²(g)
         then Laplace operator of spherically symmetric function (in 3-D space) is
             ∇²(f) = d²f/dr² + 2/r * df/dr
-        :param r_e: electrons coordinates
+        :param e_powers: electrons coordinates
+        :param n_powers: nucleus coordinates
+        :param e_vectors: electrons coordinates
+        :param n_vectors: nucleus coordinates
         :param neu: number of up electrons
-        :param r_I: nucleus coordinates
         :return:
         """
         res = 0.0
@@ -469,15 +471,16 @@ class Jastrow:
                         res += laplacian + 2 * gradient + 2 * dot_product
         return res
 
-    def value(self, r_e, neu, r_I):
+    def value(self, e_vectors, n_vectors, neu):
         """Jastrow
-        :param r_e: electrons coordinates
+        :param e_vectors: electrons coordinates
+        :param n_vectors: nucleus coordinates
         :param neu: number of up electrons
-        :param r_I: nucleus coordinates
         :return:
         """
-        e_powers = self.ee_powers(r_e)
-        n_powers = self.en_powers(r_e, r_I)
+
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
 
         return self.u_term(e_powers, neu) + self.chi_term(n_powers, neu) + self.f_term(e_powers, n_powers, neu)
 
@@ -510,23 +513,17 @@ class Jastrow:
 
         return res / delta / delta
 
-    def gradient(self, r_e, neu, r_I):
+    def gradient(self, e_vectors, n_vectors, neu):
 
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(r_e, r_I)
-
-        e_powers = self.ee_powers(r_e)
-        n_powers = self.en_powers(r_e, r_I)
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
 
         return self.u_term_gradient(e_powers, e_vectors, neu) + self.chi_term_gradient(n_powers, n_vectors, neu) + self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors, neu)
 
-    def laplacian(self, r_e, neu, r_I):
+    def laplacian(self, e_vectors, n_vectors, neu):
 
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(r_e, r_I)
-
-        e_powers = self.ee_powers(r_e)
-        n_powers = self.en_powers(r_e, r_I)
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
 
         return self.u_term_laplacian(e_powers, neu) + self.chi_term_laplacian(n_powers, neu) + self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors, neu)
 
