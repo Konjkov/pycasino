@@ -128,18 +128,18 @@ class Wfn:
         self.mo_down = mo_down
         self.coeff = coeff
 
-    def AO_wfn(self, r_e, r_I):
+    def AO_wfn(self, n_vectors):
         """
         Atomic orbitals for every electron
         :param r_e: electrons coordinates shape = (nelec, 3)
         :param r_I: atoms coordinates shape = (nelec, 3)
         :return: AO matrix shape = (nelec, nbasis_functions)
         """
-        orbital = np.zeros((r_e.shape[0], self.nbasis_functions))
-        for i in range(r_e.shape[0]):
+        orbital = np.zeros((n_vectors.shape[0], self.nbasis_functions))
+        for i in range(n_vectors.shape[0]):
             ao = 0
-            for atom in range(r_I.shape[0]):
-                rI = r_e[i] - r_I[atom]
+            for atom in range(n_vectors.shape[1]):
+                rI = n_vectors[i, atom]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
                 angular_part_data = angular_part(rI)
                 p = 0
@@ -159,15 +159,15 @@ class Wfn:
                     ao += 2*l+1
         return orbital
 
-    def AO_gradient(self, r_e, r_I):
+    def AO_gradient(self, n_vectors):
         """Gradient matrix."""
-        orbital_x = np.zeros((r_e.shape[0], self.nbasis_functions))
-        orbital_y = np.zeros((r_e.shape[0], self.nbasis_functions))
-        orbital_z = np.zeros((r_e.shape[0], self.nbasis_functions))
-        for i in range(r_e.shape[0]):
+        orbital_x = np.zeros((n_vectors.shape[0], self.nbasis_functions))
+        orbital_y = np.zeros((n_vectors.shape[0], self.nbasis_functions))
+        orbital_z = np.zeros((n_vectors.shape[0], self.nbasis_functions))
+        for i in range(n_vectors.shape[0]):
             ao = 0
-            for atom in range(r_I.shape[0]):
-                rI = r_e[i] - r_I[atom]
+            for atom in range(n_vectors.shape[1]):
+                rI = n_vectors[i, atom]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
                 angular_part_data = angular_part(rI)
                 gradient_angular_part_data = gradient_angular_part(rI)
@@ -197,13 +197,13 @@ class Wfn:
                     ao += 2*l+1
         return orbital_x, orbital_y, orbital_z
 
-    def AO_laplacian(self, r_e, r_I):
+    def AO_laplacian(self, n_vectors):
         """Laplacian matrix."""
-        orbital = np.zeros((r_e.shape[0], self.nbasis_functions))
-        for i in range(r_e.shape[0]):
+        orbital = np.zeros((n_vectors.shape[0], self.nbasis_functions))
+        for i in range(n_vectors.shape[0]):
             ao = 0
-            for atom in range(r_I.shape[0]):
-                rI = r_e[i] - r_I[atom]
+            for atom in range(n_vectors.shape[1]):
+                rI = n_vectors[i, atom]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
                 angular_part_data = angular_part(rI)
                 p = 0
@@ -225,54 +225,54 @@ class Wfn:
                     ao += 2*l+1
         return orbital
 
-    def value(self, r_e, neu, atom_positions):
-        ao = self.AO_wfn(r_e, atom_positions)
+    def value(self, n_vectors, neu):
+        ao = self.AO_wfn(n_vectors)
 
         res = 0.0
         for i in range(self.coeff.shape[0]):
             res += self.coeff[i] * np.linalg.det(np.dot(self.mo_up[i], ao[:neu].T)) * np.linalg.det(np.dot(self.mo_down[i], ao[neu:].T))
         return res
 
-    def numerical_gradient(self, r_e, neu, ned, atom_positions):
+    def numerical_gradient(self, n_vectors, neu, ned):
         """Numerical gradient
         :param r_e: electrons coordinates shape = (nelec, 3)
         """
         delta = 0.00001
 
-        res = np.zeros(r_e.shape)
-        for i in range(r_e.shape[0]):
-            for j in range(r_e.shape[1]):
-                r_e[i, j] -= delta
-                res[i, j] -= self.value(r_e, neu, atom_positions)
-                r_e[i, j] += 2 * delta
-                res[i, j] += self.value(r_e, neu, atom_positions)
-                r_e[i, j] -= delta
+        res = np.zeros((n_vectors.shape[0], 3))
+        for i in range(n_vectors.shape[0]):
+            for j in range(3):
+                n_vectors[i, :, j] -= delta
+                res[i, j] -= self.value(n_vectors, neu)
+                n_vectors[i, :, j] += 2 * delta
+                res[i, j] += self.value(n_vectors, neu)
+                n_vectors[i, :, j] -= delta
 
         return res / delta / 2
 
-    def numerical_laplacian(self, r_e, neu, ned, atom_positions):
+    def numerical_laplacian(self, n_vectors, neu, ned):
         """Numerical laplacian
         :param r_e: electrons coordinates shape = (nelec, 3)
         """
         delta = 0.00001
 
         res = 0.0
-        for i in range(r_e.shape[0]):
-            for j in range(r_e.shape[1]):
-                r_e[i, j] -= delta
-                res += self.value(r_e, neu, atom_positions)
-                r_e[i, j] += 2 * delta
-                res += self.value(r_e, neu, atom_positions)
-                r_e[i, j] -= delta
-        res -= 2 * r_e.size * self.value(r_e, neu, atom_positions)
+        for i in range(n_vectors.shape[0]):
+            for j in range(3):
+                n_vectors[i, :, j] -= delta
+                res += self.value(n_vectors, neu)
+                n_vectors[i, :, j] += 2 * delta
+                res += self.value(n_vectors, neu)
+                n_vectors[i, :, j] -= delta
+        res -= 6 * n_vectors.shape[0] * self.value(n_vectors, neu)
 
         return res / delta / delta
 
-    def gradient(self, r_e, neu, ned, r_I):
+    def gradient(self, n_vectors, neu, ned):
         """∇(phi).
         """
-        ao = self.AO_wfn(r_e, r_I)
-        gradient_x, gradient_y, gradient_z = self.AO_gradient(r_e, r_I)
+        ao = self.AO_wfn(n_vectors)
+        gradient_x, gradient_y, gradient_z = self.AO_gradient(n_vectors)
         cond_u = np.arange(neu) * np.ones((neu, neu))
         cond_d = np.arange(ned) * np.ones((ned, ned))
 
@@ -301,11 +301,11 @@ class Wfn:
 
         return res
 
-    def laplacian(self, r_e, neu, ned, r_I):
+    def laplacian(self, n_vectors, neu, ned):
         """∇²(phi).
         """
-        ao = self.AO_wfn(r_e, r_I)
-        ao_laplacian = self.AO_laplacian(r_e, r_I)
+        ao = self.AO_wfn(n_vectors)
+        ao_laplacian = self.AO_laplacian(n_vectors)
         cond_u = np.arange(neu) * np.ones((neu, neu))
         cond_d = np.arange(ned) * np.ones((ned, ned))
 

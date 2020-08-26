@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 from readers.casino import Casino
+from overload import subtract_outer
 
 """
 https://github.com/numba/numba/issues/4522
@@ -484,32 +485,38 @@ class Jastrow:
 
         return self.u_term(e_powers, neu) + self.chi_term(n_powers, neu) + self.f_term(e_powers, n_powers, neu)
 
-    def numerical_gradient(self, r_e, neu, r_I):
+    def numerical_gradient(self, e_vectors, n_vectors, neu):
         delta = 0.00001
 
-        res = np.zeros(r_e.shape)
+        res = np.zeros((e_vectors.shape[0], 3))
 
-        for i in range(r_e.shape[0]):
-            for j in range(r_e.shape[1]):
-                r_e[i, j] -= delta
-                res[i, j] -= self.value(r_e, neu, r_I)
-                r_e[i, j] += 2 * delta
-                res[i, j] += self.value(r_e, neu, r_I)
-                r_e[i, j] -= delta
+        for i in range(e_vectors.shape[0]):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                n_vectors[i, :, j] -= delta
+                res[i, j] -= self.value(e_vectors, n_vectors, neu)
+                e_vectors[i, :, j] += 2 * delta
+                n_vectors[i, :, j] += 2 * delta
+                res[i, j] += self.value(e_vectors, n_vectors, neu)
+                e_vectors[i, :, j] -= delta
+                n_vectors[i, :, j] -= delta
 
         return res / delta / 2
 
-    def numerical_laplacian(self, r_e, neu, r_I):
+    def numerical_laplacian(self, e_vectors, n_vectors, neu):
         delta = 0.00001
 
-        res = -2 * r_e.size * self.value(r_e, neu, r_I)
-        for i in range(r_e.shape[0]):
-            for j in range(r_e.shape[1]):
-                r_e[i, j] -= delta
-                res += self.value(r_e, neu, r_I)
-                r_e[i, j] += 2 * delta
-                res += self.value(r_e, neu, r_I)
-                r_e[i, j] -= delta
+        res = -2 * r_e.size * self.value(e_vectors, n_vectors, neu)
+        for i in range(e_vectors.shape[0]):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                n_vectors[i, :, j] -= delta
+                res += self.value(e_vectors, n_vectors, neu)
+                e_vectors[i, :, j] += 2 * delta
+                n_vectors[i, :, j] += 2 * delta
+                res += self.value(e_vectors, n_vectors, neu)
+                e_vectors[i, :, j] -= delta
+                n_vectors[i, :, j] -= delta
 
         return res / delta / delta
 
@@ -556,7 +563,9 @@ if __name__ == '__main__':
             y_grid = np.zeros(steps)
             for i in range(100):
                 r_e = np.array([[0.0, 0.0, 0.0], [x_grid[i], 0.0, 0.0]])
-                y_grid[i] = jastrow.u_term(r_e, 2-spin_dep)
+                e_vectors = subtract_outer(r_e, r_e)
+                e_powers = jastrow.ee_powers(e_vectors)
+                y_grid[i] = jastrow.u_term(e_powers, 2-spin_dep)
                 if spin_dep == 1:
                     y_grid[i] /= 2.0
             plt.plot(x_grid, y_grid, label=['uu', 'ud/2', 'dd'][spin_dep])
@@ -574,7 +583,9 @@ if __name__ == '__main__':
                     sl = slice(atom, atom+1)
                     jastrow.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)
                     [jastrow.chi_parameters.append(p) for p in casino.jastrow.chi_parameters[sl]]
-                    y_grid[i] = jastrow.chi_term(r_e, 1-spin_dep, casino.wfn.atom_positions[sl])
+                    n_vectors = subtract_outer(r_e, casino.wfn.atom_positions[sl])
+                    n_powers = jastrow.en_powers(n_vectors)
+                    y_grid[i] = jastrow.chi_term(n_powers, 1-spin_dep)
                 plt.plot(x_grid, y_grid, label=f'atom {atom} ' + ['u', 'd'][spin_dep])
         plt.xlabel('r_eN (au)')
         plt.ylabel('polynomial part')
@@ -599,7 +610,11 @@ if __name__ == '__main__':
                         sl = slice(atom, atom + 1)
                         jastrow.f_parameters = nb.typed.List.empty_list(f_parameters_type)
                         [jastrow.f_parameters.append(p) for p in casino.jastrow.f_parameters[sl]]
-                        z_grid[i, j] = jastrow.f_term(r_e, 2-spin_dep, casino.wfn.atom_positions[sl])
+                        e_vectors = subtract_outer(r_e, r_e)
+                        e_powers = jastrow.ee_powers(e_vectors)
+                        n_vectors = subtract_outer(r_e, casino.wfn.atom_positions[sl])
+                        n_powers = jastrow.en_powers(n_vectors)
+                        z_grid[i, j] = jastrow.f_term(e_powers, n_powers, 2-spin_dep)
                 axis.plot_wireframe(x_grid, y_grid, z_grid, label=f'atom {atom} ' + ['uu', 'ud', 'dd'][spin_dep])
         axis.set_xlabel('r_e1N (au)')
         axis.set_ylabel('r_e2N (au)')

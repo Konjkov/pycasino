@@ -38,7 +38,8 @@ def optimal_vmc_step(r_e, neu, ned, atom_positions, wfn, jastrow):
     opt_steps = 10000
 
     def callback(tau, acc_ration):
-        print(f'tau * electrons = {tau[0] * (neu + ned):.5f}, acc_ration = {acc_ration[0] + 0.5:.5f}')
+        """dr = sqrt(3*dtvmc)"""
+        print(f'dr * electrons = {tau[0] * (neu + ned):.5f}, acc_ration = {acc_ration[0] + 0.5:.5f}')
 
     def f(tau):
         return equilibration(opt_steps, tau, r_e, neu, ned, atom_positions, wfn, jastrow) - 0.5
@@ -89,29 +90,23 @@ random_step = random_normal_step
 
 
 @nb.jit(nopython=True)
-def guiding_function(r_e, neu, atom_positions, wfn, jastrow):
+def guiding_function(e_vectors, n_vectors, neu, wfn, jastrow):
     """wave function in general form"""
 
-    e_vectors = subtract_outer(r_e, r_e)
-    n_vectors = subtract_outer(r_e, atom_positions)
-
-    return np.exp(jastrow.value(e_vectors, n_vectors, neu)) * wfn.value(r_e, neu, atom_positions)
+    return np.exp(jastrow.value(e_vectors, n_vectors, neu)) * wfn.value(n_vectors, neu)
 
 
 @nb.jit(nopython=True)
-def local_energy(r_e, neu, ned, atom_positions, wfn, jastrow, atom_charges):
-
-    e_vectors = subtract_outer(r_e, r_e)
-    n_vectors = subtract_outer(r_e, atom_positions)
+def local_energy(e_vectors, n_vectors, neu, ned, wfn, jastrow, atom_charges):
 
     j_g = jastrow.gradient(e_vectors, n_vectors, neu)
     j_l = jastrow.laplacian(e_vectors, n_vectors, neu)
-    w = wfn.value(r_e, neu, atom_positions)
-    w_g = wfn.gradient(r_e, neu, ned, atom_positions) / w
-    w_l = wfn.laplacian(r_e, neu, ned, atom_positions) / w
+    w = wfn.value(n_vectors, neu)
+    w_g = wfn.gradient(n_vectors, neu, ned) / w
+    w_l = wfn.laplacian(n_vectors, neu, ned) / w
     F = np.sum((w_g + j_g) * (w_g + j_g)) / 2
     T = (np.sum(w_g * w_g) - w_l - j_l) / 4
-    return coulomb(r_e, atom_positions, atom_charges) + 2 * T - F
+    return coulomb(e_vectors, n_vectors, atom_charges) + 2 * T - F
 
 
 @nb.jit(nopython=True)
@@ -122,7 +117,10 @@ def equilibration(steps, tau, r_e, neu, ned, atom_positions, wfn, jastrow):
     for j in range(steps):
         new_r_e = r_e + random_step(tau, neu + ned)
 
-        new_p = guiding_function(new_r_e, neu, atom_positions, wfn, jastrow)
+        e_vectors = subtract_outer(new_r_e, new_r_e)
+        n_vectors = subtract_outer(new_r_e, atom_positions)
+
+        new_p = guiding_function(e_vectors, n_vectors, neu, wfn, jastrow)
         j += 1
         if new_p**2 > np.random.random() * p**2:
             r_e, p = new_r_e, new_p
@@ -139,10 +137,13 @@ def simple_accumulation(steps, tau, r_e, neu, ned, atom_positions, wfn, jastrow,
     for j in range(steps):
         new_r_e = r_e + random_step(tau, neu + ned)
 
-        new_p = guiding_function(new_r_e, neu, atom_positions, wfn, jastrow)
+        e_vectors = subtract_outer(new_r_e, new_r_e)
+        n_vectors = subtract_outer(new_r_e, atom_positions)
+
+        new_p = guiding_function(e_vectors, n_vectors, neu, wfn, jastrow)
         if new_p**2 > np.random.random() * p**2:
+            loc_E = local_energy(e_vectors, n_vectors, neu, ned, wfn, jastrow, atom_charges)
             r_e, p = new_r_e, new_p
-            loc_E = local_energy(r_e, neu, ned, atom_positions, wfn, jastrow, atom_charges)
         E[j] = loc_E
     return E
 
@@ -155,8 +156,12 @@ def averaging_accumulation(steps, tau, r_e, neu, ned, atom_positions, wfn, jastr
     for j in range(steps):
         new_r_e = r_e + random_step(tau, neu + ned)
 
-        new_p = guiding_function(new_r_e, neu, atom_positions, wfn, jastrow)
-        new_loc_E = local_energy(new_r_e, neu, ned, atom_positions, wfn, jastrow, atom_charges)
+        e_vectors = subtract_outer(new_r_e, new_r_e)
+        n_vectors = subtract_outer(new_r_e, atom_positions)
+
+        new_p = guiding_function(e_vectors, n_vectors, neu, wfn, jastrow)
+        new_loc_E = local_energy(e_vectors, n_vectors, neu, ned, wfn, jastrow, atom_charges)
+
         E[j] = min((new_p/p)**2, 1) * new_loc_E + (1 - min((new_p/p)**2, 1)) * loc_E
         if (new_p/p)**2 > np.random.random():
             r_e, p, loc_E = new_r_e, new_p, new_loc_E
@@ -182,7 +187,7 @@ def vmc(vmc_nstep, vmc_equil_nstep, neu, ned):
     )
 
     acc_ratio = equilibration(vmc_equil_nstep, 1/(neu + ned), r_e, neu, ned, casino.wfn.atom_positions, wfn, jastrow)
-    print(f'tau * electrons = 1.00000, acc_ration = {acc_ratio}')
+    print(f'dr * electrons = 1.00000, acc_ration = {acc_ratio}')
 
     tau = optimal_vmc_step(r_e, neu, ned, casino.wfn.atom_positions, wfn, jastrow)
 
@@ -191,7 +196,7 @@ def vmc(vmc_nstep, vmc_equil_nstep, neu, ned):
 
 def main(casino):
 
-    return vmc(casino.input.vmc_nstep, casino.input.vmc_equil_nstep, casino.input.neu, casino.input.ned)
+    return vmc(casino.input.vmc_nstep//10, casino.input.vmc_equil_nstep, casino.input.neu, casino.input.ned)
 
 
 if __name__ == '__main__':
@@ -207,7 +212,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
     # path = 'test/gwfn/be/HF/def2-QZVP/VMC_OPT_BF/emin_BF/8_8_44__9_9_33'
     # path = 'test/gwfn/b/HF/cc-pVQZ/'
     # path = 'test/gwfn/n/HF/cc-pVQZ/'
@@ -230,11 +235,17 @@ if __name__ == '__main__':
     start = default_timer()
     E = main(casino)
     end = default_timer()
-    reblock_data = pyblock.blocking.reblock(E + nuclear_repulsion(casino.wfn.atom_positions, casino.wfn.atom_charges))
+    print(
+        np.mean(E) + nuclear_repulsion(casino.wfn.atom_positions, casino.wfn.atom_charges),
+        np.var(E, ddof=1),
+        np.std(E, ddof=1)
+    )
+    print()
+    # reblock_data = pyblock.blocking.reblock(E + nuclear_repulsion(casino.wfn.atom_positions, casino.wfn.atom_charges))
     # for reblock_iter in reblock_data:
     #     print(reblock_iter)
-    opt = pyblock.blocking.find_optimal_block(E.size, reblock_data)
-    opt_data = reblock_data[opt[0]]
-    print(opt_data)
+    # opt = pyblock.blocking.find_optimal_block(E.size, reblock_data)
+    # opt_data = reblock_data[opt[0]]
+    # print(opt_data)
     # print(np.mean(opt_data.mean), '+/-', np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size))
     print(f'total time {end-start}')
