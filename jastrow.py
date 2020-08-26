@@ -150,13 +150,13 @@ class Jastrow:
                         res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
         return res
 
-    def u_term_gradient(self, e_powers, neu, r_e):
+    def u_term_gradient(self, e_powers, e_vectors, neu):
         """Jastrow u-term gradient
         :param r_e: electrons coordinates
         :param neu: number of up electrons
         :return:
         """
-        res = np.zeros(r_e.shape)
+        res = np.zeros((e_vectors.shape[0], 3))
 
         if not self.u_cutoff.any():
             return res
@@ -164,7 +164,7 @@ class Jastrow:
         p = self.u_parameters[0]
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
-                r_vec = r_e[i] - r_e[j]  # FIXME to slow
+                r_vec = e_vectors[i, j]
                 r = e_powers[i, j, 1]
                 if r <= self.u_cutoff[0]:
                     u_set = int(i >= neu) + int(j >= neu)
@@ -183,14 +183,14 @@ class Jastrow:
                     res[j, :] -= r_vec * gradient
         return res
 
-    def chi_term_gradient(self, n_powers, neu, r_e, r_I):
+    def chi_term_gradient(self, n_powers, n_vectors, neu):
         """Jastrow chi-term gradient
         :param r_e: electrons coordinates
         :param neu: number of up electrons
         :param r_I: nucleus coordinates
         :return:
         """
-        res = np.zeros(r_e.shape)
+        res = np.zeros((n_vectors.shape[0], 3))
 
         if not self.chi_cutoff.any():
             return res
@@ -198,7 +198,7 @@ class Jastrow:
         for i in range(n_powers.shape[0]):
             p = self.chi_parameters[i]
             for j in range(n_powers.shape[1]):
-                r_vec = r_e[j] - r_I[i]  # FIXME to slow
+                r_vec = n_vectors[j, i]
                 r = n_powers[i, j, 1]
                 if r <= self.chi_cutoff[i]:
                     chi_set = int(j >= neu)
@@ -216,14 +216,14 @@ class Jastrow:
                     res[j, :] += r_vec * gradient
         return res
 
-    def f_term_gradient(self, e_powers, n_powers, neu, r_e, r_I):
+    def f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors, neu):
         """Jastrow f-term gradient
         :param r_e: electrons coordinates
         :param neu: number of up electrons
         :param r_I: nucleus coordinates
         :return:
         """
-        res = np.zeros(r_e.shape)
+        res = np.zeros((e_vectors.shape[0], 3))
 
         if not self.f_cutoff.any():
             return res
@@ -232,9 +232,9 @@ class Jastrow:
             p = self.f_parameters[i]
             for j in range(n_powers.shape[1] - 1):
                 for k in range(j+1, e_powers.shape[0]):
-                    r_e1I_vec = r_e[j] - r_I[i]  # FIXME to slow
-                    r_e2I_vec = r_e[k] - r_I[i]  # FIXME to slow
-                    r_ee_vec = r_e[j] - r_e[k]  # FIXME to slow
+                    r_e1I_vec = n_vectors[j, i]
+                    r_e2I_vec = n_vectors[k, i]
+                    r_ee_vec = e_vectors[j, k]
                     r_e1I = n_powers[i, j, 1]
                     r_e2I = n_powers[i, k, 1]
                     r_ee = e_powers[j, k, 1]
@@ -358,7 +358,7 @@ class Jastrow:
                     )
         return res
 
-    def f_term_laplacian(self, e_powers, n_powers, neu, r_e, r_I):
+    def f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors, neu):
         """Jastrow f-term laplacian
         f-term is a product of two spherically symmetric functions f(r_eI) and g(r_ee) so using
             ∇²(f*g) = ∇²(f)*g + 2*∇(f)*∇(g) + f*∇²(g)
@@ -377,9 +377,9 @@ class Jastrow:
             p = self.f_parameters[i]
             for j in range(n_powers.shape[1] - 1):
                 for k in range(j + 1, e_powers.shape[0]):
-                    r_e1I_vec = r_e[j] - r_I[i]  # FIXME to slow
-                    r_e2I_vec = r_e[k] - r_I[i]  # FIXME to slow
-                    r_ee_vec = r_e[j] - r_e[k]  # FIXME to slow
+                    r_e1I_vec = n_vectors[j, i]
+                    r_e2I_vec = n_vectors[k, i]
+                    r_ee_vec = e_vectors[j, k]
                     r_e1I = n_powers[i, j, 1]
                     r_e2I = n_powers[i, k, 1]
                     r_ee = e_powers[j, k, 1]
@@ -512,17 +512,23 @@ class Jastrow:
 
     def gradient(self, r_e, neu, r_I):
 
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = subtract_outer(r_e, r_I)
+
         e_powers = self.ee_powers(r_e)
         n_powers = self.en_powers(r_e, r_I)
 
-        return self.u_term_gradient(e_powers, neu, r_e) + self.chi_term_gradient(n_powers, neu, r_e, r_I) + self.f_term_gradient(e_powers, n_powers, neu, r_e, r_I)
+        return self.u_term_gradient(e_powers, e_vectors, neu) + self.chi_term_gradient(n_powers, n_vectors, neu) + self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors, neu)
 
     def laplacian(self, r_e, neu, r_I):
 
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = subtract_outer(r_e, r_I)
+
         e_powers = self.ee_powers(r_e)
         n_powers = self.en_powers(r_e, r_I)
 
-        return self.u_term_laplacian(e_powers, neu) + self.chi_term_laplacian(n_powers, neu) + self.f_term_laplacian(e_powers, n_powers, neu, r_e, r_I)
+        return self.u_term_laplacian(e_powers, neu) + self.chi_term_laplacian(n_powers, neu) + self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors, neu)
 
 
 if __name__ == '__main__':
