@@ -120,14 +120,21 @@ class Gwfn(Base):
 
     def set_cusp(self):
         """set cusped orbitals"""
-        for atom in range(self._natoms):  # FIXME brocken
-            for shell in self.shells[self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1]:
-                if shell['moment'] == 0 and shell['primitives'] >= 3:
-                    primitives, coefficients, exponents = multiple_fits(shell, atom['charge'])
-                    shell['type'] = SLATER_TYPE
-                    shell['primitives'] = primitives
-                    shell['coefficients'] = np.append(coefficients, np.zeros((self._max_primitives - primitives,)))
-                    shell['exponents'] = np.append(exponents, np.zeros((self._max_primitives - primitives,)))
+        for atom in range(self._natoms):
+            p = 0
+            for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
+                if self.shell_moments[nshell] == 0 and self.primitives[nshell] >= 3:
+                    primitives = self.primitives[nshell]
+                    coefficients = self.coefficients[p:p + primitives]
+                    exponents = self.exponents[p:p + primitives]
+                    charge = self.atom_charges[atom]
+                    new_primitives, new_coefficients, new_exponents = multiple_fits(coefficients, exponents, charge)
+                    self.orbital_types[nshell] = SLATER_TYPE
+                    self.coefficients[p:p + primitives] = np.zeros((primitives, ))
+                    self.coefficients[p:p + new_primitives] = new_coefficients
+                    self.exponents[p:p + primitives] = np.zeros((primitives, ))
+                    self.exponents[p:p + new_primitives] = new_exponents
+                    p += primitives
 
 
 class Stowfn(Base):

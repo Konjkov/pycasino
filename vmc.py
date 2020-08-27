@@ -196,7 +196,7 @@ def vmc(vmc_nstep, vmc_equil_nstep, neu, ned):
 
 def main(casino):
 
-    return vmc(casino.input.vmc_nstep//10, casino.input.vmc_equil_nstep, casino.input.neu, casino.input.ned)
+    return vmc(casino.input.vmc_nstep, casino.input.vmc_equil_nstep, casino.input.neu, casino.input.ned)
 
 
 if __name__ == '__main__':
@@ -209,10 +209,10 @@ if __name__ == '__main__':
 
     # path = 'test/gwfn/h/HF/cc-pVQZ/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/'
-    # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
     # path = 'test/gwfn/be/HF/def2-QZVP/VMC_OPT_BF/emin_BF/8_8_44__9_9_33'
     # path = 'test/gwfn/b/HF/cc-pVQZ/'
     # path = 'test/gwfn/n/HF/cc-pVQZ/'
@@ -235,17 +235,11 @@ if __name__ == '__main__':
     start = default_timer()
     E = main(casino)
     end = default_timer()
-    print(
-        np.mean(E) + nuclear_repulsion(casino.wfn.atom_positions, casino.wfn.atom_charges),
-        np.var(E, ddof=1),
-        np.std(E, ddof=1)
-    )
-    print()
-    # reblock_data = pyblock.blocking.reblock(E + nuclear_repulsion(casino.wfn.atom_positions, casino.wfn.atom_charges))
+    reblock_data = pyblock.blocking.reblock(E + nuclear_repulsion(casino.wfn.atom_positions, casino.wfn.atom_charges))
     # for reblock_iter in reblock_data:
     #     print(reblock_iter)
-    # opt = pyblock.blocking.find_optimal_block(E.size, reblock_data)
-    # opt_data = reblock_data[opt[0]]
-    # print(opt_data)
+    opt = pyblock.blocking.find_optimal_block(E.size, reblock_data)
+    opt_data = reblock_data[opt[0]]
+    print(opt_data)
     # print(np.mean(opt_data.mean), '+/-', np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size))
     print(f'total time {end-start}')

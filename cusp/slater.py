@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 
 
-def wfn_s(r, shell):
+def wfn_s(r, coefficients, exponents):
     """wfn of single electron of any s-orbital"""
     s_part = 0.0
-    for primitive in range(shell['primitives']):
-        s_part += shell['coefficients'][primitive] * np.exp(-shell['exponents'][primitive] * r * r)
+    for primitive in range(coefficients.shape[0]):
+        s_part += coefficients[primitive] * np.exp(-exponents[primitive] * r * r)
     return s_part
 
 
@@ -36,7 +36,7 @@ def fit(fit_function, xdata, ydata, p0, plot):
     return popt, perr
 
 
-def multiple_fits(shell, Z):
+def multiple_fits(coefficients, exponents, Z):
     """Fit all orbitals in GTO basis with slater orbitals
     """
 
@@ -52,20 +52,21 @@ def multiple_fits(shell, Z):
         """dln(phi)/dr|r=r_nucl = -Z"""
         return a1*np.exp(-zeta1*r)/(zeta1-Z) + a2*np.exp(-zeta2*r)/(zeta2-Z) + a3*np.exp(-zeta3*r)/(zeta3-Z) - (a1 + a2 + a3)*np.exp(-zeta4*r)/(zeta4-Z)
 
-    # fit_function = slater_2
-    # initial_guess = (1, Z-1, Z+1)
+    fit_function = slater_2
+    initial_guess = (1, Z-1, Z+1)
 
-    fit_function = slater_3
-    initial_guess = (1, 1, Z-1, Z+0.1, Z+1)
+    # fit_function = slater_3
+    # initial_guess = (1, 1, Z-1, Z+0.1, Z+1)
 
     # fit_function = slater_4
     # initial_guess = (1, 1, -1, Z-1, Z-1, Z+1, Z+1)
 
     xdata = np.linspace(0.01, 3.0, 50)
-    ydata = wfn_s(xdata, shell)
+    ydata = wfn_s(xdata, coefficients, exponents)
     popt, perr = fit(fit_function, xdata, ydata, initial_guess, True)
-    primitives = len(popt) // 2 + 1
-    exponents = popt[primitives-1:]
-    coefficients = np.append(popt[:primitives-1], -np.sum(popt[:primitives-1])) / (exponents - Z)
-    print('dln(phi)/dr|r=r_nucl =', np.sum(coefficients * exponents/np.sum(coefficients)))
-    return primitives, coefficients, exponents
+    print(popt, perr)
+    new_primitives = len(popt) // 2 + 1
+    new_exponents = popt[new_primitives-1:]
+    new_coefficients = np.append(popt[:new_primitives-1], -np.sum(popt[:new_primitives-1])) / (new_exponents - Z)
+    print('dln(phi)/dr|r=r_nucl =', np.sum(new_coefficients * new_exponents/np.sum(new_coefficients)))
+    return new_primitives, new_coefficients, new_exponents
