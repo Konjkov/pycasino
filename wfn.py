@@ -18,6 +18,7 @@ import numba as nb
 from decorators import pool, thread
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from readers.casino import Casino
+from overload import subtract_outer
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
@@ -353,7 +354,9 @@ def integral(low, high, neu, ned, steps, atom_positions, wfn):
     result = 0.0
     for i in range(steps):
         r_e = random_position(low, high, neu + ned)
-        result += wfn.value(r_e, neu, atom_positions) ** 2
+        n_vectors = subtract_outer(r_e, atom_positions)
+
+        result += wfn.value(n_vectors, neu) ** 2
 
     return result * dV / gamma(neu+1) / gamma(ned+1)
 
