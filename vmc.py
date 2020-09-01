@@ -20,6 +20,11 @@ import scipy as sp
 from decorators import pool, thread
 from readers.casino import Casino
 from overload import subtract_outer
+from logger import logging
+
+
+logger = logging.getLogger('vmc')
+numba_logger = logging.getLogger('numba')
 
 
 @nb.jit(nopython=True)
@@ -39,7 +44,7 @@ def optimal_vmc_step(r_e, neu, ned, atom_positions, wfn, jastrow):
 
     def callback(tau, acc_ration):
         """dr = sqrt(3*dtvmc)"""
-        print(f'dr * electrons = {tau[0] * (neu + ned):.5f}, acc_ration = {acc_ration[0] + 0.5:.5f}')
+        logger.info('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (neu + ned), acc_ration[0] + 0.5)
 
     def f(tau):
         return equilibration(opt_steps, tau, r_e, neu, ned, atom_positions, wfn, jastrow) - 0.5
@@ -187,7 +192,7 @@ def vmc(vmc_nstep, vmc_equil_nstep, neu, ned):
     )
 
     acc_ratio = equilibration(vmc_equil_nstep, 1/(neu + ned), r_e, neu, ned, casino.wfn.atom_positions, wfn, jastrow)
-    print(f'dr * electrons = 1.00000, acc_ration = {acc_ratio}')
+    logger.info('dr * electrons = 1.00000, acc_ration = %.5f', acc_ratio)
 
     tau = optimal_vmc_step(r_e, neu, ned, casino.wfn.atom_positions, wfn, jastrow)
 
@@ -240,6 +245,6 @@ if __name__ == '__main__':
     #     print(reblock_iter)
     opt = pyblock.blocking.find_optimal_block(E.size, reblock_data)
     opt_data = reblock_data[opt[0]]
-    print(opt_data)
+    logger.info(opt_data)
     # print(np.mean(opt_data.mean), '+/-', np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size))
-    print(f'total time {end-start}')
+    logger.info(f'total time {end-start}')

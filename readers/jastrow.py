@@ -145,7 +145,9 @@ class Jastrow:
                                             parameters[l, m, n, 2] = parameters[l, m, n, 0]
                                             parameters[m, l, n, 2] = parameters[m, l, n, 0]
                         for label in f_labels:
-                            self.f_parameters[label-1] = self.fix_f(parameters, f_cutoff)
+                            self.f_parameters[label-1] = self.fix_f_new(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
+                            # self.f_parameters[label-1] = self.fix_f(parameters, f_cutoff)
+                            self.check_f_constrains(self.f_parameters[label-1], f_cutoff, no_dup_u_term, no_dup_chi_term)
                     elif line.startswith('END SET'):
                         f_labels = []
 
@@ -233,6 +235,90 @@ class Jastrow:
         """fix (l=en_order, m=0, n=0) term"""
         f_parameters[f_en_order, 0, 0, :] = sum_2 + f_cutoff * f_parameters[f_en_order - 1, 1, 1, :] / self.trunc
         f_parameters[0, f_en_order, 0, :] = sum_2 + f_cutoff * f_parameters[1, f_en_order - 1, 1, :] / self.trunc
+
+        return f_parameters
+
+    def fix_f_new(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
+        """To find the dependent coefficients of f-term it is necessary to solve
+        the system of linear equations:  ax=b
+        a-matrix has the following rows:
+        (2 * f_en_order + 1) constraints imposed to satisfy electron–electron no-cusp condition.
+        (f_en_order + f_ee_order + 1) constraints imposed to satisfy electron–nucleus no-cusp condition.
+        (f_ee_order + 1) constraints imposed to prevent duplication of u-term
+        (f_en_order + 1) constraints imposed to prevent duplication of chi-term
+        b-column has the sum of independent coefficients for each condition.
+        """
+        f_en_order = f_parameters.shape[0] - 1
+        f_ee_order = f_parameters.shape[2] - 1
+        f_spin_dep = f_parameters.shape[3] - 1
+
+        u_constrains = 2 * f_en_order + 1
+        chi_constrains = f_en_order + f_ee_order + 1
+        no_dup_u_constrains = f_ee_order + 1
+        no_dup_chi_constrains = f_en_order + 1
+
+        n_constraints = u_constrains + chi_constrains
+        if no_dup_u_term:
+            n_constraints += no_dup_u_constrains
+        if no_dup_chi_term:
+            n_constraints += no_dup_chi_constrains
+
+        a = np.zeros((f_spin_dep+1, n_constraints, n_constraints))
+        b = np.zeros((f_spin_dep+1, n_constraints))
+        f_mask = self.get_f_mask(f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
+        p = 0
+        for n in range(f_ee_order + 1):
+            for m in range(f_en_order + 1):
+                for l in range(m, f_en_order + 1):
+                    if f_mask[l, m, n]:
+                        if n == 1:
+                            if l == m:
+                                b[:, l + m] -= f_parameters[l, m, n, :]
+                            else:
+                                b[:, l + m] -= 2 * f_parameters[l, m, n, :]
+                        if m == 1:
+                            b[:, l + n + u_constrains] += f_cutoff * f_parameters[l, m, n, :]
+                        elif m == 0:
+                            b[:, l + n + u_constrains] -= self.trunc * f_parameters[l, m, n, :]
+                            if l == 1:
+                                b[:, n + u_constrains] += f_cutoff * f_parameters[l, m, n, :]
+                            # elif l == 0:
+                            #     if m + n == 3:
+                            #         print('zulu4', self.trunc * f_parameters[l, m, n, 0])
+                            #     b[n + u_constrains] -= self.trunc * f_parameters[l, m, n, 0]
+                    else:
+                        if n == 1:
+                            if l == m:
+                                a[:, l + m, p] = 1
+                            else:
+                                a[:, l + m, p] = 2
+                        if m == 1:
+                            a[:, l + n + u_constrains, p] = - f_cutoff
+                        elif m == 0:
+                            a[:, l + n + u_constrains, p] = self.trunc
+                            if l == 1:
+                                a[:, n + u_constrains, p] = - f_cutoff
+                            elif l == 0:
+                                a[:, n + u_constrains, p] = self.trunc
+                            if no_dup_u_term:
+                                if l == 0:
+                                    a[:, n + u_constrains + chi_constrains + no_dup_u_constrains, p] = 1
+                                if no_dup_chi_term and n == 0:
+                                    a[:, l + u_constrains + chi_constrains + no_dup_u_constrains + no_dup_chi_constrains, p] = 1
+                            else:
+                                if no_dup_chi_term and n == 0:
+                                    a[:, l + u_constrains + chi_constrains + no_dup_chi_constrains, p] = 1
+                        p += 1
+
+        x = np.linalg.solve(a, b)
+
+        p = 0
+        for n in range(f_ee_order + 1):
+            for m in range(f_en_order + 1):
+                for l in range(m, f_en_order + 1):
+                    if not f_mask[l, m, n]:
+                        f_parameters[l, m, n, :] = f_parameters[m, l, n, :] = x[:, p]
+                        p += 1
 
         return f_parameters
 
