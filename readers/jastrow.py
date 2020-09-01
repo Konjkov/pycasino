@@ -145,8 +145,8 @@ class Jastrow:
                                             parameters[l, m, n, 2] = parameters[l, m, n, 0]
                                             parameters[m, l, n, 2] = parameters[m, l, n, 0]
                         for label in f_labels:
-                            self.f_parameters[label-1] = self.fix_f_new(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
-                            # self.f_parameters[label-1] = self.fix_f(parameters, f_cutoff)
+                            # self.f_parameters[label-1] = self.fix_f_new(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
+                            self.f_parameters[label-1] = self.fix_f(parameters, f_cutoff)
                             self.check_f_constrains(self.f_parameters[label-1], f_cutoff, no_dup_u_term, no_dup_chi_term)
                     elif line.startswith('END SET'):
                         f_labels = []
