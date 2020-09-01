@@ -283,9 +283,7 @@ class Jastrow:
                             if l == 1:
                                 b[:, n + u_constrains] += f_cutoff * f_parameters[l, m, n, :]
                             # elif l == 0:
-                            #     if m + n == 3:
-                            #         print('zulu4', self.trunc * f_parameters[l, m, n, 0])
-                            #     b[n + u_constrains] -= self.trunc * f_parameters[l, m, n, 0]
+                            #     b[:, n + u_constrains] -= self.trunc * f_parameters[l, m, n, :]
                     else:
                         if n == 1:
                             if l == m:
@@ -298,16 +296,16 @@ class Jastrow:
                             a[:, l + n + u_constrains, p] = self.trunc
                             if l == 1:
                                 a[:, n + u_constrains, p] = - f_cutoff
-                            elif l == 0:
-                                a[:, n + u_constrains, p] = self.trunc
+                            # elif l == 0:
+                            #     a[:, n + u_constrains, p] = self.trunc
                             if no_dup_u_term:
                                 if l == 0:
-                                    a[:, n + u_constrains + chi_constrains + no_dup_u_constrains, p] = 1
+                                    a[:, n + u_constrains + chi_constrains, p] = 1
                                 if no_dup_chi_term and n == 0:
-                                    a[:, l + u_constrains + chi_constrains + no_dup_u_constrains + no_dup_chi_constrains, p] = 1
+                                    a[:, l + u_constrains + chi_constrains + no_dup_u_constrains, p] = 1
                             else:
                                 if no_dup_chi_term and n == 0:
-                                    a[:, l + u_constrains + chi_constrains + no_dup_chi_constrains, p] = 1
+                                    a[:, l + u_constrains + chi_constrains, p] = 1
                         p += 1
 
         x = np.linalg.solve(a, b)
