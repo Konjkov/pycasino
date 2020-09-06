@@ -26,7 +26,7 @@ class Gjastrow:
         """Load cutoff type.
         """
         e_rank, n_rank = term['Rank']
-        e_cutoff_type = n_cutoff_type = []
+        e_cutoff_type = n_cutoff_type = ''
         if e_rank > 1:
             e_cutoff_type = term['e-e cutoff']['Type']
         if n_rank > 0:
@@ -37,7 +37,7 @@ class Gjastrow:
         """Load truncation constant.
         """
         e_rank, n_rank = term['Rank']
-        e_trunc = n_trunc = []
+        e_trunc = n_trunc = 0
         if e_rank > 1 and term.get('e-e cutoff'):
             e_trunc = term['e-e cutoff']['Constants']['C']
         if n_rank > 0 and term.get('e-n cutoff'):
@@ -48,7 +48,7 @@ class Gjastrow:
         """Load parameters into 1-dimensional array.
         """
         e_rank, n_rank = term['Rank']
-        e_parameters = n_parameters = []
+        e_parameters = n_parameters = np.zeros((0,))
         if e_rank > 1 and term.get('e-e cutoff'):
             parameters = term['e-e cutoff']['Parameters']
             e_parameters = np.array([channel['L'][0] for channel in parameters.values()], np.float)
@@ -61,7 +61,7 @@ class Gjastrow:
         """Load basis type.
         """
         e_rank, n_rank = term['Rank']
-        e_basis_type = n_basis_type = []
+        e_basis_type = n_basis_type = ''
         if e_rank > 1:
             e_basis_type = term['e-e basis']['Type']
         if n_rank > 0:
@@ -92,13 +92,14 @@ class Gjastrow:
         with open(file, 'r') as f:
             self._jastrow_data = safe_load(f)['JASTROW']
         for key, term in self._jastrow_data.items():
-            if key.startswith('TERM 2'):
+            if key.startswith('TERM 1'):
                 self.ee_cusp = self.get_ee_cusp(term)
                 self.ee_basis_type, self.en_basis_type = self.get_basis_type(term)
                 self.ee_cutoff_type, self.en_cutoff_type = self.get_cutoff_type(term)
                 self.e_trunc, self.n_trunc = self.get_trunc(term)
                 self.e_parameters, self.n_parameters = self.get_parameters(term)
                 self.linear_parameters = self.get_linear_parameters(term)
+                self.linear_parameters[:, 0] = (self.linear_parameters[:, 1] - np.array([1/4, 1/2]) / (-self.e_parameters) ** self.e_trunc)* self.e_parameters / self.e_trunc
                 self.permutation = []
 
 

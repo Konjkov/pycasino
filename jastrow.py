@@ -78,7 +78,7 @@ class Jastrow:
 
     def u_term(self, e_powers, neu):
         """Jastrow u-term
-        :param e_powers: electrons coordinates
+        :param e_powers: powers of electrons coordinates
         :param neu: number of up electrons
         :return:
         """
@@ -100,7 +100,7 @@ class Jastrow:
 
     def chi_term(self, n_powers, neu):
         """Jastrow chi-term
-        :param n_powers: electrons coordinates
+        :param n_powers: powers of electrons coordinates
         :param neu: number of up electrons
         :return:
         """
@@ -122,8 +122,8 @@ class Jastrow:
 
     def f_term(self, e_powers, n_powers, neu):
         """Jastrow f-term
-        :param e_powers: electrons coordinates
-        :param n_powers: nucleus coordinates
+        :param e_powers: powers of electrons coordinates
+        :param n_powers: powers of nucleus coordinates
         :param ned: number of up electrons
         :return:
         """
@@ -151,7 +151,7 @@ class Jastrow:
 
     def u_term_gradient(self, e_powers, e_vectors, neu):
         """Jastrow u-term gradient
-        :param e_powers: electrons coordinates
+        :param e_powers: powers of electrons coordinates
         :param e_vectors: electrons coordinates
         :param neu: number of up electrons
         :return:
@@ -185,7 +185,7 @@ class Jastrow:
 
     def chi_term_gradient(self, n_powers, n_vectors, neu):
         """Jastrow chi-term gradient
-        :param n_powers: electrons coordinates
+        :param n_powers: powers of electrons coordinates
         :param n_vectors: nucleus coordinates
         :param neu: number of up electrons
         :return:
@@ -218,8 +218,8 @@ class Jastrow:
 
     def f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors, neu):
         """Jastrow f-term gradient
-        :param e_powers: electrons coordinates
-        :param n_powers: electrons coordinates
+        :param e_powers: powers of electrons coordinates
+        :param n_powers: powers of electrons coordinates
         :param e_vectors: electrons coordinates
         :param n_vectors: electrons coordinates
         :param neu: number of up electrons
@@ -539,11 +539,11 @@ if __name__ == '__main__':
     """
     """
 
-    term = 'f'
+    term = 'u'
 
-    path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_u_vmc/'
+    # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_u_vmc/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_u_no_chi_vmc/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
