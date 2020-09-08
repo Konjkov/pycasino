@@ -44,17 +44,32 @@ class Gjastrow:
         for i in range(e_vectors.shape[0] - 1):
             for j in range(i + 1, e_vectors.shape[1]):
                 r_ee = np.linalg.norm(e_vectors[i, j])
-                for k in range(self.linear_parameters.shape[0]):
-                    res[i, j, k] = r_ee ** k
+                for k in range(self.linear_parameters.shape[1]):
+                    if self.ee_basis_type == 'natural power':
+                        res[i, j, k] = r_ee ** k
+                    elif self.ee_basis_type == 'r/(r^b+a) power':
+                        pass
+                    elif self.ee_basis_type == '1/(r+a) power':
+                        pass
+                    elif self.ee_basis_type == 'r/(r+a) power':
+                        pass
         return res
 
     def en_powers(self, n_vectors):
         res = np.zeros((n_vectors.shape[1], n_vectors.shape[0], self.linear_parameters.shape[1]))
+        a = b = 1
         for i in range(n_vectors.shape[1]):
             for j in range(n_vectors.shape[0]):
-                r_eI = np.linalg.norm(n_vectors[j, i])
-                for k in range(self.linear_parameters.shape[0]):
-                    res[i, j, k] = r_eI ** k
+                r = np.linalg.norm(n_vectors[j, i])
+                for k in range(self.linear_parameters.shape[1]):
+                    if self.en_basis_type == 'natural power':
+                        res[i, j, k] = r ** k
+                    elif self.en_basis_type == 'r/(r^b+a) power':
+                        res[i, j, k] = (r/(r**b + a)) ** k
+                    elif self.en_basis_type == '1/(r+a) power':
+                        res[i, j, k] = (1/(r**b + a)) ** k
+                    elif self.en_basis_type == 'r/(r+a) power':
+                        res[i, j, k] = (r/(r + a)) ** k
         return res
 
     def term_2_0(self, e_powers, neu):
@@ -69,12 +84,15 @@ class Gjastrow:
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
                 r = e_powers[i, j, 1]
-                u_set = int(i >= neu) + int(j >= neu)
-                if r <= self.e_parameters[u_set]:
+                channel = int(i >= neu) + int(j >= neu)
+                if r <= self.e_parameters[channel]:
                     poly = 0.0
                     for k in range(p.shape[0]):
-                        poly += p[u_set, k] * e_powers[i, j, k]
-                    res += poly * (r - self.e_parameters[u_set]) ** self.e_trunc
+                        poly += p[channel, k] * e_powers[i, j, k]
+                    if self.ee_cutoff_type == 'polynomial':
+                        res += poly * (1 - r/self.e_parameters[channel]) ** self.e_trunc
+                    elif self.ee_cutoff_type == 'alt polynomial':
+                        res += poly * (r - self.e_parameters[channel]) ** self.e_trunc
         return res
 
     def value(self, e_vectors, n_vectors, neu):
@@ -97,6 +115,7 @@ if __name__ == '__main__':
 
     term = 'chi'
 
+    # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/casl/8__1/'
     path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/casl/8__1/'
 
     casino = Casino(path)
@@ -110,7 +129,7 @@ if __name__ == '__main__':
     steps = 100
 
     if True:
-        x_min, x_max = 0, gjastrow.e_parameters[0]
+        x_min, x_max = 0, np.max(gjastrow.e_parameters)
         x_grid = np.linspace(x_min, x_max, steps)
         for spin_dep in range(3):
             y_grid = np.zeros(steps)
@@ -118,10 +137,8 @@ if __name__ == '__main__':
                 r_e = np.array([[0.0, 0.0, 0.0], [x_grid[i], 0.0, 0.0]])
                 e_vectors = subtract_outer(r_e, r_e)
                 e_powers = gjastrow.ee_powers(e_vectors)
-                y_grid[i] = gjastrow.term_2_0(e_powers, 2-spin_dep)
-                if spin_dep == 1:
-                    y_grid[i] /= 2.0
-            plt.plot(x_grid, y_grid, label=['uu', 'ud/2', 'dd'][spin_dep])
+                y_grid[i] = gjastrow.term_2_0(e_powers, 2-channel)
+            plt.plot(x_grid, y_grid, label=['1-1', '1-2', '2-2'][channel])
         plt.xlabel('r_ee (au)')
         plt.ylabel('polynomial part')
         plt.title('JASTROW term [2, 0]')

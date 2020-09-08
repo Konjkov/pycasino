@@ -99,7 +99,15 @@ class Gjastrow:
                 self.e_trunc, self.n_trunc = self.get_trunc(term)
                 self.e_parameters, self.n_parameters = self.get_parameters(term)
                 self.linear_parameters = self.get_linear_parameters(term)
-                self.linear_parameters[:, 0] = (self.linear_parameters[:, 1] - np.array([1/4, 1/2]) / (-self.e_parameters) ** self.e_trunc)* self.e_parameters / self.e_trunc
+                for i, channel in enumerate(term['Linear parameters']):
+                    ch1, ch2 = channel[8:].split('-')
+                    G = 1/4 if ch1 == ch2 else 1/2
+                    if self.linear_parameters[i, 0]:
+                        continue
+                    if self.ee_cutoff_type == 'polynomial':
+                        pass
+                    elif self.ee_cutoff_type == 'alt polynomial':
+                        self.linear_parameters[i, 0] = (self.linear_parameters[i, 1] - G / (-self.e_parameters[i]) ** self.e_trunc) * self.e_parameters[i] / self.e_trunc
                 self.permutation = []
 
 
