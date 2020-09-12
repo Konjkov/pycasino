@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from collections import ChainMap
+
 import numpy as np
 from yaml import safe_load
 
@@ -12,6 +14,9 @@ class Gjastrow:
     P. López Ríos, P. Seth, N. D. Drummond, and R. J. Needs
     Phys. Rev. E 86, 036703
     """
+
+    def list_or_dict(self, node):
+        return dict(ChainMap(*node)) if isinstance(node, list) else node
 
     def get_ee_cusp(self, term):
         """Load e-e cusp.
@@ -28,9 +33,9 @@ class Gjastrow:
         e_rank, n_rank = term['Rank']
         e_cutoff_type = n_cutoff_type = ''
         if e_rank > 1:
-            e_cutoff_type = term['e-e cutoff']['Type']
+            e_cutoff_type = self.list_or_dict(term['e-e cutoff'])['Type']
         if n_rank > 0:
-            n_cutoff_type = term['e-n cutoff']['Type']
+            n_cutoff_type = self.list_or_dict(term['e-n cutoff'])['Type']
         return e_cutoff_type, n_cutoff_type
 
     def get_trunc(self, term):
@@ -39,9 +44,9 @@ class Gjastrow:
         e_rank, n_rank = term['Rank']
         e_trunc = n_trunc = 0
         if e_rank > 1 and term.get('e-e cutoff'):
-            e_trunc = term['e-e cutoff']['Constants']['C']
+            e_trunc = self.list_or_dict(term['e-e cutoff']['Constants'])['C']
         if n_rank > 0 and term.get('e-n cutoff'):
-            n_trunc = term['e-n cutoff']['Constants']['C']
+            n_trunc = self.list_or_dict(term['e-n cutoff']['Constants'])['C']
         return e_trunc, n_trunc
 
     def get_parameters(self, term):
@@ -51,10 +56,10 @@ class Gjastrow:
         e_parameters = n_parameters = np.zeros((0,))
         if e_rank > 1 and term.get('e-e cutoff'):
             parameters = term['e-e cutoff']['Parameters']
-            e_parameters = np.array([channel['L'][0] for channel in parameters.values()], np.float)
+            e_parameters = np.array([self.list_or_dict(channel)['L'][0] for channel in parameters.values()], np.float)
         if n_rank > 0 and term.get('e-n cutoff'):
             parameters = term['e-n cutoff']['Parameters']
-            n_parameters = np.array([channel['L'][0] for channel in parameters.values()], np.float)
+            n_parameters = np.array([self.list_or_dict(channel)['L'][0] for channel in parameters.values()], np.float)
         return e_parameters, n_parameters
 
     def get_basis_type(self, term):
@@ -63,9 +68,9 @@ class Gjastrow:
         e_rank, n_rank = term['Rank']
         e_basis_type = n_basis_type = ''
         if e_rank > 1:
-            e_basis_type = term['e-e basis']['Type']
+            e_basis_type = self.list_or_dict(term['e-e basis'])['Type']
         if n_rank > 0:
-            n_basis_type = term['e-n basis']['Type']
+            n_basis_type = self.list_or_dict(term['e-n basis'])['Type']
         return e_basis_type, n_basis_type
 
     def get_linear_parameters(self, term):
@@ -75,10 +80,10 @@ class Gjastrow:
         linear_parameters = term['Linear parameters']
         dims = [len(linear_parameters)]
         if e_rank > 1:
-            e_order = term['e-e basis']['Order']
+            e_order = self.list_or_dict(term['e-e basis'])['Order']
             dims += [e_order] * (e_rank * (e_rank-1) // 2)
         if n_rank > 0:
-            n_order = term['e-n basis']['Order']
+            n_order = self.list_or_dict(term['e-n basis'])['Order']
             dims += [n_order] * (e_rank * n_rank)
 
         res = np.zeros(dims, np.float)
@@ -104,11 +109,12 @@ class Gjastrow:
                     G = 1/4 if ch1 == ch2 else 1/2
                     if self.linear_parameters[i, 0]:
                         continue
+                    C = self.e_parameters[i] / self.e_trunc
                     if self.ee_cutoff_type == 'polynomial':
-                        pass
+                        self.linear_parameters[i, 0] = C * (self.linear_parameters[i, 1] - G)
                     elif self.ee_cutoff_type == 'alt polynomial':
-                        self.linear_parameters[i, 0] = (self.linear_parameters[i, 1] - G / (-self.e_parameters[i]) ** self.e_trunc) * self.e_parameters[i] / self.e_trunc
-                self.permutation = []
+                        self.linear_parameters[i, 0] = C * (self.linear_parameters[i, 1] - G/(-self.e_parameters[i])**self.e_trunc)
+                self.e_permutation = np.zeros((0,))
 
 
 if __name__ == '__main__':

@@ -93,6 +93,12 @@ class Gjastrow:
                         res += poly * (1 - r/self.e_parameters[channel]) ** self.e_trunc
                     elif self.ee_cutoff_type == 'alt polynomial':
                         res += poly * (r - self.e_parameters[channel]) ** self.e_trunc
+                    elif self.ee_cutoff_type == 'gaussian':
+                        pass
+                    elif self.ee_cutoff_type == 'spline':
+                        pass
+                    elif self.ee_cutoff_type == 'anisotropic polynomial':
+                        pass
         return res
 
     def value(self, e_vectors, n_vectors, neu):
@@ -131,7 +137,7 @@ if __name__ == '__main__':
     if True:
         x_min, x_max = 0, np.max(gjastrow.e_parameters)
         x_grid = np.linspace(x_min, x_max, steps)
-        for spin_dep in range(3):
+        for channel in range(3):
             y_grid = np.zeros(steps)
             for i in range(100):
                 r_e = np.array([[0.0, 0.0, 0.0], [x_grid[i], 0.0, 0.0]])
