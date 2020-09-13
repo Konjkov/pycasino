@@ -17,10 +17,12 @@ spec = [
     ('en_basis_type', nb.types.unicode_type),
     ('ee_cutoff_type', nb.types.unicode_type),
     ('en_cutoff_type', nb.types.unicode_type),
-    ('e_trunc', nb.types.int64),
-    ('n_trunc', nb.types.int64),
-    ('e_parameters', parameters_type),
-    ('n_parameters', parameters_type),
+    ('ee_trunc', nb.types.int64),
+    ('en_trunc', nb.types.int64),
+    ('ee_basis_parameters', parameters_type),
+    ('en_basis_parameters', parameters_type),
+    ('ee_cutoff_parameters', parameters_type),
+    ('en_cutoff_parameters', parameters_type),
     ('linear_parameters', linear_parameters_type),
 ]
 
@@ -28,15 +30,19 @@ spec = [
 @nb.experimental.jitclass(spec)
 class Gjastrow:
 
-    def __init__(self, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type, e_trunc, n_trunc, e_parameters, n_parameters, linear_parameters):
+    def __init__(
+            self, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type, ee_trunc, en_trunc, ee_basis_parameters,
+            en_basis_parameters, ee_cutoff_parameters, en_cutoff_parameters, linear_parameters):
         self.ee_basis_type = ee_basis_type
         self.en_basis_type = en_basis_type
         self.ee_cutoff_type = ee_cutoff_type
         self.en_cutoff_type = en_cutoff_type
-        self.e_trunc = e_trunc
-        self.n_trunc = n_trunc
-        self.e_parameters = e_parameters
-        self.n_parameters = n_parameters
+        self.ee_trunc = ee_trunc
+        self.en_trunc = en_trunc
+        self.ee_basis_parameters = ee_basis_parameters
+        self.en_basis_parameters = en_basis_parameters
+        self.ee_cutoff_parameters = ee_cutoff_parameters
+        self.en_cutoff_parameters = en_cutoff_parameters
         self.linear_parameters = linear_parameters
 
     def ee_powers(self, e_vectors):
@@ -85,14 +91,14 @@ class Gjastrow:
             for j in range(i + 1, e_powers.shape[1]):
                 r = e_powers[i, j, 1]
                 channel = int(i >= neu) + int(j >= neu)
-                if r <= self.e_parameters[channel]:
+                if r <= self.ee_cutoff_parameters[channel]:
                     poly = 0.0
                     for k in range(p.shape[0]):
                         poly += p[channel, k] * e_powers[i, j, k]
                     if self.ee_cutoff_type == 'polynomial':
-                        res += poly * (1 - r/self.e_parameters[channel]) ** self.e_trunc
+                        res += poly * (1 - r/self.ee_cutoff_parameters[channel]) ** self.ee_trunc
                     elif self.ee_cutoff_type == 'alt polynomial':
-                        res += poly * (r - self.e_parameters[channel]) ** self.e_trunc
+                        res += poly * (r - self.ee_cutoff_parameters[channel]) ** self.ee_trunc
                     elif self.ee_cutoff_type == 'gaussian':
                         pass
                     elif self.ee_cutoff_type == 'spline':
@@ -121,21 +127,23 @@ if __name__ == '__main__':
 
     term = 'chi'
 
-    # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/casl/8__1/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/casl/8__1/'
+    path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/casl/8__1/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/casl/8__1/'
 
     casino = Casino(path)
     gjastrow = Gjastrow(
         casino.jastrow.ee_basis_type, casino.jastrow.en_basis_type,
         casino.jastrow.ee_cutoff_type, casino.jastrow.en_cutoff_type,
-        casino.jastrow.e_trunc, casino.jastrow.n_trunc,
-        casino.jastrow.e_parameters, casino.jastrow.n_parameters, casino.jastrow.linear_parameters
+        casino.jastrow.ee_trunc, casino.jastrow.en_trunc,
+        casino.jastrow.ee_basis_parameters, casino.jastrow.en_basis_parameters,
+        casino.jastrow.ee_cutoff_parameters, casino.jastrow.en_cutoff_parameters,
+        casino.jastrow.linear_parameters
     )
 
     steps = 100
 
     if True:
-        x_min, x_max = 0, np.max(gjastrow.e_parameters)
+        x_min, x_max = 0, np.max(gjastrow.ee_cutoff_parameters)
         x_grid = np.linspace(x_min, x_max, steps)
         for channel in range(3):
             y_grid = np.zeros(steps)
