@@ -57,16 +57,16 @@ class Gjastrow:
             n_cutoff_type = self.get(term, 'e-n cutoff')['Type']
         return e_cutoff_type, n_cutoff_type
 
-    def get_trunc(self, term):
+    def get_constants(self, term):
         """Load truncation constant.
         """
         e_rank, n_rank = term['Rank']
-        ee_trunc = en_trunc = 0
+        ee_constants = en_constants = 0
         if e_rank > 1 and term.get('e-e cutoff'):
-            ee_trunc = self.get(term, 'e-e cutoff', 'Constants', 'C')
+            ee_constants = self.get(term, 'e-e cutoff', 'Constants')
         if n_rank > 0 and term.get('e-n cutoff'):
-            en_trunc = self.get(term, 'e-n cutoff', 'Constants', 'C')
-        return ee_trunc, en_trunc
+            en_constants = self.get(term, 'e-n cutoff', 'Constants')
+        return ee_constants, en_constants
 
     def get_basis_parameters(self, term):
         """Load basis parameters into 1-dimensional array.
@@ -126,7 +126,7 @@ class Gjastrow:
                 self.ee_cusp = self.get_ee_cusp(term)
                 self.ee_basis_type, self.en_basis_type = self.get_basis_type(term)
                 self.ee_cutoff_type, self.en_cutoff_type = self.get_cutoff_type(term)
-                self.ee_trunc, self.en_trunc = self.get_trunc(term)
+                self.ee_constants, self.en_constants = self.get_constants(term)
                 self.ee_basis_parameters, self.en_basis_parameters = self.get_basis_parameters(term)
                 self.ee_cutoff_parameters, self.en_cutoff_parameters = self.get_cutoff_parameters(term)
                 self.linear_parameters = self.get_linear_parameters(term)
@@ -135,11 +135,11 @@ class Gjastrow:
                     G = 1/4 if ch1 == ch2 else 1/2
                     if self.linear_parameters[i, 0]:
                         continue
-                    C = self.ee_cutoff_parameters[i] / self.ee_trunc
+                    C = self.ee_cutoff_parameters[i] / self.ee_constants['C']
                     if self.ee_cutoff_type == 'polynomial':
                         self.linear_parameters[i, 0] = C * (self.linear_parameters[i, 1] - G)
                     elif self.ee_cutoff_type == 'alt polynomial':
-                        self.linear_parameters[i, 0] = C * (self.linear_parameters[i, 1] - G/(-self.ee_cutoff_parameters[i])**self.ee_trunc)
+                        self.linear_parameters[i, 0] = C * (self.linear_parameters[i, 1] - G/(-self.ee_cutoff_parameters[i])**self.ee_constants['C'])
                 self.e_permutation = np.zeros((0,))
 
 

@@ -15,6 +15,18 @@ class Jastrow:
     Phys. Rev. B 70, 235119
     """
 
+    def read_bool(self):
+        return bool(int(self.f.readline()))
+
+    def read_int(self):
+        return int(self.f.readline())
+
+    def read_float(self):
+        return float(self.f.readline().split()[0])
+
+    def read_ints(self):
+        return list(map(int, self.f.readline().split()))
+
     def __init__(self, file, atom_charges):
         self.trunc = 0
         self.u_parameters = nb.typed.List([np.zeros((0, 3), np.float)])
@@ -28,6 +40,7 @@ class Jastrow:
             return
         with open(file, 'r') as f:
             u_term = chi_term = f_term = False
+            self.f = f
             for line in f:
                 line = line.strip()
                 if line.startswith('START JASTROW'):
@@ -35,7 +48,7 @@ class Jastrow:
                 elif line.startswith('END JASTROW'):
                     break
                 elif line.startswith('Truncation order'):
-                    self.trunc = float(f.readline().split()[0])
+                    self.trunc = self.read_int()
                 elif line.startswith('START U TERM'):
                     u_term = True
                 elif line.startswith('START CHI TERM'):
@@ -52,11 +65,11 @@ class Jastrow:
                     if line.startswith('START SET'):
                         pass
                     elif line.startswith('Expansion order'):
-                        u_order = int(f.readline())
+                        u_order = self.read_int()
                     elif line.startswith('Spin dep'):
-                        u_spin_dep = int(f.readline())
+                        u_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
-                        u_cutoff = float(f.readline().split()[0])
+                        u_cutoff = self.read_float()
                         self.u_cutoff[0] = u_cutoff
                     elif line.startswith('Parameter'):
                         # uu, ud, dd
@@ -66,7 +79,7 @@ class Jastrow:
                             for l in range(u_order + 1):
                                 if not u_mask[l]:
                                     continue
-                                parameters[l, i] = float(f.readline().split()[0])
+                                parameters[l, i] = self.read_float()
                                 if u_spin_dep == 0:
                                     parameters[l, 2] = parameters[l, 1] = parameters[l, 0]
                                 elif u_spin_dep == 1:
@@ -78,17 +91,17 @@ class Jastrow:
                     if line.startswith('START SET'):
                         pass
                     elif line.startswith('Label'):
-                        chi_labels = list(map(int, f.readline().split()))
+                        chi_labels = self.read_ints()
                     elif line.startswith('Impose electron-nucleus cusp'):
-                        chi_cusp = bool(int(f.readline()))
+                        chi_cusp = self.read_bool()
                         for label in chi_labels:
                             self.chi_cusp[label-1] = chi_cusp
                     elif line.startswith('Expansion order'):
-                        chi_order = int(f.readline())
+                        chi_order = self.read_int()
                     elif line.startswith('Spin dep'):
-                        chi_spin_dep = int(f.readline())
+                        chi_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
-                        chi_cutoff = float(f.readline().split()[0])
+                        chi_cutoff = self.read_float()
                         for label in chi_labels:
                             self.chi_cutoff[label-1] = chi_cutoff
                     elif line.startswith('Parameter'):
@@ -99,7 +112,7 @@ class Jastrow:
                             for m in range(chi_order + 1):
                                 if not chi_mask[m]:
                                     continue
-                                parameters[m, i] = float(f.readline().split()[0])
+                                parameters[m, i] = self.read_float()
                                 if chi_spin_dep == 0:
                                     parameters[m, 1] = parameters[m, 0]
                         for label in chi_labels:
@@ -110,19 +123,19 @@ class Jastrow:
                     if line.startswith('START SET'):
                         pass
                     elif line.startswith('Label'):
-                        f_labels = list(map(int, f.readline().split()))
+                        f_labels = self.read_ints()
                     elif line.startswith('Prevent duplication of u term'):
-                        no_dup_u_term = bool(int(f.readline()))
+                        no_dup_u_term = self.read_bool()
                     elif line.startswith('Prevent duplication of chi term'):
-                        no_dup_chi_term = bool(int(f.readline()))
+                        no_dup_chi_term = self.read_bool()
                     elif line.startswith('Electron-nucleus expansion order'):
-                        f_en_order = int(f.readline())
+                        f_en_order = self.read_int()
                     elif line.startswith('Electron-electron expansion order'):
-                        f_ee_order = int(f.readline())
+                        f_ee_order = self.read_int()
                     elif line.startswith('Spin dep'):
-                        f_spin_dep = int(f.readline())
+                        f_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
-                        f_cutoff = float(f.readline().split()[0])
+                        f_cutoff = self.read_float()
                         for label in f_labels:
                             self.f_cutoff[label-1] = f_cutoff
                     elif line.startswith('Parameter'):
@@ -134,10 +147,8 @@ class Jastrow:
                                     for l in range(m, f_en_order + 1):
                                         if not f_mask[l, m, n]:
                                             continue
-                                        line = f.readline()
-                                        # print(line[:-1], l, m, n, i)
                                         # γlmnI = γmlnI
-                                        parameters[l, m, n, i] = parameters[m, l, n, i] = float(line.split()[0])
+                                        parameters[l, m, n, i] = parameters[m, l, n, i] = self.read_float()
                                         if f_spin_dep == 0:
                                             parameters[l, m, n, 2] = parameters[l, m, n, 1] = parameters[l, m, n, 0]
                                             parameters[m, l, n, 2] = parameters[m, l, n, 1] = parameters[m, l, n, 0]

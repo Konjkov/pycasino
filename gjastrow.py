@@ -31,14 +31,14 @@ spec = [
 class Gjastrow:
 
     def __init__(
-            self, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type, ee_trunc, en_trunc, ee_basis_parameters,
+            self, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type, ee_constants, en_constants, ee_basis_parameters,
             en_basis_parameters, ee_cutoff_parameters, en_cutoff_parameters, linear_parameters):
         self.ee_basis_type = ee_basis_type
         self.en_basis_type = en_basis_type
         self.ee_cutoff_type = ee_cutoff_type
         self.en_cutoff_type = en_cutoff_type
-        self.ee_trunc = ee_trunc
-        self.en_trunc = en_trunc
+        self.ee_trunc = ee_constants['C']
+        self.en_trunc = en_constants['C']
         self.ee_basis_parameters = ee_basis_parameters
         self.en_basis_parameters = en_basis_parameters
         self.ee_cutoff_parameters = ee_cutoff_parameters
@@ -134,7 +134,7 @@ if __name__ == '__main__':
     gjastrow = Gjastrow(
         casino.jastrow.ee_basis_type, casino.jastrow.en_basis_type,
         casino.jastrow.ee_cutoff_type, casino.jastrow.en_cutoff_type,
-        casino.jastrow.ee_trunc, casino.jastrow.en_trunc,
+        casino.jastrow.ee_constants, casino.jastrow.en_constants,
         casino.jastrow.ee_basis_parameters, casino.jastrow.en_basis_parameters,
         casino.jastrow.ee_cutoff_parameters, casino.jastrow.en_cutoff_parameters,
         casino.jastrow.linear_parameters
