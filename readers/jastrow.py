@@ -8,8 +8,8 @@ import numba as nb
 
 class Jastrow:
     """Jastrow reader from file.
-    CASINO manual: 7.4.2 Jastrow factor
-                   22.2 The u, χ and f terms in the Jastrow factor
+    CASINO manual: p. 7.4.2 Jastrow factor
+                   p. 22.2 The u, χ and f terms in the Jastrow factor
     Jastrow correlation factor for atoms, molecules, and solids
     N. D. Drummond, M. D. Towler, and R. J. Needs
     Phys. Rev. B 70, 235119
@@ -156,8 +156,7 @@ class Jastrow:
                                             parameters[l, m, n, 2] = parameters[l, m, n, 0]
                                             parameters[m, l, n, 2] = parameters[m, l, n, 0]
                         for label in f_labels:
-                            # self.f_parameters[label-1] = self.fix_f_new(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
-                            self.f_parameters[label-1] = self.fix_f(parameters, f_cutoff)
+                            self.f_parameters[label-1] = self.fix_f(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                             self.check_f_constrains(self.f_parameters[label-1], f_cutoff, no_dup_u_term, no_dup_chi_term)
                     elif line.startswith('END SET'):
                         f_labels = []
@@ -203,11 +202,54 @@ class Jastrow:
             chi_parameters[1] -= charge / (-chi_cutoff) ** self.trunc
         return chi_parameters
 
-    def fix_f(self, f_parameters, f_cutoff):
+    def fix_f(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
+        """
+        :param f_parameters:
+        :param f_cutoff:
+        :param no_dup_u_term:
+        :param no_dup_chi_term:
+        :return:
+
+        0 - zero value
+        A - no electron–electron cusp constrains
+        B - no electron–nucleus cusp constrains
+        X - independent value
+
+        n = 0            n = 1            n > 1
+        -------------------------------------------------------
+        B B B B B B B B  A A A A A A A B  ? X X X X X X B  <- m
+        B X X X X X X X  A X X X X X A A  X X X X X X X X
+        B X X X X X X X  A X X X X X X A  X X X X X X X X
+        B X X X X X X X  A X X X X X X A  X X X X X X X X
+        B X X X X X X X  A X X X X X X A  X X X X X X X X
+        B X X X X X X X  A X X X X X X A  X X X X X X X X
+        B X X X X X X X  A A X X X X X A  X X X X X X X X
+        B X X X X X X X  B A A A A A A A  B X X X X X X X
+        ---------------- no_dup_u_term ------------------------
+        0 B B B B B B B  0 A A A A A A B  0 X X X X X X B  <- m
+        B B X X X X X X  A X X X X X A A  X X X X X X X X
+        B X X X X X X X  A X X X X X X A  X X X X X X X X
+        B X X X X X X X  A X X X X X X A  X X X X X X X X
+        B X X X X X X X  A X X X X X X A  X X X X X X X X
+        B X X X X X X X  A X X X X X X A  X X X X X X X X
+        B X X X X X X X  A A X X X X X A  X X X X X X X X
+        B X X X X X X X  B A A A A A A A  B X X X X X X X
+        ---------------- no_dup_chi_term ----------------------
+        0 0 0 0 0 0 0 0  A A A A A A A B  X X X X X X X B  <- m
+        0 B B B B B B B  A X X X X X A A  X X X X X X X X
+        0 B X X X X X X  A X X X X X X A  X X X X X X X X
+        0 B X X X X X X  A X X X X X X A  X X X X X X X X
+        0 B X X X X X X  A X X X X X X A  X X X X X X X X
+        0 B X X X X X X  A X X X X X X A  X X X X X X X X
+        0 B X X X X X X  A A X X X X X A  X X X X X X X X
+        0 B X X X X X X  B A A A A A A A  B X X X X X X X
+        ^
+        l
+        """
         f_en_order = f_parameters.shape[0] - 1
         f_ee_order = f_parameters.shape[2] - 1
         f_spin_dep = f_parameters.shape[3] - 1
-        """fix 2 * f_en_order constrains"""
+        """fix 2 * f_en_order e–e cusp constrains"""
         for lm in range(2 * f_en_order + 1):
             lm_sum = np.zeros(f_spin_dep + 1)
             for l in range(f_en_order + 1):
@@ -223,35 +265,45 @@ class Jastrow:
                 f_parameters[f_en_order, lm - f_en_order, 1, :] = -lm_sum / 2
                 f_parameters[lm - f_en_order, f_en_order, 1, :] = -lm_sum / 2
 
-        """fix f_en_order+f_ee_order constrains"""
+        """fix f_en_order+f_ee_order e–n cusp constrains"""
         for mn in reversed(range(f_en_order + f_ee_order + 1)):
             mn_sum = np.zeros(f_spin_dep + 1)
             for m in range(f_en_order + 1):
                 for n in range(f_ee_order + 1):
                     if m + n == mn:
                         mn_sum += self.trunc * f_parameters[0, m, n, :] - f_cutoff * f_parameters[1, m, n, :]
-            if mn < f_en_order:
-                f_parameters[0, mn, 0, :] = -mn_sum / self.trunc
-                f_parameters[mn, 0, 0, :] = -mn_sum / self.trunc
-            elif mn == f_en_order:
-                sum_2 = -mn_sum / self.trunc
-            elif mn > f_en_order:
+            if mn > f_en_order:
                 f_parameters[0, f_en_order, mn - f_en_order, :] = -mn_sum / self.trunc
                 f_parameters[f_en_order, 0, mn - f_en_order, :] = -mn_sum / self.trunc
+            elif mn == f_en_order:
+                sum_2 = -mn_sum
+            elif mn < f_en_order:
+                if no_dup_chi_term:
+                    f_parameters[1, mn, 0, :] = mn_sum / f_cutoff
+                    f_parameters[mn, 1, 0, :] = mn_sum / f_cutoff
+                else:
+                    f_parameters[0, mn, 0, :] = -mn_sum / self.trunc
+                    f_parameters[mn, 0, 0, :] = -mn_sum / self.trunc
 
         """fix (l=en_order - 1, m=1, n=1) term"""
         f_parameters[f_en_order - 1, 1, 1, :] = sum_1 - f_parameters[f_en_order, 0, 1, :]
         f_parameters[1, f_en_order - 1, 1, :] = sum_1 - f_parameters[0, f_en_order, 1, :]
 
+        sum_2 += f_cutoff * f_parameters[f_en_order - 1, 1, 1, :]
+
         """fix (l=en_order, m=0, n=0) term"""
-        f_parameters[f_en_order, 0, 0, :] = sum_2 + f_cutoff * f_parameters[f_en_order - 1, 1, 1, :] / self.trunc
-        f_parameters[0, f_en_order, 0, :] = sum_2 + f_cutoff * f_parameters[1, f_en_order - 1, 1, :] / self.trunc
+        if no_dup_chi_term:
+            f_parameters[f_en_order, 1, 0, :] = - sum_2 / f_cutoff
+            f_parameters[1, f_en_order, 0, :] = - sum_2 / f_cutoff
+        else:
+            f_parameters[f_en_order, 0, 0, :] = sum_2 / self.trunc
+            f_parameters[0, f_en_order, 0, :] = sum_2 / self.trunc
 
         return f_parameters
 
     def fix_f_new(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
         """To find the dependent coefficients of f-term it is necessary to solve
-        the system of linear equations:  ax=b
+        the system of linear equations:  a*x=b
         a-matrix has the following rows:
         (2 * f_en_order + 1) constraints imposed to satisfy electron–electron no-cusp condition.
         (f_en_order + f_ee_order + 1) constraints imposed to satisfy electron–nucleus no-cusp condition.
@@ -352,7 +404,9 @@ class Jastrow:
                         mn_sum += self.trunc * f_parameters[0, m, n, :] - f_cutoff * f_parameters[1, m, n, :]
             print('mn=', mn, 'sum=', mn_sum)
         if no_dup_u_term:
-            print(f_parameters[1, 1, 0, :])  # should be equal to zero
-            print(f_parameters[0, 0, :, :])  # should be equal to zero
+            print('should be equal to zero')
+            print(f_parameters[1, 1, 0, :])
+            print(f_parameters[0, 0, :, :])
         if no_dup_chi_term:
-            print(f_parameters[:, 0, 0, :])  # should be equal to zero
+            print('should be equal to zero')
+            print(f_parameters[:, 0, 0, :])
