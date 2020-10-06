@@ -132,8 +132,7 @@ class Wfn:
     def AO_wfn(self, n_vectors):
         """
         Atomic orbitals for every electron
-        :param r_e: electrons coordinates shape = (nelec, 3)
-        :param r_I: atoms coordinates shape = (nelec, 3)
+        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
         :return: AO matrix shape = (nelec, nbasis_functions)
         """
         orbital = np.zeros((n_vectors.shape[0], self.nbasis_functions))
@@ -161,7 +160,9 @@ class Wfn:
         return orbital
 
     def AO_gradient(self, n_vectors):
-        """Gradient matrix."""
+        """Gradient matrix.
+        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
+        """
         orbital_x = np.zeros((n_vectors.shape[0], self.nbasis_functions))
         orbital_y = np.zeros((n_vectors.shape[0], self.nbasis_functions))
         orbital_z = np.zeros((n_vectors.shape[0], self.nbasis_functions))
@@ -199,7 +200,9 @@ class Wfn:
         return orbital_x, orbital_y, orbital_z
 
     def AO_laplacian(self, n_vectors):
-        """Laplacian matrix."""
+        """Laplacian matrix.
+        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
+        """
         orbital = np.zeros((n_vectors.shape[0], self.nbasis_functions))
         for i in range(n_vectors.shape[0]):
             ao = 0
@@ -227,6 +230,10 @@ class Wfn:
         return orbital
 
     def value(self, n_vectors, neu):
+        """wfn value.
+        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
+        :param neu: number of up-electrons
+        """
         ao = self.AO_wfn(n_vectors)
 
         res = 0.0
@@ -236,7 +243,9 @@ class Wfn:
 
     def numerical_gradient(self, n_vectors, neu, ned):
         """Numerical gradient
-        :param r_e: electrons coordinates shape = (nelec, 3)
+        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
+        :param neu: number of up-electrons
+        :param ned: number of down-electrons
         """
         delta = 0.00001
 
@@ -253,7 +262,9 @@ class Wfn:
 
     def numerical_laplacian(self, n_vectors, neu, ned):
         """Numerical laplacian
-        :param r_e: electrons coordinates shape = (nelec, 3)
+        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
+        :param neu: number of up-electrons
+        :param ned: number of down-electrons
         """
         delta = 0.00001
 
@@ -271,6 +282,9 @@ class Wfn:
 
     def gradient(self, n_vectors, neu, ned):
         """∇(phi).
+        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
+        :param neu: number of up-electrons
+        :param ned: number of down-electrons
         """
         ao = self.AO_wfn(n_vectors)
         gradient_x, gradient_y, gradient_z = self.AO_gradient(n_vectors)
@@ -304,6 +318,9 @@ class Wfn:
 
     def laplacian(self, n_vectors, neu, ned):
         """∇²(phi).
+        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
+        :param neu: number of up-electrons
+        :param ned: number of down-electrons
         """
         ao = self.AO_wfn(n_vectors)
         ao_laplacian = self.AO_laplacian(n_vectors)

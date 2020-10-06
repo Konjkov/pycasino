@@ -176,9 +176,10 @@ def averaging_accumulation(steps, tau, r_e, neu, ned, atom_positions, wfn, jastr
 accumulation = simple_accumulation
 
 
-def vmc(vmc_nstep, vmc_equil_nstep, neu, ned):
+def main(casino):
     """configuration-by-configuration sampling (CBCS)"""
 
+    neu, ned = casino.input.neu, casino.input.ned
     r_e = initial_position(neu + ned, casino.wfn.atom_positions)
 
     jastrow = Jastrow(
@@ -191,17 +192,12 @@ def vmc(vmc_nstep, vmc_equil_nstep, neu, ned):
         casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
     )
 
-    acc_ratio = equilibration(vmc_equil_nstep, 1/(neu + ned), r_e, neu, ned, casino.wfn.atom_positions, wfn, jastrow)
+    acc_ratio = equilibration(casino.input.vmc_equil_nstep, 1/(neu + ned), r_e, neu, ned, casino.wfn.atom_positions, wfn, jastrow)
     logger.info('dr * electrons = 1.00000, acc_ration = %.5f', acc_ratio)
 
     tau = optimal_vmc_step(r_e, neu, ned, casino.wfn.atom_positions, wfn, jastrow)
 
-    return accumulation(vmc_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, wfn, jastrow, casino.wfn.atom_charges)
-
-
-def main(casino):
-
-    return vmc(casino.input.vmc_nstep, casino.input.vmc_equil_nstep, casino.input.neu, casino.input.ned)
+    return accumulation(casino.input.vmc_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, wfn, jastrow, casino.wfn.atom_charges)
 
 
 if __name__ == '__main__':

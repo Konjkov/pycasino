@@ -3,6 +3,7 @@
 from collections import ChainMap
 
 import numpy as np
+import numba as nb
 from yaml import safe_load
 
 
@@ -61,7 +62,7 @@ class Gjastrow:
         """Load truncation constant.
         """
         e_rank, n_rank = term['Rank']
-        ee_constants = en_constants = 0
+        ee_constants = en_constants = dict()
         if e_rank > 1 and term.get('e-e cutoff'):
             ee_constants = self.get(term, 'e-e cutoff', 'Constants')
         if n_rank > 0 and term.get('e-n cutoff'):
@@ -72,7 +73,7 @@ class Gjastrow:
         """Load basis parameters into 1-dimensional array.
         """
         e_rank, n_rank = term['Rank']
-        ee_parameters = en_parameters = []
+        ee_parameters = en_parameters = list()
         if e_rank > 1:
             if parameters := self.get(term, 'e-e basis', 'Parameters'):
                 for channel in parameters:
@@ -87,7 +88,7 @@ class Gjastrow:
         """Load cutoff parameters into 1-dimensional array.
         """
         e_rank, n_rank = term['Rank']
-        ee_parameters = en_parameters = []
+        ee_parameters = en_parameters = list()
         if e_rank > 1 and term.get('e-e cutoff'):
             if parameters := self.get(term, 'e-e cutoff', 'Parameters'):
                 for channel in parameters:
@@ -126,7 +127,13 @@ class Gjastrow:
                 self.ee_cusp = self.get_ee_cusp(term)
                 self.ee_basis_type, self.en_basis_type = self.get_basis_type(term)
                 self.ee_cutoff_type, self.en_cutoff_type = self.get_cutoff_type(term)
-                self.ee_constants, self.en_constants = self.get_constants(term)
+                ee_constants, en_constants = self.get_constants(term)
+                self.ee_constants = nb.typed.Dict.empty(nb.types.string, nb.types.float64)
+                for k, v in ee_constants.items():
+                    self.ee_constants[k] = v
+                self.en_constants = nb.typed.Dict.empty(nb.types.string, nb.types.float64)
+                for k, v in en_constants.items():
+                    self.en_constants[k] = v
                 self.ee_basis_parameters, self.en_basis_parameters = self.get_basis_parameters(term)
                 self.ee_cutoff_parameters, self.en_cutoff_parameters = self.get_cutoff_parameters(term)
                 self.linear_parameters = self.get_linear_parameters(term)

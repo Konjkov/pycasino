@@ -9,6 +9,7 @@ from readers.casino import Casino
 from overload import subtract_outer
 
 
+constants_type = nb.types.DictType(nb.types.unicode_type, nb.types.float64)
 parameters_type = nb.types.float64[:]
 linear_parameters_type = nb.types.float64[:, :]
 
@@ -17,8 +18,8 @@ spec = [
     ('en_basis_type', nb.types.unicode_type),
     ('ee_cutoff_type', nb.types.unicode_type),
     ('en_cutoff_type', nb.types.unicode_type),
-    ('ee_trunc', nb.types.int64),
-    ('en_trunc', nb.types.int64),
+    ('ee_constants', constants_type),
+    ('en_constants', constants_type),
     ('ee_basis_parameters', parameters_type),
     ('en_basis_parameters', parameters_type),
     ('ee_cutoff_parameters', parameters_type),
@@ -37,8 +38,8 @@ class Gjastrow:
         self.en_basis_type = en_basis_type
         self.ee_cutoff_type = ee_cutoff_type
         self.en_cutoff_type = en_cutoff_type
-        self.ee_trunc = ee_constants['C']
-        self.en_trunc = en_constants['C']
+        self.ee_constants = ee_constants
+        self.en_constants = en_constants
         self.ee_basis_parameters = ee_basis_parameters
         self.en_basis_parameters = en_basis_parameters
         self.ee_cutoff_parameters = ee_cutoff_parameters
@@ -96,9 +97,9 @@ class Gjastrow:
                     for k in range(p.shape[0]):
                         poly += p[channel, k] * e_powers[i, j, k]
                     if self.ee_cutoff_type == 'polynomial':
-                        res += poly * (1 - r/self.ee_cutoff_parameters[channel]) ** self.ee_trunc
+                        res += poly * (1 - r/self.ee_cutoff_parameters[channel]) ** self.ee_constants['C']
                     elif self.ee_cutoff_type == 'alt polynomial':
-                        res += poly * (r - self.ee_cutoff_parameters[channel]) ** self.ee_trunc
+                        res += poly * (r - self.ee_cutoff_parameters[channel]) ** self.ee_constants['C']
                     elif self.ee_cutoff_type == 'gaussian':
                         pass
                     elif self.ee_cutoff_type == 'spline':
