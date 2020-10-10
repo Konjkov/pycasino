@@ -48,18 +48,19 @@ class Gjastrow:
 
     def ee_powers(self, e_vectors):
         res = np.zeros((e_vectors.shape[0], e_vectors.shape[1], self.linear_parameters.shape[1]))
+        a = b = 1
         for i in range(e_vectors.shape[0] - 1):
             for j in range(i + 1, e_vectors.shape[1]):
-                r_ee = np.linalg.norm(e_vectors[i, j])
+                r = np.linalg.norm(e_vectors[i, j])
                 for k in range(self.linear_parameters.shape[1]):
                     if self.ee_basis_type == 'natural power':
-                        res[i, j, k] = r_ee ** k
+                        res[i, j, k] = r ** k
                     elif self.ee_basis_type == 'r/(r^b+a) power':
-                        pass
-                    elif self.ee_basis_type == '1/(r+a) power':
-                        pass
+                        res[i, j, k] = (r/(r**b + a)) ** k
                     elif self.ee_basis_type == 'r/(r+a) power':
-                        pass
+                        res[i, j, k] = (r/(r + a)) ** k
+                    elif self.ee_basis_type == '1/(r+a) power':
+                        res[i, j, k] = (1/(r + a)) ** k
         return res
 
     def en_powers(self, n_vectors):
@@ -73,10 +74,10 @@ class Gjastrow:
                         res[i, j, k] = r ** k
                     elif self.en_basis_type == 'r/(r^b+a) power':
                         res[i, j, k] = (r/(r**b + a)) ** k
-                    elif self.en_basis_type == '1/(r+a) power':
-                        res[i, j, k] = (1/(r**b + a)) ** k
                     elif self.en_basis_type == 'r/(r+a) power':
                         res[i, j, k] = (r/(r + a)) ** k
+                    elif self.en_basis_type == '1/(r+a) power':
+                        res[i, j, k] = (1/(r + a)) ** k
         return res
 
     def term_2_0(self, e_powers, neu):
@@ -126,7 +127,7 @@ if __name__ == '__main__':
     """
     """
 
-    term = 'chi'
+    term = '2-0'
 
     path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/casl/8__1/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/casl/8__1/'
@@ -143,10 +144,10 @@ if __name__ == '__main__':
 
     steps = 100
 
-    if True:
+    if term == '2-0':
         x_min, x_max = 0, np.max(gjastrow.ee_cutoff_parameters)
         x_grid = np.linspace(x_min, x_max, steps)
-        for channel in range(3):
+        for channel in range(gjastrow.linear_parameters.shape[0]):
             y_grid = np.zeros(steps)
             for i in range(100):
                 r_e = np.array([[0.0, 0.0, 0.0], [x_grid[i], 0.0, 0.0]])
