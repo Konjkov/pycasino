@@ -17,9 +17,10 @@ import numba as nb
 # np.show_config()
 
 from decorators import pool, thread
+from overload import subtract_outer
+from random_steps import initial_position, random_square_step
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from readers.casino import Casino
-from overload import subtract_outer
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
@@ -352,26 +353,15 @@ class Wfn:
 
 # @pool
 @nb.jit(nopython=True, nogil=True)
-def integral(low, high, neu, ned, steps, atom_positions, wfn):
+def integral(dX, neu, ned, steps, atom_positions, wfn):
     """https://en.wikipedia.org/wiki/Monte_Carlo_integration"""
-    dV = np.prod(high - low) ** (neu + ned) / steps
+    dV = (2 * dX) ** (3 * (neu + ned)) / steps
 
-    def random_position(low, high, ne):
-        """
-        The size argument is not supported.
-        https://numba.pydata.org/numba-doc/dev/reference/numpysupported.html#random
-
-        https://numba.pydata.org/numba-doc/dev/extending/overloading-guide.html
-        """
-        return np.stack((
-            np.random.uniform(low[0], high[0], size=ne),
-            np.random.uniform(low[1], high[1], size=ne),
-            np.random.uniform(low[2], high[2], size=ne)
-        )).T
+    r_initial = initial_position(neu + ned, atom_positions)
 
     result = 0.0
     for i in range(steps):
-        r_e = random_position(low, high, neu + ned)
+        r_e = r_initial + random_square_step(dX, neu + ned)
         n_vectors = subtract_outer(r_e, atom_positions)
 
         result += wfn.value(n_vectors, neu) ** 2
@@ -380,10 +370,7 @@ def integral(low, high, neu, ned, steps, atom_positions, wfn):
 
 
 def main(casino):
-    offset = 3.0
-
-    low = np.min(casino.wfn.atom_positions, axis=0) - offset
-    high = np.max(casino.wfn.atom_positions, axis=0) + offset
+    dX = 3.0
 
     wfn = Wfn(
         casino.wfn.nbasis_functions, casino.wfn.first_shells, casino.wfn.orbital_types, casino.wfn.shell_moments,
@@ -391,7 +378,7 @@ def main(casino):
         casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
     )
 
-    return integral(low, high, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, wfn)
+    return integral(dX, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, wfn)
 
 
 if __name__ == '__main__':

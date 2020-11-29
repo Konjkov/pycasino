@@ -21,26 +21,15 @@ from decorators import pool, thread
 from readers.casino import Casino
 from overload import subtract_outer
 from logger import logging
+from random_steps import initial_position, random_step
 
 
 logger = logging.getLogger('vmc')
 numba_logger = logging.getLogger('numba')
 
 
-@nb.jit(nopython=True)
-def initial_position(ne, atom_positions):
-    """Initial positions of electrons"""
-    natoms = atom_positions.shape[0]
-    r_e = np.zeros((ne, 3))
-    for i in range(ne):
-        r_e[i] = atom_positions[np.random.randint(natoms)]
-    return r_e + random_normal_step(1.0, ne)
-
-
-def optimal_vmc_step(r_e, neu, ned, atom_positions, wfn, jastrow):
-    """vmc step width """
-
-    opt_steps = 10000
+def optimize_vmc_step(opt_steps, r_e, initial_tau, neu, ned, atom_positions, wfn, jastrow):
+    """Optimize vmc step width."""
 
     def callback(tau, acc_ration):
         """dr = sqrt(3*dtvmc)"""
@@ -50,48 +39,8 @@ def optimal_vmc_step(r_e, neu, ned, atom_positions, wfn, jastrow):
         return equilibration(opt_steps, tau, r_e, neu, ned, atom_positions, wfn, jastrow) - 0.5
 
     options = dict(jac_options=dict(alpha=1))
-    res = sp.optimize.root(f, 1/(neu+ned), method='diagbroyden', tol=1/np.sqrt(opt_steps), callback=callback, options=options)
+    res = sp.optimize.root(f, initial_tau, method='diagbroyden', tol=1/np.sqrt(opt_steps), callback=callback, options=options)
     return res.x
-
-
-@nb.jit(nopython=True)
-def random_laplace_step(dX, ne):
-    """Random N-dim laplace distributed step"""
-    return np.random.laplace(0.0, dX/(3*np.pi/4), ne*3).reshape((ne, 3))
-
-
-@nb.jit(nopython=True)
-def random_triangular_step(dX, ne):
-    """Random N-dim triangular distributed step"""
-    return np.random.triangular(-1.5*dX, 0, 1.5*dX, ne*3).reshape((ne, 3))
-
-
-@nb.jit(nopython=True)
-def random_square_step(dX, ne):
-    """Random N-dim square distributed step"""
-    return np.random.uniform(-dX, dX, ne*3).reshape((ne, 3))
-
-
-@nb.jit(nopython=True)
-def random_normal_step(dX, ne):
-    """Random normal distributed step"""
-    return np.random.normal(0.0, dX/np.sqrt(3), ne*3).reshape((ne, 3))
-
-
-@nb.jit(nopython=True)
-def random_on_sphere_step(dX, ne):
-    """Random on a sphere distributed step"""
-    result = []
-    for i in range(ne):
-        x = np.random.normal(0.0, 1, 3)
-        res = dX * x / np.linalg.norm(x)
-        result.append(res[0])
-        result.append(res[1])
-        result.append(res[2])
-    return np.array(result).reshape((ne, 3))
-
-
-random_step = random_normal_step
 
 
 @nb.jit(nopython=True)
@@ -180,7 +129,8 @@ def main(casino):
     """configuration-by-configuration sampling (CBCS)"""
 
     neu, ned = casino.input.neu, casino.input.ned
-    r_e = initial_position(neu + ned, casino.wfn.atom_positions)
+    tau = 1 / (neu + ned)
+    r_e = initial_position(neu + ned, casino.wfn.atom_positions) + random_step(tau, neu + ned)
 
     jastrow = Jastrow(
         casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters,
@@ -192,10 +142,10 @@ def main(casino):
         casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
     )
 
-    acc_ratio = equilibration(casino.input.vmc_equil_nstep, 1/(neu + ned), r_e, neu, ned, casino.wfn.atom_positions, wfn, jastrow)
+    acc_ratio = equilibration(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, wfn, jastrow)
     logger.info('dr * electrons = 1.00000, acc_ration = %.5f', acc_ratio)
 
-    tau = optimal_vmc_step(r_e, neu, ned, casino.wfn.atom_positions, wfn, jastrow)
+    tau = optimize_vmc_step(10000, r_e, tau, neu, ned, casino.wfn.atom_positions, wfn, jastrow)
 
     return accumulation(casino.input.vmc_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, wfn, jastrow, casino.wfn.atom_charges)
 
