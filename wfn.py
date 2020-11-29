@@ -355,7 +355,8 @@ class Wfn:
 @nb.jit(nopython=True, nogil=True)
 def integral(dX, neu, ned, steps, atom_positions, wfn):
     """https://en.wikipedia.org/wiki/Monte_Carlo_integration"""
-    dV = (2 * dX) ** (3 * (neu + ned)) / steps
+    v = (2 * dX) ** (3 * (neu + ned))  # integration volume
+    slater_determinant_normalization_factor = np.sqrt(1 / gamma(neu+1) / gamma(ned+1))
 
     r_initial = initial_position(neu + ned, atom_positions)
 
@@ -363,10 +364,9 @@ def integral(dX, neu, ned, steps, atom_positions, wfn):
     for i in range(steps):
         r_e = r_initial + random_square_step(dX, neu + ned)
         n_vectors = subtract_outer(r_e, atom_positions)
+        result += (slater_determinant_normalization_factor * wfn.value(n_vectors, neu)) ** 2
 
-        result += wfn.value(n_vectors, neu) ** 2
-
-    return result * dV / gamma(neu+1) / gamma(ned+1)
+    return result * v / steps
 
 
 def main(casino):
