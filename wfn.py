@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+from typing import Tuple
 from math import gamma
 from timeit import default_timer
 
@@ -129,7 +130,7 @@ class Wfn:
         self.mo_down = mo_down
         self.coeff = coeff
 
-    def AO_wfn(self, n_vectors):
+    def AO_wfn(self, n_vectors: np.ndarray) -> np.ndarray:
         """
         Atomic orbitals for every electron
         :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
@@ -159,7 +160,7 @@ class Wfn:
                     ao += 2*l+1
         return orbital
 
-    def AO_gradient(self, n_vectors):
+    def AO_gradient(self, n_vectors: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Gradient matrix.
         :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
         """
@@ -199,7 +200,7 @@ class Wfn:
                     ao += 2*l+1
         return orbital_x, orbital_y, orbital_z
 
-    def AO_laplacian(self, n_vectors):
+    def AO_laplacian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Laplacian matrix.
         :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
         """
@@ -229,7 +230,7 @@ class Wfn:
                     ao += 2*l+1
         return orbital
 
-    def value(self, n_vectors, neu):
+    def value(self, n_vectors: np.ndarray, neu: int) -> float:
         """wfn value.
         :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
         :param neu: number of up-electrons
@@ -241,7 +242,7 @@ class Wfn:
             res += self.coeff[i] * np.linalg.det(np.dot(self.mo_up[i], ao[:neu].T)) * np.linalg.det(np.dot(self.mo_down[i], ao[neu:].T))
         return res
 
-    def numerical_gradient(self, n_vectors, neu, ned):
+    def numerical_gradient(self, n_vectors: np.ndarray, neu, ned) -> float:
         """Numerical gradient
         :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
         :param neu: number of up-electrons
@@ -260,7 +261,7 @@ class Wfn:
 
         return res / delta / 2
 
-    def numerical_laplacian(self, n_vectors, neu, ned):
+    def numerical_laplacian(self, n_vectors: np.ndarray, neu, ned) -> float:
         """Numerical laplacian
         :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
         :param neu: number of up-electrons
@@ -280,7 +281,7 @@ class Wfn:
 
         return res / delta / delta
 
-    def gradient(self, n_vectors, neu, ned):
+    def gradient(self, n_vectors: np.ndarray, neu, ned) -> np.ndarray:
         """∇(phi).
         :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
         :param neu: number of up-electrons
@@ -316,7 +317,7 @@ class Wfn:
 
         return res
 
-    def laplacian(self, n_vectors, neu, ned):
+    def laplacian(self, n_vectors: np.ndarray, neu, ned) -> float:
         """∇²(phi).
         :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
         :param neu: number of up-electrons

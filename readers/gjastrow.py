@@ -14,6 +14,9 @@ def dict_to_typed_dict(_dict, _type=nb.types.float64):
     return result
 
 
+parameters_type = nb.types.DictType(nb.types.unicode_type, nb.types.float64)
+
+
 class Gjastrow:
     """Jastrow reader from file.
     CASINO manual: 7.8 Wave function parameter file: parameters.casl
@@ -33,6 +36,9 @@ class Gjastrow:
             else:
                 res = res.get(arg)
         return res
+
+    def get_rules(self, term):
+        return term['Rules'] or list()
 
     def get_ee_cusp(self, term):
         """Load e-e cusp.
@@ -80,31 +86,53 @@ class Gjastrow:
         """Load basis parameters into 1-dimensional array.
         """
         e_rank, n_rank = term['Rank']
-        ee_parameters = en_parameters = list()
+        ee_parameters = nb.typed.List.empty_list(parameters_type)
+        en_parameters = nb.typed.List.empty_list(parameters_type)
         if e_rank > 1:
             if parameters := self.get(term, 'e-e basis', 'Parameters'):
                 for channel in parameters:
-                    en_parameters.append(self.get(term, 'e-e basis', 'Parameters', channel, 'L')[0])
+                    ee_parameters.append(
+                        dict_to_typed_dict(
+                            {parameter: self.get(term, 'e-e basis', 'Parameters', channel, parameter)[0]
+                             for parameter in self.get(term, 'e-e basis', 'Parameters', channel)}
+                        )
+                    )
         if n_rank > 0 and term.get('e-n basis'):
             if parameters := self.get(term, 'e-n basis', 'Parameters'):
                 for channel in parameters:
-                    en_parameters.append(self.get(term, 'e-n basis', 'Parameters', channel, 'L')[0])
-        return np.array(ee_parameters, np.float), np.array(en_parameters, np.float)
+                    en_parameters.append(
+                        dict_to_typed_dict(
+                            {parameter: self.get(term, 'e-n basis', 'Parameters', channel, parameter)[0]
+                             for parameter in self.get(term, 'e-n basis', 'Parameters', channel)}
+                        )
+                    )
+        return ee_parameters, en_parameters
 
     def get_cutoff_parameters(self, term):
         """Load cutoff parameters into 1-dimensional array.
         """
         e_rank, n_rank = term['Rank']
-        ee_parameters = en_parameters = list()
+        ee_parameters = nb.typed.List.empty_list(parameters_type)
+        en_parameters = nb.typed.List.empty_list(parameters_type)
         if e_rank > 1 and term.get('e-e cutoff'):
             if parameters := self.get(term, 'e-e cutoff', 'Parameters'):
                 for channel in parameters:
-                    ee_parameters.append(self.get(term, 'e-e cutoff', 'Parameters', channel, 'L')[0])
+                    ee_parameters.append(
+                        dict_to_typed_dict(
+                            {parameter: self.get(term, 'e-e cutoff', 'Parameters', channel, parameter)[0]
+                             for parameter in self.get(term, 'e-e cutoff', 'Parameters', channel)}
+                        )
+                    )
         if n_rank > 0 and term.get('e-n cutoff'):
             if parameters := self.get(term, 'e-n cutoff', 'Parameters'):
                 for channel in parameters:
-                    en_parameters.append(self.get(term, 'e-n cutoff', 'Parameters', channel, 'L')[0])
-        return np.array(ee_parameters, np.float), np.array(en_parameters, np.float)
+                    en_parameters.append(
+                        dict_to_typed_dict(
+                            {parameter: self.get(term, 'e-e cutoff', 'Parameters', channel, parameter)[0]
+                             for parameter in self.get(term, 'e-e cutoff', 'Parameters', channel)}
+                        )
+                    )
+        return ee_parameters, en_parameters
 
     def get_linear_parameters(self, term):
         """Load linear parameters into multidimensional array.
@@ -131,6 +159,8 @@ class Gjastrow:
             self._jastrow_data = safe_load(f)['JASTROW']
         for key, term in self._jastrow_data.items():
             if key.startswith('TERM 1'):
+                self.e_rank, self.n_rank = term['Rank']
+                self.rules = self.get_rules(term)
                 self.ee_cusp = self.get_ee_cusp(term)
                 self.ee_basis_type, self.en_basis_type = self.get_basis_type(term)
                 self.ee_cutoff_type, self.en_cutoff_type = self.get_cutoff_type(term)
@@ -140,17 +170,18 @@ class Gjastrow:
                 self.ee_basis_parameters, self.en_basis_parameters = self.get_basis_parameters(term)
                 self.ee_cutoff_parameters, self.en_cutoff_parameters = self.get_cutoff_parameters(term)
                 self.linear_parameters = self.get_linear_parameters(term)
-                for i, channel in enumerate(term['Linear parameters']):
-                    ch1, ch2 = channel[8:].split('-')
-                    G = 1/4 if ch1 == ch2 else 1/2
-                    if self.linear_parameters[i, 0]:
-                        continue
-                    C = self.ee_cutoff_parameters[i] / self.ee_constants['C']
-                    if self.ee_cutoff_type == 'polynomial':
-                        self.linear_parameters[i, 0] = C * (self.linear_parameters[i, 1] - G)
-                    elif self.ee_cutoff_type == 'alt polynomial':
-                        self.linear_parameters[i, 0] = C * (self.linear_parameters[i, 1] - G/(-self.ee_cutoff_parameters[i])**self.ee_constants['C'])
-                self.e_permutation = np.zeros((0,))
+                if self.ee_cutoff_type == 'polynomial':
+                    for i, channel in enumerate(term['Linear parameters']):
+                        ch1, ch2 = channel[8:].split('-')
+                        G = 1/4 if ch1 == ch2 else 1/2
+                        if self.linear_parameters[i, 0]:
+                            continue
+                        C = self.ee_cutoff_parameters[i] / self.ee_constants['C']
+                        if self.ee_cutoff_type == 'polynomial':
+                            self.linear_parameters[i, 0] = C * (self.linear_parameters[i, 1] - G)
+                        elif self.ee_cutoff_type == 'alt polynomial':
+                            self.linear_parameters[i, 0] = C * (self.linear_parameters[i, 1] - G/(-self.ee_cutoff_parameters[i])**self.ee_constants['C'])
+                # self.e_permutation = np.zeros((0,))
 
 
 if __name__ == '__main__':
