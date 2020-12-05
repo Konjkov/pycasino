@@ -101,17 +101,17 @@ def gradient_angular_part(r):
 
 
 spec = [
-    ('nbasis_functions', nb.types.int64),
+    ('nbasis_functions', nb.int64),
     ('first_shells', nb.int64[:]),
-    ('orbital_types', nb.types.int64[:]),
-    ('shell_moments', nb.types.int64[:]),
-    ('slater_orders', nb.types.int64[:]),
-    ('primitives', nb.types.int64[:]),
-    ('coefficients', nb.types.float64[:]),
-    ('exponents', nb.types.float64[:]),
-    ('mo_up', nb.types.float64[:, :, :]),
-    ('mo_down', nb.types.float64[:, :, :]),
-    ('coeff', nb.types.float64[:]),
+    ('orbital_types', nb.int64[:]),
+    ('shell_moments', nb.int64[:]),
+    ('slater_orders', nb.int64[:]),
+    ('primitives', nb.int64[:]),
+    ('coefficients', nb.float64[:]),
+    ('exponents', nb.float64[:]),
+    ('mo_up', nb.float64[:, :, :]),
+    ('mo_down', nb.float64[:, :, :]),
+    ('coeff', nb.float64[:]),
 ]
 
 

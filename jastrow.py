@@ -18,20 +18,20 @@ I guess when using classes + numba, @selslack's suggestion of creating a normal 
  which is not the most ideal because it leads to some obfuscation, is the best option.
 """
 
-u_parameters_type = nb.types.float64[:, :]
-chi_parameters_type = nb.types.float64[:, :]
-f_parameters_type = nb.types.float64[:, :, :, :]
+u_parameters_type = nb.float64[:, :]
+chi_parameters_type = nb.float64[:, :]
+f_parameters_type = nb.float64[:, :, :, :]
 
 spec = [
-    ('trunc', nb.types.int64),
+    ('trunc', nb.int64),
     ('u_parameters', nb.types.ListType(u_parameters_type)),
     ('chi_parameters', nb.types.ListType(chi_parameters_type)),
     ('f_parameters', nb.types.ListType(f_parameters_type)),
-    ('u_cutoff', nb.types.float64[:]),
-    ('chi_cutoff', nb.types.float64[:]),
-    ('f_cutoff', nb.types.float64[:]),
-    ('max_ee_order', nb.types.int64),
-    ('max_en_order', nb.types.int64),
+    ('u_cutoff', nb.float64[:]),
+    ('chi_cutoff', nb.float64[:]),
+    ('f_cutoff', nb.float64[:]),
+    ('max_ee_order', nb.int64),
+    ('max_en_order', nb.int64),
 ]
 
 

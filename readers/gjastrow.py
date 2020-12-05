@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from collections import ChainMap
+from typing import Tuple, Dict
 
 import numpy as np
 import numba as nb
@@ -37,10 +38,16 @@ class Gjastrow:
                 res = res.get(arg)
         return res
 
+    def get_rank(self, terms):
+        return (
+            nb.typed.List([term['Rank'][0] for term in terms]),
+            nb.typed.List([term['Rank'][1] for term in terms])
+        )
+
     def get_rules(self, term):
         return term['Rules'] or list()
 
-    def get_ee_cusp(self, term):
+    def get_ee_cusp(self, term) -> bool:
         """Load e-e cusp.
         """
         e_rank, n_rank = term['Rank']
@@ -49,29 +56,29 @@ class Gjastrow:
             ee_cusp = term.get('e-e cusp') == 'T'
         return ee_cusp
 
-    def get_basis_type(self, term):
+    def get_basis_type(self, terms) -> Tuple[nb.typed.List, nb.typed.List]:
         """Load basis type.
         """
-        e_rank, n_rank = term['Rank']
-        ee_basis_type = en_basis_type = ''
-        if e_rank > 1:
-            ee_basis_type = self.get(term, 'e-e basis')['Type']
-        if n_rank > 0:
-            en_basis_type = self.get(term, 'e-n basis')['Type']
+        ee_basis_type = nb.typed.List.empty_list(nb.types.unicode_type)
+        en_basis_type = nb.typed.List.empty_list(nb.types.unicode_type)
+        for term in terms:
+            e_rank, n_rank = term['Rank']
+            ee_basis_type.append(self.get(term, 'e-e basis')['Type'] if e_rank > 1 else '')
+            en_basis_type.append(self.get(term, 'e-n basis')['Type'] if n_rank > 0 else '')
         return ee_basis_type, en_basis_type
 
-    def get_cutoff_type(self, term):
+    def get_cutoff_type(self, terms) -> Tuple[nb.typed.List, nb.typed.List]:
         """Load cutoff type.
         """
-        e_rank, n_rank = term['Rank']
-        e_cutoff_type = n_cutoff_type = ''
-        if e_rank > 1:
-            e_cutoff_type = self.get(term, 'e-e cutoff')['Type']
-        if n_rank > 0:
-            n_cutoff_type = self.get(term, 'e-n cutoff')['Type']
+        e_cutoff_type = nb.typed.List.empty_list(nb.types.unicode_type)
+        n_cutoff_type = nb.typed.List.empty_list(nb.types.unicode_type)
+        for term in terms:
+            e_rank, n_rank = term['Rank']
+            e_cutoff_type.append(self.get(term, 'e-e cutoff')['Type'] if e_rank > 1 else '')
+            n_cutoff_type.append(self.get(term, 'e-n cutoff')['Type'] if n_rank > 0 else '')
         return e_cutoff_type, n_cutoff_type
 
-    def get_constants(self, term):
+    def get_constants(self, term) -> Tuple[Dict, Dict]:
         """Load truncation constant.
         """
         e_rank, n_rank = term['Rank']
@@ -82,7 +89,7 @@ class Gjastrow:
             en_constants = self.get(term, 'e-n cutoff', 'Constants')
         return ee_constants, en_constants
 
-    def get_basis_parameters(self, term):
+    def get_basis_parameters(self, term) -> Tuple[nb.typed.List, nb.typed.List]:
         """Load basis parameters into 1-dimensional array.
         """
         e_rank, n_rank = term['Rank']
@@ -108,7 +115,7 @@ class Gjastrow:
                     )
         return ee_parameters, en_parameters
 
-    def get_cutoff_parameters(self, term):
+    def get_cutoff_parameters(self, term) -> Tuple[nb.typed.List, nb.typed.List]:
         """Load cutoff parameters into 1-dimensional array.
         """
         e_rank, n_rank = term['Rank']
@@ -157,30 +164,32 @@ class Gjastrow:
     def __init__(self, file, atom_charges):
         with open(file, 'r') as f:
             self._jastrow_data = safe_load(f)['JASTROW']
+
+        terms = [term for key, term in self._jastrow_data.items() if key.startswith('TERM')]
+        self.e_rank, self.n_rank = self.get_rank(terms)
+        self.ee_basis_type, self.en_basis_type = self.get_basis_type(terms)
+        self.ee_cutoff_type, self.en_cutoff_type = self.get_cutoff_type(terms)
+
         for key, term in self._jastrow_data.items():
-            if key.startswith('TERM 1'):
-                self.e_rank, self.n_rank = term['Rank']
+            if key.startswith('TERM'):
                 self.rules = self.get_rules(term)
                 self.ee_cusp = self.get_ee_cusp(term)
-                self.ee_basis_type, self.en_basis_type = self.get_basis_type(term)
-                self.ee_cutoff_type, self.en_cutoff_type = self.get_cutoff_type(term)
                 ee_constants, en_constants = self.get_constants(term)
                 self.ee_constants = dict_to_typed_dict(ee_constants)
                 self.en_constants = dict_to_typed_dict(en_constants)
                 self.ee_basis_parameters, self.en_basis_parameters = self.get_basis_parameters(term)
                 self.ee_cutoff_parameters, self.en_cutoff_parameters = self.get_cutoff_parameters(term)
                 self.linear_parameters = self.get_linear_parameters(term)
-                if self.ee_cutoff_type == 'polynomial':
-                    for i, channel in enumerate(term['Linear parameters']):
-                        ch1, ch2 = channel[8:].split('-')
-                        G = 1/4 if ch1 == ch2 else 1/2
-                        if self.linear_parameters[i, 0]:
-                            continue
-                        C = self.ee_cutoff_parameters[i] / self.ee_constants['C']
-                        if self.ee_cutoff_type == 'polynomial':
-                            self.linear_parameters[i, 0] = C * (self.linear_parameters[i, 1] - G)
-                        elif self.ee_cutoff_type == 'alt polynomial':
-                            self.linear_parameters[i, 0] = C * (self.linear_parameters[i, 1] - G/(-self.ee_cutoff_parameters[i])**self.ee_constants['C'])
+                for i, channel in enumerate(term['Linear parameters']):
+                    ch1, ch2 = channel[8:].split('-')
+                    G = 1/4 if ch1 == ch2 else 1/2
+                    if self.linear_parameters[i, 0]:
+                        continue
+                    C = self.ee_cutoff_parameters[i]['L'] / self.ee_constants['C']
+                    if self.ee_cutoff_type[0] == 'polynomial':
+                        self.linear_parameters[i, 0] = C * (self.linear_parameters[i, 1] - G)
+                    elif self.ee_cutoff_type[0] == 'alt polynomial':
+                        self.linear_parameters[i, 0] = C * (self.linear_parameters[i, 1] - G/(-self.ee_cutoff_parameters[i]['L'])**self.ee_constants['C'])
                 # self.e_permutation = np.zeros((0,))
 
 
