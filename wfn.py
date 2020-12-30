@@ -232,7 +232,7 @@ class Wfn:
         return orbital
 
     def value(self, n_vectors: np.ndarray, neu: int) -> float:
-        """wfn value.
+        """multideterminant wave function value.
         :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
         :param neu: number of up-electrons
         """

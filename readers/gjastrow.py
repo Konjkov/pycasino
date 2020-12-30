@@ -87,7 +87,7 @@ class Gjastrow:
             ee_constants = self.get(term, 'e-e cutoff', 'Constants')
         if n_rank > 0 and term.get('e-n cutoff'):
             en_constants = self.get(term, 'e-n cutoff', 'Constants')
-        return ee_constants, en_constants
+        return dict_to_typed_dict(ee_constants), dict_to_typed_dict(en_constants)
 
     def get_basis_parameters(self, term) -> Tuple[nb.typed.List, nb.typed.List]:
         """Load basis parameters into 1-dimensional array.
@@ -174,9 +174,7 @@ class Gjastrow:
             if key.startswith('TERM'):
                 self.rules = self.get_rules(term)
                 self.ee_cusp = self.get_ee_cusp(term)
-                ee_constants, en_constants = self.get_constants(term)
-                self.ee_constants = dict_to_typed_dict(ee_constants)
-                self.en_constants = dict_to_typed_dict(en_constants)
+                self.ee_constants, self.en_constants = self.get_constants(term)
                 self.ee_basis_parameters, self.en_basis_parameters = self.get_basis_parameters(term)
                 self.ee_cutoff_parameters, self.en_cutoff_parameters = self.get_cutoff_parameters(term)
                 self.linear_parameters = self.get_linear_parameters(term)
@@ -191,11 +189,3 @@ class Gjastrow:
                     elif self.ee_cutoff_type[0] == 'alt polynomial':
                         self.linear_parameters[i, 0] = C * (self.linear_parameters[i, 1] - G/(-self.ee_cutoff_parameters[i]['L'])**self.ee_constants['C'])
                 # self.e_permutation = np.zeros((0,))
-
-
-if __name__ == '__main__':
-    """
-    """
-    path = 'parameters.casl'
-
-    Gjastrow(path)
