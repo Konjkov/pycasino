@@ -20,8 +20,8 @@ spec = [
     ('en_basis_type', nb.types.ListType(nb.types.unicode_type)),
     ('ee_cutoff_type', nb.types.ListType(nb.types.unicode_type)),
     ('en_cutoff_type', nb.types.ListType(nb.types.unicode_type)),
-    ('ee_constants', constants_type),
-    ('en_constants', constants_type),
+    ('ee_constants', nb.types.ListType(constants_type)),
+    ('en_constants', nb.types.ListType(constants_type)),
     ('ee_basis_parameters', parameters_type),
     ('en_basis_parameters', parameters_type),
     ('ee_cutoff_parameters', parameters_type),
@@ -100,7 +100,7 @@ class Gjastrow:
         res = 0.0
 
         p = self.linear_parameters
-        C = self.ee_constants['C']
+        C = self.ee_constants[0]['C']  # FIXME: first term hardcoded
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
                 r = np.linalg.norm(e_vectors[i, j])
