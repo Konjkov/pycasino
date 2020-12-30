@@ -13,7 +13,7 @@ import numba as nb
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def nuclear_repulsion(atom_positions, atom_charges):
+def nuclear_repulsion(atom_positions, atom_charges) -> float:
     """nuclear-nuclear repulsion"""
     result = 0.0
     for i in range(atom_positions.shape[0]):
@@ -24,7 +24,7 @@ def nuclear_repulsion(atom_positions, atom_charges):
 
 
 @nb.jit(nopython=True)
-def coulomb(e_vectors, n_vectors, atom_charges):
+def coulomb(e_vectors, n_vectors, atom_charges) -> float:
     """Coulomb attraction between the electron and nucleus."""
     res = 0.0
     for i in range(n_vectors.shape[1]):
