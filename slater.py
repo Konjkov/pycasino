@@ -116,7 +116,7 @@ spec = [
 
 
 @nb.experimental.jitclass(spec)
-class Wfn:
+class Slater:
 
     def __init__(self, nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders, primitives, coefficients, exponents, mo_up, mo_down, coeff):
         self.nbasis_functions = nbasis_functions
@@ -353,7 +353,7 @@ class Wfn:
 
 # @pool
 @nb.jit(nopython=True, nogil=True)
-def integral(dX, neu, ned, steps, atom_positions, wfn):
+def integral(dX, neu, ned, steps, atom_positions, slater):
     """https://en.wikipedia.org/wiki/Monte_Carlo_integration"""
     v = (2 * dX) ** (3 * (neu + ned))  # integration volume
     slater_determinant_normalization_factor = np.sqrt(1 / gamma(neu+1) / gamma(ned+1))
@@ -364,7 +364,7 @@ def integral(dX, neu, ned, steps, atom_positions, wfn):
     for i in range(steps):
         r_e = r_initial + random_square_step(dX, neu + ned)
         n_vectors = subtract_outer(r_e, atom_positions)
-        result += (slater_determinant_normalization_factor * wfn.value(n_vectors, neu)) ** 2
+        result += (slater_determinant_normalization_factor * slater.value(n_vectors, neu)) ** 2
 
     return result * v / steps
 
@@ -372,13 +372,13 @@ def integral(dX, neu, ned, steps, atom_positions, wfn):
 def main(casino):
     dX = 3.0
 
-    wfn = Wfn(
+    slater = Slater(
         casino.wfn.nbasis_functions, casino.wfn.first_shells, casino.wfn.orbital_types, casino.wfn.shell_moments,
         casino.wfn.slater_orders, casino.wfn.primitives, casino.wfn.coefficients, casino.wfn.exponents,
         casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
     )
 
-    return integral(dX, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, wfn)
+    return integral(dX, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater)
 
 
 if __name__ == '__main__':

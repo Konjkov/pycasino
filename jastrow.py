@@ -24,10 +24,10 @@ f_parameters_type = nb.float64[:, :, :, :]
 
 spec = [
     ('trunc', nb.int64),
-    ('u_parameters', nb.types.ListType(u_parameters_type)),
+    ('u_parameters', u_parameters_type),
     ('chi_parameters', nb.types.ListType(chi_parameters_type)),
     ('f_parameters', nb.types.ListType(f_parameters_type)),
-    ('u_cutoff', nb.float64[:]),
+    ('u_cutoff', nb.float64),
     ('chi_cutoff', nb.float64[:]),
     ('f_cutoff', nb.float64[:]),
     ('max_ee_order', nb.int64),
@@ -40,8 +40,7 @@ class Jastrow:
 
     def __init__(self, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
         self.trunc = trunc
-        self.u_parameters = nb.typed.List.empty_list(u_parameters_type)
-        [self.u_parameters.append(p) for p in u_parameters]
+        self.u_parameters = u_parameters
         self.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)
         [self.chi_parameters.append(p) for p in chi_parameters]
         self.f_parameters = nb.typed.List.empty_list(f_parameters_type)
@@ -50,7 +49,7 @@ class Jastrow:
         self.chi_cutoff = chi_cutoff
         self.f_cutoff = f_cutoff
         self.max_ee_order = max((
-            max([p.shape[0] for p in self.u_parameters]),
+            self.u_parameters.shape[0],
             max([p.shape[2] for p in self.f_parameters]),
         ))
         self.max_en_order = max((
@@ -59,7 +58,10 @@ class Jastrow:
         ))
 
     def ee_powers(self, e_vectors):
-        """powers of e-e distances"""
+        """Powers of e-e distances
+        :param e_vectors: e-e vectors
+        :return:
+        """
         res = np.zeros((e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
         for i in range(e_vectors.shape[0] - 1):
             for j in range(i + 1, e_vectors.shape[1]):
@@ -69,7 +71,10 @@ class Jastrow:
         return res
 
     def en_powers(self, n_vectors):
-        """powers of e-n distances"""
+        """Powers of e-n distances
+        :param n_vectors: e-n vectors
+        :return:
+        """
         res = np.zeros((n_vectors.shape[1], n_vectors.shape[0], self.max_en_order))
         for i in range(n_vectors.shape[1]):
             for j in range(n_vectors.shape[0]):
@@ -85,19 +90,19 @@ class Jastrow:
         :return:
         """
         res = 0.0
-        if not self.u_cutoff.any():
+        if not self.u_cutoff:
             return res
 
-        p = self.u_parameters[0]
+        p = self.u_parameters
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
                 r = e_powers[i, j, 1]
-                if r <= self.u_cutoff[0]:
+                if r <= self.u_cutoff:
                     u_set = int(i >= neu) + int(j >= neu)
                     poly = 0.0
                     for k in range(p.shape[0]):
                         poly += p[k, u_set] * e_powers[i, j, k]
-                    res += poly * (r - self.u_cutoff[0]) ** self.trunc
+                    res += poly * (r - self.u_cutoff) ** self.trunc
         return res
 
     def chi_term(self, n_powers, neu):
@@ -154,21 +159,21 @@ class Jastrow:
     def u_term_gradient(self, e_powers, e_vectors, neu):
         """Jastrow u-term gradient with respect to a e-coordinates
         :param e_powers: powers of e-e distances
-        :param e_vectors: electrons coordinates
+        :param e_vectors: e-e vectors
         :param neu: number of up electrons
         :return:
         """
         res = np.zeros((e_vectors.shape[0], 3))
 
-        if not self.u_cutoff.any():
+        if not self.u_cutoff:
             return res
 
-        p = self.u_parameters[0]
+        p = self.u_parameters
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
                 r_vec = e_vectors[i, j]
                 r = e_powers[i, j, 1]
-                if r <= self.u_cutoff[0]:
+                if r <= self.u_cutoff:
                     u_set = int(i >= neu) + int(j >= neu)
                     poly = 0.0
                     for k in range(p.shape[0]):
@@ -179,7 +184,7 @@ class Jastrow:
                         poly_diff += p[k, u_set] * k * e_powers[i, j, k-1]
 
                     C = self.trunc
-                    L = self.u_cutoff[0]
+                    L = self.u_cutoff
                     gradient = (C * (r-L) ** (C-1) * poly + (r-L) ** C * poly_diff) / r
                     res[i, :] += r_vec * gradient
                     res[j, :] -= r_vec * gradient
@@ -188,7 +193,7 @@ class Jastrow:
     def chi_term_gradient(self, n_powers, n_vectors, neu):
         """Jastrow chi-term gradient with respect to a e-coordinates
         :param n_powers: powers of e-n distances
-        :param n_vectors: nucleus coordinates
+        :param n_vectors: e-n vectors
         :param neu: number of up electrons
         :return:
         """
@@ -222,8 +227,8 @@ class Jastrow:
         """Jastrow f-term gradient with respect to a e-coordinates
         :param e_powers: powers of e-e distances
         :param n_powers: powers of e-n distances
-        :param e_vectors: electrons coordinates
-        :param n_vectors: electrons coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
         :param neu: number of up electrons
         :return:
         """
@@ -294,14 +299,14 @@ class Jastrow:
         :return:
         """
         res = 0.0
-        if not self.u_cutoff.any():
+        if not self.u_cutoff:
             return res
 
-        p = self.u_parameters[0]
+        p = self.u_parameters
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
                 r = e_powers[i, j, 1]
-                if r <= self.u_cutoff[0]:
+                if r <= self.u_cutoff:
                     u_set = int(i >= neu) + int(j >= neu)
                     poly = 0.0
                     for k in range(p.shape[0]):
@@ -316,7 +321,7 @@ class Jastrow:
                         poly_diff_2 += k * (k-1) * p[k, u_set] * e_powers[i, j, k-2]
 
                     C = self.trunc
-                    L = self.u_cutoff[0]
+                    L = self.u_cutoff
                     res += (
                         C*(C - 1)*(r-L)**(C - 2) * poly +
                         2 * C*(r-L)**(C - 1) * poly_diff + (r-L)**C * poly_diff_2 +
@@ -369,8 +374,8 @@ class Jastrow:
             ∇²(f) = d²f/dr² + 2/r * df/dr
         :param e_powers: powers of e-e distances
         :param n_powers: powers of e-n distances
-        :param e_vectors: electrons coordinates
-        :param n_vectors: nucleus coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
         :param neu: number of up electrons
         :return:
         """
@@ -476,8 +481,8 @@ class Jastrow:
 
     def value(self, e_vectors, n_vectors, neu):
         """Jastrow with respect to a e-coordinates
-        :param e_vectors: electrons coordinates
-        :param n_vectors: nucleus coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
         :param neu: number of up electrons
         :return:
         """
@@ -485,12 +490,16 @@ class Jastrow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        return self.u_term(e_powers, neu) + self.chi_term(n_powers, neu) + self.f_term(e_powers, n_powers, neu)
+        return (
+            self.u_term(e_powers, neu) +
+            self.chi_term(n_powers, neu) +
+            self.f_term(e_powers, n_powers, neu)
+        )
 
     def numerical_gradient(self, e_vectors, n_vectors, neu):
         """Numerical gradient with respect to a e-coordinates
-        :param e_vectors:
-        :param n_vectors:
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
         :param neu:
         :return:
         """
@@ -513,9 +522,9 @@ class Jastrow:
 
     def numerical_laplacian(self, e_vectors, n_vectors, neu):
         """Numerical laplacian with respect to a e-coordinates
-        :param e_vectors:
-        :param n_vectors:
-        :param neu:
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :param neu: number of up electrons
         :return:
         """
         delta = 0.00001
@@ -536,27 +545,251 @@ class Jastrow:
 
     def gradient(self, e_vectors, n_vectors, neu):
         """Gradient with respect to a e-coordinates
-        :param e_vectors:
-        :param n_vectors:
-        :param neu:
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :param neu: number of up electrons
         :return:
         """
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        return self.u_term_gradient(e_powers, e_vectors, neu) + self.chi_term_gradient(n_powers, n_vectors, neu) + self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors, neu)
+        return (
+            self.u_term_gradient(e_powers, e_vectors, neu) +
+            self.chi_term_gradient(n_powers, n_vectors, neu) +
+            self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors, neu)
+        )
 
     def laplacian(self, e_vectors, n_vectors, neu):
         """Laplacian with respect to a e-coordinates
-        :param e_vectors:
-        :param n_vectors:
-        :param neu:
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :param neu: number of up electrons
         :return:
         """
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        return self.u_term_laplacian(e_powers, neu) + self.chi_term_laplacian(n_powers, neu) + self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors, neu)
+        return (
+            self.u_term_laplacian(e_powers, neu) +
+            self.chi_term_laplacian(n_powers, neu) +
+            self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors, neu)
+        )
+
+    def u_term_parameters_numerical_first_deriv(self, e_powers, neu):
+        """Numerical first derivatives of logarithm u-term with respect to the Jastrow parameters
+        :param e_powers: powers of e-e distances
+        :param neu: number of up electrons
+        """
+        delta = 0.00001
+        res = np.zeros((self.u_parameters.size + 1,))
+
+        self.u_cutoff -= delta
+        res[0] -= self.u_term(e_powers, neu)
+        self.u_cutoff += 2 * delta
+        res[0] += self.u_term(e_powers, neu)
+        self.u_cutoff -= delta
+
+        n = 0
+        for i in range(self.u_parameters.shape[0]):
+            for j in range(self.u_parameters.shape[1]):
+                n += 1
+                self.u_parameters[i, j] -= delta
+                res[n] -= self.u_term(e_powers, neu)
+                self.u_parameters[i, j] += 2 * delta
+                res[n] += self.u_term(e_powers, neu)
+                self.u_parameters[i, j] -= delta
+
+        return res / delta / 2
+
+    def chi_term_parameters_numerical_first_deriv(self, n_powers, neu):
+        """Numerical first derivatives of logarithm chi-term with respect to the Jastrow parameters
+        :param n_powers: powers of e-n distances
+        :param neu: number of up electrons
+        """
+        delta = 0.00001
+        res = np.zeros((self.chi_parameters.size + 1,))
+
+        self.chi_cutoff -= delta
+        res[0] -= self.chi_term(n_powers, neu)
+        self.chi_cutoff += 2 * delta
+        res[0] += self.chi_term(n_powers, neu)
+        self.chi_cutoff -= delta
+
+        n = 0
+        for i in range(self.chi_parameters.shape[0]):
+            for j in range(self.chi_parameters.shape[1]):
+                n += 1
+                self.chi_parameters[i, j] -= delta
+                res[n] -= self.chi_term(n_powers, neu)
+                self.chi_parameters[i, j] += 2 * delta
+                res[n] += self.chi_term(n_powers, neu)
+                self.chi_parameters[i, j] -= delta
+
+        return res / delta / 2
+
+    def f_term_parameters_numerical_first_deriv(self, e_powers, n_powers, neu):
+        """Numerical first derivatives of logarithm f-term with respect to the Jastrow parameters
+        :param e_powers: powers of e-e distances
+        :param n_powers: powers of e-n distances
+        :param neu: number of up electrons
+        """
+        delta = 0.00001
+        res = np.zeros((self.f_parameters.size + 1,))
+
+        self.f_cutoff -= delta
+        res[n] -= self.f_term(e_powers, n_powers, neu)
+        self.f_cutoff += 2 * delta
+        res[n] += self.f_term(e_powers, n_powers, neu)
+        self.f_cutoff -= delta
+
+        n = 0
+        for i in range(self.f_parameters.shape[0]):
+            for j in range(self.f_parameters.shape[1]):
+                for k in range(self.f_parameters.shape[2]):
+                    for l in range(self.f_parameters.shape[3]):
+                        n += 1
+                        self.f_parameters[i, j, k, l] -= delta
+                        res[n] -= self.f_term(e_powers, n_powers, neu)
+                        self.f_parameters[i, j, k, l] += 2 * delta
+                        res[n] += self.f_term(e_powers, n_powers, neu)
+                        self.f_parameters[i, j, k, l] -= delta
+
+        return res / delta / 2
+
+    def parameters_numerical_first_deriv(self, e_vectors, n_vectors, neu):
+        """Numerical first derivatives logarithm Jastrow with respect to the parameters
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :param neu: number of up electrons
+        """
+        e_powers = self.ee_powers(e_vectors)
+        # n_powers = self.en_powers(n_vectors)
+
+        return self.u_term_parameters_numerical_first_deriv(e_powers, neu)
+
+        # return np.concatenate(
+        #     self.u_term_parameters_numerical_first_deriv(e_powers, neu),
+        #     self.chi_term_parameters_numerical_first_deriv(n_powers, neu),
+        #     self.f_term_parameters_numerical_first_deriv(e_powers, n_powers, neu)
+        # )
+
+    def u_term_parameters_numerical_second_deriv(self, e_powers, neu):
+        """Numerical second derivatives of logarithm u-term with respect to the Jastrow parameters
+        :param e_powers: powers of e-e distances
+        :param neu: number of up electrons
+        """
+        delta = 0.00001
+        res = np.zeros((self.u_parameters.size + 1, self.u_parameters.size + 1))
+
+        # set diagonal elements
+        res[range(self.u_parameters.size + 1), range(self.u_parameters.size + 1)] = -2 * self.u_term(e_powers, neu)
+
+        self.u_cutoff -= delta
+        res[0, 0] += self.u_term(e_powers, neu)
+        self.u_cutoff += 2 * delta
+        res[0, 0] += self.u_term(e_powers, neu)
+        self.u_cutoff -= delta
+
+        n = 0
+        for i in range(self.u_parameters.shape[0]):
+            for j in range(self.u_parameters.shape[1]):
+                n += 1
+                self.u_parameters[i, j] -= delta
+                res[n, n] += self.u_term(e_powers, neu)
+                self.u_parameters[i, j] += 2 * delta
+                res[0, 0] += self.u_term(e_powers, neu)
+                self.u_parameters[i, j] -= delta
+
+        n = 0
+        for i in range(self.u_parameters.shape[0]):
+            for j in range(self.u_parameters.shape[1]):
+                n += 1
+                self.u_parameters[i, j] -= delta
+                self.u_cutoff -= delta
+                res[0, n] += self.u_term(e_powers, neu)
+                self.u_parameters[i, j] += 2 * delta
+                res[0, n] -= self.u_term(e_powers, neu)
+                self.u_cutoff += 2 * delta
+                res[0, n] += self.u_term(e_powers, neu)
+                self.u_parameters[i, j] -= 2 * delta
+                res[0, n] += self.u_term(e_powers, neu)
+                self.u_parameters[i, j] += delta
+                self.u_cutoff -= delta
+                res[n, 0] = res[0, n]
+
+        n = m = 0
+        for i1 in range(self.u_parameters.shape[0]):
+            for j1 in range(self.u_parameters.shape[1]):
+                n += 1
+                for i2 in range(self.u_parameters.shape[0]):
+                    for j2 in range(self.u_parameters.shape[1]):
+                        m += 1
+                        if not m > n:
+                            continue
+                        self.u_parameters[i1, j1] -= delta
+                        self.u_parameters[i2, j2] -= delta
+                        res[n, m] += self.u_term(e_powers, neu)
+                        self.u_parameters[i1, j1] += 2 * delta
+                        res[n, m] -= self.u_term(e_powers, neu)
+                        self.u_parameters[i2, j2] += 2 * delta
+                        res[n, m] += self.u_term(e_powers, neu)
+                        self.u_parameters[i1, j1] -= 2 * delta
+                        res[n, m] += self.u_term(e_powers, neu)
+                        self.u_parameters[i1, j1] += delta
+                        self.u_parameters[i2, j2] -= delta
+                        res[m, n] = res[n, m]
+
+        return res / delta / delta
+
+    def chi_term_parameters_numerical_second_deriv(self, n_powers, neu):
+        """Numerical second derivatives of logarithm chi-term with respect to the Jastrow parameters
+        :param n_powers: powers of e-n distances
+        :param neu: number of up electrons
+        """
+        delta = 0.00001
+        res = np.zeros((self.chi_parameters.size + 1, self.chi_parameters.size + 1))
+
+        self.chi_cutoff -= delta
+        res[0, 0] += self.chi_term(n_powers, neu)
+        self.chi_cutoff += 2 * delta
+        res[0, 0] += self.chi_term(n_powers, neu)
+        self.chi_cutoff -= delta
+        res[0, 0] -= 2 * self.chi_term(n_powers, neu)  # diagonal member need optimization
+
+        return res / delta / delta
+
+    def f_term_parameters_numerical_second_deriv(self, e_powers, n_powers, neu):
+        """Numerical second derivatives of logarithm f-term with respect to the Jastrow parameters
+        :param n_powers: powers of e-n distances
+        :param neu: number of up electrons
+        """
+        delta = 0.00001
+        res = np.zeros((self.f_parameters.size + 1, self.f_parameters.size + 1))
+
+        self.f_cutoff -= delta
+        res[0, 0] += self.f_term(e_powers, n_powers, neu)
+        self.f_cutoff += 2 * delta
+        res[0, 0] += self.f_term(e_powers, n_powers, neu)
+        self.f_cutoff -= delta
+        res[0, 0] -= 2 * self.f_term(e_powers, n_powers, neu)  # diagonal member need optimization
+
+        return res / delta / delta
+
+    def parameters_numerical_second_deriv(self, e_vectors, n_vectors, neu):
+        """Numerical second derivatives with respect to the Jastrow parameters
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :param neu: number of up electrons
+        Using:
+            ∂²exp(u(a) + chi(b))/∂a∂b = ∂(∂u(a)/∂a*exp(u(a) + chi(b)))/∂b = ∂u(a)/∂a * ∂chi(b)/∂b * exp(u(a) + chi(b))
+
+        """
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        self.u_term_parameters_numerical_second_deriv(e_powers, neu)
+        self.chi_term_parameters_numerical_second_deriv(n_powers, neu)
+        self.f_term_parameters_numerical_second_deriv(e_powers, n_powers, neu)
 
 
 if __name__ == '__main__':

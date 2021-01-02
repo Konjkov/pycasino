@@ -29,10 +29,10 @@ class Jastrow:
 
     def __init__(self, file, atom_charges):
         self.trunc = 0
-        self.u_parameters = nb.typed.List([np.zeros((0, 3), np.float)])
+        self.u_parameters = np.zeros((0, 3), np.float)
         self.chi_parameters = nb.typed.List([np.zeros((0, 2), np.float)] * atom_charges.size)
         self.f_parameters = nb.typed.List([np.zeros((0, 0, 0, 3), np.float)] * atom_charges.size)
-        self.u_cutoff = np.zeros((1, ))
+        self.u_cutoff = 0
         self.chi_cutoff = np.zeros(atom_charges.size)
         self.f_cutoff = np.zeros(atom_charges.size)
         self.chi_cusp = np.zeros(atom_charges.size)
@@ -70,7 +70,7 @@ class Jastrow:
                         u_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
                         u_cutoff = self.read_float()
-                        self.u_cutoff[0] = u_cutoff
+                        self.u_cutoff = u_cutoff
                     elif line.startswith('Parameter'):
                         # uu, ud, dd
                         parameters = np.zeros((u_order+1, 3), np.float)
@@ -84,7 +84,7 @@ class Jastrow:
                                     parameters[l, 2] = parameters[l, 1] = parameters[l, 0]
                                 elif u_spin_dep == 1:
                                     parameters[l, 2] = parameters[l, 0]
-                        self.u_parameters[0] = self.fix_u(parameters, u_cutoff)
+                        self.u_parameters = self.fix_u(parameters, u_cutoff)
                     elif line.startswith('END SET'):
                         pass
                 elif chi_term:
