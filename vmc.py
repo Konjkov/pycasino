@@ -45,7 +45,7 @@ def optimize_vmc_step(opt_steps, r_e, initial_tau, neu, ned, atom_positions, wfn
 
 @nb.jit(nopython=True)
 def guiding_function(e_vectors, n_vectors, neu, wfn, jastrow):
-    """wave function in general form"""
+    """Wave function in general form"""
 
     return np.exp(jastrow.value(e_vectors, n_vectors, neu)) * wfn.value(n_vectors, neu)
 

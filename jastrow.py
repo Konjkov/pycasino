@@ -59,6 +59,7 @@ class Jastrow:
         ))
 
     def ee_powers(self, e_vectors):
+        """powers of e-e distances"""
         res = np.zeros((e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
         for i in range(e_vectors.shape[0] - 1):
             for j in range(i + 1, e_vectors.shape[1]):
@@ -68,6 +69,7 @@ class Jastrow:
         return res
 
     def en_powers(self, n_vectors):
+        """powers of e-n distances"""
         res = np.zeros((n_vectors.shape[1], n_vectors.shape[0], self.max_en_order))
         for i in range(n_vectors.shape[1]):
             for j in range(n_vectors.shape[0]):
@@ -78,7 +80,7 @@ class Jastrow:
 
     def u_term(self, e_powers, neu):
         """Jastrow u-term
-        :param e_powers: powers of electrons coordinates
+        :param e_powers: powers of e-e distances
         :param neu: number of up electrons
         :return:
         """
@@ -100,7 +102,7 @@ class Jastrow:
 
     def chi_term(self, n_powers, neu):
         """Jastrow chi-term
-        :param n_powers: powers of electrons coordinates
+        :param n_powers: powers of e-e distances
         :param neu: number of up electrons
         :return:
         """
@@ -122,8 +124,8 @@ class Jastrow:
 
     def f_term(self, e_powers, n_powers, neu):
         """Jastrow f-term
-        :param e_powers: powers of electrons coordinates
-        :param n_powers: powers of nucleus coordinates
+        :param e_powers: powers of e-e distances
+        :param n_powers: powers of e-n distances
         :param ned: number of up electrons
         :return:
         """
@@ -150,8 +152,8 @@ class Jastrow:
         return res
 
     def u_term_gradient(self, e_powers, e_vectors, neu):
-        """Jastrow u-term gradient
-        :param e_powers: powers of electrons coordinates
+        """Jastrow u-term gradient with respect to a e-coordinates
+        :param e_powers: powers of e-e distances
         :param e_vectors: electrons coordinates
         :param neu: number of up electrons
         :return:
@@ -184,8 +186,8 @@ class Jastrow:
         return res
 
     def chi_term_gradient(self, n_powers, n_vectors, neu):
-        """Jastrow chi-term gradient
-        :param n_powers: powers of electrons coordinates
+        """Jastrow chi-term gradient with respect to a e-coordinates
+        :param n_powers: powers of e-n distances
         :param n_vectors: nucleus coordinates
         :param neu: number of up electrons
         :return:
@@ -217,9 +219,9 @@ class Jastrow:
         return res
 
     def f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors, neu):
-        """Jastrow f-term gradient
-        :param e_powers: powers of electrons coordinates
-        :param n_powers: powers of electrons coordinates
+        """Jastrow f-term gradient with respect to a e-coordinates
+        :param e_powers: powers of e-e distances
+        :param n_powers: powers of e-n distances
         :param e_vectors: electrons coordinates
         :param n_vectors: electrons coordinates
         :param neu: number of up electrons
@@ -286,8 +288,8 @@ class Jastrow:
         return res
 
     def u_term_laplacian(self, e_powers, neu):
-        """Jastrow u-term laplacian
-        :param e_powers: electrons coordinates
+        """Jastrow u-term laplacian with respect to a e-coordinates
+        :param e_powers: powers of e-e distances
         :param neu: number of up electrons
         :return:
         """
@@ -323,8 +325,8 @@ class Jastrow:
         return 2 * res
 
     def chi_term_laplacian(self, n_powers, neu):
-        """Jastrow chi-term laplacian
-        :param n_powers: electrons coordinates
+        """Jastrow chi-term laplacian with respect to a e-coordinates
+        :param n_powers: powers of e-n distances
         :param neu: number of up electrons
         :return:
         """
@@ -360,13 +362,13 @@ class Jastrow:
         return res
 
     def f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors, neu):
-        """Jastrow f-term laplacian
+        """Jastrow f-term laplacian with respect to a e-coordinates
         f-term is a product of two spherically symmetric functions f(r_eI) and g(r_ee) so using
             ∇²(f*g) = ∇²(f)*g + 2*∇(f)*∇(g) + f*∇²(g)
         then Laplace operator of spherically symmetric function (in 3-D space) is
             ∇²(f) = d²f/dr² + 2/r * df/dr
-        :param e_powers: electrons coordinates
-        :param n_powers: nucleus coordinates
+        :param e_powers: powers of e-e distances
+        :param n_powers: powers of e-n distances
         :param e_vectors: electrons coordinates
         :param n_vectors: nucleus coordinates
         :param neu: number of up electrons
@@ -473,7 +475,7 @@ class Jastrow:
         return res
 
     def value(self, e_vectors, n_vectors, neu):
-        """Jastrow
+        """Jastrow with respect to a e-coordinates
         :param e_vectors: electrons coordinates
         :param n_vectors: nucleus coordinates
         :param neu: number of up electrons
@@ -486,6 +488,12 @@ class Jastrow:
         return self.u_term(e_powers, neu) + self.chi_term(n_powers, neu) + self.f_term(e_powers, n_powers, neu)
 
     def numerical_gradient(self, e_vectors, n_vectors, neu):
+        """Numerical gradient with respect to a e-coordinates
+        :param e_vectors:
+        :param n_vectors:
+        :param neu:
+        :return:
+        """
         delta = 0.00001
 
         res = np.zeros((e_vectors.shape[0], 3))
@@ -504,6 +512,12 @@ class Jastrow:
         return res / delta / 2
 
     def numerical_laplacian(self, e_vectors, n_vectors, neu):
+        """Numerical laplacian with respect to a e-coordinates
+        :param e_vectors:
+        :param n_vectors:
+        :param neu:
+        :return:
+        """
         delta = 0.00001
 
         res = -2 * r_e.size * self.value(e_vectors, n_vectors, neu)
@@ -521,14 +535,24 @@ class Jastrow:
         return res / delta / delta
 
     def gradient(self, e_vectors, n_vectors, neu):
-
+        """Gradient with respect to a e-coordinates
+        :param e_vectors:
+        :param n_vectors:
+        :param neu:
+        :return:
+        """
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
         return self.u_term_gradient(e_powers, e_vectors, neu) + self.chi_term_gradient(n_powers, n_vectors, neu) + self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors, neu)
 
     def laplacian(self, e_vectors, n_vectors, neu):
-
+        """Laplacian with respect to a e-coordinates
+        :param e_vectors:
+        :param n_vectors:
+        :param neu:
+        :return:
+        """
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
@@ -536,7 +560,7 @@ class Jastrow:
 
 
 if __name__ == '__main__':
-    """
+    """Plot Jastrow terms
     """
 
     term = 'u'
