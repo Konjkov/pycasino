@@ -32,10 +32,9 @@ class Gjastrow:
             return dict(ChainMap(*node)) if isinstance(node, list) else node
         res = term
         for arg in args:
+            res = res.get(arg)
             if arg not in ['a', 'b', 'L']:
-                res = list_or_dict(res.get(arg))
-            else:
-                res = res.get(arg)
+                res = list_or_dict(res)
         return res
 
     def get_terms(self):
@@ -47,16 +46,16 @@ class Gjastrow:
             nb.typed.List([term['Rank'][1] for term in terms])
         )
 
-    def get_rules(self, term):
-        return term['Rules'] or list()
+    def get_rules(self, terms):
+        return [term['Rules'] or list() for term in terms]
 
-    def get_ee_cusp(self, term) -> bool:
+    def get_ee_cusp(self, terms):
         """Load e-e cusp.
         """
-        e_rank, n_rank = term['Rank']
-        ee_cusp = False
-        if e_rank > 1:
-            ee_cusp = term.get('e-e cusp') == 'T'
+        ee_cusp = nb.typed.List.empty_list(nb.types.boolean)
+        for term in terms:
+            e_rank, n_rank = term['Rank']
+            ee_cusp.append(e_rank > 1 and term.get('e-e cusp') == 'T')
         return ee_cusp
 
     def get_basis_type(self, terms) -> Tuple[nb.typed.List, nb.typed.List]:
@@ -66,8 +65,8 @@ class Gjastrow:
         en_basis_type = nb.typed.List.empty_list(nb.types.unicode_type)
         for term in terms:
             e_rank, n_rank = term['Rank']
-            ee_basis_type.append(self.get(term, 'e-e basis')['Type'] if e_rank > 1 else '')
-            en_basis_type.append(self.get(term, 'e-n basis')['Type'] if n_rank > 0 else '')
+            ee_basis_type.append(self.get(term, 'e-e basis', 'Type') if e_rank > 1 else '')
+            en_basis_type.append(self.get(term, 'e-n basis', 'Type') if n_rank > 0 else '')
         return ee_basis_type, en_basis_type
 
     def get_cutoff_type(self, terms) -> Tuple[nb.typed.List, nb.typed.List]:
@@ -77,8 +76,8 @@ class Gjastrow:
         n_cutoff_type = nb.typed.List.empty_list(nb.types.unicode_type)
         for term in terms:
             e_rank, n_rank = term['Rank']
-            e_cutoff_type.append(self.get(term, 'e-e cutoff')['Type'] if e_rank > 1 else '')
-            n_cutoff_type.append(self.get(term, 'e-n cutoff')['Type'] if n_rank > 0 else '')
+            e_cutoff_type.append(self.get(term, 'e-e cutoff', 'Type') if e_rank > 1 else '')
+            n_cutoff_type.append(self.get(term, 'e-n cutoff', 'Type') if n_rank > 0 else '')
         return e_cutoff_type, n_cutoff_type
 
     def get_constants(self, terms) -> Tuple[nb.typed.List, nb.typed.List]:
@@ -91,11 +90,11 @@ class Gjastrow:
             if e_rank > 1 and term.get('e-e cutoff'):
                 ee_constants.append(dict_to_typed_dict(self.get(term, 'e-e cutoff', 'Constants')))
             else:
-                ee_constants.append(nb.typed.Dict.empty(nb.types.string, nb.types.float64))
+                ee_constants.append(dict_to_typed_dict({}))
             if n_rank > 0 and term.get('e-n cutoff'):
                 en_constants.append(dict_to_typed_dict(self.get(term, 'e-n cutoff', 'Constants')))
             else:
-                en_constants.append(nb.typed.Dict.empty(nb.types.string, nb.types.float64))
+                en_constants.append(dict_to_typed_dict({}))
         return ee_constants, en_constants
 
     def get_basis_parameters(self, term) -> Tuple[nb.typed.List, nb.typed.List]:
@@ -153,10 +152,10 @@ class Gjastrow:
         linear_parameters = term['Linear parameters']
         dims = [len(linear_parameters)]
         if e_rank > 1:
-            e_order = self.get(term, 'e-e basis')['Order']
+            e_order = self.get(term, 'e-e basis', 'Order')
             dims += [e_order] * (e_rank * (e_rank-1) // 2)
         if n_rank > 0:
-            n_order = self.get(term, 'e-n basis')['Order']
+            n_order = self.get(term, 'e-n basis', 'Order')
             dims += [n_order] * (e_rank * n_rank)
 
         res = np.zeros(dims, np.float)
@@ -172,14 +171,14 @@ class Gjastrow:
 
         terms = self.get_terms()
 
+        self.rules = self.get_rules(terms)
+        self.ee_cusp = self.get_ee_cusp(terms)
         self.e_rank, self.n_rank = self.get_rank(terms)
         self.ee_basis_type, self.en_basis_type = self.get_basis_type(terms)
         self.ee_cutoff_type, self.en_cutoff_type = self.get_cutoff_type(terms)
         self.ee_constants, self.en_constants = self.get_constants(terms)
 
         for i, term in enumerate(terms):
-            self.rules = self.get_rules(term)
-            self.ee_cusp = self.get_ee_cusp(term)
             self.ee_basis_parameters, self.en_basis_parameters = self.get_basis_parameters(term)
             self.ee_cutoff_parameters, self.en_cutoff_parameters = self.get_cutoff_parameters(term)
             self.linear_parameters = self.get_linear_parameters(term)
