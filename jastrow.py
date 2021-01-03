@@ -114,17 +114,16 @@ class Jastrow:
         res = 0.0
         if not self.chi_cutoff.any():
             return res
-
-        for i in range(n_powers.shape[0]):
-            p = self.chi_parameters[i]
+        C = self.trunc
+        for i, (p, L) in enumerate(zip(self.chi_parameters, self.chi_cutoff)):
             for j in range(n_powers.shape[1]):
                 r = n_powers[i, j, 1]
-                if r <= self.chi_cutoff[i]:
+                if r <= L:
                     chi_set = int(j >= neu)
                     poly = 0.0
                     for k in range(p.shape[0]):
                         poly += p[k, chi_set] * n_powers[i, j, k]
-                    res += poly * (r - self.chi_cutoff[i]) ** self.trunc
+                    res += poly * (r - L) ** C
         return res
 
     def f_term(self, e_powers, n_powers, neu):
@@ -138,6 +137,7 @@ class Jastrow:
         if not self.f_cutoff.any():
             return res
 
+        C = self.trunc
         for i in range(n_powers.shape[0]):
             p = self.f_parameters[i]
             for j in range(n_powers.shape[1] - 1):
@@ -151,7 +151,6 @@ class Jastrow:
                             for m in range(p.shape[1]):
                                 for n in range(p.shape[2]):
                                     poly += p[l, m, n, f_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
-                        C = self.trunc
                         L = self.f_cutoff[i]
                         res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
         return res
@@ -168,6 +167,7 @@ class Jastrow:
         if not self.u_cutoff:
             return res
 
+        C = self.trunc
         p = self.u_parameters
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
@@ -183,7 +183,6 @@ class Jastrow:
                     for k in range(1, p.shape[0]):
                         poly_diff += p[k, u_set] * k * e_powers[i, j, k-1]
 
-                    C = self.trunc
                     L = self.u_cutoff
                     gradient = (C * (r-L) ** (C-1) * poly + (r-L) ** C * poly_diff) / r
                     res[i, :] += r_vec * gradient
@@ -202,12 +201,12 @@ class Jastrow:
         if not self.chi_cutoff.any():
             return res
 
-        for i in range(n_powers.shape[0]):
-            p = self.chi_parameters[i]
+        C = self.trunc
+        for i, (p, L) in enumerate(zip(self.chi_parameters, self.chi_cutoff)):
             for j in range(n_powers.shape[1]):
                 r_vec = n_vectors[j, i]
                 r = n_powers[i, j, 1]
-                if r <= self.chi_cutoff[i]:
+                if r <= L:
                     chi_set = int(j >= neu)
                     poly = 0.0
                     for k in range(p.shape[0]):
@@ -217,8 +216,6 @@ class Jastrow:
                     for k in range(1, p.shape[0]):
                         poly_diff += p[k, chi_set] * k * n_powers[i, j, k-1]
 
-                    C = self.trunc
-                    L = self.chi_cutoff[i]
                     gradient = (C * (r-L) ** (C-1) * poly + (r-L) ** C * poly_diff) / r
                     res[j, :] += r_vec * gradient
         return res
@@ -237,6 +234,7 @@ class Jastrow:
         if not self.f_cutoff.any():
             return res
 
+        C = self.trunc
         for i in range(n_powers.shape[0]):
             p = self.f_parameters[i]
             for j in range(n_powers.shape[1] - 1):
@@ -273,7 +271,6 @@ class Jastrow:
                                 for n in range(1, p.shape[2]):
                                     poly_diff_ee += p[l, m, n, f_set] * n * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n-1]
 
-                        C = self.trunc
                         L = self.f_cutoff[i]
                         gradient = (
                             C * (r_e1I - L) ** (C-1) * (r_e2I - L) ** C * poly +
@@ -302,6 +299,8 @@ class Jastrow:
         if not self.u_cutoff:
             return res
 
+        C = self.trunc
+        L = self.u_cutoff
         p = self.u_parameters
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
@@ -320,8 +319,6 @@ class Jastrow:
                     for k in range(2, p.shape[0]):
                         poly_diff_2 += k * (k-1) * p[k, u_set] * e_powers[i, j, k-2]
 
-                    C = self.trunc
-                    L = self.u_cutoff
                     res += (
                         C*(C - 1)*(r-L)**(C - 2) * poly +
                         2 * C*(r-L)**(C - 1) * poly_diff + (r-L)**C * poly_diff_2 +
@@ -339,11 +336,11 @@ class Jastrow:
         if not self.chi_cutoff.any():
             return res
 
-        for i in range(n_powers.shape[0]):
-            p = self.chi_parameters[i]
+        C = self.trunc
+        for i, (p, L) in enumerate(zip(self.chi_parameters, self.chi_cutoff)):
             for j in range(n_powers.shape[1]):
                 r = n_powers[i, j, 1]
-                if r <= self.chi_cutoff[i]:
+                if r <= L:
                     chi_set = int(j >= neu)
                     poly = 0.0
                     for k in range(p.shape[0]):
@@ -357,8 +354,6 @@ class Jastrow:
                     for k in range(2, p.shape[0]):
                         poly_diff_2 += k * (k-1) * p[k, chi_set] * n_powers[i, j, k-2]
 
-                    C = self.trunc
-                    L = self.chi_cutoff[i]
                     res += (
                         C*(C - 1)*(r-L)**(C - 2) * poly +
                         2 * C*(r-L)**(C - 1) * poly_diff + (r-L)**C * poly_diff_2 +
@@ -383,6 +378,7 @@ class Jastrow:
         if not self.f_cutoff.any():
             return res
 
+        C = self.trunc
         for i in range(n_powers.shape[0]):
             p = self.f_parameters[i]
             for j in range(n_powers.shape[1] - 1):
@@ -449,7 +445,6 @@ class Jastrow:
                                 for n in range(1, p.shape[2]):
                                     poly_diff_e2I_ee += p[l, m, n, f_set] * m * n * n_powers[i, j, l] * n_powers[i, k, m-1] * e_powers[j, k, n-1]
 
-                        C = self.trunc
                         L = self.f_cutoff[i]
                         gradient = (
                             (C * (r_e1I - L) ** (C-1) * (r_e2I - L) ** C * poly + (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e1I) / r_e1I +
