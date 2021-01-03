@@ -700,6 +700,7 @@ class Jastrow:
         res[0, 0] += self.u_term(e_powers, neu)
         self.u_cutoff -= delta
 
+        # diagonal terms of linear parameters
         n = 0
         for i in range(self.u_parameters.shape[0]):
             for j in range(self.u_parameters.shape[1]):
@@ -707,7 +708,7 @@ class Jastrow:
                 self.u_parameters[i, j] -= delta
                 res[n, n] += self.u_term(e_powers, neu)
                 self.u_parameters[i, j] += 2 * delta
-                res[0, 0] += self.u_term(e_powers, neu)
+                res[n, n] += self.u_term(e_powers, neu)
                 self.u_parameters[i, j] -= delta
 
         n = 0
@@ -734,20 +735,19 @@ class Jastrow:
                 for i2 in range(self.u_parameters.shape[0]):
                     for j2 in range(self.u_parameters.shape[1]):
                         m += 1
-                        if not m > n:
-                            continue
-                        self.u_parameters[i1, j1] -= delta
-                        self.u_parameters[i2, j2] -= delta
-                        res[n, m] += self.u_term(e_powers, neu)
-                        self.u_parameters[i1, j1] += 2 * delta
-                        res[n, m] -= self.u_term(e_powers, neu)
-                        self.u_parameters[i2, j2] += 2 * delta
-                        res[n, m] += self.u_term(e_powers, neu)
-                        self.u_parameters[i1, j1] -= 2 * delta
-                        res[n, m] += self.u_term(e_powers, neu)
-                        self.u_parameters[i1, j1] += delta
-                        self.u_parameters[i2, j2] -= delta
-                        res[m, n] = res[n, m]
+                        if m > n:
+                            self.u_parameters[i1, j1] -= delta
+                            self.u_parameters[i2, j2] -= delta
+                            res[n, m] += self.u_term(e_powers, neu)
+                            self.u_parameters[i1, j1] += 2 * delta
+                            res[n, m] -= self.u_term(e_powers, neu)
+                            self.u_parameters[i2, j2] += 2 * delta
+                            res[n, m] += self.u_term(e_powers, neu)
+                            self.u_parameters[i1, j1] -= 2 * delta
+                            res[n, m] += self.u_term(e_powers, neu)
+                            self.u_parameters[i1, j1] += delta
+                            self.u_parameters[i2, j2] -= delta
+                            res[m, n] = res[n, m]
 
         return res / delta / delta
 
@@ -760,12 +760,17 @@ class Jastrow:
         size = np.array(list([p.size + 1 for p in self.chi_parameters])).sum()
         res = np.zeros((size, size))
 
-        self.chi_cutoff -= delta
-        res[0, 0] += self.chi_term(n_powers, neu)
-        self.chi_cutoff += 2 * delta
-        res[0, 0] += self.chi_term(n_powers, neu)
-        self.chi_cutoff -= delta
-        res[0, 0] -= 2 * self.chi_term(n_powers, neu)  # diagonal member need optimization
+        # set diagonal elements
+        res[range(size), range(size)] = -2 * self.chi_term(n_powers, neu)
+
+        n = -1
+        for cutoff in self.chi_cutoff:
+            n += 1
+            cutoff -= delta
+            res[n, n] += self.chi_term(n_powers, neu)
+            cutoff += 2 * delta
+            res[n, n] += self.chi_term(n_powers, neu)
+            cutoff -= delta
 
         return res / delta / delta
 
@@ -778,12 +783,16 @@ class Jastrow:
         size = np.array(list([p.size + 1 for p in self.f_parameters])).sum()
         res = np.zeros((size, size))
 
-        self.f_cutoff -= delta
-        res[0, 0] += self.f_term(e_powers, n_powers, neu)
-        self.f_cutoff += 2 * delta
-        res[0, 0] += self.f_term(e_powers, n_powers, neu)
-        self.f_cutoff -= delta
-        res[0, 0] -= 2 * self.f_term(e_powers, n_powers, neu)  # diagonal member need optimization
+        # set diagonal elements
+        res[range(size), range(size)] = -2 * self.f_term(e_powers, n_powers, neu)
+
+        n = -1
+        for cutoff in self.f_cutoff:
+            cutoff -= delta
+            res[n, n] += self.f_term(e_powers, n_powers, neu)
+            cutoff += 2 * delta
+            res[n, n] += self.f_term(e_powers, n_powers, neu)
+            cutoff -= delta
 
         return res / delta / delta
 
