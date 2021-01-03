@@ -138,20 +138,18 @@ class Jastrow:
             return res
 
         C = self.trunc
-        for i in range(n_powers.shape[0]):
-            p = self.f_parameters[i]
+        for i, (p, L) in enumerate(zip(self.f_parameters, self.f_cutoff)):
             for j in range(n_powers.shape[1] - 1):
                 for k in range(j+1, e_powers.shape[0]):
                     r_e1I = n_powers[i, j, 1]
                     r_e2I = n_powers[i, k, 1]
-                    if r_e1I <= self.f_cutoff[i] and r_e2I <= self.f_cutoff[i]:
+                    if r_e1I <= L and r_e2I <= L:
                         f_set = int(j >= neu) + int(k >= neu)
                         poly = 0.0
                         for l in range(p.shape[0]):
                             for m in range(p.shape[1]):
                                 for n in range(p.shape[2]):
                                     poly += p[l, m, n, f_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
-                        L = self.f_cutoff[i]
                         res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
         return res
 
@@ -168,12 +166,13 @@ class Jastrow:
             return res
 
         C = self.trunc
+        L = self.u_cutoff
         p = self.u_parameters
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
                 r_vec = e_vectors[i, j]
                 r = e_powers[i, j, 1]
-                if r <= self.u_cutoff:
+                if r <= L:
                     u_set = int(i >= neu) + int(j >= neu)
                     poly = 0.0
                     for k in range(p.shape[0]):
@@ -183,7 +182,6 @@ class Jastrow:
                     for k in range(1, p.shape[0]):
                         poly_diff += p[k, u_set] * k * e_powers[i, j, k-1]
 
-                    L = self.u_cutoff
                     gradient = (C * (r-L) ** (C-1) * poly + (r-L) ** C * poly_diff) / r
                     res[i, :] += r_vec * gradient
                     res[j, :] -= r_vec * gradient
@@ -235,8 +233,7 @@ class Jastrow:
             return res
 
         C = self.trunc
-        for i in range(n_powers.shape[0]):
-            p = self.f_parameters[i]
+        for i, (p, L) in enumerate(zip(self.f_parameters, self.f_cutoff)):
             for j in range(n_powers.shape[1] - 1):
                 for k in range(j+1, e_powers.shape[0]):
                     r_e1I_vec = n_vectors[j, i]
@@ -245,7 +242,7 @@ class Jastrow:
                     r_e1I = n_powers[i, j, 1]
                     r_e2I = n_powers[i, k, 1]
                     r_ee = e_powers[j, k, 1]
-                    if r_e1I <= self.f_cutoff[i] and r_e2I <= self.f_cutoff[i]:
+                    if r_e1I <= L and r_e2I <= L:
                         f_set = int(j >= neu) + int(k >= neu)
                         poly = 0.0
                         for l in range(p.shape[0]):
@@ -271,7 +268,6 @@ class Jastrow:
                                 for n in range(1, p.shape[2]):
                                     poly_diff_ee += p[l, m, n, f_set] * n * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n-1]
 
-                        L = self.f_cutoff[i]
                         gradient = (
                             C * (r_e1I - L) ** (C-1) * (r_e2I - L) ** C * poly +
                             (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e1I
@@ -305,7 +301,7 @@ class Jastrow:
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
                 r = e_powers[i, j, 1]
-                if r <= self.u_cutoff:
+                if r <= L:
                     u_set = int(i >= neu) + int(j >= neu)
                     poly = 0.0
                     for k in range(p.shape[0]):
@@ -379,8 +375,7 @@ class Jastrow:
             return res
 
         C = self.trunc
-        for i in range(n_powers.shape[0]):
-            p = self.f_parameters[i]
+        for i, (p, L) in enumerate(zip(self.f_parameters, self.f_cutoff)):
             for j in range(n_powers.shape[1] - 1):
                 for k in range(j + 1, e_powers.shape[0]):
                     r_e1I_vec = n_vectors[j, i]
@@ -389,7 +384,7 @@ class Jastrow:
                     r_e1I = n_powers[i, j, 1]
                     r_e2I = n_powers[i, k, 1]
                     r_ee = e_powers[j, k, 1]
-                    if r_e1I <= self.f_cutoff[i] and r_e2I <= self.f_cutoff[i]:
+                    if r_e1I <= L and r_e2I <= L:
                         f_set = int(j >= neu) + int(k >= neu)
                         poly = 0.0
                         for l in range(p.shape[0]):
@@ -445,7 +440,6 @@ class Jastrow:
                                 for n in range(1, p.shape[2]):
                                     poly_diff_e2I_ee += p[l, m, n, f_set] * m * n * n_powers[i, j, l] * n_powers[i, k, m-1] * e_powers[j, k, n-1]
 
-                        L = self.f_cutoff[i]
                         gradient = (
                             (C * (r_e1I - L) ** (C-1) * (r_e2I - L) ** C * poly + (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e1I) / r_e1I +
                             ((r_e1I - L) ** C * C * (r_e2I - L) ** (C-1) * poly + (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e2I) / r_e2I +
