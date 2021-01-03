@@ -613,13 +613,15 @@ class Jastrow:
         if not self.chi_cutoff.any():
             return res
 
-        self.chi_cutoff -= delta
-        res[0] -= self.chi_term(n_powers, neu)
-        self.chi_cutoff += 2 * delta
-        res[0] += self.chi_term(n_powers, neu)
-        self.chi_cutoff -= delta
+        n = -1
+        for cutoff in self.chi_cutoff:
+            n += 1
+            cutoff -= delta
+            res[n] -= self.chi_term(n_powers, neu)
+            cutoff += 2 * delta
+            res[n] += self.chi_term(n_powers, neu)
+            cutoff -= delta
 
-        n = 0
         for p in self.chi_parameters:
             for i in range(p.shape[0]):
                 for j in range(p.shape[1]):
@@ -643,13 +645,15 @@ class Jastrow:
         if not self.f_cutoff.any():
             return res
 
-        self.f_cutoff -= delta
-        res[0] -= self.f_term(e_powers, n_powers, neu)
-        self.f_cutoff += 2 * delta
-        res[0] += self.f_term(e_powers, n_powers, neu)
-        self.f_cutoff -= delta
+        n = -1
+        for cutoff in self.f_cutoff:
+            n += 1
+            cutoff -= delta
+            res[n] -= self.f_term(e_powers, n_powers, neu)
+            cutoff += 2 * delta
+            res[n] += self.f_term(e_powers, n_powers, neu)
+            cutoff -= delta
 
-        n = 0
         for p in self.f_parameters:
             for i in range(p.shape[0]):
                 for j in range(p.shape[1]):
@@ -753,7 +757,8 @@ class Jastrow:
         :param neu: number of up electrons
         """
         delta = 0.00001
-        res = np.zeros((self.chi_parameters.size + 1, self.chi_parameters.size + 1))
+        size = np.array(list([p.size + 1 for p in self.chi_parameters])).sum()
+        res = np.zeros((size, size))
 
         self.chi_cutoff -= delta
         res[0, 0] += self.chi_term(n_powers, neu)
@@ -770,7 +775,8 @@ class Jastrow:
         :param neu: number of up electrons
         """
         delta = 0.00001
-        res = np.zeros((self.f_parameters.size + 1, self.f_parameters.size + 1))
+        size = np.array(list([p.size + 1 for p in self.f_parameters])).sum()
+        res = np.zeros((size, size))
 
         self.f_cutoff -= delta
         res[0, 0] += self.f_term(e_powers, n_powers, neu)
