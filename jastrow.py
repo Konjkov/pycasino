@@ -582,6 +582,8 @@ class Jastrow:
         """
         delta = 0.00001
         res = np.zeros((self.u_parameters.size + 1,))
+        if not self.u_cutoff:
+            return res
 
         self.u_cutoff -= delta
         res[0] -= self.u_term(e_powers, neu)
@@ -607,7 +609,9 @@ class Jastrow:
         :param neu: number of up electrons
         """
         delta = 0.00001
-        res = np.zeros((self.chi_parameters.size + 1,))
+        res = np.zeros((np.array(list([p.size + 1 for p in self.chi_parameters])).sum(),))
+        if not self.chi_cutoff.any():
+            return res
 
         self.chi_cutoff -= delta
         res[0] -= self.chi_term(n_powers, neu)
@@ -616,14 +620,15 @@ class Jastrow:
         self.chi_cutoff -= delta
 
         n = 0
-        for i in range(self.chi_parameters.shape[0]):
-            for j in range(self.chi_parameters.shape[1]):
-                n += 1
-                self.chi_parameters[i, j] -= delta
-                res[n] -= self.chi_term(n_powers, neu)
-                self.chi_parameters[i, j] += 2 * delta
-                res[n] += self.chi_term(n_powers, neu)
-                self.chi_parameters[i, j] -= delta
+        for p in self.chi_parameters:
+            for i in range(p.shape[0]):
+                for j in range(p.shape[1]):
+                    n += 1
+                    p[i, j] -= delta
+                    res[n] -= self.chi_term(n_powers, neu)
+                    p[i, j] += 2 * delta
+                    res[n] += self.chi_term(n_powers, neu)
+                    p[i, j] -= delta
 
         return res / delta / 2
 
@@ -634,25 +639,28 @@ class Jastrow:
         :param neu: number of up electrons
         """
         delta = 0.00001
-        res = np.zeros((self.f_parameters.size + 1,))
+        res = np.zeros((np.array(list([p.size + 1 for p in self.f_parameters])).sum(),))
+        if not self.f_cutoff.any():
+            return res
 
         self.f_cutoff -= delta
-        res[n] -= self.f_term(e_powers, n_powers, neu)
+        res[0] -= self.f_term(e_powers, n_powers, neu)
         self.f_cutoff += 2 * delta
-        res[n] += self.f_term(e_powers, n_powers, neu)
+        res[0] += self.f_term(e_powers, n_powers, neu)
         self.f_cutoff -= delta
 
         n = 0
-        for i in range(self.f_parameters.shape[0]):
-            for j in range(self.f_parameters.shape[1]):
-                for k in range(self.f_parameters.shape[2]):
-                    for l in range(self.f_parameters.shape[3]):
-                        n += 1
-                        self.f_parameters[i, j, k, l] -= delta
-                        res[n] -= self.f_term(e_powers, n_powers, neu)
-                        self.f_parameters[i, j, k, l] += 2 * delta
-                        res[n] += self.f_term(e_powers, n_powers, neu)
-                        self.f_parameters[i, j, k, l] -= delta
+        for p in self.f_parameters:
+            for i in range(p.shape[0]):
+                for j in range(p.shape[1]):
+                    for k in range(p.shape[2]):
+                        for l in range(p.shape[3]):
+                            n += 1
+                            p[i, j, k, l] -= delta
+                            res[n] -= self.f_term(e_powers, n_powers, neu)
+                            p[i, j, k, l] += 2 * delta
+                            res[n] += self.f_term(e_powers, n_powers, neu)
+                            p[i, j, k, l] -= delta
 
         return res / delta / 2
 
@@ -663,15 +671,13 @@ class Jastrow:
         :param neu: number of up electrons
         """
         e_powers = self.ee_powers(e_vectors)
-        # n_powers = self.en_powers(n_vectors)
+        n_powers = self.en_powers(n_vectors)
 
-        return self.u_term_parameters_numerical_first_deriv(e_powers, neu)
-
-        # return np.concatenate(
-        #     self.u_term_parameters_numerical_first_deriv(e_powers, neu),
-        #     self.chi_term_parameters_numerical_first_deriv(n_powers, neu),
-        #     self.f_term_parameters_numerical_first_deriv(e_powers, n_powers, neu)
-        # )
+        return np.concatenate((
+            self.u_term_parameters_numerical_first_deriv(e_powers, neu),
+            self.chi_term_parameters_numerical_first_deriv(n_powers, neu),
+            self.f_term_parameters_numerical_first_deriv(e_powers, n_powers, neu)
+        ))
 
     def u_term_parameters_numerical_second_deriv(self, e_powers, neu):
         """Numerical second derivatives of logarithm u-term with respect to the Jastrow parameters
@@ -796,13 +802,13 @@ if __name__ == '__main__':
     """Plot Jastrow terms
     """
 
-    term = 'u'
+    term = 'f'
 
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_u_vmc/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_chi/'
-    path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_u_no_chi_vmc/'
+    # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_u_no_chi_vmc/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
-    # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
 
@@ -816,7 +822,7 @@ if __name__ == '__main__':
     steps = 100
 
     if term == 'u':
-        x_min, x_max = 0, jastrow.u_cutoff[0]
+        x_min, x_max = 0, jastrow.u_cutoff
         x_grid = np.linspace(x_min, x_max, steps)
         for spin_dep in range(3):
             y_grid = np.zeros(steps)

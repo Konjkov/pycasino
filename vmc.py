@@ -60,7 +60,6 @@ def local_energy(e_vectors, n_vectors, neu, ned, slater, jastrow, atom_charges):
     s_l = slater.laplacian(n_vectors, neu, ned) / s
     F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
     T = (np.sum(s_g * s_g) - s_l - j_l) / 4
-    print(jastrow.parameters_numerical_first_deriv(e_vectors, n_vectors, neu))
     return coulomb(e_vectors, n_vectors, atom_charges) + 2 * T - F
 
 
@@ -161,7 +160,7 @@ if __name__ == '__main__':
 
     # path = 'test/gwfn/h/HF/cc-pVQZ/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/'
-    path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc/'
+    # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
@@ -171,6 +170,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/al/HF/cc-pVQZ/'
     # path = 'test/gwfn/h2/HF/cc-pVQZ/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/'
+    path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/acetic/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/'
