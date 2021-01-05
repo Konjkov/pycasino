@@ -54,9 +54,9 @@ def guiding_function(e_vectors, n_vectors, neu, slater, jastrow):
 @nb.jit(nopython=True)
 def random_walk(steps, tau, r_e, neu, ned, atom_positions, slater, jastrow):
     """Metropolis-Hastings random walk.
-    :param steps: steps (including initial) to walk
+    :param steps: steps to walk
     :param tau: step size
-    :param r_e: initial position of electrons
+    :param r_e: position preceding starts position of electrons (last position of previous run)
     :param neu: number of up electrons
     :param ned: number of down electrons
     :param atom_positions: atomic positions
@@ -64,15 +64,17 @@ def random_walk(steps, tau, r_e, neu, ned, atom_positions, slater, jastrow):
     :param jastrow: instance of Jastrow class
     :return:
     """
-    weight = np.ones((steps, ), np.int64)
-    position = np.zeros((steps, r_e.shape[0], r_e.shape[1]))
+    weight = np.ones((steps + 1, ), np.int64)
+    position = np.zeros((steps + 1, r_e.shape[0], r_e.shape[1]))
 
     e_vectors = subtract_outer(r_e, r_e)
     n_vectors = subtract_outer(r_e, atom_positions)
     p = guiding_function(e_vectors, n_vectors, neu, slater, jastrow)
     position[0] = r_e
+    # do not take into account the last step from the previous run
+    weight[0] = 0
     i = 0
-    for _ in range(steps - 1):
+    for _ in range(steps):
         new_r_e = r_e + random_step(tau, neu + ned)
         e_vectors = subtract_outer(new_r_e, new_r_e)
         n_vectors = subtract_outer(new_r_e, atom_positions)
@@ -85,7 +87,10 @@ def random_walk(steps, tau, r_e, neu, ned, atom_positions, slater, jastrow):
         else:
             weight[i] += 1
 
-    return weight[:i+1], position[:i+1]
+    if weight[0] > 0:
+        return weight[:i+1], position[:i+1]
+    else:
+        return weight[1:i+1], position[1:i+1]
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
@@ -141,7 +146,6 @@ def main(casino):
 
     weight, position = random_walk(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, slater, jastrow)
     logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weight.size / casino.input.vmc_equil_nstep)
-
     tau = optimize_vmc_step(10000, position[-1], tau, neu, ned, casino.wfn.atom_positions, slater, jastrow)
 
     weight, position = random_walk(casino.input.vmc_nstep, tau, position[-1], neu, ned, casino.wfn.atom_positions, slater, jastrow)
