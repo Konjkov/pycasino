@@ -54,9 +54,9 @@ def guiding_function(e_vectors, n_vectors, neu, slater, jastrow):
 @nb.jit(nopython=True)
 def random_walk(steps, tau, r_e, neu, ned, atom_positions, slater, jastrow):
     """Metropolis-Hastings random walk.
-    :param steps: steps to walk
+    :param steps: steps (including initial) to walk
     :param tau: step size
-    :param r_e: initial position od electrons
+    :param r_e: initial position of electrons
     :param neu: number of up electrons
     :param ned: number of down electrons
     :param atom_positions: atomic positions
@@ -71,21 +71,21 @@ def random_walk(steps, tau, r_e, neu, ned, atom_positions, slater, jastrow):
     n_vectors = subtract_outer(r_e, atom_positions)
     p = guiding_function(e_vectors, n_vectors, neu, slater, jastrow)
     position[0] = r_e
-    j = 1
-    for i in range(1, steps):
+    i = 0
+    for _ in range(steps - 1):
         new_r_e = r_e + random_step(tau, neu + ned)
         e_vectors = subtract_outer(new_r_e, new_r_e)
         n_vectors = subtract_outer(new_r_e, atom_positions)
         new_p = guiding_function(e_vectors, n_vectors, neu, slater, jastrow)
 
         if new_p**2 > np.random.random() * p**2:
+            i += 1
             r_e, p = new_r_e, new_p
-            position[j] = r_e
-            j += 1
+            position[i] = r_e
         else:
-            weight[j] += 1
+            weight[i] += 1
 
-    return weight[:j], position[:j]
+    return weight[:i+1], position[:i+1]
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
