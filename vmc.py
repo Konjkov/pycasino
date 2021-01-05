@@ -29,14 +29,15 @@ numba_logger = logging.getLogger('numba')
 
 
 def optimize_vmc_step(opt_steps, r_e, initial_tau, neu, ned, atom_positions, slater, jastrow):
-    """Optimize vmc step width."""
+    """Optimize vmc step size."""
 
     def callback(tau, acc_ration):
         """dr = sqrt(3*dtvmc)"""
         logger.info('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (neu + ned), acc_ration[0] + 0.5)
 
     def f(tau):
-        return equilibration(opt_steps, tau, r_e, neu, ned, atom_positions, slater, jastrow) - 0.5
+        weight, _ = random_walk(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, atom_positions, slater, jastrow)
+        return weight.size / casino.input.vmc_equil_nstep - 0.5
 
     options = dict(jac_options=dict(alpha=1))
     res = sp.optimize.root(f, initial_tau, method='diagbroyden', tol=1/np.sqrt(opt_steps), callback=callback, options=options)
@@ -51,86 +52,78 @@ def guiding_function(e_vectors, n_vectors, neu, slater, jastrow):
 
 
 @nb.jit(nopython=True)
-def local_energy(e_vectors, n_vectors, neu, ned, slater, jastrow, atom_charges):
+def random_walk(steps, tau, r_e, neu, ned, atom_positions, slater, jastrow):
+    """Metropolis-Hastings random walk.
+    :param steps: steps to walk
+    :param tau: step size
+    :param r_e: initial position od electrons
+    :param neu: number of up electrons
+    :param ned: number of down electrons
+    :param atom_positions: atomic positions
+    :param slater: instance of Slater class
+    :param jastrow: instance of Jastrow class
+    :return:
+    """
+    weight = np.ones((steps, ), np.int64)
+    position = np.zeros((steps, r_e.shape[0], r_e.shape[1]))
 
-    j_g = jastrow.gradient(e_vectors, n_vectors, neu)
-    j_l = jastrow.laplacian(e_vectors, n_vectors, neu)
-    s = slater.value(n_vectors, neu)
-    s_g = slater.gradient(n_vectors, neu, ned) / s
-    s_l = slater.laplacian(n_vectors, neu, ned) / s
-    F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
-    T = (np.sum(s_g * s_g) - s_l - j_l) / 4
-    return coulomb(e_vectors, n_vectors, atom_charges) + 2 * T - F
-
-
-@nb.jit(nopython=True)
-def equilibration(steps, tau, r_e, neu, ned, atom_positions, slater, jastrow):
-    """VMC equilibration"""
-    i = 0
-    p = 0.0
-    for j in range(steps):
+    e_vectors = subtract_outer(r_e, r_e)
+    n_vectors = subtract_outer(r_e, atom_positions)
+    p = guiding_function(e_vectors, n_vectors, neu, slater, jastrow)
+    position[0] = r_e
+    j = 1
+    for i in range(1, steps):
         new_r_e = r_e + random_step(tau, neu + ned)
-
         e_vectors = subtract_outer(new_r_e, new_r_e)
         n_vectors = subtract_outer(new_r_e, atom_positions)
-
         new_p = guiding_function(e_vectors, n_vectors, neu, slater, jastrow)
-        j += 1
+
         if new_p**2 > np.random.random() * p**2:
             r_e, p = new_r_e, new_p
-            i += 1
-    return i / steps
+            position[j] = r_e
+            j += 1
+        else:
+            weight[j] += 1
+
+    return weight[:j], position[:j]
 
 
-# @pool
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def simple_accumulation(steps, tau, r_e, neu, ned, atom_positions, slater, jastrow, atom_charges):
-    """VMC simple accumulation"""
-    p = loc_E = 0.0
-    E = np.zeros((steps,))
-    for j in range(steps):
-        new_r_e = r_e + random_step(tau, neu + ned)
+def local_energy(position, neu, ned, atom_positions, slater, jastrow, atom_charges):
 
-        e_vectors = subtract_outer(new_r_e, new_r_e)
-        n_vectors = subtract_outer(new_r_e, atom_positions)
+    energy = np.zeros((position.shape[0], ))
+    for i in range(position.shape[0]):
+        r_e = position[i]
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = subtract_outer(r_e, atom_positions)
 
-        new_p = guiding_function(e_vectors, n_vectors, neu, slater, jastrow)
-        if new_p**2 > np.random.random() * p**2:
-            loc_E = local_energy(e_vectors, n_vectors, neu, ned, slater, jastrow, atom_charges)
-            r_e, p = new_r_e, new_p
-        E[j] = loc_E
-    return E
+        j_g = jastrow.gradient(e_vectors, n_vectors, neu)
+        j_l = jastrow.laplacian(e_vectors, n_vectors, neu)
+        s = slater.value(n_vectors, neu)
+        s_g = slater.gradient(n_vectors, neu, ned) / s
+        s_l = slater.laplacian(n_vectors, neu, ned) / s
+        F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
+        T = (np.sum(s_g * s_g) - s_l - j_l) / 4
 
-
-@nb.jit(nopython=True)
-def averaging_accumulation(steps, tau, r_e, neu, ned, atom_positions, slater, jastrow, atom_charges):
-    """VMC accumulation with averaging local energies over proposed moves"""
-    E = np.zeros((steps,))
-    loc_E = local_energy(r_e, neu, ned, atom_positions, jastrow, atom_charges)
-    for j in range(steps):
-        new_r_e = r_e + random_step(tau, neu + ned)
-
-        e_vectors = subtract_outer(new_r_e, new_r_e)
-        n_vectors = subtract_outer(new_r_e, atom_positions)
-
-        new_p = guiding_function(e_vectors, n_vectors, neu, slater, jastrow)
-        new_loc_E = local_energy(e_vectors, n_vectors, neu, ned, slater, jastrow, atom_charges)
-
-        E[j] = min((new_p/p)**2, 1) * new_loc_E + (1 - min((new_p/p)**2, 1)) * loc_E
-        if (new_p/p)**2 > np.random.random():
-            r_e, p, loc_E = new_r_e, new_p, new_loc_E
-    return E
+        energy[i] = coulomb(e_vectors, n_vectors, atom_charges) + 2 * T - F
+    return energy
 
 
-accumulation = simple_accumulation
+@nb.jit(nopython=True, nogil=True, parallel=False)
+def expand(weight, value):
+    res = np.zeros((weight.sum(), ) + value.shape[1:])
+    n = 0
+    for i in range(value.shape[0]):
+        for j in range(weight[i]):
+            res[n] = value[i]
+            n += 1
+    return res
 
 
 def main(casino):
-    """configuration-by-configuration sampling (CBCS)"""
-
-    neu, ned = casino.input.neu, casino.input.ned
-    tau = 1 / (neu + ned)
-    r_e = initial_position(neu + ned, casino.wfn.atom_positions) + random_step(tau, neu + ned)
+    """Configuration-by-configuration sampling (CBCS)
+    Should be pure python function.
+    """
 
     jastrow = Jastrow(
         casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters,
@@ -142,12 +135,19 @@ def main(casino):
         casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
     )
 
-    acc_ratio = equilibration(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, slater, jastrow)
-    logger.info('dr * electrons = 1.00000, acc_ration = %.5f', acc_ratio)
+    neu, ned = casino.input.neu, casino.input.ned
+    tau = 1 / (neu + ned)
+    r_e = initial_position(neu + ned, casino.wfn.atom_positions) + random_step(tau, neu + ned)
 
-    tau = optimize_vmc_step(10000, r_e, tau, neu, ned, casino.wfn.atom_positions, slater, jastrow)
+    weight, position = random_walk(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, slater, jastrow)
+    logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weight.size / casino.input.vmc_equil_nstep)
 
-    return accumulation(casino.input.vmc_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, slater, jastrow, casino.wfn.atom_charges)
+    tau = optimize_vmc_step(10000, position[-1], tau, neu, ned, casino.wfn.atom_positions, slater, jastrow)
+
+    weight, position = random_walk(casino.input.vmc_nstep, tau, position[-1], neu, ned, casino.wfn.atom_positions, slater, jastrow)
+    energy = local_energy(position, neu, ned, casino.wfn.atom_positions, slater, jastrow, casino.wfn.atom_charges)
+
+    return expand(weight, energy)
 
 
 if __name__ == '__main__':
