@@ -64,7 +64,7 @@ def random_walk(steps, tau, r_e, neu, ned, atom_positions, slater, jastrow):
     :param jastrow: instance of Jastrow class
     :return:
     """
-    weight = np.ones((steps + 1, ), np.int64)
+    weights = np.ones((steps + 1, ), np.int64)
     position = np.zeros((steps + 1, r_e.shape[0], r_e.shape[1]))
 
     e_vectors = subtract_outer(r_e, r_e)
@@ -72,7 +72,7 @@ def random_walk(steps, tau, r_e, neu, ned, atom_positions, slater, jastrow):
     p = guiding_function(e_vectors, n_vectors, neu, slater, jastrow)
     position[0] = r_e
     # do not take into account the last step from the previous run
-    weight[0] = 0
+    weights[0] = 0
     i = 0
     for _ in range(steps):
         new_r_e = r_e + random_step(tau, neu + ned)
@@ -85,18 +85,28 @@ def random_walk(steps, tau, r_e, neu, ned, atom_positions, slater, jastrow):
             r_e, p = new_r_e, new_p
             position[i] = r_e
         else:
-            weight[i] += 1
+            weights[i] += 1
 
-    if weight[0] > 0:
-        return weight[:i+1], position[:i+1]
+    if weights[0] > 0:
+        return weights[:i+1], position[:i+1]
     else:
-        return weight[1:i+1], position[1:i+1]
+        return weights[1:i+1], position[1:i+1]
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def local_energy(position, neu, ned, atom_positions, slater, jastrow, atom_charges):
+def local_energy(position, neu, ned, atom_positions, atom_charges, slater, jastrow):
+    """
+    :param position:
+    :param neu:
+    :param ned:
+    :param atom_positions:
+    :param slater:
+    :param jastrow:
+    :param atom_charges:
+    :return:
+    """
 
-    energy = np.zeros((position.shape[0], ))
+    res = np.zeros((position.shape[0], ))
     for i in range(position.shape[0]):
         r_e = position[i]
         e_vectors = subtract_outer(r_e, r_e)
@@ -110,8 +120,36 @@ def local_energy(position, neu, ned, atom_positions, slater, jastrow, atom_charg
         F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
         T = (np.sum(s_g * s_g) - s_l - j_l) / 4
 
-        energy[i] = coulomb(e_vectors, n_vectors, atom_charges) + 2 * T - F
-    return energy
+        res[i] = coulomb(e_vectors, n_vectors, atom_charges) + 2 * T - F
+    return res
+
+
+@nb.jit(nopython=True, nogil=True, parallel=False)
+def local_energy_gradient(position, neu, ned, atom_positions, atom_charges, slater, jastrow):
+    """
+    :param position:
+    :param neu:
+    :param ned:
+    :param atom_positions:
+    :param slater:
+    :param jastrow:
+    :param atom_charges:
+    :return:
+    """
+
+    r_e = position[0]
+    e_vectors = subtract_outer(r_e, r_e)
+    n_vectors = subtract_outer(r_e, atom_positions)
+    first_res = jastrow.parameters_numerical_first_deriv(e_vectors, n_vectors, neu)
+    res = np.zeros((position.shape[0], ) + first_res.shape)
+    res[0] = first_res
+
+    for i in range(1, position.shape[0]):
+        r_e = position[i]
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = subtract_outer(r_e, atom_positions)
+        res[i] = jastrow.parameters_numerical_first_deriv(e_vectors, n_vectors, neu)
+    return res
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
@@ -132,7 +170,9 @@ def main(casino):
 
     jastrow = Jastrow(
         casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.chi_parameters,
-        casino.jastrow.chi_cutoff, casino.jastrow.f_parameters, casino.jastrow.f_cutoff)
+        casino.jastrow.chi_cutoff, casino.jastrow.chi_labels, casino.jastrow.f_parameters, casino.jastrow.f_cutoff,
+        casino.jastrow.f_labels
+    )
 
     slater = Slater(
         casino.wfn.nbasis_functions, casino.wfn.first_shells, casino.wfn.orbital_types, casino.wfn.shell_moments,
@@ -144,14 +184,21 @@ def main(casino):
     tau = 1 / (neu + ned)
     r_e = initial_position(neu + ned, casino.wfn.atom_positions) + random_step(tau, neu + ned)
 
-    weight, position = random_walk(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, slater, jastrow)
-    logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weight.size / casino.input.vmc_equil_nstep)
+    weights, position = random_walk(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, slater, jastrow)
+    logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weights.size / casino.input.vmc_equil_nstep)
     tau = optimize_vmc_step(10000, position[-1], tau, neu, ned, casino.wfn.atom_positions, slater, jastrow)
 
-    weight, position = random_walk(casino.input.vmc_nstep, tau, position[-1], neu, ned, casino.wfn.atom_positions, slater, jastrow)
-    energy = local_energy(position, neu, ned, casino.wfn.atom_positions, slater, jastrow, casino.wfn.atom_charges)
+    weights, position = random_walk(casino.input.vmc_nstep, tau, position[-1], neu, ned, casino.wfn.atom_positions, slater, jastrow)
+    energy = local_energy(position, neu, ned, casino.wfn.atom_positions, casino.wfn.atom_charges, slater, jastrow)
 
-    return expand(weight, energy)
+    # energy_gradient = local_energy_gradient(position, neu, ned, casino.wfn.atom_positions, casino.wfn.atom_charges, slater, jastrow)
+    # gradient = 2 * (
+    #     np.average((energy_gradient * energy[:, np.newaxis]), axis=0, weights=weights) -
+    #     np.average(energy, weights=weights) * np.average(energy_gradient, axis=0, weights=weights)
+    # )
+    # print(gradient)
+
+    return expand(weights, energy)
 
 
 if __name__ == '__main__':

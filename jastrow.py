@@ -18,6 +18,7 @@ I guess when using classes + numba, @selslack's suggestion of creating a normal 
  which is not the most ideal because it leads to some obfuscation, is the best option.
 """
 
+labels_type = nb.int64[:]
 u_parameters_type = nb.float64[:, :]
 chi_parameters_type = nb.float64[:, :]
 f_parameters_type = nb.float64[:, :, :, :]
@@ -30,6 +31,8 @@ spec = [
     ('u_cutoff', nb.float64),
     ('chi_cutoff', nb.float64[:]),
     ('f_cutoff', nb.float64[:]),
+    ('chi_labels', nb.types.ListType(labels_type)),
+    ('f_labels', nb.types.ListType(labels_type)),
     ('max_ee_order', nb.int64),
     ('max_en_order', nb.int64),
 ]
@@ -38,7 +41,7 @@ spec = [
 @nb.experimental.jitclass(spec)
 class Jastrow:
 
-    def __init__(self, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, f_parameters, f_cutoff):
+    def __init__(self, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, chi_labels, f_parameters, f_cutoff, f_labels):
         self.trunc = trunc
         self.u_parameters = u_parameters
         self.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)
@@ -48,6 +51,10 @@ class Jastrow:
         self.u_cutoff = u_cutoff
         self.chi_cutoff = chi_cutoff
         self.f_cutoff = f_cutoff
+        self.chi_labels = nb.typed.List.empty_list(labels_type)
+        [self.chi_labels.append(p) for p in chi_labels]
+        self.f_labels = nb.typed.List.empty_list(labels_type)
+        [self.f_labels.append(p) for p in f_labels]
         self.max_ee_order = max((
             self.u_parameters.shape[0],
             max([p.shape[2] for p in self.f_parameters]),
@@ -569,10 +576,11 @@ class Jastrow:
         :param e_powers: powers of e-e distances
         :param neu: number of up electrons
         """
+        if not self.u_cutoff:
+            return np.zeros((0,))
+
         delta = 0.00001
         res = np.zeros((self.u_parameters.size + 1,))
-        if not self.u_cutoff:
-            return res
 
         self.u_cutoff -= delta
         res[0] -= self.u_term(e_powers, neu)
@@ -597,10 +605,11 @@ class Jastrow:
         :param n_powers: powers of e-n distances
         :param neu: number of up electrons
         """
+        if not self.chi_cutoff.any():
+            return np.zeros((0,))
+
         delta = 0.00001
         res = np.zeros((np.array(list([p.size + 1 for p in self.chi_parameters])).sum(),))
-        if not self.chi_cutoff.any():
-            return res
 
         n = -1
         for cutoff in self.chi_cutoff:
@@ -629,10 +638,11 @@ class Jastrow:
         :param n_powers: powers of e-n distances
         :param neu: number of up electrons
         """
+        if not self.f_cutoff.any():
+            return np.zeros((0,))
+
         delta = 0.00001
         res = np.zeros((np.array(list([p.size + 1 for p in self.f_parameters])).sum(),))
-        if not self.f_cutoff.any():
-            return res
 
         n = -1
         for cutoff in self.f_cutoff:
@@ -677,6 +687,9 @@ class Jastrow:
         :param e_powers: powers of e-e distances
         :param neu: number of up electrons
         """
+        if not self.u_cutoff:
+            return np.zeros((0, 0))
+
         delta = 0.00001
         res = np.zeros((self.u_parameters.size + 1, self.u_parameters.size + 1))
 
@@ -745,6 +758,9 @@ class Jastrow:
         :param n_powers: powers of e-n distances
         :param neu: number of up electrons
         """
+        if not self.chi_cutoff.any():
+            return np.zeros((0, 0))
+
         delta = 0.00001
         size = np.array(list([p.size + 1 for p in self.chi_parameters])).sum()
         res = np.zeros((size, size))
@@ -768,6 +784,9 @@ class Jastrow:
         :param n_powers: powers of e-n distances
         :param neu: number of up electrons
         """
+        if not self.f_cutoff.any():
+            return np.zeros((0, 0))
+
         delta = 0.00001
         size = np.array(list([p.size + 1 for p in self.f_parameters])).sum()
         res = np.zeros((size, size))

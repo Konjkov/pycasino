@@ -6,6 +6,9 @@ import numpy as np
 import numba as nb
 
 
+labels_type = nb.int64[:]
+
+
 class Jastrow:
     """Jastrow reader from file.
     CASINO manual: p. 7.4.2 Jastrow factor
@@ -36,6 +39,8 @@ class Jastrow:
         self.chi_cutoff = np.zeros(atom_charges.size)
         self.f_cutoff = np.zeros(atom_charges.size)
         self.chi_cusp = np.zeros(atom_charges.size)
+        self.chi_labels = nb.typed.List.empty_list(labels_type)
+        self.f_labels = nb.typed.List.empty_list(labels_type)
         if not os.path.isfile(file):
             return
         with open(file, 'r') as f:
@@ -91,11 +96,12 @@ class Jastrow:
                     if line.startswith('START SET'):
                         pass
                     elif line.startswith('Label'):
-                        chi_labels = self.read_ints()
+                        chi_labels = np.array(self.read_ints()) - 1
+                        self.chi_labels.append(chi_labels)
                     elif line.startswith('Impose electron-nucleus cusp'):
                         chi_cusp = self.read_bool()
                         for label in chi_labels:
-                            self.chi_cusp[label-1] = chi_cusp
+                            self.chi_cusp[label] = chi_cusp
                     elif line.startswith('Expansion order'):
                         chi_order = self.read_int()
                     elif line.startswith('Spin dep'):
@@ -103,7 +109,7 @@ class Jastrow:
                     elif line.startswith('Cutoff'):
                         chi_cutoff = self.read_float()
                         for label in chi_labels:
-                            self.chi_cutoff[label-1] = chi_cutoff
+                            self.chi_cutoff[label] = chi_cutoff
                     elif line.startswith('Parameter'):
                         # u, d
                         parameters = np.zeros((chi_order+1, 2), np.float)
@@ -116,14 +122,15 @@ class Jastrow:
                                 if chi_spin_dep == 0:
                                     parameters[m, 1] = parameters[m, 0]
                         for label in chi_labels:
-                            self.chi_parameters[label-1] = self.fix_chi(parameters, chi_cutoff, chi_cusp, atom_charges[label-1])
+                            self.chi_parameters[label] = self.fix_chi(parameters, chi_cutoff, chi_cusp, atom_charges[label])
                     elif line.startswith('END SET'):
                         chi_labels = []
                 elif f_term:
                     if line.startswith('START SET'):
                         pass
                     elif line.startswith('Label'):
-                        f_labels = self.read_ints()
+                        f_labels = np.array(self.read_ints()) - 1
+                        self.f_labels.append(f_labels)
                     elif line.startswith('Prevent duplication of u term'):
                         no_dup_u_term = self.read_bool()
                     elif line.startswith('Prevent duplication of chi term'):
@@ -137,7 +144,7 @@ class Jastrow:
                     elif line.startswith('Cutoff'):
                         f_cutoff = self.read_float()
                         for label in f_labels:
-                            self.f_cutoff[label-1] = f_cutoff
+                            self.f_cutoff[label] = f_cutoff
                     elif line.startswith('Parameter'):
                         parameters = np.zeros((f_en_order+1, f_en_order+1, f_ee_order+1, 3), np.float)
                         f_mask = self.get_f_mask(f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
@@ -156,8 +163,8 @@ class Jastrow:
                                             parameters[l, m, n, 2] = parameters[l, m, n, 0]
                                             parameters[m, l, n, 2] = parameters[m, l, n, 0]
                         for label in f_labels:
-                            self.f_parameters[label-1] = self.fix_f(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
-                            self.check_f_constrains(self.f_parameters[label-1], f_cutoff, no_dup_u_term, no_dup_chi_term)
+                            self.f_parameters[label] = self.fix_f(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
+                            self.check_f_constrains(self.f_parameters[label], f_cutoff, no_dup_u_term, no_dup_chi_term)
                     elif line.startswith('END SET'):
                         f_labels = []
 
@@ -301,7 +308,7 @@ class Jastrow:
 
         return f_parameters
 
-    def fix_f_new(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
+    def fix_f_not_implemented(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
         """To find the dependent coefficients of f-term it is necessary to solve
         the system of linear equations:  a*x=b
         a-matrix has the following rows:
