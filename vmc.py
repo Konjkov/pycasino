@@ -188,8 +188,11 @@ def main(casino):
     logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weights.size / casino.input.vmc_equil_nstep)
     tau = optimize_vmc_step(10000, position[-1], tau, neu, ned, casino.wfn.atom_positions, slater, jastrow)
 
+    start = default_timer()
     weights, position = random_walk(casino.input.vmc_nstep, tau, position[-1], neu, ned, casino.wfn.atom_positions, slater, jastrow)
     energy = local_energy(position, neu, ned, casino.wfn.atom_positions, casino.wfn.atom_charges, slater, jastrow)
+    end = default_timer()
+    logger.info(f'total time {end-start}')
 
     # energy_gradient = local_energy_gradient(position, neu, ned, casino.wfn.atom_positions, casino.wfn.atom_charges, slater, jastrow)
     # gradient = 2 * (
@@ -239,9 +242,7 @@ if __name__ == '__main__':
 
     casino = Casino(path)
 
-    start = default_timer()
     E = main(casino)
-    end = default_timer()
     reblock_data = pyblock.blocking.reblock(E + nuclear_repulsion(casino.wfn.atom_positions, casino.wfn.atom_charges))
     # for reblock_iter in reblock_data:
     #     print(reblock_iter)
@@ -249,4 +250,4 @@ if __name__ == '__main__':
     opt_data = reblock_data[opt[0]]
     logger.info(opt_data)
     # print(np.mean(opt_data.mean), '+/-', np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size))
-    logger.info(f'total time {end-start}')
+
