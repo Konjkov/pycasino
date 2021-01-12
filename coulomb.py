@@ -15,21 +15,20 @@ import numba as nb
 @nb.jit(nopython=True, nogil=True, parallel=False)
 def nuclear_repulsion(atom_positions, atom_charges) -> float:
     """nuclear-nuclear repulsion"""
-    result = 0.0
-    for i in range(atom_positions.shape[0]):
-        for j in range(atom_positions.shape[0]):
-            if i > j:
-                result += atom_charges[i] * atom_charges[j]/np.linalg.norm(atom_positions[i] - atom_positions[j])
-    return result
+    res = 0.0
+    for i in range(atom_positions.shape[0] - 1):
+        for j in range(i + 1, atom_positions.shape[0]):
+            res += atom_charges[i] * atom_charges[j]/np.linalg.norm(atom_positions[i] - atom_positions[j])
+    return res
 
 
 @nb.jit(nopython=True)
 def coulomb(e_vectors, n_vectors, atom_charges) -> float:
     """Coulomb attraction between the electron and nucleus."""
     res = 0.0
-    for i in range(n_vectors.shape[1]):
-        for j in range(n_vectors.shape[0]):
-            res -= atom_charges[i] / np.linalg.norm(n_vectors[j, i])
+    for i in range(n_vectors.shape[0]):
+        for j in range(n_vectors.shape[1]):
+            res -= atom_charges[j] / np.linalg.norm(n_vectors[i, j])
 
     for i in range(e_vectors.shape[0] - 1):
         for j in range(i + 1, e_vectors.shape[1]):

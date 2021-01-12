@@ -41,7 +41,7 @@ def optimize_vmc_step(opt_steps, r_e, initial_tau, neu, ned, atom_positions, sla
 
     options = dict(jac_options=dict(alpha=1))
     res = sp.optimize.root(f, initial_tau, method='diagbroyden', tol=1/np.sqrt(opt_steps), callback=callback, options=options)
-    return res.x
+    return np.abs(res.x)
 
 
 @nb.jit(nopython=True)
@@ -112,15 +112,18 @@ def local_energy(position, neu, ned, atom_positions, atom_charges, slater, jastr
         e_vectors = subtract_outer(r_e, r_e)
         n_vectors = subtract_outer(r_e, atom_positions)
 
-        j_g = jastrow.gradient(e_vectors, n_vectors, neu)
-        j_l = jastrow.laplacian(e_vectors, n_vectors, neu)
         s = slater.value(n_vectors, neu)
-        s_g = slater.gradient(n_vectors, neu, ned) / s
         s_l = slater.laplacian(n_vectors, neu, ned) / s
-        F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
-        T = (np.sum(s_g * s_g) - s_l - j_l) / 4
-
-        res[i] = coulomb(e_vectors, n_vectors, atom_charges) + 2 * T - F
+        res[i] = coulomb(e_vectors, n_vectors, atom_charges)
+        if False:
+            j_g = jastrow.gradient(e_vectors, n_vectors, neu)
+            j_l = jastrow.laplacian(e_vectors, n_vectors, neu)
+            s_g = slater.gradient(n_vectors, neu, ned) / s
+            F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
+            T = (np.sum(s_g * s_g) - s_l - j_l) / 4
+            res[i] += 2 * T - F
+        else:
+            res[i] -= s_l / 2
     return res
 
 
@@ -182,17 +185,25 @@ def main(casino):
 
     neu, ned = casino.input.neu, casino.input.ned
     tau = 1 / (neu + ned)
-    r_e = initial_position(neu + ned, casino.wfn.atom_positions) + random_step(tau, neu + ned)
+    r_e = initial_position(neu + ned, casino.wfn.atom_positions, casino.wfn.atom_charges) + random_step(tau, neu + ned)
 
     weights, position = random_walk(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, slater, jastrow)
     logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weights.size / casino.input.vmc_equil_nstep)
     tau = optimize_vmc_step(10000, position[-1], tau, neu, ned, casino.wfn.atom_positions, slater, jastrow)
 
-    start = default_timer()
-    weights, position = random_walk(casino.input.vmc_nstep, tau, position[-1], neu, ned, casino.wfn.atom_positions, slater, jastrow)
-    energy = local_energy(position, neu, ned, casino.wfn.atom_positions, casino.wfn.atom_charges, slater, jastrow)
-    end = default_timer()
-    logger.info(f'total time {end-start}')
+    repulsion = nuclear_repulsion(casino.wfn.atom_positions, casino.wfn.atom_charges)
+
+    rounds = 10
+    E = np.zeros((rounds, ))
+    check_point_1 = default_timer()
+    for i in range(rounds):
+        weights, position = random_walk(casino.input.vmc_nstep // rounds, tau, position[-1], neu, ned, casino.wfn.atom_positions, slater, jastrow)
+        energy = local_energy(position, neu, ned, casino.wfn.atom_positions, casino.wfn.atom_charges, slater, jastrow)
+        E[i] = np.average(energy, weights=weights)
+        check_point_2 = default_timer()
+        mean_energy = np.average(E[:i + 1])
+        std_err = np.std(E[:i + 1], ddof=0) / np.sqrt(i)
+        logger.info(f'{E[i] + repulsion}, {mean_energy + repulsion}, {std_err}, total time {check_point_2-check_point_1}')
 
     # energy_gradient = local_energy_gradient(position, neu, ned, casino.wfn.atom_positions, casino.wfn.atom_charges, slater, jastrow)
     # gradient = 2 * (
@@ -218,7 +229,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
     # path = 'test/gwfn/be/HF/def2-QZVP/VMC_OPT_BF/emin_BF/8_8_44__9_9_33'
@@ -226,10 +237,11 @@ if __name__ == '__main__':
     # path = 'test/gwfn/n/HF/cc-pVQZ/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/'
     # path = 'test/gwfn/h2/HF/cc-pVQZ/'
-    # path = 'test/gwfn/be2/HF/cc-pVQZ/'
+    path = 'test/gwfn/be2/HF/cc-pVQZ/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/ch4/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetic/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
