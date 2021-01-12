@@ -120,6 +120,7 @@ class Gwfn(FortranFile):
 
         self.orbital_types = np.zeros((self._nprimitives, ), np.int)
         self.slater_orders = np.zeros((self._nprimitives, ), np.int)
+        self.remove_premultiplied_factor()
         # self.set_cusp()
 
     def set_cusp(self):
@@ -139,6 +140,28 @@ class Gwfn(FortranFile):
                     self.exponents[p:p + primitives] = np.zeros((primitives, ))
                     self.exponents[p:p + new_primitives] = new_exponents
                     p += primitives
+
+    def remove_premultiplied_factor(self):
+        """
+        One historical CASINO inconsistency which may be easily overlooked:
+        Constant numerical factors in the real solid harmonics e.g. the '3' in the 3xy
+        d function, or '15' in the (15x^3-45^xy2) f function, may be premultiplied into
+        the orbital coefficients so that CASINO doesn't have to e.g. multiply by 3
+        every time it evaluates that particular d function. In practice the CASINO
+        orbital evaluators do this only for d functions, but *not for f and g* (this
+        may or may not be changed in the future if it can be done in a.
+        backwards-consistent way)
+        """
+
+        premultiplied_factor = np.ones((self.nbasis_functions, ))
+        i = 0
+        for shell_moment in self.shell_moments:
+            j = 2 * shell_moment + 1
+            if shell_moment == 2:
+                premultiplied_factor[i:i+j] = np.array((0.5, 3.0, 3.0, 3.0, 6.0))
+            i += j
+        self.mo_up = self.mo_up / premultiplied_factor[np.newaxis, :]
+        self.mo_down = self.mo_down / premultiplied_factor[np.newaxis, :]
 
 
 class Stowfn(FortranFile):
