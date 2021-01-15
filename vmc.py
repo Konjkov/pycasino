@@ -186,6 +186,22 @@ def main(casino):
     neu, ned = casino.input.neu, casino.input.ned
     tau = 1 / (neu + ned)
     r_e = initial_position(neu + ned, casino.wfn.atom_positions, casino.wfn.atom_charges) + random_step(tau, neu + ned)
+    r_e = np.array(
+        [[-0.02532898, 0.04153435, -0.02727808],
+         [-1.10909017, 1.13073422, -1.20307238],
+         [-0.02922322, 0.08171537, -0.01682952],
+         [-0.07663338, 0.10518527,  0.02831007],
+         [ 0.01845553, -0.04372275, -0.03897309],
+         [ 1.17247065, -1.24194951, -1.20381698],
+         [ 1.16957671, 1.16550225, 1.072914  ],
+         [ 1.20681837, 1.3173635, 1.16707191],
+         [ 0.07112193, 0.01222485, 0.07391584],
+         [-1.18349887, -1.14194159, 1.26915272]
+         ])
+    e_vectors = subtract_outer(r_e, r_e)
+    n_vectors = subtract_outer(r_e, casino.wfn.atom_positions)
+    p = guiding_function(e_vectors, n_vectors, neu, slater, jastrow)
+    print(p)
 
     weights, position = random_walk(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, slater, jastrow)
     logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weights.size / casino.input.vmc_equil_nstep)
