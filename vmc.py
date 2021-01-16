@@ -186,22 +186,6 @@ def main(casino):
     neu, ned = casino.input.neu, casino.input.ned
     tau = 1 / (neu + ned)
     r_e = initial_position(neu + ned, casino.wfn.atom_positions, casino.wfn.atom_charges) + random_step(tau, neu + ned)
-    r_e = np.array(
-        [[0.02532898, 0.04153435, 0.02727808],
-         [1.10909017, 1.13073422, 1.20307238],
-         [0.02922322, 0.08171537, 0.01682952],
-         [0.07663338, 0.10518527, 0.02831007],
-         [0.01845553, 0.04372275, 0.03897309],
-         [0.02532898, 0.04153435, 0.02727808],
-         [1.10909017, 1.13073422, 1.20307238],
-         [0.02922322, 0.08171537, 0.01682952],
-         [0.07663338, 0.10518527, 0.02831007],
-         [0.01845553, 0.04372275, 0.03897309],
-         ])
-    e_vectors = subtract_outer(r_e, r_e)
-    n_vectors = subtract_outer(r_e, casino.wfn.atom_positions)
-    p = guiding_function(e_vectors, n_vectors, neu, slater, jastrow)
-    print(p)
 
     weights, position = random_walk(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, slater, jastrow)
     logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weights.size / casino.input.vmc_equil_nstep)
@@ -242,7 +226,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/h/HF/cc-pVQZ/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
@@ -257,9 +241,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
-    # path = 'test/gwfn/h2o/HF/cc-pVQZ/'
-    # path = 'test/gwfn/o2/HF/cc-pVQZ/'
-    path = 'test/gwfn/ch4/HF/cc-pVQZ/'
+    # path = 'test/gwfn/ch4/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetic/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'

@@ -18,7 +18,7 @@ def nuclear_repulsion(atom_positions, atom_charges) -> float:
     res = 0.0
     for i in range(atom_positions.shape[0] - 1):
         for j in range(i + 1, atom_positions.shape[0]):
-            res += atom_charges[i] * atom_charges[j]/np.linalg.norm(atom_positions[i] - atom_positions[j])
+            res += atom_charges[i] * atom_charges[j] / np.linalg.norm(atom_positions[i] - atom_positions[j])
     return res
 
 

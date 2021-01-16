@@ -139,12 +139,12 @@ class Slater:
         """
         orbital = np.zeros((n_vectors.shape[0], self.nbasis_functions))
         for i in range(n_vectors.shape[0]):
+            p = 0
             ao = 0
             for atom in range(n_vectors.shape[1]):
                 rI = n_vectors[i, atom]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
                 angular_part_data = angular_part(rI)
-                p = 0
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
                     radial_part = 0.0
@@ -169,13 +169,13 @@ class Slater:
         orbital_y = np.zeros((n_vectors.shape[0], self.nbasis_functions))
         orbital_z = np.zeros((n_vectors.shape[0], self.nbasis_functions))
         for i in range(n_vectors.shape[0]):
+            p = 0
             ao = 0
             for atom in range(n_vectors.shape[1]):
                 rI = n_vectors[i, atom]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
                 angular_part_data = angular_part(rI)
                 gradient_angular_part_data = gradient_angular_part(rI)
-                p = 0
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     radial_part_1 = 0.0
                     radial_part_2 = 0.0
@@ -207,12 +207,12 @@ class Slater:
         """
         orbital = np.zeros((n_vectors.shape[0], self.nbasis_functions))
         for i in range(n_vectors.shape[0]):
+            p = 0
             ao = 0
             for atom in range(n_vectors.shape[1]):
                 rI = n_vectors[i, atom]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
                 angular_part_data = angular_part(rI)
-                p = 0
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
                     radial_part = 0.0
