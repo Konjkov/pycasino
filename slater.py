@@ -287,6 +287,9 @@ class Slater:
         :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
         :param neu: number of up-electrons
         :param ned: number of down-electrons
+
+        As numba overloaded function 'dot' only supported on 1-D and 2-D arrays,
+        so I use list of 2-D arrays (gradient_x, gradient_y, gradient_z) to represent gradient.
         """
         ao = self.AO_wfn(n_vectors)
         gradient_x, gradient_y, gradient_z = self.AO_gradient(n_vectors)

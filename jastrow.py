@@ -24,6 +24,7 @@ chi_parameters_type = nb.float64[:, :]
 f_parameters_type = nb.float64[:, :, :, :]
 
 spec = [
+    ('enabled', nb.boolean),
     ('trunc', nb.int64),
     ('u_parameters', u_parameters_type),
     ('chi_parameters', nb.types.ListType(chi_parameters_type)),
@@ -42,6 +43,7 @@ spec = [
 class Jastrow:
 
     def __init__(self, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, chi_labels, f_parameters, f_cutoff, f_labels):
+        self.enabled = u_cutoff or chi_cutoff.any() or f_cutoff.any()
         self.trunc = trunc
         self.u_parameters = u_parameters
         self.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)

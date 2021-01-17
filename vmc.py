@@ -115,7 +115,7 @@ def local_energy(position, neu, ned, atom_positions, atom_charges, slater, jastr
         s = slater.value(n_vectors, neu)
         s_l = slater.laplacian(n_vectors, neu, ned) / s
         res[i] = coulomb(e_vectors, n_vectors, atom_charges)
-        if False:
+        if jastrow.enabled:
             j_g = jastrow.gradient(e_vectors, n_vectors, neu)
             j_l = jastrow.laplacian(e_vectors, n_vectors, neu)
             s_g = slater.gradient(n_vectors, neu, ned) / s
@@ -226,16 +226,17 @@ if __name__ == '__main__':
     # path = 'test/gwfn/h/HF/cc-pVQZ/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
     # path = 'test/gwfn/be/HF/def2-QZVP/VMC_OPT_BF/emin_BF/8_8_44__9_9_33'
     # path = 'test/gwfn/b/HF/cc-pVQZ/'
     # path = 'test/gwfn/n/HF/cc-pVQZ/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/'
+    # path = 'test/gwfn/cl/HF/cc-pVQZ/'
     # path = 'test/gwfn/h2/HF/cc-pVQZ/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
