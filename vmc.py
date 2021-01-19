@@ -30,7 +30,7 @@ numba_logger = logging.getLogger('numba')
 spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
-    ('r_e', nb.float64[:]),
+    ('r_e', nb.float64[:, :]),
     ('atom_positions', nb.float64[:, :]),
     ('atom_charges', nb.float64[:]),
     ('nuclear_repulsion', nb.float64),
@@ -54,6 +54,7 @@ class Metropolis:
         """
         self.neu = neu
         self.ned = ned
+        self.r_e = np.zeros((neu + ned, 3))
         self.atom_positions = atom_positions
         self.atom_charges = atom_charges
         self.nuclear_repulsion = nuclear_repulsion(atom_positions, atom_charges)
@@ -74,12 +75,13 @@ class Metropolis:
         else:
             return r_e, p, cond
 
-    def random_walk(self, steps, tau, r_e):
+    def random_walk(self, steps, tau):
         """Metropolis-Hastings random walk.
         :param steps: steps to walk
         :return:
         """
 
+        r_e = self.r_e
         weights = np.ones((steps, ), np.int64)
         position = np.zeros((steps, r_e.shape[0], r_e.shape[1]))
         function = np.ones((steps, ), np.float64)
@@ -103,6 +105,7 @@ class Metropolis:
             else:
                 weights[i] += 1
 
+        self.r_e = r_e
         return weights[:i+1], position[:i+1], function[:i+1]
 
     def local_energy(self, position):
@@ -167,7 +170,7 @@ def expand(weight, value):
     return res
 
 
-def optimize_vmc_step(opt_steps, r_e, initial_tau, metropolis):
+def optimize_vmc_step(opt_steps, initial_tau, metropolis):
     """Optimize vmc step size."""
 
     def callback(tau, acc_ration):
@@ -175,7 +178,7 @@ def optimize_vmc_step(opt_steps, r_e, initial_tau, metropolis):
         logger.info('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (metropolis.neu + metropolis.ned), acc_ration[0] + 0.5)
 
     def f(tau):
-        weight, _, _ = metropolis.random_walk(casino.input.vmc_equil_nstep, tau, r_e)
+        weight, _, _ = metropolis.random_walk(casino.input.vmc_equil_nstep, tau)
         return weight.size / casino.input.vmc_equil_nstep - 0.5
 
     options = dict(jac_options=dict(alpha=1))
@@ -204,16 +207,16 @@ def main(casino):
     metropolis = Metropolis(neu, ned, casino.wfn.atom_positions, casino.wfn.atom_charges, slater, jastrow)
 
     tau = 1 / (neu + ned)
-    r_e = initial_position(neu + ned, metropolis.atom_positions, metropolis.atom_charges)
-    weights, position, _ = metropolis.random_walk(casino.input.vmc_equil_nstep, tau, r_e)
+    metropolis.r_e = initial_position(neu + ned, metropolis.atom_positions, metropolis.atom_charges)
+    weights, _, _ = metropolis.random_walk(casino.input.vmc_equil_nstep, tau)
     logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weights.size / casino.input.vmc_equil_nstep)
-    tau = optimize_vmc_step(10000, position[-1], tau, metropolis)
+    tau = optimize_vmc_step(10000, tau, metropolis)
 
     rounds = 10
     E = np.zeros((rounds, ))
     check_point_1 = default_timer()
     for i in range(rounds):
-        weights, position, _ = metropolis.random_walk(casino.input.vmc_nstep // rounds, tau, position[-1])
+        weights, position, _ = metropolis.random_walk(casino.input.vmc_nstep // rounds, tau)
         energy = metropolis.local_energy(position)
         E[i] = np.average(energy, weights=weights)
         check_point_2 = default_timer()
