@@ -27,142 +27,133 @@ from random_steps import initial_position, random_step
 logger = logging.getLogger('vmc')
 numba_logger = logging.getLogger('numba')
 
-
-def optimize_vmc_step(opt_steps, r_e, initial_tau, neu, ned, atom_positions, slater, jastrow):
-    """Optimize vmc step size."""
-
-    def callback(tau, acc_ration):
-        """dr = sqrt(3*dtvmc)"""
-        logger.info('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (neu + ned), acc_ration[0] + 0.5)
-
-    def f(tau):
-        weight, _, _ = random_walk(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, atom_positions, slater, jastrow)
-        return weight.size / casino.input.vmc_equil_nstep - 0.5
-
-    options = dict(jac_options=dict(alpha=1))
-    res = sp.optimize.root(f, initial_tau, method='diagbroyden', tol=1/np.sqrt(opt_steps), callback=callback, options=options)
-    return np.abs(res.x)
+spec = [
+    ('neu', nb.int64),
+    ('ned', nb.int64),
+    ('r_e', nb.float64[:]),
+    ('atom_positions', nb.float64[:, :]),
+    ('atom_charges', nb.float64[:]),
+    ('nuclear_repulsion', nb.float64),
+    ('slater', Slater.class_type.instance_type),
+    ('jastrow', Jastrow.class_type.instance_type),
+]
 
 
-@nb.jit(nopython=True)
-def guiding_function(e_vectors, n_vectors, neu, slater, jastrow):
-    """Wave function in general form"""
+@nb.experimental.jitclass(spec)
+class Metropolis:
 
-    return np.exp(jastrow.value(e_vectors, n_vectors, neu)) * slater.value(n_vectors, neu)
+    def __init__(self, neu, ned, atom_positions, atom_charges, slater, jastrow):
+        """Metropolis-Hastings random walk.
+        :param neu: number of up electrons
+        :param ned: number of down electrons
+        :param atom_positions: atomic positions
+        :param atom_charges: atomic charges
+        :param slater: instance of Slater class
+        :param jastrow: instance of Jastrow class
+        :return:
+        """
+        self.neu = neu
+        self.ned = ned
+        self.atom_positions = atom_positions
+        self.atom_charges = atom_charges
+        self.nuclear_repulsion = nuclear_repulsion(atom_positions, atom_charges)
+        self.slater = slater
+        self.jastrow = jastrow
 
+    def guiding_function(self, e_vectors, n_vectors):
+        """Wave function in general form"""
+        return np.exp(self.jastrow.value(e_vectors, n_vectors, self.neu)) * self.slater.value(n_vectors, self.neu)
 
-@nb.jit(nopython=True)
-def make_step(p, tau, r_e, neu, ned, atom_positions, slater, jastrow):
-    new_r_e = r_e + random_step(tau, neu + ned)
-    e_vectors = subtract_outer(new_r_e, new_r_e)
-    n_vectors = subtract_outer(new_r_e, atom_positions)
-    new_p = guiding_function(e_vectors, n_vectors, neu, slater, jastrow)
-    if cond := new_p ** 2 > np.random.random() * p ** 2:
-        return new_r_e, new_p, cond
-    else:
-        return r_e, p, cond
-
-
-@nb.jit(nopython=True)
-def random_walk(steps, tau, r_e, neu, ned, atom_positions, slater, jastrow):
-    """Metropolis-Hastings random walk.
-    :param steps: steps to walk
-    :param tau: step size
-    :param r_e: position preceding starts position of electrons (last position of previous run)
-    :param neu: number of up electrons
-    :param ned: number of down electrons
-    :param atom_positions: atomic positions
-    :param slater: instance of Slater class
-    :param jastrow: instance of Jastrow class
-    :return:
-    """
-
-    weights = np.ones((steps, ), np.int64)
-    position = np.zeros((steps, r_e.shape[0], r_e.shape[1]))
-    function = np.ones((steps, ), np.float64)
-
-    e_vectors = subtract_outer(r_e, r_e)
-    n_vectors = subtract_outer(r_e, atom_positions)
-    p = guiding_function(e_vectors, n_vectors, neu, slater, jastrow)
-
-    i = 0
-    # first step
-    r_e, p, _ = make_step(p, tau, r_e, neu, ned, atom_positions, slater, jastrow)
-    position[i] = r_e
-    function[i] = p
-    # other steps
-    for _ in range(1, steps):
-        r_e, p, cond = make_step(p, tau, r_e, neu, ned, atom_positions, slater, jastrow)
-        if cond:
-            i += 1
-            position[i] = r_e
-            function[i] = p
+    def make_step(self, p, tau, r_e):
+        new_r_e = r_e + random_step(tau, self.neu + self.ned)
+        e_vectors = subtract_outer(new_r_e, new_r_e)
+        n_vectors = subtract_outer(new_r_e, self.atom_positions)
+        new_p = self.guiding_function(e_vectors, n_vectors)
+        if cond := new_p ** 2 > np.random.random() * p ** 2:
+            return new_r_e, new_p, cond
         else:
-            weights[i] += 1
+            return r_e, p, cond
 
-    return weights[:i+1], position[:i+1], function[:i+1]
+    def random_walk(self, steps, tau, r_e):
+        """Metropolis-Hastings random walk.
+        :param steps: steps to walk
+        :return:
+        """
 
+        weights = np.ones((steps, ), np.int64)
+        position = np.zeros((steps, r_e.shape[0], r_e.shape[1]))
+        function = np.ones((steps, ), np.float64)
 
-@nb.jit(nopython=True, nogil=True, parallel=False)
-def local_energy(position, neu, ned, atom_positions, atom_charges, slater, jastrow):
-    """
-    :param position:
-    :param neu:
-    :param ned:
-    :param atom_positions:
-    :param slater:
-    :param jastrow:
-    :param atom_charges:
-    :return:
-    """
-
-    res = np.zeros((position.shape[0], ))
-    for i in range(position.shape[0]):
-        r_e = position[i]
         e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(r_e, atom_positions)
+        n_vectors = subtract_outer(r_e, self.atom_positions)
+        p = self.guiding_function(e_vectors, n_vectors)
 
-        s = slater.value(n_vectors, neu)
-        s_l = slater.laplacian(n_vectors, neu, ned) / s
-        res[i] = coulomb(e_vectors, n_vectors, atom_charges)
-        if jastrow.enabled:
-            j_g = jastrow.gradient(e_vectors, n_vectors, neu)
-            j_l = jastrow.laplacian(e_vectors, n_vectors, neu)
-            s_g = slater.gradient(n_vectors, neu, ned) / s
-            F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
-            T = (np.sum(s_g * s_g) - s_l - j_l) / 4
-            res[i] += 2 * T - F
-        else:
-            res[i] -= s_l / 2
-    return res
+        i = 0
+        # first step
+        r_e, p, _ = self.make_step(p, tau, r_e)
+        position[i] = r_e
+        function[i] = p
+        # other steps
+        for _ in range(1, steps):
+            r_e, p, cond = self.make_step(p, tau, r_e)
+            if cond:
+                i += 1
+                position[i] = r_e
+                function[i] = p
+            else:
+                weights[i] += 1
 
+        return weights[:i+1], position[:i+1], function[:i+1]
 
-@nb.jit(nopython=True, nogil=True, parallel=False)
-def local_energy_gradient(position, neu, ned, atom_positions, atom_charges, slater, jastrow):
-    """
-    :param position:
-    :param neu:
-    :param ned:
-    :param atom_positions:
-    :param slater:
-    :param jastrow:
-    :param atom_charges:
-    :return:
-    """
+    def local_energy(self, position):
+        """
+        :param position:
+        :param atom_charges:
+        :param slater:
+        :param jastrow:
+        :return:
+        """
 
-    r_e = position[0]
-    e_vectors = subtract_outer(r_e, r_e)
-    n_vectors = subtract_outer(r_e, atom_positions)
-    first_res = jastrow.parameters_numerical_first_deriv(e_vectors, n_vectors, neu)
-    res = np.zeros((position.shape[0], ) + first_res.shape)
-    res[0] = first_res
+        res = np.zeros((position.shape[0], ))
+        for i in range(position.shape[0]):
+            r_e = position[i]
+            e_vectors = subtract_outer(r_e, r_e)
+            n_vectors = subtract_outer(r_e, self.atom_positions)
 
-    for i in range(1, position.shape[0]):
-        r_e = position[i]
+            s = self.slater.value(n_vectors, self.neu)
+            s_l = self.slater.laplacian(n_vectors, self.neu, self.ned) / s
+            res[i] = coulomb(e_vectors, n_vectors, self.atom_charges)
+            if self.jastrow.enabled:
+                j_g = self.jastrow.gradient(e_vectors, n_vectors, self.neu)
+                j_l = self.jastrow.laplacian(e_vectors, n_vectors, self.neu)
+                s_g = self.slater.gradient(n_vectors, self.neu, self.ned) / s
+                F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
+                T = (np.sum(s_g * s_g) - s_l - j_l) / 4
+                res[i] += 2 * T - F
+            else:
+                res[i] -= s_l / 2
+        return res
+
+    def jastrow_gradient(self, position):
+        """
+        :param position:
+        :param jastrow:
+        :return:
+        """
+
+        r_e = position[0]
         e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(r_e, atom_positions)
-        res[i] = jastrow.parameters_numerical_first_deriv(e_vectors, n_vectors, neu)
-    return res
+        n_vectors = subtract_outer(r_e, self.atom_positions)
+        first_res = self.jastrow.parameters_numerical_first_deriv(e_vectors, n_vectors, self.neu)
+        res = np.zeros((position.shape[0], ) + first_res.shape)
+        res[0] = first_res
+
+        for i in range(1, position.shape[0]):
+            r_e = position[i]
+            e_vectors = subtract_outer(r_e, r_e)
+            n_vectors = subtract_outer(r_e, self.atom_positions)
+            res[i] = self.jastrow.parameters_numerical_first_deriv(e_vectors, n_vectors, self.neu)
+        return res
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
@@ -174,6 +165,22 @@ def expand(weight, value):
             res[n] = value[i]
             n += 1
     return res
+
+
+def optimize_vmc_step(opt_steps, r_e, initial_tau, metropolis):
+    """Optimize vmc step size."""
+
+    def callback(tau, acc_ration):
+        """dr = sqrt(3*dtvmc)"""
+        logger.info('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (metropolis.neu + metropolis.ned), acc_ration[0] + 0.5)
+
+    def f(tau):
+        weight, _, _ = metropolis.random_walk(casino.input.vmc_equil_nstep, tau, r_e)
+        return weight.size / casino.input.vmc_equil_nstep - 0.5
+
+    options = dict(jac_options=dict(alpha=1))
+    res = sp.optimize.root(f, initial_tau, method='diagbroyden', tol=1/np.sqrt(opt_steps), callback=callback, options=options)
+    return np.abs(res.x)
 
 
 def main(casino):
@@ -194,28 +201,27 @@ def main(casino):
     )
 
     neu, ned = casino.input.neu, casino.input.ned
+    metropolis = Metropolis(neu, ned, casino.wfn.atom_positions, casino.wfn.atom_charges, slater, jastrow)
+
     tau = 1 / (neu + ned)
-    r_e = initial_position(neu + ned, casino.wfn.atom_positions, casino.wfn.atom_charges) + random_step(tau, neu + ned)
-
-    weights, position, _ = random_walk(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, slater, jastrow)
+    r_e = initial_position(neu + ned, metropolis.atom_positions, metropolis.atom_charges)
+    weights, position, _ = metropolis.random_walk(casino.input.vmc_equil_nstep, tau, r_e)
     logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weights.size / casino.input.vmc_equil_nstep)
-    tau = optimize_vmc_step(10000, position[-1], tau, neu, ned, casino.wfn.atom_positions, slater, jastrow)
-
-    repulsion = nuclear_repulsion(casino.wfn.atom_positions, casino.wfn.atom_charges)
+    tau = optimize_vmc_step(10000, position[-1], tau, metropolis)
 
     rounds = 10
     E = np.zeros((rounds, ))
     check_point_1 = default_timer()
     for i in range(rounds):
-        weights, position, _ = random_walk(casino.input.vmc_nstep // rounds, tau, position[-1], neu, ned, casino.wfn.atom_positions, slater, jastrow)
-        energy = local_energy(position, neu, ned, casino.wfn.atom_positions, casino.wfn.atom_charges, slater, jastrow)
+        weights, position, _ = metropolis.random_walk(casino.input.vmc_nstep // rounds, tau, position[-1])
+        energy = metropolis.local_energy(position)
         E[i] = np.average(energy, weights=weights)
         check_point_2 = default_timer()
         mean_energy = np.average(E[:i + 1])
         std_err = np.std(E[:i + 1], ddof=0) / np.sqrt(i)
-        logger.info(f'{E[i] + repulsion}, {mean_energy + repulsion}, {std_err}, total time {check_point_2-check_point_1}')
+        logger.info(f'{E[i] + metropolis.nuclear_repulsion}, {mean_energy + metropolis.nuclear_repulsion}, {std_err}, total time {check_point_2-check_point_1}')
 
-    # energy_gradient = local_energy_gradient(position, neu, ned, casino.wfn.atom_positions, casino.wfn.atom_charges, slater, jastrow)
+    # energy_gradient = jastrow_gradient(position, neu, ned, casino.wfn.atom_positions, casino.wfn.atom_charges, slater, jastrow)
     # gradient = 2 * (
     #     np.average((energy_gradient * energy[:, np.newaxis]), axis=0, weights=weights) -
     #     np.average(energy, weights=weights) * np.average(energy_gradient, axis=0, weights=weights)
@@ -239,7 +245,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
     # path = 'test/gwfn/be/HF/def2-QZVP/VMC_OPT_BF/emin_BF/8_8_44__9_9_33'
@@ -251,7 +257,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/be2/HF/cc-pVQZ/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
-    path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/ch4/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetic/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/'

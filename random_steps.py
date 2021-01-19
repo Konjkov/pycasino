@@ -2,7 +2,7 @@ import numpy as np
 import numba as nb
 
 
-# @nb.jit(nopython=True)
+@nb.jit(forceobj=True)
 def initial_position(ne, atom_positions, atom_charges):
     """Initial positions of electrons."""
     natoms = atom_positions.shape[0]
