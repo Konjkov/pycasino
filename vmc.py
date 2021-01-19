@@ -36,7 +36,7 @@ def optimize_vmc_step(opt_steps, r_e, initial_tau, neu, ned, atom_positions, sla
         logger.info('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (neu + ned), acc_ration[0] + 0.5)
 
     def f(tau):
-        weight, _ = random_walk(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, atom_positions, slater, jastrow)
+        weight, _, _ = random_walk(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, atom_positions, slater, jastrow)
         return weight.size / casino.input.vmc_equil_nstep - 0.5
 
     options = dict(jac_options=dict(alpha=1))
@@ -52,6 +52,18 @@ def guiding_function(e_vectors, n_vectors, neu, slater, jastrow):
 
 
 @nb.jit(nopython=True)
+def make_step(p, tau, r_e, neu, ned, atom_positions, slater, jastrow):
+    new_r_e = r_e + random_step(tau, neu + ned)
+    e_vectors = subtract_outer(new_r_e, new_r_e)
+    n_vectors = subtract_outer(new_r_e, atom_positions)
+    new_p = guiding_function(e_vectors, n_vectors, neu, slater, jastrow)
+    if cond := new_p ** 2 > np.random.random() * p ** 2:
+        return new_r_e, new_p, cond
+    else:
+        return r_e, p, cond
+
+
+@nb.jit(nopython=True)
 def random_walk(steps, tau, r_e, neu, ned, atom_positions, slater, jastrow):
     """Metropolis-Hastings random walk.
     :param steps: steps to walk
@@ -64,33 +76,31 @@ def random_walk(steps, tau, r_e, neu, ned, atom_positions, slater, jastrow):
     :param jastrow: instance of Jastrow class
     :return:
     """
-    weights = np.ones((steps + 1, ), np.int64)
-    position = np.zeros((steps + 1, r_e.shape[0], r_e.shape[1]))
+
+    weights = np.ones((steps, ), np.int64)
+    position = np.zeros((steps, r_e.shape[0], r_e.shape[1]))
+    function = np.ones((steps, ), np.float64)
 
     e_vectors = subtract_outer(r_e, r_e)
     n_vectors = subtract_outer(r_e, atom_positions)
     p = guiding_function(e_vectors, n_vectors, neu, slater, jastrow)
-    position[0] = r_e
-    # do not take into account the last step from the previous run
-    weights[0] = 0
-    i = 0
-    for _ in range(steps):
-        new_r_e = r_e + random_step(tau, neu + ned)
-        e_vectors = subtract_outer(new_r_e, new_r_e)
-        n_vectors = subtract_outer(new_r_e, atom_positions)
-        new_p = guiding_function(e_vectors, n_vectors, neu, slater, jastrow)
 
-        if new_p**2 > np.random.random() * p**2:
+    i = 0
+    # first step
+    r_e, p, _ = make_step(p, tau, r_e, neu, ned, atom_positions, slater, jastrow)
+    position[i] = r_e
+    function[i] = p
+    # other steps
+    for _ in range(1, steps):
+        r_e, p, cond = make_step(p, tau, r_e, neu, ned, atom_positions, slater, jastrow)
+        if cond:
             i += 1
-            r_e, p = new_r_e, new_p
             position[i] = r_e
+            function[i] = p
         else:
             weights[i] += 1
 
-    if weights[0] > 0:
-        return weights[:i+1], position[:i+1]
-    else:
-        return weights[1:i+1], position[1:i+1]
+    return weights[:i+1], position[:i+1], function[:i+1]
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
@@ -187,7 +197,7 @@ def main(casino):
     tau = 1 / (neu + ned)
     r_e = initial_position(neu + ned, casino.wfn.atom_positions, casino.wfn.atom_charges) + random_step(tau, neu + ned)
 
-    weights, position = random_walk(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, slater, jastrow)
+    weights, position, _ = random_walk(casino.input.vmc_equil_nstep, tau, r_e, neu, ned, casino.wfn.atom_positions, slater, jastrow)
     logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weights.size / casino.input.vmc_equil_nstep)
     tau = optimize_vmc_step(10000, position[-1], tau, neu, ned, casino.wfn.atom_positions, slater, jastrow)
 
@@ -197,7 +207,7 @@ def main(casino):
     E = np.zeros((rounds, ))
     check_point_1 = default_timer()
     for i in range(rounds):
-        weights, position = random_walk(casino.input.vmc_nstep // rounds, tau, position[-1], neu, ned, casino.wfn.atom_positions, slater, jastrow)
+        weights, position, _ = random_walk(casino.input.vmc_nstep // rounds, tau, position[-1], neu, ned, casino.wfn.atom_positions, slater, jastrow)
         energy = local_energy(position, neu, ned, casino.wfn.atom_positions, casino.wfn.atom_charges, slater, jastrow)
         E[i] = np.average(energy, weights=weights)
         check_point_2 = default_timer()
@@ -229,7 +239,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
     # path = 'test/gwfn/be/HF/def2-QZVP/VMC_OPT_BF/emin_BF/8_8_44__9_9_33'
@@ -241,7 +251,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/be2/HF/cc-pVQZ/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
-    # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/ch4/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetic/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/'
