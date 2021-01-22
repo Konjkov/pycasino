@@ -214,22 +214,26 @@ def main(casino):
 
     rounds = 10
     E = np.zeros((rounds, ))
+    G = np.zeros((rounds, ))
     check_point_1 = default_timer()
     for i in range(rounds):
         weights, position, _ = metropolis.random_walk(casino.input.vmc_nstep // rounds, tau)
         energy = metropolis.local_energy(position)
         E[i] = np.average(energy, weights=weights)
-        check_point_2 = default_timer()
         mean_energy = np.average(E[:i + 1])
         std_err = np.std(E[:i + 1], ddof=0) / np.sqrt(i)
-        logger.info(f'{E[i] + metropolis.nuclear_repulsion}, {mean_energy + metropolis.nuclear_repulsion}, {std_err}, total time {check_point_2-check_point_1}')
 
-    # energy_gradient = jastrow_gradient(position, neu, ned, casino.wfn.atom_positions, casino.wfn.atom_charges, slater, jastrow)
-    # gradient = 2 * (
-    #     np.average((energy_gradient * energy[:, np.newaxis]), axis=0, weights=weights) -
-    #     np.average(energy, weights=weights) * np.average(energy_gradient, axis=0, weights=weights)
-    # )
-    # print(gradient)
+        energy_gradient = metropolis.jastrow_gradient(position)
+        gradient = 2 * (
+            np.average((energy_gradient * energy[:, np.newaxis]), axis=0, weights=weights) -
+            np.average(energy, weights=weights) * np.average(energy_gradient, axis=0, weights=weights)
+        )
+        G[i] = gradient[2]
+        mean_gradient = np.average(G[:i + 1])
+        std_err_gradient = np.std(G[:i + 1], ddof=0) / np.sqrt(i)
+        check_point_2 = default_timer()
+        logger.info(f'{E[i] + metropolis.nuclear_repulsion}, {mean_energy + metropolis.nuclear_repulsion}, '
+                    f'{std_err}, {G[i]}, {mean_gradient}, {std_err_gradient}, total time {check_point_2-check_point_1}')
 
     return expand(weights, energy)
 
@@ -246,9 +250,9 @@ if __name__ == '__main__':
     # path = 'test/gwfn/he/HF/cc-pVQZ/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
     # path = 'test/gwfn/be/HF/def2-QZVP/VMC_OPT_BF/emin_BF/8_8_44__9_9_33'

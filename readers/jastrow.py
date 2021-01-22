@@ -41,6 +41,9 @@ class Jastrow:
         self.chi_cusp = np.zeros(atom_charges.size)
         self.chi_labels = nb.typed.List.empty_list(labels_type)
         self.f_labels = nb.typed.List.empty_list(labels_type)
+        self.u_spin_dep = 0
+        self.chi_spin_dep = np.zeros(atom_charges.size)
+        self.f_spin_dep = np.zeros(atom_charges.size)
         if not os.path.isfile(file):
             return
         with open(file, 'r') as f:
@@ -72,7 +75,7 @@ class Jastrow:
                     elif line.startswith('Expansion order'):
                         u_order = self.read_int()
                     elif line.startswith('Spin dep'):
-                        u_spin_dep = self.read_int()
+                        self.u_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
                         u_cutoff = self.read_float()
                         self.u_cutoff = u_cutoff
@@ -80,14 +83,14 @@ class Jastrow:
                         # uu, ud, dd
                         parameters = np.zeros((u_order+1, 3), np.float)
                         u_mask = self.get_u_mask(u_order)
-                        for i in range(u_spin_dep + 1):
+                        for i in range(self.u_spin_dep + 1):
                             for l in range(u_order + 1):
                                 if not u_mask[l]:
                                     continue
                                 parameters[l, i] = self.read_float()
-                                if u_spin_dep == 0:
+                                if self.u_spin_dep == 0:
                                     parameters[l, 2] = parameters[l, 1] = parameters[l, 0]
-                                elif u_spin_dep == 1:
+                                elif self.u_spin_dep == 1:
                                     parameters[l, 2] = parameters[l, 0]
                         self.u_parameters = self.fix_u(parameters, u_cutoff)
                     elif line.startswith('END SET'):
@@ -122,6 +125,7 @@ class Jastrow:
                                 if chi_spin_dep == 0:
                                     parameters[m, 1] = parameters[m, 0]
                         for label in chi_labels:
+                            self.chi_spin_dep[label] = chi_spin_dep
                             self.chi_parameters[label] = self.fix_chi(parameters, chi_cutoff, chi_cusp, atom_charges[label])
                     elif line.startswith('END SET'):
                         chi_labels = []
@@ -163,6 +167,7 @@ class Jastrow:
                                             parameters[l, m, n, 2] = parameters[l, m, n, 0]
                                             parameters[m, l, n, 2] = parameters[m, l, n, 0]
                         for label in f_labels:
+                            self.f_spin_dep[label] = f_spin_dep
                             self.f_parameters[label] = self.fix_f(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                             self.check_f_constrains(self.f_parameters[label], f_cutoff, no_dup_u_term, no_dup_chi_term)
                     elif line.startswith('END SET'):
