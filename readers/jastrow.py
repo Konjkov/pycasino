@@ -32,9 +32,9 @@ class Jastrow:
 
     def __init__(self, file, atom_charges):
         self.trunc = 0
-        self.u_parameters = np.zeros((0, 3), np.float)
-        self.chi_parameters = nb.typed.List([np.zeros((0, 2), np.float)] * atom_charges.size)
-        self.f_parameters = nb.typed.List([np.zeros((0, 0, 0, 3), np.float)] * atom_charges.size)
+        self.u_parameters = np.zeros((0, 3), np.float)  # uu, ud, dd order
+        self.chi_parameters = nb.typed.List([np.zeros((0, 2), np.float)] * atom_charges.size)  # u, d order
+        self.f_parameters = nb.typed.List([np.zeros((0, 0, 0, 3), np.float)] * atom_charges.size)  # uu, ud, dd order
         self.u_cutoff = 0
         self.chi_cutoff = np.zeros(atom_charges.size)
         self.f_cutoff = np.zeros(atom_charges.size)
@@ -42,8 +42,8 @@ class Jastrow:
         self.chi_labels = nb.typed.List.empty_list(labels_type)
         self.f_labels = nb.typed.List.empty_list(labels_type)
         self.u_spin_dep = 0
-        self.chi_spin_dep = np.zeros(atom_charges.size)
-        self.f_spin_dep = np.zeros(atom_charges.size)
+        self.chi_spin_dep = np.zeros((atom_charges.size, ), np.int64)
+        self.f_spin_dep = np.zeros((atom_charges.size, ), np.int64)
         if not os.path.isfile(file):
             return
         with open(file, 'r') as f:

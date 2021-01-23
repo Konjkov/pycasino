@@ -34,6 +34,9 @@ spec = [
     ('f_cutoff', nb.float64[:]),
     ('chi_labels', nb.types.ListType(labels_type)),
     ('f_labels', nb.types.ListType(labels_type)),
+    ('u_spin_dep', nb.int64),
+    ('chi_spin_dep', nb.int64[:]),
+    ('f_spin_dep', nb.int64[:]),
     ('max_ee_order', nb.int64),
     ('max_en_order', nb.int64),
 ]
@@ -42,7 +45,7 @@ spec = [
 @nb.experimental.jitclass(spec)
 class Jastrow:
 
-    def __init__(self, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, chi_labels, f_parameters, f_cutoff, f_labels):
+    def __init__(self, trunc, u_parameters, u_cutoff, u_spin_dep, chi_parameters, chi_cutoff, chi_labels, chi_spin_dep, f_parameters, f_cutoff, f_labels, f_spin_dep):
         self.enabled = u_cutoff or chi_cutoff.any() or f_cutoff.any()
         self.trunc = trunc
         self.u_parameters = u_parameters
@@ -57,6 +60,9 @@ class Jastrow:
         [self.chi_labels.append(p) for p in chi_labels]
         self.f_labels = nb.typed.List.empty_list(labels_type)
         [self.f_labels.append(p) for p in f_labels]
+        self.u_spin_dep = u_spin_dep  # (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
+        self.chi_spin_dep = chi_spin_dep  # (0->u=d; 1->u/=d)
+        self.f_spin_dep = f_spin_dep  # (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
         self.max_ee_order = max((
             self.u_parameters.shape[0],
             max([p.shape[2] for p in self.f_parameters]),
@@ -530,7 +536,7 @@ class Jastrow:
             return np.zeros((0,))
 
         delta = 0.00001
-        res = np.zeros((self.u_parameters.size + 1,))
+        res = np.zeros(((self.u_parameters.shape[0] - 1) * (self.u_spin_dep + 1) + 1,))
 
         self.u_cutoff -= delta
         res[0] -= self.u_term(e_powers, neu)
@@ -540,13 +546,40 @@ class Jastrow:
 
         n = 0
         for i in range(self.u_parameters.shape[0]):
-            for j in range(self.u_parameters.shape[1]):
+            if i == 1:
+                continue
+            # (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
+            if self.u_spin_dep == 0:
                 n += 1
-                self.u_parameters[i, j] -= delta
+                self.u_parameters[i] -= delta
                 res[n] -= self.u_term(e_powers, neu)
-                self.u_parameters[i, j] += 2 * delta
+                self.u_parameters[i] += 2 * delta
                 res[n] += self.u_term(e_powers, neu)
-                self.u_parameters[i, j] -= delta
+                self.u_parameters[i] -= delta
+            elif self.u_spin_dep == 1:
+                n += 1
+                self.u_parameters[i, 0] -= delta
+                self.u_parameters[i, 2] -= delta
+                res[n] -= self.u_term(e_powers, neu)
+                self.u_parameters[i, 0] += 2 * delta
+                self.u_parameters[i, 2] += 2 * delta
+                res[n] += self.u_term(e_powers, neu)
+                self.u_parameters[i, 0] -= delta
+                self.u_parameters[i, 2] -= delta
+                n += 1
+                self.u_parameters[i, 1] -= delta
+                res[n] -= self.u_term(e_powers, neu)
+                self.u_parameters[i, 1] += 2 * delta
+                res[n] += self.u_term(e_powers, neu)
+                self.u_parameters[i, 1] -= delta
+            elif self.u_spin_dep == 2:
+                for j in range(3):
+                    n += 1
+                    self.u_parameters[i, j] -= delta
+                    res[n] -= self.u_term(e_powers, neu)
+                    self.u_parameters[i, j] += 2 * delta
+                    res[n] += self.u_term(e_powers, neu)
+                    self.u_parameters[i, j] -= delta
 
         return res / delta / 2
 
@@ -559,7 +592,7 @@ class Jastrow:
             return np.zeros((0,))
 
         delta = 0.00001
-        res = np.zeros((np.array(list([p.size + 1 for p in self.chi_parameters])).sum(),))
+        res = np.zeros((np.array(list([p.shape[0] * (sd + 1) + 1 for p, sd in zip(self.chi_parameters, self.chi_spin_dep)])).sum(),))
 
         n = -1
         for cutoff in self.chi_cutoff:
@@ -572,13 +605,24 @@ class Jastrow:
 
         for p in self.chi_parameters:
             for i in range(p.shape[0]):
-                for j in range(p.shape[1]):
+                if i == 1:
+                    continue
+                # (0->u=d; 1->u/=d)
+                if self.chi_spin_dep == 0:
                     n += 1
-                    p[i, j] -= delta
+                    p[i] -= delta
                     res[n] -= self.chi_term(n_powers, neu)
-                    p[i, j] += 2 * delta
+                    p[i] += 2 * delta
                     res[n] += self.chi_term(n_powers, neu)
-                    p[i, j] -= delta
+                    p[i] -= delta
+                elif self.chi_spin_dep == 1:
+                    for j in range(2):
+                        n += 1
+                        p[i, j] -= delta
+                        res[n] -= self.chi_term(n_powers, neu)
+                        p[i, j] += 2 * delta
+                        res[n] += self.chi_term(n_powers, neu)
+                        p[i, j] -= delta
 
         return res / delta / 2
 
@@ -592,7 +636,9 @@ class Jastrow:
             return np.zeros((0,))
 
         delta = 0.00001
-        res = np.zeros((np.array(list([p.size + 1 for p in self.f_parameters])).sum(),))
+        res = np.zeros((
+            np.array(list([p.shape[0] * p.shape[1] * p.shape[2] * (sd + 1) + 1 for p, sd in zip(self.f_parameters, self.f_spin_dep)], )).sum(),
+        ))
 
         n = -1
         for cutoff in self.f_cutoff:
@@ -607,13 +653,38 @@ class Jastrow:
             for i in range(p.shape[0]):
                 for j in range(p.shape[1]):
                     for k in range(p.shape[2]):
-                        for l in range(p.shape[3]):
+                        # (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
+                        if self.f_spin_dep == 0:
                             n += 1
-                            p[i, j, k, l] -= delta
+                            p[i, j, k] -= delta
                             res[n] -= self.f_term(e_powers, n_powers, neu)
-                            p[i, j, k, l] += 2 * delta
+                            p[i, j, k] += 2 * delta
                             res[n] += self.f_term(e_powers, n_powers, neu)
-                            p[i, j, k, l] -= delta
+                            p[i, j, k] -= delta
+                        elif self.f_spin_dep == 1:
+                            n += 1
+                            p[i, j, k, 0] -= delta
+                            p[i, j, k, 2] -= delta
+                            res[n] -= self.f_term(e_powers, n_powers, neu)
+                            p[i, j, k, 0] += 2 * delta
+                            p[i, j, k, 2] += 2 * delta
+                            res[n] += self.f_term(e_powers, n_powers, neu)
+                            p[i, j, k, 0] -= delta
+                            p[i, j, k, 2] -= delta
+                            n += 1
+                            p[i, j, k, 1] -= delta
+                            res[n] -= self.f_term(e_powers, n_powers, neu)
+                            p[i, j, k, 1] += 2 * delta
+                            res[n] += self.f_term(e_powers, n_powers, neu)
+                            p[i, j, k, 1] -= delta
+                        elif self.f_spin_dep == 2:
+                            for l in range(3):
+                                n += 1
+                                p[i, j, k, l] -= delta
+                                res[n] -= self.f_term(e_powers, n_powers, neu)
+                                p[i, j, k, l] += 2 * delta
+                                res[n] += self.f_term(e_powers, n_powers, neu)
+                                p[i, j, k, l] -= delta
 
         return res / delta / 2
 
@@ -777,19 +848,20 @@ if __name__ == '__main__':
 
     term = 'f'
 
-    # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_u_vmc/'
+    path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_u_vmc/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_chi/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_u_no_chi_vmc/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
-    path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
 
     casino = Casino(path)
     jastrow = Jastrow(
-        casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff,
-        casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff,
-        casino.jastrow.f_parameters, casino.jastrow.f_cutoff
+        casino.jastrow.trunc,
+        casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.u_spin_dep,
+        casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels, casino.jastrow.chi_spin_dep,
+        casino.jastrow.f_parameters, casino.jastrow.f_cutoff, casino.jastrow.f_labels, casino.jastrow.f_spin_dep
     )
 
     steps = 100
