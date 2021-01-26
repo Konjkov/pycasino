@@ -529,14 +529,64 @@ class Jastrow:
 
     def get_parameters(self):
         """"""
-        return np.array([self.u_cutoff])
+        res = []
+        if self.u_cutoff:
+            res.append(self.u_cutoff)
+            for i in range(self.u_parameters.shape[0]):
+                if i == 1:
+                    continue
+                if self.u_spin_dep == 0:
+                    res.append(self.u_parameters[i, 0])
+                elif self.u_spin_dep == 1:
+                    res.append(self.u_parameters[i, 0])
+                    res.append(self.u_parameters[i, 1])
+                elif self.u_spin_dep == 2:
+                    res.append(self.u_parameters[i, 0])
+                    res.append(self.u_parameters[i, 2])
+                    res.append(self.u_parameters[i, 1])
+
+        if self.chi_cutoff.any():
+            pass
+
+        if self.f_cutoff.any():
+            pass
+
+        return np.array(res)
 
     def set_parameters(self, parameters):
         """
         :param parameters:
         :return:
         """
-        self.u_cutoff = parameters[0]
+        n = -1
+        if self.u_cutoff:
+            n += 1
+            self.u_cutoff = parameters[0]
+            for i in range(self.u_parameters.shape[0]):
+                if i == 1:
+                    continue
+                n += 1
+                if self.u_spin_dep == 0:
+                    self.u_parameters[i, 0] = parameters[n]
+                    self.u_parameters[i, 1] = parameters[n]
+                    self.u_parameters[i, 2] = parameters[n]
+                elif self.u_spin_dep == 1:
+                    self.u_parameters[i, 0] = parameters[n]
+                    self.u_parameters[i, 2] = parameters[n]
+                    n += 1
+                    self.u_parameters[i, 1] = parameters[n]
+                elif self.u_spin_dep == 2:
+                    self.u_parameters[i, 0] = parameters[n]
+                    n += 1
+                    self.u_parameters[i, 1] = parameters[n]
+                    n += 1
+                    self.u_parameters[i, 2] = parameters[n]
+
+        if self.chi_cutoff.any():
+            pass
+
+        if self.f_cutoff.any():
+            pass
 
     def u_term_cutoff_numerical_d1(self, e_powers, neu):
         """Numerical first derivatives of logarithm u-term with respect to u_cutoff
@@ -562,8 +612,7 @@ class Jastrow:
         :param e_powers: powers of e-e distances
         :param neu: number of up electrons
         """
-        # if not self.u_cutoff:
-        if True:
+        if not self.u_cutoff:
             return np.zeros((0,))
 
         delta = 0.00001

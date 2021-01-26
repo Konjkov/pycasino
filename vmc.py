@@ -213,7 +213,7 @@ def optimize_vmc_parameters(tau, metropolis):
     weight, position, _ = metropolis.random_walk(casino.input.vmc_opt_nstep, tau)
 
     def callback(x):
-        logger.info('u_cutoff = %.5f', x)
+        logger.info('u_cutoff = %.5f', x[0])
 
     def f(x):
         metropolis.jastrow.set_parameters(x)
@@ -221,11 +221,12 @@ def optimize_vmc_parameters(tau, metropolis):
         energy_gradient = metropolis.jastrow_gradient(position)
         mean_energy = np.average(energy, weights=weight)
         mean_energy_gradient = jastrow_parameters_gradient(weight, energy, energy_gradient)
-        logger.info('energy = %.5f, energy_gradient = %.5f, cutoff = %.5f', mean_energy, mean_energy_gradient[0], x)
-        return mean_energy, mean_energy_gradient[0]
+        print(mean_energy_gradient, x)
+        logger.info('energy = %.5f, energy_gradient = %.5f, cutoff = %.5f', mean_energy, mean_energy_gradient[0], x[0])
+        return mean_energy, mean_energy_gradient
 
     # Only for CG, BFGS, Newton-CG, L-BFGS-B, TNC, SLSQP, dogleg, trust-ncg, trust-krylov, trust-exact and trust-constr.
-    res = sp.optimize.minimize(f, metropolis.jastrow.get_parameters(), method='BFGS', jac=True, callback=callback)
+    res = sp.optimize.minimize(f, metropolis.jastrow.get_parameters(), method='TNC', jac=True, callback=callback)
     return np.abs(res.x)
 
 
@@ -303,8 +304,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/he/HF/cc-pVQZ/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term_test/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
