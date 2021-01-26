@@ -527,8 +527,19 @@ class Jastrow:
             self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors, neu)
         )
 
-    def u_term_parameters_numerical_first_deriv(self, e_powers, neu):
-        """Numerical first derivatives of logarithm u-term with respect to the Jastrow parameters
+    def get_parameters(self):
+        """"""
+        return np.array([self.u_cutoff])
+
+    def set_parameters(self, parameters):
+        """
+        :param parameters:
+        :return:
+        """
+        self.u_cutoff = parameters[0]
+
+    def u_term_cutoff_numerical_d1(self, e_powers, neu):
+        """Numerical first derivatives of logarithm u-term with respect to u_cutoff
         :param e_powers: powers of e-e distances
         :param neu: number of up electrons
         """
@@ -536,7 +547,7 @@ class Jastrow:
             return np.zeros((0,))
 
         delta = 0.00001
-        res = np.zeros(((self.u_parameters.shape[0] - 1) * (self.u_spin_dep + 1) + 1,))
+        res = np.zeros((1, ))
 
         self.u_cutoff -= delta
         res[0] -= self.u_term(e_powers, neu)
@@ -544,7 +555,21 @@ class Jastrow:
         res[0] += self.u_term(e_powers, neu)
         self.u_cutoff -= delta
 
-        n = 0
+        return res / delta / 2
+
+    def u_term_linear_parameters_numerical_d1(self, e_powers, neu):
+        """Numerical first derivatives of logarithm u-term with respect to the linear Jastrow parameters
+        :param e_powers: powers of e-e distances
+        :param neu: number of up electrons
+        """
+        # if not self.u_cutoff:
+        if True:
+            return np.zeros((0,))
+
+        delta = 0.00001
+        res = np.zeros(((self.u_parameters.shape[0] - 1) * (self.u_spin_dep + 1),))
+
+        n = -1
         for i in range(self.u_parameters.shape[0]):
             if i == 1:
                 continue
@@ -583,16 +608,16 @@ class Jastrow:
 
         return res / delta / 2
 
-    def chi_term_parameters_numerical_first_deriv(self, n_powers, neu):
-        """Numerical first derivatives of logarithm chi-term with respect to the Jastrow parameters
-        :param n_powers: powers of e-n distances
+    def chi_term_cutoff_numerical_d1(self, n_powers, neu):
+        """Numerical first derivatives of logarithm chi-term with respect to chi_cutoff
+        :param e_powers: powers of e-e distances
         :param neu: number of up electrons
         """
         if not self.chi_cutoff.any():
             return np.zeros((0,))
 
         delta = 0.00001
-        res = np.zeros((np.array(list([p.shape[0] * (sd + 1) + 1 for p, sd in zip(self.chi_parameters, self.chi_spin_dep)])).sum(),))
+        res = np.zeros(len(self.chi_parameters),)
 
         n = -1
         for cutoff in self.chi_cutoff:
@@ -603,6 +628,20 @@ class Jastrow:
             res[n] += self.chi_term(n_powers, neu)
             cutoff -= delta
 
+        return res / delta / 2
+
+    def chi_term_linear_parameters_numerical_d1(self, n_powers, neu):
+        """Numerical first derivatives of logarithm chi-term with respect to the linear Jastrow parameters
+        :param n_powers: powers of e-n distances
+        :param neu: number of up electrons
+        """
+        if not self.chi_cutoff.any():
+            return np.zeros((0,))
+
+        delta = 0.00001
+        res = np.zeros((np.array(list([p.shape[0] * (sd + 1) for p, sd in zip(self.chi_parameters, self.chi_spin_dep)])).sum(),))
+
+        n = -1
         for p in self.chi_parameters:
             for i in range(p.shape[0]):
                 if i == 1:
@@ -626,19 +665,16 @@ class Jastrow:
 
         return res / delta / 2
 
-    def f_term_parameters_numerical_first_deriv(self, e_powers, n_powers, neu):
-        """Numerical first derivatives of logarithm f-term with respect to the Jastrow parameters
+    def f_term_cutoff_numerical_d1(self, e_powers, n_powers, neu):
+        """Numerical first derivatives of logarithm f-term with respect to f_cutoff
         :param e_powers: powers of e-e distances
-        :param n_powers: powers of e-n distances
         :param neu: number of up electrons
         """
         if not self.f_cutoff.any():
             return np.zeros((0,))
 
         delta = 0.00001
-        res = np.zeros((
-            np.array(list([p.shape[0] * p.shape[1] * p.shape[2] * (sd + 1) + 1 for p, sd in zip(self.f_parameters, self.f_spin_dep)], )).sum(),
-        ))
+        res = np.zeros(len(self.f_parameters),)
 
         n = -1
         for cutoff in self.f_cutoff:
@@ -649,6 +685,23 @@ class Jastrow:
             res[n] += self.f_term(e_powers, n_powers, neu)
             cutoff -= delta
 
+        return res / delta / 2
+
+    def f_term_linear_parameters_numerical_d1(self, e_powers, n_powers, neu):
+        """Numerical first derivatives of logarithm f-term with respect to the linear Jastrow parameters
+        :param e_powers: powers of e-e distances
+        :param n_powers: powers of e-n distances
+        :param neu: number of up electrons
+        """
+        if not self.f_cutoff.any():
+            return np.zeros((0,))
+
+        delta = 0.00001
+        res = np.zeros((
+            np.array(list([p.shape[0] * p.shape[1] * p.shape[2] * (sd + 1) for p, sd in zip(self.f_parameters, self.f_spin_dep)], )).sum(),
+        ))
+
+        n = -1
         for p in self.f_parameters:
             for i in range(p.shape[0]):
                 for j in range(p.shape[1]):
@@ -688,7 +741,7 @@ class Jastrow:
 
         return res / delta / 2
 
-    def parameters_numerical_first_deriv(self, e_vectors, n_vectors, neu):
+    def parameters_numerical_d1(self, e_vectors, n_vectors, neu):
         """Numerical first derivatives logarithm Jastrow with respect to the parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
@@ -698,12 +751,33 @@ class Jastrow:
         n_powers = self.en_powers(n_vectors)
 
         return np.concatenate((
-            self.u_term_parameters_numerical_first_deriv(e_powers, neu),
-            self.chi_term_parameters_numerical_first_deriv(n_powers, neu),
-            self.f_term_parameters_numerical_first_deriv(e_powers, n_powers, neu)
+            self.u_term_cutoff_numerical_d1(e_powers, neu),
+            self.chi_term_cutoff_numerical_d1(n_powers, neu),
+            self.f_term_cutoff_numerical_d1(e_powers, n_powers, neu),
+            self.u_term_linear_parameters_numerical_d1(e_powers, neu),
+            self.chi_term_linear_parameters_numerical_d1(n_powers, neu),
+            self.f_term_linear_parameters_numerical_d1(e_powers, n_powers, neu)
         ))
 
-    def u_term_parameters_numerical_second_deriv(self, e_powers, neu):
+    def u_term_cutoff_numerical_d2(self, e_powers, neu):
+        """Numerical second derivatives of logarithm u-term with respect to u_cutoff
+        :param e_powers: powers of e-e distances
+        :param neu: number of up electrons
+        """
+
+        delta = 0.00001
+        res = np.zeros((1, ))
+
+        res[0] = -2 * self.u_term(e_powers, neu)
+        self.u_cutoff -= delta
+        res[0] += self.u_term(e_powers, neu)
+        self.u_cutoff += 2 * delta
+        res[0] += self.u_term(e_powers, neu)
+        self.u_cutoff -= delta
+
+        return res / delta / 2
+
+    def u_term_parameters_numerical_d2(self, e_powers, neu):
         """Numerical second derivatives of logarithm u-term with respect to the Jastrow parameters
         :param e_powers: powers of e-e distances
         :param neu: number of up electrons
@@ -712,17 +786,7 @@ class Jastrow:
             return np.zeros((0, 0))
 
         delta = 0.00001
-        res = np.zeros((self.u_parameters.size + 1, self.u_parameters.size + 1))
-
-        # set diagonal elements
-        res[range(self.u_parameters.size + 1), range(self.u_parameters.size + 1)] = -2 * self.u_term(e_powers, neu)
-
-        self.u_cutoff -= delta
-        res[0, 0] += self.u_term(e_powers, neu)
-        self.u_cutoff += 2 * delta
-        res[0, 0] += self.u_term(e_powers, neu)
-        self.u_cutoff -= delta
-
+        res = -2 * self.u_term(e_powers, neu) * np.eye(self.u_parameters.size)
         # diagonal terms of linear parameters
         n = 0
         for i in range(self.u_parameters.shape[0]):
@@ -774,7 +838,7 @@ class Jastrow:
 
         return res / delta / delta
 
-    def chi_term_parameters_numerical_second_deriv(self, n_powers, neu):
+    def chi_term_parameters_numerical_d2(self, n_powers, neu):
         """Numerical second derivatives of logarithm chi-term with respect to the Jastrow parameters
         :param n_powers: powers of e-n distances
         :param neu: number of up electrons
@@ -784,11 +848,7 @@ class Jastrow:
 
         delta = 0.00001
         size = np.array(list([p.size + 1 for p in self.chi_parameters])).sum()
-        res = np.zeros((size, size))
-
-        # set diagonal elements
-        res[range(size), range(size)] = -2 * self.chi_term(n_powers, neu)
-
+        res = -2 * self.chi_term(n_powers, neu) * np.eye(size)
         n = -1
         for parameters, cutoff in zip(self.chi_parameters, self.chi_cutoff):
             n += 1
@@ -800,7 +860,7 @@ class Jastrow:
 
         return res / delta / delta
 
-    def f_term_parameters_numerical_second_deriv(self, e_powers, n_powers, neu):
+    def f_term_parameters_numerical_d2(self, e_powers, n_powers, neu):
         """Numerical second derivatives of logarithm f-term with respect to the Jastrow parameters
         :param n_powers: powers of e-n distances
         :param neu: number of up electrons
@@ -810,11 +870,7 @@ class Jastrow:
 
         delta = 0.00001
         size = np.array(list([p.size + 1 for p in self.f_parameters])).sum()
-        res = np.zeros((size, size))
-
-        # set diagonal elements
-        res[range(size), range(size)] = -2 * self.f_term(e_powers, n_powers, neu)
-
+        res = -2 * self.f_term(e_powers, n_powers, neu) * np.eye(size)
         n = -1
         for parameters, cutoff in zip(self.f_parameters, self.f_cutoff):
             cutoff -= delta
@@ -825,7 +881,7 @@ class Jastrow:
 
         return res / delta / delta
 
-    def parameters_numerical_second_deriv(self, e_vectors, n_vectors, neu):
+    def parameters_numerical_d2(self, e_vectors, n_vectors, neu):
         """Numerical second derivatives with respect to the Jastrow parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
@@ -837,9 +893,9 @@ class Jastrow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        self.u_term_parameters_numerical_second_deriv(e_powers, neu)
-        self.chi_term_parameters_numerical_second_deriv(n_powers, neu)
-        self.f_term_parameters_numerical_second_deriv(e_powers, n_powers, neu)
+        self.u_term_parameters_numerical_d2(e_powers, neu)
+        self.chi_term_parameters_numerical_d2(n_powers, neu)
+        self.f_term_parameters_numerical_d2(e_powers, n_powers, neu)
 
 
 if __name__ == '__main__':
