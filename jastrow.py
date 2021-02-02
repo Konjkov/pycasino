@@ -546,10 +546,34 @@ class Jastrow:
                     res.append(self.u_parameters[i, 1])
 
         if self.chi_cutoff.any():
-            pass
+            for cutoff in self.chi_cutoff:
+                res.append(cutoff)
+            for chi_parameters, chi_spin_dep in zip(self.chi_parameters, self.chi_spin_dep):
+                for i in range(chi_parameters.shape[0]):
+                    if i == 1:
+                        continue
+                    if chi_spin_dep == 0:
+                        res.append(chi_parameters[i, 0])
+                    elif chi_spin_dep == 1:
+                        res.append(chi_parameters[i, 0])
+                        res.append(chi_parameters[i, 1])
 
         if self.f_cutoff.any():
-            pass
+            for cutoff in self.f_cutoff:
+                res.append(cutoff)
+            for f_parameters, f_spin_dep in zip(self.f_parameters, self.f_spin_dep):
+                for i in range(f_parameters.shape[0]):
+                    for j in range(f_parameters.shape[1]):
+                        for k in range(f_parameters.shape[2]):
+                            if f_spin_dep == 0:
+                                res.append(f_parameters[i, j, k, 0])
+                            elif f_spin_dep == 1:
+                                res.append(f_parameters[i, j, k, 0])
+                                res.append(f_parameters[i, j, k, 1])
+                            elif f_spin_dep == 2:
+                                res.append(f_parameters[i, j, k, 0])
+                                res.append(f_parameters[i, j, k, 2])
+                                res.append(f_parameters[i, j, k, 1])
 
         return np.array(res)
 
@@ -583,10 +607,46 @@ class Jastrow:
                     self.u_parameters[i, 2] = parameters[n]
 
         if self.chi_cutoff.any():
-            pass
+            for i in range(len(self.chi_cutoff)):
+                n += 1
+                self.chi_cutoff[i] = parameters[n]
+            for chi_parameters, chi_spin_dep in zip(self.chi_parameters, self.chi_spin_dep):
+                for i in range(chi_parameters.shape[0]):
+                    if i == 1:
+                        continue
+                    n += 1
+                    if chi_spin_dep == 0:
+                        chi_parameters[i, 0] = parameters[n]
+                        chi_parameters[i, 1] = parameters[n]
+                    elif chi_spin_dep == 1:
+                        chi_parameters[i, 0] = parameters[n]
+                        n += 1
+                        chi_parameters[i, 1] = parameters[n]
 
         if self.f_cutoff.any():
-            pass
+            for i in range(len(self.f_cutoff)):
+                n += 1
+                self.f_cutoff[i] = parameters[n]
+            for f_parameters, f_spin_dep in zip(self.f_parameters, self.f_spin_dep):
+                for i in range(f_parameters.shape[0]):
+                    for j in range(f_parameters.shape[1]):
+                        for k in range(f_parameters.shape[2]):
+                            n += 1
+                            if f_spin_dep == 0:
+                                f_parameters[i, j, k, 0] = parameters[n]
+                                f_parameters[i, j, k, 1] = parameters[n]
+                                f_parameters[i, j, k, 2] = parameters[n]
+                            elif f_spin_dep == 1:
+                                f_parameters[i, j, k, 0] = parameters[n]
+                                f_parameters[i, j, k, 2] = parameters[n]
+                                n += 1
+                                f_parameters[i, j, k, 1] = parameters[n]
+                            elif f_spin_dep == 2:
+                                f_parameters[i, j, k, 0] = parameters[n]
+                                n += 1
+                                f_parameters[i, j, k, 1] = parameters[n]
+                                n += 1
+                                f_parameters[i, j, k, 2] = parameters[n]
 
     def u_term_cutoff_numerical_d1(self, e_powers, neu):
         """Numerical first derivatives of logarithm u-term with respect to u_cutoff
@@ -688,7 +748,7 @@ class Jastrow:
             return np.zeros((0,))
 
         delta = 0.00001
-        res = np.zeros((np.array(list([p.shape[0] * (sd + 1) for p, sd in zip(self.chi_parameters, self.chi_spin_dep)])).sum(),))
+        res = np.zeros((np.array(list([(p.shape[0] - 1) * (sd + 1) for p, sd in zip(self.chi_parameters, self.chi_spin_dep)])).sum(),))
 
         n = -1
         for p in self.chi_parameters:
@@ -801,10 +861,10 @@ class Jastrow:
 
         return np.concatenate((
             self.u_term_cutoff_numerical_d1(e_powers, neu),
-            self.chi_term_cutoff_numerical_d1(n_powers, neu),
-            self.f_term_cutoff_numerical_d1(e_powers, n_powers, neu),
             self.u_term_linear_parameters_numerical_d1(e_powers, neu),
+            self.chi_term_cutoff_numerical_d1(n_powers, neu),
             self.chi_term_linear_parameters_numerical_d1(n_powers, neu),
+            self.f_term_cutoff_numerical_d1(e_powers, n_powers, neu),
             self.f_term_linear_parameters_numerical_d1(e_powers, n_powers, neu)
         ))
 
@@ -815,13 +875,13 @@ class Jastrow:
         """
 
         delta = 0.00001
-        res = np.zeros((1, ))
+        res = np.zeros((1, 1))
 
-        res[0] = -2 * self.u_term(e_powers, neu)
+        res[0, 0] = -2 * self.u_term(e_powers, neu)
         self.u_cutoff -= delta
-        res[0] += self.u_term(e_powers, neu)
+        res[0, 0] += self.u_term(e_powers, neu)
         self.u_cutoff += 2 * delta
-        res[0] += self.u_term(e_powers, neu)
+        res[0, 0] += self.u_term(e_powers, neu)
         self.u_cutoff -= delta
 
         return res / delta / 2
@@ -847,6 +907,7 @@ class Jastrow:
                 res[n, n] += self.u_term(e_powers, neu)
                 self.u_parameters[i, j] -= delta
 
+        # partial derivatives on cutoff and linear parameters
         n = 0
         for i in range(self.u_parameters.shape[0]):
             for j in range(self.u_parameters.shape[1]):
@@ -940,11 +1001,13 @@ class Jastrow:
 
         """
         e_powers = self.ee_powers(e_vectors)
-        n_powers = self.en_powers(n_vectors)
+        # n_powers = self.en_powers(n_vectors)
 
-        self.u_term_parameters_numerical_d2(e_powers, neu)
-        self.chi_term_parameters_numerical_d2(n_powers, neu)
-        self.f_term_parameters_numerical_d2(e_powers, n_powers, neu)
+        # self.u_term_parameters_numerical_d2(e_powers, neu)
+        # self.chi_term_parameters_numerical_d2(n_powers, neu)
+        # self.f_term_parameters_numerical_d2(e_powers, n_powers, neu)
+
+        return self.u_term_cutoff_numerical_d2(e_powers, neu)
 
 
 if __name__ == '__main__':
