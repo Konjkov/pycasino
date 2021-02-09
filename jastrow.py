@@ -527,6 +527,43 @@ class Jastrow:
             self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors, neu)
         )
 
+    def get_bounds(self):
+        """"""
+        lower_bonds = np.zeros((0,))
+        upper_bonds = np.zeros((0,))
+
+        if self.u_cutoff:
+            u_cutoff_length = 1
+            u_linear_length = (self.u_parameters.shape[0] - 1) * (self.u_spin_dep + 1)
+            u_lower_bonds = - np.ones((u_cutoff_length + u_linear_length,)) * np.inf
+            u_upper_bonds = np.ones((u_cutoff_length + u_linear_length,)) * np.inf
+            u_lower_bonds[0:u_cutoff_length] = 1
+            u_upper_bonds[0:u_cutoff_length] = 10
+            lower_bonds = np.concatenate((lower_bonds, u_lower_bonds))
+            upper_bonds = np.concatenate((upper_bonds, u_upper_bonds))
+
+        if self.chi_cutoff.any():
+            chi_cutoff_length = len(self.chi_cutoff)
+            chi_linear_length = np.array(list([(p.shape[0] - 1) * (sd + 1) for p, sd in zip(self.chi_parameters, self.chi_spin_dep)])).sum()
+            chi_lower_bonds = - np.ones((chi_cutoff_length + chi_linear_length,)) * np.inf
+            chi_upper_bonds = np.ones((chi_cutoff_length + chi_linear_length,)) * np.inf
+            chi_lower_bonds[0:chi_cutoff_length] = 1
+            chi_upper_bonds[0:chi_cutoff_length] = 10
+            lower_bonds = np.concatenate((lower_bonds, chi_lower_bonds))
+            upper_bonds = np.concatenate((upper_bonds, chi_upper_bonds))
+
+        if self.f_cutoff.any():
+            f_cutoff_length = len(self.f_cutoff)
+            f_linear_length = np.array(list([p.shape[0] * p.shape[1] * p.shape[2] * (sd + 1) for p, sd in zip(self.f_parameters, self.f_spin_dep)])).sum()
+            f_lower_bonds = - np.ones((f_cutoff_length + f_linear_length,)) * np.inf
+            f_upper_bonds = np.ones((f_cutoff_length + f_linear_length,)) * np.inf
+            f_lower_bonds[0:f_cutoff_length] = 1
+            f_upper_bonds[0:f_cutoff_length] = 10
+            lower_bonds = np.concatenate((lower_bonds, f_lower_bonds))
+            upper_bonds = np.concatenate((upper_bonds, f_upper_bonds))
+
+        return lower_bonds, upper_bonds
+
     def get_parameters(self):
         """"""
         res = []
@@ -542,8 +579,8 @@ class Jastrow:
                     res.append(self.u_parameters[i, 1])
                 elif self.u_spin_dep == 2:
                     res.append(self.u_parameters[i, 0])
-                    res.append(self.u_parameters[i, 2])
                     res.append(self.u_parameters[i, 1])
+                    res.append(self.u_parameters[i, 2])
 
         if self.chi_cutoff.any():
             for cutoff in self.chi_cutoff:
@@ -572,8 +609,8 @@ class Jastrow:
                                 res.append(f_parameters[i, j, k, 1])
                             elif f_spin_dep == 2:
                                 res.append(f_parameters[i, j, k, 0])
-                                res.append(f_parameters[i, j, k, 2])
                                 res.append(f_parameters[i, j, k, 1])
+                                res.append(f_parameters[i, j, k, 2])
 
         return np.array(res)
 
@@ -588,6 +625,7 @@ class Jastrow:
             self.u_cutoff = parameters[0]
             for i in range(self.u_parameters.shape[0]):
                 if i == 1:
+                    self.u_parameters[i] = np.array([1/4, 1/2, 1/4]) / (-self.u_cutoff) ** self.trunc + self.u_parameters[0] * self.trunc / self.u_cutoff
                     continue
                 n += 1
                 if self.u_spin_dep == 0:
@@ -610,9 +648,10 @@ class Jastrow:
             for i in range(len(self.chi_cutoff)):
                 n += 1
                 self.chi_cutoff[i] = parameters[n]
-            for chi_parameters, chi_spin_dep in zip(self.chi_parameters, self.chi_spin_dep):
+            for chi_parameters, chi_spin_dep, chi_cutoff in zip(self.chi_parameters, self.chi_spin_dep, self.chi_cutoff):
                 for i in range(chi_parameters.shape[0]):
                     if i == 1:
+                        chi_parameters[i] = chi_parameters[0] * self.trunc / chi_cutoff  #  - charge / (-chi_cutoff) ** self.trunc
                         continue
                     n += 1
                     if chi_spin_dep == 0:
@@ -807,7 +846,7 @@ class Jastrow:
 
         delta = 0.00001
         res = np.zeros((
-            np.array(list([p.shape[0] * p.shape[1] * p.shape[2] * (sd + 1) for p, sd in zip(self.f_parameters, self.f_spin_dep)], )).sum(),
+            np.array(list([p.shape[0] * p.shape[1] * p.shape[2] * (sd + 1) for p, sd in zip(self.f_parameters, self.f_spin_dep)])).sum(),
         ))
 
         n = -1
