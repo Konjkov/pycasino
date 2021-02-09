@@ -235,7 +235,11 @@ class VMC:
         self.metropolis = Metropolis(self.neu, self.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.slater, self.jastrow)
         self.metropolis.r_e = initial_position(self.neu + self.ned, self.metropolis.atom_positions, self.metropolis.atom_charges)
 
-    def optimize_vmc_step(self, opt_steps, initial_tau):
+    def equilibrate(self, steps):
+        weight, _, _ = self.metropolis.random_walk(steps, self.tau)
+        logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weight.size / steps)
+
+    def optimize_vmc_step(self, steps):
         """Optimize vmc step size."""
 
         def callback(tau, acc_ration):
@@ -243,24 +247,19 @@ class VMC:
             logger.info('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (self.neu + self.ned), acc_ration[0] + 0.5)
 
         def f(tau):
-            weight, _, _ = self.metropolis.random_walk(casino.input.vmc_equil_nstep, tau)
-            return weight.size / casino.input.vmc_equil_nstep - 0.5
+            weight, _, _ = self.metropolis.random_walk(steps, tau)
+            return weight.size / steps - 0.5
 
         options = dict(jac_options=dict(alpha=1))
-        res = sp.optimize.root(f, initial_tau, method='diagbroyden', tol=1 / np.sqrt(opt_steps), callback=callback, options=options)
+        res = sp.optimize.root(f, self.tau, method='diagbroyden', tol=1 / np.sqrt(steps), callback=callback, options=options)
         self.tau = np.abs(res.x)
 
-    def optimeze_step(self):
-        weight, _, _ = self.metropolis.random_walk(casino.input.vmc_equil_nstep, self.tau)
-        logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weight.size / casino.input.vmc_equil_nstep)
-        self.optimize_vmc_step(10000, self.tau)
-
-    def energy(self):
+    def energy(self, steps):
         rounds = 10
         E = np.zeros((rounds,))
         check_point_1 = default_timer()
         for i in range(rounds):
-            weights, position, _ = self.metropolis.random_walk(casino.input.vmc_nstep // rounds, self.tau)
+            weights, position, _ = self.metropolis.random_walk(steps // rounds, self.tau)
             energy = self.metropolis.local_energy(position)
             E[i] = np.average(energy, weights=weights)
             mean_energy = np.average(E[:i + 1])
@@ -280,18 +279,18 @@ class VMC:
         opt = pyblock.blocking.find_optimal_block(E.size, reblock_data)
         opt_data = reblock_data[opt[0]]
         logger.info(opt_data)
-        print(np.mean(opt_data.mean), '+/-', np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size))
+        logger.info(f'{np.mean(opt_data.mean)} +/- {np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size)}')
 
-    def vmc_variance_minimization(self, metropolis):
+    def vmc_variance_minimization(self, steps):
         """Minimise vmc variance by jastrow parameters optimization."""
         from scipy import stats
 
-        bounds = metropolis.jastrow.get_bounds()
-        weight, position, _ = metropolis.random_walk(casino.input.vmc_opt_nstep, self.tau)
+        bounds = self.metropolis.jastrow.get_bounds()
+        weight, position, _ = self.metropolis.random_walk(steps, self.tau)
 
         def f(x, *args, **kwargs):
-            metropolis.jastrow.set_parameters(x)
-            energy = metropolis.local_energy(position)
+            self.metropolis.jastrow.set_parameters(x)
+            energy = self.metropolis.local_energy(position)
             energy_average = np.average(energy, weights=weight)
             energy_variance = np.average((energy - energy_average) ** 2, weights=weight)
             logger.info('energy = %.5f, variance = %.5f, x = %s', energy_average, energy_variance, x)
@@ -300,55 +299,52 @@ class VMC:
             return res
 
         def jac(x, *args, **kwargs):
-            metropolis.jastrow.set_parameters(x)
-            return expand(weight, metropolis.jastrow_gradient(position))
+            self.metropolis.jastrow.set_parameters(x)
+            return expand(weight, self.metropolis.jastrow_gradient(position))
 
-        res = sp.optimize.least_squares(f, metropolis.jastrow.get_parameters(), method='trf', jac=jac, bounds=bounds, verbose=2)
+        res = sp.optimize.least_squares(f, self.metropolis.jastrow.get_parameters(), method='trf', jac=jac, bounds=bounds, verbose=2)
         return res.x
 
-    def vmc_energy_minimization(self, metropolis):
+    def vmc_energy_minimization(self, steps):
         """Minimise vmc energy by jastrow parameters optimization."""
 
-        weight, position, _ = metropolis.random_walk(casino.input.vmc_opt_nstep, self.tau)
+        bounds = self.metropolis.jastrow.get_bounds()
+        weight, position, _ = self.metropolis.random_walk(steps, self.tau)
 
         def callback(x, *args):
             logger.info('u_cutoff = %.5f', x[0])
 
         def f(x, *args):
-            metropolis.jastrow.set_parameters(x)
-            energy = metropolis.local_energy(position)
-            energy_gradient = metropolis.jastrow_gradient(position)
+            self.metropolis.jastrow.set_parameters(x)
+            energy = self.metropolis.local_energy(position)
+            energy_gradient = self.metropolis.jastrow_gradient(position)
             mean_energy = np.average(energy, weights=weight)
             mean_energy_gradient = jastrow_parameters_gradient(weight, energy, energy_gradient)
             logger.info('energy = %.5f, energy_gradient = %.5f, cutoff = %.5f', mean_energy, mean_energy_gradient[0], x[0])
             return mean_energy, mean_energy_gradient
 
         def hess(x, *args):
-            metropolis.jastrow.set_parameters(x)
-            energy = metropolis.local_energy(position)
-            energy_gradient = metropolis.jastrow_gradient(position)
-            energy_hessian = metropolis.jastrow_hessian(position)
+            self.metropolis.jastrow.set_parameters(x)
+            energy = self.metropolis.local_energy(position)
+            energy_gradient = self.metropolis.jastrow_gradient(position)
+            energy_hessian = self.metropolis.jastrow_hessian(position)
             mean_energy_hessian = jastrow_parameters_hessian(weight, energy, energy_gradient, energy_hessian)
             return mean_energy_hessian
 
         # Only for CG, BFGS, Newton-CG, L-BFGS-B, TNC, SLSQP, trust-constr
         # Hessian is required: dogleg, trust-ncg, trust-krylov, trust-exact
-        res = sp.optimize.minimize(f, metropolis.jastrow.get_parameters(), method='BFGS', jac=True, hess=hess, callback=callback)
-        return np.abs(res.x)
+        res = sp.optimize.minimize(f, self.metropolis.jastrow.get_parameters(), method='BFGS', jac=True, hess=hess, callback=callback)
+        return res.x
 
-    def varmin(self):
-        x = self.vmc_variance_minimization(self.metropolis)
-        self.metropolis.jastrow.set_parameters(x)
-        x = self.vmc_variance_minimization(self.metropolis)
+    def varmin(self, rounds):
+        for _ in range(rounds):
+            x = self.vmc_variance_minimization(casino.input.vmc_opt_nstep)
+            self.metropolis.jastrow.set_parameters(x)
 
-    def test(self):
-        check_point_1 = default_timer()
-        weight, position, _ = self.metropolis.random_walk(casino.input.vmc_nstep // 10, self.tau)
-        energy = self.metropolis.local_energy(position)
-        energy_gradient = self.metropolis.jastrow_gradient(position)
-        gradient = jastrow_parameters_gradient(weight, energy, energy_gradient)
-        check_point_2 = default_timer()
-        logger.info(f'{gradient}, total time {check_point_2 - check_point_1}')
+    def emin(self, rounds):
+        for _ in range(rounds):
+            x = self.vmc_energy_minimization(casino.input.vmc_opt_nstep)
+            self.metropolis.jastrow.set_parameters(x)
 
 
 def main(casino):
@@ -357,8 +353,10 @@ def main(casino):
     """
 
     vmc = VMC(casino)
-    vmc.optimeze_step()
-    return vmc.energy()
+    vmc.equilibrate(casino.input.vmc_equil_nstep)
+    vmc.optimize_vmc_step(10000)
+    vmc.energy(casino.input.vmc_nstep)
+    # vmc.varmin(2)
 
 
 if __name__ == '__main__':
@@ -374,7 +372,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
@@ -386,7 +384,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/cl/HF/cc-pVQZ/'
     # path = 'test/gwfn/h2/HF/cc-pVQZ/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/'
-    path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
+    # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/ch4/HF/cc-pVQZ/'
