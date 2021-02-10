@@ -66,6 +66,7 @@ class Metropolis:
         return np.exp(self.jastrow.value(e_vectors, n_vectors, self.neu)) * self.slater.value(n_vectors, self.neu)
 
     def make_step(self, p, tau, r_e):
+        """Make random step in configuration-by-configuration sampling (CBCS)"""
         new_r_e = r_e + random_step(tau, self.neu + self.ned)
         e_vectors = subtract_outer(new_r_e, new_r_e)
         n_vectors = subtract_outer(new_r_e, self.atom_positions)
@@ -135,7 +136,7 @@ class Metropolis:
         return res
 
     def jastrow_gradient(self, position):
-        """
+        """Jastrow gradient with respect to jastrow parameters.
         :param position: random walk positions
         :return:
         """
@@ -154,7 +155,7 @@ class Metropolis:
         return res
 
     def jastrow_hessaian(self, position):
-        """
+        """Jastrow hessian with respect to jastrow parameters.
         :param position: random walk positions
         :return:
         """
@@ -223,7 +224,7 @@ class VMC:
         self.jastrow = Jastrow(
             casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.u_spin_dep,
             casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels, casino.jastrow.chi_spin_dep,
-            casino.jastrow.f_parameters, casino.jastrow.f_cutoff, casino.jastrow.f_labels, casino.jastrow.f_spin_dep
+            casino.jastrow.f_parameters, casino.jastrow.f_cutoff, casino.jastrow.f_labels, casino.jastrow.f_spin_dep, casino.jastrow.chi_cusp
         )
         self.slater = Slater(
             casino.wfn.nbasis_functions, casino.wfn.first_shells, casino.wfn.orbital_types, casino.wfn.shell_moments,
@@ -260,7 +261,7 @@ class VMC:
         check_point_1 = default_timer()
         for i in range(rounds):
             weights, position, _ = self.metropolis.random_walk(steps // rounds, self.tau)
-            energy = self.metropolis.local_energy(position)
+            energy = self.metropolis.local_energy(position) + self.metropolis.nuclear_repulsion
             E[i] = np.average(energy, weights=weights)
             mean_energy = np.average(E[:i + 1])
             if i:
@@ -269,8 +270,7 @@ class VMC:
                 std_err = 0
 
             check_point_2 = default_timer()
-            logger.info(f'{E[i] + self.metropolis.nuclear_repulsion}, {mean_energy + self.metropolis.nuclear_repulsion}, '
-                        f'{std_err}, total time {check_point_2 - check_point_1}')
+            logger.info(f'{E[i]}, {mean_energy}, {std_err}, total time {check_point_2 - check_point_1}')
 
         E = expand(weights, energy)
         reblock_data = pyblock.blocking.reblock(E + nuclear_repulsion(casino.wfn.atom_positions, casino.wfn.atom_charges))
@@ -281,33 +281,35 @@ class VMC:
         logger.info(opt_data)
         logger.info(f'{np.mean(opt_data.mean)} +/- {np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size)}')
 
+    def normal_test(self, weight, energy):
+        """Test whether energy distribution differs from a normal one."""
+        from scipy import stats
+        E = expand(weight, energy)
+        logger.info('skew = %s, kurtosis = %s', stats.skewtest(E), stats.kurtosistest(E))
+
     def vmc_variance_minimization(self, steps):
         """Minimise vmc variance by jastrow parameters optimization."""
-        from scipy import stats
-
         bounds = self.metropolis.jastrow.get_bounds()
         weight, position, _ = self.metropolis.random_walk(steps, self.tau)
 
         def f(x, *args, **kwargs):
             self.metropolis.jastrow.set_parameters(x)
-            energy = self.metropolis.local_energy(position)
+            energy = self.metropolis.local_energy(position) + self.metropolis.nuclear_repulsion
             energy_average = np.average(energy, weights=weight)
             energy_variance = np.average((energy - energy_average) ** 2, weights=weight)
-            logger.info('energy = %.5f, variance = %.5f, x = %s', energy_average, energy_variance, x)
-            res = expand(weight, energy - energy_average)
-            logger.info('skew = %s, kurtosis = %s', stats.skewtest(res), stats.kurtosistest(res))
-            return res
+            logger.info('energy = %.5f, variance = %.5f', energy_average, energy_variance)
+            return expand(weight, energy) - energy_average
 
         def jac(x, *args, **kwargs):
             self.metropolis.jastrow.set_parameters(x)
             return expand(weight, self.metropolis.jastrow_gradient(position))
 
-        res = sp.optimize.least_squares(f, self.metropolis.jastrow.get_parameters(), method='trf', jac=jac, bounds=bounds, verbose=2)
+        parameters = self.metropolis.jastrow.get_parameters()
+        res = sp.optimize.least_squares(f, parameters, method='trf', x_scale='jac', loss='linear', jac=jac, bounds=bounds, verbose=2)
         return res.x
 
     def vmc_energy_minimization(self, steps):
         """Minimise vmc energy by jastrow parameters optimization."""
-
         bounds = self.metropolis.jastrow.get_bounds()
         weight, position, _ = self.metropolis.random_walk(steps, self.tau)
 
@@ -316,7 +318,7 @@ class VMC:
 
         def f(x, *args):
             self.metropolis.jastrow.set_parameters(x)
-            energy = self.metropolis.local_energy(position)
+            energy = self.metropolis.local_energy(position) + self.metropolis.nuclear_repulsion
             energy_gradient = self.metropolis.jastrow_gradient(position)
             mean_energy = np.average(energy, weights=weight)
             mean_energy_gradient = jastrow_parameters_gradient(weight, energy, energy_gradient)
@@ -325,7 +327,7 @@ class VMC:
 
         def hess(x, *args):
             self.metropolis.jastrow.set_parameters(x)
-            energy = self.metropolis.local_energy(position)
+            energy = self.metropolis.local_energy(position) + self.metropolis.nuclear_repulsion
             energy_gradient = self.metropolis.jastrow_gradient(position)
             energy_hessian = self.metropolis.jastrow_hessian(position)
             mean_energy_hessian = jastrow_parameters_hessian(weight, energy, energy_gradient, energy_hessian)
@@ -333,17 +335,20 @@ class VMC:
 
         # Only for CG, BFGS, Newton-CG, L-BFGS-B, TNC, SLSQP, trust-constr
         # Hessian is required: dogleg, trust-ncg, trust-krylov, trust-exact
-        res = sp.optimize.minimize(f, self.metropolis.jastrow.get_parameters(), method='BFGS', jac=True, hess=hess, callback=callback)
+        parameters = self.metropolis.jastrow.get_parameters()
+        res = sp.optimize.minimize(f, parameters, method='BFGS', jac=True, hess=hess, bounds=bounds, callback=callback)
         return res.x
 
-    def varmin(self, rounds):
-        for _ in range(rounds):
-            x = self.vmc_variance_minimization(casino.input.vmc_opt_nstep)
+    def varmin(self, steps, opt_cycles):
+        for _ in range(opt_cycles):
+            x = self.vmc_variance_minimization(steps)
+            logger.info('x = %s', x)
             self.metropolis.jastrow.set_parameters(x)
 
-    def emin(self, rounds):
-        for _ in range(rounds):
-            x = self.vmc_energy_minimization(casino.input.vmc_opt_nstep)
+    def emin(self, steps, opt_cycles):
+        for _ in range(opt_cycles):
+            x = self.vmc_energy_minimization(steps)
+            logger.info('x = %s', x)
             self.metropolis.jastrow.set_parameters(x)
 
 
@@ -355,8 +360,9 @@ def main(casino):
     vmc = VMC(casino)
     vmc.equilibrate(casino.input.vmc_equil_nstep)
     vmc.optimize_vmc_step(10000)
-    vmc.energy(casino.input.vmc_nstep)
-    # vmc.varmin(2)
+    # vmc.energy(casino.input.vmc_nstep)
+    vmc.varmin(casino.input.vmc_opt_nstep, 5)
+    # vmc.emin(casino.input.vmc_opt_nstep, 5)
 
 
 if __name__ == '__main__':
@@ -372,7 +378,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term_test/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'

@@ -39,13 +39,17 @@ spec = [
     ('f_spin_dep', nb.int64[:]),
     ('max_ee_order', nb.int64),
     ('max_en_order', nb.int64),
+    ('chi_cusp', nb.boolean[:])
 ]
 
 
 @nb.experimental.jitclass(spec)
 class Jastrow:
 
-    def __init__(self, trunc, u_parameters, u_cutoff, u_spin_dep, chi_parameters, chi_cutoff, chi_labels, chi_spin_dep, f_parameters, f_cutoff, f_labels, f_spin_dep):
+    def __init__(
+            self, trunc, u_parameters, u_cutoff, u_spin_dep, chi_parameters, chi_cutoff, chi_labels, chi_spin_dep,
+            f_parameters, f_cutoff, f_labels, f_spin_dep, chi_cusp
+    ):
         self.enabled = u_cutoff or chi_cutoff.any() or f_cutoff.any()
         self.trunc = trunc
         self.u_parameters = u_parameters
@@ -71,6 +75,7 @@ class Jastrow:
             max([p.shape[0] for p in self.chi_parameters]),
             max([p.shape[0] for p in self.f_parameters]),
         ))
+        self.chi_cusp = chi_cusp
 
     def ee_powers(self, e_vectors):
         """Powers of e-e distances
@@ -614,6 +619,20 @@ class Jastrow:
 
         return np.array(res)
 
+    def fix_u_parameters(self):
+        self.u_parameters[1] = np.array([1/4, 1/2, 1/4]) / (-self.u_cutoff) ** self.trunc + self.u_parameters[0] * self.trunc / self.u_cutoff
+
+    def fix_chi_parameters(self):
+        for chi_parameters, chi_cutoff, chi_cusp in zip(self.chi_parameters, self.chi_cutoff, self.chi_cusp):
+            chi_parameters[1] = chi_parameters[0] * self.trunc / chi_cutoff
+            if self.chi_cusp:
+                pass
+                # chi_parameters[1] -= charge / (-chi_cutoff) ** self.trunc
+
+    def fix_f_parameters(self):
+        for f_parameters, f_cutoff in zip(self.f_parameters, self.f_cutoff):
+            pass
+
     def set_parameters(self, parameters):
         """
         :param parameters:
@@ -625,7 +644,7 @@ class Jastrow:
             self.u_cutoff = parameters[0]
             for i in range(self.u_parameters.shape[0]):
                 if i == 1:
-                    self.u_parameters[i] = np.array([1/4, 1/2, 1/4]) / (-self.u_cutoff) ** self.trunc + self.u_parameters[0] * self.trunc / self.u_cutoff
+                    self.fix_u_parameters()
                     continue
                 n += 1
                 if self.u_spin_dep == 0:
@@ -651,7 +670,7 @@ class Jastrow:
             for chi_parameters, chi_spin_dep, chi_cutoff in zip(self.chi_parameters, self.chi_spin_dep, self.chi_cutoff):
                 for i in range(chi_parameters.shape[0]):
                     if i == 1:
-                        chi_parameters[i] = chi_parameters[0] * self.trunc / chi_cutoff  #  - charge / (-chi_cutoff) ** self.trunc
+                        self.fix_chi_parameters()
                         continue
                     n += 1
                     if chi_spin_dep == 0:
@@ -699,10 +718,13 @@ class Jastrow:
         res = np.zeros((1, ))
 
         self.u_cutoff -= delta
+        self.fix_u_parameters()
         res[0] -= self.u_term(e_powers, neu)
         self.u_cutoff += 2 * delta
+        self.fix_u_parameters()
         res[0] += self.u_term(e_powers, neu)
         self.u_cutoff -= delta
+        self.fix_u_parameters()
 
         return res / delta / 2
 
@@ -733,16 +755,20 @@ class Jastrow:
                 n += 1
                 self.u_parameters[i, 0] -= delta
                 self.u_parameters[i, 2] -= delta
+                self.fix_u_parameters()
                 res[n] -= self.u_term(e_powers, neu)
                 self.u_parameters[i, 0] += 2 * delta
                 self.u_parameters[i, 2] += 2 * delta
+                self.fix_u_parameters()
                 res[n] += self.u_term(e_powers, neu)
                 self.u_parameters[i, 0] -= delta
                 self.u_parameters[i, 2] -= delta
                 n += 1
                 self.u_parameters[i, 1] -= delta
+                self.fix_u_parameters()
                 res[n] -= self.u_term(e_powers, neu)
                 self.u_parameters[i, 1] += 2 * delta
+                self.fix_u_parameters()
                 res[n] += self.u_term(e_powers, neu)
                 self.u_parameters[i, 1] -= delta
             elif self.u_spin_dep == 2:
@@ -1068,7 +1094,7 @@ if __name__ == '__main__':
         casino.jastrow.trunc,
         casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.u_spin_dep,
         casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels, casino.jastrow.chi_spin_dep,
-        casino.jastrow.f_parameters, casino.jastrow.f_cutoff, casino.jastrow.f_labels, casino.jastrow.f_spin_dep
+        casino.jastrow.f_parameters, casino.jastrow.f_cutoff, casino.jastrow.f_labels, casino.jastrow.f_spin_dep, casino.jastrow.chi_cusp
     )
 
     steps = 100

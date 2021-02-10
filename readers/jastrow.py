@@ -38,7 +38,7 @@ class Jastrow:
         self.u_cutoff = 0
         self.chi_cutoff = np.zeros(atom_charges.size)
         self.f_cutoff = np.zeros(atom_charges.size)
-        self.chi_cusp = np.zeros(atom_charges.size)
+        self.chi_cusp = np.zeros(atom_charges.size, dtype=np.bool)
         self.chi_labels = nb.typed.List.empty_list(labels_type)
         self.f_labels = nb.typed.List.empty_list(labels_type)
         self.u_spin_dep = 0
