@@ -2,7 +2,7 @@
 
 import numpy as np
 import numba as nb
-
+# import scipy as sp
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -715,7 +715,8 @@ class Jastrow:
             return np.zeros((0,))
 
         delta = 0.00001
-        res = np.zeros(((self.u_parameters.shape[0] - 1) * (self.u_spin_dep + 1) + 1,))
+        size = (self.u_parameters.shape[0] - 1) * (self.u_spin_dep + 1) + 1
+        res = np.zeros((size,))
 
         n = 0
         self.u_cutoff -= delta
@@ -774,8 +775,8 @@ class Jastrow:
         self.fix_u_parameters()
         return res / delta / 2
 
-    def chi_term_cutoff_numerical_d1(self, n_powers, neu):
-        """Numerical first derivatives of logarithm chi-term with respect to chi_cutoff
+    def chi_term_numerical_d1(self, n_powers, neu):
+        """Numerical first derivatives of logarithm chi-term with respect to chi-term parameters
         :param e_powers: powers of e-e distances
         :param neu: number of up electrons
         """
@@ -783,11 +784,11 @@ class Jastrow:
             return np.zeros((0,))
 
         delta = 0.00001
-        res = np.zeros(len(self.chi_parameters),)
+        size = np.array(list([(p.shape[0] - 1) * (sd + 1) + 1 for p, sd in zip(self.chi_parameters, self.chi_spin_dep)])).sum()
+        res = np.zeros((size,))
 
-        n = -1
+        n = 0
         for cutoff in self.chi_cutoff:
-            n += 1
             cutoff -= delta
             self.fix_chi_parameters()
             res[n] -= self.chi_term(n_powers, neu)
@@ -797,20 +798,6 @@ class Jastrow:
             cutoff -= delta
             self.fix_chi_parameters()
 
-        return res / delta / 2
-
-    def chi_term_linear_parameters_numerical_d1(self, n_powers, neu):
-        """Numerical first derivatives of logarithm chi-term with respect to the linear Jastrow parameters
-        :param n_powers: powers of e-n distances
-        :param neu: number of up electrons
-        """
-        if not self.chi_cutoff.any():
-            return np.zeros((0,))
-
-        delta = 0.00001
-        res = np.zeros((np.array(list([(p.shape[0] - 1) * (sd + 1) for p, sd in zip(self.chi_parameters, self.chi_spin_dep)])).sum(),))
-
-        n = -1
         for p in self.chi_parameters:
             for i in range(p.shape[0]):
                 if i == 1:
@@ -839,8 +826,8 @@ class Jastrow:
         self.fix_chi_parameters()
         return res / delta / 2
 
-    def f_term_cutoff_numerical_d1(self, e_powers, n_powers, neu):
-        """Numerical first derivatives of logarithm f-term with respect to f_cutoff
+    def f_term_numerical_d1(self, e_powers, n_powers, neu):
+        """Numerical first derivatives of logarithm f-term with respect to f-term parameters
         :param e_powers: powers of e-e distances
         :param neu: number of up electrons
         """
@@ -848,34 +835,17 @@ class Jastrow:
             return np.zeros((0,))
 
         delta = 0.00001
-        res = np.zeros(len(self.f_parameters),)
+        size = np.array(list([p.shape[0] * p.shape[1] * p.shape[2] * (sd + 1) + 1 for p, sd in zip(self.f_parameters, self.f_spin_dep)])).sum()
+        res = np.zeros((size,))
 
-        n = -1
+        n = 0
         for cutoff in self.f_cutoff:
-            n += 1
             cutoff -= delta
             res[n] -= self.f_term(e_powers, n_powers, neu)
             cutoff += 2 * delta
             res[n] += self.f_term(e_powers, n_powers, neu)
             cutoff -= delta
 
-        return res / delta / 2
-
-    def f_term_linear_parameters_numerical_d1(self, e_powers, n_powers, neu):
-        """Numerical first derivatives of logarithm f-term with respect to the linear Jastrow parameters
-        :param e_powers: powers of e-e distances
-        :param n_powers: powers of e-n distances
-        :param neu: number of up electrons
-        """
-        if not self.f_cutoff.any():
-            return np.zeros((0,))
-
-        delta = 0.00001
-        res = np.zeros((
-            np.array(list([p.shape[0] * p.shape[1] * p.shape[2] * (sd + 1) for p, sd in zip(self.f_parameters, self.f_spin_dep)])).sum(),
-        ))
-
-        n = -1
         for p in self.f_parameters:
             for i in range(p.shape[0]):
                 for j in range(p.shape[1]):
@@ -926,44 +896,32 @@ class Jastrow:
 
         return np.concatenate((
             self.u_term_numerical_d1(e_powers, neu),
-            self.chi_term_cutoff_numerical_d1(n_powers, neu),
-            self.chi_term_linear_parameters_numerical_d1(n_powers, neu),
-            self.f_term_cutoff_numerical_d1(e_powers, n_powers, neu),
-            self.f_term_linear_parameters_numerical_d1(e_powers, n_powers, neu)
+            self.chi_term_numerical_d1(n_powers, neu),
+            self.f_term_numerical_d1(e_powers, n_powers, neu),
         ))
 
-    def u_term_cutoff_numerical_d2(self, e_powers, neu):
-        """Numerical second derivatives of logarithm u-term with respect to u_cutoff
+    def u_term_numerical_d2(self, e_powers, neu):
+        """Numerical second derivatives of logarithm u-term with respect to u-term parameters
         :param e_powers: powers of e-e distances
         :param neu: number of up electrons
         """
 
         delta = 0.00001
-        res = np.zeros((1, 1))
+        size = (self.u_parameters.shape[0] - 1) * (self.u_spin_dep + 1) + 1
+        res = -2 * self.u_term(e_powers, neu) * np.eye(size)
 
-        res[0, 0] = -2 * self.u_term(e_powers, neu)
-        self.u_cutoff -= delta
-        res[0, 0] += self.u_term(e_powers, neu)
-        self.u_cutoff += 2 * delta
-        res[0, 0] += self.u_term(e_powers, neu)
-        self.u_cutoff -= delta
-
-        return res / delta / 2
-
-    def u_term_parameters_numerical_d2(self, e_powers, neu):
-        """Numerical second derivatives of logarithm u-term with respect to the Jastrow parameters
-        :param e_powers: powers of e-e distances
-        :param neu: number of up electrons
-        """
-        if not self.u_cutoff:
-            return np.zeros((0, 0))
-
-        delta = 0.00001
-        res = -2 * self.u_term(e_powers, neu) * np.eye(self.u_parameters.size)
-        # diagonal terms of linear parameters
         n = 0
+        self.u_cutoff -= delta
+        res[n, n] += self.u_term(e_powers, neu)
+        self.u_cutoff += 2 * delta
+        res[n, n] += self.u_term(e_powers, neu)
+        self.u_cutoff -= delta
+
+        # diagonal terms of linear parameters
         for i in range(self.u_parameters.shape[0]):
             for j in range(self.u_parameters.shape[1]):
+                if i == 1 or j == 1:
+                    continue
                 n += 1
                 self.u_parameters[i, j] -= delta
                 res[n, n] += self.u_term(e_powers, neu)
@@ -974,46 +932,59 @@ class Jastrow:
         # partial derivatives on cutoff and linear parameters
         n = 0
         for i in range(self.u_parameters.shape[0]):
-            for j in range(self.u_parameters.shape[1]):
-                n += 1
-                self.u_parameters[i, j] -= delta
+            if i == 1:
+                continue
+            n += 1
+            if self.u_spin_dep == 0:
+                self.u_parameters[i] -= delta
                 self.u_cutoff -= delta
                 res[0, n] += self.u_term(e_powers, neu)
-                self.u_parameters[i, j] += 2 * delta
+                self.u_parameters[i] += 2 * delta
                 res[0, n] -= self.u_term(e_powers, neu)
                 self.u_cutoff += 2 * delta
                 res[0, n] += self.u_term(e_powers, neu)
-                self.u_parameters[i, j] -= 2 * delta
+                self.u_parameters[i] -= 2 * delta
                 res[0, n] += self.u_term(e_powers, neu)
-                self.u_parameters[i, j] += delta
+                self.u_parameters[i] += delta
                 self.u_cutoff -= delta
                 res[n, 0] = res[0, n]
+            elif self.u_spin_dep == 1:
+                pass
+            elif self.u_spin_dep == 2:
+                pass
 
         n = m = 0
         for i1 in range(self.u_parameters.shape[0]):
-            for j1 in range(self.u_parameters.shape[1]):
-                n += 1
-                for i2 in range(self.u_parameters.shape[0]):
-                    for j2 in range(self.u_parameters.shape[1]):
-                        m += 1
-                        if m > n:
-                            self.u_parameters[i1, j1] -= delta
-                            self.u_parameters[i2, j2] -= delta
-                            res[n, m] += self.u_term(e_powers, neu)
-                            self.u_parameters[i1, j1] += 2 * delta
-                            res[n, m] -= self.u_term(e_powers, neu)
-                            self.u_parameters[i2, j2] += 2 * delta
-                            res[n, m] += self.u_term(e_powers, neu)
-                            self.u_parameters[i1, j1] -= 2 * delta
-                            res[n, m] += self.u_term(e_powers, neu)
-                            self.u_parameters[i1, j1] += delta
-                            self.u_parameters[i2, j2] -= delta
-                            res[m, n] = res[n, m]
+            if i1 == 1:
+                continue
+            n += 1
+            for i2 in range(self.u_parameters.shape[0]):
+                if i2 == 1:
+                    continue
+                m += 1
+                if m > n:
+                    if self.u_spin_dep == 0:
+                        self.u_parameters[i1] -= delta
+                        self.u_parameters[i2] -= delta
+                        res[n, m] += self.u_term(e_powers, neu)
+                        self.u_parameters[i1] += 2 * delta
+                        res[n, m] -= self.u_term(e_powers, neu)
+                        self.u_parameters[i2] += 2 * delta
+                        res[n, m] += self.u_term(e_powers, neu)
+                        self.u_parameters[i1] -= 2 * delta
+                        res[n, m] += self.u_term(e_powers, neu)
+                        self.u_parameters[i1] += delta
+                        self.u_parameters[i2] -= delta
+                        res[m, n] = res[n, m]
+                    elif self.u_spin_dep == 1:
+                        pass
+                    elif self.u_spin_dep == 2:
+                        pass
 
         return res / delta / delta
 
-    def chi_term_parameters_numerical_d2(self, n_powers, neu):
-        """Numerical second derivatives of logarithm chi-term with respect to the Jastrow parameters
+    def chi_term_numerical_d2(self, n_powers, neu):
+        """Numerical second derivatives of logarithm chi-term with respect to chi-term parameters
         :param n_powers: powers of e-n distances
         :param neu: number of up electrons
         """
@@ -1021,7 +992,7 @@ class Jastrow:
             return np.zeros((0, 0))
 
         delta = 0.00001
-        size = np.array(list([p.size + 1 for p in self.chi_parameters])).sum()
+        size = np.array(list([(p.shape[0] - 1) * (sd + 1) + 1 for p, sd in zip(self.chi_parameters, self.chi_spin_dep)])).sum()
         res = -2 * self.chi_term(n_powers, neu) * np.eye(size)
         n = -1
         for parameters, cutoff in zip(self.chi_parameters, self.chi_cutoff):
@@ -1032,10 +1003,20 @@ class Jastrow:
             res[n, n] += self.chi_term(n_powers, neu)
             cutoff -= delta
 
+            # diagonal terms of linear parameters
+            for i in range(parameters.shape[0]):
+                for j in range(parameters.shape[1]):
+                    n += 1
+                    parameters[i, j] -= delta
+                    res[n, n] += self.chi_term(e_powers, neu)
+                    parameters[i, j] += 2 * delta
+                    res[n, n] += self.chi_term(e_powers, neu)
+                    parameters[i, j] -= delta
+
         return res / delta / delta
 
-    def f_term_parameters_numerical_d2(self, e_powers, n_powers, neu):
-        """Numerical second derivatives of logarithm f-term with respect to the Jastrow parameters
+    def f_term_numerical_d2(self, e_powers, n_powers, neu):
+        """Numerical second derivatives of logarithm f-term with respect to f-term parameters
         :param n_powers: powers of e-n distances
         :param neu: number of up electrons
         """
@@ -1043,15 +1024,18 @@ class Jastrow:
             return np.zeros((0, 0))
 
         delta = 0.00001
-        size = np.array(list([p.size + 1 for p in self.f_parameters])).sum()
+        size = np.array(list([p.shape[0] * p.shape[1] * p.shape[2] * (sd + 1) + 1 for p, sd in zip(self.f_parameters, self.f_spin_dep)])).sum()
         res = -2 * self.f_term(e_powers, n_powers, neu) * np.eye(size)
         n = -1
         for parameters, cutoff in zip(self.f_parameters, self.f_cutoff):
+            n += 1
             cutoff -= delta
             res[n, n] += self.f_term(e_powers, n_powers, neu)
             cutoff += 2 * delta
             res[n, n] += self.f_term(e_powers, n_powers, neu)
             cutoff -= delta
+
+            # diagonal terms of linear parameters
 
         return res / delta / delta
 
@@ -1065,13 +1049,15 @@ class Jastrow:
 
         """
         e_powers = self.ee_powers(e_vectors)
-        # n_powers = self.en_powers(n_vectors)
+        n_powers = self.en_powers(n_vectors)
 
-        # self.u_term_parameters_numerical_d2(e_powers, neu)
-        # self.chi_term_parameters_numerical_d2(n_powers, neu)
-        # self.f_term_parameters_numerical_d2(e_powers, n_powers, neu)
-
-        return self.u_term_cutoff_numerical_d2(e_powers, neu)
+        # not supported by numba
+        # return sp.linalg.block_diag(
+        #     self.u_term_numerical_d2(e_powers, neu),
+        #     self.chi_term_numerical_d2(n_powers, neu),
+        #     self.f_term_numerical_d2(e_powers, n_powers, neu),
+        # )
+        return self.u_term_numerical_d2(e_powers, neu)
 
 
 if __name__ == '__main__':
