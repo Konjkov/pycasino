@@ -207,13 +207,16 @@ def jastrow_parameters_hessian(weight, energy, energy_gradient, energy_hessian):
     :param energy_hessian:
     :return:
     """
+    t1 = np.einsum('ij,ik->ijk', energy_gradient, energy_gradient)
     A = 2 * (
         np.average(energy_hessian * energy[:, np.newaxis, np.newaxis], axis=0, weights=weight) -
         np.average(energy_hessian, axis=0, weights=weight) * np.average(energy, axis=0, weights=weight) -
-        np.average(np.einsum('ij,ik->ijk', energy_gradient, energy_gradient) * energy[..., np.newaxis, np.newaxis], axis=0, weights=weight) +
-        np.average(np.einsum('ij,ik->ijk', energy_gradient, energy_gradient), axis=0, weights=weight) * np.average(energy, weights=weight)
+        np.average(t1 * energy[..., np.newaxis, np.newaxis], axis=0, weights=weight) +
+        np.average(t1, axis=0, weights=weight) * np.average(energy, weights=weight)
     )
-    B = 0.0
+    t2 = energy_gradient - np.average(energy_gradient, axis=0, weights=weight)
+    t3 = (energy - np.average(energy, axis=0, weights=weight))
+    B = 4 * np.average(np.einsum('ij,ik->ijk', t2, t2) * t3[..., np.newaxis, np.newaxis], axis=0, weights=weight)
     C = 0.0
     return A + B + C
 
@@ -345,7 +348,7 @@ class VMC:
 
         options = dict(maxfun=10)
         parameters = self.metropolis.jastrow.get_parameters()
-        res = sp.optimize.minimize(f, parameters, method='Newton-CG', jac=True, hess=hess, bounds=list(zip(*bounds)), options=options)
+        res = sp.optimize.minimize(f, parameters, method='Newton-CG', jac=True, hess=hess, bounds=list(zip(*bounds)), options=options, callback=callback)
         return res.x
 
     def varmin(self, steps, opt_cycles):

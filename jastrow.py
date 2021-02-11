@@ -1049,7 +1049,7 @@ class Jastrow:
 
         """
         e_powers = self.ee_powers(e_vectors)
-        n_powers = self.en_powers(n_vectors)
+        # n_powers = self.en_powers(n_vectors)
 
         # not supported by numba
         # return sp.linalg.block_diag(
