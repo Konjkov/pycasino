@@ -125,11 +125,11 @@ class Gwfn(FortranFile):
 
     def set_cusp(self):
         """set cusped orbitals"""
+        p = 0
         for atom in range(self._natoms):
-            p = 0
             for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
+                primitives = self.primitives[nshell]
                 if self.shell_moments[nshell] == 0 and self.primitives[nshell] >= 3:
-                    primitives = self.primitives[nshell]
                     coefficients = self.coefficients[p:p + primitives]
                     exponents = self.exponents[p:p + primitives]
                     charge = self.atom_charges[atom]
@@ -139,7 +139,7 @@ class Gwfn(FortranFile):
                     self.coefficients[p:p + new_primitives] = new_coefficients
                     self.exponents[p:p + primitives] = np.zeros((primitives, ))
                     self.exponents[p:p + new_primitives] = new_exponents
-                    p += primitives
+                p += primitives
 
     def remove_premultiplied_factor(self):
         """

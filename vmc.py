@@ -200,7 +200,7 @@ def jastrow_parameters_gradient(weight, energy, energy_gradient):
 
 def jastrow_parameters_hessian(weight, energy, energy_gradient, energy_hessian):
     """Lin, Zhang and Rappe (LZR) hessian from
-    Optimization of quantum Monte Carlo wave functions by energy minimization. Julien Toulouse, Julien Toulouse.
+    Optimization of quantum Monte Carlo wave functions by energy minimization.
     :param weight:
     :param energy:
     :param energy_gradient:
@@ -297,7 +297,8 @@ class VMC:
             energy = self.metropolis.local_energy(position) + self.metropolis.nuclear_repulsion
             energy_average = np.average(energy, weights=weight)
             energy_variance = np.average((energy - energy_average) ** 2, weights=weight)
-            logger.info('energy = %.5f, variance = %.5f', energy_average, energy_variance)
+            std_err = np.sqrt(energy_variance / weight.sum())
+            logger.info('energy = %.5f +- %.5f, variance = %.5f', energy_average, std_err, energy_variance)
             return expand(weight, energy) - energy_average
 
         def jac(x, *args, **kwargs):
@@ -305,16 +306,22 @@ class VMC:
             return expand(weight, self.metropolis.jastrow_gradient(position))
 
         parameters = self.metropolis.jastrow.get_parameters()
-        res = sp.optimize.least_squares(f, parameters, method='trf', x_scale='jac', loss='linear', jac=jac, bounds=bounds, verbose=2)
+        res = sp.optimize.least_squares(f, parameters, jac=jac, bounds=bounds, method='trf', max_nfev=10, x_scale='jac', loss='linear', verbose=2)
         return res.x
 
     def vmc_energy_minimization(self, steps):
-        """Minimise vmc energy by jastrow parameters optimization."""
+        """Minimise vmc energy by jastrow parameters optimization.
+        Gradient only for : CG, BFGS, L-BFGS-B, TNC, SLSQP
+        Gradient and Hessian is required for: Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact, trust-constr
+        Constraints definition only for: COBYLA, SLSQP and trust-constr
+        TNC - неплохо, можно масштабировать scale
+        SLSQP, COBYLA - плохо
+        """
         bounds = self.metropolis.jastrow.get_bounds()
         weight, position, _ = self.metropolis.random_walk(steps, self.tau)
 
         def callback(x, *args):
-            logger.info('u_cutoff = %.5f', x[0])
+            logger.info('inner iteration x = %s', x)
 
         def f(x, *args):
             self.metropolis.jastrow.set_parameters(x)
@@ -322,7 +329,10 @@ class VMC:
             energy_gradient = self.metropolis.jastrow_gradient(position)
             mean_energy = np.average(energy, weights=weight)
             mean_energy_gradient = jastrow_parameters_gradient(weight, energy, energy_gradient)
-            logger.info('energy = %.5f, energy_gradient = %.5f, cutoff = %.5f', mean_energy, mean_energy_gradient[0], x[0])
+            energy_average = np.average(energy, weights=weight)
+            energy_variance = np.average((energy - energy_average) ** 2, weights=weight)
+            std_err = np.sqrt(energy_variance / weight.sum())
+            logger.info('energy = %.5f +- %.5f, variance = %.5f', energy_average, std_err, energy_variance)
             return mean_energy, mean_energy_gradient
 
         def hess(x, *args):
@@ -333,10 +343,9 @@ class VMC:
             mean_energy_hessian = jastrow_parameters_hessian(weight, energy, energy_gradient, energy_hessian)
             return mean_energy_hessian
 
-        # Only for CG, BFGS, Newton-CG, L-BFGS-B, TNC, SLSQP, trust-constr
-        # Hessian is required: dogleg, trust-ncg, trust-krylov, trust-exact
+        options = dict(maxfun=10)
         parameters = self.metropolis.jastrow.get_parameters()
-        res = sp.optimize.minimize(f, parameters, method='BFGS', jac=True, hess=hess, bounds=bounds, callback=callback)
+        res = sp.optimize.minimize(f, parameters, method='dogleg', jac=True, bounds=list(zip(*bounds)), options=options, callback=callback,)
         return res.x
 
     def varmin(self, steps, opt_cycles):

@@ -706,8 +706,8 @@ class Jastrow:
                                 n += 1
                                 f_parameters[i, j, k, 2] = parameters[n]
 
-    def u_term_cutoff_numerical_d1(self, e_powers, neu):
-        """Numerical first derivatives of logarithm u-term with respect to u_cutoff
+    def u_term_numerical_d1(self, e_powers, neu):
+        """Numerical first derivatives of logarithm u-term with respect to u-term parameters
         :param e_powers: powers of e-e distances
         :param neu: number of up electrons
         """
@@ -715,31 +715,18 @@ class Jastrow:
             return np.zeros((0,))
 
         delta = 0.00001
-        res = np.zeros((1, ))
+        res = np.zeros(((self.u_parameters.shape[0] - 1) * (self.u_spin_dep + 1) + 1,))
 
+        n = 0
         self.u_cutoff -= delta
         self.fix_u_parameters()
-        res[0] -= self.u_term(e_powers, neu)
+        res[n] -= self.u_term(e_powers, neu)
         self.u_cutoff += 2 * delta
         self.fix_u_parameters()
-        res[0] += self.u_term(e_powers, neu)
+        res[n] += self.u_term(e_powers, neu)
         self.u_cutoff -= delta
         self.fix_u_parameters()
 
-        return res / delta / 2
-
-    def u_term_linear_parameters_numerical_d1(self, e_powers, neu):
-        """Numerical first derivatives of logarithm u-term with respect to the linear Jastrow parameters
-        :param e_powers: powers of e-e distances
-        :param neu: number of up electrons
-        """
-        if not self.u_cutoff:
-            return np.zeros((0,))
-
-        delta = 0.00001
-        res = np.zeros(((self.u_parameters.shape[0] - 1) * (self.u_spin_dep + 1),))
-
-        n = -1
         for i in range(self.u_parameters.shape[0]):
             if i == 1:
                 continue
@@ -747,8 +734,10 @@ class Jastrow:
             if self.u_spin_dep == 0:
                 n += 1
                 self.u_parameters[i] -= delta
+                self.fix_u_parameters()
                 res[n] -= self.u_term(e_powers, neu)
                 self.u_parameters[i] += 2 * delta
+                self.fix_u_parameters()
                 res[n] += self.u_term(e_powers, neu)
                 self.u_parameters[i] -= delta
             elif self.u_spin_dep == 1:
@@ -775,11 +764,14 @@ class Jastrow:
                 for j in range(3):
                     n += 1
                     self.u_parameters[i, j] -= delta
+                    self.fix_u_parameters()
                     res[n] -= self.u_term(e_powers, neu)
                     self.u_parameters[i, j] += 2 * delta
+                    self.fix_u_parameters()
                     res[n] += self.u_term(e_powers, neu)
                     self.u_parameters[i, j] -= delta
 
+        self.fix_u_parameters()
         return res / delta / 2
 
     def chi_term_cutoff_numerical_d1(self, n_powers, neu):
@@ -797,10 +789,13 @@ class Jastrow:
         for cutoff in self.chi_cutoff:
             n += 1
             cutoff -= delta
+            self.fix_chi_parameters()
             res[n] -= self.chi_term(n_powers, neu)
             cutoff += 2 * delta
+            self.fix_chi_parameters()
             res[n] += self.chi_term(n_powers, neu)
             cutoff -= delta
+            self.fix_chi_parameters()
 
         return res / delta / 2
 
@@ -824,19 +819,24 @@ class Jastrow:
                 if self.chi_spin_dep == 0:
                     n += 1
                     p[i] -= delta
+                    self.fix_chi_parameters()
                     res[n] -= self.chi_term(n_powers, neu)
                     p[i] += 2 * delta
+                    self.fix_chi_parameters()
                     res[n] += self.chi_term(n_powers, neu)
                     p[i] -= delta
                 elif self.chi_spin_dep == 1:
                     for j in range(2):
                         n += 1
                         p[i, j] -= delta
+                        self.fix_chi_parameters()
                         res[n] -= self.chi_term(n_powers, neu)
                         p[i, j] += 2 * delta
+                        self.fix_chi_parameters()
                         res[n] += self.chi_term(n_powers, neu)
                         p[i, j] -= delta
 
+        self.fix_chi_parameters()
         return res / delta / 2
 
     def f_term_cutoff_numerical_d1(self, e_powers, n_powers, neu):
@@ -925,8 +925,7 @@ class Jastrow:
         n_powers = self.en_powers(n_vectors)
 
         return np.concatenate((
-            self.u_term_cutoff_numerical_d1(e_powers, neu),
-            self.u_term_linear_parameters_numerical_d1(e_powers, neu),
+            self.u_term_numerical_d1(e_powers, neu),
             self.chi_term_cutoff_numerical_d1(n_powers, neu),
             self.chi_term_linear_parameters_numerical_d1(n_powers, neu),
             self.f_term_cutoff_numerical_d1(e_powers, n_powers, neu),
