@@ -147,7 +147,7 @@ class Jastrow:
                         for label in f_labels:
                             self.f_cutoff[label] = f_cutoff
                     elif line.startswith('Parameter'):
-                        parameters = np.zeros((f_en_order+1, f_en_order+1, f_ee_order+1, 3), np.float)
+                        parameters = np.zeros((f_en_order+1, f_en_order+1, f_ee_order+1, f_spin_dep+1), np.float)
                         f_mask = self.get_f_mask(f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
                         for i in range(f_spin_dep+1):
                             for n in range(f_ee_order + 1):
@@ -195,7 +195,7 @@ class Jastrow:
         return mask
 
     def fix_u(self, u_parameters, u_cutoff):
-        u_parameters[1] = np.array([1/4, 1/2, 1/4]) / (-u_cutoff) ** self.trunc + u_parameters[0] * self.trunc / u_cutoff
+        u_parameters[1] = 1 / np.array([4, 2, 4]) / (-u_cutoff) ** self.trunc + u_parameters[0] * self.trunc / u_cutoff
         return u_parameters
 
     def fix_chi(self, chi_parameters, chi_cutoff, chi_cusp, charge):

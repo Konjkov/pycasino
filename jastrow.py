@@ -603,7 +603,7 @@ class Jastrow:
         return np.array(res)
 
     def fix_u_parameters(self):
-        self.u_parameters[1] = np.array([1/4, 1/2, 1/4]) / (-self.u_cutoff) ** self.trunc + self.u_parameters[0] * self.trunc / self.u_cutoff
+        self.u_parameters[1] = 1 / np.array([4, 2, 4]) / (-self.u_cutoff) ** self.trunc + self.u_parameters[0] * self.trunc / self.u_cutoff
 
     def fix_chi_parameters(self):
         for chi_parameters, chi_cutoff, chi_cusp in zip(self.chi_parameters, self.chi_cutoff, self.chi_cusp):
