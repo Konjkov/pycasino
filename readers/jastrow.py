@@ -115,15 +115,12 @@ class Jastrow:
                             self.chi_cutoff[label] = chi_cutoff
                     elif line.startswith('Parameter'):
                         # u, d
-                        parameters = np.zeros((chi_order+1, 2), np.float)
+                        parameters = np.zeros((chi_order+1, chi_spin_dep+1), np.float)
                         chi_mask = self.get_chi_mask(chi_order)
                         for i in range(chi_spin_dep + 1):
                             for m in range(chi_order + 1):
-                                if not chi_mask[m]:
-                                    continue
-                                parameters[m, i] = self.read_float()
-                                if chi_spin_dep == 0:
-                                    parameters[m, 1] = parameters[m, 0]
+                                if chi_mask[m]:
+                                    parameters[m, i] = self.read_float()
                         for label in chi_labels:
                             self.chi_spin_dep[label] = chi_spin_dep
                             self.chi_parameters[label] = self.fix_chi(parameters, chi_cutoff, chi_cusp, atom_charges[label])
@@ -156,16 +153,9 @@ class Jastrow:
                             for n in range(f_ee_order + 1):
                                 for m in range(f_en_order + 1):
                                     for l in range(m, f_en_order + 1):
-                                        if not f_mask[l, m, n]:
-                                            continue
-                                        # γlmnI = γmlnI
-                                        parameters[l, m, n, i] = parameters[m, l, n, i] = self.read_float()
-                                        if f_spin_dep == 0:
-                                            parameters[l, m, n, 2] = parameters[l, m, n, 1] = parameters[l, m, n, 0]
-                                            parameters[m, l, n, 2] = parameters[m, l, n, 1] = parameters[m, l, n, 0]
-                                        elif f_spin_dep == 1:
-                                            parameters[l, m, n, 2] = parameters[l, m, n, 0]
-                                            parameters[m, l, n, 2] = parameters[m, l, n, 0]
+                                        if f_mask[l, m, n]:
+                                            # γlmnI = γmlnI
+                                            parameters[l, m, n, i] = parameters[m, l, n, i] = self.read_float()
                         for label in f_labels:
                             self.f_spin_dep[label] = f_spin_dep
                             self.f_parameters[label] = self.fix_f(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
