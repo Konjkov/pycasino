@@ -39,7 +39,8 @@ spec = [
     ('f_spin_dep', nb.int64[:]),
     ('max_ee_order', nb.int64),
     ('max_en_order', nb.int64),
-    ('chi_cusp', nb.boolean[:])
+    ('chi_cusp', nb.boolean[:]),
+    ('ee_cusp_const', nb.float64[:]),
 ]
 
 
@@ -76,6 +77,7 @@ class Jastrow:
             max([p.shape[0] for p in self.f_parameters]),
         ))
         self.chi_cusp = chi_cusp
+        self.ee_cusp_const = 1 / np.array([4, 2, 4])
 
     def ee_powers(self, e_vectors):
         """Powers of e-e distances
@@ -113,6 +115,8 @@ class Jastrow:
         if not self.u_cutoff:
             return res
 
+        C = self.trunc
+        L = self.u_cutoff
         parameters = self.u_parameters
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
@@ -121,8 +125,9 @@ class Jastrow:
                     u_set = (int(i >= neu) + int(j >= neu))
                     poly = 0.0
                     for k in range(parameters.shape[0]):
-                        poly += parameters[k, u_set] * e_powers[i, j, k]
-                    res += poly * (r - self.u_cutoff) ** self.trunc
+                        p = parameters[k, u_set]
+                        poly += p * e_powers[i, j, k]
+                    res += poly * (r - self.u_cutoff) ** C
         return res
 
     def chi_term(self, n_powers, neu):
@@ -134,6 +139,7 @@ class Jastrow:
         res = 0.0
         if not self.chi_cutoff.any():
             return res
+
         C = self.trunc
         for i, (parameters, L, chi_spin_dep) in enumerate(zip(self.chi_parameters, self.chi_cutoff, self.chi_spin_dep)):
             for j in range(n_powers.shape[1]):
@@ -196,9 +202,10 @@ class Jastrow:
                     u_set = (int(i >= neu) + int(j >= neu))
                     poly = poly_diff = 0.0
                     for k in range(parameters.shape[0]):
-                        poly += parameters[k, u_set] * e_powers[i, j, k]
+                        p = parameters[k, u_set]
+                        poly += p * e_powers[i, j, k]
                         if k > 0:
-                            poly_diff += parameters[k, u_set] * k * e_powers[i, j, k-1]
+                            poly_diff += p * k * e_powers[i, j, k-1]
 
                     gradient = (C * (r-L) ** (C-1) * poly + (r-L) ** C * poly_diff) / r
                     res[i, :] += r_vec * gradient
@@ -226,9 +233,10 @@ class Jastrow:
                     chi_set = int(j >= neu) % (chi_spin_dep + 1)
                     poly = poly_diff = 0.0
                     for k in range(parameters.shape[0]):
-                        poly += parameters[k, chi_set] * n_powers[i, j, k]
+                        p = parameters[k, chi_set]
+                        poly += p * n_powers[i, j, k]
                         if k > 0:
-                            poly_diff += parameters[k, chi_set] * k * n_powers[i, j, k-1]
+                            poly_diff += p * k * n_powers[i, j, k-1]
 
                     gradient = (C * (r-L) ** (C-1) * poly + (r-L) ** C * poly_diff) / r
                     res[j, :] += r_vec * gradient
@@ -310,11 +318,12 @@ class Jastrow:
                     u_set = (int(i >= neu) + int(j >= neu))
                     poly = poly_diff = poly_diff_2 = 0.0
                     for k in range(parameters.shape[0]):
-                        poly += parameters[k, u_set] * e_powers[i, j, k]
+                        p = parameters[k, u_set]
+                        poly += p * e_powers[i, j, k]
                         if k > 0:
-                            poly_diff += k * parameters[k, u_set] * e_powers[i, j, k-1]
+                            poly_diff += k * p * e_powers[i, j, k-1]
                         if k > 1:
-                            poly_diff_2 += k * (k-1) * parameters[k, u_set] * e_powers[i, j, k-2]
+                            poly_diff_2 += k * (k-1) * p * e_powers[i, j, k-2]
 
                     res += (
                         C*(C - 1)*(r-L)**(C - 2) * poly +
@@ -341,11 +350,12 @@ class Jastrow:
                     chi_set = int(j >= neu) % (chi_spin_dep + 1)
                     poly = poly_diff = poly_diff_2 = 0.0
                     for k in range(parameters.shape[0]):
-                        poly += parameters[k, chi_set] * n_powers[i, j, k]
+                        p = parameters[k, chi_set]
+                        poly += p * n_powers[i, j, k]
                         if k > 0:
-                            poly_diff += k * parameters[k, chi_set] * n_powers[i, j, k-1]
+                            poly_diff += k * p * n_powers[i, j, k-1]
                         if k > 1:
-                            poly_diff_2 += k * (k-1) * parameters[k, chi_set] * n_powers[i, j, k-2]
+                            poly_diff_2 += k * (k-1) * p * n_powers[i, j, k-2]
 
                     res += (
                         C*(C - 1)*(r-L)**(C - 2) * poly +
