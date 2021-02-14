@@ -80,19 +80,13 @@ class Jastrow:
                         u_cutoff = self.read_float()
                         self.u_cutoff = u_cutoff
                     elif line.startswith('Parameter'):
-                        # uu, ud, dd
-                        parameters = np.zeros((u_order+1, 3), np.float)
+                        # uu, ud, dd order
+                        self.u_parameters = np.zeros((u_order+1, self.u_spin_dep+1), np.float)
                         u_mask = self.get_u_mask(u_order)
                         for i in range(self.u_spin_dep + 1):
                             for l in range(u_order + 1):
-                                if not u_mask[l]:
-                                    continue
-                                parameters[l, i] = self.read_float()
-                                if self.u_spin_dep == 0:
-                                    parameters[l, 2] = parameters[l, 1] = parameters[l, 0]
-                                elif self.u_spin_dep == 1:
-                                    parameters[l, 2] = parameters[l, 0]
-                        self.u_parameters = self.fix_u(parameters, u_cutoff)
+                                if u_mask[l]:
+                                    self.u_parameters[l, i] = self.read_float()
                     elif line.startswith('END SET'):
                         pass
                 elif chi_term:
