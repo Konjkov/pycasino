@@ -117,7 +117,7 @@ class Jastrow:
                                     parameters[m, i] = self.read_float()
                         for label in chi_labels:
                             self.chi_spin_dep[label] = chi_spin_dep
-                            self.chi_parameters[label] = self.fix_chi(parameters, chi_cutoff, chi_cusp, atom_charges[label])
+                            self.chi_parameters[label] = parameters
                     elif line.startswith('END SET'):
                         chi_labels = []
                 elif f_term:
@@ -187,16 +187,6 @@ class Jastrow:
                     if no_dup_chi_term and m == 1 and n == 0:
                         mask[l, m, n] = mask[m, l, n] = False
         return mask
-
-    def fix_u(self, u_parameters, u_cutoff):
-        u_parameters[1] = 1 / np.array([4, 2, 4]) / (-u_cutoff) ** self.trunc + u_parameters[0] * self.trunc / u_cutoff
-        return u_parameters
-
-    def fix_chi(self, chi_parameters, chi_cutoff, chi_cusp, charge):
-        chi_parameters[1] = chi_parameters[0] * self.trunc / chi_cutoff
-        if chi_cusp:
-            chi_parameters[1] -= charge / (-chi_cutoff) ** self.trunc
-        return chi_parameters
 
     def fix_f(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
         """
