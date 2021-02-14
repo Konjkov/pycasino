@@ -40,9 +40,9 @@ spec = [
     ('max_ee_order', nb.int64),
     ('max_en_order', nb.int64),
     ('chi_cusp', nb.boolean[:]),
+    ('no_dup_u_term', nb.boolean[:]),
+    ('no_dup_chi_term', nb.boolean[:]),
     ('u_cusp_const', nb.float64[:]),
-    ('no_dup_u_term', nb.boolean),
-    ('no_dup_chi_term', nb.boolean),
 ]
 
 
@@ -51,7 +51,7 @@ class Jastrow:
 
     def __init__(
             self, trunc, u_parameters, u_cutoff, u_spin_dep, chi_parameters, chi_cutoff, chi_labels, chi_spin_dep,
-            f_parameters, f_cutoff, f_labels, f_spin_dep, chi_cusp
+            f_parameters, f_cutoff, f_labels, f_spin_dep, no_dup_u_term, no_dup_chi_term, chi_cusp
     ):
         self.enabled = u_cutoff or chi_cutoff.any() or f_cutoff.any()
         self.trunc = trunc
@@ -79,8 +79,8 @@ class Jastrow:
             max([p.shape[0] for p in self.f_parameters]),
         ))
         self.chi_cusp = chi_cusp
-        self.no_dup_u_term = False
-        self.no_dup_chi_term = False
+        self.no_dup_u_term = no_dup_u_term
+        self.no_dup_chi_term = no_dup_chi_term
         self.u_cusp_const = np.zeros((3, ))
         if self.u_cutoff:
             self.fix_u_parameters()
@@ -636,6 +636,27 @@ class Jastrow:
 
         return np.array(res)
 
+    def get_f_mask(self, f_parameters, no_dup_u_term, no_dup_chi_term):
+        """f-term mask for all depenndent parameters"""
+        f_en_order = f_parameters.shape[0] - 1
+        f_ee_order = f_parameters.shape[2] - 1
+        mask = np.ones((f_en_order+1, f_en_order+1, f_ee_order+1))
+        for n in range(f_ee_order + 1):
+            for m in range(f_en_order + 1):
+                for l in range(m, f_en_order + 1):
+                    if n == 0 and m == 0:
+                        mask[l, m, n] = mask[m, l, n] = 0
+                    # sum(γlm1I) = 0
+                    if n == 1 and (m == 0 or l == f_en_order or l == f_en_order - 1 and m == 1):
+                        mask[l, m, n] = mask[m, l, n] = 0
+                    if l == f_en_order and m == 0:
+                        mask[l, m, n] = mask[m, l, m] = 0
+                    if no_dup_u_term and (m == 0 and l == 0 or m == 1 and l == 1 and n == 0):
+                        mask[l, m, n] = mask[m, l, n] = 0
+                    if no_dup_chi_term and m == 1 and n == 0:
+                        mask[l, m, n] = mask[m, l, n] = 0
+        return mask
+
     def fix_u_parameters(self):
         """Fix u-term parameters"""
         C = self.trunc
@@ -691,10 +712,16 @@ class Jastrow:
         l
         """
         C = self.trunc
-        for f_parameters, L in zip(self.f_parameters, self.f_cutoff):
+        for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
             f_en_order = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[2] - 1
             f_spin_dep = f_parameters.shape[3] - 1
+            f_mask = self.get_f_mask(f_parameters, no_dup_u_term, no_dup_chi_term)
+            for n in range(f_ee_order + 1):
+                for m in range(f_en_order + 1):
+                    for l in range(m, f_en_order + 1):
+                        if not f_mask[l, m, n]:
+                            f_parameters[l, m, n] = 0
             """fix 2 * f_en_order e–e cusp constrains"""
             for lm in range(2 * f_en_order + 1):
                 lm_sum = np.zeros(f_spin_dep + 1)
@@ -723,7 +750,7 @@ class Jastrow:
                 elif mn == f_en_order:
                     sum_2 = -mn_sum
                 elif mn < f_en_order:
-                    if self.no_dup_chi_term:
+                    if no_dup_chi_term:
                         f_parameters[1, mn, 0, :] = mn_sum / L
                         f_parameters[mn, 1, 0, :] = mn_sum / L
                     else:
@@ -736,12 +763,12 @@ class Jastrow:
             sum_2 += L * f_parameters[f_en_order - 1, 1, 1, :]
 
             """fix (l=en_order, m=0, n=0) term"""
-            if self.no_dup_chi_term:
+            if no_dup_chi_term:
                 f_parameters[f_en_order, 1, 0, :] = - sum_2 / L
                 f_parameters[1, f_en_order, 0, :] = - sum_2 / L
             else:
-                f_parameters[f_en_order, 0, 0, :] = sum_2 / self.trunc
-                f_parameters[0, f_en_order, 0, :] = sum_2 / self.trunc
+                f_parameters[f_en_order, 0, 0, :] = sum_2 / C
+                f_parameters[0, f_en_order, 0, :] = sum_2 / C
 
     def set_parameters(self, parameters):
         """
@@ -1095,7 +1122,8 @@ if __name__ == '__main__':
         casino.jastrow.trunc,
         casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.u_spin_dep,
         casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels, casino.jastrow.chi_spin_dep,
-        casino.jastrow.f_parameters, casino.jastrow.f_cutoff, casino.jastrow.f_labels, casino.jastrow.f_spin_dep, casino.jastrow.chi_cusp
+        casino.jastrow.f_parameters, casino.jastrow.f_cutoff, casino.jastrow.f_labels, casino.jastrow.f_spin_dep,
+        casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp
     )
 
     steps = 100

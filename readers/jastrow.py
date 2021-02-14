@@ -38,12 +38,15 @@ class Jastrow:
         self.u_cutoff = 0
         self.chi_cutoff = np.zeros(atom_charges.size)
         self.f_cutoff = np.zeros(atom_charges.size)
-        self.chi_cusp = np.zeros(atom_charges.size, dtype=np.bool)
+        self.chi_cusp = np.zeros(atom_charges.size, np.bool)
         self.chi_labels = nb.typed.List.empty_list(labels_type)
         self.f_labels = nb.typed.List.empty_list(labels_type)
         self.u_spin_dep = 0
         self.chi_spin_dep = np.zeros((atom_charges.size, ), np.int64)
         self.f_spin_dep = np.zeros((atom_charges.size, ), np.int64)
+        self.no_dup_u_term = np.zeros((atom_charges.size, ), np.bool)
+        self.no_dup_chi_term = np.zeros((atom_charges.size, ), np.bool)
+
         if not os.path.isfile(file):
             return
         with open(file, 'r') as f:
@@ -152,6 +155,8 @@ class Jastrow:
                                             parameters[l, m, n, i] = parameters[m, l, n, i] = self.read_float()
                         for label in f_labels:
                             self.f_spin_dep[label] = f_spin_dep
+                            self.no_dup_u_term[label] = no_dup_u_term
+                            self.no_dup_chi_term[label] = no_dup_chi_term
                             self.f_parameters[label] = self.fix_f(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                             self.check_f_constrains(self.f_parameters[label], f_cutoff, no_dup_u_term, no_dup_chi_term)
                     elif line.startswith('END SET'):
