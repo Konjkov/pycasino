@@ -596,7 +596,7 @@ class Jastrow:
                 f_spin_dep = self.f_parameters[i].shape[3] - 1
                 f_cutoff_length = 1
                 f_linear_length = (
-                    (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - 2 * f_en_order - (f_en_order + f_ee_order) - 2
+                    (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - (3 * f_en_order + f_ee_order)
                 ) * (f_spin_dep + 1)
                 f_lower_bonds = - np.ones((f_cutoff_length + f_linear_length,)) * np.inf
                 f_upper_bonds = np.ones((f_cutoff_length + f_linear_length,)) * np.inf
@@ -670,9 +670,9 @@ class Jastrow:
                 f_mask = self.get_f_mask(f_parameters, no_dup_u_term, no_dup_chi_term)
                 res.append(f_cutoff)
                 for i in range(f_parameters.shape[0]):
-                    for j in range(f_parameters.shape[1]):
-                        for k in range(j, f_parameters.shape[2]):
-                            if not f_mask[k, j, i]:
+                    for j in range(i, f_parameters.shape[1]):
+                        for k in range(f_parameters.shape[2]):
+                            if not f_mask[i, j, k]:
                                 continue
                             for l in range(f_spin_dep + 1):
                                 res.append(f_parameters[i, j, k, l])
@@ -831,9 +831,9 @@ class Jastrow:
                 f_mask = self.get_f_mask(f_parameters, no_dup_u_term, no_dup_chi_term)
                 self.f_cutoff[i] = parameters[n]
                 for j1 in range(f_parameters.shape[0]):
-                    for j2 in range(f_parameters.shape[1]):
-                        for j3 in range(j2, f_parameters.shape[2]):
-                            if not f_mask[j3, j2, j1]:
+                    for j2 in range(j1, f_parameters.shape[1]):
+                        for j3 in range(f_parameters.shape[2]):
+                            if not f_mask[j1, j2, j3]:
                                 continue
                             for j4 in range(f_spin_dep + 1):
                                 n += 1
@@ -934,7 +934,7 @@ class Jastrow:
             f_ee_order = f_parameters.shape[2] - 1
             f_spin_dep = f_parameters.shape[3] - 1
             size += (
-                (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - (2 * f_en_order + (f_en_order + f_ee_order) + 2)
+                (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - (3 * f_en_order + f_ee_order)
             ) * (f_spin_dep + 1) + 1
 
         res = np.zeros((size,))
@@ -953,24 +953,27 @@ class Jastrow:
 
             f_mask = self.get_f_mask(f_parameters, no_dup_u_term, no_dup_chi_term)
             for i in range(f_parameters.shape[0]):
-                for j in range(f_parameters.shape[1]):
-                    for k in range(j, f_parameters.shape[2]):
+                for j in range(i, f_parameters.shape[1]):
+                    for k in range(f_parameters.shape[2]):
                         # (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
-                        if not f_mask[k, j, i]:
+                        if not f_mask[i, j, k]:
                             self.fix_f_parameters()
                             continue
                         for l in range(f_spin_dep + 1):
                             n += 1
                             f_parameters[i, j, k, l] -= delta
-                            f_parameters[j, i, k, l] -= delta
+                            if i != j:
+                                f_parameters[j, i, k, l] -= delta
                             self.fix_f_parameters()
                             res[n] -= self.f_term(e_powers, n_powers, neu)
                             f_parameters[i, j, k, l] += 2 * delta
-                            f_parameters[j, i, k, l] += 2 * delta
+                            if i != j:
+                                f_parameters[j, i, k, l] += 2 * delta
                             self.fix_f_parameters()
                             res[n] += self.f_term(e_powers, n_powers, neu)
                             f_parameters[i, j, k, l] -= delta
-                            f_parameters[j, i, k, l] -= delta
+                            if i != j:
+                                f_parameters[j, i, k, l] -= delta
 
         self.fix_f_parameters()
         return res / delta / 2
@@ -1121,7 +1124,7 @@ class Jastrow:
             f_ee_order = f_parameters.shape[2] - 1
             f_spin_dep = f_parameters.shape[3] - 1
             size += (
-                (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - (2 * f_en_order + (f_en_order + f_ee_order) + 2)
+                (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - (3 * f_en_order + f_ee_order)
             ) * (f_spin_dep + 1) + 1
         res = -2 * self.f_term(e_powers, n_powers, neu) * np.eye(size)
 
