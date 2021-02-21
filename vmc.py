@@ -378,8 +378,8 @@ def main(casino):
 
     vmc = VMC(casino)
     vmc.equilibrate(casino.input.vmc_equil_nstep)
-    vmc.energy(casino.input.vmc_nstep)
-    # vmc.varmin(casino.input.vmc_opt_nstep, 5)
+    # vmc.energy(casino.input.vmc_nstep)
+    vmc.varmin(casino.input.vmc_opt_nstep, 5)
     # vmc.emin(casino.input.vmc_opt_nstep, 5)
 
 
@@ -396,7 +396,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term_test/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
     path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'

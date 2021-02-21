@@ -784,7 +784,7 @@ class Jastrow:
             self.u_cutoff = parameters[n]
             for j1 in range(self.u_parameters.shape[0]):
                 if j1 == 1:
-                    # self.fix_u_parameters()
+                    self.fix_u_parameters()
                     continue
                 for j2 in range(self.u_spin_dep + 1):
                     n += 1
@@ -832,8 +832,10 @@ class Jastrow:
 
         n = 0
         self.u_cutoff -= delta
+        self.fix_u_parameters()
         res[n] -= self.u_term(e_powers, neu)
         self.u_cutoff += 2 * delta
+        self.fix_u_parameters()
         res[n] += self.u_term(e_powers, neu)
         self.u_cutoff -= delta
 
@@ -843,11 +845,14 @@ class Jastrow:
             for j in range(self.u_spin_dep + 1):
                 n += 1
                 self.u_parameters[i, j] -= delta
+                self.fix_u_parameters()
                 res[n] -= self.u_term(e_powers, neu)
                 self.u_parameters[i, j] += 2 * delta
+                self.fix_u_parameters()
                 res[n] += self.u_term(e_powers, neu)
                 self.u_parameters[i, j] -= delta
 
+        self.fix_u_parameters()
         return res / delta / 2
 
     def chi_term_numerical_d1(self, n_powers, neu):
@@ -909,25 +914,34 @@ class Jastrow:
         for i in range(len(self.f_cutoff)):
             n += 1
             self.f_cutoff[i] -= delta
+            self.fix_f_parameters()
             res[n] -= self.f_term(e_powers, n_powers, neu)
             self.f_cutoff[i] += 2 * delta
+            self.fix_f_parameters()
             res[n] += self.f_term(e_powers, n_powers, neu)
             self.f_cutoff[i] -= delta
 
             f_spin_dep = self.f_spin_dep[i]
             f_parameters = self.f_parameters[i]
+            f_mask = self.get_f_mask(f_parameters, self.no_dup_u_term, self.no_dup_chi_term)
             for i in range(f_parameters.shape[0]):
                 for j in range(f_parameters.shape[1]):
                     for k in range(f_parameters.shape[2]):
                         # (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
                         for l in range(f_spin_dep + 1):
+                            if not f_mask[k, j, i]:
+                                self.fix_f_parameters()
+                                continue
                             n += 1
                             f_parameters[i, j, k, l] -= delta
+                            self.fix_f_parameters()
                             res[n] -= self.f_term(e_powers, n_powers, neu)
                             f_parameters[i, j, k, l] += 2 * delta
+                            self.fix_f_parameters()
                             res[n] += self.f_term(e_powers, n_powers, neu)
                             f_parameters[i, j, k, l] -= delta
 
+        self.fix_f_parameters()
         return res / delta / 2
 
     def parameters_numerical_d1(self, e_vectors, n_vectors, neu):
