@@ -579,26 +579,66 @@ class Jastrow:
             upper_bonds = np.concatenate((upper_bonds, u_upper_bonds))
 
         if self.chi_cutoff.any():
-            chi_cutoff_length = len(self.chi_cutoff)
-            chi_linear_length = np.array(list([(p.shape[0] - 1) * (sd + 1) for p, sd in zip(self.chi_parameters, self.chi_spin_dep)])).sum()
-            chi_lower_bonds = - np.ones((chi_cutoff_length + chi_linear_length,)) * np.inf
-            chi_upper_bonds = np.ones((chi_cutoff_length + chi_linear_length,)) * np.inf
-            chi_lower_bonds[0:chi_cutoff_length] = 1
-            chi_upper_bonds[0:chi_cutoff_length] = 10
-            lower_bonds = np.concatenate((lower_bonds, chi_lower_bonds))
-            upper_bonds = np.concatenate((upper_bonds, chi_upper_bonds))
+            for i in range(len(self.chi_cutoff)):
+                chi_cutoff_length = 1
+                chi_linear_length = (self.chi_parameters[i].shape[0] - 1) * (self.chi_spin_dep[i] + 1)
+                chi_lower_bonds = - np.ones((chi_cutoff_length + chi_linear_length,)) * np.inf
+                chi_upper_bonds = np.ones((chi_cutoff_length + chi_linear_length,)) * np.inf
+                chi_lower_bonds[0:chi_cutoff_length] = 1
+                chi_upper_bonds[0:chi_cutoff_length] = 10
+                lower_bonds = np.concatenate((lower_bonds, chi_lower_bonds))
+                upper_bonds = np.concatenate((upper_bonds, chi_upper_bonds))
 
         if self.f_cutoff.any():
-            f_cutoff_length = len(self.f_cutoff)
-            f_linear_length = np.array(list([p.shape[0] * p.shape[1] * p.shape[2] * (sd + 1) for p, sd in zip(self.f_parameters, self.f_spin_dep)])).sum()
-            f_lower_bonds = - np.ones((f_cutoff_length + f_linear_length,)) * np.inf
-            f_upper_bonds = np.ones((f_cutoff_length + f_linear_length,)) * np.inf
-            f_lower_bonds[0:f_cutoff_length] = 1
-            f_upper_bonds[0:f_cutoff_length] = 10
-            lower_bonds = np.concatenate((lower_bonds, f_lower_bonds))
-            upper_bonds = np.concatenate((upper_bonds, f_upper_bonds))
+            for i in range(len(self.f_cutoff)):
+                f_en_order = self.f_parameters[i].shape[0] - 1
+                f_ee_order = self.f_parameters[i].shape[2] - 1
+                f_spin_dep = self.f_parameters[i].shape[3] - 1
+                f_cutoff_length = 1
+                f_linear_length = (
+                    (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - 2 * f_en_order - (f_en_order + f_ee_order) - 2
+                ) * (f_spin_dep + 1)
+                f_lower_bonds = - np.ones((f_cutoff_length + f_linear_length,)) * np.inf
+                f_upper_bonds = np.ones((f_cutoff_length + f_linear_length,)) * np.inf
+                f_lower_bonds[0:f_cutoff_length] = 1
+                f_upper_bonds[0:f_cutoff_length] = 10
+                lower_bonds = np.concatenate((lower_bonds, f_lower_bonds))
+                upper_bonds = np.concatenate((upper_bonds, f_upper_bonds))
 
         return lower_bonds, upper_bonds
+
+    def get_u_mask(self, u_order):
+        """u-term mask for all spin-deps"""
+        mask = np.ones((u_order + 1,))
+        mask[1] = 0
+        return mask
+
+    def get_chi_mask(self, chi_order):
+        """chi-term mask for all spin-deps"""
+        mask = np.ones((chi_order + 1,))
+        mask[1] = 0
+        return mask
+
+    def get_f_mask(self, f_parameters, no_dup_u_term, no_dup_chi_term):
+        """f-term mask for all dependent parameters"""
+        f_en_order = f_parameters.shape[0] - 1
+        f_ee_order = f_parameters.shape[2] - 1
+        mask = np.ones((f_en_order + 1, f_en_order + 1, f_ee_order + 1))
+        for n in range(f_ee_order + 1):
+            for m in range(f_en_order + 1):
+                for l in range(m, f_en_order + 1):
+                    if n == 0 and m == 0:
+                        mask[l, m, n] = mask[m, l, n] = 0
+                    # sum(γlm1I) = 0
+                    if n == 1 and (m == 0 or l == f_en_order or l == f_en_order - 1 and m == 1):
+                        mask[l, m, n] = mask[m, l, n] = 0
+                    if l == f_en_order and m == 0:
+                        mask[l, m, n] = mask[m, l, m] = 0
+                    if no_dup_u_term and (m == 0 and l == 0 or m == 1 and l == 1 and n == 0):
+                        mask[l, m, n] = mask[m, l, n] = 0
+                    if no_dup_chi_term and m == 1 and n == 0:
+                        mask[l, m, n] = mask[m, l, n] = 0
+        return mask
 
     def get_parameters(self):
         """
@@ -626,36 +666,18 @@ class Jastrow:
                         res.append(chi_parameters[i, j])
 
         if self.f_cutoff.any():
-            for f_parameters, f_spin_dep, f_cutoff in zip(self.f_parameters, self.f_spin_dep, self.f_cutoff):
+            for f_parameters, f_spin_dep, f_cutoff, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_spin_dep, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
+                f_mask = self.get_f_mask(f_parameters, no_dup_u_term, no_dup_chi_term)
                 res.append(f_cutoff)
                 for i in range(f_parameters.shape[0]):
                     for j in range(f_parameters.shape[1]):
-                        for k in range(f_parameters.shape[2]):
+                        for k in range(j, f_parameters.shape[2]):
+                            if not f_mask[k, j, i]:
+                                continue
                             for l in range(f_spin_dep + 1):
                                 res.append(f_parameters[i, j, k, l])
 
         return np.array(res)
-
-    def get_f_mask(self, f_parameters, no_dup_u_term, no_dup_chi_term):
-        """f-term mask for all dependent parameters"""
-        f_en_order = f_parameters.shape[0] - 1
-        f_ee_order = f_parameters.shape[2] - 1
-        mask = np.ones((f_en_order+1, f_en_order+1, f_ee_order+1))
-        for n in range(f_ee_order + 1):
-            for m in range(f_en_order + 1):
-                for l in range(m, f_en_order + 1):
-                    if n == 0 and m == 0:
-                        mask[l, m, n] = mask[m, l, n] = 0
-                    # sum(γlm1I) = 0
-                    if n == 1 and (m == 0 or l == f_en_order or l == f_en_order - 1 and m == 1):
-                        mask[l, m, n] = mask[m, l, n] = 0
-                    if l == f_en_order and m == 0:
-                        mask[l, m, n] = mask[m, l, m] = 0
-                    if no_dup_u_term and (m == 0 and l == 0 or m == 1 and l == 1 and n == 0):
-                        mask[l, m, n] = mask[m, l, n] = 0
-                    if no_dup_chi_term and m == 1 and n == 0:
-                        mask[l, m, n] = mask[m, l, n] = 0
-        return mask
 
     def fix_u_parameters(self):
         """Fix u-term parameters"""
@@ -791,11 +813,10 @@ class Jastrow:
                     self.u_parameters[j1, j2] = parameters[n]
 
         if self.chi_cutoff.any():
-            for i in range(len(self.chi_cutoff)):
+            for i, (chi_parameters, chi_spin_dep) in enumerate(zip(self.chi_parameters, self.chi_spin_dep)):
                 n += 1
+                # Sequence types is a pointer, but numeric types is not.
                 self.chi_cutoff[i] = parameters[n]
-                chi_spin_dep = self.chi_spin_dep[i]
-                chi_parameters = self.chi_parameters[i]
                 for j1 in range(chi_parameters.shape[0]):
                     if j1 == 1:
                         self.fix_chi_parameters()
@@ -805,17 +826,18 @@ class Jastrow:
                         chi_parameters[j1, j2] = parameters[n]
 
         if self.f_cutoff.any():
-            for i in range(len(self.f_cutoff)):
+            for i, (f_parameters, f_spin_dep, no_dup_u_term, no_dup_chi_term) in enumerate(zip(self.f_parameters, self.f_spin_dep, self.no_dup_u_term, self.no_dup_chi_term)):
                 n += 1
+                f_mask = self.get_f_mask(f_parameters, no_dup_u_term, no_dup_chi_term)
                 self.f_cutoff[i] = parameters[n]
-                f_spin_dep = self.f_spin_dep[i]
-                f_parameters = self.f_parameters[i]
                 for j1 in range(f_parameters.shape[0]):
                     for j2 in range(f_parameters.shape[1]):
-                        for j3 in range(f_parameters.shape[2]):
+                        for j3 in range(j2, f_parameters.shape[2]):
+                            if not f_mask[j3, j2, j1]:
+                                continue
                             for j4 in range(f_spin_dep + 1):
                                 n += 1
-                                f_parameters[j1, j2, j3, j4] = parameters[n]
+                                f_parameters[j1, j2, j3, j4] = f_parameters[j2, j1, j3, j4] = parameters[n]
                 self.fix_f_parameters()
 
     def u_term_numerical_d1(self, e_powers, neu):
@@ -864,11 +886,13 @@ class Jastrow:
             return np.zeros((0,))
 
         delta = 0.00001
-        size = np.array(list([(p.shape[0] - 1) * (sd + 1) + 1 for p, sd in zip(self.chi_parameters, self.chi_spin_dep)])).sum()
+        size = 0
+        for chi_parameters, chi_spin_dep in zip(self.chi_parameters, self.chi_spin_dep):
+            size += (chi_parameters.shape[0] - 1) * (chi_spin_dep + 1) + 1
         res = np.zeros((size,))
 
         n = -1
-        for i in range(len(self.chi_cutoff)):
+        for i, (chi_parameters, chi_spin_dep) in enumerate(zip(self.chi_parameters, self.chi_spin_dep)):
             n += 1
             self.chi_cutoff[i] -= delta
             self.fix_chi_parameters()
@@ -878,8 +902,6 @@ class Jastrow:
             res[n] += self.chi_term(n_powers, neu)
             self.chi_cutoff[i] -= delta
 
-            chi_spin_dep = self.chi_spin_dep[i]
-            chi_parameters = self.chi_parameters[i]
             for i in range(chi_parameters.shape[0]):
                 if i == 1:
                     continue
@@ -906,12 +928,20 @@ class Jastrow:
             return np.zeros((0,))
 
         delta = 0.00001
-        size = np.array(list([p.shape[0] * p.shape[1] * p.shape[2] * (sd + 1) + 1 for p, sd in zip(self.f_parameters, self.f_spin_dep)])).sum()
+        size = 0
+        for f_parameters, f_spin_dep in zip(self.f_parameters, self.f_spin_dep):
+            f_en_order = f_parameters.shape[0] - 1
+            f_ee_order = f_parameters.shape[2] - 1
+            f_spin_dep = f_parameters.shape[3] - 1
+            size += (
+                (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - (2 * f_en_order + (f_en_order + f_ee_order) + 2)
+            ) * (f_spin_dep + 1) + 1
+
         res = np.zeros((size,))
 
         n = -1
 
-        for i in range(len(self.f_cutoff)):
+        for i, (f_parameters, f_spin_dep, no_dup_u_term, no_dup_chi_term) in enumerate(zip(self.f_parameters, self.f_spin_dep, self.no_dup_u_term, self.no_dup_chi_term)):
             n += 1
             self.f_cutoff[i] -= delta
             self.fix_f_parameters()
@@ -921,25 +951,26 @@ class Jastrow:
             res[n] += self.f_term(e_powers, n_powers, neu)
             self.f_cutoff[i] -= delta
 
-            f_spin_dep = self.f_spin_dep[i]
-            f_parameters = self.f_parameters[i]
-            f_mask = self.get_f_mask(f_parameters, self.no_dup_u_term, self.no_dup_chi_term)
+            f_mask = self.get_f_mask(f_parameters, no_dup_u_term, no_dup_chi_term)
             for i in range(f_parameters.shape[0]):
                 for j in range(f_parameters.shape[1]):
-                    for k in range(f_parameters.shape[2]):
+                    for k in range(j, f_parameters.shape[2]):
                         # (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
+                        if not f_mask[k, j, i]:
+                            self.fix_f_parameters()
+                            continue
                         for l in range(f_spin_dep + 1):
-                            if not f_mask[k, j, i]:
-                                self.fix_f_parameters()
-                                continue
                             n += 1
                             f_parameters[i, j, k, l] -= delta
+                            f_parameters[j, i, k, l] -= delta
                             self.fix_f_parameters()
                             res[n] -= self.f_term(e_powers, n_powers, neu)
                             f_parameters[i, j, k, l] += 2 * delta
+                            f_parameters[j, i, k, l] += 2 * delta
                             self.fix_f_parameters()
                             res[n] += self.f_term(e_powers, n_powers, neu)
                             f_parameters[i, j, k, l] -= delta
+                            f_parameters[j, i, k, l] -= delta
 
         self.fix_f_parameters()
         return res / delta / 2
@@ -1045,9 +1076,13 @@ class Jastrow:
             return np.zeros((0, 0))
 
         delta = 0.00001
-        size = np.array(list([(p.shape[0] - 1) * (sd + 1) + 1 for p, sd in zip(self.chi_parameters, self.chi_spin_dep)])).sum()
+        size = 0
+        for chi_parameters, chi_spin_dep in zip(self.chi_parameters, self.chi_spin_dep):
+            size += (chi_parameters.shape[0] - 1) * (chi_spin_dep + 1) + 1
         res = -2 * self.chi_term(n_powers, neu) * np.eye(size)
+
         n = -1
+
         for parameters, cutoff in zip(self.chi_parameters, self.chi_cutoff):
             n += 1
             # не меняет значение параметра по ссылке!
@@ -1080,9 +1115,18 @@ class Jastrow:
             return np.zeros((0, 0))
 
         delta = 0.00001
-        size = np.array(list([p.shape[0] * p.shape[1] * p.shape[2] * (sd + 1) + 1 for p, sd in zip(self.f_parameters, self.f_spin_dep)])).sum()
+        size = 0
+        for f_parameters, f_spin_dep in zip(self.f_parameters, self.f_spin_dep):
+            f_en_order = f_parameters.shape[0] - 1
+            f_ee_order = f_parameters.shape[2] - 1
+            f_spin_dep = f_parameters.shape[3] - 1
+            size += (
+                (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - (2 * f_en_order + (f_en_order + f_ee_order) + 2)
+            ) * (f_spin_dep + 1) + 1
         res = -2 * self.f_term(e_powers, n_powers, neu) * np.eye(size)
+
         n = -1
+
         for parameters, cutoff in zip(self.f_parameters, self.f_cutoff):
             n += 1
             # не меняет значение параметра по ссылке!

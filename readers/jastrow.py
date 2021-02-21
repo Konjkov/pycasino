@@ -146,7 +146,7 @@ class Jastrow:
                     elif line.startswith('Parameter'):
                         parameters = np.zeros((f_en_order+1, f_en_order+1, f_ee_order+1, f_spin_dep+1), np.float)
                         f_mask = self.get_f_mask(f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
-                        for i in range(f_spin_dep+1):
+                        for i in range(f_spin_dep + 1):
                             for n in range(f_ee_order + 1):
                                 for m in range(f_en_order + 1):
                                     for l in range(m, f_en_order + 1):
