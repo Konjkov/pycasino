@@ -157,7 +157,7 @@ class Jastrow:
                             self.f_spin_dep[label] = f_spin_dep
                             self.no_dup_u_term[label] = no_dup_u_term
                             self.no_dup_chi_term[label] = no_dup_chi_term
-                            self.f_parameters[label] = self.fix_f(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
+                            self.f_parameters[label] = parameters
                             self.check_f_constrains(self.f_parameters[label], f_cutoff, no_dup_u_term, no_dup_chi_term)
                     elif line.startswith('END SET'):
                         f_labels = []
@@ -192,105 +192,6 @@ class Jastrow:
                     if no_dup_chi_term and m == 1 and n == 0:
                         mask[l, m, n] = mask[m, l, n] = False
         return mask
-
-    def fix_f(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
-        """
-        :param f_parameters:
-        :param f_cutoff:
-        :param no_dup_u_term:
-        :param no_dup_chi_term:
-        :return:
-
-        0 - zero value
-        A - no electron–electron cusp constrains
-        B - no electron–nucleus cusp constrains
-        X - independent value
-
-        n = 0            n = 1            n > 1
-        -------------------------------------------------------
-        B B B B B B B B  A A A A A A A B  ? X X X X X X B  <- m
-        B X X X X X X X  A X X X X X A A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A A X X X X X A  X X X X X X X X
-        B X X X X X X X  B A A A A A A A  B X X X X X X X
-        ---------------- no_dup_u_term ------------------------
-        0 B B B B B B B  0 A A A A A A B  0 X X X X X X B  <- m
-        B B X X X X X X  A X X X X X A A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A A X X X X X A  X X X X X X X X
-        B X X X X X X X  B A A A A A A A  B X X X X X X X
-        ---------------- no_dup_chi_term ----------------------
-        0 0 0 0 0 0 0 0  A A A A A A A B  X X X X X X X B  <- m
-        0 B B B B B B B  A X X X X X A A  X X X X X X X X
-        0 B X X X X X X  A X X X X X X A  X X X X X X X X
-        0 B X X X X X X  A X X X X X X A  X X X X X X X X
-        0 B X X X X X X  A X X X X X X A  X X X X X X X X
-        0 B X X X X X X  A X X X X X X A  X X X X X X X X
-        0 B X X X X X X  A A X X X X X A  X X X X X X X X
-        0 B X X X X X X  B A A A A A A A  B X X X X X X X
-        ^
-        l
-        """
-        f_en_order = f_parameters.shape[0] - 1
-        f_ee_order = f_parameters.shape[2] - 1
-        f_spin_dep = f_parameters.shape[3] - 1
-        """fix 2 * f_en_order e–e cusp constrains"""
-        for lm in range(2 * f_en_order + 1):
-            lm_sum = np.zeros(f_spin_dep + 1)
-            for l in range(f_en_order + 1):
-                for m in range(f_en_order + 1):
-                    if l + m == lm:
-                        lm_sum += f_parameters[l, m, 1, :]
-            if lm < f_en_order:
-                f_parameters[0, lm, 1, :] = -lm_sum / 2
-                f_parameters[lm, 0, 1, :] = -lm_sum / 2
-            elif lm == f_en_order:
-                sum_1 = -lm_sum / 2
-            elif lm > f_en_order:
-                f_parameters[f_en_order, lm - f_en_order, 1, :] = -lm_sum / 2
-                f_parameters[lm - f_en_order, f_en_order, 1, :] = -lm_sum / 2
-
-        """fix f_en_order+f_ee_order e–n cusp constrains"""
-        for mn in reversed(range(f_en_order + f_ee_order + 1)):
-            mn_sum = np.zeros(f_spin_dep + 1)
-            for m in range(f_en_order + 1):
-                for n in range(f_ee_order + 1):
-                    if m + n == mn:
-                        mn_sum += self.trunc * f_parameters[0, m, n, :] - f_cutoff * f_parameters[1, m, n, :]
-            if mn > f_en_order:
-                f_parameters[0, f_en_order, mn - f_en_order, :] = -mn_sum / self.trunc
-                f_parameters[f_en_order, 0, mn - f_en_order, :] = -mn_sum / self.trunc
-            elif mn == f_en_order:
-                sum_2 = -mn_sum
-            elif mn < f_en_order:
-                if no_dup_chi_term:
-                    f_parameters[1, mn, 0, :] = mn_sum / f_cutoff
-                    f_parameters[mn, 1, 0, :] = mn_sum / f_cutoff
-                else:
-                    f_parameters[0, mn, 0, :] = -mn_sum / self.trunc
-                    f_parameters[mn, 0, 0, :] = -mn_sum / self.trunc
-
-        """fix (l=en_order - 1, m=1, n=1) term"""
-        f_parameters[f_en_order - 1, 1, 1, :] = sum_1 - f_parameters[f_en_order, 0, 1, :]
-        f_parameters[1, f_en_order - 1, 1, :] = sum_1 - f_parameters[0, f_en_order, 1, :]
-
-        sum_2 += f_cutoff * f_parameters[f_en_order - 1, 1, 1, :]
-
-        """fix (l=en_order, m=0, n=0) term"""
-        if no_dup_chi_term:
-            f_parameters[f_en_order, 1, 0, :] = - sum_2 / f_cutoff
-            f_parameters[1, f_en_order, 0, :] = - sum_2 / f_cutoff
-        else:
-            f_parameters[f_en_order, 0, 0, :] = sum_2 / self.trunc
-            f_parameters[0, f_en_order, 0, :] = sum_2 / self.trunc
-
-        return f_parameters
 
     def fix_f_not_implemented(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
         """To find the dependent coefficients of f-term it is necessary to solve

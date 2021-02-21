@@ -86,8 +86,8 @@ class Jastrow:
             self.fix_u_parameters()
         if self.chi_cutoff.any():
             self.fix_chi_parameters()
-        # if self.f_cutoff.any():
-        #     self.fix_f_parameters()
+        if self.f_cutoff.any():
+            self.fix_f_parameters()
 
     def ee_powers(self, e_vectors):
         """Powers of e-e distances
@@ -637,7 +637,7 @@ class Jastrow:
         return np.array(res)
 
     def get_f_mask(self, f_parameters, no_dup_u_term, no_dup_chi_term):
-        """f-term mask for all depenndent parameters"""
+        """f-term mask for all dependent parameters"""
         f_en_order = f_parameters.shape[0] - 1
         f_ee_order = f_parameters.shape[2] - 1
         mask = np.ones((f_en_order+1, f_en_order+1, f_ee_order+1))
@@ -721,7 +721,7 @@ class Jastrow:
                 for m in range(f_en_order + 1):
                     for l in range(m, f_en_order + 1):
                         if not f_mask[l, m, n]:
-                            f_parameters[l, m, n] = 0
+                            f_parameters[l, m, n] = f_parameters[m, l, n] = 0
             """fix 2 * f_en_order e–e cusp constrains"""
             for lm in range(2 * f_en_order + 1):
                 lm_sum = np.zeros(f_spin_dep + 1)
