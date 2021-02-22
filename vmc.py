@@ -312,7 +312,10 @@ class VMC:
             return expand(weight, self.metropolis.jastrow_gradient(position))
 
         parameters = self.metropolis.jastrow.get_parameters()
-        res = sp.optimize.least_squares(f, parameters, jac=jac, bounds=bounds, method='trf', max_nfev=20, x_scale='jac', loss='linear', verbose=2)
+        res = sp.optimize.least_squares(
+            f, parameters, jac=jac, bounds=bounds, method='trf', max_nfev=50,
+            x_scale='jac', loss='linear', tr_solver='lsmr', verbose=2
+        )
         return res.x
 
     def vmc_energy_minimization(self, steps):

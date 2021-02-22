@@ -579,9 +579,9 @@ class Jastrow:
         """f-term mask for all dependent parameters"""
         mask = np.ones((f_parameters.shape[0], f_parameters.shape[1], f_parameters.shape[2]), np.int64)
         f_en_order = f_parameters.shape[0] - 1
-        for n in range(f_parameters.shape[2]):
-            for m in range(f_parameters.shape[1]):
-                for l in range(m, f_parameters.shape[0]):
+        for m in range(f_parameters.shape[0]):
+            for l in range(m, f_parameters.shape[1]):
+                for n in range(f_parameters.shape[2]):
                     if n == 0 and m == 0:
                         mask[l, m, n] = mask[m, l, n] = 0
                     # sum(γlm1I) = 0
@@ -671,7 +671,7 @@ class Jastrow:
                         for k in range(f_parameters.shape[2]):
                             if not f_mask[i, j, k]:
                                 continue
-                            for l in range(f_parameters.shape[2]):
+                            for l in range(f_parameters.shape[3]):
                                 res.append(f_parameters[i, j, k, l])
 
         return np.array(res)
