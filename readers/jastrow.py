@@ -7,6 +7,8 @@ import numba as nb
 
 
 labels_type = nb.int64[:]
+chi_parameters_type = nb.float64[:, :]
+f_parameters_type = nb.float64[:, :, :, :]
 
 
 class Jastrow:
@@ -33,13 +35,13 @@ class Jastrow:
     def __init__(self, file, atom_charges):
         self.trunc = 0
         self.u_parameters = np.zeros((0, 3), np.float)  # uu, ud, dd order
-        self.chi_parameters = nb.typed.List([np.zeros((0, 2), np.float)] * atom_charges.size)  # u, d order
-        self.f_parameters = nb.typed.List([np.zeros((0, 0, 0, 3), np.float)] * atom_charges.size)  # uu, ud, dd order
+        self.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)  # u, d order
+        self.f_parameters = nb.typed.List.empty_list(f_parameters_type)  # uu, ud, dd order
         self.u_cutoff = 0
-        self.chi_cutoff = np.zeros(atom_charges.size)
-        self.f_cutoff = np.zeros(atom_charges.size)
-        self.chi_cusp = np.zeros(atom_charges.size, np.bool)
+        self.chi_cutoff = np.zeros(0)
+        self.chi_cusp = np.zeros(0)
         self.chi_labels = nb.typed.List.empty_list(labels_type)
+        self.f_cutoff = np.zeros(0)
         self.f_labels = nb.typed.List.empty_list(labels_type)
         self.no_dup_u_term = np.zeros((atom_charges.size, ), np.bool)
         self.no_dup_chi_term = np.zeros((atom_charges.size, ), np.bool)
@@ -89,23 +91,25 @@ class Jastrow:
                     elif line.startswith('END SET'):
                         pass
                 elif chi_term:
-                    if line.startswith('START SET'):
-                        pass
+                    if line.startswith('Number of set'):
+                        number_of_sets = self.read_ints()[0]
+                        self.chi_cutoff = np.zeros(number_of_sets)
+                        self.chi_cusp = np.zeros(number_of_sets, np.bool)
+                    elif line.startswith('START SET'):
+                        set_number = int(line.split()[2]) - 1
                     elif line.startswith('Label'):
                         chi_labels = np.array(self.read_ints()) - 1
                         self.chi_labels.append(chi_labels)
                     elif line.startswith('Impose electron-nucleus cusp'):
                         chi_cusp = self.read_bool()
-                        for label in chi_labels:
-                            self.chi_cusp[label] = chi_cusp
+                        self.chi_cusp[set_number] = chi_cusp
                     elif line.startswith('Expansion order'):
                         chi_order = self.read_int()
                     elif line.startswith('Spin dep'):
                         chi_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
                         chi_cutoff = self.read_float()
-                        for label in chi_labels:
-                            self.chi_cutoff[label] = chi_cutoff
+                        self.chi_cutoff[set_number] = chi_cutoff
                     elif line.startswith('Parameter'):
                         # u, d
                         parameters = np.zeros((chi_order+1, chi_spin_dep+1), np.float)
@@ -114,13 +118,15 @@ class Jastrow:
                             for m in range(chi_order + 1):
                                 if chi_mask[m]:
                                     parameters[m, i] = self.read_float()
-                        for label in chi_labels:
-                            self.chi_parameters[label] = parameters
+                        self.chi_parameters.append(parameters)
                     elif line.startswith('END SET'):
-                        chi_labels = []
+                        set_number = None
                 elif f_term:
-                    if line.startswith('START SET'):
-                        pass
+                    if line.startswith('Number of set'):
+                        number_of_sets = self.read_ints()[0]
+                        self.f_cutoff = np.zeros(number_of_sets)
+                    elif line.startswith('START SET'):
+                        set_number = int(line.split()[2]) - 1
                     elif line.startswith('Label'):
                         f_labels = np.array(self.read_ints()) - 1
                         self.f_labels.append(f_labels)
@@ -136,8 +142,7 @@ class Jastrow:
                         f_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
                         f_cutoff = self.read_float()
-                        for label in f_labels:
-                            self.f_cutoff[label] = f_cutoff
+                        self.f_cutoff[set_number] = f_cutoff
                     elif line.startswith('Parameter'):
                         parameters = np.zeros((f_en_order+1, f_en_order+1, f_ee_order+1, f_spin_dep+1), np.float)
                         f_mask = self.get_f_mask(f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
@@ -148,13 +153,12 @@ class Jastrow:
                                         if f_mask[l, m, n]:
                                             # γlmnI = γmlnI
                                             parameters[l, m, n, i] = parameters[m, l, n, i] = self.read_float()
-                        for label in f_labels:
-                            self.no_dup_u_term[label] = no_dup_u_term
-                            self.no_dup_chi_term[label] = no_dup_chi_term
-                            self.f_parameters[label] = parameters
-                            self.check_f_constrains(self.f_parameters[label], f_cutoff, no_dup_u_term, no_dup_chi_term)
+                        self.no_dup_u_term[set_number] = no_dup_u_term
+                        self.no_dup_chi_term[set_number] = no_dup_chi_term
+                        self.f_parameters.append(parameters)
+                        self.check_f_constrains(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                     elif line.startswith('END SET'):
-                        f_labels = []
+                        set_number = None
 
     def get_u_mask(self, u_order):
         """u-term mask for all spin-deps"""
