@@ -568,19 +568,19 @@ class Jastrow:
         )
 
     def get_u_mask(self, u_parameters):
-        """u-term mask for all spin-deps"""
+        """mask dependent parameters in u-term"""
         mask = np.ones(u_parameters.shape, np.int64)
         mask[1, :] = 0
         return mask
 
     def get_chi_mask(self, chi_parameters):
-        """chi-term mask for all spin-deps"""
+        """mask dependent parameters in chi-term"""
         mask = np.ones(chi_parameters.shape, np.int64)
         mask[1, :] = 0
         return mask
 
     def get_f_mask(self, f_parameters, no_dup_u_term, no_dup_chi_term):
-        """f-term mask for all dependent parameters"""
+        """mask dependent parameters in f-term"""
         mask = np.ones((f_parameters.shape[0], f_parameters.shape[1], f_parameters.shape[2]), np.int64)
         f_en_order = f_parameters.shape[0] - 1
         for m in range(f_parameters.shape[0]):
@@ -592,7 +592,7 @@ class Jastrow:
                     if n == 1 and (m == 0 or l == f_en_order or l == f_en_order - 1 and m == 1):
                         mask[l, m, n] = mask[m, l, n] = 0
                     if l == f_en_order and m == 0:
-                        mask[l, m, n] = mask[m, l, m] = 0
+                        mask[l, m, n] = mask[m, l, n] = 0
                     if no_dup_u_term and (m == 0 and l == 0 or m == 1 and l == 1 and n == 0):
                         mask[l, m, n] = mask[m, l, n] = 0
                     if no_dup_chi_term and m == 1 and n == 0:

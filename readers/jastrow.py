@@ -186,7 +186,7 @@ class Jastrow:
                     if n == 1 and (m == 0 or l == f_en_order or l == f_en_order - 1 and m == 1):
                         mask[l, m, n] = mask[m, l, n] = False
                     if l == f_en_order and m == 0:
-                        mask[l, m, n] = mask[m, l, m] = False
+                        mask[l, m, n] = mask[m, l, n] = False
                     if no_dup_u_term and (m == 0 and l == 0 or m == 1 and l == 1 and n == 0):
                         mask[l, m, n] = mask[m, l, n] = False
                     if no_dup_chi_term and m == 1 and n == 0:
