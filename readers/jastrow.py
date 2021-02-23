@@ -39,12 +39,12 @@ class Jastrow:
         self.f_parameters = nb.typed.List.empty_list(f_parameters_type)  # uu, ud, dd order
         self.u_cutoff = 0
         self.chi_cutoff = np.zeros(0)
-        self.chi_cusp = np.zeros(0)
+        self.chi_cusp = np.zeros(0, np.bool)
         self.chi_labels = nb.typed.List.empty_list(labels_type)
         self.f_cutoff = np.zeros(0)
         self.f_labels = nb.typed.List.empty_list(labels_type)
-        self.no_dup_u_term = np.zeros((atom_charges.size, ), np.bool)
-        self.no_dup_chi_term = np.zeros((atom_charges.size, ), np.bool)
+        self.no_dup_u_term = np.zeros(0, np.bool)
+        self.no_dup_chi_term = np.zeros(0, np.bool)
 
         if not os.path.isfile(file):
             return
@@ -125,6 +125,8 @@ class Jastrow:
                     if line.startswith('Number of set'):
                         number_of_sets = self.read_ints()[0]
                         self.f_cutoff = np.zeros(number_of_sets)
+                        self.no_dup_u_term = np.zeros(number_of_sets, np.bool)
+                        self.no_dup_chi_term = np.zeros(number_of_sets, np.bool)
                     elif line.startswith('START SET'):
                         set_number = int(line.split()[2]) - 1
                     elif line.startswith('Label'):
@@ -162,19 +164,19 @@ class Jastrow:
 
     def get_u_mask(self, u_order):
         """u-term mask for all spin-deps"""
-        mask = np.ones((u_order+1), dtype=np.bool)
+        mask = np.ones((u_order+1), np.bool)
         mask[1] = False
         return mask
 
     def get_chi_mask(self, chi_order):
         """chi-term mask for all spin-deps"""
-        mask = np.ones((chi_order+1), dtype=np.bool)
+        mask = np.ones((chi_order+1), np.bool)
         mask[1] = False
         return mask
 
     def get_f_mask(self, f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term):
         """f-term mask for all spin-deps"""
-        mask = np.ones((f_en_order+1, f_en_order+1, f_ee_order+1), dtype=np.bool)
+        mask = np.ones((f_en_order+1, f_en_order+1, f_ee_order+1), np.bool)
         for n in range(f_ee_order + 1):
             for m in range(f_en_order + 1):
                 for l in range(m, f_en_order + 1):
