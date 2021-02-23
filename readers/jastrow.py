@@ -41,9 +41,6 @@ class Jastrow:
         self.chi_cusp = np.zeros(atom_charges.size, np.bool)
         self.chi_labels = nb.typed.List.empty_list(labels_type)
         self.f_labels = nb.typed.List.empty_list(labels_type)
-        self.u_spin_dep = 0
-        self.chi_spin_dep = np.zeros((atom_charges.size, ), np.int64)
-        self.f_spin_dep = np.zeros((atom_charges.size, ), np.int64)
         self.no_dup_u_term = np.zeros((atom_charges.size, ), np.bool)
         self.no_dup_chi_term = np.zeros((atom_charges.size, ), np.bool)
 
@@ -78,15 +75,14 @@ class Jastrow:
                     elif line.startswith('Expansion order'):
                         u_order = self.read_int()
                     elif line.startswith('Spin dep'):
-                        self.u_spin_dep = self.read_int()
+                        u_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
-                        u_cutoff = self.read_float()
-                        self.u_cutoff = u_cutoff
+                        self.u_cutoff = self.read_float()
                     elif line.startswith('Parameter'):
                         # uu, ud, dd order
-                        self.u_parameters = np.zeros((u_order+1, self.u_spin_dep+1), np.float)
+                        self.u_parameters = np.zeros((u_order+1, u_spin_dep+1), np.float)
                         u_mask = self.get_u_mask(u_order)
-                        for i in range(self.u_spin_dep + 1):
+                        for i in range(u_spin_dep + 1):
                             for l in range(u_order + 1):
                                 if u_mask[l]:
                                     self.u_parameters[l, i] = self.read_float()
@@ -119,7 +115,6 @@ class Jastrow:
                                 if chi_mask[m]:
                                     parameters[m, i] = self.read_float()
                         for label in chi_labels:
-                            self.chi_spin_dep[label] = chi_spin_dep
                             self.chi_parameters[label] = parameters
                     elif line.startswith('END SET'):
                         chi_labels = []
@@ -154,7 +149,6 @@ class Jastrow:
                                             # γlmnI = γmlnI
                                             parameters[l, m, n, i] = parameters[m, l, n, i] = self.read_float()
                         for label in f_labels:
-                            self.f_spin_dep[label] = f_spin_dep
                             self.no_dup_u_term[label] = no_dup_u_term
                             self.no_dup_chi_term[label] = no_dup_chi_term
                             self.f_parameters[label] = parameters

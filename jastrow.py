@@ -34,9 +34,6 @@ spec = [
     ('f_cutoff', nb.float64[:]),
     ('chi_labels', nb.types.ListType(labels_type)),
     ('f_labels', nb.types.ListType(labels_type)),
-    ('u_spin_dep', nb.int64),
-    ('chi_spin_dep', nb.int64[:]),
-    ('f_spin_dep', nb.int64[:]),
     ('max_ee_order', nb.int64),
     ('max_en_order', nb.int64),
     ('chi_cusp', nb.boolean[:]),
@@ -50,14 +47,17 @@ spec = [
 class Jastrow:
 
     def __init__(
-            self, trunc, u_parameters, u_cutoff, u_spin_dep, chi_parameters, chi_cutoff, chi_labels, chi_spin_dep,
-            f_parameters, f_cutoff, f_labels, f_spin_dep, no_dup_u_term, no_dup_chi_term, chi_cusp
+            self, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, chi_labels,
+            f_parameters, f_cutoff, f_labels, no_dup_u_term, no_dup_chi_term, chi_cusp
     ):
         self.enabled = u_cutoff or chi_cutoff.any() or f_cutoff.any()
         self.trunc = trunc
+        # last index (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
         self.u_parameters = u_parameters
+        # last index (0->u=d; 1->u/=d)
         self.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)
         [self.chi_parameters.append(p) for p in chi_parameters]
+        # last index (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
         self.f_parameters = nb.typed.List.empty_list(f_parameters_type)
         [self.f_parameters.append(p) for p in f_parameters]
         self.u_cutoff = u_cutoff
@@ -67,9 +67,6 @@ class Jastrow:
         [self.chi_labels.append(p) for p in chi_labels]
         self.f_labels = nb.typed.List.empty_list(labels_type)
         [self.f_labels.append(p) for p in f_labels]
-        self.u_spin_dep = u_spin_dep  # (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
-        self.chi_spin_dep = chi_spin_dep  # (0->u=d; 1->u/=d)
-        self.f_spin_dep = f_spin_dep  # (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
         self.max_ee_order = max((
             self.u_parameters.shape[0],
             max([p.shape[2] for p in self.f_parameters]),
@@ -132,7 +129,7 @@ class Jastrow:
                 r = e_powers[i, j, 1]
                 if r <= self.u_cutoff:
                     cusp_set = (int(i >= neu) + int(j >= neu))
-                    u_set = cusp_set % (self.u_spin_dep + 1)
+                    u_set = cusp_set % parameters.shape[1]
                     poly = 0.0
                     for k in range(parameters.shape[0]):
                         if k == 1:
@@ -154,11 +151,11 @@ class Jastrow:
             return res
 
         C = self.trunc
-        for i, (parameters, L, chi_spin_dep) in enumerate(zip(self.chi_parameters, self.chi_cutoff, self.chi_spin_dep)):
+        for i, (parameters, L) in enumerate(zip(self.chi_parameters, self.chi_cutoff)):
             for j in range(n_powers.shape[1]):
                 r = n_powers[i, j, 1]
                 if r <= L:
-                    chi_set = int(j >= neu) % (chi_spin_dep + 1)
+                    chi_set = int(j >= neu) % parameters.shape[1]
                     poly = 0.0
                     for k in range(parameters.shape[0]):
                         poly += parameters[k, chi_set] * n_powers[i, j, k]
@@ -177,13 +174,13 @@ class Jastrow:
             return res
 
         C = self.trunc
-        for i, (parameters, L, f_spin_dep) in enumerate(zip(self.f_parameters, self.f_cutoff, self.f_spin_dep)):
+        for i, (parameters, L) in enumerate(zip(self.f_parameters, self.f_cutoff)):
             for j in range(n_powers.shape[1] - 1):
                 for k in range(j+1, e_powers.shape[0]):
                     r_e1I = n_powers[i, j, 1]
                     r_e2I = n_powers[i, k, 1]
                     if r_e1I <= L and r_e2I <= L:
-                        f_set = (int(j >= neu) + int(k >= neu)) % (f_spin_dep + 1)
+                        f_set = (int(j >= neu) + int(k >= neu)) % parameters.shape[3]
                         poly = 0.0
                         for l in range(parameters.shape[0]):
                             for m in range(parameters.shape[1]):
@@ -213,7 +210,7 @@ class Jastrow:
                 r = e_powers[i, j, 1]
                 if r <= L:
                     cusp_set = (int(i >= neu) + int(j >= neu))
-                    u_set = cusp_set % (self.u_spin_dep + 1)
+                    u_set = cusp_set % parameters.shape[1]
                     poly = poly_diff = 0.0
                     for k in range(parameters.shape[0]):
                         if k == 1:
@@ -242,12 +239,12 @@ class Jastrow:
             return res
 
         C = self.trunc
-        for i, (parameters, L, chi_spin_dep) in enumerate(zip(self.chi_parameters, self.chi_cutoff, self.chi_spin_dep)):
+        for i, (parameters, L) in enumerate(zip(self.chi_parameters, self.chi_cutoff)):
             for j in range(n_powers.shape[1]):
                 r_vec = n_vectors[j, i]
                 r = n_powers[i, j, 1]
                 if r <= L:
-                    chi_set = int(j >= neu) % (chi_spin_dep + 1)
+                    chi_set = int(j >= neu) % parameters.shape[1]
                     poly = poly_diff = 0.0
                     for k in range(parameters.shape[0]):
                         p = parameters[k, chi_set]
@@ -274,7 +271,7 @@ class Jastrow:
             return res
 
         C = self.trunc
-        for i, (parameters, L, f_spin_dep) in enumerate(zip(self.f_parameters, self.f_cutoff, self.f_spin_dep)):
+        for i, (parameters, L) in enumerate(zip(self.f_parameters, self.f_cutoff)):
             for j in range(n_powers.shape[1] - 1):
                 for k in range(j+1, e_powers.shape[0]):
                     r_e1I_vec = n_vectors[j, i]
@@ -284,7 +281,7 @@ class Jastrow:
                     r_e2I = n_powers[i, k, 1]
                     r_ee = e_powers[j, k, 1]
                     if r_e1I <= L and r_e2I <= L:
-                        f_set = (int(j >= neu) + int(k >= neu)) % (f_spin_dep + 1)
+                        f_set = (int(j >= neu) + int(k >= neu)) % parameters.shape[3]
                         poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
                         for l in range(parameters.shape[0]):
                             for m in range(parameters.shape[1]):
@@ -333,7 +330,7 @@ class Jastrow:
                 r = e_powers[i, j, 1]
                 if r <= L:
                     cusp_set = (int(i >= neu) + int(j >= neu))
-                    u_set = cusp_set % (self.u_spin_dep + 1)
+                    u_set = cusp_set % parameters.shape[1]
                     poly = poly_diff = poly_diff_2 = 0.0
                     for k in range(parameters.shape[0]):
                         if k == 1:
@@ -364,11 +361,11 @@ class Jastrow:
             return res
 
         C = self.trunc
-        for i, (parameters, L, chi_spin_dep) in enumerate(zip(self.chi_parameters, self.chi_cutoff, self.chi_spin_dep)):
+        for i, (parameters, L) in enumerate(zip(self.chi_parameters, self.chi_cutoff)):
             for j in range(n_powers.shape[1]):
                 r = n_powers[i, j, 1]
                 if r <= L:
-                    chi_set = int(j >= neu) % (chi_spin_dep + 1)
+                    chi_set = int(j >= neu) % parameters.shape[1]
                     poly = poly_diff = poly_diff_2 = 0.0
                     for k in range(parameters.shape[0]):
                         p = parameters[k, chi_set]
@@ -403,7 +400,7 @@ class Jastrow:
             return res
 
         C = self.trunc
-        for i, (parameters, L, f_spin_dep) in enumerate(zip(self.f_parameters, self.f_cutoff, self.f_spin_dep)):
+        for i, (parameters, L) in enumerate(zip(self.f_parameters, self.f_cutoff)):
             for j in range(n_powers.shape[1] - 1):
                 for k in range(j + 1, e_powers.shape[0]):
                     r_e1I_vec = n_vectors[j, i]
@@ -413,7 +410,7 @@ class Jastrow:
                     r_e2I = n_powers[i, k, 1]
                     r_ee = e_powers[j, k, 1]
                     if r_e1I <= L and r_e2I <= L:
-                        f_set = (int(j >= neu) + int(k >= neu)) % (f_spin_dep + 1)
+                        f_set = (int(j >= neu) + int(k >= neu)) % parameters.shape[3]
                         poly = poly_diff_e1I = poly_diff_e2I = 0.0
                         poly_diff_ee = poly_diff_e1I_2 = poly_diff_e2I_2 = 0.0
                         poly_diff_ee_2 = poly_diff_e1I_ee = poly_diff_e2I_ee = 0.0
@@ -623,11 +620,10 @@ class Jastrow:
             for f_parameters in self.f_parameters:
                 f_en_order = f_parameters.shape[0] - 1
                 f_ee_order = f_parameters.shape[2] - 1
-                f_spin_dep = f_parameters.shape[3] - 1
                 size = (
                     (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - (3 * f_en_order + f_ee_order)
-                ) * (f_spin_dep + 1) + 1
-                # size = self.get_f_mask(f_parameters, False, False).sum() * (f_spin_dep + 1) + 1
+                ) * f_parameters.shape[3] + 1
+                # size = self.get_f_mask(f_parameters, False, False).sum() * f_parameters.shape[3] + 1
                 f_lower_bonds = - np.ones((size,)) * np.inf
                 f_upper_bonds = np.ones((size,)) * np.inf
                 f_lower_bonds[0] = 1
@@ -681,14 +677,14 @@ class Jastrow:
         C = self.trunc
         L = self.u_cutoff
         for i in range(3):
-            self.u_cusp_const[i] = 1 / np.array([4, 2, 4])[i] / (-L) ** C + self.u_parameters[0, i % (self.u_spin_dep + 1)] * C / L
+            self.u_cusp_const[i] = 1 / np.array([4, 2, 4])[i] / (-L) ** C + self.u_parameters[0, i % self.u_parameters.shape[1]] * C / L
 
     def fix_chi_parameters(self):
         """Fix chi-term parameters"""
         C = self.trunc
         for chi_parameters, L, chi_cusp in zip(self.chi_parameters, self.chi_cutoff, self.chi_cusp):
             chi_parameters[1] = chi_parameters[0] * C / L
-            if self.chi_cusp:
+            if chi_cusp:
                 pass
                 # chi_parameters[1] -= charge / (-L) ** C
 
@@ -734,7 +730,6 @@ class Jastrow:
         for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
             f_en_order = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[2] - 1
-            f_spin_dep = f_parameters.shape[3] - 1
             f_mask = self.get_f_mask(f_parameters, no_dup_u_term, no_dup_chi_term)
             for n in range(f_ee_order + 1):
                 for m in range(f_en_order + 1):
@@ -743,7 +738,7 @@ class Jastrow:
                             f_parameters[l, m, n] = f_parameters[m, l, n] = 0
             """fix 2 * f_en_order e–e cusp constrains"""
             for lm in range(2 * f_en_order + 1):
-                lm_sum = np.zeros(f_spin_dep + 1)
+                lm_sum = np.zeros(f_parameters.shape[3])
                 for l in range(f_en_order + 1):
                     for m in range(f_en_order + 1):
                         if l + m == lm:
@@ -758,7 +753,7 @@ class Jastrow:
                     f_parameters[lm - f_en_order, f_en_order, 1, :] = -lm_sum / 2
             """fix f_en_order+f_ee_order e–n cusp constrains"""
             for mn in range(f_en_order + f_ee_order, -1, -1):
-                mn_sum = np.zeros(f_spin_dep + 1)
+                mn_sum = np.zeros(f_parameters.shape[3])
                 for m in range(f_en_order + 1):
                     for n in range(f_ee_order + 1):
                         if m + n == mn:
@@ -930,10 +925,9 @@ class Jastrow:
         for f_parameters in self.f_parameters:
             f_en_order = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[2] - 1
-            f_spin_dep = f_parameters.shape[3] - 1
             size += (
                 (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - (3 * f_en_order + f_ee_order)
-            ) * (f_spin_dep + 1) + 1
+            ) * f_parameters.shape[3] + 1
 
         res = np.zeros((size,))
 
@@ -1119,10 +1113,9 @@ class Jastrow:
         for f_parameters in self.f_parameters:
             f_en_order = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[2] - 1
-            f_spin_dep = f_parameters.shape[3] - 1
             size += (
                 (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - (3 * f_en_order + f_ee_order)
-            ) * (f_spin_dep + 1) + 1
+            ) * f_parameters.shape[3] + 1
         res = -2 * self.f_term(e_powers, n_powers, neu) * np.eye(size)
 
         n = -1
@@ -1178,9 +1171,9 @@ if __name__ == '__main__':
     casino = Casino(path)
     jastrow = Jastrow(
         casino.jastrow.trunc,
-        casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.u_spin_dep,
-        casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels, casino.jastrow.chi_spin_dep,
-        casino.jastrow.f_parameters, casino.jastrow.f_cutoff, casino.jastrow.f_labels, casino.jastrow.f_spin_dep,
+        casino.jastrow.u_parameters, casino.jastrow.u_cutoff,
+        casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
+        casino.jastrow.f_parameters, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
         casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp
     )
 
