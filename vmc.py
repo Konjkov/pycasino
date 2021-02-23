@@ -225,9 +225,9 @@ class VMC:
 
     def __init__(self, casino):
         self.jastrow = Jastrow(
-            casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff, casino.jastrow.u_spin_dep,
-            casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels, casino.jastrow.chi_spin_dep,
-            casino.jastrow.f_parameters, casino.jastrow.f_cutoff, casino.jastrow.f_labels, casino.jastrow.f_spin_dep,
+            casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff,
+            casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
+            casino.jastrow.f_parameters, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
             casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp
         )
         self.slater = Slater(
