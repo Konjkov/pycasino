@@ -317,7 +317,7 @@ class VMC:
             x_scale='jac', loss='linear', tr_solver='lsmr', tr_options=dict(show=False, regularize=False),
             verbose=2
         )
-        return res.x
+        return res
 
     def vmc_energy_minimization(self, steps):
         """Minimise vmc energy by jastrow parameters optimization.
@@ -356,23 +356,23 @@ class VMC:
 
         options = dict(maxfun=20)
         parameters = self.metropolis.jastrow.get_parameters()
-        # res = sp.optimize.minimize(f, parameters, method='TNC', jac=True, bounds=list(zip(*bounds)), options=options, callback=callback)
-        res = sp.optimize.minimize(f, parameters, method='trust-constr', jac=True, hess='2-point', callback=callback)
-        return res.x
+        res = sp.optimize.minimize(f, parameters, method='TNC', jac=True, bounds=list(zip(*bounds)), options=options, callback=callback)
+        # res = sp.optimize.minimize(f, parameters, method='trust-constr', jac=True, hess='2-point', callback=callback)
+        return res
 
     def varmin(self, steps, opt_cycles):
         for _ in range(opt_cycles):
             self.optimize_vmc_step(10000)
-            x = self.vmc_variance_minimization(steps)
-            logger.info('x = %s', x)
-            self.metropolis.jastrow.set_parameters(x)
+            res = self.vmc_variance_minimization(steps)
+            logger.info('x = %s', res.x)
+            self.metropolis.jastrow.set_parameters(res.x)
 
     def emin(self, steps, opt_cycles):
         for _ in range(opt_cycles):
             self.optimize_vmc_step(10000)
-            x = self.vmc_energy_minimization(steps)
-            logger.info('x = %s', x)
-            self.metropolis.jastrow.set_parameters(x)
+            res = self.vmc_energy_minimization(steps)
+            logger.info('x = %s', res.x)
+            self.metropolis.jastrow.set_parameters(res.x)
 
 
 def main(casino):
@@ -383,8 +383,8 @@ def main(casino):
     vmc = VMC(casino)
     vmc.equilibrate(casino.input.vmc_equil_nstep)
     # vmc.energy(casino.input.vmc_nstep)
-    vmc.varmin(casino.input.vmc_opt_nstep, 5)
-    # vmc.emin(casino.input.vmc_opt_nstep, 5)
+    # vmc.varmin(casino.input.vmc_opt_nstep, 5)
+    vmc.emin(casino.input.vmc_opt_nstep, 5)
 
 
 if __name__ == '__main__':
