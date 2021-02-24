@@ -628,7 +628,7 @@ class Jastrow:
                 f_en_order = f_parameters.shape[0] - 1
                 f_ee_order = f_parameters.shape[2] - 1
                 size = (
-                    (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - (3 * f_en_order + f_ee_order)
+                    (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - (3 * f_en_order + f_ee_order + 2)
                 ) * f_parameters.shape[3] + 1
                 # size = self.get_f_mask(f_parameters, False, False).sum() * f_parameters.shape[3] + 1
                 f_lower_bonds = - np.ones((size,)) * np.inf
@@ -933,7 +933,7 @@ class Jastrow:
             f_en_order = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[2] - 1
             size += (
-                (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - (3 * f_en_order + f_ee_order)
+                (f_en_order + 1) * (f_en_order + 2) // 2 * (f_ee_order + 1) - (3 * f_en_order + f_ee_order + 2)
             ) * f_parameters.shape[3] + 1
 
         res = np.zeros((size,))
