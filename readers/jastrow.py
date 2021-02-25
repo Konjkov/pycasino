@@ -7,6 +7,8 @@ import numba as nb
 
 
 labels_type = nb.int64[:]
+chi_mask_type = nb.boolean[:, :]
+f_mask_type = nb.boolean[:, :, :, :]
 chi_parameters_type = nb.float64[:, :]
 f_parameters_type = nb.float64[:, :, :, :]
 
@@ -32,9 +34,12 @@ class Jastrow:
     def read_ints(self):
         return list(map(int, self.f.readline().split()))
 
-    def __init__(self, file, atom_charges):
+    def __init__(self, file):
         self.trunc = 0
-        self.u_parameters = np.zeros((0, 3), np.float)  # uu, ud, dd order
+        self.u_mask = np.zeros((0, 0), np.bool)
+        self.chi_mask = nb.typed.List.empty_list(chi_mask_type)
+        self.f_mask = nb.typed.List.empty_list(f_mask_type)
+        self.u_parameters = np.zeros((0, 0), np.float)  # uu, ud, dd order
         self.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)  # u, d order
         self.f_parameters = nb.typed.List.empty_list(f_parameters_type)  # uu, ud, dd order
         self.u_cutoff = 0
@@ -83,10 +88,10 @@ class Jastrow:
                     elif line.startswith('Parameter'):
                         # uu, ud, dd order
                         self.u_parameters = np.zeros((u_order+1, u_spin_dep+1), np.float)
-                        u_mask = self.get_u_mask(u_order)
+                        self.u_mask = self.get_u_mask(self.u_parameters)
                         for i in range(u_spin_dep + 1):
                             for l in range(u_order + 1):
-                                if u_mask[l]:
+                                if self.u_mask[l, i]:
                                     self.u_parameters[l, i] = self.read_float()
                     elif line.startswith('END SET'):
                         pass
@@ -113,11 +118,12 @@ class Jastrow:
                     elif line.startswith('Parameter'):
                         # u, d
                         parameters = np.zeros((chi_order+1, chi_spin_dep+1), np.float)
-                        chi_mask = self.get_chi_mask(chi_order)
+                        chi_mask = self.get_chi_mask(parameters)
                         for i in range(chi_spin_dep + 1):
                             for m in range(chi_order + 1):
-                                if chi_mask[m]:
+                                if chi_mask[m, i]:
                                     parameters[m, i] = self.read_float()
+                        self.chi_mask.append(chi_mask)
                         self.chi_parameters.append(parameters)
                     elif line.startswith('END SET'):
                         set_number = None
@@ -147,50 +153,52 @@ class Jastrow:
                         self.f_cutoff[set_number] = f_cutoff
                     elif line.startswith('Parameter'):
                         parameters = np.zeros((f_en_order+1, f_en_order+1, f_ee_order+1, f_spin_dep+1), np.float)
-                        f_mask = self.get_f_mask(f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
+                        f_mask = self.get_f_mask(parameters, no_dup_u_term, no_dup_chi_term)
                         for i in range(f_spin_dep + 1):
                             for n in range(f_ee_order + 1):
                                 for m in range(f_en_order + 1):
                                     for l in range(m, f_en_order + 1):
-                                        if f_mask[l, m, n]:
+                                        if f_mask[l, m, n, i]:
                                             # γlmnI = γmlnI
                                             parameters[l, m, n, i] = parameters[m, l, n, i] = self.read_float()
                         self.no_dup_u_term[set_number] = no_dup_u_term
                         self.no_dup_chi_term[set_number] = no_dup_chi_term
+                        self.f_mask.append(f_mask)
                         self.f_parameters.append(parameters)
                         self.check_f_constrains(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                     elif line.startswith('END SET'):
                         set_number = None
 
-    def get_u_mask(self, u_order):
+    def get_u_mask(self, parameters):
         """u-term mask for all spin-deps"""
-        mask = np.ones((u_order+1), np.bool)
-        mask[1] = False
+        mask = np.ones(parameters.shape, np.bool)
+        mask[1, :] = False
         return mask
 
-    def get_chi_mask(self, chi_order):
+    def get_chi_mask(self, parameters):
         """chi-term mask for all spin-deps"""
-        mask = np.ones((chi_order+1), np.bool)
-        mask[1] = False
+        mask = np.ones(parameters.shape, np.bool)
+        mask[1, :] = False
         return mask
 
-    def get_f_mask(self, f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term):
+    def get_f_mask(self, parameters, no_dup_u_term, no_dup_chi_term):
         """f-term mask for all spin-deps"""
-        mask = np.ones((f_en_order+1, f_en_order+1, f_ee_order+1), np.bool)
-        for n in range(f_ee_order + 1):
-            for m in range(f_en_order + 1):
-                for l in range(m, f_en_order + 1):
+        mask = np.ones(parameters.shape, np.bool)
+        f_en_order = parameters.shape[0] - 1
+        for n in range(parameters.shape[2]):
+            for m in range(parameters.shape[1]):
+                for l in range(m, parameters.shape[0]):
                     if n == 0 and m == 0:
-                        mask[l, m, n] = mask[m, l, n] = False
+                        mask[l, m, n, :] = mask[m, l, n, :] = False
                     # sum(γlm1I) = 0
                     if n == 1 and (m == 0 or l == f_en_order or l == f_en_order - 1 and m == 1):
-                        mask[l, m, n] = mask[m, l, n] = False
+                        mask[l, m, n, :] = mask[m, l, n, :] = False
                     if l == f_en_order and m == 0:
-                        mask[l, m, n] = mask[m, l, n] = False
+                        mask[l, m, n, :] = mask[m, l, n, :] = False
                     if no_dup_u_term and (m == 0 and l == 0 or m == 1 and l == 1 and n == 0):
-                        mask[l, m, n] = mask[m, l, n] = False
+                        mask[l, m, n, :] = mask[m, l, n, :] = False
                     if no_dup_chi_term and m == 1 and n == 0:
-                        mask[l, m, n] = mask[m, l, n] = False
+                        mask[l, m, n, :] = mask[m, l, n, :] = False
         return mask
 
     def fix_f_not_implemented(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):

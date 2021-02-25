@@ -225,9 +225,9 @@ class VMC:
 
     def __init__(self, casino):
         self.jastrow = Jastrow(
-            casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_cutoff,
-            casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
-            casino.jastrow.f_parameters, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
+            casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_mask, casino.jastrow.u_cutoff,
+            casino.jastrow.chi_parameters, casino.jastrow.chi_mask, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
+            casino.jastrow.f_parameters, casino.jastrow.f_mask, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
             casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp
         )
         self.slater = Slater(
@@ -324,8 +324,6 @@ class VMC:
         Gradient only for : CG, BFGS, L-BFGS-B, TNC, SLSQP
         Gradient and Hessian is required for: Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact, trust-constr
         Constraints definition only for: COBYLA, SLSQP and trust-constr
-        TNC - неплохо, можно масштабировать scale
-        SLSQP, COBYLA - плохо
         """
         bounds = self.metropolis.jastrow.get_bounds()
         weight, position, _ = self.metropolis.random_walk(steps, self.tau)
@@ -356,10 +354,11 @@ class VMC:
             logger.info('hessian = %s', mean_energy_hessian)
             return mean_energy_hessian
 
-        options = dict(disp=True, maxfun=50)
         parameters = self.metropolis.jastrow.get_parameters()
+        options = dict(disp=True, maxfun=50)
         res = sp.optimize.minimize(f, parameters, method='TNC', jac=True, bounds=list(zip(*bounds)), options=options, callback=callback)
-        # res = sp.optimize.minimize(f, parameters, method='trust-constr', jac=True, hess=hess)
+        # options = dict(disp=True)
+        # res = sp.optimize.minimize(f, parameters, method='trust-ncg', jac=True, hess=hess, options=options, callback=callback)
         return res
 
     def varmin(self, steps, opt_cycles):

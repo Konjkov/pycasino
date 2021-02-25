@@ -19,6 +19,9 @@ I guess when using classes + numba, @selslack's suggestion of creating a normal 
 """
 
 labels_type = nb.int64[:]
+u_mask_type = nb.boolean[:, :]
+chi_mask_type = nb.boolean[:, :]
+f_mask_type = nb.boolean[:, :, :, :]
 u_parameters_type = nb.float64[:, :]
 chi_parameters_type = nb.float64[:, :]
 f_parameters_type = nb.float64[:, :, :, :]
@@ -26,6 +29,9 @@ f_parameters_type = nb.float64[:, :, :, :]
 spec = [
     ('enabled', nb.boolean),
     ('trunc', nb.int64),
+    ('u_mask', u_mask_type),
+    ('chi_mask', nb.types.ListType(chi_mask_type)),
+    ('f_mask', nb.types.ListType(f_mask_type)),
     ('u_parameters', u_parameters_type),
     ('chi_parameters', nb.types.ListType(chi_parameters_type)),
     ('f_parameters', nb.types.ListType(f_parameters_type)),
@@ -47,11 +53,16 @@ spec = [
 class Jastrow:
 
     def __init__(
-            self, trunc, u_parameters, u_cutoff, chi_parameters, chi_cutoff, chi_labels,
-            f_parameters, f_cutoff, f_labels, no_dup_u_term, no_dup_chi_term, chi_cusp
+            self, trunc, u_parameters, u_mask, u_cutoff, chi_parameters, chi_mask, chi_cutoff, chi_labels,
+            f_parameters, f_mask, f_cutoff, f_labels, no_dup_u_term, no_dup_chi_term, chi_cusp
     ):
         self.enabled = u_cutoff or chi_cutoff.any() or f_cutoff.any()
         self.trunc = trunc
+        self.u_mask = u_mask
+        self.chi_mask = nb.typed.List.empty_list(chi_mask_type)
+        [self.chi_mask.append(m) for m in chi_mask]
+        self.f_mask = nb.typed.List.empty_list(f_mask_type)
+        [self.f_mask.append(m) for m in f_mask]
         # last index (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
         self.u_parameters = u_parameters
         # last index (0->u=d; 1->u/=d)
@@ -567,18 +578,6 @@ class Jastrow:
             self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors, neu)
         )
 
-    def get_u_mask(self, u_parameters):
-        """mask dependent parameters in u-term"""
-        mask = np.ones(u_parameters.shape, np.int64)
-        mask[1, :] = 0
-        return mask
-
-    def get_chi_mask(self, chi_parameters):
-        """mask dependent parameters in chi-term"""
-        mask = np.ones(chi_parameters.shape, np.int64)
-        mask[1, :] = 0
-        return mask
-
     def get_f_mask(self, f_parameters, no_dup_u_term, no_dup_chi_term):
         """mask dependent parameters in f-term"""
         mask = np.ones((f_parameters.shape[0], f_parameters.shape[1], f_parameters.shape[2]), np.int64)
@@ -605,7 +604,7 @@ class Jastrow:
         upper_bonds = np.zeros((0,))
 
         if self.u_cutoff:
-            size = self.get_u_mask(self.u_parameters).sum() + 1
+            size = self.u_mask.sum() + 1
             u_lower_bonds = - np.ones((size,)) * np.inf
             u_upper_bonds = np.ones((size,)) * np.inf
             u_lower_bonds[0] = 1
@@ -614,8 +613,8 @@ class Jastrow:
             upper_bonds = np.concatenate((upper_bonds, u_upper_bonds))
 
         if self.chi_cutoff.any():
-            for chi_parameters in self.chi_parameters:
-                size = self.get_chi_mask(chi_parameters).sum() + 1
+            for chi_mask in self.chi_mask:
+                size = chi_mask.sum() + 1
                 chi_lower_bonds = - np.ones((size,)) * np.inf
                 chi_upper_bonds = np.ones((size,)) * np.inf
                 chi_lower_bonds[0] = 1
@@ -849,7 +848,7 @@ class Jastrow:
             return np.zeros((0,))
 
         delta = 0.00001
-        size = self.get_u_mask(self.u_parameters).sum() + 1
+        size = self.u_mask.sum() + 1
         res = np.zeros((size,))
 
         n = 0
@@ -887,8 +886,8 @@ class Jastrow:
 
         delta = 0.00001
         size = 0
-        for chi_parameters in self.chi_parameters:
-            size += self.get_chi_mask(chi_parameters).sum() + 1
+        for chi_mask in self.chi_mask:
+            size += chi_mask.sum() + 1
         res = np.zeros((size,))
 
         n = -1
@@ -998,7 +997,7 @@ class Jastrow:
         """
 
         delta = 0.00001
-        size = self.get_u_mask(self.u_parameters).sum() + 1
+        size = self.u_mask.sum() + 1
         res = -2 * self.u_term(e_powers, neu) * np.eye(size)
 
         n = 0
@@ -1091,8 +1090,8 @@ class Jastrow:
 
         delta = 0.00001
         size = 0
-        for chi_parameters in self.chi_parameters:
-            size += self.get_chi_mask(chi_parameters).sum() + 1
+        for chi_mask in self.chi_mask:
+            size += chi_mask.sum() + 1
         res = -2 * self.chi_term(n_powers, neu) * np.eye(size)
 
         n = -1
