@@ -1225,21 +1225,21 @@ class Jastrow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        # not supported by numba
-        # return sp.linalg.block_diag(
-        #     self.u_term_numerical_d2(e_powers, neu),
-        #     self.chi_term_numerical_d2(n_powers, neu),
-        #     self.f_term_numerical_d2(e_powers, n_powers, neu),
-        # )
         u_term = self.u_term_numerical_d2(e_powers, neu)
         chi_term = self.chi_term_numerical_d2(n_powers, neu)
         f_term = self.f_term_numerical_d2(e_powers, n_powers, neu)
 
-        size = u_term.shape[0] + chi_term.shape[0] + f_term.shape[0]
-        res = np.zeros((size, size))
-        res[0:u_term.shape[0], 0:u_term.shape[0]] = u_term
-        res[u_term.shape[0]:u_term.shape[0]+chi_term.shape[0], u_term.shape[0]:u_term.shape[0]+chi_term.shape[0]] = chi_term
-        res[u_term.shape[0]+chi_term.shape[0]:size, u_term.shape[0]+chi_term.shape[0]:size] = f_term
+        # not supported by numba
+        # res = np.block((
+        #     (u_term, np.zeros((u_term.shape[0], chi_term.shape[0])), np.zeros((u_term.shape[0], f_term.shape[0]))),
+        #     (np.zeros((chi_term.shape[0], u_term.shape[0])), chi_term, np.zeros((chi_term.shape[0], f_term.shape[0]))),
+        #     (np.zeros((f_term.shape[0], u_term.shape[0])), np.zeros((f_term.shape[0], chi_term.shape[0])), f_term)
+        # ))
+        b = np.cumsum(np.array([0, u_term.shape[0], chi_term.shape[0], f_term.shape[0]]))
+        res = np.zeros((b[3], b[3]))
+        res[b[0]:b[1], b[0]:b[1]] = u_term
+        res[b[1]:b[2], b[1]:b[2]] = chi_term
+        res[b[2]:b[3], b[2]:b[3]] = f_term
         return res
 
 
