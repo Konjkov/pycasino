@@ -1099,7 +1099,6 @@ class Jastrow:
 
         for i, parameters in enumerate(self.chi_parameters):
             n += 1
-            # не меняет значение параметра по ссылке!
             self.chi_cutoff[i] -= delta
             self.fix_chi_parameters()
             res[n, n] += self.chi_term(n_powers, neu)
@@ -1116,11 +1115,65 @@ class Jastrow:
                     n += 1
                     parameters[i, j] -= delta
                     self.fix_chi_parameters()
-                    res[n, n] += self.chi_term(e_powers, neu)
+                    res[n, n] += self.chi_term(n_powers, neu)
                     parameters[i, j] += 2 * delta
                     self.fix_chi_parameters()
-                    res[n, n] += self.chi_term(e_powers, neu)
+                    res[n, n] += self.chi_term(n_powers, neu)
                     parameters[i, j] -= delta
+
+            # partial derivatives on cutoff and linear parameters
+            n = 0
+            for i in range(parameters.shape[0]):
+                if i == 1:
+                    continue
+                for j in range(parameters.shape[1]):
+                    n += 1
+                    parameters[i, j] -= delta
+                    self.chi_cutoff[i] -= delta
+                    self.fix_chi_parameters()
+                    res[0, n] += self.u_term(n_powers, neu)
+                    parameters[i, j] += 2 * delta
+                    self.fix_chi_parameters()
+                    res[0, n] -= self.chi_term(n_powers, neu)
+                    self.chi_cutoff[i] += 2 * delta
+                    self.fix_chi_parameters()
+                    res[0, n] += self.chi_term(n_powers, neu)
+                    parameters[i, j] -= 2 * delta
+                    self.fix_chi_parameters()
+                    res[0, n] += self.chi_term(n_powers, neu)
+                    parameters[i, j] += delta
+                    self.chi_cutoff[i] -= delta
+                    res[n, 0] = res[0, n]
+
+            n = 0
+            for i1 in range(parameters.shape[0]):
+                if i1 == 1:
+                    continue
+                for j1 in range(parameters.shape[1]):
+                    n += 1
+                    m = 0
+                    for i2 in range(parameters.shape[0]):
+                        if i2 == 1:
+                            continue
+                        for j2 in range(parameters.shape[1]):
+                            m += 1
+                            if m > n:
+                                parameters[i1, j1] -= delta
+                                parameters[i2, j2] -= delta
+                                self.fix_u_parameters()
+                                res[n, m] += self.chi_term(n_powers, neu)
+                                self.u_parameters[i1, j1] += 2 * delta
+                                self.fix_u_parameters()
+                                res[n, m] -= self.chi_term(n_powers, neu)
+                                self.u_parameters[i2, j2] += 2 * delta
+                                self.fix_u_parameters()
+                                res[n, m] += self.chi_term(n_powers, neu)
+                                self.u_parameters[i1, j1] -= 2 * delta
+                                self.fix_u_parameters()
+                                res[n, m] += self.chi_term(n_powers, neu)
+                                self.u_parameters[i1, j1] += delta
+                                self.u_parameters[i2, j2] -= delta
+                                res[m, n] = res[n, m]
 
         self.fix_chi_parameters()
         return res / delta / delta
@@ -1170,7 +1223,7 @@ class Jastrow:
 
         """
         e_powers = self.ee_powers(e_vectors)
-        # n_powers = self.en_powers(n_vectors)
+        n_powers = self.en_powers(n_vectors)
 
         # not supported by numba
         # return sp.linalg.block_diag(
@@ -1178,7 +1231,16 @@ class Jastrow:
         #     self.chi_term_numerical_d2(n_powers, neu),
         #     self.f_term_numerical_d2(e_powers, n_powers, neu),
         # )
-        return self.u_term_numerical_d2(e_powers, neu)
+        u_term = self.u_term_numerical_d2(e_powers, neu)
+        chi_term = self.chi_term_numerical_d2(n_powers, neu)
+        f_term = self.f_term_numerical_d2(e_powers, n_powers, neu)
+
+        size = u_term.shape[0] + chi_term.shape[0] + f_term.shape[0]
+        res = np.zeros((size, size))
+        res[0:u_term.shape[0], 0:u_term.shape[0]] = u_term
+        res[u_term.shape[0]:u_term.shape[0]+chi_term.shape[0], u_term.shape[0]:u_term.shape[0]+chi_term.shape[0]] = chi_term
+        res[u_term.shape[0]+chi_term.shape[0]:size, u_term.shape[0]+chi_term.shape[0]:size] = f_term
+        return res
 
 
 if __name__ == '__main__':

@@ -332,6 +332,8 @@ class VMC:
 
         def callback(x, *args):
             logger.info('inner iteration x = %s', x)
+            self.metropolis.jastrow.set_parameters(x)
+            weight, position, _ = self.metropolis.random_walk(steps, self.tau)
 
         def f(x, *args):
             self.metropolis.jastrow.set_parameters(x)
@@ -354,10 +356,10 @@ class VMC:
             logger.info('hessian = %s', mean_energy_hessian)
             return mean_energy_hessian
 
-        options = dict(maxfun=20)
+        options = dict(disp=True, maxfun=50)
         parameters = self.metropolis.jastrow.get_parameters()
         res = sp.optimize.minimize(f, parameters, method='TNC', jac=True, bounds=list(zip(*bounds)), options=options, callback=callback)
-        # res = sp.optimize.minimize(f, parameters, method='trust-constr', jac=True, hess='2-point', callback=callback)
+        # res = sp.optimize.minimize(f, parameters, method='trust-constr', jac=True, hess=hess)
         return res
 
     def varmin(self, steps, opt_cycles):
@@ -382,9 +384,9 @@ def main(casino):
 
     vmc = VMC(casino)
     vmc.equilibrate(casino.input.vmc_equil_nstep)
-    # vmc.energy(casino.input.vmc_nstep)
+    vmc.energy(casino.input.vmc_nstep)
     # vmc.varmin(casino.input.vmc_opt_nstep, 5)
-    vmc.emin(casino.input.vmc_opt_nstep, 5)
+    # vmc.emin(casino.input.vmc_opt_nstep, 5)
 
 
 if __name__ == '__main__':
