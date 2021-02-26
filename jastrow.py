@@ -650,19 +650,17 @@ class Jastrow:
         if self.u_cutoff:
             res.append(self.u_cutoff)
             for i in range(self.u_parameters.shape[0]):
-                if i == 1:
-                    continue
                 for j in range(self.u_parameters.shape[1]):
-                    res.append(self.u_parameters[i, j])
+                    if self.u_mask[i, j]:
+                        res.append(self.u_parameters[i, j])
 
         if self.chi_cutoff.any():
-            for chi_parameters, chi_cutoff in zip(self.chi_parameters, self.chi_cutoff):
+            for chi_parameters, chi_mask, chi_cutoff in zip(self.chi_parameters, self.chi_mask, self.chi_cutoff):
                 res.append(chi_cutoff)
                 for i in range(chi_parameters.shape[0]):
-                    if i == 1:
-                        continue
                     for j in range(chi_parameters.shape[1]):
-                        res.append(chi_parameters[i, j])
+                        if chi_mask[i, j]:
+                            res.append(chi_parameters[i, j])
 
         if self.f_cutoff.any():
             for f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
@@ -803,24 +801,22 @@ class Jastrow:
             n += 1
             self.u_cutoff = parameters[n]
             for j1 in range(self.u_parameters.shape[0]):
-                if j1 == 1:
-                    continue
                 for j2 in range(self.u_parameters.shape[1]):
-                    n += 1
-                    self.u_parameters[j1, j2] = parameters[n]
+                    if self.u_mask[j1, j2]:
+                        n += 1
+                        self.u_parameters[j1, j2] = parameters[n]
             self.fix_u_parameters()
 
         if self.chi_cutoff.any():
-            for i, chi_parameters, in enumerate(self.chi_parameters):
+            for i, (chi_parameters, chi_mask) in enumerate(zip(self.chi_parameters, self.chi_mask)):
                 n += 1
                 # Sequence types is a pointer, but numeric types is not.
                 self.chi_cutoff[i] = parameters[n]
                 for j1 in range(chi_parameters.shape[0]):
-                    if j1 == 1:
-                        continue
                     for j2 in range(chi_parameters.shape[1]):
-                        n += 1
-                        chi_parameters[j1, j2] = parameters[n]
+                        if chi_mask[j1, j2]:
+                            n += 1
+                            chi_parameters[j1, j2] = parameters[n]
             self.fix_chi_parameters()
 
         if self.f_cutoff.any():
@@ -861,17 +857,16 @@ class Jastrow:
         self.u_cutoff -= delta
 
         for i in range(self.u_parameters.shape[0]):
-            if i == 1:
-                continue
             for j in range(self.u_parameters.shape[1]):
-                n += 1
-                self.u_parameters[i, j] -= delta
-                self.fix_u_parameters()
-                res[n] -= self.u_term(e_powers, neu)
-                self.u_parameters[i, j] += 2 * delta
-                self.fix_u_parameters()
-                res[n] += self.u_term(e_powers, neu)
-                self.u_parameters[i, j] -= delta
+                if self.u_mask[i, j]:
+                    n += 1
+                    self.u_parameters[i, j] -= delta
+                    self.fix_u_parameters()
+                    res[n] -= self.u_term(e_powers, neu)
+                    self.u_parameters[i, j] += 2 * delta
+                    self.fix_u_parameters()
+                    res[n] += self.u_term(e_powers, neu)
+                    self.u_parameters[i, j] -= delta
 
         self.fix_u_parameters()
         return res / delta / 2
@@ -891,7 +886,7 @@ class Jastrow:
         res = np.zeros((size,))
 
         n = -1
-        for i, chi_parameters in enumerate(self.chi_parameters):
+        for i, (chi_parameters, chi_mask) in enumerate(zip(self.chi_parameters, self.chi_mask)):
             n += 1
             self.chi_cutoff[i] -= delta
             self.fix_chi_parameters()
@@ -902,18 +897,16 @@ class Jastrow:
             self.chi_cutoff[i] -= delta
 
             for i in range(chi_parameters.shape[0]):
-                if i == 1:
-                    continue
-                # (0->u=d; 1->u/=d)
                 for j in range(chi_parameters.shape[1]):
-                    n += 1
-                    chi_parameters[i, j] -= delta
-                    self.fix_chi_parameters()
-                    res[n] -= self.chi_term(n_powers, neu)
-                    chi_parameters[i, j] += 2 * delta
-                    self.fix_chi_parameters()
-                    res[n] += self.chi_term(n_powers, neu)
-                    chi_parameters[i, j] -= delta
+                    if chi_mask[i, j]:
+                        n += 1
+                        chi_parameters[i, j] -= delta
+                        self.fix_chi_parameters()
+                        res[n] -= self.chi_term(n_powers, neu)
+                        chi_parameters[i, j] += 2 * delta
+                        self.fix_chi_parameters()
+                        res[n] += self.chi_term(n_powers, neu)
+                        chi_parameters[i, j] -= delta
 
         self.fix_chi_parameters()
         return res / delta / 2
@@ -1011,71 +1004,67 @@ class Jastrow:
 
         # diagonal terms of linear parameters
         for i in range(self.u_parameters.shape[0]):
-            if i == 1:
-                continue
             for j in range(self.u_parameters.shape[1]):
-                n += 1
-                self.u_parameters[i, j] -= delta
-                self.fix_u_parameters()
-                res[n, n] += self.u_term(e_powers, neu)
-                self.u_parameters[i, j] += 2 * delta
-                self.fix_u_parameters()
-                res[n, n] += self.u_term(e_powers, neu)
-                self.u_parameters[i, j] -= delta
+                if self.u_mask[i, j]:
+                    n += 1
+                    self.u_parameters[i, j] -= delta
+                    self.fix_u_parameters()
+                    res[n, n] += self.u_term(e_powers, neu)
+                    self.u_parameters[i, j] += 2 * delta
+                    self.fix_u_parameters()
+                    res[n, n] += self.u_term(e_powers, neu)
+                    self.u_parameters[i, j] -= delta
 
         # partial derivatives on cutoff and linear parameters
         n = 0
         for i in range(self.u_parameters.shape[0]):
-            if i == 1:
-                continue
             for j in range(self.u_parameters.shape[1]):
-                n += 1
-                self.u_parameters[i, j] -= delta
-                self.u_cutoff -= delta
-                self.fix_u_parameters()
-                res[0, n] += self.u_term(e_powers, neu)
-                self.u_parameters[i, j] += 2 * delta
-                self.fix_u_parameters()
-                res[0, n] -= self.u_term(e_powers, neu)
-                self.u_cutoff += 2 * delta
-                self.fix_u_parameters()
-                res[0, n] += self.u_term(e_powers, neu)
-                self.u_parameters[i, j] -= 2 * delta
-                self.fix_u_parameters()
-                res[0, n] += self.u_term(e_powers, neu)
-                self.u_parameters[i, j] += delta
-                self.u_cutoff -= delta
-                res[n, 0] = res[0, n]
+                if self.u_mask[i, j]:
+                    n += 1
+                    self.u_parameters[i, j] -= delta
+                    self.u_cutoff -= delta
+                    self.fix_u_parameters()
+                    res[0, n] += self.u_term(e_powers, neu)
+                    self.u_parameters[i, j] += 2 * delta
+                    self.fix_u_parameters()
+                    res[0, n] -= self.u_term(e_powers, neu)
+                    self.u_cutoff += 2 * delta
+                    self.fix_u_parameters()
+                    res[0, n] += self.u_term(e_powers, neu)
+                    self.u_parameters[i, j] -= 2 * delta
+                    self.fix_u_parameters()
+                    res[0, n] += self.u_term(e_powers, neu)
+                    self.u_parameters[i, j] += delta
+                    self.u_cutoff -= delta
+                    res[n, 0] = res[0, n]
 
         n = 0
         for i1 in range(self.u_parameters.shape[0]):
-            if i1 == 1:
-                continue
             for j1 in range(self.u_parameters.shape[1]):
-                n += 1
-                m = 0
-                for i2 in range(self.u_parameters.shape[0]):
-                    if i2 == 1:
-                        continue
-                    for j2 in range(self.u_parameters.shape[1]):
-                        m += 1
-                        if m > n:
-                            self.u_parameters[i1, j1] -= delta
-                            self.u_parameters[i2, j2] -= delta
-                            self.fix_u_parameters()
-                            res[n, m] += self.u_term(e_powers, neu)
-                            self.u_parameters[i1, j1] += 2 * delta
-                            self.fix_u_parameters()
-                            res[n, m] -= self.u_term(e_powers, neu)
-                            self.u_parameters[i2, j2] += 2 * delta
-                            self.fix_u_parameters()
-                            res[n, m] += self.u_term(e_powers, neu)
-                            self.u_parameters[i1, j1] -= 2 * delta
-                            self.fix_u_parameters()
-                            res[n, m] += self.u_term(e_powers, neu)
-                            self.u_parameters[i1, j1] += delta
-                            self.u_parameters[i2, j2] -= delta
-                            res[m, n] = res[n, m]
+                if self.u_mask[i1, j1]:
+                    n += 1
+                    m = 0
+                    for i2 in range(self.u_parameters.shape[0]):
+                        for j2 in range(self.u_parameters.shape[1]):
+                            if self.u_mask[i2, j2]:
+                                m += 1
+                                if m > n:
+                                    self.u_parameters[i1, j1] -= delta
+                                    self.u_parameters[i2, j2] -= delta
+                                    self.fix_u_parameters()
+                                    res[n, m] += self.u_term(e_powers, neu)
+                                    self.u_parameters[i1, j1] += 2 * delta
+                                    self.fix_u_parameters()
+                                    res[n, m] -= self.u_term(e_powers, neu)
+                                    self.u_parameters[i2, j2] += 2 * delta
+                                    self.fix_u_parameters()
+                                    res[n, m] += self.u_term(e_powers, neu)
+                                    self.u_parameters[i1, j1] -= 2 * delta
+                                    self.fix_u_parameters()
+                                    res[n, m] += self.u_term(e_powers, neu)
+                                    self.u_parameters[i1, j1] += delta
+                                    self.u_parameters[i2, j2] -= delta
+                                    res[m, n] = res[n, m]
 
         self.fix_u_parameters()
         return res / delta / delta
@@ -1096,7 +1085,7 @@ class Jastrow:
 
         n = -1
 
-        for i, parameters in enumerate(self.chi_parameters):
+        for i, (chi_parameters, chi_mask) in enumerate(zip(self.chi_parameters, self.chi_mask)):
             n += 1
             self.chi_cutoff[i] -= delta
             self.fix_chi_parameters()
@@ -1107,71 +1096,71 @@ class Jastrow:
             self.chi_cutoff[i] -= delta
 
             # diagonal terms of linear parameters
-            for i in range(parameters.shape[0]):
+            for i in range(chi_parameters.shape[0]):
                 if i ==1:
                     continue
-                for j in range(parameters.shape[1]):
+                for j in range(chi_parameters.shape[1]):
                     n += 1
-                    parameters[i, j] -= delta
+                    chi_parameters[i, j] -= delta
                     self.fix_chi_parameters()
                     res[n, n] += self.chi_term(n_powers, neu)
-                    parameters[i, j] += 2 * delta
+                    chi_parameters[i, j] += 2 * delta
                     self.fix_chi_parameters()
                     res[n, n] += self.chi_term(n_powers, neu)
-                    parameters[i, j] -= delta
+                    chi_parameters[i, j] -= delta
 
             # partial derivatives on cutoff and linear parameters
             n = 0
-            for i in range(parameters.shape[0]):
+            for i in range(chi_parameters.shape[0]):
                 if i == 1:
                     continue
-                for j in range(parameters.shape[1]):
+                for j in range(chi_parameters.shape[1]):
                     n += 1
-                    parameters[i, j] -= delta
+                    chi_parameters[i, j] -= delta
                     self.chi_cutoff[i] -= delta
                     self.fix_chi_parameters()
                     res[0, n] += self.u_term(n_powers, neu)
-                    parameters[i, j] += 2 * delta
+                    chi_parameters[i, j] += 2 * delta
                     self.fix_chi_parameters()
                     res[0, n] -= self.chi_term(n_powers, neu)
                     self.chi_cutoff[i] += 2 * delta
                     self.fix_chi_parameters()
                     res[0, n] += self.chi_term(n_powers, neu)
-                    parameters[i, j] -= 2 * delta
+                    chi_parameters[i, j] -= 2 * delta
                     self.fix_chi_parameters()
                     res[0, n] += self.chi_term(n_powers, neu)
-                    parameters[i, j] += delta
+                    chi_parameters[i, j] += delta
                     self.chi_cutoff[i] -= delta
                     res[n, 0] = res[0, n]
 
             n = 0
-            for i1 in range(parameters.shape[0]):
+            for i1 in range(chi_parameters.shape[0]):
                 if i1 == 1:
                     continue
-                for j1 in range(parameters.shape[1]):
+                for j1 in range(chi_parameters.shape[1]):
                     n += 1
                     m = 0
-                    for i2 in range(parameters.shape[0]):
+                    for i2 in range(chi_parameters.shape[0]):
                         if i2 == 1:
                             continue
-                        for j2 in range(parameters.shape[1]):
+                        for j2 in range(chi_parameters.shape[1]):
                             m += 1
                             if m > n:
-                                parameters[i1, j1] -= delta
-                                parameters[i2, j2] -= delta
+                                chi_parameters[i1, j1] -= delta
+                                chi_parameters[i2, j2] -= delta
                                 self.fix_u_parameters()
                                 res[n, m] += self.chi_term(n_powers, neu)
-                                self.u_parameters[i1, j1] += 2 * delta
+                                chi_parameters[i1, j1] += 2 * delta
                                 self.fix_u_parameters()
                                 res[n, m] -= self.chi_term(n_powers, neu)
-                                self.u_parameters[i2, j2] += 2 * delta
+                                chi_parameters[i2, j2] += 2 * delta
                                 self.fix_u_parameters()
                                 res[n, m] += self.chi_term(n_powers, neu)
-                                self.u_parameters[i1, j1] -= 2 * delta
+                                chi_parameters[i1, j1] -= 2 * delta
                                 self.fix_u_parameters()
                                 res[n, m] += self.chi_term(n_powers, neu)
-                                self.u_parameters[i1, j1] += delta
-                                self.u_parameters[i2, j2] -= delta
+                                chi_parameters[i1, j1] += delta
+                                chi_parameters[i2, j2] -= delta
                                 res[m, n] = res[n, m]
 
         self.fix_chi_parameters()

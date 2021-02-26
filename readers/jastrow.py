@@ -44,9 +44,9 @@ class Jastrow:
         self.f_parameters = nb.typed.List.empty_list(f_parameters_type)  # uu, ud, dd order
         self.u_cutoff = 0
         self.chi_cutoff = np.zeros(0)
+        self.f_cutoff = np.zeros(0)
         self.chi_cusp = np.zeros(0, np.bool)
         self.chi_labels = nb.typed.List.empty_list(labels_type)
-        self.f_cutoff = np.zeros(0)
         self.f_labels = nb.typed.List.empty_list(labels_type)
         self.no_dup_u_term = np.zeros(0, np.bool)
         self.no_dup_chi_term = np.zeros(0, np.bool)
@@ -169,20 +169,23 @@ class Jastrow:
                     elif line.startswith('END SET'):
                         set_number = None
 
-    def get_u_mask(self, parameters):
-        """u-term mask for all spin-deps"""
+    @staticmethod
+    def get_u_mask(parameters):
+        """mask dependent parameters in u-term"""
         mask = np.ones(parameters.shape, np.bool)
         mask[1, :] = False
         return mask
 
-    def get_chi_mask(self, parameters):
-        """chi-term mask for all spin-deps"""
+    @staticmethod
+    def get_chi_mask(parameters):
+        """mask dependent parameters in chi-term"""
         mask = np.ones(parameters.shape, np.bool)
         mask[1, :] = False
         return mask
 
-    def get_f_mask(self, parameters, no_dup_u_term, no_dup_chi_term):
-        """f-term mask for all spin-deps"""
+    @staticmethod
+    def get_f_mask(parameters, no_dup_u_term, no_dup_chi_term):
+        """mask dependent parameters in f-term"""
         mask = np.ones(parameters.shape, np.bool)
         f_en_order = parameters.shape[0] - 1
         for n in range(parameters.shape[2]):
@@ -228,7 +231,7 @@ class Jastrow:
 
         a = np.zeros((f_spin_dep+1, n_constraints, n_constraints))
         b = np.zeros((f_spin_dep+1, n_constraints))
-        f_mask = self.get_f_mask(f_en_order, f_ee_order, no_dup_u_term, no_dup_chi_term)
+        f_mask = self.get_f_mask(f_parameters, no_dup_u_term, no_dup_chi_term)
         p = 0
         for n in range(f_ee_order + 1):
             for m in range(f_en_order + 1):
