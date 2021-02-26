@@ -157,7 +157,7 @@ class Jastrow:
                         for i in range(f_spin_dep + 1):
                             for n in range(f_ee_order + 1):
                                 for m in range(f_en_order + 1):
-                                    for l in range(m, f_en_order + 1):
+                                    for l in range(f_en_order + 1):
                                         if f_mask[l, m, n, i]:
                                             # γlmnI = γmlnI
                                             parameters[l, m, n, i] = parameters[m, l, n, i] = self.read_float()
@@ -190,17 +190,19 @@ class Jastrow:
         f_en_order = parameters.shape[0] - 1
         for n in range(parameters.shape[2]):
             for m in range(parameters.shape[1]):
-                for l in range(m, parameters.shape[0]):
-                    if n == 0 and m == 0:
+                for l in range(parameters.shape[0]):
+                    if l < m:
+                        mask[l, m, n, :] = False
+                    elif n == 0 and m == 0:
                         mask[l, m, n, :] = mask[m, l, n, :] = False
                     # sum(γlm1I) = 0
-                    if n == 1 and (m == 0 or l == f_en_order or l == f_en_order - 1 and m == 1):
+                    elif n == 1 and (m == 0 or l == f_en_order or l == f_en_order - 1 and m == 1):
                         mask[l, m, n, :] = mask[m, l, n, :] = False
-                    if l == f_en_order and m == 0:
+                    elif l == f_en_order and m == 0:
                         mask[l, m, n, :] = mask[m, l, n, :] = False
-                    if no_dup_u_term and (m == 0 and l == 0 or m == 1 and l == 1 and n == 0):
+                    elif no_dup_u_term and (m == 0 and l == 0 or m == 1 and l == 1 and n == 0):
                         mask[l, m, n, :] = mask[m, l, n, :] = False
-                    if no_dup_chi_term and m == 1 and n == 0:
+                    elif no_dup_chi_term and m == 1 and n == 0:
                         mask[l, m, n, :] = mask[m, l, n, :] = False
         return mask
 
