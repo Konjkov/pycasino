@@ -22,6 +22,5 @@ class Casino:
             self.jastrow = Gjastrow(os.path.join(base_path, 'parameters.casl'), self.wfn.atom_charges)
         else:
             self.jastrow = Jastrow(os.path.join(base_path, 'correlation.data'))
-            # self.jastrow = Jastrow(os.path.join(base_path, 'correlation.out.0'))
         self.mdet = Mdet(os.path.join(base_path, 'correlation.data'), self.input.neu, self.input.ned, self.wfn.mo_up, self.wfn.mo_down)
         # self.backflow = Backflow(os.path.join(base_path, 'correlation.out.9'), self.wfn.atomic_positions)

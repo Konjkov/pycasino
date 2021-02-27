@@ -96,7 +96,9 @@ class Jastrow:
                                     if self.u_mask[l, i]:
                                         self.u_parameters[l, i], _ = self.read_parameter()
                         except ValueError:
-                            pass
+                            # set u_term[1] to zero
+                            for i in range(u_spin_dep+1):
+                                self.u_parameters[0, i] = -self.u_cutoff / np.array([4, 2, 4])[i] / (-self.u_cutoff) ** self.trunc / self.trunc
                     elif line.startswith('END SET'):
                         pass
                 elif chi_term:
