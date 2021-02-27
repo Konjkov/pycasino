@@ -28,8 +28,10 @@ class Jastrow:
     def read_int(self):
         return int(self.f.readline())
 
-    def read_float(self):
-        return float(self.f.readline().split()[0])
+    def read_parameter(self):
+        # https://www.python.org/dev/peps/pep-3132/
+        parameter, mask, *_ = self.f.readline().split()
+        return float(parameter), bool(int(mask))
 
     def read_ints(self):
         return list(map(int, self.f.readline().split()))
@@ -84,15 +86,17 @@ class Jastrow:
                     elif line.startswith('Spin dep'):
                         u_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
-                        self.u_cutoff = self.read_float()
+                        self.u_cutoff, _ = self.read_parameter()
                     elif line.startswith('Parameter'):
-                        # uu, ud, dd order
                         self.u_parameters = np.zeros((u_order+1, u_spin_dep+1), np.float)
                         self.u_mask = self.get_u_mask(self.u_parameters)
-                        for i in range(u_spin_dep + 1):
-                            for l in range(u_order + 1):
-                                if self.u_mask[l, i]:
-                                    self.u_parameters[l, i] = self.read_float()
+                        try:
+                            for i in range(u_spin_dep + 1):
+                                for l in range(u_order + 1):
+                                    if self.u_mask[l, i]:
+                                        self.u_parameters[l, i], _ = self.read_parameter()
+                        except ValueError:
+                            pass
                     elif line.startswith('END SET'):
                         pass
                 elif chi_term:
@@ -113,18 +117,20 @@ class Jastrow:
                     elif line.startswith('Spin dep'):
                         chi_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
-                        chi_cutoff = self.read_float()
+                        chi_cutoff, _ = self.read_parameter()
                         self.chi_cutoff[set_number] = chi_cutoff
                     elif line.startswith('Parameter'):
-                        # u, d
-                        parameters = np.zeros((chi_order+1, chi_spin_dep+1), np.float)
-                        chi_mask = self.get_chi_mask(parameters)
-                        for i in range(chi_spin_dep + 1):
-                            for m in range(chi_order + 1):
-                                if chi_mask[m, i]:
-                                    parameters[m, i] = self.read_float()
+                        chi_parameters = np.zeros((chi_order+1, chi_spin_dep+1), np.float)
+                        chi_mask = self.get_chi_mask(chi_parameters)
+                        try:
+                            for i in range(chi_spin_dep + 1):
+                                for m in range(chi_order + 1):
+                                    if chi_mask[m, i]:
+                                        chi_parameters[m, i], _ = self.read_parameter()
+                        except ValueError:
+                            pass
                         self.chi_mask.append(chi_mask)
-                        self.chi_parameters.append(parameters)
+                        self.chi_parameters.append(chi_parameters)
                     elif line.startswith('END SET'):
                         set_number = None
                 elif f_term:
@@ -140,8 +146,10 @@ class Jastrow:
                         self.f_labels.append(f_labels)
                     elif line.startswith('Prevent duplication of u term'):
                         no_dup_u_term = self.read_bool()
+                        self.no_dup_u_term[set_number] = no_dup_u_term
                     elif line.startswith('Prevent duplication of chi term'):
                         no_dup_chi_term = self.read_bool()
+                        self.no_dup_chi_term[set_number] = no_dup_chi_term
                     elif line.startswith('Electron-nucleus expansion order'):
                         f_en_order = self.read_int()
                     elif line.startswith('Electron-electron expansion order'):
@@ -149,23 +157,24 @@ class Jastrow:
                     elif line.startswith('Spin dep'):
                         f_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
-                        f_cutoff = self.read_float()
+                        f_cutoff, _ = self.read_parameter()
                         self.f_cutoff[set_number] = f_cutoff
                     elif line.startswith('Parameter'):
-                        parameters = np.zeros((f_en_order+1, f_en_order+1, f_ee_order+1, f_spin_dep+1), np.float)
-                        f_mask = self.get_f_mask(parameters, no_dup_u_term, no_dup_chi_term)
-                        for i in range(f_spin_dep + 1):
-                            for n in range(f_ee_order + 1):
-                                for m in range(f_en_order + 1):
-                                    for l in range(f_en_order + 1):
-                                        if f_mask[l, m, n, i]:
-                                            # γlmnI = γmlnI
-                                            parameters[l, m, n, i] = parameters[m, l, n, i] = self.read_float()
-                        self.no_dup_u_term[set_number] = no_dup_u_term
-                        self.no_dup_chi_term[set_number] = no_dup_chi_term
+                        f_parameters = np.zeros((f_en_order+1, f_en_order+1, f_ee_order+1, f_spin_dep+1), np.float)
+                        f_mask = self.get_f_mask(f_parameters, no_dup_u_term, no_dup_chi_term)
+                        try:
+                            for i in range(f_spin_dep + 1):
+                                for n in range(f_ee_order + 1):
+                                    for m in range(f_en_order + 1):
+                                        for l in range(f_en_order + 1):
+                                            if f_mask[l, m, n, i]:
+                                                # γlmnI = γmlnI
+                                                f_parameters[l, m, n, i], _ = f_parameters[m, l, n, i], _ = self.read_parameter()
+                        except ValueError:
+                            pass
                         self.f_mask.append(f_mask)
-                        self.f_parameters.append(parameters)
-                        self.check_f_constrains(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
+                        self.f_parameters.append(f_parameters)
+                        self.check_f_constrains(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                     elif line.startswith('END SET'):
                         set_number = None
 

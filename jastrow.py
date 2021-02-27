@@ -615,39 +615,31 @@ class Jastrow:
         return lower_bonds, upper_bonds
 
     def get_parameters(self):
-        """
+        """Returns parameters in the following order:
         u-cutoff, u-linear parameters,
         for every chi-set: chi-cutoff, chi-linear parameters,
         for every f-set: f-cutoff, f-linear parameters.
         :return:
         """
-        res = []
+        res = np.zeros(0)
         if self.u_cutoff:
-            res.append(self.u_cutoff)
-            for i in range(self.u_parameters.shape[0]):
-                for j in range(self.u_parameters.shape[1]):
-                    if self.u_mask[i, j]:
-                        res.append(self.u_parameters[i, j])
+            res = np.concatenate((
+                res, np.array((self.u_cutoff, )), self.u_parameters.flatten()[self.u_mask.flatten()]
+            ))
 
         if self.chi_cutoff.any():
             for chi_parameters, chi_mask, chi_cutoff in zip(self.chi_parameters, self.chi_mask, self.chi_cutoff):
-                res.append(chi_cutoff)
-                for i in range(chi_parameters.shape[0]):
-                    for j in range(chi_parameters.shape[1]):
-                        if chi_mask[i, j]:
-                            res.append(chi_parameters[i, j])
+                res = np.concatenate((
+                    res, np.array((chi_cutoff, )), chi_parameters.flatten()[chi_mask.flatten()]
+                ))
 
         if self.f_cutoff.any():
             for f_parameters, f_mask, f_cutoff in zip(self.f_parameters, self.f_mask, self.f_cutoff):
-                res.append(f_cutoff)
-                for i in range(f_parameters.shape[0]):
-                    for j in range(f_parameters.shape[1]):
-                        for k in range(f_parameters.shape[2]):
-                            for l in range(f_parameters.shape[3]):
-                                if f_mask[i, j, k, l]:
-                                    res.append(f_parameters[i, j, k, l])
+                res = np.concatenate((
+                    res, np.array((f_cutoff, )), f_parameters.flatten()[f_mask.flatten()]
+                ))
 
-        return np.array(res)
+        return res
 
     def fix_u_parameters(self):
         """Fix u-term parameters"""
@@ -1195,9 +1187,9 @@ if __name__ == '__main__':
     """Plot Jastrow terms
     """
 
-    term = 'f'
+    term = 'u'
 
-    path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_u_vmc/'
+    # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_u_vmc/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_chi/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_u_no_chi_vmc/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
@@ -1207,10 +1199,9 @@ if __name__ == '__main__':
 
     casino = Casino(path)
     jastrow = Jastrow(
-        casino.jastrow.trunc,
-        casino.jastrow.u_parameters, casino.jastrow.u_cutoff,
-        casino.jastrow.chi_parameters, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
-        casino.jastrow.f_parameters, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
+        casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_mask, casino.jastrow.u_cutoff,
+        casino.jastrow.chi_parameters, casino.jastrow.chi_mask, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
+        casino.jastrow.f_parameters, casino.jastrow.f_mask, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
         casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp
     )
 
