@@ -67,15 +67,14 @@ class Metropolis:
         """Wave function in general form"""
         return np.exp(self.jastrow.value(e_vectors, n_vectors, self.neu)) * self.slater.value(n_vectors, self.neu)
 
-    def random_step(self, dX):
+    def random_step(self):
         """Random N-dim square distributed step"""
         ne = self.neu + self.ned
-        # FIXME: 1 * dX - required and it is a bug
-        return np.random.uniform(-dX, 1 * dX, ne * 3).reshape((ne, 3))
+        return np.random.uniform(-self.step, self.step, ne * 3).reshape((ne, 3))
 
-    def make_step(self, p, tau, r_e):
+    def make_step(self, p, r_e):
         """Make random step in configuration-by-configuration sampling (CBCS)"""
-        new_r_e = r_e + self.random_step(tau)
+        new_r_e = r_e + self.random_step()
         e_vectors = subtract_outer(new_r_e, new_r_e)
         n_vectors = subtract_outer(new_r_e, self.atom_positions)
         new_p = self.guiding_function(e_vectors, n_vectors)
@@ -84,7 +83,7 @@ class Metropolis:
         else:
             return r_e, p, cond
 
-    def random_walk(self, steps, tau):
+    def random_walk(self, steps):
         """Metropolis-Hastings random walk.
         :param steps: steps to walk
         :return:
@@ -101,12 +100,12 @@ class Metropolis:
 
         i = 0
         # first step
-        r_e, p, _ = self.make_step(p, tau, r_e)
+        r_e, p, _ = self.make_step(p, r_e)
         position[i] = r_e
         function[i] = p
         # other steps
         for _ in range(1, steps):
-            r_e, p, cond = self.make_step(p, tau, r_e)
+            r_e, p, cond = self.make_step(p, r_e)
             if cond:
                 i += 1
                 position[i] = r_e
@@ -244,12 +243,11 @@ class VMC:
             casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
         )
         self.neu, self.ned = casino.input.neu, casino.input.ned
-        self.tau = 1 / (self.neu + self.ned)
         self.metropolis = Metropolis(self.neu, self.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.slater, self.jastrow)
         self.metropolis.r_e = initial_position(self.neu + self.ned, self.metropolis.atom_positions, self.metropolis.atom_charges)
 
     def equilibrate(self, steps):
-        weight, _, _ = self.metropolis.random_walk(steps, self.tau)
+        weight, _, _ = self.metropolis.random_walk(steps)
         logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weight.size / steps)
 
     def optimize_vmc_step(self, steps):
@@ -260,12 +258,13 @@ class VMC:
             logger.info('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (self.neu + self.ned), acc_ration[0] + 0.5)
 
         def f(tau):
-            weight, _, _ = self.metropolis.random_walk(steps, tau)
+            self.metropolis.step = tau[0]
+            weight, _, _ = self.metropolis.random_walk(steps)
             return weight.size / steps - 0.5
 
         options = dict(jac_options=dict(alpha=1))
-        res = sp.optimize.root(f, self.tau, method='diagbroyden', tol=1 / np.sqrt(steps), callback=callback, options=options)
-        self.tau = np.abs(res.x)
+        res = sp.optimize.root(f, [self.metropolis.step], method='diagbroyden', tol=1 / np.sqrt(steps), callback=callback, options=options)
+        self.metropolis.step = np.abs(res.x[0])
 
     def energy(self, steps):
         self.optimize_vmc_step(10000)
@@ -274,7 +273,7 @@ class VMC:
         E = np.zeros((rounds,))
         check_point_1 = default_timer()
         for i in range(rounds):
-            weights, position, _ = self.metropolis.random_walk(steps // rounds, self.tau)
+            weights, position, _ = self.metropolis.random_walk(steps // rounds)
             energy = self.metropolis.local_energy(position) + self.metropolis.nuclear_repulsion
             E[i] = np.average(energy, weights=weights)
             mean_energy = np.average(E[:i + 1])
@@ -286,7 +285,7 @@ class VMC:
             check_point_2 = default_timer()
             logger.info(f'{E[i]}, {mean_energy}, {std_err}, total time {check_point_2 - check_point_1}')
 
-        E = expand(weights, energy) + self.metropolis.nuclear_repulsion
+        E = expand(weights, energy)
         reblock_data = pyblock.blocking.reblock(E)
         # for reblock_iter in reblock_data:
         #     print(reblock_iter)
@@ -304,7 +303,7 @@ class VMC:
     def vmc_variance_minimization(self, steps):
         """Minimise vmc variance by jastrow parameters optimization."""
         bounds = self.metropolis.jastrow.get_bounds()
-        weight, position, _ = self.metropolis.random_walk(steps, self.tau)
+        weight, position, _ = self.metropolis.random_walk(steps)
 
         def f(x, *args, **kwargs):
             self.metropolis.jastrow.set_parameters(x)
@@ -334,12 +333,12 @@ class VMC:
         Constraints definition only for: COBYLA, SLSQP and trust-constr
         """
         bounds = self.metropolis.jastrow.get_bounds()
-        weight, position, _ = self.metropolis.random_walk(steps, self.tau)
+        weight, position, _ = self.metropolis.random_walk(steps)
 
         def callback(x, *args):
             logger.info('inner iteration x = %s', x)
             self.metropolis.jastrow.set_parameters(x)
-            weight, position, _ = self.metropolis.random_walk(steps, self.tau)
+            weight, position, _ = self.metropolis.random_walk(steps)
 
         def f(x, *args):
             self.metropolis.jastrow.set_parameters(x)
@@ -411,7 +410,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term_test/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
     # path = 'test/gwfn/be/HF/def2-QZVP/VMC_OPT_BF/emin_BF/8_8_44__9_9_33'
@@ -423,7 +422,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/be2/HF/cc-pVQZ/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
-    # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/ch4/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetic/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/'
