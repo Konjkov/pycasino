@@ -21,7 +21,7 @@ from decorators import pool, thread
 from readers.casino import Casino
 from overload import subtract_outer
 from logger import logging
-from random_steps import initial_position, random_step
+from random_steps import initial_position
 
 
 logger = logging.getLogger('vmc')
@@ -31,6 +31,7 @@ spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
     ('r_e', nb.float64[:, :]),
+    ('step', nb.float64),
     ('atom_positions', nb.float64[:, :]),
     ('atom_charges', nb.float64[:]),
     ('nuclear_repulsion', nb.float64),
@@ -43,7 +44,7 @@ spec = [
 class Metropolis:
 
     def __init__(self, neu, ned, atom_positions, atom_charges, slater, jastrow):
-        """Metropolis-Hastings random walk.
+        """Metropolis random walk.
         :param neu: number of up electrons
         :param ned: number of down electrons
         :param atom_positions: atomic positions
@@ -55,6 +56,7 @@ class Metropolis:
         self.neu = neu
         self.ned = ned
         self.r_e = np.zeros((neu + ned, 3))
+        self.step = 1 / (neu + ned)
         self.atom_positions = atom_positions
         self.atom_charges = atom_charges
         self.nuclear_repulsion = nuclear_repulsion(atom_positions, atom_charges)
@@ -65,9 +67,15 @@ class Metropolis:
         """Wave function in general form"""
         return np.exp(self.jastrow.value(e_vectors, n_vectors, self.neu)) * self.slater.value(n_vectors, self.neu)
 
+    def random_step(self, dX):
+        """Random N-dim square distributed step"""
+        ne = self.neu + self.ned
+        # FIXME: 1 * dX - required and it is a bug
+        return np.random.uniform(-dX, 1 * dX, ne * 3).reshape((ne, 3))
+
     def make_step(self, p, tau, r_e):
         """Make random step in configuration-by-configuration sampling (CBCS)"""
-        new_r_e = r_e + random_step(tau, self.neu + self.ned)
+        new_r_e = r_e + self.random_step(tau)
         e_vectors = subtract_outer(new_r_e, new_r_e)
         n_vectors = subtract_outer(new_r_e, self.atom_positions)
         new_p = self.guiding_function(e_vectors, n_vectors)
@@ -278,7 +286,7 @@ class VMC:
             check_point_2 = default_timer()
             logger.info(f'{E[i]}, {mean_energy}, {std_err}, total time {check_point_2 - check_point_1}')
 
-        E = expand(weights, energy) + nuclear_repulsion(casino.wfn.atom_positions, casino.wfn.atom_charges)
+        E = expand(weights, energy) + self.metropolis.nuclear_repulsion
         reblock_data = pyblock.blocking.reblock(E)
         # for reblock_iter in reblock_data:
         #     print(reblock_iter)

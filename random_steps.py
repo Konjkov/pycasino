@@ -13,12 +13,6 @@ def initial_position(ne, atom_positions, atom_charges):
 
 
 @nb.jit(nopython=True)
-def random_square_step(dX, ne):
-    """Random N-dim square distributed step"""
-    return np.random.uniform(-dX, dX, ne*3).reshape((ne, 3))
-
-
-@nb.jit(nopython=True)
 def random_normal_step(dX, ne):
     """Random normal distributed step"""
     return np.random.normal(0.0, dX/np.sqrt(3), ne*3).reshape((ne, 3))
