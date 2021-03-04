@@ -18,7 +18,7 @@ import numba as nb
 
 from decorators import pool, thread
 from overload import subtract_outer
-from random_steps import initial_position, random_square_step
+from random_steps import initial_position, random_step
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from readers.casino import Casino
 
@@ -365,7 +365,7 @@ def integral(dX, neu, ned, steps, atom_positions, slater):
 
     result = 0.0
     for i in range(steps):
-        r_e = r_initial + random_square_step(dX, neu + ned)
+        r_e = r_initial + random_step(dX, neu + ned)
         n_vectors = subtract_outer(r_e, atom_positions)
         result += (slater_determinant_normalization_factor * slater.value(n_vectors, neu)) ** 2
 

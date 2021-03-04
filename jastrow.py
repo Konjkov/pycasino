@@ -1053,71 +1053,67 @@ class Jastrow:
 
             # diagonal terms of linear parameters
             for i in range(chi_parameters.shape[0]):
-                if i ==1:
-                    continue
                 for j in range(chi_parameters.shape[1]):
-                    n += 1
-                    chi_parameters[i, j] -= delta
-                    self.fix_chi_parameters()
-                    res[n, n] += self.chi_term(n_powers, neu)
-                    chi_parameters[i, j] += 2 * delta
-                    self.fix_chi_parameters()
-                    res[n, n] += self.chi_term(n_powers, neu)
-                    chi_parameters[i, j] -= delta
+                    if chi_mask[i, j]:
+                        n += 1
+                        chi_parameters[i, j] -= delta
+                        self.fix_chi_parameters()
+                        res[n, n] += self.chi_term(n_powers, neu)
+                        chi_parameters[i, j] += 2 * delta
+                        self.fix_chi_parameters()
+                        res[n, n] += self.chi_term(n_powers, neu)
+                        chi_parameters[i, j] -= delta
 
             # partial derivatives on cutoff and linear parameters
             n = 0
             for i in range(chi_parameters.shape[0]):
-                if i == 1:
-                    continue
                 for j in range(chi_parameters.shape[1]):
-                    n += 1
-                    chi_parameters[i, j] -= delta
-                    self.chi_cutoff[i] -= delta
-                    self.fix_chi_parameters()
-                    res[0, n] += self.u_term(n_powers, neu)
-                    chi_parameters[i, j] += 2 * delta
-                    self.fix_chi_parameters()
-                    res[0, n] -= self.chi_term(n_powers, neu)
-                    self.chi_cutoff[i] += 2 * delta
-                    self.fix_chi_parameters()
-                    res[0, n] += self.chi_term(n_powers, neu)
-                    chi_parameters[i, j] -= 2 * delta
-                    self.fix_chi_parameters()
-                    res[0, n] += self.chi_term(n_powers, neu)
-                    chi_parameters[i, j] += delta
-                    self.chi_cutoff[i] -= delta
-                    res[n, 0] = res[0, n]
+                    if chi_mask[i, j]:
+                        n += 1
+                        chi_parameters[i, j] -= delta
+                        self.chi_cutoff[i] -= delta
+                        self.fix_chi_parameters()
+                        res[0, n] += self.u_term(n_powers, neu)
+                        chi_parameters[i, j] += 2 * delta
+                        self.fix_chi_parameters()
+                        res[0, n] -= self.chi_term(n_powers, neu)
+                        self.chi_cutoff[i] += 2 * delta
+                        self.fix_chi_parameters()
+                        res[0, n] += self.chi_term(n_powers, neu)
+                        chi_parameters[i, j] -= 2 * delta
+                        self.fix_chi_parameters()
+                        res[0, n] += self.chi_term(n_powers, neu)
+                        chi_parameters[i, j] += delta
+                        self.chi_cutoff[i] -= delta
+                        res[n, 0] = res[0, n]
 
             n = 0
             for i1 in range(chi_parameters.shape[0]):
-                if i1 == 1:
-                    continue
                 for j1 in range(chi_parameters.shape[1]):
-                    n += 1
-                    m = 0
-                    for i2 in range(chi_parameters.shape[0]):
-                        if i2 == 1:
-                            continue
-                        for j2 in range(chi_parameters.shape[1]):
-                            m += 1
-                            if m > n:
-                                chi_parameters[i1, j1] -= delta
-                                chi_parameters[i2, j2] -= delta
-                                self.fix_u_parameters()
-                                res[n, m] += self.chi_term(n_powers, neu)
-                                chi_parameters[i1, j1] += 2 * delta
-                                self.fix_u_parameters()
-                                res[n, m] -= self.chi_term(n_powers, neu)
-                                chi_parameters[i2, j2] += 2 * delta
-                                self.fix_u_parameters()
-                                res[n, m] += self.chi_term(n_powers, neu)
-                                chi_parameters[i1, j1] -= 2 * delta
-                                self.fix_u_parameters()
-                                res[n, m] += self.chi_term(n_powers, neu)
-                                chi_parameters[i1, j1] += delta
-                                chi_parameters[i2, j2] -= delta
-                                res[m, n] = res[n, m]
+                    if chi_mask[i1, j1]:
+                        n += 1
+                        m = 0
+                        for i2 in range(chi_parameters.shape[0]):
+                            for j2 in range(chi_parameters.shape[1]):
+                                if chi_mask[i2, j2]:
+                                    m += 1
+                                    if m > n:
+                                        chi_parameters[i1, j1] -= delta
+                                        chi_parameters[i2, j2] -= delta
+                                        self.fix_chi_parameters()
+                                        res[n, m] += self.chi_term(n_powers, neu)
+                                        chi_parameters[i1, j1] += 2 * delta
+                                        self.fix_u_parameters()
+                                        res[n, m] -= self.chi_term(n_powers, neu)
+                                        chi_parameters[i2, j2] += 2 * delta
+                                        self.fix_chi_parameters()
+                                        res[n, m] += self.chi_term(n_powers, neu)
+                                        chi_parameters[i1, j1] -= 2 * delta
+                                        self.fix_chi_parameters()
+                                        res[n, m] += self.chi_term(n_powers, neu)
+                                        chi_parameters[i1, j1] += delta
+                                        chi_parameters[i2, j2] -= delta
+                                        res[m, n] = res[n, m]
 
         self.fix_chi_parameters()
         return res / delta / delta
@@ -1138,7 +1134,7 @@ class Jastrow:
 
         n = -1
 
-        for i, parameters in enumerate(self.f_parameters):
+        for i, f_parameters, f_mask in enumerate(zip(self.f_parameters, self.f_mask)):
             n += 1
             self.f_cutoff[i] -= delta
             self.fix_f_parameters()
@@ -1149,6 +1145,27 @@ class Jastrow:
             self.f_cutoff[i] -= delta
 
             # diagonal terms of linear parameters
+            for i in range(f_parameters.shape[0]):
+                for j in range(f_parameters.shape[1]):
+                    for k in range(f_parameters.shape[2]):
+                        for l in range(f_parameters.shape[3]):
+                            if f_mask[i, j, k, l]:
+                                n += 1
+                                f_parameters[i, j, k, l] -= delta
+                                if i != j:
+                                    f_parameters[j, i, k, l] -= delta
+                                self.fix_f_parameters()
+                                res[n] += self.f_term(e_powers, n_powers, neu)
+                                f_parameters[i, j, k, l] += 2 * delta
+                                if i != j:
+                                    f_parameters[j, i, k, l] += 2 * delta
+                                self.fix_f_parameters()
+                                res[n] += self.f_term(e_powers, n_powers, neu)
+                                f_parameters[i, j, k, l] -= delta
+                                if i != j:
+                                    f_parameters[j, i, k, l] -= delta
+            # partial derivatives on cutoff and linear parameters
+            n = 0
 
         self.fix_f_parameters()
         return res / delta / delta

@@ -42,15 +42,44 @@ def multiple_fits(coefficients, exponents, Z):
 
     def slater_2(r, a1, zeta1, zeta2):
         """dln(phi)/dr|r=r_nucl = -Z"""
-        return a1*np.exp(-zeta1*r)/(zeta1-Z) - a1*np.exp(-zeta2*r)/(zeta2-Z)
+        a2 = -a1
+        return (
+            a1 * np.exp(-zeta1*r)/(zeta1-Z) +
+            a2 * np.exp(-zeta2*r)/(zeta2-Z)
+        )
 
     def slater_3(r, a1, a2, zeta1, zeta2, zeta3):
         """dln(phi)/dr|r=r_nucl = -Z"""
-        return a1*np.exp(-zeta1*r)/(zeta1-Z) + a2*np.exp(-zeta2*r)/(zeta2-Z) - (a1 + a2)*np.exp(-zeta3*r)/(zeta3-Z)
+        a3 = - (a1 + a2)
+        return (
+            a1 * np.exp(-zeta1*r)/(zeta1-Z) +
+            a2 * np.exp(-zeta2*r)/(zeta2-Z) +
+            a3 * np.exp(-zeta3*r)/(zeta3-Z)
+        )
 
     def slater_4(r, a1, a2, a3, zeta1, zeta2, zeta3, zeta4):
         """dln(phi)/dr|r=r_nucl = -Z"""
-        return a1*np.exp(-zeta1*r)/(zeta1-Z) + a2*np.exp(-zeta2*r)/(zeta2-Z) + a3*np.exp(-zeta3*r)/(zeta3-Z) - (a1 + a2 + a3)*np.exp(-zeta4*r)/(zeta4-Z)
+        a4 = - (a1 + a2 + a3)
+        return (
+            a1 * np.exp(-zeta1*r)/(zeta1-Z) +
+            a2 * np.exp(-zeta2*r)/(zeta2-Z) +
+            a3 * np.exp(-zeta3*r)/(zeta3-Z) +
+            a4 * np.exp(-zeta4*r)/(zeta4-Z)
+        )
+
+    def slater_5(r, *args):
+        """dln(phi)/dr|r=r_nucl = -Z"""
+        res = 0
+        for coefficient, zeta in zip(coefficients, args):
+            res += coefficient * np.exp(-zeta*r)/(zeta-Z)
+        return Z * res
+
+    def slater_6(r, *args):
+        """dln(phi)/dr|r=r_nucl = -Z"""
+        res = 0
+        for coefficient, zeta in zip(coefficients, args):
+            res += coefficient * np.exp(-zeta*r)/(zeta-Z)
+        return Z * res
 
     fit_function = slater_2
     initial_guess = (1, Z-1, Z+1)
@@ -60,6 +89,9 @@ def multiple_fits(coefficients, exponents, Z):
 
     # fit_function = slater_4
     # initial_guess = (1, 1, -1, Z-1, Z-1, Z+1, Z+1)
+
+    # fit_function = slater_5
+    # initial_guess = [1] * len(coefficients)
 
     xdata = np.linspace(0.01, 3.0, 50)
     ydata = wfn_s(xdata, coefficients, exponents)
