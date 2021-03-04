@@ -24,4 +24,3 @@ class MetropolisHastings:
     def random_normal_step(self, dX, ne):
         """Random normal distributed step"""
         return np.random.normal(0.0, dX/np.sqrt(3), ne*3).reshape((ne, 3))
-11
