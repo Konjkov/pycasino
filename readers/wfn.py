@@ -191,11 +191,11 @@ class Stowfn(FortranFile):
                 self._natoms = self.read_int()
             elif line.startswith('Atomic positions'):
                 pos = self.read_floats(self._natoms * 3)
-                self._atomic_positions = np.array(pos).reshape((self._natoms, 3))
+                self.atom_positions = np.array(pos).reshape((self._natoms, 3))
             elif line.startswith('Atomic numbers for each atom'):
                 self._atom_numbers = self.read_ints(self._natoms)
             elif line.startswith('Valence charges for each atom'):
-                self._atom_charges = self.read_floats(self._natoms)
+                self.atom_charges = np.array(self.read_floats(self._natoms))
             # BASIS SET
             # ---------
             elif line.startswith('Number of STO centres'):
@@ -207,15 +207,15 @@ class Stowfn(FortranFile):
             elif line.startswith('Number of shells'):
                 self._nshell = self.read_int()
             elif line.startswith('Sequence number of first shell on each centre'):
-                self._first_shells = self.read_ints(self._natoms)
+                self.first_shells = np.array(self.read_ints(self._natoms) + [self._nshell+1])
             elif line.startswith('Code for shell types'):
-                self._shell_types = self.read_ints(self._nshell)
+                shell_types = self.read_ints(self._nshell)
                 # corrected shell_types
-                self._shell_types = np.array([self.shell_map[t] for t in self._shell_types])
+                self.shell_moments = np.array([self.shell_map[t] for t in shell_types])
             elif line.startswith('Order of radial prefactor r in each shell'):
-                self._radial_prefactor_order = self.read_ints(self._nshell)
+                self.slater_orders = np.array(self.read_ints(self._nshell))
             elif line.startswith('Exponent in each STO shell'):
-                self._exponents = self.read_floats(self._nshell)
+                self.exponents = np.array(self.read_floats(self._nshell))
             elif line.startswith('Number of basis functions'):
                 self.nbasis_functions = self.read_int()
             elif line.startswith('Number of molecular orbitals (\'MO\')'):
@@ -235,23 +235,10 @@ class Stowfn(FortranFile):
                 else:
                     self.mo_down = self.mo_up
 
-        self.atoms = self.set_atoms()
-        self.shells = self.set_shells()
-
-    def set_atoms(self):
-        _first_shells = self._first_shells + [self._nshell+1]
-        _atoms = [(
-            self._atom_numbers[natom],
-            self._atom_charges[natom],
-            self._atomic_positions[natom],
-            [_first_shells[natom]-1, _first_shells[natom+1]-1],
-        ) for natom in range(self._natoms)]
-        return np.array(_atoms, dtype=[
-            ('number', np.int),
-            ('charge', np.int),
-            ('position', np.float, 3),
-            ('shells', np.int, 2),
-        ])
+        self.orbital_types = np.ones((self._nshell,), np.int)
+        self.primitives = np.ones((self._nshell,), np.int)
+        self.coefficients = np.ones((self._nshell,), np.float)
+        # self.shells = self.set_shells()
 
     def set_shells(self):
         _shells = []
@@ -284,14 +271,14 @@ class Stowfn(FortranFile):
         # polynorm[23] = .1875*sqrt(35./pi); // xxxx-6xxyy+yyyy    +4
         # polynorm[24] = .75*sqrt(35./pi); // xxxy-xyyy            -4
         for nshell in range(self._nshell):
-            n = self._shell_types[nshell]+1
+            n = self.shell_moments[nshell]+1
             _shells.append((
                 SLATER_TYPE,
-                self._shell_types[nshell],
-                self._radial_prefactor_order[nshell],
+                self.shell_moments[nshell],
+                self.slater_orders[nshell],
                 1,
-                [1/sqrt(4*pi) * (2*self._exponents[nshell])**n * sqrt(2*self._exponents[nshell]/factorial(2*n))],
-                [self._exponents[nshell]],
+                [1/sqrt(4*pi) * (2*self.exponents[nshell])**n * sqrt(2*self.exponents[nshell]/factorial(2*n))],
+                [self.exponents[nshell]],
             ))
         return np.array(_shells, dtype=[
             ('type', np.int),

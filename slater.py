@@ -413,7 +413,7 @@ if __name__ == '__main__':
     """
 
     # path = 'test/gwfn/h/HF/cc-pVQZ/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetic/HF/cc-pVQZ/'
@@ -422,8 +422,8 @@ if __name__ == '__main__':
     # path = 'test/gwfn/alcl3/HF/cc-pVQZ/'
     # path = 'test/gwfn/s4-c2v/HF/cc-pVQZ/'
 
-    # casino = Casino('test/stowfn/he/HF/DZ/')
-    # casino = Casino('test/stowfn/be/HF/QZ4P/')
+    path = 'test/stowfn/he/HF/DZ/'
+    # path = 'test/stowfn/be/HF/QZ4P/'
 
     start = default_timer()
     res = main(Casino(path))
