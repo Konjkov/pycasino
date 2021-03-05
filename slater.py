@@ -422,8 +422,8 @@ if __name__ == '__main__':
     # path = 'test/gwfn/alcl3/HF/cc-pVQZ/'
     # path = 'test/gwfn/s4-c2v/HF/cc-pVQZ/'
 
-    path = 'test/stowfn/he/HF/DZ/'
-    # path = 'test/stowfn/be/HF/QZ4P/'
+    # path = 'test/stowfn/he/HF/QZ4P/'
+    path = 'test/stowfn/be/HF/QZ4P/'
 
     start = default_timer()
     res = main(Casino(path))

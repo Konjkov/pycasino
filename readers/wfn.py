@@ -118,7 +118,7 @@ class Gwfn(FortranFile):
                     mo_up = self.read_floats(self.nbasis_functions * self.nbasis_functions)
                     self.mo_up = self.mo_down = np.array(mo_up).reshape((self.nbasis_functions, self.nbasis_functions))
 
-        self.orbital_types = np.zeros((self._nprimitives, ), np.int)
+        self.orbital_types = np.full((self._nprimitives,), GAUSSIAN_TYPE, np.int)
         self.slater_orders = np.zeros((self._nprimitives, ), np.int)
         self.remove_premultiplied_factor()
         self.set_cusp()
@@ -235,13 +235,11 @@ class Stowfn(FortranFile):
                 else:
                     self.mo_down = self.mo_up
 
-        self.orbital_types = np.ones((self._nshell,), np.int)
+        self.orbital_types = np.full((self._nshell,), SLATER_TYPE, np.int)
         self.primitives = np.ones((self._nshell,), np.int)
-        self.coefficients = np.ones((self._nshell,), np.float)
-        # self.shells = self.set_shells()
+        self.coefficients = self.set_coefficients()
 
-    def set_shells(self):
-        _shells = []
+    def set_coefficients(self):
         # polynorm[0] = sqrt(1./(4.*pi)); // 1
         # polynorm[1] = sqrt(3./(4.*pi)); // x
         # polynorm[2] = sqrt(3./(4.*pi)); // y
@@ -270,21 +268,10 @@ class Stowfn(FortranFile):
         # polynorm[22] = .75*sqrt(17.5/pi); // yz(3xx-yy)          -3
         # polynorm[23] = .1875*sqrt(35./pi); // xxxx-6xxyy+yyyy    +4
         # polynorm[24] = .75*sqrt(35./pi); // xxxy-xyyy            -4
+        coefficients = []
         for nshell in range(self._nshell):
             n = self.shell_moments[nshell]+1
-            _shells.append((
-                SLATER_TYPE,
-                self.shell_moments[nshell],
-                self.slater_orders[nshell],
-                1,
-                [1/sqrt(4*pi) * (2*self.exponents[nshell])**n * sqrt(2*self.exponents[nshell]/factorial(2*n))],
-                [self.exponents[nshell]],
-            ))
-        return np.array(_shells, dtype=[
-            ('type', np.int),
-            ('moment', np.int),
-            ('order', np.int),
-            ('primitives', np.int),
-            ('coefficients', np.float, (1, )),
-            ('exponents', np.float, (1, ))
-        ])
+            coefficients.append(
+                1/sqrt(4*pi) * (2*self.exponents[nshell])**n * sqrt(2*self.exponents[nshell]/factorial(2*n))
+            )
+        return np.array(coefficients)
