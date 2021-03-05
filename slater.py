@@ -18,7 +18,6 @@ import numba as nb
 
 from decorators import pool, thread
 from overload import subtract_outer
-from random_steps import initial_position, random_step
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from readers.casino import Casino
 
@@ -354,14 +353,18 @@ class Slater:
         return res
 
 
+@nb.jit(nopython=True)
+def random_step(dx, ne):
+    """Random N-dim square distributed step"""
+    return np.random.uniform(-dx, dx, ne * 3).reshape((ne, 3))
+
+
 # @pool
 @nb.jit(nopython=True, nogil=True)
-def integral(dX, neu, ned, steps, atom_positions, slater):
+def integral(dX, neu, ned, steps, atom_positions, slater, r_initial):
     """https://en.wikipedia.org/wiki/Monte_Carlo_integration"""
     v = (2 * dX) ** (3 * (neu + ned))  # integration volume
     slater_determinant_normalization_factor = np.sqrt(1 / gamma(neu+1) / gamma(ned+1))
-
-    r_initial = initial_position(neu + ned, atom_positions)
 
     result = 0.0
     for i in range(steps):
@@ -370,6 +373,16 @@ def integral(dX, neu, ned, steps, atom_positions, slater):
         result += (slater_determinant_normalization_factor * slater.value(n_vectors, neu)) ** 2
 
     return result * v / steps
+
+
+@nb.jit(forceobj=True)
+def initial_position(ne, atom_positions, atom_charges):
+    """Initial positions of electrons."""
+    natoms = atom_positions.shape[0]
+    r_e = np.zeros((ne, 3))
+    for i in range(ne):
+        r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
+    return r_e
 
 
 def main(casino):
@@ -381,7 +394,8 @@ def main(casino):
         casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
     )
 
-    return integral(dX, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater)
+    r_initial = initial_position(casino.input.neu + casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges)
+    return integral(dX, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
 
 
 if __name__ == '__main__':

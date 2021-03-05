@@ -21,7 +21,6 @@ from decorators import pool, thread
 from readers.casino import Casino
 from overload import subtract_outer
 from logger import logging
-from random_steps import initial_position
 
 
 logger = logging.getLogger('vmc')
@@ -38,6 +37,16 @@ spec = [
     ('slater', Slater.class_type.instance_type),
     ('jastrow', Jastrow.class_type.instance_type),
 ]
+
+
+@nb.jit(forceobj=True)
+def initial_position(ne, atom_positions, atom_charges):
+    """Initial positions of electrons."""
+    natoms = atom_positions.shape[0]
+    r_e = np.zeros((ne, 3))
+    for i in range(ne):
+        r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
+    return r_e
 
 
 @nb.experimental.jitclass(spec)
