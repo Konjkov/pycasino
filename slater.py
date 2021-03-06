@@ -176,6 +176,7 @@ class Slater:
                 angular_part_data = angular_part(rI)
                 gradient_angular_part_data = gradient_angular_part(rI)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
+                    l = self.shell_moments[nshell]
                     radial_part_1 = 0.0
                     radial_part_2 = 0.0
                     if self.orbital_types[nshell] == GAUSSIAN_TYPE:
@@ -188,11 +189,10 @@ class Slater:
                         r = np.sqrt(r2)
                         for primitive in range(self.primitives[nshell]):
                             alpha = self.exponents[p + primitive]
-                            exponent = self.coefficients[p + primitive] * np.exp(-alpha * r)
+                            exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-alpha * r)
                             radial_part_1 -= alpha/r * exponent
                             radial_part_2 += exponent
                     p += self.primitives[nshell]
-                    l = self.shell_moments[nshell]
                     for j in range(2 * l + 1):
                         orbital_x[i, ao+j] = radial_part_1 * rI[0] * angular_part_data[l*l+j] + radial_part_2 * gradient_angular_part_data[l*l+j, 0]
                         orbital_y[i, ao+j] = radial_part_1 * rI[1] * angular_part_data[l*l+j] + radial_part_2 * gradient_angular_part_data[l*l+j, 1]
@@ -223,7 +223,8 @@ class Slater:
                         r = np.sqrt(r2)
                         for primitive in range(self.primitives[nshell]):
                             alpha = self.exponents[p + primitive]
-                            radial_part += alpha * (alpha - 2*(l+1)/r) * self.coefficients[p + primitive] * np.exp(-alpha * r)
+                            exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-alpha * r)
+                            radial_part += ((l+1)*l/r**2 - 2*(l+1)/r*alpha + alpha**2) * exponent
                     p += self.primitives[nshell]
                     for j in range(2 * l + 1):
                         orbital[i, ao+j] = radial_part * angular_part_data[l*l+j]
@@ -422,8 +423,8 @@ if __name__ == '__main__':
     # path = 'test/gwfn/alcl3/HF/cc-pVQZ/'
     # path = 'test/gwfn/s4-c2v/HF/cc-pVQZ/'
 
-    # path = 'test/stowfn/he/HF/QZ4P/'
-    path = 'test/stowfn/be/HF/QZ4P/'
+    path = 'test/stowfn/he/HF/QZ4P/'
+    # path = 'test/stowfn/be/HF/TZ2P/'
 
     start = default_timer()
     res = main(Casino(path))

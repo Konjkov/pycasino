@@ -431,7 +431,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/be2/HF/cc-pVQZ/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
-    path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/ch4/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetic/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/'
@@ -440,7 +440,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/alcl3/HF/cc-pVQZ/'
     # path = 'test/gwfn/s4-c2v/HF/cc-pVQZ/'
 
-    # path = 'test/stowfn/he/HF/QZ4P/'
+    path = 'test/stowfn/he/HF/QZ4P/'
     # path = 'test/stowfn/be/HF/QZ4P/'
 
     casino = Casino(path)
