@@ -276,14 +276,14 @@ class Stowfn(FortranFile):
         p = 0
         for shell_moment in self.shell_moments:
             i = 2 * shell_moment + 1
-            if shell_moment == 1:
-                print(self.mo_up[:, p:p+i])
+            if shell_moment == 2:
+                self.mo_up[:, p:p+i] = self.mo_up[:, (p+3, p+2, p+1, p+4, p)]
             p += i
 
     def set_coefficients(self):
         coefficients = []
         for nshell in range(self._nshell):
-            n = self.slater_orders[nshell]+self.shell_moments[nshell]+1
+            n = self.slater_orders[nshell] + self.shell_moments[nshell] + 1
             m = self.shell_moments[nshell]
             coefficients.append(
                 sqrt(2*m+1)/sqrt(4*pi) * (2*self.exponents[nshell])**n * sqrt(2*self.exponents[nshell]/factorial(2*n))

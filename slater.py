@@ -188,9 +188,9 @@ class Slater:
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
                         for primitive in range(self.primitives[nshell]):
-                            n = self.slater_orders[nshell]
                             alpha = self.exponents[p + primitive]
-                            exponent = r**n * self.coefficients[p + primitive] * np.exp(-alpha * r)
+                            exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-alpha * r)
+                            n = self.slater_orders[nshell] + self.shell_moments[nshell]
                             # FIXME: учесть self.slater_orders[nshell]
                             radial_part_1 -= alpha/r * exponent
                             radial_part_2 += exponent
@@ -227,7 +227,7 @@ class Slater:
                             n = self.slater_orders[nshell]
                             alpha = self.exponents[p + primitive]
                             exponent = r**n * self.coefficients[p + primitive] * np.exp(-alpha * r)
-                            radial_part += ((n+1)*n/r**2 - 2*(n+1)/r*alpha + alpha**2) * exponent
+                            radial_part += (alpha**2 - 2*(l+n+1)/r*alpha + (2*l+n+1)*n/r2) * exponent
                     p += self.primitives[nshell]
                     for j in range(2 * l + 1):
                         orbital[i, ao+j] = radial_part * angular_part_data[l*l+j]

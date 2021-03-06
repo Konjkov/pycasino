@@ -442,7 +442,10 @@ if __name__ == '__main__':
 
     # path = 'test/stowfn/he/HF/QZ4P/'
     # path = 'test/stowfn/be/HF/QZ4P/'
-    path = 'test/stowfn/ne/HF/QZ4P/'
+    # path = 'test/stowfn/ne/HF/QZ4P/'
+    # path = 'test/stowfn/ar/HF/QZ4P/'
+    # path = 'test/stowfn/kr/HF/QZ4P/'
+    path = 'test/stowfn/o3/HF/QZ4P/'
 
     casino = Casino(path)
     main(casino)
