@@ -116,7 +116,8 @@ class Gwfn(FortranFile):
                     self.mo_down = np.array(mo_down).reshape((self.nbasis_functions, self.nbasis_functions))
                 else:
                     mo_up = self.read_floats(self.nbasis_functions * self.nbasis_functions)
-                    self.mo_up = self.mo_down = np.array(mo_up).reshape((self.nbasis_functions, self.nbasis_functions))
+                    self.mo_up = np.array(mo_up).reshape((self.nbasis_functions, self.nbasis_functions))
+                    self.mo_down = np.copy(self.mo_up)
 
         self.orbital_types = np.full((self._nprimitives,), GAUSSIAN_TYPE, np.int)
         self.slater_orders = np.zeros((self._nprimitives, ), np.int)
@@ -260,19 +261,19 @@ class Stowfn(FortranFile):
                     mo_down = self.read_floats(self.nbasis_functions * self.n_mo_down)
                     self.mo_down = np.array(mo_down).reshape((self.n_mo_down, self.nbasis_functions))
                 else:
-                    self.mo_down = self.mo_up
+                    self.mo_down = np.copy(self.mo_up)
 
         self.orbital_types = np.full((self._nshell,), SLATER_TYPE, np.int)
         self.primitives = np.ones((self._nshell,), np.int)
-        self.coefficients = self.fix_orbitals()
+        self.coefficients = np.ones((self._nshell,), np.float)
+        self.normalize_orbitals()
 
-    def fix_orbitals(self):
+    def normalize_orbitals(self):
         """Change order of d-orbitals
         [-2, -1, +1, 0, +2] -> [0, +1, -1, +2, -2]
         """
         p = 0
         d_exchange_order = np.array((3, 2, 1, 4, 0))
-        coefficients = []
         for shell_moment, slater_order, exponent in zip(self.shell_moments, self.slater_orders, self.exponents):
             n = shell_moment
             m = slater_order + shell_moment + 1
@@ -280,8 +281,7 @@ class Stowfn(FortranFile):
                 self.mo_up[:, p:p+2*n+1] = self.mo_up[:, p+d_exchange_order]
                 self.mo_down[:, p:p+2*n+1] = self.mo_down[:, p+d_exchange_order]
 
-            coefficients.append(
-                sqrt(2*n+1)/sqrt(4*pi) * (2*exponent)**m * sqrt(2*exponent/factorial(2*m))
-            )
+            l_dependent_norm = sqrt(2*n+1)/sqrt(4*pi) * (2*exponent)**m * sqrt(2*exponent/factorial(2*m))
+            self.mo_up[:, p:p+2*n+1] *= l_dependent_norm
+            self.mo_down[:, p:p+2*n+1] *= l_dependent_norm
             p += 2*n+1
-        return np.array(coefficients)
