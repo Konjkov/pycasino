@@ -264,29 +264,24 @@ class Stowfn(FortranFile):
 
         self.orbital_types = np.full((self._nshell,), SLATER_TYPE, np.int)
         self.primitives = np.ones((self._nshell,), np.int)
-        self.fix_d_order()
-        self.coefficients = self.set_coefficients()
+        self.coefficients = self.fix_orbitals()
 
-    def fix_d_order(self):
+    def fix_orbitals(self):
         """Change order of d-orbitals
         [-2, -1, +1, 0, +2] -> [0, +1, -1, +2, -2]
         """
         p = 0
         d_exchange_order = np.array((3, 2, 1, 4, 0))
+        coefficients = []
         for shell_moment, slater_order, exponent in zip(self.shell_moments, self.slater_orders, self.exponents):
             n = shell_moment
             m = slater_order + shell_moment + 1
             if shell_moment == 2:
                 self.mo_up[:, p:p+2*n+1] = self.mo_up[:, p+d_exchange_order]
                 self.mo_down[:, p:p+2*n+1] = self.mo_down[:, p+d_exchange_order]
-            p += 2*n+1
 
-    def set_coefficients(self):
-        coefficients = []
-        for shell_moment, slater_order, exponent in zip(self.shell_moments, self.slater_orders, self.exponents):
-            n = shell_moment
-            m = slater_order + shell_moment + 1
             coefficients.append(
                 sqrt(2*n+1)/sqrt(4*pi) * (2*exponent)**m * sqrt(2*exponent/factorial(2*m))
             )
+            p += 2*n+1
         return np.array(coefficients)
