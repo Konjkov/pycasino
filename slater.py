@@ -247,7 +247,7 @@ class Slater:
         return res
 
     def numerical_gradient(self, n_vectors: np.ndarray, neu: int, ned: int) -> float:
-        """Numerical gradient
+        """Numerical gradient for testing purposes
         :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
         :param neu: number of up-electrons
         :param ned: number of down-electrons
@@ -266,7 +266,7 @@ class Slater:
         return res / delta / 2
 
     def numerical_laplacian(self, n_vectors: np.ndarray, neu: int, ned: int) -> float:
-        """Numerical laplacian
+        """Numerical laplacian for testing purposes
         :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
         :param neu: number of up-electrons
         :param ned: number of down-electrons

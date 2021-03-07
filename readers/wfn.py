@@ -266,7 +266,7 @@ class Stowfn(FortranFile):
 
         self.orbital_types = np.full((self._nshell,), SLATER_TYPE, np.int)
         self.primitives = np.ones((self._nshell,), np.int)
-        # self.fix_d_order()
+        self.fix_d_order()
         self.coefficients = self.set_coefficients()
 
     def fix_d_order(self):
@@ -274,18 +274,20 @@ class Stowfn(FortranFile):
         [-2, -1, +1, 0, +2] -> [0, +1, -1, +2, -2]
         """
         p = 0
-        for shell_moment in self.shell_moments:
-            i = 2 * shell_moment + 1
+        for shell_moment, slater_order, exponent in zip(self.shell_moments, self.slater_orders, self.exponents):
+            n = shell_moment
+            m = slater_order + shell_moment + 1
             if shell_moment == 2:
-                self.mo_up[:, p:p+i] = self.mo_up[:, (p+3, p+2, p+1, p+4, p)]
-            p += i
+                self.mo_up[:, p:p+2*n+1] = self.mo_up[:, (p+3, p+2, p+1, p+4, p)]
+                self.mo_down[:, p:p+2*n+1] = self.mo_down[:, (p+3, p+2, p+1, p+4, p)]
+            p += 2*n+1
 
     def set_coefficients(self):
         coefficients = []
-        for nshell in range(self._nshell):
-            n = self.slater_orders[nshell] + self.shell_moments[nshell] + 1
-            m = self.shell_moments[nshell]
+        for shell_moment, slater_order, exponent in zip(self.shell_moments, self.slater_orders, self.exponents):
+            n = shell_moment
+            m = slater_order + shell_moment + 1
             coefficients.append(
-                sqrt(2*m+1)/sqrt(4*pi) * (2*self.exponents[nshell])**n * sqrt(2*self.exponents[nshell]/factorial(2*n))
+                sqrt(2*n+1)/sqrt(4*pi) * (2*exponent)**m * sqrt(2*exponent/factorial(2*m))
             )
         return np.array(coefficients)
