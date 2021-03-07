@@ -152,16 +152,14 @@ class Gwfn(FortranFile):
         may or may not be changed in the future if it can be done in a.
         backwards-consistent way)
         """
-
-        premultiplied_factor = np.ones((self.nbasis_functions, ))
         p = 0
+        d_premultiplied_factor = np.array((0.5, 3.0, 3.0, 3.0, 6.0))
         for shell_moment in self.shell_moments:
-            i = 2 * shell_moment + 1
+            n = shell_moment
             if shell_moment == 2:
-                premultiplied_factor[p:p+i] = np.array((0.5, 3.0, 3.0, 3.0, 6.0))
-            p += i
-        self.mo_up = self.mo_up / premultiplied_factor[np.newaxis, :]
-        self.mo_down = self.mo_down / premultiplied_factor[np.newaxis, :]
+                self.mo_up[:, p:p+2*n+1] /= d_premultiplied_factor
+                self.mo_down[:, p:p+2*n+1] /= d_premultiplied_factor
+            p += 2*n+1
 
 
 class Stowfn(FortranFile):
@@ -274,12 +272,13 @@ class Stowfn(FortranFile):
         [-2, -1, +1, 0, +2] -> [0, +1, -1, +2, -2]
         """
         p = 0
+        d_exchange_order = np.array((3, 2, 1, 4, 0))
         for shell_moment, slater_order, exponent in zip(self.shell_moments, self.slater_orders, self.exponents):
             n = shell_moment
             m = slater_order + shell_moment + 1
             if shell_moment == 2:
-                self.mo_up[:, p:p+2*n+1] = self.mo_up[:, (p+3, p+2, p+1, p+4, p)]
-                self.mo_down[:, p:p+2*n+1] = self.mo_down[:, (p+3, p+2, p+1, p+4, p)]
+                self.mo_up[:, p:p+2*n+1] = self.mo_up[:, p+d_exchange_order]
+                self.mo_down[:, p:p+2*n+1] = self.mo_down[:, p+d_exchange_order]
             p += 2*n+1
 
     def set_coefficients(self):
