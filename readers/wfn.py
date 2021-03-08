@@ -270,8 +270,9 @@ class Stowfn(FortranFile):
         self.normalize_orbitals()
 
     def normalize_orbitals(self):
-        """Change order of d-orbitals
-        [-2, -1, +1, 0, +2] -> [0, +1, -1, +2, -2]
+        """
+        Change order of d-orbitals: [-2, -1, +1, 0, +2] -> [0, +1, -1, +2, -2]
+        add normalization`s factors to MO-coefficients.
         """
         p = 0
         d_exchange_order = np.array((3, 2, 1, 4, 0))

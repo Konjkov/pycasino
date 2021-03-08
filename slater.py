@@ -155,8 +155,8 @@ class Slater:
                         for primitive in range(self.primitives[nshell]):
                             radial_part += r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r)
                     p += self.primitives[nshell]
-                    for j in range(2 * l + 1):
-                        orbital[i, ao+j] = radial_part * angular_part_data[l*l+j]
+                    for m in range(2 * l + 1):
+                        orbital[i, ao+m] = radial_part * angular_part_data[l*l+m]
                     ao += 2*l+1
         return orbital
 
@@ -191,14 +191,13 @@ class Slater:
                             alpha = self.exponents[p + primitive]
                             exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-alpha * r)
                             n = self.slater_orders[nshell] + self.shell_moments[nshell]
-                            # FIXME: учесть self.slater_orders[nshell]
-                            radial_part_1 -= alpha/r * exponent
+                            radial_part_1 += (n/r2 - alpha/r) * exponent
                             radial_part_2 += exponent
                     p += self.primitives[nshell]
-                    for j in range(2 * l + 1):
-                        orbital_x[i, ao+j] = radial_part_1 * rI[0] * angular_part_data[l*l+j] + radial_part_2 * gradient_angular_part_data[l*l+j, 0]
-                        orbital_y[i, ao+j] = radial_part_1 * rI[1] * angular_part_data[l*l+j] + radial_part_2 * gradient_angular_part_data[l*l+j, 1]
-                        orbital_z[i, ao+j] = radial_part_1 * rI[2] * angular_part_data[l*l+j] + radial_part_2 * gradient_angular_part_data[l*l+j, 2]
+                    for m in range(2 * l + 1):
+                        orbital_x[i, ao+m] = radial_part_1 * rI[0] * angular_part_data[l*l+m] + radial_part_2 * gradient_angular_part_data[l*l+m, 0]
+                        orbital_y[i, ao+m] = radial_part_1 * rI[1] * angular_part_data[l*l+m] + radial_part_2 * gradient_angular_part_data[l*l+m, 1]
+                        orbital_z[i, ao+m] = radial_part_1 * rI[2] * angular_part_data[l*l+m] + radial_part_2 * gradient_angular_part_data[l*l+m, 2]
                     ao += 2*l+1
         return orbital_x, orbital_y, orbital_z
 
@@ -229,8 +228,8 @@ class Slater:
                             exponent = r**n * self.coefficients[p + primitive] * np.exp(-alpha * r)
                             radial_part += (alpha**2 - 2*(l+n+1)/r*alpha + (2*l+n+1)*n/r2) * exponent
                     p += self.primitives[nshell]
-                    for j in range(2 * l + 1):
-                        orbital[i, ao+j] = radial_part * angular_part_data[l*l+j]
+                    for m in range(2 * l + 1):
+                        orbital[i, ao+m] = radial_part * angular_part_data[l*l+m]
                     ao += 2*l+1
         return orbital
 
