@@ -156,17 +156,18 @@ class Gwfn(FortranFile):
         p = 0
         d_premultiplied_factor = np.array((0.5, 3.0, 3.0, 3.0, 6.0))
         for shell_moment in self.shell_moments:
-            n = shell_moment
-            if shell_moment == 2:
-                self.mo_up[:, p:p+2*n+1] /= d_premultiplied_factor
-                self.mo_down[:, p:p+2*n+1] /= d_premultiplied_factor
-            p += 2*n+1
+            l = shell_moment
+            if l == 2:
+                self.mo_up[:, p:p+2*l+1] /= d_premultiplied_factor
+                self.mo_down[:, p:p+2*l+1] /= d_premultiplied_factor
+            p += 2*l+1
 
 
 class Stowfn(FortranFile):
     """Slater wfn reader from stowfn.data file.
     CASINO manual: 7.10.6 stowfn.data file specification
 
+      read CASINO distributive: /utils/wfn_converters/adf/stowfn.py for details
       polynorm[0] = sqrt(1./(4.*pi)); // 1
       polynorm[1] = sqrt(3./(4.*pi)); // x
       polynorm[2] = sqrt(3./(4.*pi)); // y
@@ -275,13 +276,21 @@ class Stowfn(FortranFile):
         p = 0
         d_exchange_order = np.array((3, 2, 1, 4, 0))
         for shell_moment, slater_order, exponent in zip(self.shell_moments, self.slater_orders, self.exponents):
-            n = shell_moment
-            m = slater_order + shell_moment + 1
+            l = shell_moment
+            n = slater_order + shell_moment + 1
             if shell_moment == 2:
-                self.mo_up[:, p:p+2*n+1] = self.mo_up[:, p+d_exchange_order]
-                self.mo_down[:, p:p+2*n+1] = self.mo_down[:, p+d_exchange_order]
-
-            l_dependent_norm = sqrt(2*n+1)/sqrt(4*pi) * (2*exponent)**m * sqrt(2*exponent/factorial(2*m))
-            self.mo_up[:, p:p+2*n+1] *= l_dependent_norm
-            self.mo_down[:, p:p+2*n+1] *= l_dependent_norm
-            p += 2*n+1
+                self.mo_up[:, p:p+2*l+1] = self.mo_up[:, p+d_exchange_order]
+                self.mo_down[:, p:p+2*l+1] = self.mo_down[:, p+d_exchange_order]
+            l_dependent_norm = sqrt(2*l+1)/sqrt(4*pi) * (2*exponent)**n * sqrt(2*exponent/factorial(2*n))
+            # read CASINO distributive: examples/generic/gauss_dfg/README for details
+            if shell_moment == 2:
+                m_dependent_norm = 1 / np.array((1, sqrt(3), sqrt(3), 2*sqrt(3), 2*sqrt(3)))
+            elif shell_moment == 3:
+                m_dependent_norm = 1 / np.array((1, sqrt(6), sqrt(6), sqrt(60), sqrt(60), sqrt(360), sqrt(360)))
+            elif shell_moment == 4:
+                m_dependent_norm = 1 / np.array((1, sqrt(10), sqrt(10), sqrt(180), sqrt(180), sqrt(2520), sqrt(2520), sqrt(20160), sqrt(20160)))
+            else:
+                m_dependent_norm = np.ones((2*l+1, ))
+            self.mo_up[:, p:p+2*l+1] *= l_dependent_norm * m_dependent_norm
+            self.mo_down[:, p:p+2*l+1] *= l_dependent_norm * m_dependent_norm
+            p += 2*l+1
