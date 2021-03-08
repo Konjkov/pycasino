@@ -378,6 +378,33 @@ def integral(dX, neu, ned, steps, atom_positions, slater, r_initial):
     return result * v / steps
 
 
+def plot_graph(neu, ned, steps, atom_positions, slater):
+    """Plot a graph along random line going through (0, 0, 0)"""
+    import matplotlib.pyplot as plt
+    for n in range(100000):
+        res = np.random.uniform(0, 1, (neu + ned) * 3)
+        res /= np.linalg.norm(res)
+        res = res.reshape((neu + ned, 3))
+        x_grid = np.linspace(0, 5, steps)
+        y_grid = np.zeros((steps, ))
+        n_unit_vectors = subtract_outer(res, atom_positions)
+        for i in range(steps):
+            n_vectors = n_unit_vectors * x_grid[i]
+            y_grid[i] = slater.value(n_vectors, neu)
+        a, b = np.min(y_grid), np.max(y_grid)
+        if np.sign(a) * np.sign(b) < 0:
+            print(f'{n}-th try, random normal vector: {res}, min {a}, max {b}')
+            plt.plot(x_grid, y_grid)
+            plt.xlabel('r_eN (au)')
+            plt.ylabel('polynomial part')
+            plt.title('JASTROW chi-term')
+            plt.grid(True)
+            plt.legend()
+            plt.show()
+
+    return 0
+
+
 @nb.jit(forceobj=True)
 def initial_position(ne, atom_positions, atom_charges):
     """Initial positions of electrons."""
@@ -398,7 +425,8 @@ def main(casino):
     )
 
     r_initial = initial_position(casino.input.neu + casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges)
-    return integral(dX, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
+    # return integral(dX, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
+    return plot_graph(casino.input.neu, casino.input.ned, 100, casino.wfn.atom_positions, slater)
 
 
 if __name__ == '__main__':
@@ -416,8 +444,12 @@ if __name__ == '__main__':
     """
 
     # path = 'test/gwfn/h/HF/cc-pVQZ/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
+    # path = 'test/gwfn/b/HF/cc-pVQZ/'
+    # path = 'test/gwfn/n/HF/cc-pVQZ/'
+    # path = 'test/gwfn/al/HF/cc-pVQZ/'
+    # path = 'test/gwfn/cl/HF/cc-pVQZ/'
     # path = 'test/gwfn/be2/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetic/HF/cc-pVQZ/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/'
@@ -425,8 +457,9 @@ if __name__ == '__main__':
     # path = 'test/gwfn/alcl3/HF/cc-pVQZ/'
     # path = 'test/gwfn/s4-c2v/HF/cc-pVQZ/'
 
-    path = 'test/stowfn/he/HF/SZ/'
+    # path = 'test/stowfn/he/HF/QZ4P/'
     # path = 'test/stowfn/be/HF/QZ4P/'
+    # path = 'test/stowfn/ne/HF/QZ4P/'
 
     start = default_timer()
     res = main(Casino(path))

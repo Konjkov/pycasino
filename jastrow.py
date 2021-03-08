@@ -1228,7 +1228,7 @@ if __name__ == '__main__':
         x_min, x_max = 0, jastrow.u_cutoff
         x_grid = np.linspace(x_min, x_max, steps)
         for spin_dep in range(3):
-            y_grid = np.zeros(steps)
+            y_grid = np.zeros((steps, ))
             for i in range(100):
                 r_e = np.array([[0.0, 0.0, 0.0], [x_grid[i], 0.0, 0.0]])
                 e_vectors = subtract_outer(r_e, r_e)
@@ -1245,7 +1245,7 @@ if __name__ == '__main__':
             x_min, x_max = 0, jastrow.chi_cutoff[atom]
             x_grid = np.linspace(x_min, x_max, steps)
             for spin_dep in range(2):
-                y_grid = np.zeros(steps)
+                y_grid = np.zeros((steps, ))
                 for i in range(100):
                     r_e = np.array([[x_grid[i], 0.0, 0.0]]) + casino.wfn.atom_positions[atom]
                     sl = slice(atom, atom+1)
