@@ -39,6 +39,9 @@ class Backflow:
         self.mu_parameters = nb.typed.List.empty_list(mu_parameters_type)  # u, d order
         self.phi_parameters = nb.typed.List.empty_list(phi_parameters_type)  # uu, ud, dd order
         self.theta_parameters = nb.typed.List.empty_list(theta_parameters_type)  # uu, ud, dd order
+        self.eta_cutoff = np.zeros(0)
+        self.mu_cutoff = np.zeros(0)
+        self.phi_cutoff = np.zeros(0)
         self.mu_labels = nb.typed.List.empty_list(labels_type)
         self.phi_labels = nb.typed.List.empty_list(labels_type)
         self.eta_cutoff = np.zeros((2,), np.float)
@@ -80,13 +83,14 @@ class Backflow:
                         eta_spin_dep = self.read_int()
                     elif line.startswith('Cut-off radii'):
                         line = f.readline().split()
+                        # Optimizable (0=NO; 1=YES; 2=YES BUT NO SPIN-DEP)
+                        if line[1] == '2':
+                            self.eta_cutoff = np.zeros((1, ))
+                        else:
+                            self.eta_cutoff = np.zeros((eta_spin_dep+1,))
                         self.eta_cutoff[0] = float(line[0])
-                        for i in range(1, eta_spin_dep):
-                            # Optimizable (0=NO; 1=YES; 2=YES BUT NO SPIN-DEP)
-                            if line[1] == '2':
-                                self.eta_cutoff[i], _ = self.read_parameter()
-                            else:
-                                self.eta_cutoff[i], _ = self.read_parameter()
+                        for i in range(1, eta_spin_dep+1):
+                            self.eta_cutoff[i], _ = self.read_parameter()
                     elif line.startswith('Parameter'):
                         self.eta_parameters = np.zeros((eta_order+1, eta_spin_dep+1), np.float)
                         self.eta_mask = self.get_eta_mask(self.eta_parameters)
@@ -98,8 +102,11 @@ class Backflow:
                         except ValueError:
                             pass
                 elif mu_term:
-                    if line.startswith('START SET'):
-                        pass
+                    if line.startswith('Number of sets'):
+                        number_of_sets = self.read_ints()[0]
+                        self.mu_cutoff = np.zeros(number_of_sets)
+                    elif line.startswith('START SET'):
+                        set_number = int(line.split()[2]) - 1
                     elif line.startswith('Label'):
                         mu_labels = np.array(self.read_ints()) - 1
                         self.mu_labels.append(mu_labels)
@@ -109,6 +116,7 @@ class Backflow:
                         mu_spin_dep = self.read_int()
                     elif line.startswith('Cutoff (a.u.)'):
                         mu_cutoff, _ = self.read_parameter()
+                        self.mu_cutoff[set_number] = mu_cutoff
                     elif line.startswith('Parameter values'):
                         mu_parameters = np.zeros((mu_order+1, mu_spin_dep+1), np.float)
                         mu_mask = self.get_mu_mask(mu_parameters)
@@ -123,8 +131,11 @@ class Backflow:
                     elif line.startswith('END SET'):
                         pass
                 elif phi_term:
-                    if line.startswith('START SET'):
-                        pass
+                    if line.startswith('Number of sets'):
+                        number_of_sets = self.read_ints()[0]
+                        self.phi_cutoff = np.zeros(number_of_sets)
+                    elif line.startswith('START SET'):
+                        set_number = int(line.split()[2]) - 1
                     elif line.startswith('Label'):
                         phi_labels = np.array(self.read_ints()) - 1
                         self.phi_labels.append(phi_labels)
@@ -138,6 +149,7 @@ class Backflow:
                         phi_spin_dep = self.read_int()
                     elif line.startswith('Cutoff (a.u.)'):
                         phi_cutoff, _ = self.read_parameter()
+                        self.phi_cutoff[set_number] = phi_cutoff
                     elif line.startswith('Parameter values'):
                         phi_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
                         phi_mask = self.get_phi_mask(phi_parameters)

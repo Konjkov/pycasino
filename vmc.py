@@ -4,6 +4,7 @@ import os
 from timeit import default_timer
 from slater import Slater
 from jastrow import Jastrow
+from backflow import Backflow
 from coulomb import coulomb, nuclear_repulsion
 
 os.environ["OMP_NUM_THREADS"] = "1"  # openmp
@@ -36,6 +37,7 @@ spec = [
     ('nuclear_repulsion', nb.float64),
     ('slater', Slater.class_type.instance_type),
     ('jastrow', nb.optional(Jastrow.class_type.instance_type)),
+    ('backflow', nb.optional(Backflow.class_type.instance_type)),
 ]
 
 
@@ -52,7 +54,7 @@ def initial_position(ne, atom_positions, atom_charges):
 @nb.experimental.jitclass(spec)
 class Metropolis:
 
-    def __init__(self, neu, ned, atom_positions, atom_charges, slater, jastrow):
+    def __init__(self, neu, ned, atom_positions, atom_charges, slater, jastrow, backflow):
         """Metropolis random walk.
         :param neu: number of up electrons
         :param ned: number of down electrons
@@ -60,6 +62,7 @@ class Metropolis:
         :param atom_charges: atomic charges
         :param slater: instance of Slater class
         :param jastrow: instance of Jastrow class
+        :param backflow: instance of Backflow class
         :return:
         """
         self.neu = neu
@@ -71,12 +74,16 @@ class Metropolis:
         self.nuclear_repulsion = nuclear_repulsion(atom_positions, atom_charges)
         self.slater = slater
         self.jastrow = jastrow
+        self.backflow = backflow
 
     def guiding_function(self, e_vectors, n_vectors):
         """Wave function in general form"""
-        res = self.slater.value(n_vectors, self.neu)
+        res = 1
         if self.jastrow is not None:
             res *= np.exp(self.jastrow.value(e_vectors, n_vectors, self.neu))
+        if self.backflow is not None:
+            n_vectors = self.backflow.value(e_vectors, n_vectors)
+        res *= self.slater.value(n_vectors, self.neu)
         return res
 
     def random_step(self):
@@ -243,22 +250,24 @@ def jastrow_parameters_hessian(weight, energy, energy_gradient, energy_hessian):
 class VMC:
 
     def __init__(self, casino):
-        if casino.jastrow:
-            self.jastrow = Jastrow(
-                casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_mask, casino.jastrow.u_cutoff,
-                casino.jastrow.chi_parameters, casino.jastrow.chi_mask, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
-                casino.jastrow.f_parameters, casino.jastrow.f_mask, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
-                casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp
-            )
-        else:
-            self.jastrow = None
         self.slater = Slater(
             casino.wfn.nbasis_functions, casino.wfn.first_shells, casino.wfn.orbital_types, casino.wfn.shell_moments,
             casino.wfn.slater_orders, casino.wfn.primitives, casino.wfn.coefficients, casino.wfn.exponents,
             casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
         )
+        self.jastrow = casino.jastrow and Jastrow(
+            casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_mask, casino.jastrow.u_cutoff,
+            casino.jastrow.chi_parameters, casino.jastrow.chi_mask, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
+            casino.jastrow.f_parameters, casino.jastrow.f_mask, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
+            casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp
+        )
+        self.backflow = casino.backflow and Backflow(
+            casino.backflow.trunc, casino.backflow.eta_parameters, casino.backflow.eta_cutoff,
+            casino.backflow.mu_parameters, casino.backflow.mu_cutoff,
+            casino.backflow.phi_parameters, casino.backflow.theta_parameters, casino.backflow.phi_cutoff,
+        )
         self.neu, self.ned = casino.input.neu, casino.input.ned
-        self.metropolis = Metropolis(self.neu, self.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.slater, self.jastrow)
+        self.metropolis = Metropolis(self.neu, self.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.slater, self.jastrow, self.backflow)
         self.metropolis.r_e = initial_position(self.neu + self.ned, self.metropolis.atom_positions, self.metropolis.atom_charges)
 
     def equilibrate(self, steps):
