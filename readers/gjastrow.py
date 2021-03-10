@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from collections import ChainMap
 from typing import Tuple, Dict
 
