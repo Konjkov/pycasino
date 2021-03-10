@@ -34,7 +34,6 @@ class Backflow:
         return list(map(int, self.f.readline().split()))
 
     def __init__(self, file, atoms):
-        """Init."""
         self.trunc = 0
         self.eta_parameters = np.zeros((0, 0), np.float)  # uu, ud, dd order
         self.mu_parameters = nb.typed.List.empty_list(mu_parameters_type)  # u, d order
@@ -109,7 +108,7 @@ class Backflow:
                     elif line.startswith('Spin dep'):
                         mu_spin_dep = self.read_int()
                     elif line.startswith('Cutoff (a.u.)'):
-                        mu_cutoff = float(f.readline().split()[0])
+                        mu_cutoff, _ = self.read_parameter()
                     elif line.startswith('Parameter values'):
                         mu_parameters = np.zeros((mu_order+1, mu_spin_dep+1), np.float)
                         mu_mask = self.get_mu_mask(mu_parameters)
@@ -138,12 +137,12 @@ class Backflow:
                     elif line.startswith('Spin dep'):
                         phi_spin_dep = self.read_int()
                     elif line.startswith('Cutoff (a.u.)'):
-                        phi_cutoff = float(f.readline().split()[0])
+                        phi_cutoff, _ = self.read_parameter()
                     elif line.startswith('Parameter values'):
                         phi_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
                         phi_mask = self.get_phi_mask(phi_parameters)
                         if not phi_irrotational:
-                            self.theta_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
+                            theta_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
                         for i in range(phi_spin_dep + 1):
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
@@ -151,6 +150,8 @@ class Backflow:
                                         if phi_mask[l, k, j, i]:
                                             phi_parameters[l, k, j, i], _ = self.read_parameter()
                         self.phi_parameters.append(phi_parameters)
+                        if not phi_irrotational:
+                            self.theta_parameters.append(theta_parameters)
                     elif line.startswith('END SET'):
                         pass
                 elif ae_term:

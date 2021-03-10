@@ -35,7 +35,7 @@ spec = [
     ('atom_charges', nb.float64[:]),
     ('nuclear_repulsion', nb.float64),
     ('slater', Slater.class_type.instance_type),
-    ('jastrow', Jastrow.class_type.instance_type),
+    ('jastrow', nb.optional(Jastrow.class_type.instance_type)),
 ]
 
 
@@ -74,7 +74,10 @@ class Metropolis:
 
     def guiding_function(self, e_vectors, n_vectors):
         """Wave function in general form"""
-        return np.exp(self.jastrow.value(e_vectors, n_vectors, self.neu)) * self.slater.value(n_vectors, self.neu)
+        res = self.slater.value(n_vectors, self.neu)
+        if self.jastrow is not None:
+            res *= np.exp(self.jastrow.value(e_vectors, n_vectors, self.neu))
+        return res
 
     def random_step(self):
         """Random N-dim square distributed step"""
@@ -140,7 +143,7 @@ class Metropolis:
             s = self.slater.value(n_vectors, self.neu)
             s_l = self.slater.laplacian(n_vectors, self.neu, self.ned) / s
             res[i] = coulomb(e_vectors, n_vectors, self.atom_charges)
-            if self.jastrow.enabled:
+            if self.jastrow is not None:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors, self.neu)
                 j_l = self.jastrow.laplacian(e_vectors, n_vectors, self.neu)
                 s_g = self.slater.gradient(n_vectors, self.neu, self.ned) / s
@@ -240,12 +243,15 @@ def jastrow_parameters_hessian(weight, energy, energy_gradient, energy_hessian):
 class VMC:
 
     def __init__(self, casino):
-        self.jastrow = Jastrow(
-            casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_mask, casino.jastrow.u_cutoff,
-            casino.jastrow.chi_parameters, casino.jastrow.chi_mask, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
-            casino.jastrow.f_parameters, casino.jastrow.f_mask, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
-            casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp
-        )
+        if casino.jastrow:
+            self.jastrow = Jastrow(
+                casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_mask, casino.jastrow.u_cutoff,
+                casino.jastrow.chi_parameters, casino.jastrow.chi_mask, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
+                casino.jastrow.f_parameters, casino.jastrow.f_mask, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
+                casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp
+            )
+        else:
+            self.jastrow = None
         self.slater = Slater(
             casino.wfn.nbasis_functions, casino.wfn.first_shells, casino.wfn.orbital_types, casino.wfn.shell_moments,
             casino.wfn.slater_orders, casino.wfn.primitives, casino.wfn.coefficients, casino.wfn.exponents,
@@ -416,10 +422,10 @@ if __name__ == '__main__':
     # path = 'test/gwfn/he/HF/cc-pVQZ/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term_test/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
     # path = 'test/gwfn/be/HF/def2-QZVP/VMC_OPT_BF/emin_BF/8_8_44__9_9_33'
