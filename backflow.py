@@ -40,9 +40,43 @@ class Backflow:
         [self.phi_parameters.append(p) for p in phi_parameters]
         self.theta_parameters = nb.typed.List.empty_list(theta_parameters_type)
         [self.theta_parameters.append(p) for p in theta_parameters]
+        self.max_ee_order = max((
+            self.eta_parameters.shape[0],
+            max([p.shape[2] for p in self.phi_parameters]) if self.phi_parameters else 0,
+        ))
+        self.max_en_order = max((
+            max([p.shape[0] for p in self.mu_parameters]) if self.mu_parameters else 0,
+            max([p.shape[0] for p in self.phi_parameters]) if self.phi_parameters else 0,
+        ))
         self.eta_cutoff = eta_cutoff
         self.mu_cutoff = mu_cutoff
         self.phi_cutoff = phi_cutoff
+
+    def ee_powers(self, e_vectors):
+        """Powers of e-e distances
+        :param e_vectors: e-e vectors
+        :return:
+        """
+        res = np.zeros((e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
+        for i in range(e_vectors.shape[0] - 1):
+            for j in range(i + 1, e_vectors.shape[1]):
+                r_ee = np.linalg.norm(e_vectors[i, j])
+                for k in range(self.max_ee_order):
+                    res[i, j, k] = r_ee ** k
+        return res
+
+    def en_powers(self, n_vectors):
+        """Powers of e-n distances
+        :param n_vectors: e-n vectors
+        :return:
+        """
+        res = np.zeros((n_vectors.shape[1], n_vectors.shape[0], self.max_en_order))
+        for i in range(n_vectors.shape[1]):
+            for j in range(n_vectors.shape[0]):
+                r_eI = np.linalg.norm(n_vectors[j, i])
+                for k in range(self.max_en_order):
+                    res[i, j, k] = r_eI ** k
+        return res
 
     def value(self, e_vectors, n_vectors):
         return n_vectors
@@ -62,5 +96,3 @@ if __name__ == '__main__':
         casino.backflow.mu_parameters, casino.backflow.mu_cutoff,
         casino.backflow.phi_parameters, casino.backflow.theta_parameters, casino.backflow.phi_cutoff,
     )
-
-    print(backflow.eta_parameters)

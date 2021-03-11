@@ -182,14 +182,14 @@ class Jastrow:
     def get_u_mask(parameters):
         """mask dependent parameters in u-term"""
         mask = np.ones(parameters.shape, np.bool)
-        mask[1, :] = False
+        mask[1] = False
         return mask
 
     @staticmethod
     def get_chi_mask(parameters):
         """mask dependent parameters in chi-term"""
         mask = np.ones(parameters.shape, np.bool)
-        mask[1, :] = False
+        mask[1] = False
         return mask
 
     @staticmethod
@@ -201,18 +201,18 @@ class Jastrow:
             for m in range(parameters.shape[1]):
                 for l in range(parameters.shape[0]):
                     if l < m:
-                        mask[l, m, n, :] = False
+                        mask[l, m, n] = False
                     elif n == 0 and m == 0:
-                        mask[l, m, n, :] = mask[m, l, n, :] = False
+                        mask[l, m, n] = mask[m, l, n] = False
                     # sum(γlm1I) = 0
                     elif n == 1 and (m == 0 or l == f_en_order or l == f_en_order - 1 and m == 1):
-                        mask[l, m, n, :] = mask[m, l, n, :] = False
+                        mask[l, m, n] = mask[m, l, n] = False
                     elif l == f_en_order and m == 0:
-                        mask[l, m, n, :] = mask[m, l, n, :] = False
+                        mask[l, m, n] = mask[m, l, n] = False
                     elif no_dup_u_term and (m == 0 and l == 0 or m == 1 and l == 1 and n == 0):
-                        mask[l, m, n, :] = mask[m, l, n, :] = False
+                        mask[l, m, n] = mask[m, l, n] = False
                     elif no_dup_chi_term and m == 1 and n == 0:
-                        mask[l, m, n, :] = mask[m, l, n, :] = False
+                        mask[l, m, n] = mask[m, l, n] = False
         return mask
 
     def fix_f_not_implemented(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):

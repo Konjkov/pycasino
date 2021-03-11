@@ -80,7 +80,6 @@ class Jastrow:
             self.u_parameters.shape[0],
             max([p.shape[2] for p in self.f_parameters]) if self.f_parameters else 0,
         ))
-        self.max_en_order = 0
         self.max_en_order = max((
             max([p.shape[0] for p in self.chi_parameters]) if self.chi_parameters else 0,
             max([p.shape[0] for p in self.f_parameters]) if self.f_parameters else 0,
