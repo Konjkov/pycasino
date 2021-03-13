@@ -78,8 +78,12 @@ class Backflow:
                     res[i, j, k] = r_eI ** k
         return res
 
-    def value(self, e_vectors, n_vectors):
-        return n_vectors
+    def mu_term(self, e_vectors, n_vectors, e_powers, neu):
+        C = self.trunc
+        parameters = self.mu_parameters
+        for i in range(e_powers.shape[0] - 1):
+            for j in range(i + 1, e_powers.shape[1]):
+                r = e_powers[i, j, 1]
 
 
 if __name__ == '__main__':
