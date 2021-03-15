@@ -23,6 +23,8 @@ spec = [
     ('eta_cutoff', nb.float64[:]),
     ('mu_cutoff', nb.float64[:]),
     ('phi_cutoff', nb.float64[:]),
+    ('max_ee_order', nb.int64),
+    ('max_en_order', nb.int64),
 ]
 
 
@@ -84,6 +86,19 @@ class Backflow:
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
                 r = e_powers[i, j, 1]
+
+    def value(self, e_vectors, n_vectors, neu):
+        """Backflow displacemets
+        :param e_vectors:
+        :param n_vectors:
+        :param neu:
+        :return:
+        """
+
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        return self.mu_term(e_vectors, n_vectors, e_powers, neu)
 
 
 if __name__ == '__main__':
