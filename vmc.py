@@ -97,7 +97,8 @@ class Metropolis:
         e_vectors = subtract_outer(new_r_e, new_r_e)
         n_vectors = subtract_outer(new_r_e, self.atom_positions)
         new_p = self.guiding_function(e_vectors, n_vectors)
-        if cond := new_p ** 2 > np.random.random() * p ** 2:
+        cond = new_p ** 2 > np.random.random() * p ** 2
+        if cond:
             return new_r_e, new_p, cond
         else:
             return r_e, p, cond
