@@ -46,6 +46,7 @@ class Backflow:
         self.phi_labels = nb.typed.List.empty_list(labels_type)
         self.eta_cutoff = np.zeros((2,), np.float)
         self.ae_cutoff = np.zeros(atoms.shape[0])
+        self.phi_irrotational = True
 
         if not os.path.isfile(file):
             return
@@ -140,7 +141,7 @@ class Backflow:
                         phi_labels = np.array(self.read_ints()) - 1
                         self.phi_labels.append(phi_labels)
                     elif line.startswith('Irrotational Phi'):
-                        phi_irrotational = self.read_bool()
+                        self.phi_irrotational = self.read_bool()
                     elif line.startswith('Electron-nucleus expansion order'):
                         phi_en_order = self.read_int()
                     elif line.startswith('Electron-electron expansion order'):
@@ -153,7 +154,7 @@ class Backflow:
                     elif line.startswith('Parameter values'):
                         phi_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
                         phi_mask = self.get_phi_mask(phi_parameters)
-                        if not phi_irrotational:
+                        if not self.phi_irrotational:
                             theta_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
                         for i in range(phi_spin_dep + 1):
                             for j in range(phi_ee_order + 1):
@@ -162,7 +163,7 @@ class Backflow:
                                         if phi_mask[l, k, j, i]:
                                             phi_parameters[l, k, j, i], _ = self.read_parameter()
                         self.phi_parameters.append(phi_parameters)
-                        if not phi_irrotational:
+                        if not self.phi_irrotational:
                             self.theta_parameters.append(theta_parameters)
                     elif line.startswith('END SET'):
                         pass
