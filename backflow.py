@@ -158,13 +158,15 @@ class Backflow:
             return res
 
         C = self.trunc
-        for parameters, L, phi_labels in zip(self.phi_parameters, self.phi_cutoff, self.phi_labels):
+        for parameters, L, phi_labels, phi_irrotational in zip(self.phi_parameters, self.phi_cutoff, self.phi_labels, self.phi_irrotational):
             for i in phi_labels:
                 for j in range(n_powers.shape[1] - 1):
                     for k in range(j+1, e_powers.shape[0]):
+                        r_e1I_vec = n_vectors[j, i]
+                        r_e2I_vec = n_vectors[k, i]
+                        r_ee_vec = e_vectors[j, k]
                         r_e1I = n_powers[i, j, 1]
                         r_e2I = n_powers[i, k, 1]
-                        r_ee_vec = e_vectors[j, k]
                         if r_e1I <= L and r_e2I <= L:
                             phi_set = (int(j >= neu) + int(k >= neu)) % parameters.shape[3]
                             poly = 0.0
@@ -175,6 +177,17 @@ class Backflow:
                             bf = poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * r_ee_vec
                             res[j] += bf
                             res[k] -= bf
+                            if phi_irrotational:
+                                continue
+                            poly = 0.0
+                            for l in range(parameters.shape[0]):
+                                for m in range(parameters.shape[1]):
+                                    for n in range(parameters.shape[2]):
+                                        poly += parameters[l, m, n, phi_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
+                            bf = poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C
+                            res[j] += bf * r_e1I_vec
+                            res[k] += bf * r_e2I_vec
+
         return res
 
     def value(self, e_vectors, n_vectors, neu):

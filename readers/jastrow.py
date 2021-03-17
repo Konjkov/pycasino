@@ -205,7 +205,7 @@ class Jastrow:
                     elif n == 0 and m == 0:
                         mask[l, m, n] = mask[m, l, n] = False
                     # sum(γlm1I) = 0
-                    elif n == 1 and (m == 0 or l == f_en_order or l == f_en_order - 1 and m == 1):
+                    elif n == 1 and (m == 0 or l == f_en_order or m == 1 and l == f_en_order - 1):
                         mask[l, m, n] = mask[m, l, n] = False
                     elif l == f_en_order and m == 0:
                         mask[l, m, n] = mask[m, l, n] = False

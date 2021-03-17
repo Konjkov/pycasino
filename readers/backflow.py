@@ -46,7 +46,7 @@ class Backflow:
         self.phi_labels = nb.typed.List.empty_list(labels_type)
         self.eta_cutoff = np.zeros((2,), np.float)
         self.ae_cutoff = np.zeros(atoms.shape[0])
-        self.phi_irrotational = True
+        self.phi_irrotational = np.zeros(0, np.bool)
 
         if not os.path.isfile(file):
             return
@@ -135,13 +135,14 @@ class Backflow:
                     if line.startswith('Number of sets'):
                         number_of_sets = self.read_ints()[0]
                         self.phi_cutoff = np.zeros(number_of_sets)
+                        self.phi_irrotational = np.zeros(number_of_sets, np.bool)
                     elif line.startswith('START SET'):
                         set_number = int(line.split()[2]) - 1
                     elif line.startswith('Label'):
                         phi_labels = np.array(self.read_ints()) - 1
                         self.phi_labels.append(phi_labels)
                     elif line.startswith('Irrotational Phi'):
-                        self.phi_irrotational = self.read_bool()
+                        phi_irrotational = self.read_bool()
                     elif line.startswith('Electron-nucleus expansion order'):
                         phi_en_order = self.read_int()
                     elif line.startswith('Electron-electron expansion order'):
@@ -153,18 +154,25 @@ class Backflow:
                         self.phi_cutoff[set_number] = phi_cutoff
                     elif line.startswith('Parameter values'):
                         phi_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
-                        phi_mask = self.get_phi_mask(phi_parameters)
-                        if not self.phi_irrotational:
-                            theta_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
+                        phi_mask = self.get_phi_mask(phi_parameters, phi_irrotational)
+                        theta_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
+                        theta_mask = self.get_theta_mask(phi_parameters, phi_irrotational)
                         for i in range(phi_spin_dep + 1):
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
                                         if phi_mask[l, k, j, i]:
                                             phi_parameters[l, k, j, i], _ = self.read_parameter()
+                            if phi_irrotational:
+                                continue
+                            for j in range(phi_ee_order + 1):
+                                for k in range(phi_en_order + 1):
+                                    for l in range(phi_en_order + 1):
+                                        if theta_mask[l, k, j, i]:
+                                            theta_parameters[l, k, j, i], _ = self.read_parameter()
                         self.phi_parameters.append(phi_parameters)
-                        if not self.phi_irrotational:
-                            self.theta_parameters.append(theta_parameters)
+                        self.theta_parameters.append(theta_parameters)
+                        self.phi_irrotational[set_number] = phi_irrotational
                     elif line.startswith('END SET'):
                         pass
                 elif ae_term:
@@ -192,27 +200,30 @@ class Backflow:
         return mask
 
     @staticmethod
-    def get_phi_mask(parameters):
+    def get_phi_mask(parameters, phi_irrotational):
         mask = np.ones(parameters.shape, np.bool)
-        for i in range(parameters.shape[3]):
-            for j in range(parameters.shape[2]):
-                for k in range(parameters.shape[1]):
-                    for l in range(parameters.shape[0]):
-                        # if (l < 2 or k < 2) and j == 0 and i == 1:
-                        #     continue
-                        # if (l < 1 or l > phi_en_order-2 or k < 2) and j == 1 and i == 1:
-                        #     continue
-                        # if abs(k-l-1) > phi_en_order-4 and j == 1 and i == 1:
-                        #     continue
-                        mask[l, k, j, i] = False
+        phi_en_order = parameters.shape[0] - 1
+        phi_ee_order = parameters.shape[2] - 1
+        for m in range(parameters.shape[2]):
+            for l in range(parameters.shape[1]):
+                for k in range(parameters.shape[0]):
+                    if m == 0 and (k < 2 or l < 2):
+                        mask[k, l, m] = False
+                    # sum(φkl1) = 0
+                    if m == 1 and (l == 0 or k == phi_en_order or l == 1 and k == phi_en_order - 1):
+                        mask[k, l, m] = mask[l, k, m] = False
+                    # sum(φ0lm) = 0 and sum(φk0m)
+                    if k == 0 and (l == 0 or m == phi_ee_order or l == 1 and m == phi_ee_order - 1):
+                        mask[k, l, m] = mask[l, k, m] = False
         return mask
 
     @staticmethod
-    def get_theta_mask(parameters):
+    def get_theta_mask(parameters, phi_irrotational):
         mask = np.ones(parameters.shape, np.bool)
-        for i in range(parameters.shape[3]):
-            for j in range(parameters.shape[2]):
-                for k in range(parameters.shape[1]):
-                    for l in range(parameters.shape[0]):
-                        mask[l, k, j, i] = False
+        for m in range(parameters.shape[2]):
+            for l in range(parameters.shape[1]):
+                for k in range(parameters.shape[0]):
+                    mask[k, l, m] = False
+                    # sum(θkl1) = 0
+                    # sum(θ0lm) = 0
         return mask
