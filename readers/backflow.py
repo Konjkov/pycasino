@@ -211,7 +211,7 @@ class Backflow:
                         mask[k, l, m] = False
                     elif m == 2 and (l == 0 and k == 0):
                         mask[k, l, m] = False
-                    elif l == phi_en_order and k == 0 or l == 0 and k == phi_en_order :
+                    elif l == phi_en_order and k == 0 or l == 0 and k == phi_en_order:
                         mask[k, l, m] = False
                     elif l == phi_en_order - 1 and k == 0 or l == 0 and k == phi_en_order - 1:
                         mask[k, l, m] = False
@@ -234,5 +234,7 @@ class Backflow:
                     elif m == 1 and (k == 0 or l < 2 or k == phi_en_order or l == 2 and k == phi_en_order - 1):
                         mask[k, l, m] = False
                     elif m == 2 and (l == 0 and k == 0):
+                        mask[k, l, m] = False
+                    elif l == phi_en_order and k == 0 or l == phi_en_order - 1 and k == 0 or l == phi_en_order and k == 1:
                         mask[k, l, m] = False
         return mask
