@@ -163,8 +163,6 @@ class Backflow:
                                     for l in range(phi_en_order + 1):
                                         if phi_mask[l, k, j, i]:
                                             phi_parameters[l, k, j, i], _ = self.read_parameter()
-                            if phi_irrotational:
-                                continue
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
@@ -203,27 +201,38 @@ class Backflow:
     def get_phi_mask(parameters, phi_irrotational):
         mask = np.ones(parameters.shape, np.bool)
         phi_en_order = parameters.shape[0] - 1
-        phi_ee_order = parameters.shape[2] - 1
         for m in range(parameters.shape[2]):
             for l in range(parameters.shape[1]):
                 for k in range(parameters.shape[0]):
                     if m == 0 and (k < 2 or l < 2):
                         mask[k, l, m] = False
                     # sum(φkl1) = 0
-                    if m == 1 and (l == 0 or k == phi_en_order or l == 1 and k == phi_en_order - 1):
-                        mask[k, l, m] = mask[l, k, m] = False
-                    # sum(φ0lm) = 0 and sum(φk0m)
-                    if k == 0 and (l == 0 or m == phi_ee_order or l == 1 and m == phi_ee_order - 1):
-                        mask[k, l, m] = mask[l, k, m] = False
+                    elif m == 1 and (k == 0 or l < 2 or k == phi_en_order or l == 2 and k == phi_en_order - 1):
+                        mask[k, l, m] = False
+                    elif m == 2 and (l == 0 and k == 0):
+                        mask[k, l, m] = False
+                    elif l == phi_en_order and k == 0 or l == 0 and k == phi_en_order :
+                        mask[k, l, m] = False
+                    elif l == phi_en_order - 1 and k == 0 or l == 0 and k == phi_en_order - 1:
+                        mask[k, l, m] = False
+                    elif l == 1 and k == phi_en_order or l == phi_en_order and k == 1:
+                        mask[k, l, m] = False
         return mask
 
     @staticmethod
     def get_theta_mask(parameters, phi_irrotational):
+        if phi_irrotational:
+            return np.zeros(parameters.shape, np.bool)
         mask = np.ones(parameters.shape, np.bool)
+        phi_en_order = parameters.shape[0] - 1
         for m in range(parameters.shape[2]):
             for l in range(parameters.shape[1]):
                 for k in range(parameters.shape[0]):
-                    mask[k, l, m] = False
+                    if m == 0 and (k < 2 or l == 0):
+                        mask[k, l, m] = False
                     # sum(θkl1) = 0
-                    # sum(θ0lm) = 0
+                    elif m == 1 and (k == 0 or l < 2 or k == phi_en_order or l == 2 and k == phi_en_order - 1):
+                        mask[k, l, m] = False
+                    elif m == 2 and (l == 0 and k == 0):
+                        mask[k, l, m] = False
         return mask

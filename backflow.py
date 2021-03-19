@@ -207,6 +207,48 @@ class Backflow:
             self.phi_term(e_vectors, n_vectors, e_powers, n_powers, neu)
         )
 
+    def fix_phi_parameters(self):
+        """Fix phi-term parameters
+        0 - zero value
+        A - no electron–electron cusp constrains
+        B - no electron–nucleus cusp constrains
+        X - independent value
+
+        m = 0            m = 1            m = 2            m > 2
+        -----------------------------------------------------------------------
+        . . . . . . . .  . . . . . . . .  . X X X X X . .  X X X X X X . . <- l
+        . . . . . . . .  . . X X X X X .  X X X X X X X .  X X X X X X X .
+        . . X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
+        . . X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
+        . . X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
+        . . X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
+        . . X X X X X X  . . . X X X X X  . X X X X X X X  . X X X X X X X
+        . . X X X X X X  . . . . . . . .  . . X X X X X X  . . X X X X X X
+        ^
+        k
+        """
+
+    def fix_theta_parameters(self):
+        """Fix theta-term parameters
+        0 - zero value
+        A - no electron–electron cusp constrains
+        B - no electron–nucleus cusp constrains
+        X - independent value
+
+        m = 0            m = 1            m = 2            m > 2
+        -----------------------------------------------------------------------
+        . . . . . . . .  . . . . . . . .  . X X X X X . .  X X X X X X . . <- l
+        . . . . . . . .  . . X X X X X .  X X X X X X X .  X X X X X X X .
+        . X X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
+        . X X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
+        . X X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
+        . X X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
+        . X X X X X X X  . . . X X X X X  X X X X X X X X  X X X X X X X X
+        . X X X X X X X  . . . . . . . .  . . X X X X X X  . . X X X X X X
+        ^
+        k
+        """
+
 
 if __name__ == '__main__':
     """Plot Backflow terms
