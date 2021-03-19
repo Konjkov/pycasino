@@ -265,7 +265,8 @@ class VMC:
         self.backflow = casino.backflow and Backflow(
             casino.backflow.trunc, casino.backflow.eta_parameters, casino.backflow.eta_cutoff,
             casino.backflow.mu_parameters, casino.backflow.mu_cutoff, casino.backflow.mu_labels,
-            casino.backflow.phi_parameters, casino.backflow.theta_parameters, casino.backflow.phi_cutoff, casino.backflow.phi_labels
+            casino.backflow.phi_parameters, casino.backflow.theta_parameters, casino.backflow.phi_cutoff,
+            casino.backflow.phi_labels, casino.backflow.phi_irrotational
         )
         self.neu, self.ned = casino.input.neu, casino.input.ned
         self.metropolis = Metropolis(self.neu, self.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.slater, self.jastrow, self.backflow)

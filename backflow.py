@@ -28,7 +28,7 @@ spec = [
     ('phi_labels', nb.types.ListType(labels_type)),
     ('max_ee_order', nb.int64),
     ('max_en_order', nb.int64),
-    ('phi_irrotational', nb.boolean),
+    ('phi_irrotational', nb.boolean[:]),
 ]
 
 
@@ -37,7 +37,7 @@ class Backflow:
 
     def __init__(
         self, trunc, eta_parameters, eta_cutoff, mu_parameters, mu_cutoff, mu_labels, phi_parameters,
-        theta_parameters, phi_cutoff, phi_labels
+        theta_parameters, phi_cutoff, phi_labels, phi_irrotational
     ):
         self.trunc = trunc
         self.eta_parameters = eta_parameters
@@ -62,7 +62,7 @@ class Backflow:
         self.eta_cutoff = eta_cutoff
         self.mu_cutoff = mu_cutoff
         self.phi_cutoff = phi_cutoff
-        self.phi_irrotational = False
+        self.phi_irrotational = phi_irrotational
 
     def ee_powers(self, e_vectors):
         """Powers of e-e distances
@@ -215,7 +215,7 @@ class Backflow:
         X - independent value
 
         m = 0            m = 1            m = 2            m > 2
-        -----------------------------------------------------------------------
+        --------------------------- same spin ---------------------------------
         . . . . . . . .  . . . . . . . .  . X X X X X . .  X X X X X X . . <- l
         . . . . . . . .  . . X X X X X .  X X X X X X X .  X X X X X X X .
         . . X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
@@ -224,6 +224,27 @@ class Backflow:
         . . X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
         . . X X X X X X  . . . X X X X X  . X X X X X X X  . X X X X X X X
         . . X X X X X X  . . . . . . . .  . . X X X X X X  . . X X X X X X
+
+        ------------------------- opposite spin -------------------------------
+        . . . . . . . .  . . . . . . . .  X X X X X X . .  X X X X X X . . <- l
+        . . . . . . . .  . X X X X X X .  X X X X X X X .  X X X X X X X .
+        . X X X X X X X  . X X X X X X X  X X X X X X X X  X X X X X X X X
+        . X X X X X X X  . X X X X X X X  X X X X X X X X  X X X X X X X X
+        . X X X X X X X  . X X X X X X X  X X X X X X X X  X X X X X X X X
+        . X X X X X X X  . X X X X X X X  X X X X X X X X  X X X X X X X X
+        . X X X X X X X  . X X X X X X X  . X X X X X X X  . X X X X X X X
+        . X X X X X X X  . . X X X X X X  . . X X X X X X  . . X X X X X X
+
+        --------------------- same spin irrotational---------------------------
+        . . . . . . . .  . . . . . . . .  . . . . . . . .  . . . . . . . . <- l
+        . . . . . . . .  . . . . . . . .  . . . . . . . .  . . X X X X . .
+        . X X X X X X X  . . . . . . . .  . . X X X X . .  . . X X X X X .
+        . X X X X X X X  . . . . . . . .  . . X X X X X X  . . X X X X X X
+        . X X X X X X X  . . . . . . . .  . . X X X X X X  . . X X X X X X
+        . X X X X X X X  . . . . . . . .  . . X X X X X X  . . X X X X X X
+        . X X X X X X X  . . . . . . . .  . . . . . . . .  . . X X X X X X
+        . X X X X X X X  . . . . . . . .  . . . . . . . .  . . X X X X X X
+
         ^
         k
         """
@@ -262,5 +283,6 @@ if __name__ == '__main__':
     backflow = Backflow(
         casino.backflow.trunc, casino.backflow.eta_parameters, casino.backflow.eta_cutoff,
         casino.backflow.mu_parameters, casino.backflow.mu_cutoff, casino.backflow.mu_labels,
-        casino.backflow.phi_parameters, casino.backflow.theta_parameters, casino.backflow.phi_cutoff, casino.backflow.phi_labels,
+        casino.backflow.phi_parameters, casino.backflow.theta_parameters, casino.backflow.phi_cutoff,
+        casino.backflow.phi_labels, casino.backflow.phi_irrotational
     )
