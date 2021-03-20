@@ -66,7 +66,7 @@ class Backflow:
 
     def ee_powers(self, e_vectors):
         """Powers of e-e distances
-        :param e_vectors: e-e vectors
+        :param e_vectors: e-e vectors - array(nelec, nelec, 3)
         :return:
         """
         res = np.zeros((e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
@@ -95,7 +95,7 @@ class Backflow:
         :param e_vectors:
         :param e_powers:
         :param neu:
-        :return:
+        :return: displacements of electrons - array(nelec, 3)
         """
         res = np.zeros((e_vectors.shape[0], 3))
         if not self.eta_cutoff.any():
@@ -124,7 +124,7 @@ class Backflow:
         :param n_vectors:
         :param n_powers:
         :param neu:
-        :return:
+        :return: displacements of electrons - array(nelec, 3)
         """
         res = np.zeros((n_vectors.shape[1], 3))
         if not self.mu_cutoff.any():
@@ -151,7 +151,7 @@ class Backflow:
         :param e_powers:
         :param n_powers:
         :param neu:
-        :return:
+        :return: displacements of electrons - array(nelec, 3)
         """
         res = np.zeros((e_vectors.shape[0], 3))
         if not self.phi_cutoff.any():
@@ -189,6 +189,38 @@ class Backflow:
                             res[k] += bf * r_e2I_vec
 
         return res
+
+    def eta_term_gradient(self, e_powers, e_vectors, neu):
+        """
+        https://towardsdatascience.com/step-by-step-the-math-behind-neural-networks-d002440227fb
+        :param e_powers:
+        :param e_vectors:
+        :param neu:
+        :return: partial derivatives of displacements of electrons - array(nelec, 3, 3):
+            d eta_x/dx, d eta_x/dy, d eta_x/dz
+            d eta_y/dx, d eta_y/dy, d eta_y/dz
+            d eta_z/dx, d eta_z/dy, d eta_z/dz
+        for every electron
+        """
+        res = np.zeros((e_vectors.shape[0], 3, 3))
+        if not self.eta_cutoff.any():
+            return res
+
+    def mu_term_gradient(self, e_powers, e_vectors, neu):
+        """
+        https://towardsdatascience.com/step-by-step-the-math-behind-neural-networks-d002440227fb
+        :param e_powers:
+        :param e_vectors:
+        :param neu:
+        :return: partial derivatives of displacements of electrons - array(nelec, 3, 3):
+            d mu_x/dx, d mu_x/dy, d mu_x/dz
+            d mu_y/dx, d mu_y/dy, d mu_y/dz
+            d mu_z/dx, d mu_z/dy, d mu_z/dz
+        for every electron
+        """
+        res = np.zeros((e_vectors.shape[0], 3, 3))
+        if not self.mu_cutoff.any():
+            return res
 
     def value(self, e_vectors, n_vectors, neu):
         """Backflow displacemets

@@ -97,8 +97,8 @@ class Jastrow:
 
     def ee_powers(self, e_vectors):
         """Powers of e-e distances
-        :param e_vectors: e-e vectors
-        :return:
+        :param e_vectors: e-e vectors - array(nelec, nelec, 3)
+        :return: powers of e-e distances - array(nelec, nelec, max_ee_order)
         """
         res = np.zeros((e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
         for i in range(e_vectors.shape[0] - 1):
@@ -110,8 +110,8 @@ class Jastrow:
 
     def en_powers(self, n_vectors):
         """Powers of e-n distances
-        :param n_vectors: e-n vectors
-        :return:
+        :param n_vectors: e-n vectors - array(nelec, natom, 3)
+        :return: powers of e-n distances - array(natom, nelec, max_en_order)
         """
         res = np.zeros((n_vectors.shape[1], n_vectors.shape[0], self.max_en_order))
         for i in range(n_vectors.shape[1]):
@@ -121,7 +121,7 @@ class Jastrow:
                     res[i, j, k] = r_eI ** k
         return res
 
-    def u_term(self, e_powers, neu):
+    def u_term(self, e_powers, neu) -> float:
         """Jastrow u-term
         :param e_powers: powers of e-e distances
         :param neu: number of up electrons
@@ -149,7 +149,7 @@ class Jastrow:
                     res += poly * (r - self.u_cutoff) ** C
         return res
 
-    def chi_term(self, n_powers, neu):
+    def chi_term(self, n_powers, neu) -> float:
         """Jastrow chi-term
         :param n_powers: powers of e-e distances
         :param neu: number of up electrons
@@ -172,7 +172,7 @@ class Jastrow:
                         res += poly * (r - L) ** C
         return res
 
-    def f_term(self, e_powers, n_powers, neu):
+    def f_term(self, e_powers, n_powers, neu) -> float:
         """Jastrow f-term
         :param e_powers: powers of e-e distances
         :param n_powers: powers of e-n distances
@@ -325,7 +325,7 @@ class Jastrow:
                             res[k, :] -= r_ee_vec * gradient
         return res
 
-    def u_term_laplacian(self, e_powers, neu):
+    def u_term_laplacian(self, e_powers, neu) -> float:
         """Jastrow u-term laplacian with respect to a e-coordinates
         :param e_powers: powers of e-e distances
         :param neu: number of up electrons
@@ -363,7 +363,7 @@ class Jastrow:
                     )
         return 2 * res
 
-    def chi_term_laplacian(self, n_powers, neu):
+    def chi_term_laplacian(self, n_powers, neu) -> float:
         """Jastrow chi-term laplacian with respect to a e-coordinates
         :param n_powers: powers of e-n distances
         :param neu: number of up electrons
@@ -396,7 +396,7 @@ class Jastrow:
                         )
         return res
 
-    def f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors, neu):
+    def f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors, neu) -> float:
         """Jastrow f-term laplacian with respect to a e-coordinates
         f-term is a product of two spherically symmetric functions f(r_eI) and g(r_ee) so using
             ∇²(f*g) = ∇²(f)*g + 2*∇(f)*∇(g) + f*∇²(g)
@@ -479,7 +479,7 @@ class Jastrow:
                             res += laplacian + 2 * gradient + 2 * dot_product
         return res
 
-    def value(self, e_vectors, n_vectors, neu):
+    def value(self, e_vectors, n_vectors, neu) -> float:
         """Jastrow with respect to a e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
@@ -520,7 +520,7 @@ class Jastrow:
 
         return res / delta / 2
 
-    def numerical_laplacian(self, e_vectors, n_vectors, neu):
+    def numerical_laplacian(self, e_vectors, n_vectors, neu) -> float:
         """Numerical laplacian with respect to a e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
@@ -559,7 +559,7 @@ class Jastrow:
             self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors, neu)
         )
 
-    def laplacian(self, e_vectors, n_vectors, neu):
+    def laplacian(self, e_vectors, n_vectors, neu) -> float:
         """Laplacian with respect to a e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors

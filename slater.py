@@ -133,8 +133,8 @@ class Slater:
     def AO_wfn(self, n_vectors: np.ndarray) -> np.ndarray:
         """
         Atomic orbitals for every electron
-        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
-        :return: AO matrix shape = (nelec, nbasis_functions)
+        :param n_vectors: electron-nuclei array(nelec, natom, 3)
+        :return: AO array(nelec, nbasis_functions)
         """
         orbital = np.zeros((n_vectors.shape[0], self.nbasis_functions))
         for i in range(n_vectors.shape[0]):
@@ -162,7 +162,8 @@ class Slater:
 
     def AO_gradient(self, n_vectors: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Gradient matrix.
-        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
+        :param n_vectors: electron-nuclei - array(nelec, natom, 3)
+        :return: AO gradient - list of array(nelec, nbasis_functions)
         """
         orbital_x = np.zeros((n_vectors.shape[0], self.nbasis_functions))
         orbital_y = np.zeros((n_vectors.shape[0], self.nbasis_functions))
@@ -204,6 +205,7 @@ class Slater:
     def AO_laplacian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Laplacian matrix.
         :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
+        :return: AO laplacian - array(nelec, nbasis_functions)
         """
         orbital = np.zeros((n_vectors.shape[0], self.nbasis_functions))
         for i in range(n_vectors.shape[0]):

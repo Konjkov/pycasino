@@ -141,7 +141,6 @@ class Metropolis:
         :param position: random walk positions
         :return:
         """
-
         res = np.zeros((position.shape[0], ))
         for i in range(position.shape[0]):
             r_e = position[i]
