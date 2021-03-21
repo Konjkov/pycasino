@@ -550,7 +550,7 @@ class Jastrow:
         return res / delta / delta
 
     def gradient(self, e_vectors, n_vectors, neu):
-        """Gradient with respect to a e-coordinates
+        """Gradient with respect to e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param neu: number of up electrons

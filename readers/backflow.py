@@ -90,7 +90,7 @@ class Backflow:
                         else:
                             self.eta_cutoff = np.zeros((eta_spin_dep+1,))
                         self.eta_cutoff[0] = float(line[0])
-                        for i in range(1, eta_spin_dep+1):
+                        for i in range(1, self.eta_cutoff.shape[0]):
                             self.eta_cutoff[i], _ = self.read_parameter()
                     elif line.startswith('Parameter'):
                         self.eta_parameters = np.zeros((eta_order+1, eta_spin_dep+1), np.float)

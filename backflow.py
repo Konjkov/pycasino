@@ -109,7 +109,8 @@ class Backflow:
                 r = e_powers[i, j, 1]
                 eta_set = (int(i >= neu) + int(j >= neu))
                 eta_set = eta_set % parameters.shape[1]
-                L = self.eta_cutoff[eta_set]
+                # I don't think it works fast if NO SPIN-DEP
+                L = self.eta_cutoff[eta_set] or self.eta_cutoff[0]
                 if r <= L:
                     poly = 0
                     for k in range(parameters.shape[0]):
@@ -222,6 +223,33 @@ class Backflow:
         if not self.mu_cutoff.any():
             return res
 
+    def phi_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors, neu):
+        """
+        https://towardsdatascience.com/step-by-step-the-math-behind-neural-networks-d002440227fb
+        :param e_powers:
+        :param e_vectors:
+        :param neu:
+        :return: partial derivatives of displacements of electrons - array(nelec, 3, 3):
+            d mu_x/dx, d mu_x/dy, d mu_x/dz
+            d mu_y/dx, d mu_y/dy, d mu_y/dz
+            d mu_z/dx, d mu_z/dy, d mu_z/dz
+        for every electron
+        """
+        res = np.zeros((e_vectors.shape[0], 3, 3))
+        if not self.mu_cutoff.any():
+            return res
+
+    def eta_term_laplacian(self, e_powers, e_vectors, neu):
+        """
+        :param e_powers:
+        :param e_vectors:
+        :param neu:
+        :return:
+        """
+        res = np.zeros((e_vectors.shape[0], 3, 3))
+        if not self.eta_cutoff.any():
+            return res
+
     def value(self, e_vectors, n_vectors, neu):
         """Backflow displacemets
         :param e_vectors:
@@ -237,6 +265,38 @@ class Backflow:
             self.eta_term(e_vectors, e_powers, neu) +
             self.mu_term(n_vectors, n_powers, neu) +
             self.phi_term(e_vectors, n_vectors, e_powers, n_powers, neu)
+        )
+
+    def gradient(self, e_vectors, n_vectors, neu):
+        """Gradient with respect to e-coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :param neu: number of up electrons
+        :return:
+        """
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        return (
+            self.eta_term_gradient(e_powers, e_vectors, neu) +
+            self.mu_term_gradient(n_powers, n_vectors, neu) +
+            self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors, neu)
+        )
+
+    def laplacian(self, e_vectors, n_vectors, neu):
+        """Laplacian with respect to e-coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :param neu: number of up electrons
+        :return:
+        """
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        return (
+            self.eta_term_laplacian(e_powers, e_vectors, neu)
+            # self.mu_term_laplacian(n_powers, n_vectors, neu) +
+            # self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors, neu)
         )
 
     def fix_phi_parameters(self):
