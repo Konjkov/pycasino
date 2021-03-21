@@ -28,7 +28,7 @@ def coulomb(e_vectors, n_vectors, atom_charges) -> float:
     res = 0.0
     for i in range(n_vectors.shape[0]):
         for j in range(n_vectors.shape[1]):
-            res -= atom_charges[j] / np.linalg.norm(n_vectors[i, j])
+            res -= atom_charges[i] / np.linalg.norm(n_vectors[i, j])
 
     for i in range(e_vectors.shape[0] - 1):
         for j in range(i + 1, e_vectors.shape[1]):

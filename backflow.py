@@ -82,10 +82,10 @@ class Backflow:
         :param n_vectors: e-n vectors
         :return:
         """
-        res = np.zeros((n_vectors.shape[1], n_vectors.shape[0], self.max_en_order))
-        for i in range(n_vectors.shape[1]):
-            for j in range(n_vectors.shape[0]):
-                r_eI = np.linalg.norm(n_vectors[j, i])
+        res = np.zeros((n_vectors.shape[0], n_vectors.shape[1], self.max_en_order))
+        for i in range(n_vectors.shape[0]):
+            for j in range(n_vectors.shape[1]):
+                r_eI = np.linalg.norm(n_vectors[i, j])
                 for k in range(self.max_en_order):
                     res[i, j, k] = r_eI ** k
         return res
@@ -162,8 +162,8 @@ class Backflow:
             for i in phi_labels:
                 for j in range(n_powers.shape[1] - 1):
                     for k in range(j+1, e_powers.shape[0]):
-                        r_e1I_vec = n_vectors[j, i]
-                        r_e2I_vec = n_vectors[k, i]
+                        r_e1I_vec = n_vectors[i, j]
+                        r_e2I_vec = n_vectors[i, k]
                         r_ee_vec = e_vectors[j, k]
                         r_e1I = n_powers[i, j, 1]
                         r_e2I = n_powers[i, k, 1]

@@ -81,7 +81,7 @@ class Wfn:
         :return:
         """
         e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(r_e, self.atom_positions)
+        n_vectors = -subtract_outer(self.atom_positions, r_e)
 
         s = self.slater.value(n_vectors, self.neu)
         s_l = self.slater.laplacian(n_vectors, self.neu, self.ned) / s

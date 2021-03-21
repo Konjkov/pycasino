@@ -95,7 +95,7 @@ class Metropolis:
         """Make random step in configuration-by-configuration sampling (CBCS)"""
         new_r_e = r_e + self.random_step()
         e_vectors = subtract_outer(new_r_e, new_r_e)
-        n_vectors = subtract_outer(new_r_e, self.atom_positions)
+        n_vectors = -subtract_outer(self.atom_positions, new_r_e)
         new_p = self.guiding_function(e_vectors, n_vectors)
         cond = new_p ** 2 > np.random.random() * p ** 2
         if cond:
@@ -115,7 +115,7 @@ class Metropolis:
         function = np.ones((steps, ), np.float64)
 
         e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(r_e, self.atom_positions)
+        n_vectors = -subtract_outer(self.atom_positions, r_e)
         p = self.guiding_function(e_vectors, n_vectors)
 
         i = 0
@@ -145,7 +145,7 @@ class Metropolis:
         for i in range(position.shape[0]):
             r_e = position[i]
             e_vectors = subtract_outer(r_e, r_e)
-            n_vectors = subtract_outer(r_e, self.atom_positions)
+            n_vectors = -subtract_outer(self.atom_positions, r_e)
 
             s = self.slater.value(n_vectors, self.neu)
             s_l = self.slater.laplacian(n_vectors, self.neu, self.ned) / s
@@ -168,7 +168,7 @@ class Metropolis:
         """
         r_e = position[0]
         e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(r_e, self.atom_positions)
+        n_vectors = -subtract_outer(self.atom_positions, r_e)
         first_res = self.jastrow.parameters_numerical_d1(e_vectors, n_vectors, self.neu)
         res = np.zeros((position.shape[0], ) + first_res.shape)
         res[0] = first_res
@@ -176,7 +176,7 @@ class Metropolis:
         for i in range(1, position.shape[0]):
             r_e = position[i]
             e_vectors = subtract_outer(r_e, r_e)
-            n_vectors = subtract_outer(r_e, self.atom_positions)
+            n_vectors = -subtract_outer(self.atom_positions, r_e)
             res[i] = self.jastrow.parameters_numerical_d1(e_vectors, n_vectors, self.neu)
         return res
 
@@ -187,7 +187,7 @@ class Metropolis:
         """
         r_e = position[0]
         e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(r_e, self.atom_positions)
+        n_vectors = -subtract_outer(self.atom_positions, r_e)
         first_res = self.jastrow.parameters_numerical_d2(e_vectors, n_vectors, self.neu)
         res = np.zeros((position.shape[0], ) + first_res.shape)
         res[0] = first_res
@@ -195,7 +195,7 @@ class Metropolis:
         for i in range(1, position.shape[0]):
             r_e = position[i]
             e_vectors = subtract_outer(r_e, r_e)
-            n_vectors = subtract_outer(r_e, self.atom_positions)
+            n_vectors = -subtract_outer(self.atom_positions, r_e)
             res[i] = self.jastrow.parameters_numerical_d2(e_vectors, n_vectors, self.neu)
         return res
 

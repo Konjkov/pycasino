@@ -110,13 +110,13 @@ class Jastrow:
 
     def en_powers(self, n_vectors):
         """Powers of e-n distances
-        :param n_vectors: e-n vectors - array(nelec, natom, 3)
+        :param n_vectors: e-n vectors - array(natom, nelec, 3)
         :return: powers of e-n distances - array(natom, nelec, max_en_order)
         """
-        res = np.zeros((n_vectors.shape[1], n_vectors.shape[0], self.max_en_order))
-        for i in range(n_vectors.shape[1]):
-            for j in range(n_vectors.shape[0]):
-                r_eI = np.linalg.norm(n_vectors[j, i])
+        res = np.zeros((n_vectors.shape[0], n_vectors.shape[1], self.max_en_order))
+        for i in range(n_vectors.shape[0]):
+            for j in range(n_vectors.shape[1]):
+                r_eI = np.linalg.norm(n_vectors[i, j])
                 for k in range(self.max_en_order):
                     res[i, j, k] = r_eI ** k
         return res
@@ -244,7 +244,7 @@ class Jastrow:
         :param neu: number of up electrons
         :return:
         """
-        res = np.zeros((n_vectors.shape[0], 3))
+        res = np.zeros((n_vectors.shape[1], 3))
 
         if not self.chi_cutoff.any():
             return res
@@ -253,7 +253,7 @@ class Jastrow:
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
             for i in chi_labels:
                 for j in range(n_powers.shape[1]):
-                    r_vec = n_vectors[j, i]
+                    r_vec = n_vectors[i, j]
                     r = n_powers[i, j, 1]
                     if r <= L:
                         chi_set = int(j >= neu) % parameters.shape[1]
@@ -287,8 +287,8 @@ class Jastrow:
             for i in f_labels:
                 for j in range(n_powers.shape[1] - 1):
                     for k in range(j+1, e_powers.shape[0]):
-                        r_e1I_vec = n_vectors[j, i]
-                        r_e2I_vec = n_vectors[k, i]
+                        r_e1I_vec = n_vectors[i, j]
+                        r_e2I_vec = n_vectors[i, k]
                         r_ee_vec = e_vectors[j, k]
                         r_e1I = n_powers[i, j, 1]
                         r_e2I = n_powers[i, k, 1]
@@ -418,8 +418,8 @@ class Jastrow:
             for i in f_labels:
                 for j in range(n_powers.shape[1] - 1):
                     for k in range(j + 1, e_powers.shape[0]):
-                        r_e1I_vec = n_vectors[j, i]
-                        r_e2I_vec = n_vectors[k, i]
+                        r_e1I_vec = n_vectors[i, j]
+                        r_e2I_vec = n_vectors[i, k]
                         r_ee_vec = e_vectors[j, k]
                         r_e1I = n_powers[i, j, 1]
                         r_e2I = n_powers[i, k, 1]
@@ -510,13 +510,13 @@ class Jastrow:
         for i in range(e_vectors.shape[0]):
             for j in range(3):
                 e_vectors[i, :, j] -= delta
-                n_vectors[i, :, j] -= delta
+                n_vectors[:, i, j] -= delta
                 res[i, j] -= self.value(e_vectors, n_vectors, neu)
                 e_vectors[i, :, j] += 2 * delta
-                n_vectors[i, :, j] += 2 * delta
+                n_vectors[:, i, j] += 2 * delta
                 res[i, j] += self.value(e_vectors, n_vectors, neu)
                 e_vectors[i, :, j] -= delta
-                n_vectors[i, :, j] -= delta
+                n_vectors[:, i, j] -= delta
 
         return res / delta / 2
 
@@ -529,17 +529,17 @@ class Jastrow:
         """
         delta = 0.00001
 
-        res = -2 * r_e.size * self.value(e_vectors, n_vectors, neu)
+        res = -2 * e_vectors.shape[0] * 3 * self.value(e_vectors, n_vectors, neu)
         for i in range(e_vectors.shape[0]):
             for j in range(3):
                 e_vectors[i, :, j] -= delta
-                n_vectors[i, :, j] -= delta
+                n_vectors[:, i, j] -= delta
                 res += self.value(e_vectors, n_vectors, neu)
                 e_vectors[i, :, j] += 2 * delta
-                n_vectors[i, :, j] += 2 * delta
+                n_vectors[:, i, j] += 2 * delta
                 res += self.value(e_vectors, n_vectors, neu)
                 e_vectors[i, :, j] -= delta
-                n_vectors[i, :, j] -= delta
+                n_vectors[:, i, j] -= delta
 
         return res / delta / delta
 
@@ -1248,7 +1248,7 @@ if __name__ == '__main__':
                     sl = slice(atom, atom+1)
                     jastrow.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)
                     [jastrow.chi_parameters.append(p) for p in casino.jastrow.chi_parameters[sl]]
-                    n_vectors = subtract_outer(r_e, casino.wfn.atom_positions[sl])
+                    n_vectors = subtract_outer(casino.wfn.atom_positions[sl], r_e)
                     n_powers = jastrow.en_powers(n_vectors)
                     y_grid[i] = jastrow.chi_term(n_powers, 1-spin_dep)
                 plt.plot(x_grid, y_grid, label=f'atom {atom} ' + ['u', 'd'][spin_dep])
@@ -1277,7 +1277,7 @@ if __name__ == '__main__':
                         [jastrow.f_parameters.append(p) for p in casino.jastrow.f_parameters[sl]]
                         e_vectors = subtract_outer(r_e, r_e)
                         e_powers = jastrow.ee_powers(e_vectors)
-                        n_vectors = subtract_outer(r_e, casino.wfn.atom_positions[sl])
+                        n_vectors = subtract_outer(casino.wfn.atom_positions[sl], r_e)
                         n_powers = jastrow.en_powers(n_vectors)
                         z_grid[i, j] = jastrow.f_term(e_powers, n_powers, 2-spin_dep)
                 axis.plot_wireframe(x_grid, y_grid, z_grid, label=f'atom {atom} ' + ['uu', 'ud', 'dd'][spin_dep])

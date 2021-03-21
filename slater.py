@@ -136,12 +136,12 @@ class Slater:
         :param n_vectors: electron-nuclei array(nelec, natom, 3)
         :return: AO array(nelec, nbasis_functions)
         """
-        orbital = np.zeros((n_vectors.shape[0], self.nbasis_functions))
-        for i in range(n_vectors.shape[0]):
+        orbital = np.zeros((n_vectors.shape[1], self.nbasis_functions))
+        for i in range(n_vectors.shape[1]):
             p = 0
             ao = 0
-            for atom in range(n_vectors.shape[1]):
-                rI = n_vectors[i, atom]
+            for atom in range(n_vectors.shape[0]):
+                rI = n_vectors[atom, i]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
                 angular_part_data = angular_part(rI)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
@@ -162,17 +162,17 @@ class Slater:
 
     def AO_gradient(self, n_vectors: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Gradient matrix.
-        :param n_vectors: electron-nuclei - array(nelec, natom, 3)
+        :param n_vectors: electron-nuclei - array(natom, nelec, 3)
         :return: AO gradient - list of array(nelec, nbasis_functions)
         """
-        orbital_x = np.zeros((n_vectors.shape[0], self.nbasis_functions))
-        orbital_y = np.zeros((n_vectors.shape[0], self.nbasis_functions))
-        orbital_z = np.zeros((n_vectors.shape[0], self.nbasis_functions))
-        for i in range(n_vectors.shape[0]):
+        orbital_x = np.zeros((n_vectors.shape[1], self.nbasis_functions))
+        orbital_y = np.zeros((n_vectors.shape[1], self.nbasis_functions))
+        orbital_z = np.zeros((n_vectors.shape[1], self.nbasis_functions))
+        for i in range(n_vectors.shape[1]):
             p = 0
             ao = 0
-            for atom in range(n_vectors.shape[1]):
-                rI = n_vectors[i, atom]
+            for atom in range(n_vectors.shape[0]):
+                rI = n_vectors[atom, i]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
                 angular_part_data = angular_part(rI)
                 gradient_angular_part_data = gradient_angular_part(rI)
@@ -204,15 +204,15 @@ class Slater:
 
     def AO_laplacian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Laplacian matrix.
-        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :return: AO laplacian - array(nelec, nbasis_functions)
         """
-        orbital = np.zeros((n_vectors.shape[0], self.nbasis_functions))
-        for i in range(n_vectors.shape[0]):
+        orbital = np.zeros((n_vectors.shape[1], self.nbasis_functions))
+        for i in range(n_vectors.shape[1]):
             p = 0
             ao = 0
-            for atom in range(n_vectors.shape[1]):
-                rI = n_vectors[i, atom]
+            for atom in range(n_vectors.shape[0]):
+                rI = n_vectors[atom, i]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
                 angular_part_data = angular_part(rI)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
@@ -237,7 +237,7 @@ class Slater:
 
     def value(self, n_vectors: np.ndarray, neu: int) -> float:
         """Multideterminant wave function value.
-        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :param neu: number of up-electrons
         """
         ao = self.AO_wfn(n_vectors)
@@ -249,46 +249,46 @@ class Slater:
 
     def numerical_gradient(self, n_vectors: np.ndarray, neu: int, ned: int) -> float:
         """Numerical gradient for testing purposes
-        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :param neu: number of up-electrons
         :param ned: number of down-electrons
         """
         delta = 0.00001
 
-        res = np.zeros((n_vectors.shape[0], 3))
-        for i in range(n_vectors.shape[0]):
+        res = np.zeros((n_vectors.shape[1], 3))
+        for i in range(n_vectors.shape[1]):
             for j in range(3):
-                n_vectors[i, :, j] -= delta
+                n_vectors[:, i, j] -= delta
                 res[i, j] -= self.value(n_vectors, neu)
-                n_vectors[i, :, j] += 2 * delta
+                n_vectors[:, i, j] += 2 * delta
                 res[i, j] += self.value(n_vectors, neu)
-                n_vectors[i, :, j] -= delta
+                n_vectors[:, i, j] -= delta
 
         return res / delta / 2
 
     def numerical_laplacian(self, n_vectors: np.ndarray, neu: int, ned: int) -> float:
         """Numerical laplacian for testing purposes
-        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :param neu: number of up-electrons
         :param ned: number of down-electrons
         """
         delta = 0.00001
 
         res = 0.0
-        for i in range(n_vectors.shape[0]):
+        for i in range(n_vectors.shape[1]):
             for j in range(3):
-                n_vectors[i, :, j] -= delta
+                n_vectors[:, i, j] -= delta
                 res += self.value(n_vectors, neu)
-                n_vectors[i, :, j] += 2 * delta
+                n_vectors[:, i, j] += 2 * delta
                 res += self.value(n_vectors, neu)
-                n_vectors[i, :, j] -= delta
-        res -= 6 * n_vectors.shape[0] * self.value(n_vectors, neu)
+                n_vectors[:, i, j] -= delta
+        res -= 6 * n_vectors.shape[1] * self.value(n_vectors, neu)
 
         return res / delta / delta
 
     def gradient(self, n_vectors: np.ndarray, neu: int, ned: int) -> np.ndarray:
         """∇(phi).
-        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :param neu: number of up-electrons
         :param ned: number of down-electrons
 
@@ -327,7 +327,7 @@ class Slater:
 
     def laplacian(self, n_vectors: np.ndarray, neu: int, ned: int) -> float:
         """∇²(phi).
-        :param n_vectors: electron-nuclei vectors shape = (nelec, natom, 3)
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :param neu: number of up-electrons
         :param ned: number of down-electrons
         """
@@ -374,7 +374,7 @@ def integral(dX, neu, ned, steps, atom_positions, slater, r_initial):
     result = 0.0
     for i in range(steps):
         r_e = r_initial + random_step(dX, neu + ned)
-        n_vectors = subtract_outer(r_e, atom_positions)
+        n_vectors = subtract_outer(atom_positions, r_e)
         result += (slater_determinant_normalization_factor * slater.value(n_vectors, neu)) ** 2
 
     return result * v / steps
@@ -389,7 +389,7 @@ def plot_graph(neu, ned, steps, atom_positions, slater):
         res = res.reshape((neu + ned, 3))
         x_grid = np.linspace(0, 5, steps)
         y_grid = np.zeros((steps, ))
-        n_unit_vectors = subtract_outer(res, atom_positions)
+        n_unit_vectors = subtract_outer(atom_positions, res)
         for i in range(steps):
             n_vectors = n_unit_vectors * x_grid[i]
             y_grid[i] = slater.value(n_vectors, neu)
@@ -427,8 +427,8 @@ def main(casino):
     )
 
     r_initial = initial_position(casino.input.neu + casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges)
-    # return integral(dX, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
-    return plot_graph(casino.input.neu, casino.input.ned, 100, casino.wfn.atom_positions, slater)
+    return integral(dX, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
+    # return plot_graph(casino.input.neu, casino.input.ned, 100, casino.wfn.atom_positions, slater)
 
 
 if __name__ == '__main__':
