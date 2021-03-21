@@ -510,12 +510,15 @@ class Jastrow:
         for i in range(e_vectors.shape[0]):
             for j in range(3):
                 e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
                 res[i, j] -= self.value(e_vectors, n_vectors, neu)
                 e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
                 n_vectors[:, i, j] += 2 * delta
                 res[i, j] += self.value(e_vectors, n_vectors, neu)
                 e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
 
         return res / delta / 2
@@ -533,12 +536,15 @@ class Jastrow:
         for i in range(e_vectors.shape[0]):
             for j in range(3):
                 e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
                 res += self.value(e_vectors, n_vectors, neu)
                 e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
                 n_vectors[:, i, j] += 2 * delta
                 res += self.value(e_vectors, n_vectors, neu)
                 e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
 
         return res / delta / delta
