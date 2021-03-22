@@ -207,6 +207,8 @@ class Backflow:
         if not self.eta_cutoff.any():
             return res
 
+        return res
+
     def mu_term_gradient(self, e_powers, e_vectors, neu):
         """
         https://towardsdatascience.com/step-by-step-the-math-behind-neural-networks-d002440227fb
@@ -222,6 +224,8 @@ class Backflow:
         res = np.zeros((e_vectors.shape[0], 3, 3))
         if not self.mu_cutoff.any():
             return res
+
+        return res
 
     def phi_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors, neu):
         """
@@ -239,6 +243,8 @@ class Backflow:
         if not self.mu_cutoff.any():
             return res
 
+        return res
+
     def eta_term_laplacian(self, e_powers, e_vectors, neu):
         """
         :param e_powers:
@@ -249,6 +255,8 @@ class Backflow:
         res = np.zeros((e_vectors.shape[0], 3, 3))
         if not self.eta_cutoff.any():
             return res
+
+        return res
 
     def value(self, e_vectors, n_vectors, neu):
         """Backflow displacemets
@@ -266,6 +274,46 @@ class Backflow:
             self.mu_term(n_vectors, n_powers, neu) +
             self.phi_term(e_vectors, n_vectors, e_powers, n_powers, neu)
         )
+
+    def numerical_gradient(self, e_vectors, n_vectors, neu):
+        """Numerical gradient with respect to a e-coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :param neu:
+        :return:
+        """
+        delta = 0.00001
+
+        res = np.zeros((e_vectors.shape[0], 3, 3))
+
+        for i in range(e_vectors.shape[0]):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+                res[i, j] -= self.value(e_vectors, n_vectors, neu)
+                e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
+                n_vectors[:, i, j] += 2 * delta
+                res[i, j] += self.value(e_vectors, n_vectors, neu)
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+
+        return res / delta / 2
+
+    def numerical_laplacian(self, e_vectors, n_vectors, neu) -> float:
+        """Numerical laplacian with respect to a e-coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :param neu: number of up electrons
+        :return:
+        """
+        delta = 0.00001
+
+        res = 0
+
+        return res / delta / delta
 
     def gradient(self, e_vectors, n_vectors, neu):
         """Gradient with respect to e-coordinates
