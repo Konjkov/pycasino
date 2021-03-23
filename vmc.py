@@ -5,6 +5,7 @@ from timeit import default_timer
 from slater import Slater
 from jastrow import Jastrow
 from backflow import Backflow
+from wfn import Wfn
 from coulomb import coulomb, nuclear_repulsion
 
 os.environ["OMP_NUM_THREADS"] = "1"  # openmp
@@ -34,10 +35,7 @@ spec = [
     ('step', nb.float64),
     ('atom_positions', nb.float64[:, :]),
     ('atom_charges', nb.float64[:]),
-    ('nuclear_repulsion', nb.float64),
-    ('slater', Slater.class_type.instance_type),
-    ('jastrow', nb.optional(Jastrow.class_type.instance_type)),
-    ('backflow', nb.optional(Backflow.class_type.instance_type)),
+    ('wfn', Wfn.class_type.instance_type),
 ]
 
 
@@ -54,15 +52,13 @@ def initial_position(ne, atom_positions, atom_charges):
 @nb.experimental.jitclass(spec)
 class Metropolis:
 
-    def __init__(self, neu, ned, atom_positions, atom_charges, slater, jastrow, backflow):
+    def __init__(self, neu, ned, atom_positions, atom_charges, wfn):
         """Metropolis random walk.
         :param neu: number of up electrons
         :param ned: number of down electrons
         :param atom_positions: atomic positions
         :param atom_charges: atomic charges
-        :param slater: instance of Slater class
-        :param jastrow: instance of Jastrow class
-        :param backflow: instance of Backflow class
+        :param wfn: instance of Wfn class
         :return:
         """
         self.neu = neu
@@ -71,20 +67,7 @@ class Metropolis:
         self.step = 1 / (neu + ned)
         self.atom_positions = atom_positions
         self.atom_charges = atom_charges
-        self.nuclear_repulsion = nuclear_repulsion(atom_positions, atom_charges)
-        self.slater = slater
-        self.jastrow = jastrow
-        self.backflow = backflow
-
-    def guiding_function(self, e_vectors, n_vectors):
-        """Wave function in general form"""
-        res = 1
-        if self.jastrow is not None:
-            res *= np.exp(self.jastrow.value(e_vectors, n_vectors, self.neu))
-        if self.backflow is not None:
-            n_vectors += self.backflow.value(e_vectors, n_vectors, self.neu)
-        res *= self.slater.value(n_vectors, self.neu)
-        return res
+        self.wfn = wfn
 
     def random_step(self):
         """Random N-dim square distributed step"""
@@ -96,7 +79,7 @@ class Metropolis:
         new_r_e = r_e + self.random_step()
         e_vectors = subtract_outer(new_r_e, new_r_e)
         n_vectors = -subtract_outer(self.atom_positions, new_r_e)
-        new_p = self.guiding_function(e_vectors, n_vectors)
+        new_p = self.wfn.value(e_vectors, n_vectors)
         cond = new_p ** 2 > np.random.random() * p ** 2
         if cond:
             return new_r_e, new_p, cond
@@ -116,7 +99,7 @@ class Metropolis:
 
         e_vectors = subtract_outer(r_e, r_e)
         n_vectors = -subtract_outer(self.atom_positions, r_e)
-        p = self.guiding_function(e_vectors, n_vectors)
+        p = self.wfn.value(e_vectors, n_vectors)
 
         i = 0
         # first step
@@ -143,29 +126,7 @@ class Metropolis:
         """
         res = np.zeros((position.shape[0], ))
         for i in range(position.shape[0]):
-            r_e = position[i]
-            e_vectors = subtract_outer(r_e, r_e)
-            n_vectors = -subtract_outer(self.atom_positions, r_e)
-
-            s = self.slater.value(n_vectors, self.neu)
-            s_l = self.slater.laplacian(n_vectors, self.neu, self.ned) / s
-            res[i] = coulomb(e_vectors, n_vectors, self.atom_charges)
-            if self.jastrow is not None:
-                j_g = self.jastrow.gradient(e_vectors, n_vectors, self.neu)
-                j_l = self.jastrow.laplacian(e_vectors, n_vectors, self.neu)
-                if self.backflow is not None:
-                    b_g = self.backflow.gradient(e_vectors, n_vectors, self.neu)
-                    n_vectors += self.backflow.value(e_vectors, n_vectors, self.neu)
-                    s_g = self.slater.gradient(n_vectors, self.neu, self.ned) / s
-                    for j in range(s_g.shape[0]):
-                        s_g[j] += np.dot(b_g[j], s_g[j])
-                else:
-                    s_g = self.slater.gradient(n_vectors, self.neu, self.ned) / s
-                F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
-                T = (np.sum(s_g * s_g) - s_l - j_l) / 4
-                res[i] += 2 * T - F
-            else:
-                res[i] -= s_l / 2
+            res[i] = self.wfn.energy(position[i])
         return res
 
     def jastrow_gradient(self, position):
@@ -176,7 +137,7 @@ class Metropolis:
         r_e = position[0]
         e_vectors = subtract_outer(r_e, r_e)
         n_vectors = -subtract_outer(self.atom_positions, r_e)
-        first_res = self.jastrow.parameters_numerical_d1(e_vectors, n_vectors, self.neu)
+        first_res = self.wfn.jastrow.parameters_numerical_d1(e_vectors, n_vectors, self.neu)
         res = np.zeros((position.shape[0], ) + first_res.shape)
         res[0] = first_res
 
@@ -184,7 +145,7 @@ class Metropolis:
             r_e = position[i]
             e_vectors = subtract_outer(r_e, r_e)
             n_vectors = -subtract_outer(self.atom_positions, r_e)
-            res[i] = self.jastrow.parameters_numerical_d1(e_vectors, n_vectors, self.neu)
+            res[i] = self.wfn.jastrow.parameters_numerical_d1(e_vectors, n_vectors, self.neu)
         return res
 
     def jastrow_hessian(self, position):
@@ -195,7 +156,7 @@ class Metropolis:
         r_e = position[0]
         e_vectors = subtract_outer(r_e, r_e)
         n_vectors = -subtract_outer(self.atom_positions, r_e)
-        first_res = self.jastrow.parameters_numerical_d2(e_vectors, n_vectors, self.neu)
+        first_res = self.wfn.jastrow.parameters_numerical_d2(e_vectors, n_vectors, self.neu)
         res = np.zeros((position.shape[0], ) + first_res.shape)
         res[0] = first_res
 
@@ -203,7 +164,7 @@ class Metropolis:
             r_e = position[i]
             e_vectors = subtract_outer(r_e, r_e)
             n_vectors = -subtract_outer(self.atom_positions, r_e)
-            res[i] = self.jastrow.parameters_numerical_d2(e_vectors, n_vectors, self.neu)
+            res[i] = self.wfn.jastrow.parameters_numerical_d2(e_vectors, n_vectors, self.neu)
         return res
 
 
@@ -274,8 +235,9 @@ class VMC:
             casino.backflow.phi_parameters, casino.backflow.theta_parameters, casino.backflow.phi_cutoff,
             casino.backflow.phi_labels, casino.backflow.phi_irrotational
         )
+        self.wfn = Wfn(casino.input.neu, casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.slater, self.jastrow, self.backflow)
         self.neu, self.ned = casino.input.neu, casino.input.ned
-        self.metropolis = Metropolis(self.neu, self.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.slater, self.jastrow, self.backflow)
+        self.metropolis = Metropolis(self.neu, self.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.wfn)
         self.metropolis.r_e = initial_position(self.neu + self.ned, self.metropolis.atom_positions, self.metropolis.atom_charges)
 
     def equilibrate(self, steps):
@@ -306,7 +268,7 @@ class VMC:
         check_point_1 = default_timer()
         for i in range(rounds):
             weights, position, _ = self.metropolis.random_walk(steps // rounds)
-            energy = self.metropolis.local_energy(position) + self.metropolis.nuclear_repulsion
+            energy = self.metropolis.local_energy(position) + self.metropolis.wfn.nuclear_repulsion
             E[i] = np.average(energy, weights=weights)
             mean_energy = np.average(E[:i + 1])
             if i:
@@ -339,7 +301,7 @@ class VMC:
 
         def f(x, *args, **kwargs):
             self.metropolis.jastrow.set_parameters(x)
-            energy = self.metropolis.local_energy(position) + self.metropolis.nuclear_repulsion
+            energy = self.metropolis.local_energy(position) + self.metropolis.wfn.nuclear_repulsion
             energy_average = np.average(energy, weights=weight)
             energy_variance = np.average((energy - energy_average) ** 2, weights=weight)
             std_err = np.sqrt(energy_variance / weight.sum())
@@ -374,7 +336,7 @@ class VMC:
 
         def f(x, *args):
             self.metropolis.jastrow.set_parameters(x)
-            energy = self.metropolis.local_energy(position) + self.metropolis.nuclear_repulsion
+            energy = self.metropolis.local_energy(position) + self.metropolis.wfn.nuclear_repulsion
             energy_gradient = self.metropolis.jastrow_gradient(position)
             mean_energy = np.average(energy, weights=weight)
             mean_energy_gradient = jastrow_parameters_gradient(weight, energy, energy_gradient)
@@ -386,7 +348,7 @@ class VMC:
 
         def hess(x, *args):
             self.metropolis.jastrow.set_parameters(x)
-            energy = self.metropolis.local_energy(position) + self.metropolis.nuclear_repulsion
+            energy = self.metropolis.local_energy(position) + self.metropolis.wfn.nuclear_repulsion
             energy_gradient = self.metropolis.jastrow_gradient(position)
             energy_hessian = self.metropolis.jastrow_hessian(position)
             mean_energy_hessian = jastrow_parameters_hessian(weight, energy, energy_gradient, energy_hessian)
@@ -442,7 +404,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term_test/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
     # path = 'test/gwfn/be/HF/def2-QZVP/VMC_OPT_BF/emin_BF/8_8_44__9_9_33'
@@ -469,7 +431,7 @@ if __name__ == '__main__':
     # path = 'test/stowfn/ar/HF/QZ4P/'
     # path = 'test/stowfn/kr/HF/QZ4P/'
     # path = 'test/stowfn/o3/HF/QZ4P/'
-    path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__9_9_00/'
+    # path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__9_9_00/'
 
     casino = Casino(path)
     main(casino)

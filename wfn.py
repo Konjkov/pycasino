@@ -89,7 +89,14 @@ class Wfn:
         if self.jastrow is not None:
             j_g = self.jastrow.gradient(e_vectors, n_vectors, self.neu)
             j_l = self.jastrow.laplacian(e_vectors, n_vectors, self.neu)
-            s_g = self.slater.gradient(n_vectors, self.neu, self.ned) / s
+            if self.backflow is not None:
+                b_g = self.backflow.gradient(e_vectors, n_vectors, self.neu)
+                n_vectors += self.backflow.value(e_vectors, n_vectors, self.neu)
+                s_g = self.slater.gradient(n_vectors, self.neu, self.ned) / s
+                for j in range(s_g.shape[0]):
+                    s_g[j] += np.dot(b_g[j], s_g[j])
+            else:
+                s_g = self.slater.gradient(n_vectors, self.neu, self.ned) / s
             F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
             T = (np.sum(s_g * s_g) - s_l - j_l) / 4
             res += 2 * T - F
