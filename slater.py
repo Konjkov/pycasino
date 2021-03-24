@@ -285,19 +285,43 @@ class Slater:
 
         return res / delta / delta
 
-    def numerical_hessian(self, n_vectors, neu) -> float:
+    def numerical_hessian(self, n_vectors: np.ndarray, neu: int, ned: int):
         """Numerical hessian with respect to a e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param neu: number of up electrons
+        :param ned: number of down-electrons
         :return:
         """
-
         delta = 0.00001
 
-        res = np.zeros((n_vectors.shape[1], 3, n_vectors.shape[1], 3))
+        res = -2 * self.value(n_vectors, neu) * np.eye(n_vectors.shape[1] * 3).reshape(n_vectors.shape[1], 3, n_vectors.shape[1], 3)
+        for i in range(n_vectors.shape[1]):
+            for j in range(3):
+                n_vectors[:, i, j] -= 2 * delta
+                res[i, j, i, j] += self.value(n_vectors, neu)
+                n_vectors[:, i, j] += 4 * delta
+                res[i, j, i, j] += self.value(n_vectors, neu)
+                n_vectors[:, i, j] -= 2 * delta
 
-        return res / delta / delta
+        for i1 in range(n_vectors.shape[1] - 1):
+            for j1 in range(3):
+                for i2 in range(i1 + 1, n_vectors.shape[1]):
+                    for j2 in range(3):
+                        n_vectors[:, i1, j1] -= delta
+                        n_vectors[:, i2, j2] -= delta
+                        res[i1, j1, i2, j2] += self.value(n_vectors, neu)
+                        n_vectors[:, i1, j1] += 2 * delta
+                        res[i1, j1, i2, j2] -= self.value(n_vectors, neu)
+                        n_vectors[:, i2, j2] += 2 * delta
+                        res[i1, j1, i2, j2] += self.value(n_vectors, neu)
+                        n_vectors[:, i1, j1] -= 2 * delta
+                        res[i1, j1, i2, j2] += self.value(n_vectors, neu)
+                        n_vectors[:, i1, j1] += delta
+                        n_vectors[:, i2, j2] -= delta
+                        res[i2, j2, i1, j1] = res[i1, j1, i2, j2]
+
+        return res / delta / delta / 4
 
     def gradient(self, n_vectors: np.ndarray, neu: int, ned: int) -> np.ndarray:
         """Gradient ∇(phi).

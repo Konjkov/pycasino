@@ -95,14 +95,14 @@ class Wfn:
         n_vectors = -subtract_outer(self.atom_positions, r_e)
 
         if self.backflow is not None:
-            b_g = self.backflow.gradient(e_vectors, n_vectors, self.neu)
-            b_l = self.backflow.laplacian(e_vectors, n_vectors, self.neu)
+            b_g = self.backflow.numerical_gradient(e_vectors, n_vectors, self.neu)
+            b_l = self.backflow.numerical_laplacian(e_vectors, n_vectors, self.neu)
             slater_n_vectors = n_vectors + self.backflow.value(e_vectors, n_vectors, self.neu)
             s_v = self.slater.value(slater_n_vectors, self.neu)
             s_g = self.slater.gradient(slater_n_vectors, self.neu, self.ned) / s_v
             s_l = self.slater.laplacian(slater_n_vectors, self.neu, self.ned) / s_v
-            s_h = self.slater.hessian(slater_n_vectors, self.neu, self.ned)
-            s_l += np.trace(s_h.reshape(s_g.size, s_g.size)) + np.sum(s_g * b_l)
+            s_h = self.slater.numerical_hessian(slater_n_vectors, self.neu, self.ned) / s_v
+            s_l = np.trace(s_h.reshape(s_g.size, s_g.size)) + np.sum(s_g * b_l)
             res = coulomb(e_vectors, slater_n_vectors, self.atom_charges)
             if self.jastrow is not None:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors, self.neu)
