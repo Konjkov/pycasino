@@ -203,7 +203,7 @@ class Backflow:
             d eta_z/dx, d eta_z/dy, d eta_z/dz
         for every electron
         """
-        res = np.zeros((e_vectors.shape[0], 3, 3))
+        res = np.zeros((e_vectors.shape[0], 3, e_vectors.shape[0], 3))
         if not self.eta_cutoff.any():
             return res
 
@@ -221,7 +221,7 @@ class Backflow:
             d mu_z/dx, d mu_z/dy, d mu_z/dz
         for every electron
         """
-        res = np.zeros((e_vectors.shape[0], 3, 3))
+        res = np.zeros((e_vectors.shape[0], 3, e_vectors.shape[0], 3))
         if not self.mu_cutoff.any():
             return res
 
@@ -229,17 +229,12 @@ class Backflow:
 
     def phi_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors, neu):
         """
-        https://towardsdatascience.com/step-by-step-the-math-behind-neural-networks-d002440227fb
         :param e_powers:
         :param e_vectors:
         :param neu:
         :return: partial derivatives of displacements of electrons - array(nelec, 3, 3):
-            d mu_x/dx, d mu_x/dy, d mu_x/dz
-            d mu_y/dx, d mu_y/dy, d mu_y/dz
-            d mu_z/dx, d mu_z/dy, d mu_z/dz
-        for every electron
         """
-        res = np.zeros((e_vectors.shape[0], 3, 3))
+        res = np.zeros((e_vectors.shape[0], 3, e_vectors.shape[0], 3))
         if not self.mu_cutoff.any():
             return res
 
@@ -252,7 +247,7 @@ class Backflow:
         :param neu:
         :return:
         """
-        res = np.zeros((e_vectors.shape[0], 3, 3))
+        res = np.zeros((e_vectors.shape[0], 3))
         if not self.eta_cutoff.any():
             return res
 
@@ -284,7 +279,7 @@ class Backflow:
         """
         delta = 0.00001
 
-        res = np.zeros((e_vectors.shape[0], 3, 3))
+        res = np.zeros((e_vectors.shape[0], 3, e_vectors.shape[0], 3))
 
         for i in range(e_vectors.shape[0]):
             for j in range(3):
@@ -311,12 +306,26 @@ class Backflow:
         """
         delta = 0.00001
 
-        res = 0
+        res = -6 * e_vectors.shape[0] * self.value(e_vectors, n_vectors, neu)
+        for i in range(e_vectors.shape[0]):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+                res += self.value(e_vectors, n_vectors, neu)
+                e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
+                n_vectors[:, i, j] += 2 * delta
+                res += self.value(e_vectors, n_vectors, neu)
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
 
         return res / delta / delta
 
     def gradient(self, e_vectors, n_vectors, neu):
         """Gradient with respect to e-coordinates
+        https://towardsdatascience.com/step-by-step-the-math-behind-neural-networks-d002440227fb
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param neu: number of up electrons
@@ -333,6 +342,7 @@ class Backflow:
 
     def laplacian(self, e_vectors, n_vectors, neu):
         """Laplacian with respect to e-coordinates
+        https://math.stackexchange.com/questions/247916/composition-rule-for-laplacian
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param neu: number of up electrons

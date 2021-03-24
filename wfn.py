@@ -78,28 +78,52 @@ class Wfn:
     def energy(self, r_e) -> float:
         """Local energy.
         :param r_e: electron coordinates - array(nelec, 3)
-        :return:
+
+        if f is a scalar multivariable function and a is a vector multivariable function then:
+
+        gradient composition rule:
+        ∇(f ○ a) = (∇f ○ a) * ∇a
+        where ∇a is a Jacobian matrix.
+
+        laplacian composition rule
+        Δ(f ○ a) = ∇((∇f ○ a) * ∇a) = ∇(∇f ○ a) * ∇a + (∇f ○ a) * ∇²a = tr((∇²f ○ a) * ∇a * ∇a) + (∇f ○ a) * Δa
+        where ∇²f is a hessian
+
+        :return: local energy
         """
         e_vectors = subtract_outer(r_e, r_e)
         n_vectors = -subtract_outer(self.atom_positions, r_e)
 
-        s = self.slater.value(n_vectors, self.neu)
-        s_l = self.slater.laplacian(n_vectors, self.neu, self.ned) / s
-        res = coulomb(e_vectors, n_vectors, self.atom_charges)
-        if self.jastrow is not None:
-            j_g = self.jastrow.gradient(e_vectors, n_vectors, self.neu)
-            j_l = self.jastrow.laplacian(e_vectors, n_vectors, self.neu)
-            if self.backflow is not None:
-                b_g = self.backflow.gradient(e_vectors, n_vectors, self.neu)
-                n_vectors += self.backflow.value(e_vectors, n_vectors, self.neu)
-                s_g = self.slater.gradient(n_vectors, self.neu, self.ned) / s
-                for j in range(s_g.shape[0]):
-                    s_g[j] += np.dot(b_g[j], s_g[j])
+        if self.backflow is not None:
+            b_g = self.backflow.gradient(e_vectors, n_vectors, self.neu)
+            b_l = self.backflow.laplacian(e_vectors, n_vectors, self.neu)
+            slater_n_vectors = n_vectors + self.backflow.value(e_vectors, n_vectors, self.neu)
+            s_v = self.slater.value(slater_n_vectors, self.neu)
+            s_g = self.slater.gradient(slater_n_vectors, self.neu, self.ned) / s_v
+            s_l = self.slater.laplacian(slater_n_vectors, self.neu, self.ned) / s_v
+            s_h = self.slater.hessian(slater_n_vectors, self.neu, self.ned)
+            s_l += np.trace(s_h.reshape(s_g.size, s_g.size)) + np.sum(s_g * b_l)
+            res = coulomb(e_vectors, slater_n_vectors, self.atom_charges)
+            if self.jastrow is not None:
+                j_g = self.jastrow.gradient(e_vectors, n_vectors, self.neu)
+                j_l = self.jastrow.laplacian(e_vectors, n_vectors, self.neu)
+                s_g += np.dot(b_g.reshape(s_g.size, s_g.size), s_g.ravel()).reshape(*s_g.shape)
+                F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
+                T = (np.sum(s_g * s_g) - s_l - j_l) / 4
+                res += 2 * T - F
             else:
-                s_g = self.slater.gradient(n_vectors, self.neu, self.ned) / s
-            F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
-            T = (np.sum(s_g * s_g) - s_l - j_l) / 4
-            res += 2 * T - F
+                res -= s_l / 2
         else:
-            res -= s_l / 2
+            s_v = self.slater.value(n_vectors, self.neu)
+            s_l = self.slater.laplacian(n_vectors, self.neu, self.ned) / s_v
+            res = coulomb(e_vectors, n_vectors, self.atom_charges)
+            if self.jastrow is not None:
+                j_g = self.jastrow.gradient(e_vectors, n_vectors, self.neu)
+                j_l = self.jastrow.laplacian(e_vectors, n_vectors, self.neu)
+                s_g = self.slater.gradient(n_vectors, self.neu, self.ned) / s_v
+                F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
+                T = (np.sum(s_g * s_g) - s_l - j_l) / 4
+                res += 2 * T - F
+            else:
+                res -= s_l / 2
         return res

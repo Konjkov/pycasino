@@ -532,7 +532,7 @@ class Jastrow:
         """
         delta = 0.00001
 
-        res = -2 * e_vectors.shape[0] * 3 * self.value(e_vectors, n_vectors, neu)
+        res = -6 * e_vectors.shape[0] * self.value(e_vectors, n_vectors, neu)
         for i in range(e_vectors.shape[0]):
             for j in range(3):
                 e_vectors[i, :, j] -= delta

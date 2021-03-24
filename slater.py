@@ -248,7 +248,7 @@ class Slater:
         return res
 
     def numerical_gradient(self, n_vectors: np.ndarray, neu: int, ned: int) -> float:
-        """Numerical gradient for testing purposes
+        """Numerical gradient with respect to a e-coordinates
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :param neu: number of up-electrons
         :param ned: number of down-electrons
@@ -267,14 +267,14 @@ class Slater:
         return res / delta / 2
 
     def numerical_laplacian(self, n_vectors: np.ndarray, neu: int, ned: int) -> float:
-        """Numerical laplacian for testing purposes
+        """Numerical laplacian with respect to a e-coordinates
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :param neu: number of up-electrons
         :param ned: number of down-electrons
         """
         delta = 0.00001
 
-        res = 0.0
+        res = - 6 * n_vectors.shape[1] * self.value(n_vectors, neu)
         for i in range(n_vectors.shape[1]):
             for j in range(3):
                 n_vectors[:, i, j] -= delta
@@ -282,12 +282,25 @@ class Slater:
                 n_vectors[:, i, j] += 2 * delta
                 res += self.value(n_vectors, neu)
                 n_vectors[:, i, j] -= delta
-        res -= 6 * n_vectors.shape[1] * self.value(n_vectors, neu)
+
+        return res / delta / delta
+
+    def numerical_hessian(self, n_vectors, neu) -> float:
+        """Numerical hessian with respect to a e-coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :param neu: number of up electrons
+        :return:
+        """
+
+        delta = 0.00001
+
+        res = np.zeros((n_vectors.shape[1], 3, n_vectors.shape[1], 3))
 
         return res / delta / delta
 
     def gradient(self, n_vectors: np.ndarray, neu: int, ned: int) -> np.ndarray:
-        """∇(phi).
+        """Gradient ∇(phi).
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :param neu: number of up-electrons
         :param ned: number of down-electrons
@@ -326,7 +339,7 @@ class Slater:
         return res
 
     def laplacian(self, n_vectors: np.ndarray, neu: int, ned: int) -> float:
-        """∇²(phi).
+        """Scalar laplacian Δ(phi).
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :param neu: number of up-electrons
         :param ned: number of down-electrons
@@ -354,6 +367,16 @@ class Slater:
                 res_d += np.linalg.det(np.where(cond_d == j, lap_d, wfn_d))
 
             res += self.coeff[i] * (res_u * np.linalg.det(wfn_d) + res_d * np.linalg.det(wfn_u))
+
+        return res
+
+    def hessian(self, n_vectors: np.ndarray, neu: int, ned: int) -> float:
+        """Hessian.
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+        :param neu: number of up-electrons
+        :param ned: number of down-electrons
+        """
+        res = np.zeros((n_vectors.shape[1], 3, n_vectors.shape[1], 3))
 
         return res
 
