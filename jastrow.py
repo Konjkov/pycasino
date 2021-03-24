@@ -187,7 +187,7 @@ class Jastrow:
         for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
             for i in f_labels:
                 for j in range(n_powers.shape[1] - 1):
-                    for k in range(j+1, e_powers.shape[0]):
+                    for k in range(j + 1, e_powers.shape[0]):
                         r_e1I = n_powers[i, j, 1]
                         r_e2I = n_powers[i, k, 1]
                         if r_e1I <= L and r_e2I <= L:
@@ -210,7 +210,7 @@ class Jastrow:
         res = np.zeros((e_vectors.shape[0], 3))
 
         if not self.u_cutoff:
-            return res
+            return res.ravel()
 
         C = self.trunc
         L = self.u_cutoff
@@ -235,7 +235,7 @@ class Jastrow:
                     gradient = (C * (r-L) ** (C-1) * poly + (r-L) ** C * poly_diff) / r
                     res[i, :] += r_vec * gradient
                     res[j, :] -= r_vec * gradient
-        return res
+        return res.ravel()
 
     def chi_term_gradient(self, n_powers, n_vectors, neu):
         """Jastrow chi-term gradient with respect to a e-coordinates
@@ -247,7 +247,7 @@ class Jastrow:
         res = np.zeros((n_vectors.shape[1], 3))
 
         if not self.chi_cutoff.any():
-            return res
+            return res.ravel()
 
         C = self.trunc
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
@@ -266,7 +266,7 @@ class Jastrow:
 
                         gradient = (C * (r-L) ** (C-1) * poly + (r-L) ** C * poly_diff) / r
                         res[j, :] += r_vec * gradient
-        return res
+        return res.ravel()
 
     def f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors, neu):
         """Jastrow f-term gradient with respect to a e-coordinates
@@ -280,13 +280,13 @@ class Jastrow:
         res = np.zeros((e_vectors.shape[0], 3))
 
         if not self.f_cutoff.any():
-            return res
+            return res.ravel()
 
         C = self.trunc
         for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
             for i in f_labels:
                 for j in range(n_powers.shape[1] - 1):
-                    for k in range(j+1, e_powers.shape[0]):
+                    for k in range(j + 1, e_powers.shape[0]):
                         r_e1I_vec = n_vectors[i, j]
                         r_e2I_vec = n_vectors[i, k]
                         r_ee_vec = e_vectors[j, k]
@@ -323,7 +323,7 @@ class Jastrow:
                             gradient = (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_ee / r_ee
                             res[j, :] += r_ee_vec * gradient
                             res[k, :] -= r_ee_vec * gradient
-        return res
+        return res.ravel()
 
     def u_term_laplacian(self, e_powers, neu) -> float:
         """Jastrow u-term laplacian with respect to a e-coordinates
@@ -521,7 +521,7 @@ class Jastrow:
                 e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
 
-        return res / delta / 2
+        return res.ravel() / delta / 2
 
     def numerical_laplacian(self, e_vectors, n_vectors, neu) -> float:
         """Numerical laplacian with respect to a e-coordinates

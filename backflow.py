@@ -295,7 +295,7 @@ class Backflow:
                 e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
 
-        return res / delta / 2
+        return res.reshape(e_vectors.shape[0] * 3, e_vectors.shape[0] * 3) / delta / 2
 
     def numerical_laplacian(self, e_vectors, n_vectors, neu) -> float:
         """Numerical laplacian with respect to a e-coordinates
@@ -321,7 +321,7 @@ class Backflow:
                 e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
 
-        return res / delta / delta
+        return res.reshape(e_vectors.shape[0] * 3) / delta / delta
 
     def gradient(self, e_vectors, n_vectors, neu):
         """Gradient with respect to e-coordinates

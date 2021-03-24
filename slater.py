@@ -264,7 +264,7 @@ class Slater:
                 res[i, j] += self.value(n_vectors, neu)
                 n_vectors[:, i, j] -= delta
 
-        return res / delta / 2
+        return res.ravel() / delta / 2
 
     def numerical_laplacian(self, n_vectors: np.ndarray, neu: int, ned: int) -> float:
         """Numerical laplacian with respect to a e-coordinates
@@ -316,12 +316,12 @@ class Slater:
                         n_vectors[:, i2, j2] += 2 * delta
                         res[i1, j1, i2, j2] += self.value(n_vectors, neu)
                         n_vectors[:, i1, j1] -= 2 * delta
-                        res[i1, j1, i2, j2] += self.value(n_vectors, neu)
+                        res[i1, j1, i2, j2] -= self.value(n_vectors, neu)
                         n_vectors[:, i1, j1] += delta
                         n_vectors[:, i2, j2] -= delta
                         res[i2, j2, i1, j1] = res[i1, j1, i2, j2]
 
-        return res / delta / delta / 4
+        return res.reshape((neu + ned) * 3, (neu + ned) * 3) / delta / delta / 4
 
     def gradient(self, n_vectors: np.ndarray, neu: int, ned: int) -> np.ndarray:
         """Gradient ∇(phi).
@@ -360,7 +360,7 @@ class Slater:
 
             res += self.coeff[i] * np.concatenate((res_u * np.linalg.det(wfn_d), res_d * np.linalg.det(wfn_u)))
 
-        return res
+        return res.ravel()
 
     def laplacian(self, n_vectors: np.ndarray, neu: int, ned: int) -> float:
         """Scalar laplacian Δ(phi).
@@ -402,7 +402,7 @@ class Slater:
         """
         res = np.zeros((n_vectors.shape[1], 3, n_vectors.shape[1], 3))
 
-        return res
+        return res.reshape((neu + ned) * 3, (neu + ned) * 3)
 
 
 @nb.jit(nopython=True)
