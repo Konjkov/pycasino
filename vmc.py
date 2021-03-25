@@ -219,17 +219,20 @@ class VMC:
 
     def __init__(self, casino):
         self.slater = Slater(
+            casino.input.neu, casino.input.ned,
             casino.wfn.nbasis_functions, casino.wfn.first_shells, casino.wfn.orbital_types, casino.wfn.shell_moments,
             casino.wfn.slater_orders, casino.wfn.primitives, casino.wfn.coefficients, casino.wfn.exponents,
             casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
         )
         self.jastrow = casino.jastrow and Jastrow(
+            casino.input.neu, casino.input.ned,
             casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_mask, casino.jastrow.u_cutoff,
             casino.jastrow.chi_parameters, casino.jastrow.chi_mask, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
             casino.jastrow.f_parameters, casino.jastrow.f_mask, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
             casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp
         )
         self.backflow = casino.backflow and Backflow(
+            casino.input.neu, casino.input.ned,
             casino.backflow.trunc, casino.backflow.eta_parameters, casino.backflow.eta_cutoff,
             casino.backflow.mu_parameters, casino.backflow.mu_cutoff, casino.backflow.mu_labels,
             casino.backflow.phi_parameters, casino.backflow.theta_parameters, casino.backflow.phi_cutoff,
@@ -404,7 +407,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term_test/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
     # path = 'test/gwfn/be/HF/def2-QZVP/VMC_OPT_BF/emin_BF/8_8_44__9_9_33'
@@ -431,7 +434,7 @@ if __name__ == '__main__':
     # path = 'test/stowfn/ar/HF/QZ4P/'
     # path = 'test/stowfn/kr/HF/QZ4P/'
     # path = 'test/stowfn/o3/HF/QZ4P/'
-    path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__9_9_00/'
+    # path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__9_9_00/'
 
     casino = Casino(path)
     main(casino)

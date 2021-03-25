@@ -16,6 +16,8 @@ theta_parameters_type = nb.float64[:, :, :, :]
 
 
 spec = [
+    ('neu', nb.int64),
+    ('ned', nb.int64),
     ('trunc', nb.int64),
     ('eta_parameters', eta_parameters_type),
     ('mu_parameters', nb.types.ListType(mu_parameters_type)),
@@ -36,9 +38,11 @@ spec = [
 class Backflow:
 
     def __init__(
-        self, trunc, eta_parameters, eta_cutoff, mu_parameters, mu_cutoff, mu_labels, phi_parameters,
+        self, neu, ned, trunc, eta_parameters, eta_cutoff, mu_parameters, mu_cutoff, mu_labels, phi_parameters,
         theta_parameters, phi_cutoff, phi_labels, phi_irrotational
     ):
+        self.neu = neu
+        self.ned = ned
         self.trunc = trunc
         self.eta_parameters = eta_parameters
         self.mu_parameters = nb.typed.List.empty_list(mu_parameters_type)
@@ -90,11 +94,10 @@ class Backflow:
                     res[i, j, k] = r_eI ** k
         return res
 
-    def eta_term(self, e_vectors, e_powers, neu):
+    def eta_term(self, e_vectors, e_powers):
         """
         :param e_vectors:
         :param e_powers:
-        :param neu:
         :return: displacements of electrons - array(nelec, 3)
         """
         res = np.zeros((e_vectors.shape[0], 3))
@@ -107,7 +110,7 @@ class Backflow:
             for j in range(i + 1, e_powers.shape[1]):
                 r_vec = e_vectors[i, j]
                 r = e_powers[i, j, 1]
-                eta_set = (int(i >= neu) + int(j >= neu))
+                eta_set = (int(i >= self.neu) + int(j >= self.neu))
                 eta_set = eta_set % parameters.shape[1]
                 # I don't think it works fast if NO SPIN-DEP
                 L = self.eta_cutoff[eta_set] or self.eta_cutoff[0]
@@ -120,11 +123,10 @@ class Backflow:
                     res[j] -= bf
         return res
 
-    def mu_term(self, n_vectors, n_powers, neu):
+    def mu_term(self, n_vectors, n_powers):
         """
         :param n_vectors:
         :param n_powers:
-        :param neu:
         :return: displacements of electrons - array(nelec, 3)
         """
         res = np.zeros((n_vectors.shape[1], 3))
@@ -138,20 +140,19 @@ class Backflow:
                     r_vec = n_vectors[i, j]
                     r = n_powers[i, j, 1]
                     if r <= L:
-                        mu_set = int(j >= neu) % parameters.shape[1]
+                        mu_set = int(j >= self.neu) % parameters.shape[1]
                         poly = 0.0
                         for k in range(parameters.shape[0]):
                             poly += parameters[k, mu_set] * n_powers[i, j, k]
                         res[j] += poly * (1 - r/L) ** C * r_vec
         return res
 
-    def phi_term(self, e_vectors, n_vectors, e_powers, n_powers, neu):
+    def phi_term(self, e_vectors, n_vectors, e_powers, n_powers):
         """
         :param e_vectors:
         :param n_vectors:
         :param e_powers:
         :param n_powers:
-        :param neu:
         :return: displacements of electrons - array(nelec, 3)
         """
         res = np.zeros((e_vectors.shape[0], 3))
@@ -169,7 +170,7 @@ class Backflow:
                         r_e1I = n_powers[i, j, 1]
                         r_e2I = n_powers[i, k, 1]
                         if r_e1I <= L and r_e2I <= L:
-                            phi_set = (int(j >= neu) + int(k >= neu)) % parameters.shape[3]
+                            phi_set = (int(j >= self.neu) + int(k >= self.neu)) % parameters.shape[3]
                             poly = 0.0
                             for l in range(parameters.shape[0]):
                                 for m in range(parameters.shape[1]):
@@ -191,12 +192,10 @@ class Backflow:
 
         return res
 
-    def eta_term_gradient(self, e_powers, e_vectors, neu):
+    def eta_term_gradient(self, e_powers, e_vectors):
         """
-        https://towardsdatascience.com/step-by-step-the-math-behind-neural-networks-d002440227fb
         :param e_powers:
         :param e_vectors:
-        :param neu:
         :return: partial derivatives of displacements of electrons - array(nelec, 3, 3):
             d eta_x/dx, d eta_x/dy, d eta_x/dz
             d eta_y/dx, d eta_y/dy, d eta_y/dz
@@ -209,12 +208,10 @@ class Backflow:
 
         return res
 
-    def mu_term_gradient(self, e_powers, e_vectors, neu):
+    def mu_term_gradient(self, e_powers, e_vectors):
         """
-        https://towardsdatascience.com/step-by-step-the-math-behind-neural-networks-d002440227fb
         :param e_powers:
         :param e_vectors:
-        :param neu:
         :return: partial derivatives of displacements of electrons - array(nelec, 3, 3):
             d mu_x/dx, d mu_x/dy, d mu_x/dz
             d mu_y/dx, d mu_y/dy, d mu_y/dz
@@ -227,11 +224,10 @@ class Backflow:
 
         return res
 
-    def phi_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors, neu):
+    def phi_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
         """
         :param e_powers:
         :param e_vectors:
-        :param neu:
         :return: partial derivatives of displacements of electrons - array(nelec, 3, 3):
         """
         res = np.zeros((e_vectors.shape[0], 3, e_vectors.shape[0], 3))
@@ -240,11 +236,10 @@ class Backflow:
 
         return res
 
-    def eta_term_laplacian(self, e_powers, e_vectors, neu):
+    def eta_term_laplacian(self, e_powers, e_vectors):
         """
         :param e_powers:
         :param e_vectors:
-        :param neu:
         :return:
         """
         res = np.zeros((e_vectors.shape[0], 3))
@@ -253,11 +248,10 @@ class Backflow:
 
         return res
 
-    def value(self, e_vectors, n_vectors, neu):
+    def value(self, e_vectors, n_vectors):
         """Backflow displacemets
         :param e_vectors:
         :param n_vectors:
-        :param neu:
         :return:
         """
 
@@ -265,96 +259,90 @@ class Backflow:
         n_powers = self.en_powers(n_vectors)
 
         return (
-            self.eta_term(e_vectors, e_powers, neu) +
-            self.mu_term(n_vectors, n_powers, neu) +
-            self.phi_term(e_vectors, n_vectors, e_powers, n_powers, neu)
+            self.eta_term(e_vectors, e_powers) +
+            self.mu_term(n_vectors, n_powers) +
+            self.phi_term(e_vectors, n_vectors, e_powers, n_powers)
         )
 
-    def numerical_gradient(self, e_vectors, n_vectors, neu):
+    def numerical_gradient(self, e_vectors, n_vectors):
         """Numerical gradient with respect to a e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
-        :param neu:
         :return:
         """
         delta = 0.00001
 
-        res = np.zeros((e_vectors.shape[0], 3, e_vectors.shape[0], 3))
+        res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
 
-        for i in range(e_vectors.shape[0]):
+        for i in range(self.neu + self.ned):
             for j in range(3):
                 e_vectors[i, :, j] -= delta
                 e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
-                res[i, j] -= self.value(e_vectors, n_vectors, neu)
+                res[i, j] -= self.value(e_vectors, n_vectors)
                 e_vectors[i, :, j] += 2 * delta
                 e_vectors[:, i, j] -= 2 * delta
                 n_vectors[:, i, j] += 2 * delta
-                res[i, j] += self.value(e_vectors, n_vectors, neu)
+                res[i, j] += self.value(e_vectors, n_vectors)
                 e_vectors[i, :, j] -= delta
                 e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
 
-        return res.reshape(e_vectors.shape[0] * 3, e_vectors.shape[0] * 3) / delta / 2
+        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
 
-    def numerical_laplacian(self, e_vectors, n_vectors, neu) -> float:
+    def numerical_laplacian(self, e_vectors, n_vectors) -> float:
         """Numerical laplacian with respect to a e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
-        :param neu: number of up electrons
         :return:
         """
         delta = 0.00001
 
-        res = -6 * e_vectors.shape[0] * self.value(e_vectors, n_vectors, neu)
-        for i in range(e_vectors.shape[0]):
+        res = -6 * (self.neu + self.ned) * self.value(e_vectors, n_vectors)
+        for i in range(self.neu + self.ned):
             for j in range(3):
                 e_vectors[i, :, j] -= delta
                 e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
-                res += self.value(e_vectors, n_vectors, neu)
+                res += self.value(e_vectors, n_vectors)
                 e_vectors[i, :, j] += 2 * delta
                 e_vectors[:, i, j] -= 2 * delta
                 n_vectors[:, i, j] += 2 * delta
-                res += self.value(e_vectors, n_vectors, neu)
+                res += self.value(e_vectors, n_vectors)
                 e_vectors[i, :, j] -= delta
                 e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
 
-        return res.reshape(e_vectors.shape[0] * 3) / delta / delta
+        return res.ravel() / delta / delta
 
-    def gradient(self, e_vectors, n_vectors, neu):
+    def gradient(self, e_vectors, n_vectors):
         """Gradient with respect to e-coordinates
-        https://towardsdatascience.com/step-by-step-the-math-behind-neural-networks-d002440227fb
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
-        :param neu: number of up electrons
         :return:
         """
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
         return (
-            self.eta_term_gradient(e_powers, e_vectors, neu) +
-            self.mu_term_gradient(n_powers, n_vectors, neu) +
-            self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors, neu)
+            self.eta_term_gradient(e_powers, e_vectors) +
+            self.mu_term_gradient(n_powers, n_vectors) +
+            self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
         )
 
-    def laplacian(self, e_vectors, n_vectors, neu):
+    def laplacian(self, e_vectors, n_vectors):
         """Laplacian with respect to e-coordinates
-        https://math.stackexchange.com/questions/247916/composition-rule-for-laplacian
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
-        :param neu: number of up electrons
         :return:
         """
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
         return (
-            self.eta_term_laplacian(e_powers, e_vectors, neu)
-            # self.mu_term_laplacian(n_powers, n_vectors, neu) +
-            # self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors, neu)
+            self.eta_term_laplacian(e_powers, e_vectors)
+            # self.mu_term_laplacian(n_powers, n_vectors) +
+            # self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
         )
 
     def fix_phi_parameters(self):
@@ -431,6 +419,7 @@ if __name__ == '__main__':
 
     casino = Casino(path)
     backflow = Backflow(
+        casino.input.neu, casino.input.ned,
         casino.backflow.trunc, casino.backflow.eta_parameters, casino.backflow.eta_cutoff,
         casino.backflow.mu_parameters, casino.backflow.mu_cutoff, casino.backflow.mu_labels,
         casino.backflow.phi_parameters, casino.backflow.theta_parameters, casino.backflow.phi_cutoff,

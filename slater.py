@@ -100,6 +100,8 @@ def gradient_angular_part(r):
 
 
 spec = [
+    ('neu', nb.int64),
+    ('ned', nb.int64),
     ('nbasis_functions', nb.int64),
     ('first_shells', nb.int64[:]),
     ('orbital_types', nb.int64[:]),
@@ -117,7 +119,27 @@ spec = [
 @nb.experimental.jitclass(spec)
 class Slater:
 
-    def __init__(self, nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders, primitives, coefficients, exponents, mo_up, mo_down, coeff):
+    def __init__(
+        self, neu, ned,
+        nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders, primitives, coefficients, exponents, mo_up, mo_down, coeff
+    ):
+        """
+        :param neu: number of up electrons
+        :param ned: number of down electrons
+        :param nbasis_functions:
+        :param first_shells:
+        :param orbital_types:
+        :param shell_moments:
+        :param slater_orders:
+        :param primitives:
+        :param coefficients:
+        :param exponents:
+        :param mo_up:
+        :param mo_down:
+        :param coeff:
+        """
+        self.neu = neu
+        self.ned = ned
         self.nbasis_functions = nbasis_functions
         self.first_shells = first_shells
         self.orbital_types = orbital_types
@@ -235,125 +257,116 @@ class Slater:
                     ao += 2*l+1
         return orbital
 
-    def value(self, n_vectors: np.ndarray, neu: int) -> float:
+    def value(self, n_vectors: np.ndarray) -> float:
         """Multideterminant wave function value.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        :param neu: number of up-electrons
         """
         ao = self.AO_wfn(n_vectors)
 
         res = 0.0
         for i in range(self.coeff.shape[0]):
-            res += self.coeff[i] * np.linalg.det(np.dot(self.mo_up[i], ao[:neu].T)) * np.linalg.det(np.dot(self.mo_down[i], ao[neu:].T))
+            res += self.coeff[i] * np.linalg.det(np.dot(self.mo_up[i], ao[:self.neu].T)) * np.linalg.det(np.dot(self.mo_down[i], ao[self.neu:].T))
         return res
 
-    def numerical_gradient(self, n_vectors: np.ndarray, neu: int, ned: int) -> float:
+    def numerical_gradient(self, n_vectors: np.ndarray) -> float:
         """Numerical gradient with respect to a e-coordinates
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        :param neu: number of up-electrons
-        :param ned: number of down-electrons
         """
         delta = 0.00001
 
-        res = np.zeros((n_vectors.shape[1], 3))
-        for i in range(n_vectors.shape[1]):
+        res = np.zeros((self.neu + self.ned, 3))
+        for i in range(self.neu + self.ned):
             for j in range(3):
                 n_vectors[:, i, j] -= delta
-                res[i, j] -= self.value(n_vectors, neu)
+                res[i, j] -= self.value(n_vectors)
                 n_vectors[:, i, j] += 2 * delta
-                res[i, j] += self.value(n_vectors, neu)
+                res[i, j] += self.value(n_vectors)
                 n_vectors[:, i, j] -= delta
 
         return res.ravel() / delta / 2
 
-    def numerical_laplacian(self, n_vectors: np.ndarray, neu: int, ned: int) -> float:
+    def numerical_laplacian(self, n_vectors: np.ndarray) -> float:
         """Numerical laplacian with respect to a e-coordinates
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        :param neu: number of up-electrons
-        :param ned: number of down-electrons
         """
         delta = 0.00001
 
-        res = - 6 * n_vectors.shape[1] * self.value(n_vectors, neu)
-        for i in range(n_vectors.shape[1]):
+        res = - 6 * (self.neu + self.ned) * self.value(n_vectors)
+        for i in range(self.neu + self.ned):
             for j in range(3):
                 n_vectors[:, i, j] -= delta
-                res += self.value(n_vectors, neu)
+                res += self.value(n_vectors)
                 n_vectors[:, i, j] += 2 * delta
-                res += self.value(n_vectors, neu)
+                res += self.value(n_vectors)
                 n_vectors[:, i, j] -= delta
 
         return res / delta / delta
 
-    def numerical_hessian(self, n_vectors: np.ndarray, neu: int, ned: int):
+    def numerical_hessian(self, n_vectors: np.ndarray):
         """Numerical hessian with respect to a e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
-        :param neu: number of up electrons
-        :param ned: number of down-electrons
         :return:
         """
         delta = 0.00001
 
-        res = -2 * self.value(n_vectors, neu) * np.eye(n_vectors.shape[1] * 3).reshape(n_vectors.shape[1], 3, n_vectors.shape[1], 3)
-        for i in range(n_vectors.shape[1]):
+        res = -2 * self.value(n_vectors) * np.eye((self.neu + self.ned) * 3).reshape(self.neu + self.ned, 3, self.neu + self.ned, 3)
+        for i in range(self.neu + self.ned):
             for j in range(3):
                 n_vectors[:, i, j] -= 2 * delta
-                res[i, j, i, j] += self.value(n_vectors, neu)
+                res[i, j, i, j] += self.value(n_vectors)
                 n_vectors[:, i, j] += 4 * delta
-                res[i, j, i, j] += self.value(n_vectors, neu)
+                res[i, j, i, j] += self.value(n_vectors)
                 n_vectors[:, i, j] -= 2 * delta
 
-        for i1 in range(n_vectors.shape[1] - 1):
+        for i1 in range(self.neu + self.ned - 1):
             for j1 in range(3):
-                for i2 in range(i1 + 1, n_vectors.shape[1]):
+                for i2 in range(i1 + 1, self.neu + self.ned):
                     for j2 in range(3):
                         n_vectors[:, i1, j1] -= delta
                         n_vectors[:, i2, j2] -= delta
-                        res[i1, j1, i2, j2] += self.value(n_vectors, neu)
+                        res[i1, j1, i2, j2] += self.value(n_vectors)
                         n_vectors[:, i1, j1] += 2 * delta
-                        res[i1, j1, i2, j2] -= self.value(n_vectors, neu)
+                        res[i1, j1, i2, j2] -= self.value(n_vectors)
                         n_vectors[:, i2, j2] += 2 * delta
-                        res[i1, j1, i2, j2] += self.value(n_vectors, neu)
+                        res[i1, j1, i2, j2] += self.value(n_vectors)
                         n_vectors[:, i1, j1] -= 2 * delta
-                        res[i1, j1, i2, j2] -= self.value(n_vectors, neu)
+                        res[i1, j1, i2, j2] -= self.value(n_vectors)
                         n_vectors[:, i1, j1] += delta
                         n_vectors[:, i2, j2] -= delta
                         res[i2, j2, i1, j1] = res[i1, j1, i2, j2]
 
-        return res.reshape((neu + ned) * 3, (neu + ned) * 3) / delta / delta / 4
+        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / delta / 4
 
-    def gradient(self, n_vectors: np.ndarray, neu: int, ned: int) -> np.ndarray:
+    def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient ∇(phi).
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        :param neu: number of up-electrons
-        :param ned: number of down-electrons
 
         As numba overloaded function 'dot' only supported on 1-D and 2-D arrays,
         so I use list of 2-D arrays (gradient_x, gradient_y, gradient_z) to represent gradient.
         """
         ao = self.AO_wfn(n_vectors)
         gradient_x, gradient_y, gradient_z = self.AO_gradient(n_vectors)
-        cond_u = np.arange(neu) * np.ones((neu, neu))
-        cond_d = np.arange(ned) * np.ones((ned, ned))
+        cond_u = np.arange(self.neu) * np.ones((self.neu, self.neu))
+        cond_d = np.arange(self.ned) * np.ones((self.ned, self.ned))
 
-        res = np.zeros((neu + ned, 3))
+        res = np.zeros((self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
 
-            wfn_u = np.dot(self.mo_up[i], ao[:neu].T)
-            grad_x, grad_y, grad_z = np.dot(self.mo_up[i], gradient_x[:neu].T), np.dot(self.mo_up[i], gradient_y[:neu].T), np.dot(self.mo_up[i], gradient_z[:neu].T)
+            wfn_u = np.dot(self.mo_up[i], ao[:self.neu].T)
+            grad_x, grad_y, grad_z = np.dot(self.mo_up[i], gradient_x[:self.neu].T), np.dot(self.mo_up[i], gradient_y[:self.neu].T), np.dot(self.mo_up[i], gradient_z[:self.neu].T)
 
-            res_u = np.zeros((neu, 3))
-            for j in range(neu):
+            res_u = np.zeros((self.neu, 3))
+            for j in range(self.neu):
                 res_u[j, 0] = np.linalg.det(np.where(cond_u == j, grad_x, wfn_u))
                 res_u[j, 1] = np.linalg.det(np.where(cond_u == j, grad_y, wfn_u))
                 res_u[j, 2] = np.linalg.det(np.where(cond_u == j, grad_z, wfn_u))
 
-            wfn_d = np.dot(self.mo_down[i], ao[neu:].T)
-            grad_x, grad_y, grad_z = np.dot(self.mo_down[i], gradient_x[neu:].T), np.dot(self.mo_down[i], gradient_y[neu:].T), np.dot(self.mo_down[i], gradient_z[neu:].T)
+            wfn_d = np.dot(self.mo_down[i], ao[self.neu:].T)
+            grad_x, grad_y, grad_z = np.dot(self.mo_down[i], gradient_x[self.neu:].T), np.dot(self.mo_down[i], gradient_y[self.neu:].T), np.dot(self.mo_down[i], gradient_z[self.neu:].T)
 
-            res_d = np.zeros((ned, 3))
-            for j in range(ned):
+            res_d = np.zeros((self.ned, 3))
+            for j in range(self.ned):
                 res_d[j, 0] = np.linalg.det(np.where(cond_d == j, grad_x, wfn_d))
                 res_d[j, 1] = np.linalg.det(np.where(cond_d == j, grad_y, wfn_d))
                 res_d[j, 2] = np.linalg.det(np.where(cond_d == j, grad_z, wfn_d))
@@ -362,47 +375,43 @@ class Slater:
 
         return res.ravel()
 
-    def laplacian(self, n_vectors: np.ndarray, neu: int, ned: int) -> float:
+    def laplacian(self, n_vectors: np.ndarray) -> float:
         """Scalar laplacian Δ(phi).
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        :param neu: number of up-electrons
-        :param ned: number of down-electrons
         """
         ao = self.AO_wfn(n_vectors)
         ao_laplacian = self.AO_laplacian(n_vectors)
-        cond_u = np.arange(neu) * np.ones((neu, neu))
-        cond_d = np.arange(ned) * np.ones((ned, ned))
+        cond_u = np.arange(self.neu) * np.ones((self.neu, self.neu))
+        cond_d = np.arange(self.ned) * np.ones((self.ned, self.ned))
 
         res = 0
         for i in range(self.coeff.shape[0]):
 
-            wfn_u = np.dot(self.mo_up[i], ao[:neu].T)
-            lap_u = np.dot(self.mo_up[i], ao_laplacian[:neu].T)
+            wfn_u = np.dot(self.mo_up[i], ao[:self.neu].T)
+            lap_u = np.dot(self.mo_up[i], ao_laplacian[:self.neu].T)
 
             res_u = 0
-            for j in range(neu):
+            for j in range(self.neu):
                 res_u += np.linalg.det(np.where(cond_u == j, lap_u, wfn_u))
 
-            wfn_d = np.dot(self.mo_down[i], ao[neu:].T)
-            lap_d = np.dot(self.mo_down[i], ao_laplacian[neu:].T)
+            wfn_d = np.dot(self.mo_down[i], ao[self.neu:].T)
+            lap_d = np.dot(self.mo_down[i], ao_laplacian[self.neu:].T)
 
             res_d = 0
-            for j in range(ned):
+            for j in range(self.ned):
                 res_d += np.linalg.det(np.where(cond_d == j, lap_d, wfn_d))
 
             res += self.coeff[i] * (res_u * np.linalg.det(wfn_d) + res_d * np.linalg.det(wfn_u))
 
         return res
 
-    def hessian(self, n_vectors: np.ndarray, neu: int, ned: int) -> float:
+    def hessian(self, n_vectors: np.ndarray) -> float:
         """Hessian.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        :param neu: number of up-electrons
-        :param ned: number of down-electrons
         """
         res = np.zeros((n_vectors.shape[1], 3, n_vectors.shape[1], 3))
 
-        return res.reshape((neu + ned) * 3, (neu + ned) * 3)
+        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
 
 @nb.jit(nopython=True)
@@ -468,6 +477,7 @@ def main(casino):
     dX = 3.0
 
     slater = Slater(
+        casino.input.neu, casino.input.ned,
         casino.wfn.nbasis_functions, casino.wfn.first_shells, casino.wfn.orbital_types, casino.wfn.shell_moments,
         casino.wfn.slater_orders, casino.wfn.primitives, casino.wfn.coefficients, casino.wfn.exponents,
         casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
