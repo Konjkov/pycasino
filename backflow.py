@@ -67,6 +67,12 @@ class Backflow:
         self.mu_cutoff = mu_cutoff
         self.phi_cutoff = phi_cutoff
         self.phi_irrotational = phi_irrotational
+        if self.eta_cutoff.any():
+            self.fix_eta_parameters()
+        if self.mu_cutoff.any():
+            self.fix_mu_parameters()
+        if self.phi_cutoff.any():
+            self.fix_phi_parameters()
 
     def ee_powers(self, e_vectors):
         """Powers of e-e distances
@@ -94,6 +100,14 @@ class Backflow:
                     res[i, j, k] = r_eI ** k
         return res
 
+    def ae_cutoffs(self, n_vectors, n_powers):
+        """Zeroing the backflow displacement at AE atoms."""
+        L = 0.2
+        for i in n_vectors.shape[0]:
+            for j in range(self.neu + self.ned):
+                r = n_powers[i, j, 1]
+                res = (r/L)**2 * (6 - 8 * (r/L) + 3 * (r/L)**2)
+
     def eta_term(self, e_vectors, e_powers):
         """
         :param e_vectors:
@@ -106,15 +120,15 @@ class Backflow:
 
         C = self.trunc
         parameters = self.eta_parameters
-        for i in range(e_powers.shape[0] - 1):
-            for j in range(i + 1, e_powers.shape[1]):
+        for i in range(self.neu + self.ned - 1):
+            for j in range(i + 1, self.neu + self.ned):
                 r_vec = e_vectors[i, j]
                 r = e_powers[i, j, 1]
                 eta_set = (int(i >= self.neu) + int(j >= self.neu))
                 eta_set = eta_set % parameters.shape[1]
                 # I don't think it works fast if NO SPIN-DEP
                 L = self.eta_cutoff[eta_set] or self.eta_cutoff[0]
-                if r <= L:
+                if r < L:
                     poly = 0
                     for k in range(parameters.shape[0]):
                         poly += parameters[k, eta_set] * e_powers[i, j, k]
@@ -136,10 +150,10 @@ class Backflow:
         C = self.trunc
         for parameters, L, mu_labels in zip(self.mu_parameters, self.mu_cutoff, self.mu_labels):
             for i in mu_labels:
-                for j in range(n_powers.shape[1]):
+                for j in range(self.neu + self.ned):
                     r_vec = n_vectors[i, j]
                     r = n_powers[i, j, 1]
-                    if r <= L:
+                    if r < L:
                         mu_set = int(j >= self.neu) % parameters.shape[1]
                         poly = 0.0
                         for k in range(parameters.shape[0]):
@@ -162,14 +176,14 @@ class Backflow:
         C = self.trunc
         for parameters, L, phi_labels, phi_irrotational in zip(self.phi_parameters, self.phi_cutoff, self.phi_labels, self.phi_irrotational):
             for i in phi_labels:
-                for j in range(n_powers.shape[1] - 1):
-                    for k in range(j+1, e_powers.shape[0]):
+                for j in range(self.neu + self.ned - 1):
+                    for k in range(j + 1, self.neu + self.ned):
                         r_e1I_vec = n_vectors[i, j]
                         r_e2I_vec = n_vectors[i, k]
                         r_ee_vec = e_vectors[j, k]
                         r_e1I = n_powers[i, j, 1]
                         r_e2I = n_powers[i, k, 1]
-                        if r_e1I <= L and r_e2I <= L:
+                        if r_e1I < L and r_e2I < L:
                             phi_set = (int(j >= self.neu) + int(k >= self.neu)) % parameters.shape[3]
                             poly = 0.0
                             for l in range(parameters.shape[0]):
@@ -213,9 +227,6 @@ class Backflow:
         :param e_powers:
         :param e_vectors:
         :return: partial derivatives of displacements of electrons - array(nelec, 3, 3):
-            d mu_x/dx, d mu_x/dy, d mu_x/dz
-            d mu_y/dx, d mu_y/dy, d mu_y/dz
-            d mu_z/dx, d mu_z/dy, d mu_z/dz
         for every electron
         """
         res = np.zeros((e_vectors.shape[0], 3, e_vectors.shape[0], 3))
@@ -344,6 +355,16 @@ class Backflow:
             # self.mu_term_laplacian(n_powers, n_vectors) +
             # self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
         )
+
+    def fix_eta_parameters(self):
+        """Fix eta-term parameters"""
+        C = self.trunc
+        self.eta_parameters[1, 0] = C * self.eta_parameters[0, 0] / self.eta_cutoff[0]
+        if self.eta_parameters.shape[1] == 3:
+            self.eta_parameters[1, 2] = C * self.eta_parameters[0, 2] / self.eta_cutoff[2]
+
+    def fix_mu_parameters(self):
+        """Fix mu-term parameters"""
 
     def fix_phi_parameters(self):
         """Fix phi-term parameters

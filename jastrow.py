@@ -139,7 +139,7 @@ class Jastrow:
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
                 r = e_powers[i, j, 1]
-                if r <= self.u_cutoff:
+                if r < self.u_cutoff:
                     cusp_set = (int(i >= self.neu) + int(j >= self.neu))
                     u_set = cusp_set % parameters.shape[1]
                     poly = 0.0
@@ -166,7 +166,7 @@ class Jastrow:
             for i in chi_labels:
                 for j in range(n_powers.shape[1]):
                     r = n_powers[i, j, 1]
-                    if r <= L:
+                    if r < L:
                         chi_set = int(j >= self.neu) % parameters.shape[1]
                         poly = 0.0
                         for k in range(parameters.shape[0]):
@@ -191,7 +191,7 @@ class Jastrow:
                     for k in range(j + 1, e_powers.shape[0]):
                         r_e1I = n_powers[i, j, 1]
                         r_e2I = n_powers[i, k, 1]
-                        if r_e1I <= L and r_e2I <= L:
+                        if r_e1I < L and r_e2I < L:
                             f_set = (int(j >= self.neu) + int(k >= self.neu)) % parameters.shape[3]
                             poly = 0.0
                             for l in range(parameters.shape[0]):
@@ -219,7 +219,7 @@ class Jastrow:
             for j in range(i + 1, e_powers.shape[1]):
                 r_vec = e_vectors[i, j]
                 r = e_powers[i, j, 1]
-                if r <= L:
+                if r < L:
                     cusp_set = (int(i >= self.neu) + int(j >= self.neu))
                     u_set = cusp_set % parameters.shape[1]
                     poly = poly_diff = 0.0
@@ -254,7 +254,7 @@ class Jastrow:
                 for j in range(n_powers.shape[1]):
                     r_vec = n_vectors[i, j]
                     r = n_powers[i, j, 1]
-                    if r <= L:
+                    if r < L:
                         chi_set = int(j >= self.neu) % parameters.shape[1]
                         poly = poly_diff = 0.0
                         for k in range(parameters.shape[0]):
@@ -291,7 +291,7 @@ class Jastrow:
                         r_e1I = n_powers[i, j, 1]
                         r_e2I = n_powers[i, k, 1]
                         r_ee = e_powers[j, k, 1]
-                        if r_e1I <= L and r_e2I <= L:
+                        if r_e1I < L and r_e2I < L:
                             f_set = (int(j >= self.neu) + int(k >= self.neu)) % parameters.shape[3]
                             poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
                             for l in range(parameters.shape[0]):
@@ -338,7 +338,7 @@ class Jastrow:
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
                 r = e_powers[i, j, 1]
-                if r <= L:
+                if r < L:
                     cusp_set = (int(i >= self.neu) + int(j >= self.neu))
                     u_set = cusp_set % parameters.shape[1]
                     poly = poly_diff = poly_diff_2 = 0.0
@@ -374,7 +374,7 @@ class Jastrow:
             for i in chi_labels:
                 for j in range(n_powers.shape[1]):
                     r = n_powers[i, j, 1]
-                    if r <= L:
+                    if r < L:
                         chi_set = int(j >= self.neu) % parameters.shape[1]
                         poly = poly_diff = poly_diff_2 = 0.0
                         for k in range(parameters.shape[0]):
@@ -419,7 +419,7 @@ class Jastrow:
                         r_e1I = n_powers[i, j, 1]
                         r_e2I = n_powers[i, k, 1]
                         r_ee = e_powers[j, k, 1]
-                        if r_e1I <= L and r_e2I <= L:
+                        if r_e1I < L and r_e2I < L:
                             f_set = (int(j >= self.neu) + int(k >= self.neu)) % parameters.shape[3]
                             poly = poly_diff_e1I = poly_diff_e2I = 0.0
                             poly_diff_ee = poly_diff_e1I_2 = poly_diff_e2I_2 = 0.0

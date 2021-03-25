@@ -185,8 +185,7 @@ class Backflow:
         we constrain the parallel-spin η(rij) function to have zero derivative at rij = 0,
         while the antiparallel-spin η function may have a nonzero derivative"""
         mask = np.ones(parameters.shape, np.bool)
-        if parameters.shape[1] > 0:
-            mask[1, 0] = False
+        mask[1, 0] = False
         if parameters.shape[1] == 3:
             mask[1, 2] = False
         return mask
