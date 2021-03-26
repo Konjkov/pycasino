@@ -114,7 +114,7 @@ class Backflow:
         :param e_powers:
         :return: displacements of electrons - array(nelec, 3)
         """
-        res = np.zeros((e_vectors.shape[0], 3))
+        res = np.zeros((self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
             return res
 
@@ -132,7 +132,7 @@ class Backflow:
                     poly = 0
                     for k in range(parameters.shape[0]):
                         poly += parameters[k, eta_set] * e_powers[i, j, k]
-                    bf = (1-r/L) ** C * poly * r_vec
+                    bf = (1 - r/L) ** C * poly * r_vec
                     res[i] += bf
                     res[j] -= bf
         return res
@@ -143,7 +143,7 @@ class Backflow:
         :param n_powers:
         :return: displacements of electrons - array(nelec, 3)
         """
-        res = np.zeros((n_vectors.shape[1], 3))
+        res = np.zeros((self.neu + self.ned, 3))
         if not self.mu_cutoff.any():
             return res
 
@@ -158,7 +158,7 @@ class Backflow:
                         poly = 0.0
                         for k in range(parameters.shape[0]):
                             poly += parameters[k, mu_set] * n_powers[i, j, k]
-                        res[j] += poly * (1 - r/L) ** C * r_vec
+                        res[j] -= poly * (1 - r/L) ** C * r_vec
         return res
 
     def phi_term(self, e_vectors, n_vectors, e_powers, n_powers):
@@ -169,7 +169,7 @@ class Backflow:
         :param n_powers:
         :return: displacements of electrons - array(nelec, 3)
         """
-        res = np.zeros((e_vectors.shape[0], 3))
+        res = np.zeros((self.neu + self.ned, 3))
         if not self.phi_cutoff.any():
             return res
 
@@ -216,7 +216,7 @@ class Backflow:
             d eta_z/dx, d eta_z/dy, d eta_z/dz
         for every electron
         """
-        res = np.zeros((e_vectors.shape[0], 3, e_vectors.shape[0], 3))
+        res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
             return res
 
@@ -229,7 +229,7 @@ class Backflow:
         :return: partial derivatives of displacements of electrons - array(nelec, 3, 3):
         for every electron
         """
-        res = np.zeros((e_vectors.shape[0], 3, e_vectors.shape[0], 3))
+        res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.mu_cutoff.any():
             return res
 
@@ -241,7 +241,7 @@ class Backflow:
         :param e_vectors:
         :return: partial derivatives of displacements of electrons - array(nelec, 3, 3):
         """
-        res = np.zeros((e_vectors.shape[0], 3, e_vectors.shape[0], 3))
+        res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.mu_cutoff.any():
             return res
 
@@ -253,7 +253,7 @@ class Backflow:
         :param e_vectors:
         :return:
         """
-        res = np.zeros((e_vectors.shape[0], 3))
+        res = np.zeros((self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
             return res
 
@@ -359,9 +359,11 @@ class Backflow:
     def fix_eta_parameters(self):
         """Fix eta-term parameters"""
         C = self.trunc
-        self.eta_parameters[1, 0] = C * self.eta_parameters[0, 0] / self.eta_cutoff[0]
+        L = self.eta_cutoff[0]
+        self.eta_parameters[1, 0] = C * self.eta_parameters[0, 0] / L
         if self.eta_parameters.shape[1] == 3:
-            self.eta_parameters[1, 2] = C * self.eta_parameters[0, 2] / self.eta_cutoff[2]
+            L = self.eta_cutoff[2] or self.eta_cutoff[0]
+            self.eta_parameters[1, 2] = C * self.eta_parameters[0, 2] / L
 
     def fix_mu_parameters(self):
         """Fix mu-term parameters"""
