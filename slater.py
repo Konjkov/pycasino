@@ -319,10 +319,12 @@ class Slater:
                 res[i, j, i, j] += self.value(n_vectors)
                 n_vectors[:, i, j] -= 2 * delta
 
-        for i1 in range(self.neu + self.ned - 1):
+        for i1 in range(self.neu + self.ned):
             for j1 in range(3):
-                for i2 in range(i1 + 1, self.neu + self.ned):
+                for i2 in range(i1 + 1):
                     for j2 in range(3):
+                        if i1 == i2 and j1 >= j2:
+                            continue
                         n_vectors[:, i1, j1] -= delta
                         n_vectors[:, i2, j2] -= delta
                         res[i1, j1, i2, j2] += self.value(n_vectors)
