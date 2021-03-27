@@ -94,6 +94,8 @@ class Wfn:
         e_vectors = subtract_outer(r_e, r_e)
         n_vectors = -subtract_outer(self.atom_positions, r_e)
 
+        res = coulomb(e_vectors, n_vectors, self.atom_charges)
+
         if self.backflow is not None:
             b_v = self.backflow.value(e_vectors, n_vectors)
             b_g = self.backflow.numerical_gradient(e_vectors, n_vectors)
@@ -104,7 +106,6 @@ class Wfn:
             s_h = self.slater.numerical_hessian(slater_n_vectors) / s_v
             b_g_i = np.eye((self.neu + self.ned) * 3) + b_g
             s_l = np.trace(s_h @ b_g_i @ b_g_i) + s_g @ b_l
-            res = coulomb(e_vectors, n_vectors, self.atom_charges)
             if self.jastrow is not None:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
                 j_l = self.jastrow.laplacian(e_vectors, n_vectors)
@@ -117,7 +118,6 @@ class Wfn:
         else:
             s_v = self.slater.value(n_vectors)
             s_l = self.slater.laplacian(n_vectors) / s_v
-            res = coulomb(e_vectors, n_vectors, self.atom_charges)
             if self.jastrow is not None:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
                 j_l = self.jastrow.laplacian(e_vectors, n_vectors)

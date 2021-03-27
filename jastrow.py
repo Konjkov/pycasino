@@ -105,11 +105,11 @@ class Jastrow:
         :return: powers of e-e distances - array(nelec, nelec, max_ee_order)
         """
         res = np.zeros((e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
-        for i in range(e_vectors.shape[0] - 1):
-            for j in range(i + 1, e_vectors.shape[1]):
+        for i in range(1, self.neu + self.ned):
+            for j in range(i):
                 r_ee = np.linalg.norm(e_vectors[i, j])
                 for k in range(self.max_ee_order):
-                    res[i, j, k] = r_ee ** k
+                    res[i, j, k] = res[j, i, k] = r_ee ** k
         return res
 
     def en_powers(self, n_vectors):
@@ -136,8 +136,8 @@ class Jastrow:
 
         C = self.trunc
         parameters = self.u_parameters
-        for i in range(e_powers.shape[0] - 1):
-            for j in range(i + 1, e_powers.shape[1]):
+        for i in range(1, self.neu + self.ned):
+            for j in range(i):
                 r = e_powers[i, j, 1]
                 if r < self.u_cutoff:
                     cusp_set = (int(i >= self.neu) + int(j >= self.neu))
@@ -164,7 +164,7 @@ class Jastrow:
         C = self.trunc
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
             for i in chi_labels:
-                for j in range(n_powers.shape[1]):
+                for j in range(self.neu + self.ned):
                     r = n_powers[i, j, 1]
                     if r < L:
                         chi_set = int(j >= self.neu) % parameters.shape[1]
@@ -187,8 +187,8 @@ class Jastrow:
         C = self.trunc
         for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
             for i in f_labels:
-                for j in range(n_powers.shape[1] - 1):
-                    for k in range(j + 1, e_powers.shape[0]):
+                for j in range(1, self.neu + self.ned):
+                    for k in range(j):
                         r_e1I = n_powers[i, j, 1]
                         r_e2I = n_powers[i, k, 1]
                         if r_e1I < L and r_e2I < L:
@@ -215,8 +215,8 @@ class Jastrow:
         C = self.trunc
         L = self.u_cutoff
         parameters = self.u_parameters
-        for i in range(e_powers.shape[0] - 1):
-            for j in range(i + 1, e_powers.shape[1]):
+        for i in range(1, self.neu + self.ned):
+            for j in range(i):
                 r_vec = e_vectors[i, j]
                 r = e_powers[i, j, 1]
                 if r < L:
@@ -251,7 +251,7 @@ class Jastrow:
         C = self.trunc
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
             for i in chi_labels:
-                for j in range(n_powers.shape[1]):
+                for j in range(self.neu + self.ned):
                     r_vec = n_vectors[i, j]
                     r = n_powers[i, j, 1]
                     if r < L:
@@ -283,8 +283,8 @@ class Jastrow:
         C = self.trunc
         for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
             for i in f_labels:
-                for j in range(n_powers.shape[1] - 1):
-                    for k in range(j + 1, e_powers.shape[0]):
+                for j in range(1, self.neu + self.ned):
+                    for k in range(j):
                         r_e1I_vec = n_vectors[i, j]
                         r_e2I_vec = n_vectors[i, k]
                         r_ee_vec = e_vectors[j, k]
@@ -335,8 +335,8 @@ class Jastrow:
         C = self.trunc
         L = self.u_cutoff
         parameters = self.u_parameters
-        for i in range(e_powers.shape[0] - 1):
-            for j in range(i + 1, e_powers.shape[1]):
+        for i in range(1, self.neu + self.ned):
+            for j in range(i):
                 r = e_powers[i, j, 1]
                 if r < L:
                     cusp_set = (int(i >= self.neu) + int(j >= self.neu))
@@ -372,7 +372,7 @@ class Jastrow:
         C = self.trunc
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
             for i in chi_labels:
-                for j in range(n_powers.shape[1]):
+                for j in range(self.neu + self.ned):
                     r = n_powers[i, j, 1]
                     if r < L:
                         chi_set = int(j >= self.neu) % parameters.shape[1]
@@ -411,8 +411,8 @@ class Jastrow:
         C = self.trunc
         for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
             for i in f_labels:
-                for j in range(n_powers.shape[1] - 1):
-                    for k in range(j + 1, e_powers.shape[0]):
+                for j in range(1, self.neu + self.ned):
+                    for k in range(j):
                         r_e1I_vec = n_vectors[i, j]
                         r_e2I_vec = n_vectors[i, k]
                         r_ee_vec = e_vectors[j, k]
@@ -501,7 +501,7 @@ class Jastrow:
 
         res = np.zeros((e_vectors.shape[0], 3))
 
-        for i in range(e_vectors.shape[0]):
+        for i in range(self.neu + self.ned):
             for j in range(3):
                 e_vectors[i, :, j] -= delta
                 e_vectors[:, i, j] += delta
@@ -525,8 +525,8 @@ class Jastrow:
         """
         delta = 0.00001
 
-        res = -6 * e_vectors.shape[0] * self.value(e_vectors, n_vectors)
-        for i in range(e_vectors.shape[0]):
+        res = -6 * (self.neu + self.ned) * self.value(e_vectors, n_vectors)
+        for i in range(self.neu + self.ned):
             for j in range(3):
                 e_vectors[i, :, j] -= delta
                 e_vectors[:, i, j] += delta
