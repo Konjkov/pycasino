@@ -158,7 +158,7 @@ class Backflow:
                         poly = 0.0
                         for k in range(parameters.shape[0]):
                             poly += parameters[k, mu_set] * n_powers[i, j, k]
-                        res[j] -= poly * (1 - r/L) ** C * r_vec
+                        res[j] = poly * (1 - r/L) ** C * r_vec
         return res
 
     def phi_term(self, e_vectors, n_vectors, e_powers, n_powers):
