@@ -27,40 +27,34 @@ def hessian(momentum, n):
         orb = harmonic * r**n * exp(-alpha*r)
         res = (
             simplify(diff(orb, x, x) - (
-                    diff(harmonic, x, x) * r**n * exp(-alpha*r) +
-                    diff(harmonic, x) * diff(r**n * exp(-alpha*r), x) +
-                    diff((n/r - alpha) * x/r, x) * orb +
-                    (n/r - alpha) * x/r * diff(orb, x)
+                (diff(harmonic, x, x) + diff(harmonic, x) * (n/r - alpha) * 2*x/r) * r**n * exp(-alpha*r) +
+                diff((n/r - alpha) * x/r, x) * orb +
+                (n/r - alpha) * x/r * (n/r - alpha) * x/r * orb
             )),
             simplify(diff(orb, x, y) - (
-                    diff(harmonic, x, y) * r ** n * exp(-alpha * r) +
-                    diff(harmonic, x) * diff(r ** n * exp(-alpha * r), y) +
-                    diff((n/r - alpha) * x/r, y) * orb +
-                    (n/r - alpha) * x/r * diff(orb, y)
+                (diff(harmonic, x, y) + diff(harmonic, x) * (n/r - alpha) * y/r + diff(harmonic, y) * (n/r - alpha) * x/r) * r**n * exp(-alpha*r) +
+                diff((n/r - alpha) * x/r, y) * orb +
+                (n/r - alpha) * x/r * (n/r - alpha) * y/r * orb
             )),
             simplify(diff(orb, y, y) - (
-                    diff(harmonic, y, y) * r**n * exp(-alpha*r) +
-                    diff(harmonic, y) * diff(r**n * exp(-alpha*r), y) +
-                    diff((n/r - alpha) * y/r, y) * orb +
-                    (n/r - alpha) * y/r * diff(orb, y)
+                (diff(harmonic, y, y) + diff(harmonic, y) * (n/r - alpha) * 2*y/r) * r**n * exp(-alpha*r) +
+                diff((n/r - alpha) * y/r, y) * orb +
+                (n/r - alpha) * y/r * (n/r - alpha) * y/r * orb
             )),
             simplify(diff(orb, x, z) - (
-                    diff(harmonic, x, z) * r ** n * exp(-alpha * r) +
-                    diff(harmonic, x) * diff(r ** n * exp(-alpha * r), z) +
-                    diff((n/r - alpha) * x/r, z) * orb +
-                    (n/r - alpha) * x/r * diff(orb, z)
+                (diff(harmonic, x, z) + diff(harmonic, x) * (n/r - alpha) * z/r + diff(harmonic, z) * (n/r - alpha) * x/r) * r**n * exp(-alpha*r) +
+                diff((n/r - alpha) * x/r, z) * orb +
+                (n/r - alpha) * x/r * (n/r - alpha) * z/r * orb
             )),
             simplify(diff(orb, y, z) - (
-                    diff(harmonic, y, z) * r ** n * exp(-alpha * r) +
-                    diff(harmonic, y) * diff(r ** n * exp(-alpha * r), z) +
-                    diff((n/r - alpha) * y/r, z) * orb +
-                    (n/r - alpha) * y/r * diff(orb, z)
+                (diff(harmonic, y, z) + diff(harmonic, y) * (n/r - alpha) * z/r + diff(harmonic, z) * (n/r - alpha) * y/r) * r**n * exp(-alpha*r) +
+                diff((n/r - alpha) * y/r, z) * orb +
+                (n/r - alpha) * y/r * (n/r - alpha) * z/r * orb
             )),
             simplify(diff(orb, z, z) - (
-                    diff(harmonic, z, z) * r**n * exp(-alpha*r) +
-                    diff(harmonic, z) * diff(r**n * exp(-alpha*r), z) +
-                    diff((n/r - alpha) * z/r, z) * orb +
-                    (n/r - alpha) * z/r * diff(orb, z)
+                (diff(harmonic, z, z) + diff(harmonic, z) * (n/r - alpha) * 2*z/r) * r**n * exp(-alpha*r) +
+                diff((n/r - alpha) * z/r, z) * orb +
+                (n/r - alpha) * z/r * (n/r - alpha) * z/r * orb
             )),
         )
         print("hessian({})=[{}, {}, {}, {}, {}, {}]".format(momentum, *res))
@@ -81,6 +75,6 @@ if __name__ == "__main__":
 
     for n in range(4):
         for m in 'spdfg':
-            gradient(m, n)
+            # gradient(m, n)
             hessian(m, n)
-            laplacian(m, n)
+            # laplacian(m, n)

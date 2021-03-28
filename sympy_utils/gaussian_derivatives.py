@@ -25,12 +25,30 @@ def hessian(momentum):
         l = momentum_map[momentum]
         orb = harmonic * exp(-alpha*r2)
         res = (
-            simplify(diff(orb, x, x) - diff(diff(harmonic, x) * exp(-alpha*r2) - 2 * alpha * x * orb, x)),
-            simplify(diff(orb, x, y) - diff(diff(harmonic, x) * exp(-alpha*r2) - 2 * alpha * x * orb, y)),
-            simplify(diff(orb, y, y) - diff(diff(harmonic, y) * exp(-alpha*r2) - 2 * alpha * y * orb, y)),
-            simplify(diff(orb, x, z) - diff(diff(harmonic, x) * exp(-alpha*r2) - 2 * alpha * x * orb, z)),
-            simplify(diff(orb, y, z) - diff(diff(harmonic, y) * exp(-alpha*r2) - 2 * alpha * y * orb, z)),
-            simplify(diff(orb, z, z) - diff(diff(harmonic, z) * exp(-alpha*r2) - 2 * alpha * z * orb, z))
+            simplify(diff(orb, x, x) - (
+                diff(diff(harmonic, x) * exp(-alpha*r2), x) -
+                2 * alpha * diff(x * orb, x)
+            )),
+            simplify(diff(orb, x, y) - (
+                diff(diff(harmonic, x) * exp(-alpha*r2), y) -
+                2 * alpha * diff(x * orb, y)
+            )),
+            simplify(diff(orb, y, y) - (
+                diff(diff(harmonic, y) * exp(-alpha*r2), y) -
+                2 * alpha * diff(y * orb, y)
+            )),
+            simplify(diff(orb, x, z) - (
+                diff(diff(harmonic, x) * exp(-alpha*r2), z) -
+                2 * alpha * diff(x * orb, z)
+            )),
+            simplify(diff(orb, y, z) - (
+                diff(diff(harmonic, y) * exp(-alpha*r2), z) -
+                2 * alpha * diff(y * orb, z)
+            )),
+            simplify(diff(orb, z, z) - (
+                diff(diff(harmonic, z) * exp(-alpha*r2), z) -
+                2 * alpha * diff(z * orb, z)
+            ))
         )
         print("hessian({})=[{}, {}, {}, {}, {}, {}]".format(momentum, *res))
 
@@ -49,6 +67,6 @@ def laplacian(momentum):
 if __name__ == "__main__":
 
     for m in 'spdfg':
-        # gradient(m)
+        gradient(m)
         hessian(m)
-        # laplacian(m)
+        laplacian(m)
