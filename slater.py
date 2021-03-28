@@ -64,6 +64,7 @@ def angular_part(r):
 @nb.jit(nopython=True, nogil=True, parallel=False)
 def gradient_angular_part(r):
     """Angular part of gaussian WFN gradient.
+    order: dx, dy, dz
     :return:
     """
     x, y, z = r
@@ -96,6 +97,47 @@ def gradient_angular_part(r):
         [630.0*x*y*z, 315.0*z*(x2 - y2), y*(315.0*x2 - 105.0*y2)],
         [x*(420.0*x2 - 1260.0*y2), y*(-1260.0*x2 + 420.0*y2), 0],
         [y*(1260.0*x2 - 420.0*y2), x*(420.0*x2 - 1260.0*y2), 0]
+    ])
+
+
+@nb.jit(nopython=True, nogil=True, parallel=False)
+def hessian_angular_part(r):
+    """Angular part of gaussian WFN hessian.
+    order: dxdx, dxdy, dydy, dxdz, dydz, dzdz
+    :return:
+    """
+    x, y, z = r
+    x2 = x**2
+    y2 = y**2
+    z2 = z**2
+    return np.array([
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [-2.0, 0.0, -2.0, 0.0, 0.0, 4.0],
+        [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        [2.0, 0.0, -2.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+
+        [-3.0*z, 0.0, -3.0*z, -3.0*x, -3.0*y, 6.0*z],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     ])
 
 
@@ -158,8 +200,8 @@ class Slater:
         :param n_vectors: electron-nuclei array(nelec, natom, 3)
         :return: AO array(nelec, nbasis_functions)
         """
-        orbital = np.zeros((n_vectors.shape[1], self.nbasis_functions))
-        for i in range(n_vectors.shape[1]):
+        orbital = np.zeros((self.neu + self.ned, self.nbasis_functions))
+        for i in range(self.neu + self.ned):
             p = 0
             ao = 0
             for atom in range(n_vectors.shape[0]):
@@ -187,10 +229,10 @@ class Slater:
         :param n_vectors: electron-nuclei - array(natom, nelec, 3)
         :return: AO gradient - list of array(nelec, nbasis_functions)
         """
-        orbital_x = np.zeros((n_vectors.shape[1], self.nbasis_functions))
-        orbital_y = np.zeros((n_vectors.shape[1], self.nbasis_functions))
-        orbital_z = np.zeros((n_vectors.shape[1], self.nbasis_functions))
-        for i in range(n_vectors.shape[1]):
+        orbital_x = np.zeros((self.neu + self.ned, self.nbasis_functions))
+        orbital_y = np.zeros((self.neu + self.ned, self.nbasis_functions))
+        orbital_z = np.zeros((self.neu + self.ned, self.nbasis_functions))
+        for i in range(self.neu + self.ned):
             p = 0
             ao = 0
             for atom in range(n_vectors.shape[0]):
@@ -229,8 +271,8 @@ class Slater:
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :return: AO laplacian - array(nelec, nbasis_functions)
         """
-        orbital = np.zeros((n_vectors.shape[1], self.nbasis_functions))
-        for i in range(n_vectors.shape[1]):
+        orbital = np.zeros((self.neu + self.ned, self.nbasis_functions))
+        for i in range(self.neu + self.ned):
             p = 0
             ao = 0
             for atom in range(n_vectors.shape[0]):
@@ -257,6 +299,48 @@ class Slater:
                     ao += 2*l+1
         return orbital
 
+    def AO_hessian(self, n_vectors: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """hessian matrix.
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+        :return: AO hessian - array(nelec, nbasis_functions)
+        """
+        orbital_xx = np.zeros((self.neu + self.ned, self.nbasis_functions))
+        orbital_xy = np.zeros((self.neu + self.ned, self.nbasis_functions))
+        orbital_yy = np.zeros((self.neu + self.ned, self.nbasis_functions))
+        orbital_xz = np.zeros((self.neu + self.ned, self.nbasis_functions))
+        orbital_yz = np.zeros((self.neu + self.ned, self.nbasis_functions))
+        orbital_zz = np.zeros((self.neu + self.ned, self.nbasis_functions))
+
+        for i in range(self.neu + self.ned):
+            p = 0
+            ao = 0
+            for atom in range(n_vectors.shape[0]):
+                rI = n_vectors[atom, i]
+                r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
+                angular_part_data = angular_part(rI)
+                for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
+                    l = self.shell_moments[nshell]
+                    if self.orbital_types[nshell] == GAUSSIAN_TYPE:
+                        for primitive in range(self.primitives[nshell]):
+                            alpha = self.exponents[p + primitive]
+                            exponent = self.coefficients[p + primitive] * np.exp(-alpha * r2)
+                    elif self.orbital_types[nshell] == SLATER_TYPE:
+                        r = np.sqrt(r2)
+                        for primitive in range(self.primitives[nshell]):
+                            alpha = self.exponents[p + primitive]
+                            exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-alpha * r)
+                    p += self.primitives[nshell]
+                    for m in range(2 * l + 1):
+                        orbital_xx[i, ao+m] = 0
+                        orbital_xy[i, ao+m] = 0
+                        orbital_yy[i, ao+m] = 0
+                        orbital_xz[i, ao+m] = 0
+                        orbital_yz[i, ao+m] = 0
+                        orbital_zz[i, ao+m] = 0
+                    ao += 2*l+1
+
+        return orbital_xx, orbital_xy, orbital_yy, orbital_xz, orbital_yz, orbital_zz
+
     def value(self, n_vectors: np.ndarray) -> float:
         """Multideterminant wave function value.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
@@ -265,8 +349,83 @@ class Slater:
 
         res = 0.0
         for i in range(self.coeff.shape[0]):
-            res += self.coeff[i] * np.linalg.det(np.dot(self.mo_up[i], ao[:self.neu].T)) * np.linalg.det(np.dot(self.mo_down[i], ao[self.neu:].T))
+            res += self.coeff[i] * np.linalg.det(self.mo_up[i] @ ao[:self.neu].T) * np.linalg.det(self.mo_down[i] @ ao[self.neu:].T)
         return res
+
+    def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
+        """Gradient ∇(phi).
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+
+        As numba overloaded function 'dot' only supported on 1-D and 2-D arrays,
+        so I use list of 2-D arrays (gradient_x, gradient_y, gradient_z) to represent gradient.
+        """
+        ao = self.AO_wfn(n_vectors)
+        gradient_x, gradient_y, gradient_z = self.AO_gradient(n_vectors)
+        cond_u = np.arange(self.neu) * np.ones((self.neu, self.neu))
+        cond_d = np.arange(self.ned) * np.ones((self.ned, self.ned))
+
+        res = np.zeros((self.neu + self.ned, 3))
+        for i in range(self.coeff.shape[0]):
+
+            wfn_u = self.mo_up[i] @ ao[:self.neu].T
+            grad_x, grad_y, grad_z = self.mo_up[i] @ gradient_x[:self.neu].T, self.mo_up[i] @ gradient_y[:self.neu].T, self.mo_up[i] @ gradient_z[:self.neu].T
+
+            res_u = np.zeros((self.neu, 3))
+            for j in range(self.neu):
+                res_u[j, 0] = np.linalg.det(np.where(cond_u == j, grad_x, wfn_u))
+                res_u[j, 1] = np.linalg.det(np.where(cond_u == j, grad_y, wfn_u))
+                res_u[j, 2] = np.linalg.det(np.where(cond_u == j, grad_z, wfn_u))
+
+            wfn_d = self.mo_down[i] @ ao[self.neu:].T
+            grad_x, grad_y, grad_z = self.mo_down[i] @ gradient_x[self.neu:].T, self.mo_down[i] @ gradient_y[self.neu:].T, self.mo_down[i] @ gradient_z[self.neu:].T
+
+            res_d = np.zeros((self.ned, 3))
+            for j in range(self.ned):
+                res_d[j, 0] = np.linalg.det(np.where(cond_d == j, grad_x, wfn_d))
+                res_d[j, 1] = np.linalg.det(np.where(cond_d == j, grad_y, wfn_d))
+                res_d[j, 2] = np.linalg.det(np.where(cond_d == j, grad_z, wfn_d))
+
+            res += self.coeff[i] * np.concatenate((res_u * np.linalg.det(wfn_d), res_d * np.linalg.det(wfn_u)))
+
+        return res.ravel()
+
+    def laplacian(self, n_vectors: np.ndarray) -> float:
+        """Scalar laplacian Δ(phi).
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+        """
+        ao = self.AO_wfn(n_vectors)
+        ao_laplacian = self.AO_laplacian(n_vectors)
+        cond_u = np.arange(self.neu) * np.ones((self.neu, self.neu))
+        cond_d = np.arange(self.ned) * np.ones((self.ned, self.ned))
+
+        res = 0
+        for i in range(self.coeff.shape[0]):
+
+            wfn_u = self.mo_up[i] @ ao[:self.neu].T
+            lap_u = self.mo_up[i] @ ao_laplacian[:self.neu].T
+
+            res_u = 0
+            for j in range(self.neu):
+                res_u += np.linalg.det(np.where(cond_u == j, lap_u, wfn_u))
+
+            wfn_d = self.mo_down[i] @ ao[self.neu:].T
+            lap_d = self.mo_down[i] @ ao_laplacian[self.neu:].T
+
+            res_d = 0
+            for j in range(self.ned):
+                res_d += np.linalg.det(np.where(cond_d == j, lap_d, wfn_d))
+
+            res += self.coeff[i] * (res_u * np.linalg.det(wfn_d) + res_d * np.linalg.det(wfn_u))
+
+        return res
+
+    def hessian(self, n_vectors: np.ndarray) -> float:
+        """Hessian.
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+        """
+        res = np.zeros((n_vectors.shape[1], 3, n_vectors.shape[1], 3))
+
+        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def numerical_gradient(self, n_vectors: np.ndarray) -> float:
         """Numerical gradient with respect to a e-coordinates
@@ -340,81 +499,6 @@ class Slater:
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / delta / 4
 
-    def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
-        """Gradient ∇(phi).
-        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-
-        As numba overloaded function 'dot' only supported on 1-D and 2-D arrays,
-        so I use list of 2-D arrays (gradient_x, gradient_y, gradient_z) to represent gradient.
-        """
-        ao = self.AO_wfn(n_vectors)
-        gradient_x, gradient_y, gradient_z = self.AO_gradient(n_vectors)
-        cond_u = np.arange(self.neu) * np.ones((self.neu, self.neu))
-        cond_d = np.arange(self.ned) * np.ones((self.ned, self.ned))
-
-        res = np.zeros((self.neu + self.ned, 3))
-        for i in range(self.coeff.shape[0]):
-
-            wfn_u = np.dot(self.mo_up[i], ao[:self.neu].T)
-            grad_x, grad_y, grad_z = np.dot(self.mo_up[i], gradient_x[:self.neu].T), np.dot(self.mo_up[i], gradient_y[:self.neu].T), np.dot(self.mo_up[i], gradient_z[:self.neu].T)
-
-            res_u = np.zeros((self.neu, 3))
-            for j in range(self.neu):
-                res_u[j, 0] = np.linalg.det(np.where(cond_u == j, grad_x, wfn_u))
-                res_u[j, 1] = np.linalg.det(np.where(cond_u == j, grad_y, wfn_u))
-                res_u[j, 2] = np.linalg.det(np.where(cond_u == j, grad_z, wfn_u))
-
-            wfn_d = np.dot(self.mo_down[i], ao[self.neu:].T)
-            grad_x, grad_y, grad_z = np.dot(self.mo_down[i], gradient_x[self.neu:].T), np.dot(self.mo_down[i], gradient_y[self.neu:].T), np.dot(self.mo_down[i], gradient_z[self.neu:].T)
-
-            res_d = np.zeros((self.ned, 3))
-            for j in range(self.ned):
-                res_d[j, 0] = np.linalg.det(np.where(cond_d == j, grad_x, wfn_d))
-                res_d[j, 1] = np.linalg.det(np.where(cond_d == j, grad_y, wfn_d))
-                res_d[j, 2] = np.linalg.det(np.where(cond_d == j, grad_z, wfn_d))
-
-            res += self.coeff[i] * np.concatenate((res_u * np.linalg.det(wfn_d), res_d * np.linalg.det(wfn_u)))
-
-        return res.ravel()
-
-    def laplacian(self, n_vectors: np.ndarray) -> float:
-        """Scalar laplacian Δ(phi).
-        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        """
-        ao = self.AO_wfn(n_vectors)
-        ao_laplacian = self.AO_laplacian(n_vectors)
-        cond_u = np.arange(self.neu) * np.ones((self.neu, self.neu))
-        cond_d = np.arange(self.ned) * np.ones((self.ned, self.ned))
-
-        res = 0
-        for i in range(self.coeff.shape[0]):
-
-            wfn_u = np.dot(self.mo_up[i], ao[:self.neu].T)
-            lap_u = np.dot(self.mo_up[i], ao_laplacian[:self.neu].T)
-
-            res_u = 0
-            for j in range(self.neu):
-                res_u += np.linalg.det(np.where(cond_u == j, lap_u, wfn_u))
-
-            wfn_d = np.dot(self.mo_down[i], ao[self.neu:].T)
-            lap_d = np.dot(self.mo_down[i], ao_laplacian[self.neu:].T)
-
-            res_d = 0
-            for j in range(self.ned):
-                res_d += np.linalg.det(np.where(cond_d == j, lap_d, wfn_d))
-
-            res += self.coeff[i] * (res_u * np.linalg.det(wfn_d) + res_d * np.linalg.det(wfn_u))
-
-        return res
-
-    def hessian(self, n_vectors: np.ndarray) -> float:
-        """Hessian.
-        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        """
-        res = np.zeros((n_vectors.shape[1], 3, n_vectors.shape[1], 3))
-
-        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
-
 
 @nb.jit(nopython=True)
 def random_step(dx, ne):
@@ -433,7 +517,7 @@ def integral(dX, neu, ned, steps, atom_positions, slater, r_initial):
     for i in range(steps):
         r_e = r_initial + random_step(dX, neu + ned)
         n_vectors = subtract_outer(atom_positions, r_e)
-        result += (slater_determinant_normalization_factor * slater.value(n_vectors, neu)) ** 2
+        result += (slater_determinant_normalization_factor * slater.value(n_vectors)) ** 2
 
     return result * v / steps
 
@@ -505,8 +589,8 @@ if __name__ == '__main__':
     """
 
     # path = 'test/gwfn/h/HF/cc-pVQZ/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/'
-    # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/'
+    path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
     # path = 'test/gwfn/b/HF/cc-pVQZ/'
     # path = 'test/gwfn/n/HF/cc-pVQZ/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/'

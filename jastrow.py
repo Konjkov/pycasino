@@ -491,6 +491,36 @@ class Jastrow:
             self.f_term(e_powers, n_powers)
         )
 
+    def gradient(self, e_vectors, n_vectors):
+        """Gradient with respect to e-coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :return:
+        """
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        return (
+            self.u_term_gradient(e_powers, e_vectors) +
+            self.chi_term_gradient(n_powers, n_vectors) +
+            self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
+        )
+
+    def laplacian(self, e_vectors, n_vectors) -> float:
+        """Laplacian with respect to a e-coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :return:
+        """
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        return (
+            self.u_term_laplacian(e_powers) +
+            self.chi_term_laplacian(n_powers) +
+            self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
+        )
+
     def numerical_gradient(self, e_vectors, n_vectors):
         """Numerical gradient with respect to a e-coordinates
         :param e_vectors: e-e vectors
@@ -541,36 +571,6 @@ class Jastrow:
                 n_vectors[:, i, j] -= delta
 
         return res / delta / delta
-
-    def gradient(self, e_vectors, n_vectors):
-        """Gradient with respect to e-coordinates
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return:
-        """
-        e_powers = self.ee_powers(e_vectors)
-        n_powers = self.en_powers(n_vectors)
-
-        return (
-            self.u_term_gradient(e_powers, e_vectors) +
-            self.chi_term_gradient(n_powers, n_vectors) +
-            self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
-        )
-
-    def laplacian(self, e_vectors, n_vectors) -> float:
-        """Laplacian with respect to a e-coordinates
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return:
-        """
-        e_powers = self.ee_powers(e_vectors)
-        n_powers = self.en_powers(n_vectors)
-
-        return (
-            self.u_term_laplacian(e_powers) +
-            self.chi_term_laplacian(n_powers) +
-            self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
-        )
 
     def get_bounds(self):
         """"""
