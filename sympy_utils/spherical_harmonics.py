@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from sympy import *
 
 x, y, z, alpha, r, r2 = symbols('x y z alpha r r2')
@@ -49,3 +50,35 @@ harmonics['g'] = (
     105.0 * (x*x*x*x - 6.0 * x*x*y*y + y*y*y*y),             # (4,  4)
     420.0 * (x*x*x*y - y*y*y*x),                             # (4, -4)
 )
+
+
+def derivatives_1(momentum):
+    """"""
+    for harmonic in harmonics[momentum]:
+        res = (
+            simplify(diff(harmonic, x)),
+            simplify(diff(harmonic, y)),
+            simplify(diff(harmonic, z))
+        )
+        print("derivatives_1({})=[{}, {}, {}]".format(momentum, *res))
+
+
+def derivatives_2(momentum):
+    """"""
+    for harmonic in harmonics[momentum]:
+        res = (
+            simplify(diff(harmonic, x, x)),
+            simplify(diff(harmonic, x, y)),
+            simplify(diff(harmonic, y, y)),
+            simplify(diff(harmonic, x, z)),
+            simplify(diff(harmonic, y, z)),
+            simplify(diff(harmonic, z, z))
+        )
+        print("derivatives_2({})=[{}, {}, {}, {}, {}, {}]".format(momentum, *res))
+
+
+if __name__ == "__main__":
+
+    for m in 'spdfg':
+        derivatives_1(m)
+        derivatives_2(m)

@@ -292,7 +292,7 @@ class Slater:
                             n = self.slater_orders[nshell]
                             alpha = self.exponents[p + primitive]
                             exponent = r**n * self.coefficients[p + primitive] * np.exp(-alpha * r)
-                            radial_part += (alpha**2 - 2*(l+n+1)/r*alpha + (2*l+n+1)*n/r2) * exponent
+                            radial_part += (alpha**2 - 2*(l+n+1)*alpha/r + (2*l+n+1)*n/r2) * exponent
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
                         orbital[i, ao+m] = radial_part * angular_part_data[l*l+m]
