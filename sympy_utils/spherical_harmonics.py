@@ -6,6 +6,8 @@ r2 = x*x + y*y + z*z
 
 r = sqrt(x*x + y*y + z*z)
 
+momentum_map = dict(s=0, p=1, d=2, f=3, g=4)
+
 harmonics = dict()
 
 harmonics['s'] = (
