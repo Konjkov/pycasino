@@ -356,7 +356,7 @@ class Slater:
         """Gradient ∇(phi).
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
 
-        As numba overloaded function 'dot' only supported on 1-D and 2-D arrays,
+        As numba overloaded function 'dot' and @ only supported on 1-D and 2-D arrays,
         so I use list of 2-D arrays (gradient_x, gradient_y, gradient_z) to represent gradient.
         """
         ao = self.AO_wfn(n_vectors)
