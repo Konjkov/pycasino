@@ -115,29 +115,27 @@ def hessian_angular_part(r):
         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [-2.0, 0.0, -2.0, 0.0, 0.0, 4.0],
-        [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-        [2.0, 0.0, -2.0, 0.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
-
-        [-3.0*z, 0.0, -3.0*z, -3.0*x, -3.0*y, 6.0*z],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [-1.0, 0.0, -1.0, 0.0, 0.0, 2.0],
+        [0.0, 0.0, 0.0, 3.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 3.0, 0.0],
+        [6.0, 0.0, -6.0, 0.0, 0.0, 0.0],
+        [0.0, 6.0, 0.0, 0.0, 0.0, 0.0],
+        [-3.0*z, 0, -3.0*z, -3.0*x, -3.0*y, 6.0*z],
+        [-9.0*x, -3.0*y, -3.0*x, 12.0*z, 0, 12.0*x],
+        [-3.0*y, -3.0*x, -9.0*y, 0, 12.0*z, 12.0*y],
+        [30.0*z, 0, -30.0*z, 30.0*x, -30.0*y, 0],
+        [0, 30.0*z, 0, 30.0 * y, 30.0*x, 0],
+        [90.0*x, -90.0*y, -90.0*x, 0, 0, 0],
+        [90.0*y, 90.0*x, -90.0*y, 0, 0, 0],
+        [4.5*x2 + 1.5*y2 - 6.0*z2, 3.0*x*y, 1.5*x2 + 4.5*y2 - 6.0*z2, -12.0*x*z, -12.0*y*z, -6.0*x2 - 6.0*y2 + 12.0*z2],
+        [-45.0*x*z, -15.0*y*z, -15.0*x*z, -22.5*x2 - 7.5*y2 + 30.0*z2, -15.0*x*y, 60.0*x*z],
+        [-15.0*y*z, -15.0*x*z, -45.0*y*z, -15.0*x*y, -7.5*x2 - 22.5*y2 + 30.0*z2, 60.0*y*z],
+        [-90.0*x2 + 90.0*z2, 0, 90.0*y2 - 90.0*z2, 180.0*x*z, -180.0*y*z, 90.0*x2 - 90.0*y2],
+        [-90.0*x*y, -45.0*x2 - 45.0*y2 + 90.0*z2, -90.0*x*y, 180.0*y*z, 180.0*x*z, 180.0*x*y],
+        [630.0*x*z, -630.0*y*z, -630.0*x*z, 315.0*x2 - 315.0*y2, -630.0*x*y, 0],
+        [630.0*y*z, 630.0*x*z, -630.0*y*z, 630.0*x*y, 315.0*x2 - 315.0*y2, 0],
+        [1260.0*x2 - 1260.0*y2, -2520.0*x*y, -1260.0*x2 + 1260.0*y2, 0, 0, 0],
+        [2520.0*x*y, 1260.0*x2 - 1260.0*y2, -2520.0*x*y, 0, 0, 0],
     ])
 
 
@@ -368,7 +366,9 @@ class Slater:
         for i in range(self.coeff.shape[0]):
 
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
-            grad_x, grad_y, grad_z = self.mo_up[i] @ gradient_x[:self.neu].T, self.mo_up[i] @ gradient_y[:self.neu].T, self.mo_up[i] @ gradient_z[:self.neu].T
+            grad_x = self.mo_up[i] @ gradient_x[:self.neu].T
+            grad_y = self.mo_up[i] @ gradient_y[:self.neu].T
+            grad_z = self.mo_up[i] @ gradient_z[:self.neu].T
 
             res_u = np.zeros((self.neu, 3))
             for j in range(self.neu):
@@ -377,7 +377,9 @@ class Slater:
                 res_u[j, 2] = np.linalg.det(np.where(cond_u == j, grad_z, wfn_u))
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
-            grad_x, grad_y, grad_z = self.mo_down[i] @ gradient_x[self.neu:].T, self.mo_down[i] @ gradient_y[self.neu:].T, self.mo_down[i] @ gradient_z[self.neu:].T
+            grad_x = self.mo_down[i] @ gradient_x[self.neu:].T
+            grad_y = self.mo_down[i] @ gradient_y[self.neu:].T
+            grad_z = self.mo_down[i] @ gradient_z[self.neu:].T
 
             res_d = np.zeros((self.ned, 3))
             for j in range(self.ned):
@@ -419,11 +421,82 @@ class Slater:
 
         return res
 
-    def hessian(self, n_vectors: np.ndarray) -> float:
+    def hessian(self, n_vectors: np.ndarray):
         """Hessian.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        res = np.zeros((n_vectors.shape[1], 3, n_vectors.shape[1], 3))
+        ao = self.AO_wfn(n_vectors)
+        gradient_x, gradient_y, gradient_z = self.AO_gradient(n_vectors)
+        hessian_xx, hessian_xy, hessian_yy, hessian_xz, hessian_yz, hessian_zz = self.AO_hessian(n_vectors)
+        cond_u = np.arange(self.neu) * np.ones((self.neu, self.neu))
+        cond_d = np.arange(self.ned) * np.ones((self.ned, self.ned))
+
+        res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
+        for i in range(self.coeff.shape[0]):
+
+            wfn_u = self.mo_up[i] @ ao[:self.neu].T
+            grad_x = self.mo_up[i] @ gradient_x[:self.neu].T
+            grad_y = self.mo_up[i] @ gradient_y[:self.neu].T
+            grad_z = self.mo_up[i] @ gradient_z[:self.neu].T
+            hess_xx = self.mo_up[i] @ hessian_xx[:self.neu].T
+            hess_xy = self.mo_up[i] @ hessian_xy[:self.neu].T
+            hess_yy = self.mo_up[i] @ hessian_yy[:self.neu].T
+            hess_xz = self.mo_up[i] @ hessian_xz[:self.neu].T
+            hess_yz = self.mo_up[i] @ hessian_yz[:self.neu].T
+            hess_zz = self.mo_up[i] @ hessian_zz[:self.neu].T
+
+            res_u = np.zeros((self.neu, 3, self.neu, 3))
+            for j in range(self.neu):
+                res_u[j, 0, j, 0] = np.linalg.det(np.where(cond_u == j, hess_xx, wfn_u))
+                res_u[j, 0, j, 1] = res_u[j, 1, j, 0] = np.linalg.det(np.where(cond_u == j, hess_xy, wfn_u))
+                res_u[j, 1, j, 1] = np.linalg.det(np.where(cond_u == j, hess_yy, wfn_u))
+                res_u[j, 0, j, 2] = res_u[j, 2, j, 0] = np.linalg.det(np.where(cond_u == j, hess_xz, wfn_u))
+                res_u[j, 1, j, 2] = res_u[j, 2, j, 1] = np.linalg.det(np.where(cond_u == j, hess_yz, wfn_u))
+                res_u[j, 2, j, 2] = np.linalg.det(np.where(cond_u == j, hess_zz, wfn_u))
+
+            for j in range(self.neu):
+                for k in range(j):
+                    cond = np.logical_or(cond_u == j, cond_u == k)
+                    not_cond = np.logical_not(cond)
+                    res_u[j, 0, k, 0] = np.linalg.det(np.where(cond, grad_x, wfn_u))
+                    res_u[j, 0, k, 1] = res_u[j, 1, k, 0] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_x, grad_y, wfn_u]))
+                    res_u[j, 1, k, 1] = np.linalg.det(np.where(cond, grad_y, wfn_u))
+                    res_u[j, 0, k, 2] = res_u[j, 2, k, 0] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_x, grad_z, wfn_u]))
+                    res_u[j, 1, k, 2] = res_u[j, 2, k, 1] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_y, grad_z, wfn_u]))
+                    res_u[j, 2, k, 2] = np.linalg.det(np.where(cond, grad_z, wfn_u))
+
+            wfn_d = self.mo_down[i] @ ao[self.neu:].T
+            grad_x = self.mo_down[i] @ gradient_x[self.neu:].T
+            grad_y = self.mo_down[i] @ gradient_y[self.neu:].T
+            grad_z = self.mo_down[i] @ gradient_z[self.neu:].T
+            hess_xx = self.mo_down[i] @ hessian_xx[self.neu:].T
+            hess_xy = self.mo_down[i] @ hessian_xy[self.neu:].T
+            hess_yy = self.mo_down[i] @ hessian_yy[self.neu:].T
+            hess_xz = self.mo_down[i] @ hessian_xz[self.neu:].T
+            hess_yz = self.mo_down[i] @ hessian_yz[self.neu:].T
+            hess_zz = self.mo_down[i] @ hessian_zz[self.neu:].T
+
+            res_d = np.zeros((self.ned, 3, self.ned, 3))
+            for j in range(self.ned):
+                res_d[j, 0, j, 0] = np.linalg.det(np.where(cond_d == j, hess_xx, wfn_d))
+                res_d[j, 0, j, 1] = res_d[j, 1, j, 0] = np.linalg.det(np.where(cond_d == j, hess_xy, wfn_d))
+                res_d[j, 1, j, 1] = np.linalg.det(np.where(cond_d == j, hess_yy, wfn_d))
+                res_d[j, 0, j, 2] = res_d[j, 2, j, 0] = np.linalg.det(np.where(cond_d == j, hess_xz, wfn_d))
+                res_d[j, 1, j, 2] = res_d[j, 2, j, 1] = np.linalg.det(np.where(cond_d == j, hess_yz, wfn_d))
+                res_d[j, 2, j, 2] = np.linalg.det(np.where(cond_d == j, hess_zz, wfn_d))
+
+            for j in range(self.ned):
+                for k in range(j):
+                    cond = np.logical_or(cond_u == j, cond_u == k)
+                    not_cond = np.logical_not(cond)
+                    res_d[j, 0, k, 0] = np.linalg.det(np.where(cond, grad_x, wfn_d))
+                    res_d[j, 0, k, 1] = res_d[j, 1, k, 0] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_x, grad_y, wfn_d]))
+                    res_d[j, 1, k, 1] = np.linalg.det(np.where(cond, grad_y, wfn_d))
+                    res_d[j, 0, k, 2] = res_d[j, 2, k, 0] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_x, grad_z, wfn_d]))
+                    res_d[j, 1, k, 2] = res_d[j, 2, k, 1] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_y, grad_z, wfn_d]))
+                    res_d[j, 2, k, 2] = np.linalg.det(np.where(cond, grad_z, wfn_d))
+
+            # res += self.coeff[i] * np.concatenate((res_u * np.linalg.det(wfn_d), res_d * np.linalg.det(wfn_u)))
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
@@ -514,10 +587,11 @@ def integral(dX, neu, ned, steps, atom_positions, slater, r_initial):
     slater_determinant_normalization_factor = np.sqrt(1 / gamma(neu+1) / gamma(ned+1))
 
     result = 0.0
-    for i in range(steps):
+    for i in range(steps // 10):
         r_e = r_initial + random_step(dX, neu + ned)
         n_vectors = subtract_outer(atom_positions, r_e)
-        result += (slater_determinant_normalization_factor * slater.value(n_vectors)) ** 2
+        slater.hessian(n_vectors)
+        #result += (slater_determinant_normalization_factor * slater.value(n_vectors)) ** 2
 
     return result * v / steps
 
