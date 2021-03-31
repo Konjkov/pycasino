@@ -23,11 +23,10 @@ from readers.casino import Casino
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def angular_part(r):
+def angular_part(x, y, z):
     """Angular part of gaussian WFN.
     :return:
     """
-    x, y, z = r
     x2 = x**2
     y2 = y**2
     z2 = z**2
@@ -62,12 +61,11 @@ def angular_part(r):
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def gradient_angular_part(r):
+def gradient_angular_part(x, y, z):
     """Angular part of gaussian WFN gradient.
     order: dx, dy, dz
     :return:
     """
-    x, y, z = r
     x2 = x**2
     y2 = y**2
     z2 = z**2
@@ -101,12 +99,11 @@ def gradient_angular_part(r):
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def hessian_angular_part(r):
+def hessian_angular_part(x, y, z):
     """Angular part of gaussian WFN hessian.
     order: dxdx, dxdy, dydy, dxdz, dydz, dzdz
     :return:
     """
-    x, y, z = r
     x2 = x**2
     y2 = y**2
     z2 = z**2
@@ -203,9 +200,9 @@ class Slater:
             p = 0
             ao = 0
             for atom in range(n_vectors.shape[0]):
-                rI = n_vectors[atom, i]
-                r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
-                angular_1 = angular_part(rI)
+                x, y, z = n_vectors[atom, i]
+                r2 = x * x + y * y + z * z
+                angular_1 = angular_part(x, y, z)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
                     radial_1 = 0.0
@@ -234,10 +231,10 @@ class Slater:
             p = 0
             ao = 0
             for atom in range(n_vectors.shape[0]):
-                rI = n_vectors[atom, i]
-                r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
-                angular_1 = angular_part(rI)
-                angular_2 = gradient_angular_part(rI)
+                x, y, z = n_vectors[atom, i]
+                r2 = x * x + y * y + z * z
+                angular_1 = angular_part(x, y, z)
+                angular_2 = gradient_angular_part(x, y, z)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
                     radial_1 = 0.0
@@ -258,9 +255,9 @@ class Slater:
                             radial_2 += exponent
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
-                        orbital_x[i, ao+m] = rI[0] * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 0] * radial_2
-                        orbital_y[i, ao+m] = rI[1] * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 1] * radial_2
-                        orbital_z[i, ao+m] = rI[2] * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 2] * radial_2
+                        orbital_x[i, ao+m] = x * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 0] * radial_2
+                        orbital_y[i, ao+m] = y * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 1] * radial_2
+                        orbital_z[i, ao+m] = z * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 2] * radial_2
                     ao += 2*l+1
         return orbital_x, orbital_y, orbital_z
 
@@ -274,9 +271,9 @@ class Slater:
             p = 0
             ao = 0
             for atom in range(n_vectors.shape[0]):
-                rI = n_vectors[atom, i]
-                r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
-                angular_1 = angular_part(rI)
+                x, y, z = n_vectors[atom, i]
+                r2 = x * x + y * y + z * z
+                angular_1 = angular_part(x, y, z)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
                     radial_1 = 0.0
@@ -313,11 +310,11 @@ class Slater:
             p = 0
             ao = 0
             for atom in range(n_vectors.shape[0]):
-                rI = n_vectors[atom, i]
-                r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
-                angular_1 = angular_part(rI)
-                angular_2 = gradient_angular_part(rI)
-                angular_3 = hessian_angular_part(rI)
+                x, y, z = n_vectors[atom, i]
+                r2 = x * x + y * y + z * z
+                angular_1 = angular_part(x, y, z)
+                angular_2 = gradient_angular_part(x, y, z)
+                angular_3 = hessian_angular_part(x, y, z)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
                     radial_1 = 0.0
@@ -344,12 +341,12 @@ class Slater:
                             radial_3 += exponent
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
-                        orbital_xx[i, ao+m] = angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * angular_2[l*l+m, 0] ) * radial_2 + angular_3[l*l+m, 0] * radial_3
-                        orbital_xy[i, ao+m] = angular_1[l*l+m] * radial_1 + (angular_2[l*l+m, 0] + angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 1] * radial_3
-                        orbital_yy[i, ao+m] = angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 2] * radial_3
-                        orbital_xz[i, ao+m] = angular_1[l*l+m] * radial_1 + (angular_2[l*l+m, 0] + angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 3] * radial_3
-                        orbital_yz[i, ao+m] = angular_1[l*l+m] * radial_1 + (angular_2[l*l+m, 1] + angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 4] * radial_3
-                        orbital_zz[i, ao+m] = angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 5] * radial_3
+                        orbital_xx[i, ao+m] = x*x * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * x * angular_2[l*l+m, 0]) * radial_2 + angular_3[l*l+m, 0] * radial_3
+                        orbital_xy[i, ao+m] = x*y * angular_1[l*l+m] * radial_1 + (y * angular_2[l*l+m, 0] + x * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 1] * radial_3
+                        orbital_yy[i, ao+m] = y*y * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * y * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 2] * radial_3
+                        orbital_xz[i, ao+m] = x*z * angular_1[l*l+m] * radial_1 + (z * angular_2[l*l+m, 0] + x * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 3] * radial_3
+                        orbital_yz[i, ao+m] = y*z * angular_1[l*l+m] * radial_1 + (z * angular_2[l*l+m, 1] + y * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 4] * radial_3
+                        orbital_zz[i, ao+m] = z*z * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * z * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 5] * radial_3
                     ao += 2*l+1
 
         return orbital_xx, orbital_xy, orbital_yy, orbital_xz, orbital_yz, orbital_zz
