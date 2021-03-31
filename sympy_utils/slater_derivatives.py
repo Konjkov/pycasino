@@ -26,7 +26,7 @@ def hessian(momentum, n):
     for harmonic in harmonics[momentum]:
         orb = harmonic * r**n * exp(-alpha*r)
         c = -(alpha*r - n)/r**2
-        d = ((alpha*r - n)**2 + alpha*r - 2*n)/r**4
+        d = c**2 + (alpha*r - 2*n)/r**4
         res = (
             simplify(diff(orb, x, x) - (
                 (diff(harmonic, x, x) + c * (x*diff(harmonic, x) + x*diff(harmonic, x)) + d * x*x*harmonic) * r**n * exp(-alpha*r) + c*orb

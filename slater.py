@@ -205,20 +205,20 @@ class Slater:
             for atom in range(n_vectors.shape[0]):
                 rI = n_vectors[atom, i]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
-                angular_part_data = angular_part(rI)
+                angular_1 = angular_part(rI)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
-                    radial_part = 0.0
+                    radial_1 = 0.0
                     if self.orbital_types[nshell] == GAUSSIAN_TYPE:
                         for primitive in range(self.primitives[nshell]):
-                            radial_part += self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r2)
+                            radial_1 += self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r2)
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
                         for primitive in range(self.primitives[nshell]):
-                            radial_part += r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r)
+                            radial_1 += r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r)
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
-                        orbital[i, ao+m] = radial_part * angular_part_data[l*l+m]
+                        orbital[i, ao+m] = angular_1[l*l+m] * radial_1
                     ao += 2*l+1
         return orbital
 
@@ -236,31 +236,31 @@ class Slater:
             for atom in range(n_vectors.shape[0]):
                 rI = n_vectors[atom, i]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
-                angular_part_data = angular_part(rI)
-                gradient_angular_part_data = gradient_angular_part(rI)
+                angular_1 = angular_part(rI)
+                angular_2 = gradient_angular_part(rI)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
-                    radial_part_1 = 0.0
-                    radial_part_2 = 0.0
+                    radial_1 = 0.0
+                    radial_2 = 0.0
                     if self.orbital_types[nshell] == GAUSSIAN_TYPE:
                         for primitive in range(self.primitives[nshell]):
                             alpha = self.exponents[p + primitive]
                             exponent = self.coefficients[p + primitive] * np.exp(-alpha * r2)
-                            radial_part_1 -= 2 * alpha * exponent
-                            radial_part_2 += exponent
+                            radial_1 -= 2 * alpha * exponent
+                            radial_2 += exponent
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
-                        n = self.slater_orders[nshell] + l
+                        n = self.slater_orders[nshell]
                         for primitive in range(self.primitives[nshell]):
                             alpha = self.exponents[p + primitive]
                             exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-alpha * r)
-                            radial_part_1 += (n/r2 - alpha/r) * exponent
-                            radial_part_2 += exponent
+                            radial_1 -= (alpha*r - n)/r2 * exponent
+                            radial_2 += exponent
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
-                        orbital_x[i, ao+m] = radial_part_1 * rI[0] * angular_part_data[l*l+m] + radial_part_2 * gradient_angular_part_data[l*l+m, 0]
-                        orbital_y[i, ao+m] = radial_part_1 * rI[1] * angular_part_data[l*l+m] + radial_part_2 * gradient_angular_part_data[l*l+m, 1]
-                        orbital_z[i, ao+m] = radial_part_1 * rI[2] * angular_part_data[l*l+m] + radial_part_2 * gradient_angular_part_data[l*l+m, 2]
+                        orbital_x[i, ao+m] = rI[0] * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 0] * radial_2
+                        orbital_y[i, ao+m] = rI[1] * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 1] * radial_2
+                        orbital_z[i, ao+m] = rI[2] * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 2] * radial_2
                     ao += 2*l+1
         return orbital_x, orbital_y, orbital_z
 
@@ -276,24 +276,24 @@ class Slater:
             for atom in range(n_vectors.shape[0]):
                 rI = n_vectors[atom, i]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
-                angular_part_data = angular_part(rI)
+                angular_1 = angular_part(rI)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
-                    radial_part = 0.0
+                    radial_1 = 0.0
                     if self.orbital_types[nshell] == GAUSSIAN_TYPE:
                         for primitive in range(self.primitives[nshell]):
                             alpha = self.exponents[p + primitive]
-                            radial_part += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * self.coefficients[p + primitive] * np.exp(-alpha * r2)
+                            radial_1 += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * self.coefficients[p + primitive] * np.exp(-alpha * r2)
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
                         n = self.slater_orders[nshell]
                         for primitive in range(self.primitives[nshell]):
                             alpha = self.exponents[p + primitive]
                             exponent = r**n * self.coefficients[p + primitive] * np.exp(-alpha * r)
-                            radial_part += (alpha**2 - 2*(l+n+1)*alpha/r + (2*l+n+1)*n/r2) * exponent
+                            radial_1 += (alpha**2 - 2*(l+n+1)*alpha/r + (2*l+n+1)*n/r2) * exponent
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
-                        orbital[i, ao+m] = radial_part * angular_part_data[l*l+m]
+                        orbital[i, ao+m] = angular_1[l*l+m] * radial_1
                     ao += 2*l+1
         return orbital
 
@@ -315,32 +315,41 @@ class Slater:
             for atom in range(n_vectors.shape[0]):
                 rI = n_vectors[atom, i]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
-                angular_part_data = angular_part(rI)
-                gradient_angular_part_data = gradient_angular_part(rI)
-                hessian_angular_part_data = hessian_angular_part(rI)
+                angular_1 = angular_part(rI)
+                angular_2 = gradient_angular_part(rI)
+                angular_3 = hessian_angular_part(rI)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
-                    c = 0.0
+                    radial_1 = 0.0
+                    radial_2 = 0.0
+                    radial_3 = 0.0
                     if self.orbital_types[nshell] == GAUSSIAN_TYPE:
                         for primitive in range(self.primitives[nshell]):
                             alpha = self.exponents[p + primitive]
                             exponent = self.coefficients[p + primitive] * np.exp(-alpha * r2)
                             c = -2 * alpha
+                            radial_1 += c**2 * exponent
+                            radial_2 += c * exponent
+                            radial_3 += exponent
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
                         for primitive in range(self.primitives[nshell]):
                             n = self.slater_orders[nshell]
                             alpha = self.exponents[p + primitive]
                             exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-alpha * r)
-                            c = (n/r - alpha)/r
+                            c = -(n/r - alpha)/r
+                            d = c**2 + (alpha*r - 2*n)/r**4
+                            radial_1 += d * exponent
+                            radial_2 += c * exponent
+                            radial_3 += exponent
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
-                        orbital_xx[i, ao+m] = (hessian_angular_part_data[l*l+m, 0] - c * (0) + c**2 * (0)) * exponent
-                        orbital_xy[i, ao+m] = (hessian_angular_part_data[l*l+m, 1] - c * (0) + c**2 * (0)) * exponent
-                        orbital_yy[i, ao+m] = (hessian_angular_part_data[l*l+m, 2] - c * (0) + c**2 * (0)) * exponent
-                        orbital_xz[i, ao+m] = (hessian_angular_part_data[l*l+m, 3] - c * (0) + c**2 * (0)) * exponent
-                        orbital_yz[i, ao+m] = (hessian_angular_part_data[l*l+m, 4] - c * (0) + c**2 * (0)) * exponent
-                        orbital_zz[i, ao+m] = (hessian_angular_part_data[l*l+m, 5] - c * (0) + c**2 * (0)) * exponent
+                        orbital_xx[i, ao+m] = angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * angular_2[l*l+m, 0] ) * radial_2 + angular_3[l*l+m, 0] * radial_3
+                        orbital_xy[i, ao+m] = angular_1[l*l+m] * radial_1 + (angular_2[l*l+m, 0] + angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 1] * radial_3
+                        orbital_yy[i, ao+m] = angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 2] * radial_3
+                        orbital_xz[i, ao+m] = angular_1[l*l+m] * radial_1 + (angular_2[l*l+m, 0] + angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 3] * radial_3
+                        orbital_yz[i, ao+m] = angular_1[l*l+m] * radial_1 + (angular_2[l*l+m, 1] + angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 4] * radial_3
+                        orbital_zz[i, ao+m] = angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 5] * radial_3
                     ao += 2*l+1
 
         return orbital_xx, orbital_xy, orbital_yy, orbital_xz, orbital_yz, orbital_zz
@@ -593,11 +602,10 @@ def integral(dX, neu, ned, steps, atom_positions, slater, r_initial):
     slater_determinant_normalization_factor = np.sqrt(1 / gamma(neu+1) / gamma(ned+1))
 
     result = 0.0
-    for i in range(steps // 10):
+    for i in range(steps):
         r_e = r_initial + random_step(dX, neu + ned)
         n_vectors = subtract_outer(atom_positions, r_e)
-        slater.hessian(n_vectors)
-        #result += (slater_determinant_normalization_factor * slater.value(n_vectors)) ** 2
+        result += (slater_determinant_normalization_factor * slater.value(n_vectors)) ** 2
 
     return result * v / steps
 
