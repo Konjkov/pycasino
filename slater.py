@@ -250,10 +250,10 @@ class Slater:
                             radial_part_2 += exponent
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
+                        n = self.slater_orders[nshell] + l
                         for primitive in range(self.primitives[nshell]):
                             alpha = self.exponents[p + primitive]
                             exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-alpha * r)
-                            n = self.slater_orders[nshell] + self.shell_moments[nshell]
                             radial_part_1 += (n/r2 - alpha/r) * exponent
                             radial_part_2 += exponent
                     p += self.primitives[nshell]
@@ -286,8 +286,8 @@ class Slater:
                             radial_part += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * self.coefficients[p + primitive] * np.exp(-alpha * r2)
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
+                        n = self.slater_orders[nshell]
                         for primitive in range(self.primitives[nshell]):
-                            n = self.slater_orders[nshell]
                             alpha = self.exponents[p + primitive]
                             exponent = r**n * self.coefficients[p + primitive] * np.exp(-alpha * r)
                             radial_part += (alpha**2 - 2*(l+n+1)*alpha/r + (2*l+n+1)*n/r2) * exponent
@@ -316,25 +316,31 @@ class Slater:
                 rI = n_vectors[atom, i]
                 r2 = rI[0] * rI[0] + rI[1] * rI[1] + rI[2] * rI[2]
                 angular_part_data = angular_part(rI)
+                gradient_angular_part_data = gradient_angular_part(rI)
+                hessian_angular_part_data = hessian_angular_part(rI)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
+                    c = 0.0
                     if self.orbital_types[nshell] == GAUSSIAN_TYPE:
                         for primitive in range(self.primitives[nshell]):
                             alpha = self.exponents[p + primitive]
                             exponent = self.coefficients[p + primitive] * np.exp(-alpha * r2)
+                            c = -2 * alpha
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
                         for primitive in range(self.primitives[nshell]):
+                            n = self.slater_orders[nshell]
                             alpha = self.exponents[p + primitive]
                             exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-alpha * r)
+                            c = (n/r - alpha)/r
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
-                        orbital_xx[i, ao+m] = 0
-                        orbital_xy[i, ao+m] = 0
-                        orbital_yy[i, ao+m] = 0
-                        orbital_xz[i, ao+m] = 0
-                        orbital_yz[i, ao+m] = 0
-                        orbital_zz[i, ao+m] = 0
+                        orbital_xx[i, ao+m] = (hessian_angular_part_data[l*l+m, 0] - c * (0) + c**2 * (0)) * exponent
+                        orbital_xy[i, ao+m] = (hessian_angular_part_data[l*l+m, 1] - c * (0) + c**2 * (0)) * exponent
+                        orbital_yy[i, ao+m] = (hessian_angular_part_data[l*l+m, 2] - c * (0) + c**2 * (0)) * exponent
+                        orbital_xz[i, ao+m] = (hessian_angular_part_data[l*l+m, 3] - c * (0) + c**2 * (0)) * exponent
+                        orbital_yz[i, ao+m] = (hessian_angular_part_data[l*l+m, 4] - c * (0) + c**2 * (0)) * exponent
+                        orbital_zz[i, ao+m] = (hessian_angular_part_data[l*l+m, 5] - c * (0) + c**2 * (0)) * exponent
                     ao += 2*l+1
 
         return orbital_xx, orbital_xy, orbital_yy, orbital_xz, orbital_yz, orbital_zz
