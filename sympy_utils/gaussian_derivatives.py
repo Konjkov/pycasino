@@ -19,35 +19,60 @@ def gradient(momentum):
 
 def hessian(momentum):
     """
-    hess(orb) =
+    hess(orb) = (hess(angular) - 2 * alpha * A * orb + 2 * alpha * 2 * alpha * B * angular) * exp(-alpha*r2) - 2 * alpha * orb * I
+    A = (x, y, z) x ∇(angular) + ∇(angular) x (x, y, z)
+    B = (x, y, z) x (x, y, z)
     """
     for harmonic in harmonics[momentum]:
-        l = momentum_map[momentum]
         orb = harmonic * exp(-alpha*r2)
         res = (
             simplify(diff(orb, x, x) - (
-                diff(diff(harmonic, x) * exp(-alpha*r2), x) -
-                2 * alpha * diff(x * orb, x)
+                (
+                    diff(harmonic, x, x) -
+                    2*alpha*x * diff(harmonic, x) -
+                    2*alpha*x * diff(harmonic, x) +
+                    2*alpha*x * 2*alpha*x * harmonic
+                ) * exp(-alpha*r2) - 2 * alpha * orb
             )),
             simplify(diff(orb, x, y) - (
-                diff(diff(harmonic, x) * exp(-alpha*r2), y) -
-                2 * alpha * diff(x * orb, y)
-            )),
+                (
+                    diff(harmonic, x, y) -
+                    2*alpha*y * diff(harmonic, x) -
+                    2*alpha*x * diff(harmonic, y) +
+                    2*alpha*x * 2*alpha*y * harmonic
+                ) * exp(-alpha*r2))
+            ),
             simplify(diff(orb, y, y) - (
-                diff(diff(harmonic, y) * exp(-alpha*r2), y) -
-                2 * alpha * diff(y * orb, y)
+                (
+                    diff(harmonic, y, y) -
+                    2*alpha*y * diff(harmonic, y) -
+                    2*alpha*y * diff(harmonic, y) +
+                    2*alpha*y * 2*alpha*y * harmonic
+                ) * exp(-alpha*r2) - 2 * alpha * orb
             )),
             simplify(diff(orb, x, z) - (
-                diff(diff(harmonic, x) * exp(-alpha*r2), z) -
-                2 * alpha * diff(x * orb, z)
-            )),
+                (
+                    diff(harmonic, x, z) -
+                    2*alpha*z * diff(harmonic, x) -
+                    2*alpha*x * diff(harmonic, z) +
+                    2*alpha*x * 2*alpha*z * harmonic
+                ) * exp(-alpha*r2))
+            ),
             simplify(diff(orb, y, z) - (
-                diff(diff(harmonic, y) * exp(-alpha*r2), z) -
-                2 * alpha * diff(y * orb, z)
-            )),
+                (
+                    diff(harmonic, y, z) -
+                    2*alpha*z * diff(harmonic, y) -
+                    2*alpha*y * diff(harmonic, z) +
+                    2*alpha*y * 2*alpha*z * harmonic
+                ) * exp(-alpha*r2))
+            ),
             simplify(diff(orb, z, z) - (
-                diff(diff(harmonic, z) * exp(-alpha*r2), z) -
-                2 * alpha * diff(z * orb, z)
+                (
+                    diff(harmonic, z, z) -
+                    2*alpha*z * diff(harmonic, z) -
+                    2*alpha*z * diff(harmonic, z) +
+                    2*alpha*z * 2*alpha*z * harmonic
+                ) * exp(-alpha*r2) - 2 * alpha * orb
             ))
         )
         print("hessian({})=[{}, {}, {}, {}, {}, {}]".format(momentum, *res))

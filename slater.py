@@ -496,7 +496,7 @@ class Slater:
                     res_d[j, 1, k, 2] = res_d[j, 2, k, 1] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_y, grad_z, wfn_d]))
                     res_d[j, 2, k, 2] = np.linalg.det(np.where(cond, grad_z, wfn_d))
 
-            # res += self.coeff[i] * np.concatenate((res_u * np.linalg.det(wfn_d), res_d * np.linalg.det(wfn_u)))
+            res += self.coeff[i] * np.concatenate((res_u * np.linalg.det(wfn_d), res_d * np.linalg.det(wfn_u)))
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
