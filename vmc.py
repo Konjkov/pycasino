@@ -437,8 +437,8 @@ if __name__ == '__main__':
     # path = 'test/stowfn/o3/HF/QZ4P/'
     # path = 'test/stowfn/be/HF/QZ4P/varmin_BF/0_0_00__9_0_00/'
     # path = 'test/stowfn/be/HF/QZ4P/varmin_BF/0_0_00__9_9_00/'
-    # path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__0_9_00/'
+    path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__0_9_00/'
     # path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__9_9_00/'
-    path = 'test/stowfn/ne/HF/QZ4P/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/stowfn/ne/HF/QZ4P/VMC_OPT/emin/legacy/f_term/'
     casino = Casino(path)
     main(casino)
