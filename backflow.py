@@ -158,7 +158,7 @@ class Backflow:
                         poly = 0.0
                         for k in range(parameters.shape[0]):
                             poly += parameters[k, mu_set] * n_powers[i, j, k]
-                        res[j] = poly * (1 - r/L) ** C * r_vec
+                        res[j] += poly * (1 - r/L) ** C * r_vec
         return res
 
     def phi_term(self, e_vectors, n_vectors, e_powers, n_powers):
@@ -218,22 +218,40 @@ class Backflow:
         """
         res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
-            return res
+            return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
-        return res
+        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
-    def mu_term_gradient(self, e_powers, e_vectors):
+    def mu_term_gradient(self, n_powers, n_vectors):
         """
-        :param e_powers:
-        :param e_vectors:
+        :param n_powers:
+        :param n_vectors:
         :return: partial derivatives of displacements of electrons - array(nelec, 3, 3):
         for every electron
         """
         res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.mu_cutoff.any():
-            return res
+            return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
-        return res
+        C = self.trunc
+        for parameters, L, mu_labels in zip(self.mu_parameters, self.mu_cutoff, self.mu_labels):
+            for i in mu_labels:
+                for j in range(self.neu + self.ned):
+                    r_vec = n_vectors[i, j]
+                    r = n_powers[i, j, 1]
+                    if r < L:
+                        mu_set = int(j >= self.neu) % parameters.shape[1]
+                        poly = poly_diff = 0.0
+                        for k in range(parameters.shape[0]):
+                            p = parameters[k, mu_set]
+                            poly += p * n_powers[i, j, k]
+                            if k > 0:
+                                poly_diff += p * k * n_powers[i, j, k-1]
+
+                        res[j, :, j, :] += (1 - r/L)**C * (
+                            ((L - r)*poly_diff - C*poly)/(r*(L - r)) * np.outer(r_vec, r_vec) + poly * np.eye(3)
+                        )
+        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def phi_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
         """
@@ -243,9 +261,9 @@ class Backflow:
         """
         res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.mu_cutoff.any():
-            return res
+            return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
-        return res
+        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def eta_term_laplacian(self, e_powers, e_vectors):
         """
@@ -255,9 +273,52 @@ class Backflow:
         """
         res = np.zeros((self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
-            return res
+            return res.ravel()
 
-        return res
+        return res.ravel()
+
+    def mu_term_laplacian(self, n_powers, n_vectors):
+        """
+        :param e_powers:
+        :param e_vectors:
+        :return:
+        """
+        res = np.zeros((self.neu + self.ned, 3))
+        if not self.mu_cutoff.any():
+            return res.ravel()
+
+        C = self.trunc
+        for parameters, L, mu_labels in zip(self.mu_parameters, self.mu_cutoff, self.mu_labels):
+            for i in mu_labels:
+                for j in range(self.neu + self.ned):
+                    r_vec = n_vectors[i, j]
+                    r = n_powers[i, j, 1]
+                    if r < L:
+                        mu_set = int(j >= self.neu) % parameters.shape[1]
+                        poly = poly_diff = poly_diff_2 = 0.0
+                        for k in range(parameters.shape[0]):
+                            p = parameters[k, mu_set]
+                            poly += p * n_powers[i, j, k]
+                            if k > 0:
+                                poly_diff += p * k * n_powers[i, j, k-1]
+                            if k > 1:
+                                poly_diff_2 += k * (k-1) * p * n_powers[i, j, k - 2]
+
+                        res[j] += r_vec
+
+        return res.ravel()
+
+    def phi_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
+        """
+        :param e_powers:
+        :param e_vectors:
+        :return:
+        """
+        res = np.zeros((self.neu + self.ned, 3))
+        if not self.phi_cutoff.any():
+            return res.ravel()
+
+        return res.ravel()
 
     def value(self, e_vectors, n_vectors):
         """Backflow displacemets
@@ -351,9 +412,9 @@ class Backflow:
         n_powers = self.en_powers(n_vectors)
 
         return (
-            self.eta_term_laplacian(e_powers, e_vectors)
-            # self.mu_term_laplacian(n_powers, n_vectors) +
-            # self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
+            self.eta_term_laplacian(e_powers, e_vectors) +
+            self.mu_term_laplacian(n_powers, n_vectors) +
+            self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
         )
 
     def fix_eta_parameters(self):
