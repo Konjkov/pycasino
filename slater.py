@@ -475,12 +475,15 @@ class Slater:
                     cond = np.logical_or(cond_u == j, cond_u == k)
                     not_cond = np.logical_not(cond)
                     res_u[j, 0, k, 0] = np.linalg.det(np.where(cond, grad_x, wfn_u))
-                    res_u[j, 0, k, 1] = res_u[j, 1, k, 0] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_x, grad_y, wfn_u]))
+                    res_u[j, 0, k, 1] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_x, grad_y, wfn_u]))
+                    res_u[j, 1, k, 0] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_y, grad_x, wfn_u]))
                     res_u[j, 1, k, 1] = np.linalg.det(np.where(cond, grad_y, wfn_u))
-                    res_u[j, 0, k, 2] = res_u[j, 2, k, 0] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_x, grad_z, wfn_u]))
-                    res_u[j, 1, k, 2] = res_u[j, 2, k, 1] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_y, grad_z, wfn_u]))
+                    res_u[j, 0, k, 2] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_x, grad_z, wfn_u]))
+                    res_u[j, 2, k, 0] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_z, grad_x, wfn_u]))
+                    res_u[j, 1, k, 2] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_y, grad_z, wfn_u]))
+                    res_u[j, 2, k, 1] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_z, grad_y, wfn_u]))
                     res_u[j, 2, k, 2] = np.linalg.det(np.where(cond, grad_z, wfn_u))
-                    res_u[k, :, j, :] = res_u[j, :, k, :]
+                    res_u[k, :, j, :] = res_u[j, :, k, :].T
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
             grad_x = self.mo_down[i] @ gradient_x[self.neu:].T
@@ -511,12 +514,15 @@ class Slater:
                     cond = np.logical_or(cond_d == j, cond_d == k)
                     not_cond = np.logical_not(cond)
                     res_d[j, 0, k, 0] = np.linalg.det(np.where(cond, grad_x, wfn_d))
-                    res_d[j, 0, k, 1] = res_d[j, 1, k, 0] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_x, grad_y, wfn_d]))
+                    res_d[j, 0, k, 1] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_x, grad_y, wfn_d]))
+                    res_d[j, 1, k, 0] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_y, grad_x, wfn_d]))
                     res_d[j, 1, k, 1] = np.linalg.det(np.where(cond, grad_y, wfn_d))
-                    res_d[j, 0, k, 2] = res_d[j, 2, k, 0] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_x, grad_z, wfn_d]))
-                    res_d[j, 1, k, 2] = res_d[j, 2, k, 1] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_y, grad_z, wfn_d]))
+                    res_d[j, 0, k, 2] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_x, grad_z, wfn_d]))
+                    res_d[j, 2, k, 0] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_z, grad_x, wfn_d]))
+                    res_d[j, 1, k, 2] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_y, grad_z, wfn_d]))
+                    res_d[j, 2, k, 1] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_z, grad_y, wfn_d]))
                     res_d[j, 2, k, 2] = np.linalg.det(np.where(cond, grad_z, wfn_d))
-                    res_d[k, :, j, :] = res_d[j, :, k, :]
+                    res_d[k, :, j, :] = res_d[j, :, k, :].T
 
             res[:self.neu, :, :self.neu, :] += self.coeff[i] * res_u * np.linalg.det(wfn_d)
             res[self.neu:, :, self.neu:, :] += self.coeff[i] * res_d * np.linalg.det(wfn_u)
