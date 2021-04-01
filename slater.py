@@ -334,8 +334,8 @@ class Slater:
                             n = self.slater_orders[nshell]
                             alpha = self.exponents[p + primitive]
                             exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-alpha * r)
-                            c = -(n/r - alpha)/r
-                            d = c**2 + (alpha*r - 2*n)/r**4
+                            c = -(alpha*r - n)/r2
+                            d = c**2 + (alpha*r - 2*n)/r2**2
                             radial_1 += d * exponent
                             radial_2 += c * exponent
                             radial_3 += exponent
@@ -698,7 +698,7 @@ if __name__ == '__main__':
 
     # path = 'test/gwfn/h/HF/cc-pVQZ/'
     # path = 'test/gwfn/be/HF/cc-pVQZ/'
-    path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
+    # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
     # path = 'test/gwfn/b/HF/cc-pVQZ/'
     # path = 'test/gwfn/n/HF/cc-pVQZ/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/'
@@ -711,7 +711,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/s4-c2v/HF/cc-pVQZ/'
 
     # path = 'test/stowfn/he/HF/QZ4P/'
-    # path = 'test/stowfn/be/HF/QZ4P/'
+    path = 'test/stowfn/be/HF/QZ4P/'
     # path = 'test/stowfn/ne/HF/QZ4P/'
 
     start = default_timer()
