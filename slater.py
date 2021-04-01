@@ -457,8 +457,12 @@ class Slater:
             hess_yz = self.mo_up[i] @ hessian_yz[:self.neu].T
             hess_zz = self.mo_up[i] @ hessian_zz[:self.neu].T
 
+            res_grad_u = np.zeros((self.neu, 3))
             res_u = np.zeros((self.neu, 3, self.neu, 3))
             for j in range(self.neu):
+                res_grad_u[j, 0] = np.linalg.det(np.where(cond_u == j, grad_x, wfn_u))
+                res_grad_u[j, 1] = np.linalg.det(np.where(cond_u == j, grad_y, wfn_u))
+                res_grad_u[j, 2] = np.linalg.det(np.where(cond_u == j, grad_z, wfn_u))
                 res_u[j, 0, j, 0] = np.linalg.det(np.where(cond_u == j, hess_xx, wfn_u))
                 res_u[j, 0, j, 1] = res_u[j, 1, j, 0] = np.linalg.det(np.where(cond_u == j, hess_xy, wfn_u))
                 res_u[j, 1, j, 1] = np.linalg.det(np.where(cond_u == j, hess_yy, wfn_u))
@@ -489,8 +493,12 @@ class Slater:
             hess_yz = self.mo_down[i] @ hessian_yz[self.neu:].T
             hess_zz = self.mo_down[i] @ hessian_zz[self.neu:].T
 
+            res_grad_d = np.zeros((self.ned, 3))
             res_d = np.zeros((self.ned, 3, self.ned, 3))
             for j in range(self.ned):
+                res_grad_d[j, 0] = np.linalg.det(np.where(cond_d == j, grad_x, wfn_d))
+                res_grad_d[j, 1] = np.linalg.det(np.where(cond_d == j, grad_y, wfn_d))
+                res_grad_d[j, 2] = np.linalg.det(np.where(cond_d == j, grad_z, wfn_d))
                 res_d[j, 0, j, 0] = np.linalg.det(np.where(cond_d == j, hess_xx, wfn_d))
                 res_d[j, 0, j, 1] = res_d[j, 1, j, 0] = np.linalg.det(np.where(cond_d == j, hess_xy, wfn_d))
                 res_d[j, 1, j, 1] = np.linalg.det(np.where(cond_d == j, hess_yy, wfn_d))
@@ -512,6 +520,12 @@ class Slater:
 
             res[:self.neu, :, :self.neu, :] += self.coeff[i] * res_u * np.linalg.det(wfn_d)
             res[self.neu:, :, self.neu:, :] += self.coeff[i] * res_d * np.linalg.det(wfn_u)
+
+            # input is flattened if not already 1 - dimensional
+            res_ud = np.outer(res_grad_u, res_grad_d)
+            res_du = np.outer(res_grad_d, res_grad_u)
+            res[:self.neu, :, self.neu:, :] += self.coeff[i] * res_ud.reshape(self.neu, 3, self.ned, 3)
+            res[self.neu:, :, :self.neu, :] += self.coeff[i] * res_du.reshape(self.ned, 3, self.neu, 3)
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
