@@ -236,7 +236,7 @@ class VMC:
             casino.backflow.trunc, casino.backflow.eta_parameters, casino.backflow.eta_cutoff,
             casino.backflow.mu_parameters, casino.backflow.mu_cutoff, casino.backflow.mu_labels,
             casino.backflow.phi_parameters, casino.backflow.theta_parameters, casino.backflow.phi_cutoff,
-            casino.backflow.phi_labels, casino.backflow.phi_irrotational
+            casino.backflow.phi_labels, casino.backflow.phi_irrotational, casino.backflow.ae_cutoff
         )
         self.wfn = Wfn(casino.input.neu, casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.slater, self.jastrow, self.backflow)
         self.neu, self.ned = casino.input.neu, casino.input.ned
@@ -435,10 +435,8 @@ if __name__ == '__main__':
     # path = 'test/stowfn/ar/HF/QZ4P/'
     # path = 'test/stowfn/kr/HF/QZ4P/'
     # path = 'test/stowfn/o3/HF/QZ4P/'
-    # path = 'test/stowfn/be/HF/QZ4P/varmin_BF/0_0_00__9_0_00/'
-    # path = 'test/stowfn/be/HF/QZ4P/varmin_BF/0_0_00__9_9_00/'
-    path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__0_9_00/'
-    # path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__9_9_00/'
+    # path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__0_9_00/'
+    path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__9_9_00/'
     # path = 'test/stowfn/ne/HF/QZ4P/VMC_OPT/emin/legacy/f_term/'
     casino = Casino(path)
     main(casino)
