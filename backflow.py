@@ -82,11 +82,11 @@ class Backflow:
         :return:
         """
         res = np.zeros((e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
-        for i in range(e_vectors.shape[0] - 1):
-            for j in range(i + 1, e_vectors.shape[1]):
+        for i in range(1, e_vectors.shape[0]):
+            for j in range(i):
                 r_ee = np.linalg.norm(e_vectors[i, j])
                 for k in range(self.max_ee_order):
-                    res[i, j, k] = r_ee ** k
+                    res[i, j, k] = res[j, i, k] = r_ee ** k
         return res
 
     def en_powers(self, n_vectors):
@@ -118,10 +118,6 @@ class Backflow:
         :param e_vectors:
         :param e_powers:
         :return: displacements of electrons - array(nelec, 3)
-        res[0] = - (1 - r/L) ** C * poly * r_vec[1, 0] - (1 - r/L) ** C * poly * r_vec[2, 0] - (1 - r/L) ** C * poly * r_vec[3, 0]
-        res[1] = (1 - r/L) ** C * poly * r_vec[1, 0] - (1 - r/L) ** C * poly * r_vec[2, 1] - (1 - r/L) ** C * poly * r_vec[3, 1]
-        res[2] = (1 - r/L) ** C * poly * r_vec[2, 0] + (1 - r/L) ** C * poly * r_vec[2, 1] - (1 - r/L) ** C * poly * r_vec[3, 2]
-        res[3] = (1 - r/L) ** C * poly * r_vec[3, 0] + (1 - r/L) ** C * poly * r_vec[3, 1] + (1 - r/L) ** C * poly * r_vec[3, 2]
         """
         res = np.zeros((self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
@@ -129,10 +125,8 @@ class Backflow:
 
         C = self.trunc
         parameters = self.eta_parameters
-        for i in range(self.neu + self.ned):
-            for j in range(self.neu + self.ned):
-                if i == j:
-                    continue
+        for i in range(1, self.neu + self.ned):
+            for j in range(i):
                 r_vec = e_vectors[i, j]
                 r = e_powers[i, j, 1]
                 eta_set = (int(i >= self.neu) + int(j >= self.neu)) % parameters.shape[1]
