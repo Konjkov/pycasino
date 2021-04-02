@@ -31,6 +31,7 @@ spec = [
     ('max_ee_order', nb.int64),
     ('max_en_order', nb.int64),
     ('phi_irrotational', nb.boolean[:]),
+    ('ae_cutoff', nb.float64[:]),
 ]
 
 
@@ -39,7 +40,7 @@ class Backflow:
 
     def __init__(
         self, neu, ned, trunc, eta_parameters, eta_cutoff, mu_parameters, mu_cutoff, mu_labels, phi_parameters,
-        theta_parameters, phi_cutoff, phi_labels, phi_irrotational
+        theta_parameters, phi_cutoff, phi_labels, phi_irrotational, ae_cutoff
     ):
         self.neu = neu
         self.ned = ned
@@ -67,6 +68,7 @@ class Backflow:
         self.mu_cutoff = mu_cutoff
         self.phi_cutoff = phi_cutoff
         self.phi_irrotational = phi_irrotational
+        self.ae_cutoff = ae_cutoff
         if self.eta_cutoff.any():
             self.fix_eta_parameters()
         if self.mu_cutoff.any():
@@ -102,11 +104,14 @@ class Backflow:
 
     def ae_cutoffs(self, n_vectors, n_powers):
         """Zeroing the backflow displacement at AE atoms."""
-        L = 0.2
-        for i in n_vectors.shape[0]:
+        res = np.ones((self.neu + self.ned, 3))
+        for i in range(n_vectors.shape[0]):
+            Lg = self.ae_cutoff[i]
             for j in range(self.neu + self.ned):
                 r = n_powers[i, j, 1]
-                res = (r/L)**2 * (6 - 8 * (r/L) + 3 * (r/L)**2)
+                if r < Lg:
+                    res[j] *= (r/Lg)**2 * (6 - 8 * (r/Lg) + 3 * (r/Lg)**2)
+        return res
 
     def eta_term(self, e_vectors, e_powers):
         """
@@ -331,7 +336,7 @@ class Backflow:
         n_powers = self.en_powers(n_vectors)
 
         return (
-            self.eta_term(e_vectors, e_powers) +
+            self.eta_term(e_vectors, e_powers) * self.ae_cutoffs(n_vectors, n_powers) +
             self.mu_term(n_vectors, n_powers) +
             self.phi_term(e_vectors, n_vectors, e_powers, n_powers)
         )
@@ -507,5 +512,5 @@ if __name__ == '__main__':
         casino.backflow.trunc, casino.backflow.eta_parameters, casino.backflow.eta_cutoff,
         casino.backflow.mu_parameters, casino.backflow.mu_cutoff, casino.backflow.mu_labels,
         casino.backflow.phi_parameters, casino.backflow.theta_parameters, casino.backflow.phi_cutoff,
-        casino.backflow.phi_labels, casino.backflow.phi_irrotational
+        casino.backflow.phi_labels, casino.backflow.phi_irrotational, casino.backflow.ae_cutoff
     )

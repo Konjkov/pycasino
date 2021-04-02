@@ -102,7 +102,7 @@ class Wfn:
             b_l = self.backflow.numerical_laplacian(e_vectors, n_vectors)
             slater_n_vectors = n_vectors + b_v
             s_v = self.slater.value(slater_n_vectors)
-            s_g = self.slater.gradient(slater_n_vectors) / s_v
+            s_g = self.slater.numerical_gradient(slater_n_vectors) / s_v
             s_h = self.slater.hessian(slater_n_vectors) / s_v
             b_g_i = np.eye((self.neu + self.ned) * 3) + b_g
             s_l = np.trace(s_h @ b_g_i @ b_g_i) + s_g @ b_l
