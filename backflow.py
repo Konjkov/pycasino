@@ -118,6 +118,10 @@ class Backflow:
         :param e_vectors:
         :param e_powers:
         :return: displacements of electrons - array(nelec, 3)
+        res[0] = - (1 - r/L) ** C * poly * r_vec[1, 0] - (1 - r/L) ** C * poly * r_vec[2, 0] - (1 - r/L) ** C * poly * r_vec[3, 0]
+        res[1] = (1 - r/L) ** C * poly * r_vec[1, 0] - (1 - r/L) ** C * poly * r_vec[2, 1] - (1 - r/L) ** C * poly * r_vec[3, 1]
+        res[2] = (1 - r/L) ** C * poly * r_vec[2, 0] + (1 - r/L) ** C * poly * r_vec[2, 1] - (1 - r/L) ** C * poly * r_vec[3, 2]
+        res[3] = (1 - r/L) ** C * poly * r_vec[3, 0] + (1 - r/L) ** C * poly * r_vec[3, 1] + (1 - r/L) ** C * poly * r_vec[3, 2]
         """
         res = np.zeros((self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
@@ -125,12 +129,13 @@ class Backflow:
 
         C = self.trunc
         parameters = self.eta_parameters
-        for i in range(self.neu + self.ned - 1):
-            for j in range(i + 1, self.neu + self.ned):
+        for i in range(self.neu + self.ned):
+            for j in range(self.neu + self.ned):
+                if i == j:
+                    continue
                 r_vec = e_vectors[i, j]
                 r = e_powers[i, j, 1]
-                eta_set = (int(i >= self.neu) + int(j >= self.neu))
-                eta_set = eta_set % parameters.shape[1]
+                eta_set = (int(i >= self.neu) + int(j >= self.neu)) % parameters.shape[1]
                 # I don't think it works fast if NO SPIN-DEP
                 L = self.eta_cutoff[eta_set] or self.eta_cutoff[0]
                 if r < L:
@@ -139,7 +144,7 @@ class Backflow:
                         poly += parameters[k, eta_set] * e_powers[i, j, k]
                     bf = (1 - r/L) ** C * poly * r_vec
                     res[i] += bf
-                    res[j] -= bf
+                    # res[j] -= bf
         return res
 
     def mu_term(self, n_vectors, n_powers):
@@ -367,7 +372,7 @@ class Backflow:
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
 
-    def numerical_laplacian(self, e_vectors, n_vectors) -> float:
+    def numerical_laplacian(self, e_vectors, n_vectors):
         """Numerical laplacian with respect to a e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors

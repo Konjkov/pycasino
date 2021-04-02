@@ -140,7 +140,7 @@ class Jastrow:
             for j in range(i):
                 r = e_powers[i, j, 1]
                 if r < self.u_cutoff:
-                    cusp_set = (int(i >= self.neu) + int(j >= self.neu))
+                    cusp_set = int(i >= self.neu) + int(j >= self.neu)
                     u_set = cusp_set % parameters.shape[1]
                     poly = 0.0
                     for k in range(parameters.shape[0]):
