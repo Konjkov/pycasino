@@ -451,11 +451,11 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Be/HF/QZ4P/Slater/'
     # path = 'test/stowfn/Be/HF/QZ4P/Jastrow/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Slater/'
-    path = 'test/stowfn/Ar/HF/QZ4P/Slater/'
-    # path = 'test/stowfn/Kr/HF/QZ4P/Slater/'
-    # path = 'test/stowfn/o3/HF/QZ4P/'
-    # path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__0_9_00/'
-    # path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__9_9_00/'
-    # path = 'test/stowfn/ne/HF/QZ4P/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/stowfn/Ne/HF/QZ4P/Jastrow/'
+    # path = 'test/stowfn/Ar/HF/QZ4P/Slater/'
+    path = 'test/stowfn/Kr/HF/QZ4P/Slater/'
+    # path = 'test/stowfn/O3/HF/QZ4P/Slater/'
+    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/8_8_33__0_9_00/'
+    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/8_8_33__9_9_00/'
     casino = Casino(path)
     main(casino)
