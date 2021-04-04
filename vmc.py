@@ -263,14 +263,13 @@ class VMC:
         res = sp.optimize.root(f, [self.metropolis.step], method='diagbroyden', tol=1 / np.sqrt(steps), callback=callback, options=options)
         self.metropolis.step = np.abs(res.x[0])
 
-    def energy(self, steps):
+    def energy_old(self, steps, nblock):
         self.optimize_vmc_step(10000)
 
-        rounds = 10
-        E = np.zeros((rounds,))
+        E = np.zeros((nblock,))
         check_point_1 = default_timer()
-        for i in range(rounds):
-            weights, position, _ = self.metropolis.random_walk(steps // rounds)
+        for i in range(nblock):
+            weights, position, _ = self.metropolis.random_walk(steps // nblock)
             energy = self.metropolis.local_energy(position) + self.metropolis.wfn.nuclear_repulsion
             E[i] = np.average(energy, weights=weights)
             mean_energy = np.average(E[:i + 1])
@@ -289,7 +288,25 @@ class VMC:
         opt = pyblock.blocking.find_optimal_block(E.size, reblock_data)
         opt_data = reblock_data[opt[0]]
         logger.info(opt_data)
-        logger.info(f'{np.mean(opt_data.mean)} +/- {np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size)}')
+        logger.info('{} +/- {}'.format(np.mean(opt_data.mean), np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size)))
+
+    def energy(self, steps, nblock):
+        self.optimize_vmc_step(10000)
+
+        start = default_timer()
+        for i in range(nblock):
+            weights, position, _ = self.metropolis.random_walk(steps // nblock)
+            energy = self.metropolis.local_energy(position) + self.metropolis.wfn.nuclear_repulsion
+            stop = default_timer()
+            logger.info('total time {}'.format(stop - start))
+
+        reblock_data = pyblock.blocking.reblock(expand(weights, energy))
+        # for reblock_iter in reblock_data:
+        #     print(reblock_iter)
+        opt = pyblock.blocking.find_optimal_block(steps, reblock_data)
+        opt_data = reblock_data[opt[0]]
+        logger.info(opt_data)
+        logger.info('{} +/- {}'.format(np.mean(opt_data.mean), np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size)))
 
     def normal_test(self, weight, energy):
         """Test whether energy distribution differs from a normal one."""
@@ -387,7 +404,7 @@ def main(casino):
 
     vmc = VMC(casino)
     vmc.equilibrate(casino.input.vmc_equil_nstep)
-    vmc.energy(casino.input.vmc_nstep)
+    vmc.energy(casino.input.vmc_nstep, casino.input.vmc_nblock)
     # vmc.varmin(casino.input.vmc_opt_nstep, 5)
     # vmc.emin(casino.input.vmc_opt_nstep, 5)
 
@@ -429,14 +446,16 @@ if __name__ == '__main__':
     # path = 'test/gwfn/alcl3/HF/cc-pVQZ/'
     # path = 'test/gwfn/s4-c2v/HF/cc-pVQZ/'
 
-    # path = 'test/stowfn/he/HF/QZ4P/'
-    # path = 'test/stowfn/be/HF/QZ4P/'
-    # path = 'test/stowfn/ne/HF/QZ4P/'
-    # path = 'test/stowfn/ar/HF/QZ4P/'
-    # path = 'test/stowfn/kr/HF/QZ4P/'
+    # path = 'test/stowfn/He/HF/QZ4P/Slater/'
+    # path = 'test/stowfn/He/HF/QZ4P/Jastrow/'
+    # path = 'test/stowfn/Be/HF/QZ4P/Slater/'
+    # path = 'test/stowfn/Be/HF/QZ4P/Jastrow/'
+    # path = 'test/stowfn/Ne/HF/QZ4P/Slater/'
+    path = 'test/stowfn/Ar/HF/QZ4P/Slater/'
+    # path = 'test/stowfn/Kr/HF/QZ4P/Slater/'
     # path = 'test/stowfn/o3/HF/QZ4P/'
     # path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__0_9_00/'
-    path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__9_9_00/'
+    # path = 'test/stowfn/be/HF/QZ4P/varmin_BF/8_8_33__9_9_00/'
     # path = 'test/stowfn/ne/HF/QZ4P/VMC_OPT/emin/legacy/f_term/'
     casino = Casino(path)
     main(casino)

@@ -27,6 +27,8 @@ class Input:
                     self.vmc_equil_nstep = read_int(line)
                 elif line.startswith('vmc_nstep'):
                     self.vmc_nstep = read_int(line)
+                elif line.startswith('vmc_nblock'):
+                    self.vmc_nblock = read_int(line)
                 elif line.startswith('atom_basis_type'):
                     self.atom_basis_type = read_str(line)
                 elif line.startswith('use_jastrow'):

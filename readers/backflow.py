@@ -199,6 +199,8 @@ class Backflow:
     @staticmethod
     def get_phi_mask(parameters, phi_irrotational):
         mask = np.ones(parameters.shape, np.bool)
+        if phi_irrotational:
+            return np.zeros(parameters.shape, np.bool)
         phi_en_order = parameters.shape[0] - 1
         for m in range(parameters.shape[2]):
             for l in range(parameters.shape[1]):
@@ -220,8 +222,6 @@ class Backflow:
 
     @staticmethod
     def get_theta_mask(parameters, phi_irrotational):
-        if phi_irrotational:
-            return np.zeros(parameters.shape, np.bool)
         mask = np.ones(parameters.shape, np.bool)
         phi_en_order = parameters.shape[0] - 1
         for m in range(parameters.shape[2]):

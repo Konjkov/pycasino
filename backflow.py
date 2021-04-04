@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 from readers.casino import Casino
+from overload import subtract_outer
 
 labels_type = nb.int64[:]
 eta_parameters_type = nb.float64[:, :]
@@ -180,8 +181,8 @@ class Backflow:
         C = self.trunc
         for parameters, L, phi_labels, phi_irrotational in zip(self.phi_parameters, self.phi_cutoff, self.phi_labels, self.phi_irrotational):
             for i in phi_labels:
-                for j in range(self.neu + self.ned - 1):
-                    for k in range(j + 1, self.neu + self.ned):
+                for j in range(self.neu + self.ned):
+                    for k in range(j):
                         r_e1I_vec = n_vectors[i, j]
                         r_e2I_vec = n_vectors[i, k]
                         r_ee_vec = e_vectors[j, k]
@@ -503,7 +504,7 @@ if __name__ == '__main__':
 
     term = 'eta'
 
-    path = 'test/stowfn/ne/HF/QZ4P/VMC_OPT_BF/emin_BF/8_8_44__9_9_33/'
+    path = 'test/stowfn/ne/HF/QZ4P/VMC_OPT_BF/emin_BF/8_8_44__9_9_33_2/'
 
     casino = Casino(path)
     backflow = Backflow(
@@ -513,3 +514,43 @@ if __name__ == '__main__':
         casino.backflow.phi_parameters, casino.backflow.theta_parameters, casino.backflow.phi_cutoff,
         casino.backflow.phi_labels, casino.backflow.phi_irrotational, casino.backflow.ae_cutoff
     )
+
+    steps = 100
+
+    if term == 'eta':
+        x_min, x_max = 0, np.max(backflow.eta_cutoff)
+        x_grid = np.linspace(x_min, x_max, steps)
+        for spin_dep in range(3):
+            backflow.neu = 2-spin_dep
+            backflow.ned = spin_dep
+            y_grid = np.zeros((steps, ))
+            for i in range(100):
+                r_e = np.array([[0.0, 0.0, 0.0], [x_grid[i], 0.0, 0.0]])
+                e_vectors = subtract_outer(r_e, r_e)
+                e_powers = backflow.ee_powers(e_vectors)
+                y_grid[i] = backflow.eta_term(e_vectors, e_powers)[1, 0]
+            plt.plot(x_grid, y_grid, label=['uu', 'ud', 'dd'][spin_dep])
+        plt.xlabel('r_ee (au)')
+        plt.ylabel('polynomial part')
+        plt.title('Backflow eta-term')
+    elif term == 'mu':
+        for atom in range(casino.wfn.atom_positions.shape[0]):
+            x_min, x_max = 0, backflow.eta_cutoff[atom]
+            x_grid = np.linspace(x_min, x_max, steps)
+            for spin_dep in range(2):
+                backflow.neu = 1 - spin_dep
+                backflow.ned = spin_dep
+                y_grid = np.zeros((steps, ))
+                for i in range(100):
+                    r_e = np.array([[x_grid[i], 0.0, 0.0]]) + casino.wfn.atom_positions[atom]
+                    sl = slice(atom, atom+1)
+                    backflow.chi_parameters = nb.typed.List.empty_list(mu_parameters_type)
+                    [backflow.mu_parameters.append(p) for p in casino.jastrow.mu_parameters[sl]]
+                    n_vectors = subtract_outer(casino.wfn.atom_positions[sl], r_e)
+                    n_powers = backflow.en_powers(n_vectors)
+                    y_grid[i] = backflow.mu_term(n_powers)
+                plt.plot(x_grid, y_grid, label=f'atom {atom} ' + ['u', 'd'][spin_dep])
+
+    plt.grid(True)
+    plt.legend()
+    plt.show()

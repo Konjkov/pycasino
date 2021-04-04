@@ -618,19 +618,19 @@ class Jastrow:
         res = np.zeros(0)
         if self.u_cutoff:
             res = np.concatenate((
-                res, np.array((self.u_cutoff, )), self.u_parameters.flatten()[self.u_mask.flatten()]
+                res, np.array((self.u_cutoff, )), self.u_parameters.ravel()[self.u_mask.ravel()]
             ))
 
         if self.chi_cutoff.any():
             for chi_parameters, chi_mask, chi_cutoff in zip(self.chi_parameters, self.chi_mask, self.chi_cutoff):
                 res = np.concatenate((
-                    res, np.array((chi_cutoff, )), chi_parameters.flatten()[chi_mask.flatten()]
+                    res, np.array((chi_cutoff, )), chi_parameters.ravel()[chi_mask.ravel()]
                 ))
 
         if self.f_cutoff.any():
             for f_parameters, f_mask, f_cutoff in zip(self.f_parameters, self.f_mask, self.f_cutoff):
                 res = np.concatenate((
-                    res, np.array((f_cutoff, )), f_parameters.flatten()[f_mask.flatten()]
+                    res, np.array((f_cutoff, )), f_parameters.ravel()[f_mask.ravel()]
                 ))
 
         return res
@@ -1196,8 +1196,8 @@ if __name__ == '__main__':
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_u_vmc/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_chi/'
     # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_no_u_no_chi_vmc/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
-    # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
+    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
+    path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/al/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
     # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
 
@@ -1216,12 +1216,14 @@ if __name__ == '__main__':
         x_min, x_max = 0, jastrow.u_cutoff
         x_grid = np.linspace(x_min, x_max, steps)
         for spin_dep in range(3):
+            jastrow.neu = 2-spin_dep
+            jastrow.ned = spin_dep
             y_grid = np.zeros((steps, ))
             for i in range(100):
                 r_e = np.array([[0.0, 0.0, 0.0], [x_grid[i], 0.0, 0.0]])
                 e_vectors = subtract_outer(r_e, r_e)
                 e_powers = jastrow.ee_powers(e_vectors)
-                y_grid[i] = jastrow.u_term(e_powers, 2-spin_dep)
+                y_grid[i] = jastrow.u_term(e_powers)
                 if spin_dep == 1:
                     y_grid[i] /= 2.0
             plt.plot(x_grid, y_grid, label=['uu', 'ud/2', 'dd'][spin_dep])
@@ -1233,6 +1235,8 @@ if __name__ == '__main__':
             x_min, x_max = 0, jastrow.chi_cutoff[atom]
             x_grid = np.linspace(x_min, x_max, steps)
             for spin_dep in range(2):
+                jastrow.neu = 1 - spin_dep
+                jastrow.ned = spin_dep
                 y_grid = np.zeros((steps, ))
                 for i in range(100):
                     r_e = np.array([[x_grid[i], 0.0, 0.0]]) + casino.wfn.atom_positions[atom]
@@ -1241,7 +1245,7 @@ if __name__ == '__main__':
                     [jastrow.chi_parameters.append(p) for p in casino.jastrow.chi_parameters[sl]]
                     n_vectors = subtract_outer(casino.wfn.atom_positions[sl], r_e)
                     n_powers = jastrow.en_powers(n_vectors)
-                    y_grid[i] = jastrow.chi_term(n_powers, 1-spin_dep)
+                    y_grid[i] = jastrow.chi_term(n_powers)
                 plt.plot(x_grid, y_grid, label=f'atom {atom} ' + ['u', 'd'][spin_dep])
         plt.xlabel('r_eN (au)')
         plt.ylabel('polynomial part')
@@ -1256,6 +1260,8 @@ if __name__ == '__main__':
             y = np.linspace(y_min, y_max, steps)
             x_grid, y_grid = np.meshgrid(x, y)
             for spin_dep in range(3):
+                jastrow.neu = 2 - spin_dep
+                jastrow.ned = spin_dep
                 z_grid = np.zeros((steps, steps))
                 for i in range(100):
                     for j in range(100):
@@ -1270,7 +1276,7 @@ if __name__ == '__main__':
                         e_powers = jastrow.ee_powers(e_vectors)
                         n_vectors = subtract_outer(casino.wfn.atom_positions[sl], r_e)
                         n_powers = jastrow.en_powers(n_vectors)
-                        z_grid[i, j] = jastrow.f_term(e_powers, n_powers, 2-spin_dep)
+                        z_grid[i, j] = jastrow.f_term(e_powers, n_powers)
                 axis.plot_wireframe(x_grid, y_grid, z_grid, label=f'atom {atom} ' + ['uu', 'ud', 'dd'][spin_dep])
         axis.set_xlabel('r_e1N (au)')
         axis.set_ylabel('r_e2N (au)')
