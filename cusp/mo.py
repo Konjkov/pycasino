@@ -4,7 +4,7 @@ import numpy as np
 import numba as nb
 import matplotlib.pyplot as plt
 
-from readers.gwfn import Gwfn
+from readers.wfn import Gwfn
 from readers.input import Input
 
 
@@ -21,7 +21,7 @@ def wfn_s(r, atom, mo, shells, atoms):
             s_part = 0.0
             s_derivative_part = 0.0
             s_second_derivative_part = 0.0
-            if np.allclose(shells[nshell].position, atoms[atom].position) and shells[nshell].momoent == 0:
+            if np.allclose(shells[nshell].position, atoms[atom].position) and shells[nshell].moment == 0:
                 for primitive in range(shells[nshell].primitives):
                     alpha = shells[nshell].exponents[primitive]
                     exponent = shells[nshell].coefficients[primitive] * np.exp(-alpha * r * r)

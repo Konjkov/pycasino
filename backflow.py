@@ -215,11 +215,7 @@ class Backflow:
         """
         :param e_powers:
         :param e_vectors:
-        :return: partial derivatives of displacements of electrons - array(nelec, 3, 3):
-            d eta_x/dx, d eta_x/dy, d eta_x/dz
-            d eta_y/dx, d eta_y/dy, d eta_y/dz
-            d eta_z/dx, d eta_z/dy, d eta_z/dz
-        for every electron
+        :return: partial derivatives of displacements of electrons - array(nelec * 3, nelec * 3)
         """
         res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
@@ -231,8 +227,7 @@ class Backflow:
         """
         :param n_powers:
         :param n_vectors:
-        :return: partial derivatives of displacements of electrons - array(nelec, 3, 3):
-        for every electron
+        :return: partial derivatives of displacements of electrons - array(nelec * 3, nelec * 3)
         """
         res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.mu_cutoff.any():
@@ -262,7 +257,7 @@ class Backflow:
         """
         :param e_powers:
         :param e_vectors:
-        :return: partial derivatives of displacements of electrons - array(nelec, 3, 3):
+        :return: partial derivatives of displacements of electrons - array(nelec * 3, nelec * 3)
         """
         res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.mu_cutoff.any():
@@ -274,7 +269,7 @@ class Backflow:
         """
         :param e_powers:
         :param e_vectors:
-        :return:
+        :return: vector laplacian - array(nelec * 3)
         """
         res = np.zeros((self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
@@ -286,7 +281,7 @@ class Backflow:
         """
         :param e_powers:
         :param e_vectors:
-        :return:
+        :return: vector laplacian - array(nelec * 3)
         """
         res = np.zeros((self.neu + self.ned, 3))
         if not self.mu_cutoff.any():
@@ -317,7 +312,7 @@ class Backflow:
         """
         :param e_powers:
         :param e_vectors:
-        :return:
+        :return: vector laplacian - array(nelec * 3)
         """
         res = np.zeros((self.neu + self.ned, 3))
         if not self.phi_cutoff.any():
@@ -329,7 +324,7 @@ class Backflow:
         """Backflow displacemets
         :param e_vectors:
         :param n_vectors:
-        :return:
+        :return: backflow displacement array(nelec * 3)
         """
 
         e_powers = self.ee_powers(e_vectors)
@@ -345,7 +340,7 @@ class Backflow:
         """Numerical gradient with respect to a e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
-        :return:
+        :return: partial derivatives of displacements of electrons - array(nelec * 3, nelec * 3)
         """
         delta = 0.00001
 
@@ -371,7 +366,7 @@ class Backflow:
         """Numerical laplacian with respect to a e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
-        :return:
+        :return: vector laplacian - array(nelec * 3)
         """
         delta = 0.00001
 
