@@ -179,7 +179,7 @@ class Backflow:
             return res
 
         C = self.trunc
-        for parameters, L, phi_labels, phi_irrotational in zip(self.phi_parameters, self.phi_cutoff, self.phi_labels, self.phi_irrotational):
+        for phi_parameters, theta_parameters, L, phi_labels, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_labels, self.phi_irrotational):
             for i in phi_labels:
                 for j in range(self.neu + self.ned):
                     for k in range(j):
@@ -189,25 +189,25 @@ class Backflow:
                         r_e1I = n_powers[i, j, 1]
                         r_e2I = n_powers[i, k, 1]
                         if r_e1I < L and r_e2I < L:
-                            phi_set = (int(j >= self.neu) + int(k >= self.neu)) % parameters.shape[3]
+                            theta_set = (int(j >= self.neu) + int(k >= self.neu)) % theta_parameters.shape[3]
                             poly = 0.0
-                            for l in range(parameters.shape[0]):
-                                for m in range(parameters.shape[1]):
-                                    for n in range(parameters.shape[2]):
-                                        poly += parameters[l, m, n, phi_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
-                            bf = poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * r_ee_vec
-                            res[j] += bf
-                            res[k] -= bf
-                            if phi_irrotational:
-                                continue
-                            poly = 0.0
-                            for l in range(parameters.shape[0]):
-                                for m in range(parameters.shape[1]):
-                                    for n in range(parameters.shape[2]):
-                                        poly += parameters[l, m, n, phi_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
+                            for l in range(theta_parameters.shape[0]):
+                                for m in range(theta_parameters.shape[1]):
+                                    for n in range(theta_parameters.shape[2]):
+                                        poly += theta_parameters[l, m, n, theta_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
                             bf = poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C
                             res[j] += bf * r_e1I_vec
                             res[k] += bf * r_e2I_vec
+                            if phi_irrotational:
+                                continue
+                            poly = 0.0
+                            for l in range(phi_parameters.shape[0]):
+                                for m in range(phi_parameters.shape[1]):
+                                    for n in range(phi_parameters.shape[2]):
+                                        poly += phi_parameters[l, m, n, theta_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
+                            bf = poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * r_ee_vec
+                            res[j] += bf
+                            res[k] -= bf
 
         return res
 
