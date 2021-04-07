@@ -241,7 +241,7 @@ class Backflow:
                     res[i, :, j, :] += (1 - r/L)**C * (
                         (poly_diff - C/(L - r)*poly) * np.outer(r_vec, r_vec)/r + poly * np.eye(3)
                     )
-                    # res[j] -= ...
+                    # res[j, :, i, :] -= ...
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
@@ -273,6 +273,7 @@ class Backflow:
                         res[j, :, j, :] += (1 - r/L)**C * (
                             (poly_diff - C/(L - r)*poly) * np.outer(r_vec, r_vec)/r + poly * np.eye(3)
                         )
+
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def phi_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
@@ -298,6 +299,31 @@ class Backflow:
         res = np.zeros((self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
             return res.ravel()
+
+        C = self.trunc
+        parameters = self.eta_parameters
+        for i in range(1, self.neu + self.ned):
+            for j in range(i):
+                r_vec = e_vectors[i, j]
+                r = e_powers[i, j, 1]
+                eta_set = (int(i >= self.neu) + int(j >= self.neu)) % parameters.shape[1]
+                # I don't think it works fast if NO SPIN-DEP
+                L = self.eta_cutoff[eta_set] or self.eta_cutoff[0]
+                if r < L:
+                    poly = poly_diff = poly_diff_2 = 0
+                    for k in range(parameters.shape[0]):
+                        p = parameters[k, eta_set]
+                        poly += p * e_powers[i, j, k]
+                        if k > 0:
+                            poly_diff += k * p * e_powers[i, j, k-1]
+                        if k > 1:
+                            poly_diff_2 += k * (k - 1) * p * e_powers[i, j, k-2]
+
+                    res[i] += (1 - r/L)**C * (
+                        4*(poly_diff - C/(L - r) * poly) +
+                        r*(C*(C - 1)/(L - r)**2*poly - 2*C/(L - r)*poly_diff + poly_diff_2)
+                    ) * r_vec/r
+                    # res[j] -= ...
 
         return res.ravel()
 
@@ -331,11 +357,9 @@ class Backflow:
                                 poly_diff_2 += k * (k-1) * p * n_powers[i, j, k-2]
 
                         res[j] += (1 - r/L)**C * (
-                            2 * (poly_diff - C/(L - r)*poly) + (
-                                r*(C*(C - 1)/(L - r)**2*poly - 2*C/(L - r)*poly_diff + poly_diff_2) -
-                                2*(C/(L - r)*poly - poly_diff)
-                            ) * r_vec/r
-                        )
+                            4*(poly_diff - C/(L - r) * poly) +
+                            r*(C*(C - 1)/(L - r)**2*poly - 2*C/(L - r)*poly_diff + poly_diff_2)
+                        ) * r_vec/r
 
         return res.ravel()
 

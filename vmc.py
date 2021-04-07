@@ -416,7 +416,7 @@ if __name__ == '__main__':
 
     """
 
-    path = 'test/gwfn/He/HF/cc-pVQZ/Slater/'
+    # path = 'test/gwfn/He/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/Be/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/Ne/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/Ae/HF/cc-pVQZ/Slater/'
@@ -428,7 +428,8 @@ if __name__ == '__main__':
     # path = 'test/stowfn/He/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/Be/HF/QZ4P/Slater/'
     # path = 'test/stowfn/Be/HF/QZ4P/Jastrow/'
-    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_9_00_1/'
+    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_9_00_1/'
+    path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/B/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Slater/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Jastrow/'
