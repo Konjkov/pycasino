@@ -6,7 +6,6 @@ from slater import Slater
 from jastrow import Jastrow
 from backflow import Backflow
 from wfn import Wfn
-from coulomb import coulomb, nuclear_repulsion
 
 os.environ["OMP_NUM_THREADS"] = "1"  # openmp
 os.environ["OPENBLAS_NUM_THREADS"] = "1"  # openblas
@@ -417,45 +416,25 @@ if __name__ == '__main__':
 
     """
 
-    # path = 'test/gwfn/h/HF/cc-pVQZ/'
-    # path = 'test/gwfn/he/HF/cc-pVQZ/'
-    # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
-    # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term_test/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/varmin_BF/8_8_33__0_9_00/'
-    # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term_vmc_cbc/'
-    # path = 'test/gwfn/be/HF/def2-QZVP/VMC_OPT_BF/emin_BF/8_8_44__9_9_33'
-    # path = 'test/gwfn/b/HF/cc-pVQZ/'
-    # path = 'test/gwfn/n/HF/cc-pVQZ/'
-    # path = 'test/gwfn/al/HF/cc-pVQZ/'
-    # path = 'test/gwfn/cl/HF/cc-pVQZ/'
-    # path = 'test/gwfn/h2/HF/cc-pVQZ/'
-    # path = 'test/gwfn/be2/HF/cc-pVQZ/'
-    # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/u_term/'
-    # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/chi_term/'
-    # path = 'test/gwfn/be2/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
-    # path = 'test/gwfn/ch4/HF/cc-pVQZ/'
-    # path = 'test/gwfn/acetic/HF/cc-pVQZ/'
-    # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/'
-    # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/VMC_OPT/emin/legacy/f_term/'
-    # path = 'test/gwfn/si2h6/HF/cc-pVQZ/'
-    # path = 'test/gwfn/alcl3/HF/cc-pVQZ/'
-    # path = 'test/gwfn/s4-c2v/HF/cc-pVQZ/'
+    path = 'test/gwfn/He/HF/cc-pVQZ/Slater/'
+    # path = 'test/gwfn/Be/HF/cc-pVQZ/Slater/'
+    # path = 'test/gwfn/Ne/HF/cc-pVQZ/Slater/'
+    # path = 'test/gwfn/Ae/HF/cc-pVQZ/Slater/'
+    # path = 'test/gwfn/Kr/HF/cc-pVQZ/Slater/'
+    # path = 'test/gwfn/O3/HF/cc-pVQZ/Slater/'
 
     # path = 'test/stowfn/He/HF/QZ4P/Slater/'
     # path = 'test/stowfn/He/HF/QZ4P/Jastrow/'
+    # path = 'test/stowfn/He/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/Be/HF/QZ4P/Slater/'
     # path = 'test/stowfn/Be/HF/QZ4P/Jastrow/'
+    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_9_00_1/'
+    # path = 'test/stowfn/B/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Slater/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Jastrow/'
+    # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/Ar/HF/QZ4P/Slater/'
-    path = 'test/stowfn/Kr/HF/QZ4P/Slater/'
+    # path = 'test/stowfn/Kr/HF/QZ4P/Slater/'
     # path = 'test/stowfn/O3/HF/QZ4P/Slater/'
-    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/8_8_33__0_9_00/'
-    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/8_8_33__9_9_00/'
     casino = Casino(path)
     main(casino)

@@ -122,7 +122,7 @@ class Gwfn(FortranFile):
         self.orbital_types = np.full((self._nprimitives,), GAUSSIAN_TYPE, np.int)
         self.slater_orders = np.zeros((self._nprimitives, ), np.int)
         self.remove_premultiplied_factor()
-        self.set_cusp()
+        # self.set_cusp()
 
     def set_cusp(self):
         """set cusped orbitals"""
