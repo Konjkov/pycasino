@@ -137,9 +137,8 @@ class Backflow:
                     poly = 0
                     for k in range(parameters.shape[0]):
                         poly += parameters[k, eta_set] * e_powers[i, j, k]
-                    bf = (1 - r/L) ** C * poly * r_vec
-                    res[i] += bf
-                    # res[j] -= bf
+                    res[i] += (1 - r/L) ** C * poly * r_vec
+                    # res[j] -= ...
         return res
 
     def mu_term(self, n_vectors, n_powers):
@@ -215,11 +214,34 @@ class Backflow:
         """
         :param e_powers:
         :param e_vectors:
+        Gradient of spherically symmetric function (in 3-D space) is df/dr * (x, y, z)
         :return: partial derivatives of displacements of electrons - array(nelec * 3, nelec * 3)
         """
         res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
             return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+
+        C = self.trunc
+        parameters = self.eta_parameters
+        for i in range(1, self.neu + self.ned):
+            for j in range(i):
+                r_vec = e_vectors[i, j]
+                r = e_powers[i, j, 1]
+                eta_set = (int(i >= self.neu) + int(j >= self.neu)) % parameters.shape[1]
+                # I don't think it works fast if NO SPIN-DEP
+                L = self.eta_cutoff[eta_set] or self.eta_cutoff[0]
+                if r < L:
+                    poly = poly_diff = 0
+                    for k in range(parameters.shape[0]):
+                        p = parameters[k, eta_set]
+                        poly += p * e_powers[i, j, k]
+                        if k > 0:
+                            poly_diff += p * k * n_powers[i, j, k - 1]
+
+                    res[i, :, j, :] += (1 - r/L)**C * (
+                        (poly_diff - C/(L - r)*poly) * np.outer(r_vec, r_vec)/r + poly * np.eye(3)
+                    )
+                    # res[j] -= ...
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
@@ -249,7 +271,7 @@ class Backflow:
                                 poly_diff += p * k * n_powers[i, j, k-1]
 
                         res[j, :, j, :] += (1 - r/L)**C * (
-                            ((L - r)*poly_diff - C*poly)/(r*(L - r)) * np.outer(r_vec, r_vec) + poly * np.eye(3)
+                            (poly_diff - C/(L - r)*poly) * np.outer(r_vec, r_vec)/r + poly * np.eye(3)
                         )
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
@@ -269,6 +291,8 @@ class Backflow:
         """
         :param e_powers:
         :param e_vectors:
+        Laplace operator of spherically symmetric function (in 3-D space) is
+            ∇²(f) = d²f/dr² + 2/r * df/dr
         :return: vector laplacian - array(nelec * 3)
         """
         res = np.zeros((self.neu + self.ned, 3))
@@ -281,6 +305,8 @@ class Backflow:
         """
         :param e_powers:
         :param e_vectors:
+        Laplace operator of spherically symmetric function (in 3-D space) is
+            ∇²(f) = d²f/dr² + 2/r * df/dr
         :return: vector laplacian - array(nelec * 3)
         """
         res = np.zeros((self.neu + self.ned, 3))
@@ -312,6 +338,8 @@ class Backflow:
         """
         :param e_powers:
         :param e_vectors:
+        Laplace operator of spherically symmetric function (in 3-D space) is
+            ∇²(f) = d²f/dr² + 2/r * df/dr
         :return: vector laplacian - array(nelec * 3)
         """
         res = np.zeros((self.neu + self.ned, 3))
@@ -397,7 +425,7 @@ class Backflow:
         n_powers = self.en_powers(n_vectors)
 
         return (
-            self.eta_term_gradient(e_powers, e_vectors) +
+            self.eta_term_gradient(e_powers, e_vectors) * self.ae_cutoffs(n_vectors, n_powers) +
             self.mu_term_gradient(n_powers, n_vectors) +
             self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
         )
