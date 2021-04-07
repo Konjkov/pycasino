@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from sympy import *
 
-x, y, z, alpha, r, r2 = symbols('x y z alpha r r2')
+x, y, z, alpha = symbols('x y z alpha')
 
 r2 = x*x + y*y + z*z
 
@@ -12,13 +12,13 @@ momentum_map = dict(s=0, p=1, d=2, f=3, g=4)
 harmonics = dict()
 
 harmonics['s'] = (
-    1,
+    1,     # (0,  0)
 )
 
 harmonics['p'] = (
-    x,
-    y,
-    z,
+    x,     # (1,  1)
+    y,     # (1, -1)
+    z,     # (1,  0)
 )
 
 harmonics['d'] = (
@@ -33,8 +33,8 @@ harmonics['f'] = (
     (5.0 * z*z*z - 3.0 * z*r2) / 2.0,  # (3,  0)
     1.5 * (5.0 * x*z*z - x*r2),        # (3,  1)
     1.5 * (5.0 * y*z*z - y*r2),        # (3, -1)
-    15.0 * (x*x*z - y*y*z),            # (3,  2) = (2,  2) * 15z
-    30.0 * x*y*z,                      # (3, -2) = (2, -2) * 30z
+    15.0 * (x*x*z - y*y*z),            # (3,  2)
+    30.0 * x*y*z,                      # (3, -2)
     15.0 * (x*x*x - 3.0 * x*y*y),      # (3,  3)
     15.0 * (3.0 * x*x*y - y*y*y),      # (3, -3)
 )
