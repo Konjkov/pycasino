@@ -236,7 +236,7 @@ class Backflow:
                         p = parameters[k, eta_set]
                         poly += p * e_powers[i, j, k]
                         if k > 0:
-                            poly_diff += p * k * n_powers[i, j, k - 1]
+                            poly_diff += p * k * e_powers[i, j, k - 1]
 
                     res[i, :, j, :] += (1 - r/L)**C * (
                         (poly_diff - C/(L - r)*poly) * np.outer(r_vec, r_vec)/r + poly * np.eye(3)
@@ -268,7 +268,7 @@ class Backflow:
                             p = parameters[k, mu_set]
                             poly += p * n_powers[i, j, k]
                             if k > 0:
-                                poly_diff += p * k * n_powers[i, j, k-1]
+                                poly_diff += k * p * n_powers[i, j, k-1]
 
                         res[j, :, j, :] += (1 - r/L)**C * (
                             (poly_diff - C/(L - r)*poly) * np.outer(r_vec, r_vec)/r + poly * np.eye(3)
@@ -326,11 +326,16 @@ class Backflow:
                             p = parameters[k, mu_set]
                             poly += p * n_powers[i, j, k]
                             if k > 0:
-                                poly_diff += p * k * n_powers[i, j, k-1]
+                                poly_diff += k * p * n_powers[i, j, k-1]
                             if k > 1:
-                                poly_diff_2 += k * (k-1) * p * n_powers[i, j, k - 2]
+                                poly_diff_2 += k * (k-1) * p * n_powers[i, j, k-2]
 
-                        res[j] += r_vec
+                        res[j] += (1 - r/L)**C * (
+                            2 * (poly_diff - C/(L - r)*poly) + (
+                                r*(C*(C - 1)/(L - r)**2*poly - 2*C/(L - r)*poly_diff + poly_diff_2) -
+                                2*(C/(L - r)*poly - poly_diff)
+                            ) * r_vec/r
+                        )
 
         return res.ravel()
 
@@ -425,7 +430,7 @@ class Backflow:
         n_powers = self.en_powers(n_vectors)
 
         return (
-            self.eta_term_gradient(e_powers, e_vectors) * self.ae_cutoffs(n_vectors, n_powers) +
+            self.eta_term_gradient(e_powers, e_vectors) +
             self.mu_term_gradient(n_powers, n_vectors) +
             self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
         )

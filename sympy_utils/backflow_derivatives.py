@@ -24,9 +24,9 @@ def laplacian(term):
     ∇²(r*f) = ∇²(r)*f + 2*∇(r)*∇(f) + r*∇²(f) = 2*e*∇(f) + r*∇²(f)
     """
     res = [
-        2 * diff(term, r) + x * diff(r**2 * diff(term, r), r) / r**2,
-        2 * diff(term, r) + y * diff(r**2 * diff(term, r), r) / r**2,
-        2 * diff(term, r) + z * diff(r**2 * diff(term, r), r) / r**2
+        simplify(2 * diff(term, r) + x * diff(r**2 * diff(term, r), r) / r**2),
+        simplify(2 * diff(term, r) + y * diff(r**2 * diff(term, r), r) / r**2),
+        simplify(2 * diff(term, r) + z * diff(r**2 * diff(term, r), r) / r**2)
     ]
     print("laplacian=[{}, {}, {}]".format(*res))
 
