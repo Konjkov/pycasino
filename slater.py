@@ -696,23 +696,18 @@ if __name__ == '__main__':
     sys     0m0,488s
     """
 
-    # path = 'test/gwfn/h/HF/cc-pVQZ/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/'
-    # path = 'test/gwfn/be/HF-CASSCF(2.4)/def2-QZVP/'
-    # path = 'test/gwfn/b/HF/cc-pVQZ/'
-    # path = 'test/gwfn/n/HF/cc-pVQZ/'
-    # path = 'test/gwfn/al/HF/cc-pVQZ/'
-    # path = 'test/gwfn/cl/HF/cc-pVQZ/'
-    # path = 'test/gwfn/be2/HF/cc-pVQZ/'
-    # path = 'test/gwfn/acetic/HF/cc-pVQZ/'
-    # path = 'test/gwfn/acetaldehyde/HF/cc-pVQZ/'
-    # path = 'test/gwfn/si2h6/HF/cc-pVQZ/'
-    # path = 'test/gwfn/alcl3/HF/cc-pVQZ/'
-    # path = 'test/gwfn/s4-c2v/HF/cc-pVQZ/'
-
-    # path = 'test/stowfn/he/HF/QZ4P/'
-    path = 'test/stowfn/be/HF/QZ4P/'
-    # path = 'test/stowfn/ne/HF/QZ4P/'
+    path = 'test/gwfn/He/HF/cc-pVQZ/Slater/'
+    # path = 'test/gwfn/Be/HF/cc-pVQZ/Slater/'
+    # path = 'test/gwfn/Ne/HF/cc-pVQZ/Slater/'
+    # path = 'test/gwfn/Ae/HF/cc-pVQZ/Slater/'
+    # path = 'test/gwfn/Kr/HF/cc-pVQZ/Slater/'
+    # path = 'test/gwfn/O3/HF/cc-pVQZ/Slater/'
+    # path = 'test/stowfn/He/HF/QZ4P/Slater/'
+    # path = 'test/stowfn/Be/HF/QZ4P/Slater/'
+    # path = 'test/stowfn/Ne/HF/QZ4P/Slater/'
+    # path = 'test/stowfn/Ar/HF/QZ4P/Slater/'
+    # path = 'test/stowfn/Kr/HF/QZ4P/Slater/'
+    # path = 'test/stowfn/O3/HF/QZ4P/Slater/'
 
     start = default_timer()
     res = main(Casino(path))
