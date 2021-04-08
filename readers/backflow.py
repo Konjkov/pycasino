@@ -222,6 +222,9 @@ class Backflow:
 
     @staticmethod
     def get_theta_mask(parameters, phi_irrotational):
+        """Mask dependent parameters in theta-term.
+        my own version
+        """
         mask = np.ones(parameters.shape, np.bool)
         phi_en_order = parameters.shape[0] - 1
         for m in range(parameters.shape[2]):
@@ -240,4 +243,17 @@ class Backflow:
                         mask[k, l, m] = False
                     elif l == phi_en_order and k == 0 or l == phi_en_order - 1 and k == 0 or l == phi_en_order and k == 1:
                         mask[k, l, m] = False
+        return mask
+
+    @staticmethod
+    def get_theta_mask_new(parameters, phi_irrotational):
+        """Mask dependent parameters in theta-term.
+        copy-paste from /CASINO/src/pbackflow.f90 SUBROUTINE construct_C
+        """
+        mask = np.zeros(parameters.shape, np.bool)
+        phi_en_order = parameters.shape[0] - 1
+        for m in range(parameters.shape[2]):
+            for l in range(parameters.shape[1]):
+                for k in range(parameters.shape[0]):
+                    pass
         return mask

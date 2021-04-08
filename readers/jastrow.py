@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 import numba as nb
-
+import sympy as sp
 
 labels_type = nb.int64[:]
 chi_mask_type = nb.boolean[:, :]
@@ -164,7 +164,7 @@ class Jastrow:
                         self.f_cutoff[set_number] = f_cutoff
                     elif line.startswith('Parameter'):
                         f_parameters = np.zeros((f_en_order+1, f_en_order+1, f_ee_order+1, f_spin_dep+1), np.float)
-                        f_mask = self.get_f_mask(f_parameters, no_dup_u_term, no_dup_chi_term)
+                        f_mask = self.get_f_mask(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                         try:
                             for i in range(f_spin_dep + 1):
                                 for n in range(f_ee_order + 1):
@@ -177,28 +177,30 @@ class Jastrow:
                             pass
                         self.f_mask.append(f_mask)
                         self.f_parameters.append(f_parameters)
-                        self.fix_f_parameters_2(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
+                        self.fix_f_parameters(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                         self.check_f_constrains(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                     elif line.startswith('END SET'):
                         set_number = None
 
     @staticmethod
     def get_u_mask(parameters):
-        """mask dependent parameters in u-term"""
+        """Mask dependent parameters in u-term"""
         mask = np.ones(parameters.shape, np.bool)
         mask[1] = False
         return mask
 
     @staticmethod
     def get_chi_mask(parameters):
-        """mask dependent parameters in chi-term"""
+        """Mask dependent parameters in chi-term"""
         mask = np.ones(parameters.shape, np.bool)
         mask[1] = False
         return mask
 
     @staticmethod
-    def get_f_mask(parameters, no_dup_u_term, no_dup_chi_term):
-        """mask dependent parameters in f-term"""
+    def get_f_mask_old(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
+        """Mask dependent parameters in f-term.
+        my own version
+        """
         mask = np.ones(parameters.shape, np.bool)
         f_en_order = parameters.shape[0] - 1
         for n in range(parameters.shape[2]):
@@ -219,6 +221,63 @@ class Jastrow:
                         mask[l, m, n] = mask[m, l, n] = False
         return mask
 
+    def get_f_mask(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
+        """Mask dependent parameters in f-term.
+        copy-paste from /CASINO/src/pjastrow.f90 SUBROUTINE construct_A
+        """
+        f_en_order = f_parameters.shape[0] - 1
+        f_ee_order = f_parameters.shape[2] - 1
+
+        u_constrains = 2 * f_en_order + 1
+        chi_constrains = f_en_order + f_ee_order + 1
+        no_dup_u_constrains = f_ee_order + 1
+        no_dup_chi_constrains = f_en_order + 1
+
+        n_constraints = u_constrains + chi_constrains
+        if no_dup_u_term:
+            n_constraints += no_dup_u_constrains
+        if no_dup_chi_term:
+            n_constraints += no_dup_chi_constrains
+
+        a = np.zeros((n_constraints, f_parameters.size))
+        p = 0
+        for n in range(f_parameters.shape[2]):
+            for m in range(f_parameters.shape[1]):
+                for l in range(m, f_parameters.shape[0]):
+                    if n == 1:
+                        if l == m:
+                            a[l + m, p] = 1
+                        else:
+                            a[l + m, p] = 2
+                    if m == 1:
+                        a[l + n + u_constrains, p] = -f_cutoff
+                    elif m == 0:
+                        a[l + n + u_constrains, p] = self.trunc
+                        if l == 1:
+                            a[n + u_constrains, p] = -f_cutoff
+                        elif l == 0:
+                            a[n + u_constrains, p] = self.trunc
+                        if no_dup_u_term:
+                            if l == 0:
+                                a[n + u_constrains + chi_constrains, p] = 1
+                            if no_dup_chi_term and n == 0:
+                                a[l + u_constrains + chi_constrains + no_dup_u_constrains, p] = 1
+                        else:
+                            if no_dup_chi_term and n == 0:
+                                a[l + u_constrains + chi_constrains, p] = 1
+                    p += 1
+
+        _, pivots = sp.Matrix(a).rref(iszerofunc=lambda x: abs(x) < 1e-10)
+        p = 0
+        mask = np.zeros(f_parameters.shape, np.bool)
+        for n in range(f_parameters.shape[2]):
+            for m in range(f_parameters.shape[1]):
+                for l in range(m, f_parameters.shape[0]):
+                    if p not in pivots:
+                        mask[l, m, n] = True
+                    p += 1
+        return mask
+
     def fix_u_parameters(self):
         """Fix u-term parameters"""
         C = self.trunc
@@ -235,7 +294,7 @@ class Jastrow:
                 pass
                 # chi_parameters[1] -= charge / (-L) ** C
 
-    def fix_f_parameters_1(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
+    def fix_f_parameters_old(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
         """Fix f-term parameters
         0 - zero value
         A - no electron–electron cusp constrains
@@ -244,7 +303,7 @@ class Jastrow:
 
         n = 0            n = 1            n > 1
         -------------------------------------------------------
-        B B B B B B B B  A A A A A A A B  ? X X X X X X B  <- m
+        B B B B B B B B  A A A A A A A B  X X X X X X X B  <- m
         B X X X X X X X  A X X X X X A A  X X X X X X X X
         B X X X X X X X  A X X X X X X A  X X X X X X X X
         B X X X X X X X  A X X X X X X A  X X X X X X X X
@@ -276,7 +335,7 @@ class Jastrow:
         C = self.trunc
         f_en_order = f_parameters.shape[0] - 1
         f_ee_order = f_parameters.shape[2] - 1
-        f_mask = self.get_f_mask(f_parameters, no_dup_u_term, no_dup_chi_term)
+        f_mask = self.get_f_mask(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
         for i in range(f_parameters.shape[0]):
             for j in range(f_parameters.shape[1]):
                 for k in range(f_parameters.shape[2]):
@@ -332,9 +391,9 @@ class Jastrow:
             f_parameters[f_en_order, 0, 0, :] = sum_2 / C
             f_parameters[0, f_en_order, 0, :] = sum_2 / C
 
-    def fix_f_parameters_2(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
+    def fix_f_parameters(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
         """To find the dependent coefficients of f-term it is necessary to solve
-        the system of linear equations:  a*x=b
+        the system of linear equations:  A*x=b
         A-matrix has the following rows:
         (2 * f_en_order + 1) constraints imposed to satisfy electron–electron no-cusp condition.
         (f_en_order + f_ee_order + 1) constraints imposed to satisfy electron–nucleus no-cusp condition.
@@ -359,7 +418,7 @@ class Jastrow:
 
         a = np.zeros((f_spin_dep+1, n_constraints, n_constraints))
         b = np.zeros((f_spin_dep+1, n_constraints))
-        f_mask = self.get_f_mask(f_parameters, no_dup_u_term, no_dup_chi_term)
+        f_mask = self.get_f_mask(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
         p = 0
         for n in range(f_ee_order + 1):
             for m in range(f_en_order + 1):

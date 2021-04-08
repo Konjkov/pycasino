@@ -424,10 +424,10 @@ if __name__ == '__main__':
     # path = 'test/gwfn/O3/HF/cc-pVQZ/Slater/'
 
     # path = 'test/stowfn/He/HF/QZ4P/Slater/'
-    path = 'test/stowfn/He/HF/QZ4P/Jastrow/'
+    # path = 'test/stowfn/He/HF/QZ4P/Jastrow/'
     # path = 'test/stowfn/He/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/Be/HF/QZ4P/Slater/'
-    # path = 'test/stowfn/Be/HF/QZ4P/Jastrow/'
+    path = 'test/stowfn/Be/HF/QZ4P/Jastrow/'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_9_00_1/'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/B/HF/QZ4P/Backflow/9_9_00_1/'
