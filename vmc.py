@@ -225,7 +225,7 @@ class VMC:
         )
         self.jastrow = casino.jastrow and Jastrow(
             casino.input.neu, casino.input.ned,
-            casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_mask, casino.jastrow.u_cutoff,
+            casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_mask, casino.jastrow.u_cutoff, casino.jastrow.u_cusp_const,
             casino.jastrow.chi_parameters, casino.jastrow.chi_mask, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
             casino.jastrow.f_parameters, casino.jastrow.f_mask, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
             casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp
@@ -424,13 +424,14 @@ if __name__ == '__main__':
     # path = 'test/gwfn/O3/HF/cc-pVQZ/Slater/'
 
     # path = 'test/stowfn/He/HF/QZ4P/Slater/'
-    # path = 'test/stowfn/He/HF/QZ4P/Jastrow/'
+    path = 'test/stowfn/He/HF/QZ4P/Jastrow/'
     # path = 'test/stowfn/He/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/Be/HF/QZ4P/Slater/'
     # path = 'test/stowfn/Be/HF/QZ4P/Jastrow/'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_9_00_1/'
-    path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_9_00_1/'
+    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/B/HF/QZ4P/Backflow/9_9_00_1/'
+    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_0_33_1/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Slater/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Jastrow/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/9_9_00_1/'

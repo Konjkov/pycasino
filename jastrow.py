@@ -54,7 +54,7 @@ spec = [
 class Jastrow:
 
     def __init__(
-        self, neu, ned, trunc, u_parameters, u_mask, u_cutoff, chi_parameters, chi_mask, chi_cutoff, chi_labels,
+        self, neu, ned, trunc, u_parameters, u_mask, u_cutoff, u_cusp_const, chi_parameters, chi_mask, chi_cutoff, chi_labels,
         f_parameters, f_mask, f_cutoff, f_labels, no_dup_u_term, no_dup_chi_term, chi_cusp
     ):
         self.neu = neu
@@ -91,13 +91,7 @@ class Jastrow:
         self.chi_cusp = chi_cusp
         self.no_dup_u_term = no_dup_u_term
         self.no_dup_chi_term = no_dup_chi_term
-        self.u_cusp_const = np.zeros((3, ))
-        if self.u_cutoff:
-            self.fix_u_parameters()
-        if self.chi_cutoff.any():
-            self.fix_chi_parameters()
-        if self.f_cutoff.any():
-            self.fix_f_parameters()
+        self.u_cusp_const = u_cusp_const
 
     def ee_powers(self, e_vectors):
         """Powers of e-e distances
@@ -635,119 +629,6 @@ class Jastrow:
 
         return res
 
-    def fix_u_parameters(self):
-        """Fix u-term parameters"""
-        C = self.trunc
-        L = self.u_cutoff
-        for i in range(3):
-            self.u_cusp_const[i] = 1 / np.array([4, 2, 4])[i] / (-L) ** C + self.u_parameters[0, i % self.u_parameters.shape[1]] * C / L
-
-    def fix_chi_parameters(self):
-        """Fix chi-term parameters"""
-        C = self.trunc
-        for chi_parameters, L, chi_cusp in zip(self.chi_parameters, self.chi_cutoff, self.chi_cusp):
-            chi_parameters[1] = chi_parameters[0] * C / L
-            if chi_cusp:
-                pass
-                # chi_parameters[1] -= charge / (-L) ** C
-
-    def fix_f_parameters(self):
-        """Fix f-term parameters
-        0 - zero value
-        A - no electron–electron cusp constrains
-        B - no electron–nucleus cusp constrains
-        X - independent value
-
-        n = 0            n = 1            n > 1
-        -------------------------------------------------------
-        B B B B B B B B  A A A A A A A B  ? X X X X X X B  <- m
-        B X X X X X X X  A X X X X X A A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A A X X X X X A  X X X X X X X X
-        B X X X X X X X  B A A A A A A A  B X X X X X X X
-        ---------------- no_dup_u_term ------------------------
-        0 B B B B B B B  0 A A A A A A B  0 X X X X X X B  <- m
-        B B X X X X X X  A X X X X X A A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A X X X X X X A  X X X X X X X X
-        B X X X X X X X  A A X X X X X A  X X X X X X X X
-        B X X X X X X X  B A A A A A A A  B X X X X X X X
-        ---------------- no_dup_chi_term ----------------------
-        0 0 0 0 0 0 0 0  A A A A A A A B  X X X X X X X B  <- m
-        0 B B B B B B B  A X X X X X A A  X X X X X X X X
-        0 B X X X X X X  A X X X X X X A  X X X X X X X X
-        0 B X X X X X X  A X X X X X X A  X X X X X X X X
-        0 B X X X X X X  A X X X X X X A  X X X X X X X X
-        0 B X X X X X X  A X X X X X X A  X X X X X X X X
-        0 B X X X X X X  A A X X X X X A  X X X X X X X X
-        0 B X X X X X X  B A A A A A A A  B X X X X X X X
-        ^
-        l
-        """
-        C = self.trunc
-        for f_parameters, L, f_mask, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.f_mask, self.no_dup_chi_term):
-            f_en_order = f_parameters.shape[0] - 1
-            f_ee_order = f_parameters.shape[2] - 1
-            for i in range(f_parameters.shape[0]):
-                for j in range(f_parameters.shape[1]):
-                    for k in range(f_parameters.shape[2]):
-                        for l in range(f_parameters.shape[3]):
-                            if f_mask[i, j, k, l] or f_mask[j, i, k, l]:
-                                continue
-                            f_parameters[i, j, k, l] = 0
-            """fix 2 * f_en_order e–e cusp constrains"""
-            for lm in range(2 * f_en_order + 1):
-                lm_sum = np.zeros(f_parameters.shape[3])
-                for l in range(f_en_order + 1):
-                    for m in range(f_en_order + 1):
-                        if l + m == lm:
-                            lm_sum += f_parameters[l, m, 1, :]
-                if lm < f_en_order:
-                    f_parameters[0, lm, 1, :] = -lm_sum / 2
-                    f_parameters[lm, 0, 1, :] = -lm_sum / 2
-                elif lm == f_en_order:
-                    sum_1 = -lm_sum / 2
-                elif lm > f_en_order:
-                    f_parameters[f_en_order, lm - f_en_order, 1, :] = -lm_sum / 2
-                    f_parameters[lm - f_en_order, f_en_order, 1, :] = -lm_sum / 2
-            """fix f_en_order+f_ee_order e–n cusp constrains"""
-            for mn in range(f_en_order + f_ee_order, -1, -1):
-                mn_sum = np.zeros(f_parameters.shape[3])
-                for m in range(f_en_order + 1):
-                    for n in range(f_ee_order + 1):
-                        if m + n == mn:
-                            mn_sum += self.trunc * f_parameters[0, m, n, :] - L * f_parameters[1, m, n, :]
-                if mn > f_en_order:
-                    f_parameters[0, f_en_order, mn - f_en_order, :] = -mn_sum / C
-                    f_parameters[f_en_order, 0, mn - f_en_order, :] = -mn_sum / C
-                elif mn == f_en_order:
-                    sum_2 = -mn_sum
-                elif mn < f_en_order:
-                    if no_dup_chi_term:
-                        f_parameters[1, mn, 0, :] = mn_sum / L
-                        f_parameters[mn, 1, 0, :] = mn_sum / L
-                    else:
-                        f_parameters[0, mn, 0, :] = -mn_sum / C
-                        f_parameters[mn, 0, 0, :] = -mn_sum / C
-            """fix (l=en_order - 1, m=1, n=1) term"""
-            f_parameters[f_en_order - 1, 1, 1, :] = sum_1 - f_parameters[f_en_order, 0, 1, :]
-            f_parameters[1, f_en_order - 1, 1, :] = sum_1 - f_parameters[0, f_en_order, 1, :]
-
-            sum_2 += L * f_parameters[f_en_order - 1, 1, 1, :]
-
-            """fix (l=en_order, m=0, n=0) term"""
-            if no_dup_chi_term:
-                f_parameters[f_en_order, 1, 0, :] = - sum_2 / L
-                f_parameters[1, f_en_order, 0, :] = - sum_2 / L
-            else:
-                f_parameters[f_en_order, 0, 0, :] = sum_2 / C
-                f_parameters[0, f_en_order, 0, :] = sum_2 / C
-
     def set_parameters(self, parameters):
         """
         u-cutoff, u-linear parameters,
@@ -1191,16 +1072,17 @@ if __name__ == '__main__':
     """Plot Jastrow terms
     """
 
-    term = 'u'
+    term = 'chi'
 
-    path = 'test/stowfn/He/HF/QZ4P/Jastrow/'
+    # path = 'test/stowfn/He/HF/QZ4P/Jastrow/'
     # path = 'test/stowfn/Be/HF/QZ4P/Jastrow/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Jastrow/'
+    path = 'test/stowfn/Ar/HF/QZ4P/Jastrow/'
 
     casino = Casino(path)
     jastrow = Jastrow(
         casino.input.neu, casino.input.ned,
-        casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_mask, casino.jastrow.u_cutoff,
+        casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_mask, casino.jastrow.u_cutoff, casino.jastrow.u_cusp_const,
         casino.jastrow.chi_parameters, casino.jastrow.chi_mask, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
         casino.jastrow.f_parameters, casino.jastrow.f_mask, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
         casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp

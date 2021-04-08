@@ -227,7 +227,9 @@ class Backflow:
         for m in range(parameters.shape[2]):
             for l in range(parameters.shape[1]):
                 for k in range(parameters.shape[0]):
-                    if m == 0 and (k < 2 or l == 0):
+                    if m > 0 and phi_irrotational:
+                        mask[k, l, m] = False
+                    elif m == 0 and (k < 2 or l == 0):
                         mask[k, l, m] = False
                     # sum(θkl1) = 0
                     elif m == 1 and (k == 0 or l < 2 or k == phi_en_order or l == 2 and k == phi_en_order - 1):

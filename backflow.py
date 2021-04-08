@@ -545,6 +545,18 @@ class Backflow:
         . X X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
         . X X X X X X X  . . . X X X X X  X X X X X X X X  X X X X X X X X
         . X X X X X X X  . . . . . . . .  . . X X X X X X  . . X X X X X X
+
+        --------------------- same spin irrotational---------------------------
+        . . . . . . . .  . . . . . . . .  . . . . . . . .  . . . . . . . .  . . X X X X . . <- l
+        . . . . . . . .  . . . . . . . .  . . . . . . . .  . . X X X . . .  X X X X X X . .
+        . X X X X X X X  . . . . . . . .  . . X X X X . .  . . X X X X X .  X X X X X X X .
+        . X X X X X X X  . . . . . . . .  . . X X X X X X  . . X X X X X X  X X X X X X X X
+        . X X X X X X X  . . . . . . . .  . . X X X X X X  . . . X X X X X  . . X X X X X X
+        . X X X X X X X  . . . . . . . .  . . X X X X X X  . . . . . . . .  . . X X X X X X
+        . X X X X X X X  . . . . . . . .  . . . . . . . .  . . . . . . . .  . . . . . . . .
+        . X X X X X X X  . . . . . . . .  . . . . . . . .  . . . . . . . .  . . . . . . . .
+        --------------------- opposit spin irrotational---------------------------
+
         ^
         k
         """
