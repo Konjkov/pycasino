@@ -252,8 +252,15 @@ class Backflow:
         """
         mask = np.zeros(parameters.shape, np.bool)
         phi_en_order = parameters.shape[0] - 1
+        p = 0
         for m in range(parameters.shape[2]):
             for l in range(parameters.shape[1]):
                 for k in range(parameters.shape[0]):
-                    pass
+                    p += 1
+
+        for m in range(parameters.shape[2]):
+            for l in range(parameters.shape[1]):
+                for k in range(parameters.shape[0]):
+                    p += 1
+
         return mask
