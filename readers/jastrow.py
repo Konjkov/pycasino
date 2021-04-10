@@ -228,12 +228,12 @@ class Jastrow:
         f_en_order = f_parameters.shape[0] - 1
         f_ee_order = f_parameters.shape[2] - 1
 
-        u_constrains = 2 * f_en_order + 1
-        chi_constrains = f_en_order + f_ee_order + 1
+        ee_constrains = 2 * f_en_order + 1
+        en_constrains = f_en_order + f_ee_order + 1
         no_dup_u_constrains = f_ee_order + 1
         no_dup_chi_constrains = f_en_order + 1
 
-        n_constraints = u_constrains + chi_constrains
+        n_constraints = ee_constrains + en_constrains
         if no_dup_u_term:
             n_constraints += no_dup_u_constrains
         if no_dup_chi_term:
@@ -250,21 +250,21 @@ class Jastrow:
                         else:
                             a[l + m, p] = 2
                     if m == 1:
-                        a[l + n + u_constrains, p] = -f_cutoff
+                        a[l + n + ee_constrains, p] = -f_cutoff
                     elif m == 0:
-                        a[l + n + u_constrains, p] = self.trunc
+                        a[l + n + ee_constrains, p] = self.trunc
                         if l == 1:
-                            a[n + u_constrains, p] = -f_cutoff
+                            a[n + ee_constrains, p] = -f_cutoff
                         elif l == 0:
-                            a[n + u_constrains, p] = self.trunc
+                            a[n + ee_constrains, p] = self.trunc
                         if no_dup_u_term:
                             if l == 0:
-                                a[n + u_constrains + chi_constrains, p] = 1
+                                a[n + ee_constrains + en_constrains, p] = 1
                             if no_dup_chi_term and n == 0:
-                                a[l + u_constrains + chi_constrains + no_dup_u_constrains, p] = 1
+                                a[l + ee_constrains + en_constrains + no_dup_u_constrains, p] = 1
                         else:
                             if no_dup_chi_term and n == 0:
-                                a[l + u_constrains + chi_constrains, p] = 1
+                                a[l + ee_constrains + en_constrains, p] = 1
                     p += 1
 
         _, pivots = sp.Matrix(a).rref(iszerofunc=lambda x: abs(x) < 1e-10)
@@ -405,12 +405,12 @@ class Jastrow:
         f_ee_order = f_parameters.shape[2] - 1
         f_spin_dep = f_parameters.shape[3] - 1
 
-        u_constrains = 2 * f_en_order + 1
-        chi_constrains = f_en_order + f_ee_order + 1
+        ee_constrains = 2 * f_en_order + 1
+        en_constrains = f_en_order + f_ee_order + 1
         no_dup_u_constrains = f_ee_order + 1
         no_dup_chi_constrains = f_en_order + 1
 
-        n_constraints = u_constrains + chi_constrains
+        n_constraints = ee_constrains + en_constrains
         if no_dup_u_term:
             n_constraints += no_dup_u_constrains
         if no_dup_chi_term:
@@ -430,11 +430,11 @@ class Jastrow:
                             else:
                                 b[:, l + m] -= 2 * f_parameters[l, m, n, :]
                         if m == 1:
-                            b[:, l + n + u_constrains] += f_cutoff * f_parameters[l, m, n, :]
+                            b[:, l + n + ee_constrains] += f_cutoff * f_parameters[l, m, n, :]
                         elif m == 0:
-                            b[:, l + n + u_constrains] -= self.trunc * f_parameters[l, m, n, :]
+                            b[:, l + n + ee_constrains] -= self.trunc * f_parameters[l, m, n, :]
                             if l == 1:
-                                b[:, n + u_constrains] += f_cutoff * f_parameters[l, m, n, :]
+                                b[:, n + ee_constrains] += f_cutoff * f_parameters[l, m, n, :]
                             # elif l == 0:
                             #     b[:, n + u_constrains] -= self.trunc * f_parameters[l, m, n, :]
                     else:
@@ -444,21 +444,21 @@ class Jastrow:
                             else:
                                 a[:, l + m, p] = 2
                         if m == 1:
-                            a[:, l + n + u_constrains, p] = - f_cutoff
+                            a[:, l + n + ee_constrains, p] = - f_cutoff
                         elif m == 0:
-                            a[:, l + n + u_constrains, p] = self.trunc
+                            a[:, l + n + ee_constrains, p] = self.trunc
                             if l == 1:
-                                a[:, n + u_constrains, p] = - f_cutoff
+                                a[:, n + ee_constrains, p] = - f_cutoff
                             # elif l == 0:
                             #     a[:, n + u_constrains, p] = self.trunc
                             if no_dup_u_term:
                                 if l == 0:
-                                    a[:, n + u_constrains + chi_constrains, p] = 1
+                                    a[:, n + ee_constrains + en_constrains, p] = 1
                                 if no_dup_chi_term and n == 0:
-                                    a[:, l + u_constrains + chi_constrains + no_dup_u_constrains, p] = 1
+                                    a[:, l + ee_constrains + en_constrains + no_dup_u_constrains, p] = 1
                             else:
                                 if no_dup_chi_term and n == 0:
-                                    a[:, l + u_constrains + chi_constrains, p] = 1
+                                    a[:, l + ee_constrains + en_constrains, p] = 1
                         p += 1
 
         x = np.linalg.solve(a, b)

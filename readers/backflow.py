@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 import numba as nb
+import sympy as sp
 
 
 labels_type = nb.int64[:]
@@ -157,6 +158,7 @@ class Backflow:
                         phi_mask = self.get_phi_mask(phi_parameters, phi_irrotational)
                         theta_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
                         theta_mask = self.get_theta_mask(phi_parameters, phi_irrotational)
+                        theta_mask_new = self.get_theta_mask_new(phi_parameters, phi_cutoff, phi_irrotational)
                         for i in range(phi_spin_dep + 1):
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
@@ -166,6 +168,7 @@ class Backflow:
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
+                                        print(theta_mask[l, k, j, i], theta_mask_new[l, k, j, i])
                                         if theta_mask[l, k, j, i]:
                                             theta_parameters[l, k, j, i], _ = self.read_parameter()
                         self.phi_parameters.append(phi_parameters)
@@ -245,22 +248,75 @@ class Backflow:
                         mask[k, l, m] = False
         return mask
 
-    @staticmethod
-    def get_theta_mask_new(parameters, phi_irrotational):
-        """Mask dependent parameters in theta-term.
+    def get_theta_mask_new(self, parameters, phi_cutoff, phi_irrotational):
+        """Mask dependent parameters in phi-term.
         copy-paste from /CASINO/src/pbackflow.f90 SUBROUTINE construct_C
         """
-        mask = np.zeros(parameters.shape, np.bool)
         phi_en_order = parameters.shape[0] - 1
+        phi_ee_order = parameters.shape[1] - 1
+
+        offset = 0
+        ee_constrains = 2 * phi_en_order + 1
+        en_constrains = phi_en_order + phi_ee_order + 1
+
+        n_constraints = offset + 5 * en_constrains + ee_constrains - 1
+        c = np.zeros((n_constraints, parameters.size))
         p = 0
+        Cee = True
         for m in range(parameters.shape[2]):
             for l in range(parameters.shape[1]):
                 for k in range(parameters.shape[0]):
+                    if Cee:  # e-e cusp
+                        if m == 1:
+                            c[k+l+1, p] = 1
+                    if l == 0:
+                        c[k+m+1 + offset + en_constrains, p] = 1
+                        if m > 0:
+                            c[k+m + offset + 5 * en_constrains - 1, p] = m
+                    elif l == 1:
+                        c[k+m+1 + offset + 3 * en_constrains, p] = 1
+                    if k == 0:
+                        c[l+m+1 + offset, p] = 1
+                        if m > 0:
+                            c[l+m + offset + 4 * en_constrains, p] = m
+                    elif k == 1:
+                        c[l+m+1 + offset + 3 * en_constrains, p] = 1
                     p += 1
 
         for m in range(parameters.shape[2]):
             for l in range(parameters.shape[1]):
                 for k in range(parameters.shape[0]):
+                    if m == 1:
+                        c[k+l+1 + offset, p] = 1
+                    if l == 0:
+                        c[k+m+1 + offset + ee_constrains + 2 * en_constrains, p] = -self.trunc/phi_cutoff
+                        if m > 0:
+                            c[k+m + offset + ee_constrains + 4 * en_constrains - 1, p] = m
+                    elif l == 1:
+                        c[k+m+1 + offset + ee_constrains + 2 * en_constrains, p] = 1
+                    if k == 0:
+                        c[l+m+1 + offset + ee_constrains, p] = 1
+                        if m > 0:
+                            c[l+m + offset + ee_constrains + 3 * en_constrains, p] = m
+                    elif k == 1:
+                        c[l+m+1 + offset + ee_constrains + en_constrains, p] = 1
                     p += 1
 
+        if phi_irrotational:
+            offset_irrot = offset + ee_constrains + 5 * en_constrains - 1
+            p = 0
+            for m in range(parameters.shape[2]):
+                for l in range(parameters.shape[1]):
+                    for k in range(parameters.shape[0]):
+                        p += 1
+
+        _, pivots = sp.Matrix(c).rref(iszerofunc=lambda x: abs(x) < 1e-10)
+        p = 0
+        mask = np.zeros(parameters.shape, np.bool)
+        for n in range(parameters.shape[2]):
+            for m in range(parameters.shape[1]):
+                for l in range(parameters.shape[0]):
+                    if p not in pivots:
+                        mask[l, m, n] = True
+                    p += 1
         return mask

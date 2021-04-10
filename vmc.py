@@ -410,10 +410,6 @@ def main(casino):
 
 if __name__ == '__main__':
     """
-    be HF/cc-pVQZ
-
-    stat = 1024 * 1024 * 1024
-
     """
 
     # path = 'test/gwfn/He/HF/cc-pVQZ/Slater/'
