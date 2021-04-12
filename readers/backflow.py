@@ -158,11 +158,12 @@ class Backflow:
                         phi_mask = self.get_phi_mask(phi_parameters, phi_irrotational)
                         theta_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
                         theta_mask = self.get_theta_mask(phi_parameters, phi_irrotational)
-                        theta_mask_new = self.get_theta_mask_new(phi_parameters, phi_cutoff, phi_irrotational)
+                        phi_mask_new, theta_mask_new = self.get_phi_theta_mask(phi_parameters, phi_cutoff, phi_irrotational)
                         for i in range(phi_spin_dep + 1):
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
+                                        print(phi_mask[l, k, j, i], phi_mask_new[l, k, j, i])
                                         if phi_mask[l, k, j, i]:
                                             phi_parameters[l, k, j, i], _ = self.read_parameter()
                             for j in range(phi_ee_order + 1):
@@ -248,7 +249,7 @@ class Backflow:
                         mask[k, l, m] = False
         return mask
 
-    def get_theta_mask_new(self, parameters, phi_cutoff, phi_irrotational):
+    def get_phi_theta_mask(self, parameters, phi_cutoff, phi_irrotational):
         """Mask dependent parameters in phi-term.
         copy-paste from /CASINO/src/pbackflow.f90 SUBROUTINE construct_C
         """
@@ -256,13 +257,19 @@ class Backflow:
         phi_ee_order = parameters.shape[1] - 1
 
         offset = 0
+        Cee = True  # if spin-like electrons
         ee_constrains = 2 * phi_en_order + 1
         en_constrains = phi_en_order + phi_ee_order + 1
 
-        n_constraints = offset + 5 * en_constrains + ee_constrains - 1
+        if Cee:
+            phi_constraints = 6 * en_constrains + ee_constrains - 1
+        else:
+            phi_constraints = 6 * en_constrains - 1
+        theta_constraints = 5 * en_constrains + ee_constrains - 1
+        n_constraints = phi_constraints + theta_constraints
+
         c = np.zeros((n_constraints, parameters.size))
         p = 0
-        Cee = True
         for m in range(parameters.shape[2]):
             for l in range(parameters.shape[1]):
                 for k in range(parameters.shape[0]):
@@ -302,21 +309,30 @@ class Backflow:
                         c[l+m+1 + offset + ee_constrains + en_constrains, p] = 1
                     p += 1
 
-        if phi_irrotational:
-            offset_irrot = offset + ee_constrains + 5 * en_constrains - 1
-            p = 0
-            for m in range(parameters.shape[2]):
-                for l in range(parameters.shape[1]):
-                    for k in range(parameters.shape[0]):
-                        p += 1
+        # if phi_irrotational:
+        #     offset_irrot = offset + ee_constrains + 5 * en_constrains - 1
+        #     p = 0
+        #     for m in range(parameters.shape[2]):
+        #         for l in range(parameters.shape[1]):
+        #             for k in range(parameters.shape[0]):
+        #                 p += 1
 
-        _, pivots = sp.Matrix(c).rref(iszerofunc=lambda x: abs(x) < 1e-10)
+        _, pivot = sp.Matrix(c).rref(iszerofunc=lambda x: abs(x) < 1e-10)
+
         p = 0
-        mask = np.zeros(parameters.shape, np.bool)
+        phi_mask = np.zeros(parameters.shape, np.bool)
         for n in range(parameters.shape[2]):
             for m in range(parameters.shape[1]):
                 for l in range(parameters.shape[0]):
-                    if p not in pivots:
-                        mask[l, m, n] = True
+                    if p not in pivot:
+                        phi_mask[l, m, n] = True
                     p += 1
-        return mask
+
+        theta_mask = np.zeros(parameters.shape, np.bool)
+        for n in range(parameters.shape[2]):
+            for m in range(parameters.shape[1]):
+                for l in range(parameters.shape[0]):
+                    if p not in pivot:
+                        theta_mask[l, m, n] = True
+                    p += 1
+        return phi_mask, theta_mask

@@ -267,13 +267,13 @@ class Jastrow:
                                 a[l + ee_constrains + en_constrains, p] = 1
                     p += 1
 
-        _, pivots = sp.Matrix(a).rref(iszerofunc=lambda x: abs(x) < 1e-10)
+        _, pivot = sp.Matrix(a).rref(iszerofunc=lambda x: abs(x) < 1e-10)
         p = 0
         mask = np.zeros(f_parameters.shape, np.bool)
         for n in range(f_parameters.shape[2]):
             for m in range(f_parameters.shape[1]):
                 for l in range(m, f_parameters.shape[0]):
-                    if p not in pivots:
+                    if p not in pivot:
                         mask[l, m, n] = True
                     p += 1
         return mask
