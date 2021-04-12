@@ -70,12 +70,6 @@ class Backflow:
         self.phi_cutoff = phi_cutoff
         self.phi_irrotational = phi_irrotational
         self.ae_cutoff = ae_cutoff
-        if self.eta_cutoff.any():
-            self.fix_eta_parameters()
-        if self.mu_cutoff.any():
-            self.fix_mu_parameters()
-        if self.phi_cutoff.any():
-            self.fix_phi_parameters()
 
     def ee_powers(self, e_vectors):
         """Powers of e-e distances
@@ -474,93 +468,6 @@ class Backflow:
             self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
         )
 
-    def fix_eta_parameters(self):
-        """Fix eta-term parameters"""
-        C = self.trunc
-        L = self.eta_cutoff[0]
-        self.eta_parameters[1, 0] = C * self.eta_parameters[0, 0] / L
-        if self.eta_parameters.shape[1] == 3:
-            L = self.eta_cutoff[2] or self.eta_cutoff[0]
-            self.eta_parameters[1, 2] = C * self.eta_parameters[0, 2] / L
-
-    def fix_mu_parameters(self):
-        """Fix mu-term parameters"""
-
-    def fix_phi_parameters(self):
-        """Fix phi-term parameters
-        0 - zero value
-        A - no electron–electron cusp constrains
-        B - no electron–nucleus cusp constrains
-        X - independent value
-
-        m = 0            m = 1            m = 2            m > 2
-        --------------------------- same spin ---------------------------------
-        . . . . . . . .  . . . . . . . .  . X X X X X . .  X X X X X X . . <- l
-        . . . . . . . .  . . X X X X X .  X X X X X X X .  X X X X X X X .
-        . . X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
-        . . X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
-        . . X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
-        . . X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
-        . . X X X X X X  . . . X X X X X  . X X X X X X X  . X X X X X X X
-        . . X X X X X X  . . . . . . . .  . . X X X X X X  . . X X X X X X
-
-        ------------------------- opposite spin -------------------------------
-        . . . . . . . .  . . . . . . . .  X X X X X X . .  X X X X X X . . <- l
-        . . . . . . . .  . X X X X X X .  X X X X X X X .  X X X X X X X .
-        . X X X X X X X  . X X X X X X X  X X X X X X X X  X X X X X X X X
-        . X X X X X X X  . X X X X X X X  X X X X X X X X  X X X X X X X X
-        . X X X X X X X  . X X X X X X X  X X X X X X X X  X X X X X X X X
-        . X X X X X X X  . X X X X X X X  X X X X X X X X  X X X X X X X X
-        . X X X X X X X  . X X X X X X X  . X X X X X X X  . X X X X X X X
-        . X X X X X X X  . . X X X X X X  . . X X X X X X  . . X X X X X X
-
-        --------------------- same spin irrotational---------------------------
-        . . . . . . . .  . . . . . . . .  . . . . . . . .  . . . . . . . . <- l
-        . . . . . . . .  . . . . . . . .  . . . . . . . .  . . X X X X . .
-        . X X X X X X X  . . . . . . . .  . . X X X X . .  . . X X X X X .
-        . X X X X X X X  . . . . . . . .  . . X X X X X X  . . X X X X X X
-        . X X X X X X X  . . . . . . . .  . . X X X X X X  . . X X X X X X
-        . X X X X X X X  . . . . . . . .  . . X X X X X X  . . X X X X X X
-        . X X X X X X X  . . . . . . . .  . . . . . . . .  . . X X X X X X
-        . X X X X X X X  . . . . . . . .  . . . . . . . .  . . X X X X X X
-
-        ^
-        k
-        """
-
-    def fix_theta_parameters(self):
-        """Fix theta-term parameters
-        0 - zero value
-        A - no electron–electron cusp constrains
-        B - no electron–nucleus cusp constrains
-        X - independent value
-
-        m = 0            m = 1            m = 2            m > 2
-        -----------------------------------------------------------------------
-        . . . . . . . .  . . . . . . . .  . X X X X X . .  X X X X X X . . <- l
-        . . . . . . . .  . . X X X X X .  X X X X X X X .  X X X X X X X .
-        . X X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
-        . X X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
-        . X X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
-        . X X X X X X X  . . X X X X X X  X X X X X X X X  X X X X X X X X
-        . X X X X X X X  . . . X X X X X  X X X X X X X X  X X X X X X X X
-        . X X X X X X X  . . . . . . . .  . . X X X X X X  . . X X X X X X
-
-        --------------------- same spin irrotational---------------------------
-        . . . . . . . .  . . . . . . . .  . . . . . . . .  . . . . . . . .  . . X X X X . . <- l
-        . . . . . . . .  . . . . . . . .  . . . . . . . .  . . X X X . . .  X X X X X X . .
-        . X X X X X X X  . . . . . . . .  . . X X X X . .  . . X X X X X .  X X X X X X X .
-        . X X X X X X X  . . . . . . . .  . . X X X X X X  . . X X X X X X  X X X X X X X X
-        . X X X X X X X  . . . . . . . .  . . X X X X X X  . . . X X X X X  . . X X X X X X
-        . X X X X X X X  . . . . . . . .  . . X X X X X X  . . . . . . . .  . . X X X X X X
-        . X X X X X X X  . . . . . . . .  . . . . . . . .  . . . . . . . .  . . . . . . . .
-        . X X X X X X X  . . . . . . . .  . . . . . . . .  . . . . . . . .  . . . . . . . .
-        --------------------- opposit spin irrotational---------------------------
-
-        ^
-        k
-        """
-
 
 if __name__ == '__main__':
     """Plot Backflow terms
@@ -570,8 +477,8 @@ if __name__ == '__main__':
 
     # path = 'test/stowfn/He/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_9_00_1/'
-    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_0_33_1'
-    path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_0_33_2'
+    path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_0_33_1'
+    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_0_33_2'
     # path = 'test/stowfn/B/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/9_9_00_1/'
 
