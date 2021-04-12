@@ -268,7 +268,8 @@ class Backflow:
         theta_constraints = 5 * en_constrains + ee_constrains - 1
         n_constraints = phi_constraints + theta_constraints
 
-        c = np.zeros((n_constraints, parameters.size))
+        parameter_size = 2 * (parameters.shape[0] * parameters.shape[1] * parameters.shape[2])
+        c = np.zeros((n_constraints, parameter_size))
         p = 0
         for m in range(parameters.shape[2]):
             for l in range(parameters.shape[1]):
