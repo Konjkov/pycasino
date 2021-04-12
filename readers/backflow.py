@@ -218,7 +218,7 @@ class Backflow:
         theta_constraints = 5 * en_constrains + ee_constrains - 1
         n_constraints = phi_constraints + theta_constraints
         if phi_irrotational:
-            n_constraints += (parameters.shape[0] * parameters.shape[1] * parameters.shape[2])
+            n_constraints += 2 * (parameters.shape[0] * parameters.shape[1] * parameters.shape[2])
 
         parameter_size = 2 * (parameters.shape[0] * parameters.shape[1] * parameters.shape[2])
         c = np.zeros((n_constraints, parameter_size))
@@ -264,7 +264,7 @@ class Backflow:
                     p += 1
 
         if phi_irrotational:
-            offset_irrot = offset + ee_constrains + 5 * en_constrains - 2
+            offset_irrot = offset + ee_constrains + 5 * en_constrains - 1
             p = 0
             n = offset_irrot
             inc_k = 1
@@ -276,34 +276,34 @@ class Backflow:
                     for k in range(parameters.shape[0]):
                         if self.trunc > 0:
                             if m > 0:
-                                c[n, p-1*inc_m] = self.trunc + k
+                                c[n, p - inc_m] = self.trunc + k
                                 if k < phi_en_order:
-                                    c[n, p+1*inc_k-1*inc_m] = -phi_cutoff * (k+1)
+                                    c[n, p + inc_k - inc_m] = -phi_cutoff * (k+1)
 
                             if m < phi_ee_order:
                                 if k > 2:
-                                    c[n, p+nphi-2*inc_k+1*inc_m] = -(m+1)
+                                    c[n, p + nphi - 2*inc_k + inc_m] = -(m+1)
                                 if k > 1:
-                                    c[n, p+nphi-1*inc_k+1*inc_m] = phi_cutoff * (m+1)
+                                    c[n, p + nphi - inc_k + inc_m] = phi_cutoff * (m+1)
                         else:
                             if m > 1 and k < phi_en_order:
-                                c[n, p+1*inc_k-1*inc_m] = k+1
+                                c[n, p + inc_k - inc_m] = k+1
                             if k > 1 and m < phi_en_order:
-                                c[n, p+nphi-1*inc_k+1*inc_m] = -(m+1)
+                                c[n, p + nphi - inc_k + inc_m] = -(m+1)
                         p += 1
                         n += 1
             if self.trunc > 0:
                 # Same as above, for m=N_ee+1...
-                p = (phi_ee_order - 1) * phi_en_order**2
+                p = phi_ee_order * (phi_en_order+1)**2
                 for l in range(parameters.shape[1]):
                     for k in range(parameters.shape[0]):
                         c[n, p] = self.trunc + k
-                        if k < phi_en_order:
+                        if k < phi_en_order+1:
                             c[n, p+inc_k] = -phi_cutoff * (k+1)
                         p += 1
                         n += 1
                 # ...for k=N_eN+1...
-                p = phi_en_order - 1 - inc_l
+                p = phi_en_order - inc_l
                 for m in range(parameters.shape[2]-1):
                     for l in range(parameters.shape[1]):
                         c[n, p+nphi+inc_m] = -(m+1)
@@ -311,7 +311,7 @@ class Backflow:
                         p += inc_l
                         n += 1
                 # ...and for k=N_eN+2.
-                p = phi_en_order - inc_l
+                p = phi_en_order + 1 - inc_l
                 for m in range(parameters.shape[2]-1):
                     for l in range(parameters.shape[1]):
                         c[n, p+nphi+inc_m] = -(m+1)
@@ -319,14 +319,14 @@ class Backflow:
                         n += 1
             else:
                 # Same as above, for m=N_ee+1...
-                p = (phi_ee_order - 1) * phi_en_order**2
+                p = phi_ee_order * (phi_en_order+1)**2
                 for l in range(parameters.shape[1]):
                     for k in range(parameters.shape[0]-1):
                         c[n, p+inc_k] = 1  # just zeroes the corresponding param
                         p += 1
                         n += 1
                 # ...and for k=N_eN+1.
-                p = phi_en_order - 1 - inc_l
+                p = phi_en_order - inc_l
                 for m in range(parameters.shape[2]-1):
                     for l in range(parameters.shape[1]):
                         c[n, p+nphi+inc_m] = 1  # just zeroes the corresponding param
