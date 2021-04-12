@@ -142,6 +142,8 @@ class Backflow:
                     elif line.startswith('Label'):
                         phi_labels = np.array(self.read_ints()) - 1
                         self.phi_labels.append(phi_labels)
+                    elif line.startswith('Type of e-N cusp conditions'):
+                        phi_cusp = self.read_bool()
                     elif line.startswith('Irrotational Phi'):
                         phi_irrotational = self.read_bool()
                     elif line.startswith('Electron-nucleus expansion order'):
@@ -159,7 +161,7 @@ class Backflow:
                         theta_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
                         theta_mask = self.get_theta_mask(phi_parameters, phi_irrotational)
                         for i in range(phi_spin_dep + 1):
-                            phi_mask_new, theta_mask_new = self.get_phi_theta_mask(phi_parameters, phi_cutoff, phi_spin_dep, phi_irrotational)
+                            phi_mask_new, theta_mask_new = self.get_phi_theta_mask(phi_parameters, phi_cutoff, phi_cusp, phi_irrotational)
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
@@ -251,20 +253,19 @@ class Backflow:
                         mask[k, l, m] = False
         return mask
 
-    def get_phi_theta_mask(self, parameters, phi_cutoff, phi_spin_dep, phi_irrotational):
+    def get_phi_theta_mask(self, parameters, phi_cutoff, phi_cusp, phi_irrotational):
         """Mask dependent parameters in phi-term.
         copy-paste from /CASINO/src/pbackflow.f90 SUBROUTINE construct_C
         """
         phi_en_order = parameters.shape[0] - 1
         phi_ee_order = parameters.shape[1] - 1
 
-        Cee = phi_spin_dep != 0  # if spin-like electrons
         ee_constrains = 2 * phi_en_order + 1
         en_constrains = phi_en_order + phi_ee_order + 1
 
         offset = 0
         phi_constraints = 6 * en_constrains - 1
-        if Cee:
+        if phi_cusp:
             phi_constraints += ee_constrains
             offset += ee_constrains
 
@@ -277,7 +278,7 @@ class Backflow:
         for m in range(parameters.shape[2]):
             for l in range(parameters.shape[1]):
                 for k in range(parameters.shape[0]):
-                    if Cee:  # e-e cusp
+                    if phi_cusp:  # e-e cusp
                         if m == 1:
                             c[k+l+1, p] = 1
                     if l == 0:
