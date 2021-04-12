@@ -165,13 +165,11 @@ class Backflow:
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
                                         if phi_mask[l, k, j]:
-                                            print('phi', l, k, j, i+1)
                                             phi_parameters[l, k, j, i], _ = self.read_parameter()
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
                                         if theta_mask[l, k, j]:
-                                            print('theta', l, k, j, i + 1)
                                             theta_parameters[l, k, j, i], _ = self.read_parameter()
                         self.phi_parameters.append(phi_parameters)
                         self.theta_parameters.append(theta_parameters)
@@ -320,14 +318,14 @@ class Backflow:
                         n += 1
             else:
                 # Same as above, for m=N_ee+1...
-                p = (phi_ee_order-1) * phi_en_order**2
+                p = phi_ee_order * (phi_en_order+1)**2
                 for l in range(parameters.shape[1]):
                     for k in range(parameters.shape[0]-1):
                         c[n, p+inc_k] = 1  # just zeroes the corresponding param
                         p += 1
                         n += 1
                 # ...and for k=N_eN+1.
-                p = phi_en_order - 2
+                p = phi_en_order-1
                 for m in range(parameters.shape[2]-1):
                     for l in range(parameters.shape[1]):
                         c[n, p+nphi+inc_m] = 1  # just zeroes the corresponding param
