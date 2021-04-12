@@ -256,15 +256,16 @@ class Backflow:
         phi_en_order = parameters.shape[0] - 1
         phi_ee_order = parameters.shape[1] - 1
 
-        offset = 0
         Cee = phi_spin_dep == 0  # if spin-like electrons
         ee_constrains = 2 * phi_en_order + 1
         en_constrains = phi_en_order + phi_ee_order + 1
 
+        offset = 0
+        phi_constraints = 6 * en_constrains - 1
         if Cee:
-            phi_constraints = 6 * en_constrains + ee_constrains - 1
-        else:
-            phi_constraints = 6 * en_constrains - 1
+            phi_constraints += ee_constrains
+            offset += ee_constrains
+
         theta_constraints = 5 * en_constrains + ee_constrains - 1
         n_constraints = phi_constraints + theta_constraints
 
@@ -288,9 +289,10 @@ class Backflow:
                         if m > 0:
                             c[l+m + offset + 4 * en_constrains, p] = m
                     elif k == 1:
-                        c[l+m+1 + offset + 3 * en_constrains, p] = 1
+                        c[l+m+1 + offset + 2 * en_constrains, p] = 1
                     p += 1
 
+        offset += phi_constraints
         for m in range(parameters.shape[2]):
             for l in range(parameters.shape[1]):
                 for k in range(parameters.shape[0]):
