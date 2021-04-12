@@ -158,18 +158,18 @@ class Backflow:
                         phi_mask = self.get_phi_mask(phi_parameters, phi_irrotational)
                         theta_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
                         theta_mask = self.get_theta_mask(phi_parameters, phi_irrotational)
-                        phi_mask_new, theta_mask_new = self.get_phi_theta_mask(phi_parameters, phi_cutoff, phi_irrotational)
                         for i in range(phi_spin_dep + 1):
+                            phi_mask_new, theta_mask_new = self.get_phi_theta_mask(phi_parameters, phi_cutoff, phi_spin_dep, phi_irrotational)
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
-                                        print(phi_mask[l, k, j, i], phi_mask_new[l, k, j, i])
+                                        print(l, k, j, i+1, phi_mask[l, k, j, i], phi_mask_new[l, k, j])
                                         if phi_mask[l, k, j, i]:
                                             phi_parameters[l, k, j, i], _ = self.read_parameter()
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
-                                        print(theta_mask[l, k, j, i], theta_mask_new[l, k, j, i])
+                                        print(l, k, j, i+1, theta_mask[l, k, j, i], theta_mask_new[l, k, j])
                                         if theta_mask[l, k, j, i]:
                                             theta_parameters[l, k, j, i], _ = self.read_parameter()
                         self.phi_parameters.append(phi_parameters)
@@ -249,7 +249,7 @@ class Backflow:
                         mask[k, l, m] = False
         return mask
 
-    def get_phi_theta_mask(self, parameters, phi_cutoff, phi_irrotational):
+    def get_phi_theta_mask(self, parameters, phi_cutoff, phi_spin_dep, phi_irrotational):
         """Mask dependent parameters in phi-term.
         copy-paste from /CASINO/src/pbackflow.f90 SUBROUTINE construct_C
         """
@@ -257,7 +257,7 @@ class Backflow:
         phi_ee_order = parameters.shape[1] - 1
 
         offset = 0
-        Cee = True  # if spin-like electrons
+        Cee = phi_spin_dep == 0  # if spin-like electrons
         ee_constrains = 2 * phi_en_order + 1
         en_constrains = phi_en_order + phi_ee_order + 1
 
@@ -309,18 +309,18 @@ class Backflow:
                         c[l+m+1 + offset + ee_constrains + en_constrains, p] = 1
                     p += 1
 
-        # if phi_irrotational:
-        #     offset_irrot = offset + ee_constrains + 5 * en_constrains - 1
-        #     p = 0
-        #     for m in range(parameters.shape[2]):
-        #         for l in range(parameters.shape[1]):
-        #             for k in range(parameters.shape[0]):
-        #                 p += 1
+        if phi_irrotational:
+            offset_irrot = offset + ee_constrains + 5 * en_constrains - 1
+            p = 0
+            for m in range(parameters.shape[2]):
+                for l in range(parameters.shape[1]):
+                    for k in range(parameters.shape[0]):
+                        p += 1
 
         _, pivot = sp.Matrix(c).rref(iszerofunc=lambda x: abs(x) < 1e-10)
 
         p = 0
-        phi_mask = np.zeros(parameters.shape, np.bool)
+        phi_mask = np.zeros(parameters.shape[:3], np.bool)
         for n in range(parameters.shape[2]):
             for m in range(parameters.shape[1]):
                 for l in range(parameters.shape[0]):
@@ -328,7 +328,7 @@ class Backflow:
                         phi_mask[l, m, n] = True
                     p += 1
 
-        theta_mask = np.zeros(parameters.shape, np.bool)
+        theta_mask = np.zeros(parameters.shape[:3], np.bool)
         for n in range(parameters.shape[2]):
             for m in range(parameters.shape[1]):
                 for l in range(parameters.shape[0]):
