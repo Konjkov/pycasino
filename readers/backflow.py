@@ -165,11 +165,13 @@ class Backflow:
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
                                         if phi_mask[l, k, j]:
+                                            print('phi', l, k, j, i+1)
                                             phi_parameters[l, k, j, i], _ = self.read_parameter()
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
                                         if theta_mask[l, k, j]:
+                                            print('theta', l, k, j, i + 1)
                                             theta_parameters[l, k, j, i], _ = self.read_parameter()
                         self.phi_parameters.append(phi_parameters)
                         self.theta_parameters.append(theta_parameters)
@@ -267,42 +269,42 @@ class Backflow:
             p = 0
             n = phi_constraints + theta_constraints
             inc_k = 1
-            inc_l = inc_k * phi_en_order
-            inc_m = inc_l * phi_en_order
-            nphi = inc_m * phi_ee_order
+            inc_l = inc_k * (phi_en_order+1)
+            inc_m = inc_l * (phi_en_order+1)
+            nphi = inc_m * (phi_ee_order+1)
             for m in range(parameters.shape[2]):
                 for l in range(parameters.shape[1]):
                     for k in range(parameters.shape[0]):
                         if self.trunc > 0:
                             if m > 0:
                                 c[n, p - inc_m] = self.trunc + k
-                                if k < phi_en_order-1:
+                                if k < phi_en_order:
                                     c[n, p + inc_k - inc_m] = -phi_cutoff * (k+1)
 
-                            if m < phi_ee_order-1:
+                            if m < phi_ee_order:
                                 if k > 1:
                                     c[n, p + nphi - 2*inc_k + inc_m] = -(m+1)
                                 if k > 0:
                                     c[n, p + nphi - inc_k + inc_m] = phi_cutoff * (m+1)
                         else:
-                            if m > 0 and k < phi_en_order-1:
+                            if m > 0 and k < phi_en_order:
                                 c[n, p + inc_k - inc_m] = k+1
-                            if k > 0 and m < phi_en_order-1:
+                            if k > 0 and m < phi_en_order:
                                 c[n, p + nphi - inc_k + inc_m] = -(m+1)
                         p += 1
                         n += 1
             if self.trunc > 0:
                 # Same as above, for m=N_ee+1...
-                p = (phi_ee_order-1) * phi_en_order**2
+                p = phi_ee_order * (phi_en_order+1)**2
                 for l in range(parameters.shape[1]):
                     for k in range(parameters.shape[0]):
                         c[n, p] = self.trunc + k
-                        if k < phi_en_order-1:
+                        if k < phi_en_order:
                             c[n, p+inc_k] = -phi_cutoff * (k+1)
                         p += 1
                         n += 1
                 # ...for k=N_eN+1...
-                p = phi_en_order - 1
+                p = phi_en_order-1
                 for m in range(parameters.shape[2]-1):
                     for l in range(parameters.shape[1]):
                         c[n, p+nphi+inc_m] = -(m+1)
@@ -325,7 +327,7 @@ class Backflow:
                         p += 1
                         n += 1
                 # ...and for k=N_eN+1.
-                p = phi_en_order - 1
+                p = phi_en_order - 2
                 for m in range(parameters.shape[2]-1):
                     for l in range(parameters.shape[1]):
                         c[n, p+nphi+inc_m] = 1  # just zeroes the corresponding param
