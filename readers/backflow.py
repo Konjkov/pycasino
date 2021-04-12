@@ -204,7 +204,7 @@ class Backflow:
         copy-paste from /CASINO/src/pbackflow.f90 SUBROUTINE construct_C
         """
         phi_en_order = parameters.shape[0] - 1
-        phi_ee_order = parameters.shape[1] - 1
+        phi_ee_order = parameters.shape[2] - 1
 
         ee_constrains = 2 * phi_en_order + 1
         en_constrains = phi_en_order + phi_ee_order + 1
@@ -264,7 +264,7 @@ class Backflow:
                     p += 1
 
         if phi_irrotational:
-            offset_irrot = offset + ee_constrains + 5 * en_constrains - 1
+            offset_irrot = offset + ee_constrains + 5 * en_constrains - 2
             p = 0
             n = offset_irrot
             inc_k = 1
@@ -292,44 +292,46 @@ class Backflow:
                                 c[n, p+nphi-1*inc_k+1*inc_m] = -(m+1)
                         p += 1
                         n += 1
-            # Same as above, for m=N_ee+1...
-            # p = (N_phi_ee-1)*N_phi_eN**2
-            for l in range(parameters.shape[1]):
-                for k in range(parameters.shape[0]):
-                    c[n, p] = self.trunc + k
-                    if k < phi_en_order:
-                        c[n, p+1*inc_k] = -phi_cutoff * (k+1)
-                    p += 1
-                    n += 1
-            # ...for k=N_eN+1...
-            # p = N_phi_eN-1-inc_l
-            for m in range(parameters.shape[2]-1):
+            if self.trunc > 0:
+                # Same as above, for m=N_ee+1...
+                p = (phi_ee_order - 1) * phi_en_order**2
                 for l in range(parameters.shape[1]):
-                    c[n, p+nphi+1*inc_m] = -(m+1)
-                    c[n, p+nphi+1*inc_k+1*inc_m] = phi_cutoff * (m+1)
-                    p += inc_l
-                    n += 1
-            # ...and for k=N_eN+2.
-            # p = N_phi_eN-inc_l
-            for m in range(parameters.shape[2]-1):
+                    for k in range(parameters.shape[0]):
+                        c[n, p] = self.trunc + k
+                        if k < phi_en_order:
+                            c[n, p+inc_k] = -phi_cutoff * (k+1)
+                        p += 1
+                        n += 1
+                # ...for k=N_eN+1...
+                p = phi_en_order - 1 - inc_l
+                for m in range(parameters.shape[2]-1):
+                    for l in range(parameters.shape[1]):
+                        c[n, p+nphi+inc_m] = -(m+1)
+                        c[n, p+nphi+inc_k+inc_m] = phi_cutoff * (m+1)
+                        p += inc_l
+                        n += 1
+                # ...and for k=N_eN+2.
+                p = phi_en_order - inc_l
+                for m in range(parameters.shape[2]-1):
+                    for l in range(parameters.shape[1]):
+                        c[n, p+nphi+inc_m] = -(m+1)
+                        p += inc_l
+                        n += 1
+            else:
+                # Same as above, for m=N_ee+1...
+                p = (phi_ee_order - 1) * phi_en_order**2
                 for l in range(parameters.shape[1]):
-                    c[n, p+nphi+1*inc_m] = -(m+1)
-                    p += inc_l
-                    n += 1
-            # Same as above, for m=N_ee+1...
-            # p = (N_phi_ee-1)*N_phi_eN**2
-            for l in range(parameters.shape[1]):
-                for k in range(parameters.shape[0]-1):
-                    c[n, p+1*inc_k] = 1  # just zeroes the corresponding param
-                    p += 1
-                    n += 1
-            # ...and for k=N_eN+1.
-            # p = N_phi_eN-1-inc_l
-            for m in range(parameters.shape[2]-1):
-                for l in range(parameters.shape[1]):
-                    c[n, p+nphi+1*inc_m] = 1  # just zeroes the corresponding param
-                    p += inc_l
-                    n += 1
+                    for k in range(parameters.shape[0]-1):
+                        c[n, p+inc_k] = 1  # just zeroes the corresponding param
+                        p += 1
+                        n += 1
+                # ...and for k=N_eN+1.
+                p = phi_en_order - 1 - inc_l
+                for m in range(parameters.shape[2]-1):
+                    for l in range(parameters.shape[1]):
+                        c[n, p+nphi+inc_m] = 1  # just zeroes the corresponding param
+                        p += inc_l
+                        n += 1
 
         _, pivot = sp.Matrix(c).rref(iszerofunc=lambda x: abs(x) < 1e-10)
 
@@ -362,3 +364,6 @@ class Backflow:
 
     def fix_mu_parameters(self):
         """Fix mu-term parameters"""
+
+    def fix_phi_parameters(self):
+        """Fix phi-term parameters"""
