@@ -163,13 +163,15 @@ class Backflow:
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
-                                        print(l, k, j, i+1, phi_mask[l, k, j, i], phi_mask_new[l, k, j])
+                                        if phi_mask[l, k, j, i] != phi_mask_new[l, k, j]:
+                                            print(l, k, j, i+1, phi_mask[l, k, j, i], phi_mask_new[l, k, j])
                                         if phi_mask[l, k, j, i]:
                                             phi_parameters[l, k, j, i], _ = self.read_parameter()
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
-                                        print(l, k, j, i+1, theta_mask[l, k, j, i], theta_mask_new[l, k, j])
+                                        if theta_mask[l, k, j, i] != theta_mask_new[l, k, j]:
+                                            print(l, k, j, i+1, theta_mask[l, k, j, i], theta_mask_new[l, k, j])
                                         if theta_mask[l, k, j, i]:
                                             theta_parameters[l, k, j, i], _ = self.read_parameter()
                         self.phi_parameters.append(phi_parameters)
@@ -256,7 +258,7 @@ class Backflow:
         phi_en_order = parameters.shape[0] - 1
         phi_ee_order = parameters.shape[1] - 1
 
-        Cee = phi_spin_dep == 0  # if spin-like electrons
+        Cee = phi_spin_dep != 0  # if spin-like electrons
         ee_constrains = 2 * phi_en_order + 1
         en_constrains = phi_en_order + phi_ee_order + 1
 
@@ -292,7 +294,7 @@ class Backflow:
                         c[l+m+1 + offset + 2 * en_constrains, p] = 1
                     p += 1
 
-        offset += phi_constraints
+        offset = phi_constraints
         for m in range(parameters.shape[2]):
             for l in range(parameters.shape[1]):
                 for k in range(parameters.shape[0]):
