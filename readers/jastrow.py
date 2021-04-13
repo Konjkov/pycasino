@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 
 import numpy as np
@@ -9,6 +11,13 @@ chi_mask_type = nb.boolean[:, :]
 f_mask_type = nb.boolean[:, :, :, :]
 chi_parameters_type = nb.float64[:, :]
 f_parameters_type = nb.float64[:, :, :, :]
+
+
+debug = False
+
+
+class CheckError(Exception):
+    pass
 
 
 class Jastrow:
@@ -30,6 +39,11 @@ class Jastrow:
         # https://www.python.org/dev/peps/pep-3132/
         parameter, mask, *_ = self.f.readline().split()
         return float(parameter), bool(int(mask))
+
+    def check_parameter(self):
+        """check parameter index against Casino"""
+        _, _, _, comment = self.f.readline().split()
+        return list(map(int, comment[6:].split(',')))
 
     def read_ints(self):
         return list(map(int, self.f.readline().split()))
@@ -171,8 +185,12 @@ class Jastrow:
                                     for m in range(f_en_order + 1):
                                         for l in range(f_en_order + 1):
                                             if f_mask[l, m, n, i]:
-                                                # γlmnI = γmlnI
-                                                f_parameters[l, m, n, i], _ = f_parameters[m, l, n, i], _ = self.read_parameter()
+                                                if debug:
+                                                    if self.check_parameter() != [l, m, n, i + 1, 1]:
+                                                        raise CheckError([l, m, n, i + 1, 1])
+                                                else:
+                                                    # γlmnI = γmlnI
+                                                    f_parameters[l, m, n, i], _ = f_parameters[m, l, n, i], _ = self.read_parameter()
                         except ValueError:
                             pass
                         self.f_mask.append(f_mask)
@@ -194,31 +212,6 @@ class Jastrow:
         """Mask dependent parameters in chi-term"""
         mask = np.ones(parameters.shape, np.bool)
         mask[1] = False
-        return mask
-
-    @staticmethod
-    def get_f_mask_old(parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
-        """Mask dependent parameters in f-term.
-        my own version
-        """
-        mask = np.ones(parameters.shape, np.bool)
-        f_en_order = parameters.shape[0] - 1
-        for n in range(parameters.shape[2]):
-            for m in range(parameters.shape[1]):
-                for l in range(parameters.shape[0]):
-                    if l < m:
-                        mask[l, m, n] = False
-                    elif n == 0 and m == 0:
-                        mask[l, m, n] = mask[m, l, n] = False
-                    # sum(γlm1I) = 0
-                    elif n == 1 and (m == 0 or l == f_en_order or m == 1 and l == f_en_order - 1):
-                        mask[l, m, n] = mask[m, l, n] = False
-                    elif l == f_en_order and m == 0:
-                        mask[l, m, n] = mask[m, l, n] = False
-                    elif no_dup_u_term and (m == 0 and l == 0 or m == 1 and l == 1 and n == 0):
-                        mask[l, m, n] = mask[m, l, n] = False
-                    elif no_dup_chi_term and m == 1 and n == 0:
-                        mask[l, m, n] = mask[m, l, n] = False
         return mask
 
     def get_f_mask(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
@@ -498,3 +491,20 @@ class Jastrow:
         if no_dup_chi_term:
             print('should be equal to zero')
             print(f_parameters[:, 0, 0, :])
+
+
+if __name__ == '__main__':
+    """Read Jastrow terms
+    """
+    debug = True
+
+    for f_term in (
+            #'11',
+                  '12', '13', '14', '14',
+            '21', '22', '23', '24', '24',
+            '31', '32', '33', '34', '34',
+            '41', '42', '43', '44', '44',
+            '51', '52', '53', '54', '55',
+    ):
+        path = f'../test/jastrow/3_1/{f_term}/correlation.out.1'
+        Jastrow(path)
