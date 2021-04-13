@@ -1,9 +1,10 @@
+#!/usr/bin/env python3
+
 import os
 
 import numpy as np
 import numba as nb
 import sympy as sp
-
 
 labels_type = nb.int64[:]
 mu_mask_type = nb.boolean[:, :]
@@ -12,6 +13,13 @@ theta_mask_type = nb.boolean[:, :, :, :]
 mu_parameters_type = nb.float64[:, :]
 phi_parameters_type = nb.float64[:, :, :, :]
 theta_parameters_type = nb.float64[:, :, :, :]
+
+
+debug = False
+
+
+class CheckError(Exception):
+    pass
 
 
 class Backflow:
@@ -30,6 +38,11 @@ class Backflow:
         # https://www.python.org/dev/peps/pep-3132/
         parameter, mask, *_ = self.f.readline().split()
         return float(parameter), bool(int(mask))
+
+    def check_parameter(self):
+        """check parameter index against Casino"""
+        _, _, _, comment = self.f.readline().split()
+        return list(map(int, comment.split('_')[1].split(',')))
 
     def read_ints(self):
         return list(map(int, self.f.readline().split()))
@@ -160,17 +173,25 @@ class Backflow:
                         phi_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
                         theta_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
                         for i in range(phi_spin_dep + 1):
-                            phi_mask, theta_mask = self.get_phi_theta_mask(phi_parameters, phi_cutoff, phi_cusp, phi_irrotational)
+                            phi_mask, theta_mask = self.get_phi_theta_mask(phi_parameters, phi_cutoff, i, phi_cusp, phi_irrotational)
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
                                         if phi_mask[l, k, j]:
-                                            phi_parameters[l, k, j, i], _ = self.read_parameter()
+                                            if debug:
+                                                if self.check_parameter() != [l, k, j, i + 1]:
+                                                    raise CheckError([l, k, j, i + 1])
+                                            else:
+                                                phi_parameters[l, k, j, i], _ = self.read_parameter()
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
                                         if theta_mask[l, k, j]:
-                                            theta_parameters[l, k, j, i], _ = self.read_parameter()
+                                            if debug:
+                                                if self.check_parameter() != [l, k, j, i + 1]:
+                                                    raise CheckError([l, k, j, i + 1])
+                                            else:
+                                                theta_parameters[l, k, j, i], _ = self.read_parameter()
                         self.phi_parameters.append(phi_parameters)
                         self.theta_parameters.append(theta_parameters)
                         self.phi_irrotational[set_number] = phi_irrotational
@@ -199,7 +220,7 @@ class Backflow:
         mask[0] = mask[1] = False
         return mask
 
-    def get_phi_theta_mask(self, parameters, phi_cutoff, phi_cusp, phi_irrotational):
+    def get_phi_theta_mask(self, parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
         """Mask dependent parameters in phi-term.
         copy-paste from /CASINO/src/pbackflow.f90 SUBROUTINE construct_C
         """
@@ -211,7 +232,7 @@ class Backflow:
 
         offset = 0
         phi_constraints = 6 * en_constrains - 1
-        if phi_cusp:
+        if phi_cusp and spin_dep in (0, 2):
             phi_constraints += ee_constrains
             offset += ee_constrains
 
@@ -226,7 +247,7 @@ class Backflow:
         for m in range(parameters.shape[2]):
             for l in range(parameters.shape[1]):
                 for k in range(parameters.shape[0]):
-                    if phi_cusp:  # e-e cusp
+                    if phi_cusp and spin_dep in (0, 2):  # e-e cusp
                         if m == 1:
                             c[k+l+1, p] = 1
                     if l == 0:
@@ -366,3 +387,21 @@ class Backflow:
 
     def fix_phi_parameters(self):
         """Fix phi-term parameters"""
+
+
+if __name__ == '__main__':
+    """Read Backflow terms
+    """
+    debug = True
+    atom_positions = np.array([[0, 0, 0]])
+
+    for phi_term in (
+            '42',
+        # '21', '22', '23', '24', '25',
+        # '31', '32', '33', '34', '35',
+        # '41', '42', '43', '44', '45',
+        # '51', '52', '53', '54', '55',
+    ):
+        path = f'../test/backflow/3_1_1/{phi_term}/correlation.out.1'
+        # path = f'../test/backflow/3_1_0/{phi_term}/correlation.out.1'
+        Backflow(path, atom_positions)

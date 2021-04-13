@@ -43,7 +43,7 @@ class Jastrow:
     def check_parameter(self):
         """check parameter index against Casino"""
         _, _, _, comment = self.f.readline().split()
-        return list(map(int, comment[6:].split(',')))
+        return list(map(int, comment.split('_')[1].split(',')))
 
     def read_ints(self):
         return list(map(int, self.f.readline().split()))
@@ -499,12 +499,12 @@ if __name__ == '__main__':
     debug = True
 
     for f_term in (
-            #'11',
-                  '12', '13', '14', '14',
-            '21', '22', '23', '24', '24',
-            '31', '32', '33', '34', '34',
-            '41', '42', '43', '44', '44',
-            '51', '52', '53', '54', '55',
+        #'11',
+              '12', '13', '14', '14',
+        '21', '22', '23', '24', '24',
+        '31', '32', '33', '34', '34',
+        '41', '42', '43', '44', '44',
+        '51', '52', '53', '54', '55',
     ):
         path = f'../test/jastrow/3_1/{f_term}/correlation.out.1'
         Jastrow(path)
