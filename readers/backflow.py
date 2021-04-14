@@ -231,16 +231,15 @@ class Backflow:
         en_constrains = phi_en_order + phi_ee_order + 1
 
         offset = 0
-        phi_constraints = 6 * en_constrains - 1
+        phi_constraints = 6 * en_constrains - 2
         if phi_cusp and spin_dep in (0, 2):
             phi_constraints += ee_constrains
             offset += ee_constrains
 
-        theta_constraints = 5 * en_constrains + ee_constrains - 1
+        theta_constraints = 5 * en_constrains + ee_constrains - 2
         n_constraints = phi_constraints + theta_constraints
         if phi_irrotational:
-            # FIXME
-            n_constraints += (phi_en_order + 3) * (phi_en_order + 1) * (phi_ee_order + 2)
+            n_constraints += (phi_en_order + 3) * (phi_en_order + 1) * (phi_ee_order + 2) - phi_en_order * 4 - 3
 
         parameter_size = 2 * (parameters.shape[0] * parameters.shape[1] * parameters.shape[2])
         c = np.zeros((n_constraints, parameter_size))
@@ -287,7 +286,7 @@ class Backflow:
 
         if phi_irrotational:
             p = 0
-            n = phi_constraints + theta_constraints - 1
+            n = phi_constraints + theta_constraints
             inc_k = 1
             inc_l = inc_k * (phi_en_order+1)
             inc_m = inc_l * (phi_en_order+1)
@@ -403,6 +402,6 @@ if __name__ == '__main__':
     ):
         # path = f'../test/backflow/0_1_0/{phi_term}/correlation.out.1'
         # path = f'../test/backflow/3_1_0/{phi_term}/correlation.out.1'
-        # path = f'../test/backflow/0_1_1/{phi_term}/correlation.out.1'
-        path = f'../test/backflow/3_1_1/{phi_term}/correlation.out.1'
+        path = f'../test/backflow/0_1_1/{phi_term}/correlation.out.1'
+        # path = f'../test/backflow/3_1_1/{phi_term}/correlation.out.1'
         Backflow(path, atom_positions)
