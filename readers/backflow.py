@@ -239,6 +239,7 @@ class Backflow:
         theta_constraints = 5 * en_constrains + ee_constrains - 1
         n_constraints = phi_constraints + theta_constraints
         if phi_irrotational:
+            # FIXME
             n_constraints += (phi_en_order + 3) * (phi_en_order + 1) * (phi_ee_order + 2)
 
         parameter_size = 2 * (parameters.shape[0] * parameters.shape[1] * parameters.shape[2])
@@ -249,19 +250,19 @@ class Backflow:
                 for k in range(parameters.shape[0]):
                     if phi_cusp and spin_dep in (0, 2):  # e-e cusp
                         if m == 1:
-                            c[k+l+1, p] = 1
+                            c[k+l, p] = 1
                     if l == 0:
-                        c[k+m+1 + offset + en_constrains, p] = 1
+                        c[k+m + offset + en_constrains, p] = 1
                         if m > 0:
-                            c[k+m + offset + 5 * en_constrains - 1, p] = m
+                            c[k+m-1 + offset + 5 * en_constrains - 1, p] = m
                     elif l == 1:
-                        c[k+m+1 + offset + 3 * en_constrains, p] = 1
+                        c[k+m + offset + 3 * en_constrains, p] = 1
                     if k == 0:
-                        c[l+m+1 + offset, p] = 1
+                        c[l+m + offset, p] = 1
                         if m > 0:
-                            c[l+m + offset + 4 * en_constrains, p] = m
+                            c[l+m-1 + offset + 4 * en_constrains, p] = m
                     elif k == 1:
-                        c[l+m+1 + offset + 2 * en_constrains, p] = 1
+                        c[l+m + offset + 2 * en_constrains, p] = 1
                     p += 1
 
         offset = phi_constraints
@@ -269,24 +270,24 @@ class Backflow:
             for l in range(parameters.shape[1]):
                 for k in range(parameters.shape[0]):
                     if m == 1:
-                        c[k+l+1 + offset, p] = 1
+                        c[k+l + offset, p] = 1
                     if l == 0:
-                        c[k+m+1 + offset + ee_constrains + 2 * en_constrains, p] = -self.trunc/phi_cutoff
+                        c[k+m + offset + ee_constrains + 2 * en_constrains, p] = -self.trunc/phi_cutoff
                         if m > 0:
-                            c[k+m + offset + ee_constrains + 4 * en_constrains - 1, p] = m
+                            c[k+m-1 + offset + ee_constrains + 4 * en_constrains - 1, p] = m
                     elif l == 1:
-                        c[k+m+1 + offset + ee_constrains + 2 * en_constrains, p] = 1
+                        c[k+m + offset + ee_constrains + 2 * en_constrains, p] = 1
                     if k == 0:
-                        c[l+m+1 + offset + ee_constrains, p] = 1
+                        c[l+m + offset + ee_constrains, p] = 1
                         if m > 0:
-                            c[l+m + offset + ee_constrains + 3 * en_constrains, p] = m
+                            c[l+m-1 + offset + ee_constrains + 3 * en_constrains, p] = m
                     elif k == 1:
-                        c[l+m+1 + offset + ee_constrains + en_constrains, p] = 1
+                        c[l+m + offset + ee_constrains + en_constrains, p] = 1
                     p += 1
 
         if phi_irrotational:
             p = 0
-            n = phi_constraints + theta_constraints
+            n = phi_constraints + theta_constraints - 1
             inc_k = 1
             inc_l = inc_k * (phi_en_order+1)
             inc_m = inc_l * (phi_en_order+1)
@@ -299,7 +300,6 @@ class Backflow:
                                 c[n, p - inc_m] = self.trunc + k
                                 if k < phi_en_order:
                                     c[n, p + inc_k - inc_m] = -phi_cutoff * (k+1)
-
                             if m < phi_ee_order:
                                 if k > 1:
                                     c[n, p + nphi - 2*inc_k + inc_m] = -(m+1)
@@ -308,7 +308,7 @@ class Backflow:
                         else:
                             if m > 0 and k < phi_en_order:
                                 c[n, p + inc_k - inc_m] = k+1
-                            if k > 0 and m < phi_en_order:
+                            if k > 0 and m < phi_ee_order:
                                 c[n, p + nphi - inc_k + inc_m] = -(m+1)
                         p += 1
                         n += 1
@@ -396,12 +396,13 @@ if __name__ == '__main__':
     atom_positions = np.array([[0, 0, 0]])
 
     for phi_term in (
-            '42',
-        # '21', '22', '23', '24', '25',
-        # '31', '32', '33', '34', '35',
-        # '41', '42', '43', '44', '45',
-        # '51', '52', '53', '54', '55',
+        '21', '22', '23', '24', '25',
+        '31', '32', '33', '34', '35',
+        '41', '42', '43', '44', '45',
+        '51', '52', '53', '54', '55',
     ):
-        path = f'../test/backflow/3_1_1/{phi_term}/correlation.out.1'
+        # path = f'../test/backflow/0_1_0/{phi_term}/correlation.out.1'
         # path = f'../test/backflow/3_1_0/{phi_term}/correlation.out.1'
+        # path = f'../test/backflow/0_1_1/{phi_term}/correlation.out.1'
+        path = f'../test/backflow/3_1_1/{phi_term}/correlation.out.1'
         Backflow(path, atom_positions)
