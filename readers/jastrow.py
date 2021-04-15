@@ -214,9 +214,8 @@ class Jastrow:
         mask[1] = False
         return mask
 
-    def get_f_mask(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
-        """Mask dependent parameters in f-term.
-        A-matrix has the following rows:
+    def construct_a_matrix(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
+        """A-matrix has the following rows:
         (2 * f_en_order + 1) constraints imposed to satisfy electron–electron no-cusp condition.
         (f_en_order + f_ee_order + 1) constraints imposed to satisfy electron–nucleus no-cusp condition.
         (f_ee_order + 1) constraints imposed to prevent duplication of u-term
@@ -265,8 +264,22 @@ class Jastrow:
                             if no_dup_chi_term and n == 0:
                                 a[l + ee_constrains + en_constrains, p] = 1
                     p += 1
+        return a
+
+    def get_f_mask(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
+        """Mask dependent parameters in f-term.
+        A-matrix has the following rows:
+        (2 * f_en_order + 1) constraints imposed to satisfy electron–electron no-cusp condition.
+        (f_en_order + f_ee_order + 1) constraints imposed to satisfy electron–nucleus no-cusp condition.
+        (f_ee_order + 1) constraints imposed to prevent duplication of u-term
+        (f_en_order + 1) constraints imposed to prevent duplication of chi-term
+        copy-paste from /CASINO/src/pjastrow.f90 SUBROUTINE construct_A
+        """
+
+        a = self.construct_a_matrix(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
 
         _, pivot = sp.Matrix(a).rref(iszerofunc=lambda x: abs(x) < 1e-10)
+        print(pivot)
         p = 0
         mask = np.zeros(f_parameters.shape, np.bool)
         for n in range(f_parameters.shape[2]):
@@ -409,6 +422,13 @@ class Jastrow:
         no_dup_u_constrains = f_ee_order + 1
         no_dup_chi_constrains = f_en_order + 1
 
+        if f_en_order == 1 and f_ee_order == 1:
+            """in this case, one constraint becomes degenerate
+            and the number of pivots is one less
+            need to code this case more beautifully.
+            """
+            ee_constrains = 2
+
         n_constraints = ee_constrains + en_constrains
         if no_dup_u_term:
             n_constraints += no_dup_u_constrains
@@ -505,10 +525,10 @@ if __name__ == '__main__':
     debug = False
 
     for f_term in (
-        '11', '12', '13', '14', '14',
-        '21', '22', '23', '24', '24',
-        '31', '32', '33', '34', '34',
-        '41', '42', '43', '44', '44',
+        '11', '12', '13', '14', '15',
+        '21', '22', '23', '24', '25',
+        '31', '32', '33', '34', '35',
+        '41', '42', '43', '44', '45',
         '51', '52', '53', '54', '55',
     ):
         print(f_term)
