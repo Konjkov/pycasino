@@ -195,7 +195,7 @@ class Jastrow:
                             pass
                         self.f_mask.append(f_mask)
                         self.f_parameters.append(f_parameters)
-                        self.fix_f_parameters_old(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
+                        self.fix_f_parameters(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                         self.check_f_constrains(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                     elif line.startswith('END SET'):
                         set_number = None
@@ -216,6 +216,11 @@ class Jastrow:
 
     def get_f_mask(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
         """Mask dependent parameters in f-term.
+        A-matrix has the following rows:
+        (2 * f_en_order + 1) constraints imposed to satisfy electron–electron no-cusp condition.
+        (f_en_order + f_ee_order + 1) constraints imposed to satisfy electron–nucleus no-cusp condition.
+        (f_ee_order + 1) constraints imposed to prevent duplication of u-term
+        (f_en_order + 1) constraints imposed to prevent duplication of chi-term
         copy-paste from /CASINO/src/pjastrow.f90 SUBROUTINE construct_A
         """
         f_en_order = f_parameters.shape[0] - 1
@@ -232,7 +237,8 @@ class Jastrow:
         if no_dup_chi_term:
             n_constraints += no_dup_chi_constrains
 
-        a = np.zeros((n_constraints, f_parameters.size))
+        parameters_size = f_parameters.shape[0] * (f_parameters.shape[1] + 1) * f_parameters.shape[2] // 2
+        a = np.zeros((n_constraints, parameters_size))
         p = 0
         for n in range(f_parameters.shape[2]):
             for m in range(f_parameters.shape[1]):
@@ -428,8 +434,8 @@ class Jastrow:
                             b[:, l + n + ee_constrains] -= self.trunc * f_parameters[l, m, n, :]
                             if l == 1:
                                 b[:, n + ee_constrains] += f_cutoff * f_parameters[l, m, n, :]
-                            elif l == 0:
-                                b[:, n + ee_constrains] -= self.trunc * f_parameters[l, m, n, :]
+                            # elif l == 0:
+                            #     b[:, n + ee_constrains] -= self.trunc * f_parameters[l, m, n, :]
                     else:
                         if n == 1:
                             if l == m:
@@ -442,8 +448,8 @@ class Jastrow:
                             a[:, l + n + ee_constrains, p] = self.trunc
                             if l == 1:
                                 a[:, n + ee_constrains, p] = - f_cutoff
-                            elif l == 0:
-                                a[:, n + ee_constrains, p] = self.trunc
+                            # elif l == 0:
+                            #     a[:, n + ee_constrains, p] = self.trunc
                             if no_dup_u_term:
                                 if l == 0:
                                     a[:, n + ee_constrains + en_constrains, p] = 1
@@ -496,7 +502,7 @@ class Jastrow:
 if __name__ == '__main__':
     """Read Jastrow terms
     """
-    debug = True
+    debug = False
 
     for f_term in (
         '11', '12', '13', '14', '14',

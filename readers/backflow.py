@@ -241,8 +241,8 @@ class Backflow:
         if phi_irrotational:
             n_constraints += (phi_en_order + 3) * (phi_en_order + 1) * (phi_ee_order + 2) - phi_en_order * 4 - 3
 
-        parameter_size = 2 * (parameters.shape[0] * parameters.shape[1] * parameters.shape[2])
-        c = np.zeros((n_constraints, parameter_size))
+        parameters_size = 2 * (parameters.shape[0] * parameters.shape[1] * parameters.shape[2])
+        c = np.zeros((n_constraints, parameters_size))
         p = 0
         for m in range(parameters.shape[2]):
             for l in range(parameters.shape[1]):
