@@ -195,7 +195,7 @@ class Jastrow:
                             pass
                         self.f_mask.append(f_mask)
                         self.f_parameters.append(f_parameters)
-                        self.fix_f_parameters(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
+                        self.fix_f_parameters_old(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                         self.check_f_constrains(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                     elif line.startswith('END SET'):
                         set_number = None
@@ -428,8 +428,8 @@ class Jastrow:
                             b[:, l + n + ee_constrains] -= self.trunc * f_parameters[l, m, n, :]
                             if l == 1:
                                 b[:, n + ee_constrains] += f_cutoff * f_parameters[l, m, n, :]
-                            # elif l == 0:
-                            #     b[:, n + u_constrains] -= self.trunc * f_parameters[l, m, n, :]
+                            elif l == 0:
+                                b[:, n + ee_constrains] -= self.trunc * f_parameters[l, m, n, :]
                     else:
                         if n == 1:
                             if l == m:
@@ -442,8 +442,8 @@ class Jastrow:
                             a[:, l + n + ee_constrains, p] = self.trunc
                             if l == 1:
                                 a[:, n + ee_constrains, p] = - f_cutoff
-                            # elif l == 0:
-                            #     a[:, n + u_constrains, p] = self.trunc
+                            elif l == 0:
+                                a[:, n + ee_constrains, p] = self.trunc
                             if no_dup_u_term:
                                 if l == 0:
                                     a[:, n + ee_constrains + en_constrains, p] = 1
@@ -499,12 +499,12 @@ if __name__ == '__main__':
     debug = True
 
     for f_term in (
-        #'11',
-              '12', '13', '14', '14',
+        '11', '12', '13', '14', '14',
         '21', '22', '23', '24', '24',
         '31', '32', '33', '34', '34',
         '41', '42', '43', '44', '44',
         '51', '52', '53', '54', '55',
     ):
+        print(f_term)
         path = f'../test/jastrow/3_1/{f_term}/correlation.out.1'
         Jastrow(path)
