@@ -64,6 +64,7 @@ class Backflow:
         self.max_en_order = max((
             max([p.shape[0] for p in self.mu_parameters]) if self.mu_parameters else 0,
             max([p.shape[0] for p in self.phi_parameters]) if self.phi_parameters else 0,
+            2
         ))
         self.eta_cutoff = eta_cutoff
         self.mu_cutoff = mu_cutoff
@@ -110,8 +111,8 @@ class Backflow:
 
     def eta_term(self, e_vectors, e_powers):
         """
-        :param e_vectors:
-        :param e_powers:
+        :param e_vectors: e-e vectors
+        :param e_powers: powers of e-e distances
         :return: displacements of electrons - array(nelec, 3)
         """
         res = np.zeros((self.neu + self.ned, 3))
@@ -125,20 +126,20 @@ class Backflow:
                 r_vec = e_vectors[i, j]
                 r = e_powers[i, j, 1]
                 eta_set = (int(i >= self.neu) + int(j >= self.neu)) % parameters.shape[1]
-                # I don't think it works fast if NO SPIN-DEP
-                L = self.eta_cutoff[eta_set] or self.eta_cutoff[0]
+                L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
                 if r < L:
                     poly = 0
                     for k in range(parameters.shape[0]):
                         poly += parameters[k, eta_set] * e_powers[i, j, k]
-                    res[i] += (1 - r/L) ** C * poly * r_vec
-                    # res[j] -= ...
+                    bf = (1 - r/L) ** C * poly * r_vec
+                    res[i] += bf
+                    res[j] -= bf
         return res
 
     def mu_term(self, n_vectors, n_powers):
         """
-        :param n_vectors:
-        :param n_powers:
+        :param n_vectors: e-n vectors
+        :param n_powers: powers of e-n distances
         :return: displacements of electrons - array(nelec, 3)
         """
         res = np.zeros((self.neu + self.ned, 3))
@@ -222,8 +223,7 @@ class Backflow:
                 r_vec = e_vectors[i, j]
                 r = e_powers[i, j, 1]
                 eta_set = (int(i >= self.neu) + int(j >= self.neu)) % parameters.shape[1]
-                # I don't think it works fast if NO SPIN-DEP
-                L = self.eta_cutoff[eta_set] or self.eta_cutoff[0]
+                L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
                 if r < L:
                     poly = poly_diff = 0
                     for k in range(parameters.shape[0]):
@@ -232,10 +232,11 @@ class Backflow:
                         if k > 0:
                             poly_diff += p * k * e_powers[i, j, k - 1]
 
-                    res[i, :, j, :] += (1 - r/L)**C * (
+                    bf = (1 - r/L)**C * (
                         (poly_diff - C/(L - r)*poly) * np.outer(r_vec, r_vec)/r + poly * np.eye(3)
                     )
-                    # res[j, :, i, :] -= ...
+                    res[i, :, j, :] += bf
+                    res[j, :, i, :] -= bf
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
@@ -301,8 +302,7 @@ class Backflow:
                 r_vec = e_vectors[i, j]
                 r = e_powers[i, j, 1]
                 eta_set = (int(i >= self.neu) + int(j >= self.neu)) % parameters.shape[1]
-                # I don't think it works fast if NO SPIN-DEP
-                L = self.eta_cutoff[eta_set] or self.eta_cutoff[0]
+                L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
                 if r < L:
                     poly = poly_diff = poly_diff_2 = 0
                     for k in range(parameters.shape[0]):
@@ -313,11 +313,12 @@ class Backflow:
                         if k > 1:
                             poly_diff_2 += k * (k - 1) * p * e_powers[i, j, k-2]
 
-                    res[i] += (1 - r/L)**C * (
+                    bf = (1 - r/L)**C * (
                         4*(poly_diff - C/(L - r) * poly) +
                         r*(C*(C - 1)/(L - r)**2*poly - 2*C/(L - r)*poly_diff + poly_diff_2)
                     ) * r_vec/r
-                    # res[j] -= ...
+                    res[i] += bf
+                    res[j] -= bf
 
         return res.ravel()
 
@@ -475,9 +476,10 @@ if __name__ == '__main__':
 
     term = 'eta'
 
+    path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_0_00_1'
     # path = 'test/stowfn/He/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_9_00_1/'
-    path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_0_33_1'
+    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_0_33_1'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_0_33_2'
     # path = 'test/stowfn/B/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/9_9_00_1/'

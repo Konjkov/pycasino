@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 import numba as nb
-from numerical import rref
+from readers.numerical import rref
 
 labels_type = nb.int64[:]
 mu_mask_type = nb.boolean[:, :]
