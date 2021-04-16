@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 import numba as nb
-import sympy as sp
+from numerical import rref
 
 labels_type = nb.int64[:]
 mu_mask_type = nb.boolean[:, :]
@@ -239,7 +239,7 @@ class Backflow:
         theta_constraints = 5 * en_constrains + ee_constrains - 2
         n_constraints = phi_constraints + theta_constraints
         if phi_irrotational:
-            n_constraints += (phi_en_order + 3) * (phi_en_order + 1) * (phi_ee_order + 2) - phi_en_order * 4 - 3
+            n_constraints += ((phi_en_order + 3) * (phi_ee_order + 2) - 4) * (phi_en_order + 1)
 
         parameters_size = 2 * (parameters.shape[0] * parameters.shape[1] * parameters.shape[2])
         c = np.zeros((n_constraints, parameters_size))
@@ -269,9 +269,9 @@ class Backflow:
             for l in range(parameters.shape[1]):
                 for k in range(parameters.shape[0]):
                     if m == 1:
-                        c[k+l + offset, p] = 1
+                        c[k+l + offset, p] = phi_cutoff
                     if l == 0:
-                        c[k+m + offset + ee_constrains + 2 * en_constrains, p] = -self.trunc/phi_cutoff
+                        c[k+m + offset + ee_constrains + 2 * en_constrains, p] = -self.trunc
                         if m > 0:
                             c[k+m-1 + offset + ee_constrains + 4 * en_constrains - 1, p] = m
                     elif l == 1:
@@ -284,9 +284,9 @@ class Backflow:
                         c[l+m + offset + ee_constrains + en_constrains, p] = 1
                     p += 1
 
+        n = phi_constraints + theta_constraints
         if phi_irrotational:
             p = 0
-            n = phi_constraints + theta_constraints
             inc_k = 1
             inc_l = inc_k * (phi_en_order+1)
             inc_m = inc_l * (phi_en_order+1)
@@ -352,7 +352,8 @@ class Backflow:
                         p += inc_l
                         n += 1
 
-        _, pivot = sp.Matrix(c).rref(iszerofunc=lambda x: abs(x) < 1e-10)
+        assert n == n_constraints
+        _, pivot = rref(c)
 
         p = 0
         phi_mask = np.zeros(parameters.shape[:3], np.bool)
@@ -395,10 +396,10 @@ if __name__ == '__main__':
     atom_positions = np.array([[0, 0, 0]])
 
     for phi_term in (
-        # '21', '22', '23', '24', '25',
-        # '31', '32', '33', '34', '35',
+        '21', '22', '23', '24', '25',
+        '31', '32', '33', '34', '35',
         '41', '42', '43', '44', '45',
-        # '51', '52', '53', '54', '55',
+        '51', '52', '53', '54', '55',
     ):
         print(phi_term)
         # path = f'../test/backflow/0_1_0/{phi_term}/correlation.out.1'

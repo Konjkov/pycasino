@@ -5,6 +5,7 @@ import os
 import numpy as np
 import numba as nb
 import sympy as sp
+from numerical import rref
 
 labels_type = nb.int64[:]
 chi_mask_type = nb.boolean[:, :]
@@ -278,7 +279,7 @@ class Jastrow:
 
         a = self.construct_a_matrix(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
 
-        _, pivot = sp.Matrix(a).rref(iszerofunc=lambda x: abs(x) < 1e-10)
+        _, pivot = rref(a)
 
         p = 0
         mask = np.zeros(f_parameters.shape, np.bool)
@@ -321,7 +322,7 @@ class Jastrow:
         f_spin_dep = f_parameters.shape[3] - 1
 
         a = self.construct_a_matrix(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
-        _, pivot = sp.Matrix(a).rref(iszerofunc=lambda x: abs(x) < 1e-10)
+        _, pivot = rref(a)
         mask = np.zeros((f_parameters.shape[0] * (f_parameters.shape[1] + 1) * f_parameters.shape[2] // 2, ), np.bool)
         mask[list(pivot)] = True
 
