@@ -504,7 +504,7 @@ if __name__ == '__main__':
 
     term = 'eta'
 
-    path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_0_00_1'
+    path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_0_00_2'
     # path = 'test/stowfn/He/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_0_33_1'
