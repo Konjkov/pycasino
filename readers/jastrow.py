@@ -390,5 +390,5 @@ if __name__ == '__main__':
         '51', '52', '53', '54', '55',
     ):
         print(f_term)
-        path = f'../test/jastrow/3_1/{f_term}/correlation.out.1'
+        path = f'test/jastrow/3_1/{f_term}/correlation.out.1'
         Jastrow(path)

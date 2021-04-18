@@ -106,7 +106,35 @@ class Backflow:
             for j in range(self.neu + self.ned):
                 r = n_powers[i, j, 1]
                 if r < Lg:
-                    res[j] *= (r/Lg)**2 * (6 - 8 * (r/Lg) + 3 * (r/Lg)**2)
+                    res[j] = (r/Lg)**2 * (6 - 8 * (r/Lg) + 3 * (r/Lg)**2)
+        return res
+
+    def ae_cutoffs_diff_1(self, n_vectors, n_powers):
+        """Zeroing the backflow displacement at AE atoms.
+        Gradient of spherically symmetric function (in 3-D space) is:
+            ∇(f) = df/dr * r_vec
+        """
+        res = np.ones((self.neu + self.ned, 3))
+        for i in range(n_vectors.shape[0]):
+            Lg = self.ae_cutoff[i]
+            for j in range(self.neu + self.ned):
+                r = n_powers[i, j, 1]
+                if r < Lg:
+                    res[j] = 3*(r/Lg)**2 * (4 - 8 * (r/Lg) + 3 * (r/Lg)**2) / r
+        return res
+
+    def ae_cutoffs_diff_2(self, n_vectors, n_powers):
+        """Zeroing the backflow displacement at AE atoms.
+        Laplace operator of spherically symmetric function (in 3-D space) is:
+            ∇²(f) = d²f/dr² + 2/r * df/dr
+        """
+        res = np.ones((self.neu + self.ned, 3))
+        for i in range(n_vectors.shape[0]):
+            Lg = self.ae_cutoff[i]
+            for j in range(self.neu + self.ned):
+                r = n_powers[i, j, 1]
+                if r < Lg:
+                    res[j] = 0
         return res
 
     def eta_term(self, e_vectors, e_powers):
