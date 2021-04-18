@@ -98,18 +98,24 @@ class Wfn:
 
         if self.backflow is not None:
             b_v = self.backflow.value(e_vectors, n_vectors)
-            b_g = self.backflow.numerical_gradient(e_vectors, n_vectors)
-            b_l = self.backflow.numerical_laplacian(e_vectors, n_vectors)
+            # b_g = self.backflow.numerical_gradient(e_vectors, n_vectors)
+            # b_l = self.backflow.numerical_laplacian(e_vectors, n_vectors)
             slater_n_vectors = n_vectors + b_v
             s_v = self.slater.value(slater_n_vectors)
-            s_g = self.slater.gradient(slater_n_vectors) / s_v
-            s_h = self.slater.hessian(slater_n_vectors) / s_v
-            b_g_i = np.eye((self.neu + self.ned) * 3) + b_g
-            s_l = np.trace(s_h @ b_g_i @ b_g_i) + s_g @ b_l
+            # s_g = self.slater.gradient(slater_n_vectors) / s_v
+            # s_h = self.slater.hessian(slater_n_vectors) / s_v
+            # b_g_i = np.eye((self.neu + self.ned) * 3) + b_g
+            # s_l_old = np.trace(s_h @ b_g_i @ b_g_i) + s_g @ b_l
+            # print('s_l_old', s_l_old)
+            s_l = self.slater_numerical_laplacian(e_vectors, n_vectors) / s_v
+            # print('s_l', s_l)
             if self.jastrow is not None:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
                 j_l = self.jastrow.laplacian(e_vectors, n_vectors)
-                s_g += b_g @ s_g
+                # s_g_old = s_g + b_g @ s_g
+                # print('s_g_old', s_g_old)
+                s_g = self.slater_numerical_gradient(e_vectors, n_vectors) / s_v
+                # print('s_g', s_g)
                 F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
                 T = (np.sum(s_g * s_g) - s_l - j_l) / 4
                 res += 2 * T - F
@@ -128,3 +134,49 @@ class Wfn:
             else:
                 res -= s_l / 2
         return res
+
+    def slater_numerical_gradient(self, e_vectors, n_vectors):
+        """Numerical gradient with respect to a e-coordinates
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+        """
+        delta = 0.00001
+
+        res = np.zeros((self.neu + self.ned, 3))
+        for i in range(self.neu + self.ned):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+                res[i, j] -= self.slater.value(n_vectors + self.backflow.value(e_vectors, n_vectors))
+                e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
+                n_vectors[:, i, j] += 2 * delta
+                res[i, j] += self.slater.value(n_vectors + self.backflow.value(e_vectors, n_vectors))
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+
+        return res.ravel() / delta / 2
+
+    def slater_numerical_laplacian(self, e_vectors, n_vectors):
+        """Numerical laplacian with respect to a e-coordinates
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+        """
+        delta = 0.00001
+
+        res = - 6 * (self.neu + self.ned) * self.slater.value(n_vectors + self.backflow.value(e_vectors, n_vectors))
+        for i in range(self.neu + self.ned):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+                res += self.slater.value(n_vectors + self.backflow.value(e_vectors, n_vectors))
+                e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
+                n_vectors[:, i, j] += 2 * delta
+                res += self.slater.value(n_vectors + self.backflow.value(e_vectors, n_vectors))
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+
+        return res / delta / delta
