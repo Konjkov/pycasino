@@ -431,11 +431,11 @@ class Backflow:
                 e_vectors[i, :, j] -= delta
                 e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
-                res[i, j] -= self.value(e_vectors, n_vectors)
+                res[:, :, i, j] -= self.value(e_vectors, n_vectors)
                 e_vectors[i, :, j] += 2 * delta
                 e_vectors[:, i, j] -= 2 * delta
                 n_vectors[:, i, j] += 2 * delta
-                res[i, j] += self.value(e_vectors, n_vectors)
+                res[:, :, i, j] += self.value(e_vectors, n_vectors)
                 e_vectors[i, :, j] -= delta
                 e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
