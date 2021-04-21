@@ -192,6 +192,8 @@ class Backflow:
                                                     raise CheckError([l, k, j, i + 1])
                                             else:
                                                 theta_parameters[l, k, j, i], _ = self.read_parameter()
+                            # self.fix_phi_parameters(phi_parameters, theta_parameters, phi_cutoff, i, phi_cusp, phi_irrotational)
+                            self.check_phi_constrains(phi_parameters, theta_parameters, phi_cutoff, i, phi_irrotational)
                         self.phi_parameters.append(phi_parameters)
                         self.theta_parameters.append(theta_parameters)
                         self.phi_irrotational[set_number] = phi_irrotational
@@ -391,43 +393,106 @@ class Backflow:
     def fix_mu_parameters(self):
         """Fix mu-term parameters"""
 
-    def fix_phi_parameters(self, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
+    def fix_phi_parameters(self, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
         """Fix phi-term parameters"""
         en_order = phi_parameters.shape[0] - 1
         ee_order = phi_parameters.shape[2] - 1
 
         c = self.construct_с_matrix(phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
         _, pivot = rref(c)
-        mask = np.zeros(phi_parameters.shape, np.bool)
+        mask = np.zeros(phi_parameters.size, np.bool)
         mask[pivot] = True
 
         b = np.zeros((c.shape[0], ))
         p = 0
-        for n in range(ee_order + 1):
-            for m in range(en_order + 1):
-                for l in range(en_order + 1):
+        for k in range(ee_order + 1):
+            for l in range(en_order + 1):
+                for m in range(en_order + 1):
                     if p not in pivot:
                         for temp in range(c.shape[0]):
-                            b[temp] -= c[temp, p] * phi_parameters[l, m, n, spin_dep]
+                            b[temp] -= c[temp, p] * phi_parameters[k, l, m, spin_dep]
                     p += 1
 
         x = np.linalg.solve(c[:, mask], b)
 
-        p = 0
-        temp = 0
-        for n in range(ee_order + 1):
-            for m in range(en_order + 1):
-                for l in range(en_order + 1):
-                    if temp in pivot:
-                        phi_parameters[l, m, n, spin_dep] = phi_parameters[m, l, n, spin_dep] = x[p]
-                        p += 1
-                    temp += 1
+    def check_phi_constrains(self, phi_parameters, theta_parameters, f_cutoff, i, phi_irrotational):
+        """"""
+        phi_en_order = phi_parameters.shape[0] - 1
+        phi_ee_order = phi_parameters.shape[2] - 1
+
+        lm_phi_sum = km_phi_sum = km_theta_sum = kl_phi_sum = kl_theta_sum = 0
+        lm_phi_ae_sum = lm_phi_m_ae_sum = km_phi_ae_sum = km_phi_m_ae_sum = 0
+        lm_theta_ae_sum = lm_theta_m_ae_sum = km_theta_m_ae_sum = 0
+        for lm in range(2 * phi_en_order + 1):
+            for l in range(phi_parameters.shape[1]):
+                for m in range(phi_parameters.shape[2]):
+                    if l + m == lm:
+                        lm_phi_sum += self.trunc * phi_parameters[0, l, m, i] - f_cutoff * phi_parameters[1, l, m, i]
+                        lm_phi_ae_sum += phi_parameters[0, l, m, i]
+                        lm_phi_m_ae_sum += m * phi_parameters[0, l, m, i]
+                        lm_theta_ae_sum += theta_parameters[0, l, m, i]
+                        lm_theta_m_ae_sum += m * theta_parameters[0, l, m, i]
+
+            print(
+                f'l+m = {lm}', f'lm_phi_sum = {lm_phi_sum}',
+                f'lm_phi_ae_sum = {lm_phi_ae_sum}', f'lm_phi_m_ae_sum = {lm_phi_m_ae_sum}',
+                f'lm_theta_ae_sum = {lm_theta_ae_sum}', f'lm_theta_m_ae_sum = {lm_theta_m_ae_sum}',
+            )
+
+        for km in range(phi_en_order + phi_ee_order + 1):
+            for k in range(phi_parameters.shape[0]):
+                for m in range(phi_parameters.shape[2]):
+                    if k + m == km:
+                        km_phi_sum += self.trunc * phi_parameters[k, 0, m, i] - f_cutoff * phi_parameters[k, 1, m, i]
+                        km_theta_sum += self.trunc * theta_parameters[k, 0, m, i] - f_cutoff * theta_parameters[k, 1, m, i]
+                        km_phi_ae_sum += phi_parameters[k, 0, m, i]
+                        km_phi_m_ae_sum += m * phi_parameters[k, 0, m, i]
+                        km_theta_m_ae_sum += m * theta_parameters[k, 0, m, i]
+            print(
+                f'k+m = {km}',
+                f'km_phi_ae_sum = {km_phi_ae_sum}', f'km_phi_m_ae_sum = {km_phi_m_ae_sum}',
+                f'km_theta_m_ae_sum = {km_theta_m_ae_sum}'
+            )
+
+        for kl in range(2 * phi_en_order + 1):
+            for k in range(phi_parameters.shape[0]):
+                for l in range(phi_parameters.shape[1]):
+                    if k + l == kl:
+                        kl_phi_sum += phi_parameters[k, l, 1, i]
+                        kl_theta_sum += theta_parameters[k, l, 1, i]
+
+            print(
+                f'k+l = {kl}', f'kl_phi_sum = {kl_phi_sum}', f'kl_theta_sum = {kl_theta_sum}'
+            )
+
+        if phi_irrotational:
+            irrot_sum = np.zeros((phi_parameters.shape[0], phi_parameters.shape[1], phi_parameters.shape[2]))
+            for k in range(phi_parameters.shape[0] + 2):
+                for l in range(phi_parameters.shape[1]):
+                    for m in range(phi_parameters.shape[2] + 1):
+                        if self.trunc > 0:
+                            if m >= 0:
+                                irrot_sum[k, l, m] += (self.trunc + k) * phi_parameters[k, l, m - 1, i]
+                                if k <= phi_parameters.shape[0]:
+                                    irrot_sum[k, l, m] -= f_cutoff * (k + 1) * phi_parameters[k + 1, l, m - 1, i]
+                            if m <= phi_parameters.shape[2]:
+                                if k > 1:
+                                    irrot_sum[k, l, m] -= (m + 1) * theta_parameters[k - 2, l, m + 1, i]
+                                if k > 0:
+                                    irrot_sum[k, l, m] += f_cutoff * (m + 1) * theta_parameters[k - 1, l, m + 1, i]
+                        else:
+                            if m > 0 and k <= phi_parameters.shape[0]:
+                                irrot_sum[k, l, m] += (k + 1) * phi_parameters[k + 1, l, m - 1, i]
+                            if k > 0 and m <= phi_parameters.shape[2]:
+                                irrot_sum[k, l, m] -= (m + 1) * theta_parameters[k - 1, l, m + 1, i]
+
+            print('irrot_sum', irrot_sum)
 
 
 if __name__ == '__main__':
     """Read Backflow terms
     """
-    debug = True
+    debug = False
     atom_positions = np.array([[0, 0, 0]])
 
     for phi_term in (
@@ -437,8 +502,8 @@ if __name__ == '__main__':
         '51', '52', '53', '54', '55',
     ):
         print(phi_term)
-        # path = f'../test/backflow/0_1_0/{phi_term}/correlation.out.1'
-        # path = f'../test/backflow/3_1_0/{phi_term}/correlation.out.1'
-        # path = f'../test/backflow/0_1_1/{phi_term}/correlation.out.1'
-        path = f'test/backflow/3_1_1/{phi_term}/correlation.out.1'
+        # path = f'test/backflow/0_1_0/{phi_term}/correlation.out.1'
+        path = f'test/backflow/3_1_0/{phi_term}/correlation.out.1'
+        # path = f'test/backflow/0_1_1/{phi_term}/correlation.out.1'
+        # path = f'test/backflow/3_1_1/{phi_term}/correlation.out.1'
         Backflow(path, atom_positions)
