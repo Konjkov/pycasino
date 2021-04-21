@@ -15,13 +15,6 @@ phi_parameters_type = nb.float64[:, :, :, :]
 theta_parameters_type = nb.float64[:, :, :, :]
 
 
-debug = False
-
-
-class CheckError(Exception):
-    pass
-
-
 class Backflow:
     """Backflow reader from file.
     Inhomogeneous backflow transformations in quantum Monte Carlo.
@@ -34,9 +27,15 @@ class Backflow:
     def read_int(self):
         return int(self.f.readline())
 
-    def read_parameter(self):
-        # https://www.python.org/dev/peps/pep-3132/
-        parameter, mask, *_ = self.f.readline().split()
+    def read_parameter(self, index=None):
+        if index:
+            parameter, mask, _, comment = self.f.readline().split()
+            casino_index = list(map(int, comment.split('_')[1].split(',')))
+            if index != casino_index:
+                print(index, casino_index)
+        else:
+            # https://www.python.org/dev/peps/pep-3132/
+            parameter, mask, *_ = self.f.readline().split()
         return float(parameter), bool(int(mask))
 
     def check_parameter(self):
@@ -178,20 +177,12 @@ class Backflow:
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
                                         if phi_mask[l, k, j]:
-                                            if debug:
-                                                if self.check_parameter() != [l, k, j, i + 1]:
-                                                    raise CheckError([l, k, j, i + 1])
-                                            else:
-                                                phi_parameters[l, k, j, i], _ = self.read_parameter()
+                                            phi_parameters[l, k, j, i], _ = self.read_parameter([l, k, j, i + 1])
                             for j in range(phi_ee_order + 1):
                                 for k in range(phi_en_order + 1):
                                     for l in range(phi_en_order + 1):
                                         if theta_mask[l, k, j]:
-                                            if debug:
-                                                if self.check_parameter() != [l, k, j, i + 1]:
-                                                    raise CheckError([l, k, j, i + 1])
-                                            else:
-                                                theta_parameters[l, k, j, i], _ = self.read_parameter()
+                                            theta_parameters[l, k, j, i], _ = self.read_parameter([l, k, j, i + 1])
                             # self.fix_phi_parameters(phi_parameters, theta_parameters, phi_cutoff, i, phi_cusp, phi_irrotational)
                             self.check_phi_constrains(phi_parameters, theta_parameters, phi_cutoff, i, phi_irrotational)
                         self.phi_parameters.append(phi_parameters)

@@ -14,13 +14,6 @@ chi_parameters_type = nb.float64[:, :]
 f_parameters_type = nb.float64[:, :, :, :]
 
 
-debug = False
-
-
-class CheckError(Exception):
-    pass
-
-
 class Jastrow:
     """Jastrow reader from file.
     CASINO manual: p. 7.4.2 Jastrow factor
@@ -36,15 +29,16 @@ class Jastrow:
     def read_int(self):
         return int(self.f.readline())
 
-    def read_parameter(self):
-        # https://www.python.org/dev/peps/pep-3132/
-        parameter, mask, *_ = self.f.readline().split()
+    def read_parameter(self, index=None):
+        if index:
+            parameter, mask, _, comment = self.f.readline().split()
+            casino_index = list(map(int, comment.split('_')[1].split(',')))
+            if index != casino_index:
+                print(index, casino_index)
+        else:
+            # https://www.python.org/dev/peps/pep-3132/
+            parameter, mask, *_ = self.f.readline().split()
         return float(parameter), bool(int(mask))
-
-    def check_parameter(self):
-        """check parameter index against Casino"""
-        _, _, _, comment = self.f.readline().split()
-        return list(map(int, comment.split('_')[1].split(',')))
 
     def read_ints(self):
         return list(map(int, self.f.readline().split()))
@@ -186,12 +180,8 @@ class Jastrow:
                                     for m in range(f_en_order + 1):
                                         for l in range(f_en_order + 1):
                                             if f_mask[l, m, n, i]:
-                                                if debug:
-                                                    if self.check_parameter() != [l, m, n, i + 1, 1]:
-                                                        raise CheckError([l, m, n, i + 1, 1])
-                                                else:
-                                                    # γlmnI = γmlnI
-                                                    f_parameters[l, m, n, i], _ = f_parameters[m, l, n, i], _ = self.read_parameter()
+                                                # γlmnI = γmlnI
+                                                f_parameters[l, m, n, i], _ = f_parameters[m, l, n, i], _ = self.read_parameter([l, m, n, i + 1, 1])
                         except ValueError:
                             pass
                         self.f_mask.append(f_mask)
@@ -380,8 +370,6 @@ class Jastrow:
 if __name__ == '__main__':
     """Read Jastrow terms
     """
-    debug = False
-
     for f_term in (
         '11', '12', '13', '14', '15',
         '21', '22', '23', '24', '25',
