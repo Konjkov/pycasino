@@ -10,6 +10,9 @@ def rref(A, tol=1.0e-12):
     3. The column of each leading one is “clean”, that is all other entries in the column are 0.
 
     https://stackoverflow.com/questions/7664246/python-built-in-function-to-do-matrix-reduction
+
+    definitions
+    https://www.statlect.com/matrix-algebra/row-echelon-form
     """
     m, n = A.shape
     i, j = 0, 0

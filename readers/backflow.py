@@ -183,7 +183,7 @@ class Backflow:
                                     for l in range(phi_en_order + 1):
                                         if theta_mask[l, k, j]:
                                             theta_parameters[l, k, j, i], _ = self.read_parameter([l, k, j, i + 1])
-                            # self.fix_phi_parameters(phi_parameters, theta_parameters, phi_cutoff, i, phi_cusp, phi_irrotational)
+                            self.fix_phi_parameters(phi_parameters, theta_parameters, phi_cutoff, i, phi_cusp, phi_irrotational)
                             self.check_phi_constrains(phi_parameters, theta_parameters, phi_cutoff, i, phi_irrotational)
                         self.phi_parameters.append(phi_parameters)
                         self.theta_parameters.append(theta_parameters)
@@ -390,7 +390,8 @@ class Backflow:
         ee_order = phi_parameters.shape[2] - 1
 
         c = self.construct_с_matrix(phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
-        _, pivot = rref(c)
+        c, pivot = rref(c)
+        c = c[:len(pivot), :]
         mask = np.zeros(phi_parameters.size, np.bool)
         mask[pivot] = True
 
@@ -401,10 +402,36 @@ class Backflow:
                 for m in range(en_order + 1):
                     if p not in pivot:
                         for temp in range(c.shape[0]):
-                            b[temp] -= c[temp, p] * phi_parameters[k, l, m, spin_dep]
+                            b[temp] -= c[temp, p] * phi_parameters[m, l, k, spin_dep]
+                    p += 1
+
+        for k in range(ee_order + 1):
+            for l in range(en_order + 1):
+                for m in range(en_order + 1):
+                    if p not in pivot:
+                        for temp in range(c.shape[0]):
+                            b[temp] -= c[temp, p] * theta_parameters[m, l, k, spin_dep]
                     p += 1
 
         x = np.linalg.solve(c[:, mask], b)
+
+        p = 0
+        temp = 0
+        for n in range(ee_order + 1):
+            for m in range(en_order + 1):
+                for l in range(en_order + 1):
+                    if temp in pivot:
+                        phi_parameters[l, m, n, spin_dep] = x[p]
+                        p += 1
+                    temp += 1
+
+        for n in range(ee_order + 1):
+            for m in range(en_order + 1):
+                for l in range(en_order + 1):
+                    if temp in pivot:
+                        theta_parameters[l, m, n, spin_dep] = x[p]
+                        p += 1
+                    temp += 1
 
     def check_phi_constrains(self, phi_parameters, theta_parameters, f_cutoff, i, phi_irrotational):
         """"""
@@ -445,16 +472,17 @@ class Backflow:
                 f'km_theta_m_ae_sum = {km_theta_m_ae_sum}'
             )
 
-        for kl in range(2 * phi_en_order + 1):
-            for k in range(phi_parameters.shape[0]):
-                for l in range(phi_parameters.shape[1]):
-                    if k + l == kl:
-                        kl_phi_sum += phi_parameters[k, l, 1, i]
-                        kl_theta_sum += theta_parameters[k, l, 1, i]
+        if i in (0, 2):
+            for kl in range(2 * phi_en_order + 1):
+                for k in range(phi_parameters.shape[0]):
+                    for l in range(phi_parameters.shape[1]):
+                        if k + l == kl:
+                            kl_phi_sum += phi_parameters[k, l, 1, i]
+                            kl_theta_sum += theta_parameters[k, l, 1, i]
 
-            print(
-                f'k+l = {kl}', f'kl_phi_sum = {kl_phi_sum}', f'kl_theta_sum = {kl_theta_sum}'
-            )
+                print(
+                    f'k+l = {kl}', f'kl_phi_sum = {kl_phi_sum}', f'kl_theta_sum = {kl_theta_sum}'
+                )
 
         if phi_irrotational:
             irrot_sum = np.zeros((phi_parameters.shape[0], phi_parameters.shape[1], phi_parameters.shape[2]))
