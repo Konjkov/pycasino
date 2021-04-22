@@ -69,7 +69,6 @@ class Backflow:
         self.eta_cutoff = eta_cutoff
         self.mu_cutoff = mu_cutoff
         self.phi_cutoff = phi_cutoff
-        self.phi_irrotational = phi_irrotational
         self.ae_cutoff = ae_cutoff
 
     def ee_powers(self, e_vectors):
@@ -98,7 +97,7 @@ class Backflow:
                     res[i, j, k] = r_eI ** k
         return res
 
-    def ae_cutoffs(self, n_vectors, n_powers):
+    def ae_multiplier(self, n_vectors, n_powers):
         """Zeroing the backflow displacement at AE atoms."""
         res = np.ones((self.neu + self.ned, 3))
         for i in range(n_vectors.shape[0]):
@@ -201,9 +200,9 @@ class Backflow:
             return res
 
         C = self.trunc
-        for phi_parameters, theta_parameters, L, phi_labels, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_labels, self.phi_irrotational):
+        for phi_parameters, theta_parameters, L, phi_labels in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_labels):
             for i in phi_labels:
-                for j in range(self.neu + self.ned):
+                for j in range(1, self.neu + self.ned):
                     for k in range(j):
                         r_e1I_vec = n_vectors[i, j]
                         r_e2I_vec = n_vectors[i, k]
@@ -211,25 +210,24 @@ class Backflow:
                         r_e1I = n_powers[i, j, 1]
                         r_e2I = n_powers[i, k, 1]
                         if r_e1I < L and r_e2I < L:
-                            theta_set = (int(j >= self.neu) + int(k >= self.neu)) % theta_parameters.shape[3]
-                            poly = 0.0
-                            for l in range(theta_parameters.shape[0]):
-                                for m in range(theta_parameters.shape[1]):
-                                    for n in range(theta_parameters.shape[2]):
-                                        poly += theta_parameters[l, m, n, theta_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
-                            bf = poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C
-                            res[j] += bf * r_e1I_vec
-                            res[k] += bf * r_e2I_vec
-                            if phi_irrotational:
-                                continue
+                            phi_set = (int(j >= self.neu) + int(k >= self.neu)) % phi_parameters.shape[3]
                             poly = 0.0
                             for l in range(phi_parameters.shape[0]):
                                 for m in range(phi_parameters.shape[1]):
                                     for n in range(phi_parameters.shape[2]):
-                                        poly += phi_parameters[l, m, n, theta_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
+                                        poly += phi_parameters[l, m, n, phi_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
                             bf = poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * r_ee_vec
                             res[j] += bf
                             res[k] -= bf
+
+                            poly = 0.0
+                            for l in range(theta_parameters.shape[0]):
+                                for m in range(theta_parameters.shape[1]):
+                                    for n in range(theta_parameters.shape[2]):
+                                        poly += theta_parameters[l, m, n, phi_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
+                            bf = poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C
+                            res[j] += bf * r_e1I_vec
+                            res[k] += bf * r_e2I_vec
 
         return res
 
@@ -411,7 +409,7 @@ class Backflow:
         n_powers = self.en_powers(n_vectors)
 
         return (
-            self.eta_term(e_vectors, e_powers) * self.ae_cutoffs(n_vectors, n_powers) +
+            self.eta_term(e_vectors, e_powers) * self.ae_multiplier(n_vectors, n_powers) +
             self.mu_term(n_vectors, n_powers) +
             self.phi_term(e_vectors, n_vectors, e_powers, n_powers)
         )
