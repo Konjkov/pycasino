@@ -221,13 +221,6 @@ class Jastrow:
         no_dup_u_constrains = f_ee_order + 1
         no_dup_chi_constrains = f_en_order + 1
 
-        if f_en_order == 1 and f_ee_order == 1:
-            """in this case, one constraint becomes degenerate
-            and the number of pivots is one less
-            need to code this case more beautifully.
-            """
-            ee_constrains = 2
-
         n_constraints = ee_constrains + en_constrains
         if no_dup_u_term:
             n_constraints += no_dup_u_constrains
@@ -312,7 +305,9 @@ class Jastrow:
         f_spin_dep = f_parameters.shape[3] - 1
 
         a = self.construct_a_matrix(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
-        _, pivot = rref(a)
+        a, pivot = rref(a)
+        # remove zero-rows
+        a = a[:len(pivot), :]
         mask = np.zeros((f_parameters.shape[0] * (f_parameters.shape[1] + 1) * f_parameters.shape[2] // 2, ), np.bool)
         mask[pivot] = True
 

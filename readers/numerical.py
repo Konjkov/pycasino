@@ -3,6 +3,12 @@ import numpy as np
 
 def rref(A, tol=1.0e-12):
     """
+    Construct RREF matrix which:
+    1. All the rows consisting entirely of zeros are at the bottom
+    2. In each non-zero row, the leftmost non-zero entry is a 1. These are called the leading ones.
+    3. Each leading one is further to the right than the leading ones of previous rows.
+    3. The column of each leading one is “clean”, that is all other entries in the column are 0.
+
     https://stackoverflow.com/questions/7664246/python-built-in-function-to-do-matrix-reduction
     """
     m, n = A.shape
