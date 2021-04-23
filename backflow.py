@@ -184,7 +184,7 @@ class Backflow:
                         poly = 0.0
                         for k in range(parameters.shape[0]):
                             poly += parameters[k, mu_set] * n_powers[i, j, k]
-                        res[j] += poly * (1 - r/L) ** C * r_vec
+                        res[j] -= poly * (1 - r/L) ** C * r_vec
         return res
 
     def phi_term(self, e_vectors, n_vectors, e_powers, n_powers):
@@ -226,8 +226,8 @@ class Backflow:
                                     for n in range(theta_parameters.shape[2]):
                                         poly += theta_parameters[l, m, n, phi_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
                             bf = poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C
-                            res[j] += bf * r_e1I_vec
-                            res[k] += bf * r_e2I_vec
+                            res[j] -= bf * r_e1I_vec
+                            res[k] -= bf * r_e2I_vec
 
         return res
 
@@ -291,7 +291,7 @@ class Backflow:
                             if k > 0:
                                 poly_diff += k * p * n_powers[i, j, k-1]
 
-                        res[j, :, j, :] += (1 - r/L)**C * (
+                        res[j, :, j, :] -= (1 - r/L)**C * (
                             (poly_diff - C/(L - r)*poly) * np.outer(r_vec, r_vec)/r + poly * np.eye(3)
                         )
 
@@ -377,7 +377,7 @@ class Backflow:
                             if k > 1:
                                 poly_diff_2 += k * (k-1) * p * n_powers[i, j, k-2]
 
-                        res[j] += (1 - r/L)**C * (
+                        res[j] -= (1 - r/L)**C * (
                             4*(poly_diff - C/(L - r) * poly) +
                             r*(C*(C - 1)/(L - r)**2*poly - 2*C/(L - r)*poly_diff + poly_diff_2)
                         ) * r_vec/r
@@ -502,10 +502,10 @@ if __name__ == '__main__':
 
     term = 'eta'
 
-    path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_0_00_2'
+    # path = 'test/stowfn/He/HF/QZ4P/Backflow/temp_1/'
     # path = 'test/stowfn/He/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_9_00_1/'
-    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_0_33_1'
+    path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_0_33_1'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_0_33_2'
     # path = 'test/stowfn/B/HF/QZ4P/Backflow/9_9_00_1/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/9_9_00_1/'
