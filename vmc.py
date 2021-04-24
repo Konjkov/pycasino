@@ -433,11 +433,11 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Kr/HF/QZ4P/Jastrow/'
     # path = 'test/stowfn/O3/HF/QZ4P/Jastrow/'
 
-    path = 'test/stowfn/He/HF/QZ4P/Backflow/9_9_00_1/'
-    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_0_00_1/'
-    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_9_00_1/'
-    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_9_00_1/'
-    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_0_33_1/'
-    # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/9_9_00_1/'
+    path = 'test/stowfn/He/HF/QZ4P/Backflow/'
+    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/'
+    # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/'
+    # path = 'test/stowfn/Ar/HF/QZ4P/Backflow/'
+    # path = 'test/stowfn/Kr/HF/QZ4P/Backflow/'
+    # path = 'test/stowfn/O3/HF/QZ4P/Backflow/'
     casino = Casino(path)
     main(casino)

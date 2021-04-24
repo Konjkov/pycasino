@@ -202,10 +202,12 @@ class Backflow:
         C = self.trunc
         for phi_parameters, theta_parameters, L, phi_labels in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_labels):
             for i in phi_labels:
-                for j in range(1, self.neu + self.ned):
-                    for k in range(j):
+                for j in range(self.neu + self.ned):
+                    for k in range(self.neu + self.ned):
+                        if j == k:
+                            continue
                         r_e1I_vec = n_vectors[i, j]
-                        r_e2I_vec = n_vectors[i, k]
+                        # r_e2I_vec = n_vectors[i, k]
                         r_ee_vec = e_vectors[j, k]
                         r_e1I = n_powers[i, j, 1]
                         r_e2I = n_powers[i, k, 1]
@@ -218,7 +220,6 @@ class Backflow:
                                         poly += phi_parameters[l, m, n, phi_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
                             bf = poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * r_ee_vec
                             res[j] += bf
-                            res[k] -= bf
 
                             poly = 0.0
                             for l in range(theta_parameters.shape[0]):
@@ -227,7 +228,6 @@ class Backflow:
                                         poly += theta_parameters[l, m, n, phi_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
                             bf = poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C
                             res[j] -= bf * r_e1I_vec
-                            res[k] -= bf * r_e2I_vec
 
         return res
 
@@ -502,14 +502,12 @@ if __name__ == '__main__':
 
     term = 'eta'
 
-    # path = 'test/stowfn/He/HF/QZ4P/Backflow/temp_1/'
-    # path = 'test/stowfn/He/HF/QZ4P/Backflow/9_9_00_1/'
-    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/9_9_00_1/'
-    path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_0_33_1'
-    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/0_0_33_2'
-    # path = 'test/stowfn/B/HF/QZ4P/Backflow/9_9_00_1/'
-    # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/9_9_00_1/'
-
+    path = 'test/stowfn/He/HF/QZ4P/Backflow/'
+    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/'
+    # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/'
+    # path = 'test/stowfn/Ar/HF/QZ4P/Backflow/'
+    # path = 'test/stowfn/Kr/HF/QZ4P/Backflow/'
+    # path = 'test/stowfn/O3/HF/QZ4P/Backflow/'
 
     casino = Casino(path)
     backflow = Backflow(
