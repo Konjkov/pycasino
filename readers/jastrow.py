@@ -338,21 +338,19 @@ class Jastrow:
         f_en_order = f_parameters.shape[0] - 1
         f_ee_order = f_parameters.shape[2] - 1
         f_spin_dep = f_parameters.shape[3] - 1
-        for lm in range(2 * f_en_order + 1):
-            lm_sum = np.zeros(f_spin_dep + 1)
-            for l in range(f_en_order + 1):
-                for m in range(f_en_order + 1):
-                    if l + m == lm:
-                        lm_sum += f_parameters[l, m, 1, :]
-            print('l+m =', lm, 'sum =', lm_sum)
 
-        for mn in range(f_en_order + f_ee_order + 1):
-            mn_sum = np.zeros(f_spin_dep + 1)
+        lm_sum = np.zeros((2 * f_en_order + 1, f_spin_dep + 1))
+        for l in range(f_en_order + 1):
             for m in range(f_en_order + 1):
-                for n in range(f_ee_order + 1):
-                    if m + n == mn:
-                        mn_sum += self.trunc * f_parameters[0, m, n, :] - f_cutoff * f_parameters[1, m, n, :]
-            print('m+n =', mn, 'sum =', mn_sum)
+                lm_sum[l + m] += f_parameters[l, m, 1, :]
+        print('lm_sum =', lm_sum)
+
+        mn_sum = np.zeros((f_en_order + f_ee_order + 1, f_spin_dep + 1))
+        for m in range(f_en_order + 1):
+            for n in range(f_ee_order + 1):
+                mn_sum[m + n] += self.trunc * f_parameters[0, m, n, :] - f_cutoff * f_parameters[1, m, n, :]
+        print('mn_sum =', mn_sum)
+
         if no_dup_u_term:
             print('should be equal to zero')
             print(f_parameters[1, 1, 0, :])
