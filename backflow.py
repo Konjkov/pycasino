@@ -184,7 +184,7 @@ class Backflow:
                         poly = 0.0
                         for k in range(parameters.shape[0]):
                             poly += parameters[k, mu_set] * n_powers[i, j, k]
-                        res[j] -= poly * (1 - r/L) ** C * r_vec
+                        res[j] += poly * (1 - r/L) ** C * r_vec
         return res
 
     def phi_term(self, e_vectors, n_vectors, e_powers, n_powers):
@@ -227,7 +227,7 @@ class Backflow:
                                     for n in range(theta_parameters.shape[2]):
                                         poly += theta_parameters[l, m, n, phi_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
                             bf = poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C
-                            res[j] -= bf * r_e1I_vec
+                            res[j] += bf * r_e1I_vec
 
         return res
 
@@ -291,7 +291,7 @@ class Backflow:
                             if k > 0:
                                 poly_diff += k * p * n_powers[i, j, k-1]
 
-                        res[j, :, j, :] -= (1 - r/L)**C * (
+                        res[j, :, j, :] += (1 - r/L)**C * (
                             (poly_diff - C/(L - r)*poly) * np.outer(r_vec, r_vec)/r + poly * np.eye(3)
                         )
 
@@ -377,7 +377,7 @@ class Backflow:
                             if k > 1:
                                 poly_diff_2 += k * (k-1) * p * n_powers[i, j, k-2]
 
-                        res[j] -= (1 - r/L)**C * (
+                        res[j] += (1 - r/L)**C * (
                             4*(poly_diff - C/(L - r) * poly) +
                             r*(C*(C - 1)/(L - r)**2*poly - 2*C/(L - r)*poly_diff + poly_diff_2)
                         ) * r_vec/r
@@ -500,9 +500,9 @@ if __name__ == '__main__':
     """Plot Backflow terms
     """
 
-    term = 'eta'
+    term = 'mu'
 
-    path = 'test/stowfn/He/HF/QZ4P/Backflow/'
+    path = 'test/stowfn/He/HF/QZ4P/Backflow/temp_3/'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Ar/HF/QZ4P/Backflow/'
@@ -538,7 +538,7 @@ if __name__ == '__main__':
         plt.title('Backflow eta-term')
     elif term == 'mu':
         for atom in range(casino.wfn.atom_positions.shape[0]):
-            x_min, x_max = 0, backflow.eta_cutoff[atom]
+            x_min, x_max = 0, backflow.mu_cutoff[atom]
             x_grid = np.linspace(x_min, x_max, steps)
             for spin_dep in range(2):
                 backflow.neu = 1 - spin_dep
@@ -547,11 +547,11 @@ if __name__ == '__main__':
                 for i in range(100):
                     r_e = np.array([[x_grid[i], 0.0, 0.0]]) + casino.wfn.atom_positions[atom]
                     sl = slice(atom, atom+1)
-                    backflow.chi_parameters = nb.typed.List.empty_list(mu_parameters_type)
-                    [backflow.mu_parameters.append(p) for p in casino.jastrow.mu_parameters[sl]]
+                    backflow.mu_parameters = nb.typed.List.empty_list(mu_parameters_type)
+                    [backflow.mu_parameters.append(p) for p in casino.backflow.mu_parameters[sl]]
                     n_vectors = subtract_outer(casino.wfn.atom_positions[sl], r_e)
                     n_powers = backflow.en_powers(n_vectors)
-                    y_grid[i] = backflow.mu_term(n_powers)
+                    y_grid[i] = backflow.mu_term(n_vectors, n_powers)[0, 0]
                 plt.plot(x_grid, y_grid, label=f'atom {atom} ' + ['u', 'd'][spin_dep])
 
     plt.grid(True)
