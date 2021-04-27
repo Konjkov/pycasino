@@ -9,7 +9,9 @@ r, L, C = symbols('r L C')
 poly = Function('f')
 
 jastrow = dict(
-    u=(r - L)**C * poly(r)
+    u=(r - L)**C * poly(r),
+    chi=(r - L)**C * poly(r),
+    f=0,
 )
 
 

@@ -484,6 +484,8 @@ class Backflow:
                                         if m > 0:
                                             poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * p
 
+                                        res[j1] += 0
+
                             poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
                             for k in range(theta_parameters.shape[0]):
                                 for l in range(theta_parameters.shape[1]):
@@ -496,6 +498,8 @@ class Backflow:
                                             poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m] * p
                                         if m > 0:
                                             poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * p
+
+                                        res[j1] += 0
 
         return res.ravel()
 

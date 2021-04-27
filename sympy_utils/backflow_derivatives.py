@@ -6,7 +6,9 @@ x, y, z, r, L, C = symbols('x y z r L C')
 poly = Function('f')
 
 backflow = dict(
-    mu=(1 - r/L)**C * poly(r)
+    mu=(1 - r/L)**C * poly(r),
+    eta=(1 - r/L)**C * poly(r),
+    phi=0,
 )
 
 

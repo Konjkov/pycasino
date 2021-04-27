@@ -23,6 +23,7 @@ from readers.casino import Casino
 from overload import subtract_outer
 from logger import logging
 
+np.random.seed(31415926)
 
 logger = logging.getLogger('vmc')
 numba_logger = logging.getLogger('numba')
