@@ -333,14 +333,14 @@ class Backflow:
                                             poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m] * p
                                         if m > 0:
                                             poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * p
-                            res[j1, :, j1, :] += (
-                                poly_diff_e1I * np.outer(r_ee_vec, r_e1I_vec)/r_e1I +
+                            res[j1, :, j1, :] += (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * (
+                                (poly_diff_e1I - C/(L - r_e1I)*poly) * np.outer(r_ee_vec, r_e1I_vec)/r_e1I +
                                 poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee +
                                 poly * np.eye(3)
                             )
-                            res[j1, :, j2, :] -= (
-                                poly_diff_e2I * np.outer(r_ee_vec, r_e2I_vec)/r_e2I +
-                                poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee +
+                            res[j1, :, j2, :] += (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * (
+                                (poly_diff_e2I - C/(L - r_e2I)*poly) * np.outer(r_ee_vec, r_e2I_vec)/r_e2I -
+                                poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee -
                                 poly * np.eye(3)
                             )
 
@@ -357,14 +357,14 @@ class Backflow:
                                         if m > 0:
                                             poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * p
 
-                            res[j1, :, j1, :] += (
-                                poly_diff_e1I * np.outer(r_e1I_vec, r_e1I_vec)/r_e1I +
+                            res[j1, :, j1, :] += (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * (
+                                (poly_diff_e1I - C/(L - r_e1I)*poly) * np.outer(r_e1I_vec, r_e1I_vec)/r_e1I +
                                 poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee +
                                 poly * np.eye(3)
                             )
-                            res[j1, :, j2, :] -= (
-                                poly_diff_e2I * np.outer(r_e1I_vec, r_e2I_vec)/r_e2I +
-                                poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee +
+                            res[j1, :, j2, :] -= (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * (
+                                (poly_diff_e2I - C/(L - r_e2I)*poly) * np.outer(r_e1I_vec, r_e2I_vec)/r_e2I -
+                                poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee -
                                 poly * np.eye(3)
                             )
 
@@ -470,8 +470,8 @@ class Backflow:
         n_powers = self.en_powers(n_vectors)
 
         print('----------------------------------------------------')
-        a = self.numerical_phi_term_gradient(e_vectors, n_vectors)[0:3, 0:3]
-        b = self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)[0:3, 0:3]
+        a = self.numerical_phi_term_gradient(e_vectors, n_vectors)
+        b = self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
         print(a)
         print(b)
 
