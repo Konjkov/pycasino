@@ -447,22 +447,22 @@ class Jastrow:
                             )
 
                             laplacian = (
-                                    C * (C - 1) * (r_e1I - L) ** (C - 2) * (r_e2I - L) ** C * poly +
-                                    (r_e1I - L) ** C * C * (C - 1) * (r_e2I - L) ** (C - 2) * poly +
-                                    (r_e1I - L) ** C * (r_e2I - L) ** C * (poly_diff_e1I_2 + poly_diff_e2I_2 + 2 * poly_diff_ee_2) +
-                                    2 * C * (r_e1I - L) ** (C - 1) * (r_e2I - L) ** C * poly_diff_e1I +
-                                    2 * (r_e1I - L) ** C * C * (r_e2I - L) ** (C - 1) * poly_diff_e2I
+                                C * (C - 1) * (r_e1I - L) ** (C - 2) * (r_e2I - L) ** C * poly +
+                                (r_e1I - L) ** C * C * (C - 1) * (r_e2I - L) ** (C - 2) * poly +
+                                (r_e1I - L) ** C * (r_e2I - L) ** C * (poly_diff_e1I_2 + poly_diff_e2I_2 + 2 * poly_diff_ee_2) +
+                                2 * C * (r_e1I - L) ** (C - 1) * (r_e2I - L) ** C * poly_diff_e1I +
+                                2 * (r_e1I - L) ** C * C * (r_e2I - L) ** (C - 1) * poly_diff_e2I
                             )
 
                             dot_product = (
-                                    np.sum(r_e1I_vec * r_ee_vec) * (
-                                            C * (r_e1I - L) ** (C-1) * (r_e2I - L) ** C * poly_diff_ee +
-                                            (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e1I_ee
-                                    ) / r_e1I / r_ee -
-                                    np.sum(r_e2I_vec * r_ee_vec) * (
-                                            (r_e1I - L) ** C * C * (r_e2I - L) ** (C-1) * poly_diff_ee +
-                                            (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e2I_ee
-                                    ) / r_e2I / r_ee
+                                np.sum(r_e1I_vec * r_ee_vec) * (
+                                        C * (r_e1I - L) ** (C-1) * (r_e2I - L) ** C * poly_diff_ee +
+                                        (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e1I_ee
+                                ) / r_e1I / r_ee -
+                                np.sum(r_e2I_vec * r_ee_vec) * (
+                                        (r_e1I - L) ** C * C * (r_e2I - L) ** (C-1) * poly_diff_ee +
+                                        (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e2I_ee
+                                ) / r_e2I / r_ee
                             )
 
                             res += laplacian + 2 * gradient + 2 * dot_product

@@ -333,6 +333,7 @@ class Backflow:
                                             poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m] * p
                                         if m > 0:
                                             poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * p
+
                             res[j1, :, j1, :] += (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * (
                                 (poly_diff_e1I - C/(L - r_e1I)*poly) * np.outer(r_ee_vec, r_e1I_vec)/r_e1I +
                                 poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee +
@@ -448,6 +449,8 @@ class Backflow:
         """
         :param e_powers:
         :param e_vectors:
+        phi-term is a product of two spherically symmetric functions f(r_eI) and g(r_ee) so using
+            ∇²(f*g) = ∇²(f)*g + 2*∇(f)*∇(g) + f*∇²(g)
         Laplace operator of spherically symmetric function (in 3-D space) is
             ∇²(f) = d²f/dr² + 2/r * df/dr
         :return: vector laplacian - array(nelec * 3)
@@ -472,6 +475,7 @@ class Backflow:
                         if r_e1I < L and r_e2I < L:
                             phi_set = (int(j1 >= self.neu) + int(j2 >= self.neu)) % phi_parameters.shape[3]
                             poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
+                            poly_diff_e1I_2 = poly_diff_e2I_2 = poly_diff_ee_2 = 0
                             for k in range(phi_parameters.shape[0]):
                                 for l in range(phi_parameters.shape[1]):
                                     for m in range(phi_parameters.shape[2]):
@@ -483,10 +487,17 @@ class Backflow:
                                             poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m] * p
                                         if m > 0:
                                             poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * p
+                                        if k > 1:
+                                            poly_diff_e1I_2 += k * (k-1) * n_powers[i, j1, k-2] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
+                                        if l > 1:
+                                            poly_diff_e2I_2 += l * (l-1) * n_powers[i, j1, k] * n_powers[i, j2, l-2] * e_powers[j1, j2, m] * p
+                                        if m > 1:
+                                            poly_diff_ee_2 += m * (m-1) * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-2] * p
 
-                                        res[j1] += 0
+                            res[j1] += 0
 
                             poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
+                            poly_diff_e1I_2 = poly_diff_e2I_2 = poly_diff_ee_2 = 0
                             for k in range(theta_parameters.shape[0]):
                                 for l in range(theta_parameters.shape[1]):
                                     for m in range(theta_parameters.shape[2]):
@@ -498,8 +509,14 @@ class Backflow:
                                             poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m] * p
                                         if m > 0:
                                             poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * p
+                                        if k > 1:
+                                            poly_diff_e1I_2 += k * (k-1) * n_powers[i, j1, k-2] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
+                                        if l > 1:
+                                            poly_diff_e2I_2 += l * (l-1) * n_powers[i, j1, k] * n_powers[i, j2, l-2] * e_powers[j1, j2, m] * p
+                                        if m > 1:
+                                            poly_diff_ee_2 += m * (m-1) * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-2] * p
 
-                                        res[j1] += 0
+                            res[j1] += 0
 
         return res.ravel()
 
@@ -512,6 +529,12 @@ class Backflow:
 
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
+
+        print('--------------------------------------------------')
+        a = self.numerical_phi_term_laplacian(e_vectors, n_vectors)
+        b = self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
+        print(a)
+        print(b)
 
         return (
             self.eta_term(e_vectors, e_powers) * self.ae_multiplier(n_vectors, n_powers) +
@@ -544,6 +567,37 @@ class Backflow:
                 n_vectors[:, i, j] -= delta
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
+
+    def numerical_phi_term_laplacian(self, e_vectors, n_vectors):
+        """Numerical laplacian with respect to a e-coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :return: vector laplacian - array(nelec * 3)
+        """
+        delta = 0.00001
+
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+        res = -6 * (self.neu + self.ned) * self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
+        for i in range(self.neu + self.ned):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+                e_powers = self.ee_powers(e_vectors)
+                n_powers = self.en_powers(n_vectors)
+                res += self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
+                e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
+                n_vectors[:, i, j] += 2 * delta
+                e_powers = self.ee_powers(e_vectors)
+                n_powers = self.en_powers(n_vectors)
+                res += self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+
+        return res.ravel() / delta / delta
 
     def numerical_laplacian(self, e_vectors, n_vectors):
         """Numerical laplacian with respect to a e-coordinates
