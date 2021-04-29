@@ -440,13 +440,13 @@ class Jastrow:
                                         if m > 0 and n > 0:
                                             poly_diff_e2I_ee += m * n * n_powers[i, j, l] * n_powers[i, k, m-1] * e_powers[j, k, n-1] * p
 
-                            gradient = (
+                            diff_1 = (
                                 (C * (r_e1I - L) ** (C-1) * (r_e2I - L) ** C * poly + (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e1I) / r_e1I +
                                 ((r_e1I - L) ** C * C * (r_e2I - L) ** (C-1) * poly + (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e2I) / r_e2I +
                                 2 * (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_ee / r_ee
                             )
 
-                            laplacian = (
+                            diff_2 = (
                                 C * (C - 1) * (r_e1I - L) ** (C - 2) * (r_e2I - L) ** C * poly +
                                 (r_e1I - L) ** C * C * (C - 1) * (r_e2I - L) ** (C - 2) * poly +
                                 (r_e1I - L) ** C * (r_e2I - L) ** C * (poly_diff_e1I_2 + poly_diff_e2I_2 + 2 * poly_diff_ee_2) +
@@ -465,7 +465,7 @@ class Jastrow:
                                 ) / r_e2I / r_ee
                             )
 
-                            res += laplacian + 2 * gradient + 2 * dot_product
+                            res += diff_2 + 2 * diff_1 + 2 * dot_product
         return res
 
     def value(self, e_vectors, n_vectors) -> float:
