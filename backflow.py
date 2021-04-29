@@ -216,7 +216,7 @@ class Backflow:
                             for k in range(phi_parameters.shape[0]):
                                 for l in range(phi_parameters.shape[1]):
                                     for m in range(phi_parameters.shape[2]):
-                                        poly += phi_parameters[k, l, m, phi_set] * n_powers[i, j1, k] * n_powers[i, j2, l]  # * e_powers[j1, j2, m]
+                                        poly += phi_parameters[k, l, m, phi_set] * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m]
                             res[j1] += poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * r_ee_vec
 
                             poly = 0.0
@@ -481,22 +481,17 @@ class Backflow:
                                 for l in range(phi_parameters.shape[1]):
                                     for m in range(phi_parameters.shape[2]):
                                         p = phi_parameters[k, l, m, phi_set]
-                                        poly += n_powers[i, j1, k] * n_powers[i, j2, l] * p
-                                        # poly += n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
+                                        poly += n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
                                         if k > 0:
-                                            poly_diff_e1I += k * n_powers[i, j1, k-1] * n_powers[i, j2, l] * p
-                                            # poly_diff_e1I += k * n_powers[i, j1, k-1] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
+                                            poly_diff_e1I += k * n_powers[i, j1, k-1] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
                                         if l > 0:
-                                            poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * p
-                                            # poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m] * p
+                                            poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m] * p
                                         if m > 0:
                                             poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * p
                                         if k > 1:
-                                            poly_diff_e1I_2 += k * (k - 1) * n_powers[i, j1, k-2] * n_powers[i, j2, l] * p
-                                            # poly_diff_e1I_2 += k * (k-1) * n_powers[i, j1, k-2] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
+                                            poly_diff_e1I_2 += k * (k-1) * n_powers[i, j1, k-2] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
                                         if l > 1:
-                                            poly_diff_e2I_2 += l * (l - 1) * n_powers[i, j1, k] * n_powers[i, j2, l-2] * p
-                                            # poly_diff_e2I_2 += l * (l-1) * n_powers[i, j1, k] * n_powers[i, j2, l-2] * e_powers[j1, j2, m] * p
+                                            poly_diff_e2I_2 += l * (l-1) * n_powers[i, j1, k] * n_powers[i, j2, l-2] * e_powers[j1, j2, m] * p
                                         if m > 1:
                                             poly_diff_ee_2 += m * (m-1) * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-2] * p
                                         if k > 0 and m > 0:
@@ -506,19 +501,19 @@ class Backflow:
 
                             diff_1 = (1-r_e1I/L)**C * (1-r_e2I/L) ** C * (
                                 (poly_diff_e1I - C*poly/(L - r_e1I))/r_e1I +
-                                (poly_diff_e2I - C*poly/(L - r_e2I))/r_e2I
-                                # poly_diff_ee/r_ee
+                                (poly_diff_e2I - C*poly/(L - r_e2I))/r_e2I +
+                                 4 * poly_diff_ee/r_ee
                             )
                             diff_2 = (1-r_e1I/L)**C * (1-r_e2I/L) ** C * (
                                 (C*(C - 1)*poly/(L - r_e1I)**2 - 2*C*poly_diff_e1I/(L - r_e1I) + poly_diff_e1I_2) +
-                                (C*(C - 1)*poly/(L - r_e2I)**2 - 2*C*poly_diff_e2I/(L - r_e2I) + poly_diff_e2I_2)
-                                # poly_diff_ee_2
+                                (C*(C - 1)*poly/(L - r_e2I)**2 - 2*C*poly_diff_e2I/(L - r_e2I) + poly_diff_e2I_2) +
+                                2 * poly_diff_ee_2
                             )
                             dot_product = (1-r_e1I/L)**C * (1-r_e2I/L) ** C * (
                                 (poly_diff_e1I - C*poly/(L - r_e1I)) * np.eye(3) @ r_e1I_vec/r_e1I -
-                                (poly_diff_e2I - C*poly/(L - r_e2I)) * np.eye(3) @ r_e2I_vec/r_e2I
-                                # (poly_diff_e1I_ee - C*poly_diff_ee/(L - r_e1I)) * np.outer(r_ee_vec, r_ee_vec)/r_ee @ r_e1I_vec/r_e1I -
-                                # (poly_diff_e2I_ee - C*poly_diff_ee/(L - r_e2I)) * np.outer(r_ee_vec, r_ee_vec)/r_ee @ r_e2I_vec/r_e2I
+                                (poly_diff_e2I - C*poly/(L - r_e2I)) * np.eye(3) @ r_e2I_vec/r_e2I +
+                                (poly_diff_e1I_ee - C*poly_diff_ee/(L - r_e1I)) * np.outer(r_ee_vec, r_ee_vec)/r_ee @ r_e1I_vec/r_e1I -
+                                (poly_diff_e2I_ee - C*poly_diff_ee/(L - r_e2I)) * np.outer(r_ee_vec, r_ee_vec)/r_ee @ r_e2I_vec/r_e2I
                             )
                             res[j1] += (diff_2 + 2 * diff_1) * r_ee_vec + 2 * dot_product
 
