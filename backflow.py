@@ -224,7 +224,7 @@ class Backflow:
                                 for l in range(theta_parameters.shape[1]):
                                     for m in range(theta_parameters.shape[2]):
                                         poly += theta_parameters[k, l, m, phi_set] * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m]
-                            res[j1] += poly * r_e1I_vec
+                            res[j1] += poly * (1-r_e2I/L) ** C * r_e1I_vec
 
         return res
 
@@ -542,20 +542,20 @@ class Backflow:
                                         if l > 0 and m > 0:
                                             poly_diff_e2I_ee += l * m * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m-1] * p
 
-                            diff_1 = (
+                            diff_1 = (1-r_e2I/L) ** C * (
                                 2 * poly_diff_e1I/r_e1I +
-                                poly_diff_e2I/r_e2I +
+                                (poly_diff_e2I - C*poly/(L - r_e2I))/r_e2I +
                                 2 * poly_diff_ee/r_ee
                             )
-                            diff_2 = (
+                            diff_2 = (1-r_e2I/L) ** C * (
                                 poly_diff_e1I_2 +
-                                poly_diff_e2I_2 +
+                                (C * (C - 1) * poly/(L - r_e2I)**2 - 2 * C * poly_diff_e2I/(L - r_e2I) + poly_diff_e2I_2) +
                                 2 * poly_diff_ee_2
                             )
-                            dot_product = (
-                                np.outer(r_e1I_vec, r_e1I_vec)/r_e1I @ r_ee_vec/r_ee * poly_diff_e1I_ee +
-                                np.eye(3) @ r_ee_vec/r_ee * poly_diff_ee -
-                                np.outer(r_e1I_vec, r_e2I_vec)/r_e2I @ r_ee_vec/r_ee * poly_diff_e2I_ee
+                            dot_product = (1-r_e2I/L) ** C * (
+                                poly_diff_e1I_ee * np.outer(r_e1I_vec, r_e1I_vec)/r_e1I @ r_ee_vec/r_ee -
+                                (poly_diff_e2I_ee - C*poly_diff_ee/(L - r_e2I)) * np.outer(r_e1I_vec, r_e2I_vec)/r_e2I @ r_ee_vec/r_ee +
+                                poly_diff_ee * np.eye(3) @ r_ee_vec/r_ee
                             )
                             res[j1] += (diff_2 + 2 * diff_1) * r_e1I_vec + 2 * dot_product
 
