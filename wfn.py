@@ -100,8 +100,8 @@ class Wfn:
 
         if self.backflow is not None:
             b_v = self.backflow.value(e_vectors, n_vectors)
-            b_g = self.backflow.numerical_gradient(e_vectors, n_vectors)
-            b_l = self.backflow.numerical_laplacian(e_vectors, n_vectors)
+            b_g = self.backflow.gradient(e_vectors, n_vectors)
+            b_l = self.backflow.laplacian(e_vectors, n_vectors)
             slater_n_vectors = n_vectors + b_v
             s_v = self.slater.value(slater_n_vectors)
             s_g = self.slater.gradient(slater_n_vectors) / s_v

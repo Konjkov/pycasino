@@ -217,14 +217,14 @@ class Backflow:
                                 for l in range(phi_parameters.shape[1]):
                                     for m in range(phi_parameters.shape[2]):
                                         poly += phi_parameters[k, l, m, phi_set] * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m]
-                            # res[j1] += poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * r_ee_vec
+                            res[j1] += poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * r_ee_vec
 
                             poly = 0.0
                             for k in range(theta_parameters.shape[0]):
                                 for l in range(theta_parameters.shape[1]):
                                     for m in range(theta_parameters.shape[2]):
                                         poly += theta_parameters[k, l, m, phi_set] * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m]
-                            res[j1] += poly * (1-r_e2I/L) ** C * r_e1I_vec
+                            res[j1] += poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * r_e1I_vec
 
         return res
 
@@ -472,7 +472,7 @@ class Backflow:
                         r_e1I = n_powers[i, j1, 1]
                         r_e2I = n_powers[i, j2, 1]
                         r_ee = e_powers[j1, j2, 1]
-                        if 0 < r_e1I < L and 0 < r_e2I < L:
+                        if r_e1I < L and r_e2I < L:
                             phi_set = (int(j1 >= self.neu) + int(j2 >= self.neu)) % phi_parameters.shape[3]
                             poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
                             poly_diff_e1I_2 = poly_diff_e2I_2 = poly_diff_ee_2 = 0.0
@@ -515,11 +515,11 @@ class Backflow:
                                 (poly_diff_e1I_ee - C*poly_diff_ee/(L - r_e1I)) * np.outer(r_ee_vec, r_ee_vec)/r_ee @ r_e1I_vec/r_e1I -
                                 (poly_diff_e2I_ee - C*poly_diff_ee/(L - r_e2I)) * np.outer(r_ee_vec, r_ee_vec)/r_ee @ r_e2I_vec/r_e2I
                             )
-                            # res[j1] += (diff_2 + 2 * diff_1) * r_ee_vec + 2 * dot_product
+                            res[j1] += (diff_2 + 2 * diff_1) * r_ee_vec + 2 * dot_product
 
                             poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
                             poly_diff_e1I_2 = poly_diff_e2I_2 = poly_diff_ee_2 = 0.0
-                            poly_diff_e1I_e2I = poly_diff_e1I_ee = poly_diff_e2I_ee = 0.0
+                            poly_diff_e1I_ee = poly_diff_e2I_ee = 0.0
                             for k in range(theta_parameters.shape[0]):
                                 for l in range(theta_parameters.shape[1]):
                                     for m in range(theta_parameters.shape[2]):
@@ -542,18 +542,18 @@ class Backflow:
                                         if l > 0 and m > 0:
                                             poly_diff_e2I_ee += l * m * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m-1] * p
 
-                            diff_1 = (1-r_e2I/L) ** C * (
-                                2 * poly_diff_e1I/r_e1I +
+                            diff_1 = (1-r_e1I/L)**C * (1-r_e2I/L) ** C * (
+                                2 * (poly_diff_e1I - C*poly/(L - r_e1I))/r_e1I +
                                 (poly_diff_e2I - C*poly/(L - r_e2I))/r_e2I +
                                 2 * poly_diff_ee/r_ee
                             )
-                            diff_2 = (1-r_e2I/L) ** C * (
-                                poly_diff_e1I_2 +
-                                (C * (C - 1) * poly/(L - r_e2I)**2 - 2 * C * poly_diff_e2I/(L - r_e2I) + poly_diff_e2I_2) +
+                            diff_2 = (1-r_e1I/L)**C * (1-r_e2I/L) ** C * (
+                                (C*(C - 1)*poly/(L - r_e1I)**2 - 2*C*poly_diff_e1I/(L - r_e1I) + poly_diff_e1I_2) +
+                                (C*(C - 1)*poly/(L - r_e2I)**2 - 2*C*poly_diff_e2I/(L - r_e2I) + poly_diff_e2I_2) +
                                 2 * poly_diff_ee_2
                             )
-                            dot_product = (1-r_e2I/L) ** C * (
-                                poly_diff_e1I_ee * np.outer(r_e1I_vec, r_e1I_vec)/r_e1I @ r_ee_vec/r_ee -
+                            dot_product = (1-r_e1I/L)**C * (1-r_e2I/L) ** C * (
+                                (poly_diff_e1I_ee - C*poly_diff_ee/(L - r_e1I)) * np.outer(r_e1I_vec, r_e1I_vec)/r_e1I @ r_ee_vec/r_ee -
                                 (poly_diff_e2I_ee - C*poly_diff_ee/(L - r_e2I)) * np.outer(r_e1I_vec, r_e2I_vec)/r_e2I @ r_ee_vec/r_ee +
                                 poly_diff_ee * np.eye(3) @ r_ee_vec/r_ee
                             )
@@ -570,12 +570,6 @@ class Backflow:
 
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
-
-        print('--------------------------------------------------')
-        a = self.numerical_phi_term_laplacian(e_vectors, n_vectors)
-        b = self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
-        print(a)
-        print(b)
 
         return (
             self.eta_term(e_vectors, e_powers) * self.ae_multiplier(n_vectors, n_powers) +
@@ -608,37 +602,6 @@ class Backflow:
                 n_vectors[:, i, j] -= delta
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
-
-    def numerical_phi_term_laplacian(self, e_vectors, n_vectors):
-        """Numerical laplacian with respect to a e-coordinates
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return: vector laplacian - array(nelec * 3)
-        """
-        delta = 0.00001
-
-        e_powers = self.ee_powers(e_vectors)
-        n_powers = self.en_powers(n_vectors)
-        res = -6 * (self.neu + self.ned) * self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-                e_powers = self.ee_powers(e_vectors)
-                n_powers = self.en_powers(n_vectors)
-                res += self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
-                e_powers = self.ee_powers(e_vectors)
-                n_powers = self.en_powers(n_vectors)
-                res += self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-
-        return res.ravel() / delta / delta
 
     def numerical_laplacian(self, e_vectors, n_vectors):
         """Numerical laplacian with respect to a e-coordinates
@@ -702,7 +665,7 @@ if __name__ == '__main__':
 
     term = 'mu'
 
-    path = 'test/stowfn/He/HF/QZ4P/Backflow/temp_3/'
+    path = 'test/stowfn/He/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Ar/HF/QZ4P/Backflow/'
