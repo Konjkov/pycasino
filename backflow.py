@@ -499,23 +499,23 @@ class Backflow:
                                         if l > 0 and m > 0:
                                             poly_diff_e2I_ee += l * m * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m-1] * p
 
-                            diff_1 = (1-r_e1I/L)**C * (1-r_e2I/L) ** C * (
+                            diff_1 = (
                                 (poly_diff_e1I - C*poly/(L - r_e1I))/r_e1I +
                                 (poly_diff_e2I - C*poly/(L - r_e2I))/r_e2I +
                                 4 * poly_diff_ee/r_ee
                             )
-                            diff_2 = (1-r_e1I/L)**C * (1-r_e2I/L) ** C * (
+                            diff_2 = (
                                 (C*(C - 1)*poly/(L - r_e1I)**2 - 2*C*poly_diff_e1I/(L - r_e1I) + poly_diff_e1I_2) +
                                 (C*(C - 1)*poly/(L - r_e2I)**2 - 2*C*poly_diff_e2I/(L - r_e2I) + poly_diff_e2I_2) +
                                 2 * poly_diff_ee_2
                             )
-                            dot_product = (1-r_e1I/L)**C * (1-r_e2I/L) ** C * (
+                            dot_product = (
                                 (poly_diff_e1I - C*poly/(L - r_e1I)) * np.eye(3) @ r_e1I_vec/r_e1I -
                                 (poly_diff_e2I - C*poly/(L - r_e2I)) * np.eye(3) @ r_e2I_vec/r_e2I +
                                 (poly_diff_e1I_ee - C*poly_diff_ee/(L - r_e1I)) * np.outer(r_ee_vec, r_ee_vec)/r_ee @ r_e1I_vec/r_e1I -
                                 (poly_diff_e2I_ee - C*poly_diff_ee/(L - r_e2I)) * np.outer(r_ee_vec, r_ee_vec)/r_ee @ r_e2I_vec/r_e2I
                             )
-                            res[j1] += (diff_2 + 2 * diff_1) * r_ee_vec + 2 * dot_product
+                            res[j1] += (1-r_e1I/L)**C * (1-r_e2I/L) ** C * ((diff_2 + 2 * diff_1) * r_ee_vec + 2 * dot_product)
 
                             poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
                             poly_diff_e1I_2 = poly_diff_e2I_2 = poly_diff_ee_2 = 0.0
