@@ -226,7 +226,7 @@ class Jastrow:
                         if k > 0:
                             poly_diff += p * k * e_powers[i, j, k-1]
 
-                    gradient = (C * (r-L) ** (C-1) * poly + (r-L) ** C * poly_diff) / r
+                    gradient = (r-L) ** C * (C/(r-L) * poly + poly_diff) / r
                     res[i, :] += r_vec * gradient
                     res[j, :] -= r_vec * gradient
         return res.ravel()
@@ -257,7 +257,7 @@ class Jastrow:
                             if k > 0:
                                 poly_diff += p * k * n_powers[i, j, k-1]
 
-                        gradient = (C * (r-L) ** (C-1) * poly + (r-L) ** C * poly_diff) / r
+                        gradient = (r-L) ** C * (C/(r-L) * poly + poly_diff) / r
                         res[j, :] += r_vec * gradient
         return res.ravel()
 
@@ -300,15 +300,13 @@ class Jastrow:
                                         if n > 0:
                                             poly_diff_ee += n * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n-1] * p
 
-                            gradient = (
-                                C * (r_e1I - L) ** (C-1) * (r_e2I - L) ** C * poly +
-                                (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e1I
+                            gradient = (r_e1I - L) ** C * (r_e2I - L) ** C * (
+                                C/(r_e1I - L) * poly + poly_diff_e1I
                             ) / r_e1I
                             res[j, :] += r_e1I_vec * gradient
 
-                            gradient = (
-                                (r_e1I - L) ** C * C * (r_e2I - L) ** (C-1) * poly +
-                                (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e2I
+                            gradient = (r_e1I - L) ** C * (r_e2I - L) ** C * (
+                                C/(r_e2I - L) * poly + poly_diff_e2I
                             ) / r_e2I
                             res[k, :] += r_e2I_vec * gradient
 
@@ -347,10 +345,9 @@ class Jastrow:
                         if k > 1:
                             poly_diff_2 += k * (k-1) * p * e_powers[i, j, k-2]
 
-                    res += (
-                        C*(C - 1)*(r-L)**(C - 2) * poly +
-                        2 * C*(r-L)**(C - 1) * poly_diff + (r-L)**C * poly_diff_2 +
-                        2 * (C * (r-L)**(C-1) * poly + (r-L)**C * poly_diff) / r
+                    res += (r-L)**C * (
+                        C*(C - 1)/(r-L)**2 * poly + 2 * C/(r-L) * poly_diff + poly_diff_2 +
+                        2 * (C/(r-L) * poly + poly_diff) / r
                     )
         return 2 * res
 
@@ -379,10 +376,9 @@ class Jastrow:
                             if k > 1:
                                 poly_diff_2 += k * (k-1) * p * n_powers[i, j, k-2]
 
-                        res += (
-                            C*(C - 1)*(r-L)**(C - 2) * poly +
-                            2 * C*(r-L)**(C - 1) * poly_diff + (r-L)**C * poly_diff_2 +
-                            2 * (C * (r-L)**(C-1) * poly + (r-L)**C * poly_diff) / r
+                        res += (r-L)**C * (
+                            C*(C - 1)/(r-L)**2 * poly + 2 * C/(r-L) * poly_diff + poly_diff_2 +
+                            2 * (C/(r-L) * poly + poly_diff) / r
                         )
         return res
 
@@ -441,31 +437,25 @@ class Jastrow:
                                             poly_diff_e2I_ee += m * n * n_powers[i, j, l] * n_powers[i, k, m-1] * e_powers[j, k, n-1] * p
 
                             diff_1 = (
-                                (C * (r_e1I - L) ** (C-1) * (r_e2I - L) ** C * poly + (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e1I) / r_e1I +
-                                ((r_e1I - L) ** C * C * (r_e2I - L) ** (C-1) * poly + (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e2I) / r_e2I +
-                                2 * (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_ee / r_ee
+                                (C/(r_e1I - L) * poly + poly_diff_e1I) / r_e1I +
+                                (C/(r_e2I - L) * poly + poly_diff_e2I) / r_e2I +
+                                2 * poly_diff_ee / r_ee
                             )
 
                             diff_2 = (
-                                C * (C - 1) * (r_e1I - L) ** (C - 2) * (r_e2I - L) ** C * poly +
-                                (r_e1I - L) ** C * C * (C - 1) * (r_e2I - L) ** (C - 2) * poly +
-                                (r_e1I - L) ** C * (r_e2I - L) ** C * (poly_diff_e1I_2 + poly_diff_e2I_2 + 2 * poly_diff_ee_2) +
-                                2 * C * (r_e1I - L) ** (C - 1) * (r_e2I - L) ** C * poly_diff_e1I +
-                                2 * (r_e1I - L) ** C * C * (r_e2I - L) ** (C - 1) * poly_diff_e2I
+                                C * (C - 1) / (r_e1I - L) ** 2 * poly +
+                                C * (C - 1) / (r_e2I - L) ** 2 * poly +
+                                (poly_diff_e1I_2 + poly_diff_e2I_2 + 2 * poly_diff_ee_2) +
+                                2 * C/(r_e1I - L) * poly_diff_e1I +
+                                2 * C/(r_e2I - L) * poly_diff_e2I
                             )
 
                             dot_product = (
-                                np.sum(r_e1I_vec * r_ee_vec) * (
-                                        C * (r_e1I - L) ** (C-1) * (r_e2I - L) ** C * poly_diff_ee +
-                                        (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e1I_ee
-                                ) / r_e1I / r_ee -
-                                np.sum(r_e2I_vec * r_ee_vec) * (
-                                        (r_e1I - L) ** C * C * (r_e2I - L) ** (C-1) * poly_diff_ee +
-                                        (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_e2I_ee
-                                ) / r_e2I / r_ee
+                                np.sum(r_e1I_vec * r_ee_vec) * (C/(r_e1I - L) * poly_diff_ee + poly_diff_e1I_ee) / r_e1I / r_ee -
+                                np.sum(r_e2I_vec * r_ee_vec) * (C/(r_e2I - L) * poly_diff_ee + poly_diff_e2I_ee) / r_e2I / r_ee
                             )
 
-                            res += diff_2 + 2 * diff_1 + 2 * dot_product
+                            res += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product)
         return res
 
     def value(self, e_vectors, n_vectors) -> float:
