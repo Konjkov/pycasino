@@ -65,14 +65,26 @@ class Metropolis:
         self.ned = ned
         self.r_e = np.zeros((neu + ned, 3))
         self.step = 1 / (neu + ned)
+        # self.step = 1 / np.log(neu + ned)
         self.atom_positions = atom_positions
         self.atom_charges = atom_charges
         self.wfn = wfn
 
     def random_step(self):
-        """Random N-dim square distributed step"""
+        """Random N-dim square distributed step
+        configuration-by-configuration sampling (CBCS)
+        """
         ne = self.neu + self.ned
         return np.random.uniform(-self.step, self.step, ne * 3).reshape((ne, 3))
+
+    # def random_step(self):
+    #     """Random N-dim square distributed step
+    #     electron-by-electron sampling (EBES)
+    #     """
+    #     ne = self.neu + self.ned
+    #     res = np.zeros((ne, 3))
+    #     res[np.random.randint(ne)] = np.random.uniform(-self.step, self.step, 3)
+    #     return res
 
     def make_step(self, p, r_e):
         """Make random step in configuration-by-configuration sampling (CBCS)"""
@@ -242,6 +254,7 @@ class VMC:
         self.neu, self.ned = casino.input.neu, casino.input.ned
         self.metropolis = Metropolis(self.neu, self.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.wfn)
         self.metropolis.r_e = initial_position(self.neu + self.ned, self.metropolis.atom_positions, self.metropolis.atom_charges)
+        self.metropolis.r_e += self.metropolis.random_step()
 
     def equilibrate(self, steps):
         weight, _, _ = self.metropolis.random_walk(steps)
@@ -434,7 +447,7 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Kr/HF/QZ4P/Jastrow/'
     # path = 'test/stowfn/O3/HF/QZ4P/Jastrow/'
 
-    path = 'test/stowfn/He/HF/QZ4P/Backflow/'
+    # path = 'test/stowfn/He/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Ar/HF/QZ4P/Backflow/'
