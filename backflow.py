@@ -113,15 +113,15 @@ class Backflow:
         Gradient of spherically symmetric function (in 3-D space) is:
             ∇(f) = df/dr * r_vec/r
         """
-        res = np.zeros((self.neu + self.ned, 3))
+        res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
         for i in range(n_vectors.shape[0]):
             Lg = self.ae_cutoff[i]
             for j in range(self.neu + self.ned):
                 r_vec = n_vectors[i, j]
                 r = n_powers[i, j, 1]
                 if r < Lg:
-                    res[j, :] = 12*r_vec/Lg**2 * (1 - r/Lg)**2
-        return res
+                    res[j, :, j, :] = 12*r_vec/Lg**2 * (1 - r/Lg)**2
+        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def ae_multiplier_laplacian(self, n_vectors, n_powers):
         """Zeroing the backflow displacement at AE atoms.
@@ -587,10 +587,10 @@ class Backflow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        a = np.outer(self.eta_term(e_vectors, e_powers).ravel(), self.ae_multiplier_gradient(n_vectors, n_powers))
+        a = self.ae_multiplier_gradient(n_vectors, n_powers) * self.eta_term(e_vectors, e_powers).reshape((-1, 1))
         b = self.eta_term_gradient(e_powers, e_vectors) * self.ae_multiplier(n_vectors, n_powers).reshape((-1, 1))
 
-        return a
+        return a + b
 
     def eta_laplacian(self, e_vectors, n_vectors):
         """Gradient with respect to e-coordinates
@@ -730,11 +730,9 @@ class Backflow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        a = (self.eta_term(e_vectors, e_powers) * self.ae_multiplier_diff_1(n_vectors, n_powers)).ravel()
-        b = self.eta_term_gradient(e_powers, e_vectors) * self.ae_multiplier(n_vectors, n_powers).reshape((-1, 1))
-
         return (
-            np.outer(a, a) + b +
+            self.ae_multiplier_gradient(n_vectors, n_powers) * self.eta_term(e_vectors, e_powers).reshape((-1, 1)) +
+            self.eta_term_gradient(e_powers, e_vectors) * self.ae_multiplier(n_vectors, n_powers).reshape((-1, 1)) +
             self.mu_term_gradient(n_powers, n_vectors) +
             self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
         )
