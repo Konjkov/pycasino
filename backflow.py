@@ -134,8 +134,8 @@ class Backflow:
             for j in range(self.neu + self.ned):
                 r = n_powers[i, j, 1]
                 if r < Lg:
-                    res[j] = 12/Lg**2 * (1 - 4 * (r/Lg) + 3 * (r/Lg)**2)
-        return res
+                    res[j] = 12/Lg**2 * (3 - 8 * (r/Lg) + 5 * (r/Lg)**2)
+        return res.ravel()
 
     def eta_term(self, e_vectors, e_powers):
         """
@@ -601,13 +601,15 @@ class Backflow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        a = (self.eta_term(e_vectors, e_powers) * self.ae_multiplier_diff_2(n_vectors, n_powers)).ravel()
-        b = self.eta_term_gradient(e_powers, e_vectors) @ self.ae_multiplier_diff_1(n_vectors, n_powers).reshape((-1, 1))
+        a = self.ae_multiplier_laplacian(n_vectors, n_powers) * self.eta_term(e_vectors, e_powers).ravel()
+        b = np.zeros(((self.neu + self.ned) * 3))
+        term_gradient = self.eta_term_gradient(e_powers, e_vectors)
+        cutoff_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
+        for i in range((self.neu + self.ned) * 3):
+            b[i] = np.sum(term_gradient[i] * cutoff_gradient[i])
         c = self.eta_term_laplacian(e_powers, e_vectors) * self.ae_multiplier(n_vectors, n_powers).ravel()
 
-        print(a.shape, b.shape, c.shape)
-
-        return a + 2 * b.ravel() + c
+        return a + 2 * b + c
 
     def numerical_eta_gradient(self, e_vectors, n_vectors):
         """Numerical gradient with respect to a e-coordinates
@@ -746,8 +748,16 @@ class Backflow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
+        a = self.ae_multiplier_laplacian(n_vectors, n_powers) * self.eta_term(e_vectors, e_powers).ravel()
+        b = np.zeros(((self.neu + self.ned) * 3))
+        term_gradient = self.eta_term_gradient(e_powers, e_vectors)
+        cutoff_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
+        for i in range((self.neu + self.ned) * 3):
+            b[i] = np.sum(term_gradient[i] * cutoff_gradient[i])
+        c = self.eta_term_laplacian(e_powers, e_vectors) * self.ae_multiplier(n_vectors, n_powers).ravel()
+
         return (
-            self.eta_term_laplacian(e_powers, e_vectors) +
+            a + 2 * b + c +
             self.mu_term_laplacian(n_powers, n_vectors) +
             self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
         )
@@ -759,7 +769,7 @@ if __name__ == '__main__':
 
     term = 'mu'
 
-    path = 'test/stowfn/He/HF/QZ4P/Backflow/temp_1'
+    path = 'test/stowfn/He/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Ar/HF/QZ4P/Backflow/'
