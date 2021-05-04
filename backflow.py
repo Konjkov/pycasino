@@ -108,32 +108,33 @@ class Backflow:
                     res[j] = (r/Lg)**2 * (6 - 8 * (r/Lg) + 3 * (r/Lg)**2)
         return res
 
-    def ae_multiplier_diff_1(self, n_vectors, n_powers):
+    def ae_multiplier_gradient(self, n_vectors, n_powers):
         """Zeroing the backflow displacement at AE atoms.
         Gradient of spherically symmetric function (in 3-D space) is:
-            ∇(f) = df/dr * r_vec
+            ∇(f) = df/dr * r_vec/r
         """
-        res = np.ones((self.neu + self.ned, 3))
+        res = np.zeros((self.neu + self.ned, 3))
         for i in range(n_vectors.shape[0]):
             Lg = self.ae_cutoff[i]
             for j in range(self.neu + self.ned):
+                r_vec = n_vectors[i, j]
                 r = n_powers[i, j, 1]
                 if r < Lg:
-                    res[j] = 3*(r/Lg)**2 * (4 - 8 * (r/Lg) + 3 * (r/Lg)**2) / r
+                    res[j, :] = 12*r_vec/Lg**2 * (1 - r/Lg)**2
         return res
 
-    def ae_multiplier_diff_2(self, n_vectors, n_powers):
+    def ae_multiplier_laplacian(self, n_vectors, n_powers):
         """Zeroing the backflow displacement at AE atoms.
         Laplace operator of spherically symmetric function (in 3-D space) is:
             ∇²(f) = d²f/dr² + 2/r * df/dr
         """
-        res = np.ones((self.neu + self.ned, 3))
+        res = np.zeros((self.neu + self.ned, 3))
         for i in range(n_vectors.shape[0]):
             Lg = self.ae_cutoff[i]
             for j in range(self.neu + self.ned):
                 r = n_powers[i, j, 1]
                 if r < Lg:
-                    res[j] = 0
+                    res[j] = 12/Lg**2 * (1 - 4 * (r/Lg) + 3 * (r/Lg)**2)
         return res
 
     def eta_term(self, e_vectors, e_powers):
@@ -577,6 +578,98 @@ class Backflow:
             self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
         )
 
+    def eta_gradient(self, e_vectors, n_vectors):
+        """Gradient with respect to e-coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :return:
+        """
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        a = np.outer(self.eta_term(e_vectors, e_powers).ravel(), self.ae_multiplier_gradient(n_vectors, n_powers))
+        b = self.eta_term_gradient(e_powers, e_vectors) * self.ae_multiplier(n_vectors, n_powers).reshape((-1, 1))
+
+        return a
+
+    def eta_laplacian(self, e_vectors, n_vectors):
+        """Gradient with respect to e-coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :return:
+        """
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        a = (self.eta_term(e_vectors, e_powers) * self.ae_multiplier_diff_2(n_vectors, n_powers)).ravel()
+        b = self.eta_term_gradient(e_powers, e_vectors) @ self.ae_multiplier_diff_1(n_vectors, n_powers).reshape((-1, 1))
+        c = self.eta_term_laplacian(e_powers, e_vectors) * self.ae_multiplier(n_vectors, n_powers).ravel()
+
+        print(a.shape, b.shape, c.shape)
+
+        return a + 2 * b.ravel() + c
+
+    def numerical_eta_gradient(self, e_vectors, n_vectors):
+        """Numerical gradient with respect to a e-coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :return: partial derivatives of displacements of electrons - array(nelec * 3, nelec * 3)
+        """
+        delta = 0.00001
+
+        res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
+
+        for i in range(self.neu + self.ned):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+                e_powers = self.ee_powers(e_vectors)
+                n_powers = self.en_powers(n_vectors)
+                res[:, :, i, j] -= self.eta_term(e_vectors, e_powers) * self.ae_multiplier(n_vectors, n_powers)
+                e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
+                n_vectors[:, i, j] += 2 * delta
+                e_powers = self.ee_powers(e_vectors)
+                n_powers = self.en_powers(n_vectors)
+                res[:, :, i, j] += self.eta_term(e_vectors, e_powers) * self.ae_multiplier(n_vectors, n_powers)
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+
+        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
+
+    def numerical_eta_laplacian(self, e_vectors, n_vectors):
+        """Numerical laplacian with respect to a e-coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :return: vector laplacian - array(nelec * 3)
+        """
+        delta = 0.00001
+
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+        res = -6 * (self.neu + self.ned) * self.eta_term(e_vectors, e_powers) * self.ae_multiplier(n_vectors, n_powers)
+        for i in range(self.neu + self.ned):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+                e_powers = self.ee_powers(e_vectors)
+                n_powers = self.en_powers(n_vectors)
+                res += self.eta_term(e_vectors, e_powers) * self.ae_multiplier(n_vectors, n_powers)
+                e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
+                n_vectors[:, i, j] += 2 * delta
+                e_powers = self.ee_powers(e_vectors)
+                n_powers = self.en_powers(n_vectors)
+                res += self.eta_term(e_vectors, e_powers) * self.ae_multiplier(n_vectors, n_powers)
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+
+        return res.ravel() / delta / delta
+
     def numerical_gradient(self, e_vectors, n_vectors):
         """Numerical gradient with respect to a e-coordinates
         :param e_vectors: e-e vectors
@@ -637,8 +730,11 @@ class Backflow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
+        a = (self.eta_term(e_vectors, e_powers) * self.ae_multiplier_diff_1(n_vectors, n_powers)).ravel()
+        b = self.eta_term_gradient(e_powers, e_vectors) * self.ae_multiplier(n_vectors, n_powers).reshape((-1, 1))
+
         return (
-            self.eta_term_gradient(e_powers, e_vectors) +
+            np.outer(a, a) + b +
             self.mu_term_gradient(n_powers, n_vectors) +
             self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
         )
@@ -665,7 +761,7 @@ if __name__ == '__main__':
 
     term = 'mu'
 
-    path = 'test/stowfn/He/HF/QZ4P/Backflow/'
+    path = 'test/stowfn/He/HF/QZ4P/Backflow/temp_1'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Ar/HF/QZ4P/Backflow/'
