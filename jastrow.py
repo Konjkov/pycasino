@@ -98,11 +98,11 @@ class Jastrow:
         :param e_vectors: e-e vectors - array(nelec, nelec, 3)
         :return: powers of e-e distances - array(nelec, nelec, max_ee_order)
         """
-        res = np.zeros((e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
+        res = np.ones((e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
         for i in range(1, self.neu + self.ned):
             for j in range(i):
                 r_ee = np.linalg.norm(e_vectors[i, j])
-                for k in range(self.max_ee_order):
+                for k in range(1, self.max_ee_order):
                     res[i, j, k] = res[j, i, k] = r_ee ** k
         return res
 
@@ -111,11 +111,11 @@ class Jastrow:
         :param n_vectors: e-n vectors - array(natom, nelec, 3)
         :return: powers of e-n distances - array(natom, nelec, max_en_order)
         """
-        res = np.zeros((n_vectors.shape[0], n_vectors.shape[1], self.max_en_order))
+        res = np.ones((n_vectors.shape[0], n_vectors.shape[1], self.max_en_order))
         for i in range(n_vectors.shape[0]):
             for j in range(n_vectors.shape[1]):
                 r_eI = np.linalg.norm(n_vectors[i, j])
-                for k in range(self.max_en_order):
+                for k in range(1, self.max_en_order):
                     res[i, j, k] = r_eI ** k
         return res
 
@@ -201,7 +201,7 @@ class Jastrow:
         :param e_vectors: e-e vectors
         :return:
         """
-        res = np.zeros((e_vectors.shape[0], 3))
+        res = np.zeros((self.neu + self.ned, 3))
 
         if not self.u_cutoff:
             return res.ravel()
@@ -226,9 +226,9 @@ class Jastrow:
                         if k > 0:
                             poly_diff += p * k * e_powers[i, j, k-1]
 
-                    gradient = (r-L) ** C * (C/(r-L) * poly + poly_diff) / r
-                    res[i, :] += r_vec * gradient
-                    res[j, :] -= r_vec * gradient
+                    gradient = r_vec/r * (r-L) ** C * (C/(r-L) * poly + poly_diff)
+                    res[i, :] += gradient
+                    res[j, :] -= gradient
         return res.ravel()
 
     def chi_term_gradient(self, n_powers, n_vectors):
@@ -237,7 +237,7 @@ class Jastrow:
         :param n_vectors: e-n vectors
         :return:
         """
-        res = np.zeros((n_vectors.shape[1], 3))
+        res = np.zeros((self.neu + self.ned, 3))
 
         if not self.chi_cutoff.any():
             return res.ravel()
@@ -257,8 +257,7 @@ class Jastrow:
                             if k > 0:
                                 poly_diff += p * k * n_powers[i, j, k-1]
 
-                        gradient = (r-L) ** C * (C/(r-L) * poly + poly_diff) / r
-                        res[j, :] += r_vec * gradient
+                        res[j, :] += r_vec/r * (r-L) ** C * (C/(r-L) * poly + poly_diff)
         return res.ravel()
 
     def f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
@@ -269,7 +268,7 @@ class Jastrow:
         :param n_vectors: e-n vectors
         :return:
         """
-        res = np.zeros((e_vectors.shape[0], 3))
+        res = np.zeros((self.neu + self.ned, 3))
 
         if not self.f_cutoff.any():
             return res.ravel()
@@ -300,19 +299,11 @@ class Jastrow:
                                         if n > 0:
                                             poly_diff_ee += n * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n-1] * p
 
-                            gradient = (r_e1I - L) ** C * (r_e2I - L) ** C * (
-                                C/(r_e1I - L) * poly + poly_diff_e1I
-                            ) / r_e1I
-                            res[j, :] += r_e1I_vec * gradient
-
-                            gradient = (r_e1I - L) ** C * (r_e2I - L) ** C * (
-                                C/(r_e2I - L) * poly + poly_diff_e2I
-                            ) / r_e2I
-                            res[k, :] += r_e2I_vec * gradient
-
-                            gradient = (r_e1I - L) ** C * (r_e2I - L) ** C * poly_diff_ee / r_ee
-                            res[j, :] += r_ee_vec * gradient
-                            res[k, :] -= r_ee_vec * gradient
+                            e1_gradient = r_e1I_vec/r_e1I * (C/(r_e1I - L) * poly + poly_diff_e1I)
+                            e2_gradient = r_e2I_vec/r_e2I * (C/(r_e2I - L) * poly + poly_diff_e2I)
+                            ee_gradient = r_ee_vec/r_ee * poly_diff_ee
+                            res[j, :] += (r_e1I - L) ** C * (r_e2I - L) ** C * (e1_gradient + ee_gradient)
+                            res[k, :] += (r_e1I - L) ** C * (r_e2I - L) ** C * (e2_gradient - ee_gradient)
         return res.ravel()
 
     def u_term_laplacian(self, e_powers) -> float:
@@ -441,7 +432,6 @@ class Jastrow:
                                 (C/(r_e2I - L) * poly + poly_diff_e2I) / r_e2I +
                                 2 * poly_diff_ee / r_ee
                             )
-
                             diff_2 = (
                                 C * (C - 1) / (r_e1I - L) ** 2 * poly +
                                 C * (C - 1) / (r_e2I - L) ** 2 * poly +
@@ -449,12 +439,10 @@ class Jastrow:
                                 2 * C/(r_e1I - L) * poly_diff_e1I +
                                 2 * C/(r_e2I - L) * poly_diff_e2I
                             )
-
                             dot_product = (
                                 np.sum(r_e1I_vec * r_ee_vec) * (C/(r_e1I - L) * poly_diff_ee + poly_diff_e1I_ee) / r_e1I / r_ee -
                                 np.sum(r_e2I_vec * r_ee_vec) * (C/(r_e2I - L) * poly_diff_ee + poly_diff_e2I_ee) / r_e2I / r_ee
                             )
-
                             res += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product)
         return res
 
@@ -513,7 +501,7 @@ class Jastrow:
         """
         delta = 0.00001
 
-        res = np.zeros((e_vectors.shape[0], 3))
+        res = np.zeros((self.neu + self.ned, 3))
 
         for i in range(self.neu + self.ned):
             for j in range(3):

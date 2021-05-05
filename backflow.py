@@ -76,11 +76,11 @@ class Backflow:
         :param e_vectors: e-e vectors - array(nelec, nelec, 3)
         :return:
         """
-        res = np.zeros((e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
+        res = np.ones((e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
         for i in range(1, e_vectors.shape[0]):
             for j in range(i):
                 r_ee = np.linalg.norm(e_vectors[i, j])
-                for k in range(self.max_ee_order):
+                for k in range(1, self.max_ee_order):
                     res[i, j, k] = res[j, i, k] = r_ee ** k
         return res
 
@@ -89,11 +89,11 @@ class Backflow:
         :param n_vectors: e-n vectors
         :return:
         """
-        res = np.zeros((n_vectors.shape[0], n_vectors.shape[1], self.max_en_order))
+        res = np.ones((n_vectors.shape[0], n_vectors.shape[1], self.max_en_order))
         for i in range(n_vectors.shape[0]):
             for j in range(n_vectors.shape[1]):
                 r_eI = np.linalg.norm(n_vectors[i, j])
-                for k in range(self.max_en_order):
+                for k in range(1, self.max_en_order):
                     res[i, j, k] = r_eI ** k
         return res
 
