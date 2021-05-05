@@ -213,19 +213,14 @@ class Backflow:
                         r_e2I = n_powers[i, j2, 1]
                         if r_e1I < L and r_e2I < L:
                             phi_set = (int(j1 >= self.neu) + int(j2 >= self.neu)) % phi_parameters.shape[3]
-                            poly = 0.0
+                            phi_poly = theta_poly = 0.0
                             for k in range(phi_parameters.shape[0]):
                                 for l in range(phi_parameters.shape[1]):
                                     for m in range(phi_parameters.shape[2]):
-                                        poly += phi_parameters[k, l, m, phi_set] * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m]
-                            res[j1] += poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * r_ee_vec
-
-                            poly = 0.0
-                            for k in range(theta_parameters.shape[0]):
-                                for l in range(theta_parameters.shape[1]):
-                                    for m in range(theta_parameters.shape[2]):
-                                        poly += theta_parameters[k, l, m, phi_set] * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m]
-                            res[j1] += poly * (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * r_e1I_vec
+                                        poly = n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m]
+                                        phi_poly += phi_parameters[k, l, m, phi_set] * poly
+                                        theta_poly += theta_parameters[k, l, m, phi_set] * poly
+                            res[j1] += (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * (phi_poly * r_ee_vec + theta_poly * r_e1I_vec)
 
         return res
 
@@ -322,51 +317,42 @@ class Backflow:
                         r_ee = e_powers[j1, j2, 1]
                         if r_e1I < L and r_e2I < L:
                             phi_set = (int(j1 >= self.neu) + int(j2 >= self.neu)) % phi_parameters.shape[3]
-                            poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
+                            phi_poly = phi_poly_diff_e1I = phi_poly_diff_e2I = phi_poly_diff_ee = 0.0
+                            theta_poly = theta_poly_diff_e1I = theta_poly_diff_e2I = theta_poly_diff_ee = 0.0
                             for k in range(phi_parameters.shape[0]):
                                 for l in range(phi_parameters.shape[1]):
                                     for m in range(phi_parameters.shape[2]):
-                                        p = phi_parameters[k, l, m, phi_set]
-                                        poly += n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
+                                        phi_p = phi_parameters[k, l, m, phi_set]
+                                        theta_p = theta_parameters[k, l, m, phi_set]
+                                        phi_poly += n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m] * phi_p
+                                        theta_poly += n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m] * theta_p
                                         if k > 0:
-                                            poly_diff_e1I += k * n_powers[i, j1, k-1] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
+                                            poly_diff_e1I = k * n_powers[i, j1, k-1] * n_powers[i, j2, l] * e_powers[j1, j2, m]
+                                            phi_poly_diff_e1I += poly_diff_e1I * phi_p
+                                            theta_poly_diff_e1I += poly_diff_e1I * theta_p
                                         if l > 0:
-                                            poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m] * p
+                                            poly_diff_e2I = l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m]
+                                            phi_poly_diff_e2I += poly_diff_e2I * phi_p
+                                            theta_poly_diff_e2I += poly_diff_e2I * theta_p
                                         if m > 0:
-                                            poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * p
+                                            poly_diff_ee = m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1]
+                                            phi_poly_diff_ee += poly_diff_ee * phi_p
+                                            theta_poly_diff_ee += poly_diff_ee * theta_p
 
                             res[j1, :, j1, :] += (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * (
-                                (poly_diff_e1I - C/(L - r_e1I)*poly) * np.outer(r_ee_vec, r_e1I_vec)/r_e1I +
-                                poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee +
-                                poly * np.eye(3)
+                                (phi_poly_diff_e1I - C/(L - r_e1I)*phi_poly) * np.outer(r_ee_vec, r_e1I_vec)/r_e1I +
+                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee +
+                                phi_poly * np.eye(3) +
+                                (theta_poly_diff_e1I - C / (L - r_e1I) * theta_poly) * np.outer(r_e1I_vec, r_e1I_vec) / r_e1I +
+                                theta_poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee +
+                                theta_poly * np.eye(3)
                             )
                             res[j1, :, j2, :] += (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * (
-                                (poly_diff_e2I - C/(L - r_e2I)*poly) * np.outer(r_ee_vec, r_e2I_vec)/r_e2I -
-                                poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee -
-                                poly * np.eye(3)
-                            )
-
-                            poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
-                            for k in range(theta_parameters.shape[0]):
-                                for l in range(theta_parameters.shape[1]):
-                                    for m in range(theta_parameters.shape[2]):
-                                        p = theta_parameters[k, l, m, phi_set]
-                                        poly += n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
-                                        if k > 0:
-                                            poly_diff_e1I += k * n_powers[i, j1, k-1] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
-                                        if l > 0:
-                                            poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m] * p
-                                        if m > 0:
-                                            poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * p
-
-                            res[j1, :, j1, :] += (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * (
-                                (poly_diff_e1I - C/(L - r_e1I)*poly) * np.outer(r_e1I_vec, r_e1I_vec)/r_e1I +
-                                poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee +
-                                poly * np.eye(3)
-                            )
-                            res[j1, :, j2, :] += (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * (
-                                (poly_diff_e2I - C/(L - r_e2I)*poly) * np.outer(r_e1I_vec, r_e2I_vec)/r_e2I -
-                                poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee
+                                (phi_poly_diff_e2I - C/(L - r_e2I)*phi_poly) * np.outer(r_ee_vec, r_e2I_vec)/r_e2I -
+                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee -
+                                phi_poly * np.eye(3) +
+                                (theta_poly_diff_e2I - C / (L - r_e2I) * theta_poly) * np.outer(r_e1I_vec, r_e2I_vec) / r_e2I -
+                                theta_poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee
                             )
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
@@ -475,90 +461,79 @@ class Backflow:
                         r_ee = e_powers[j1, j2, 1]
                         if r_e1I < L and r_e2I < L:
                             phi_set = (int(j1 >= self.neu) + int(j2 >= self.neu)) % phi_parameters.shape[3]
-                            poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
-                            poly_diff_e1I_2 = poly_diff_e2I_2 = poly_diff_ee_2 = 0.0
-                            poly_diff_e1I_ee = poly_diff_e2I_ee = 0.0
+                            phi_poly = phi_poly_diff_e1I = phi_poly_diff_e2I = phi_poly_diff_ee = 0.0
+                            phi_poly_diff_e1I_2 = phi_poly_diff_e2I_2 = phi_poly_diff_ee_2 = 0.0
+                            phi_poly_diff_e1I_ee = phi_poly_diff_e2I_ee = 0.0
+                            theta_poly = theta_poly_diff_e1I = theta_poly_diff_e2I = theta_poly_diff_ee = 0.0
+                            theta_poly_diff_e1I_2 = theta_poly_diff_e2I_2 = theta_poly_diff_ee_2 = 0.0
+                            theta_poly_diff_e1I_ee = theta_poly_diff_e2I_ee = 0.0
                             for k in range(phi_parameters.shape[0]):
                                 for l in range(phi_parameters.shape[1]):
                                     for m in range(phi_parameters.shape[2]):
-                                        p = phi_parameters[k, l, m, phi_set]
-                                        poly += n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
+                                        phi_p = phi_parameters[k, l, m, phi_set]
+                                        theta_p = theta_parameters[k, l, m, phi_set]
+                                        phi_poly += n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m] * phi_p
+                                        theta_poly += n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m] * theta_p
                                         if k > 0:
-                                            poly_diff_e1I += k * n_powers[i, j1, k-1] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
+                                            phi_poly_diff_e1I += k * n_powers[i, j1, k-1] * n_powers[i, j2, l] * e_powers[j1, j2, m] * phi_p
+                                            theta_poly_diff_e1I += k * n_powers[i, j1, k - 1] * n_powers[i, j2, l] * e_powers[j1, j2, m] * theta_p
                                         if l > 0:
-                                            poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m] * p
+                                            phi_poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m] * phi_p
+                                            theta_poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m] * theta_p
                                         if m > 0:
-                                            poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * p
+                                            phi_poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * phi_p
+                                            theta_poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m - 1] * theta_p
                                         if k > 1:
-                                            poly_diff_e1I_2 += k * (k-1) * n_powers[i, j1, k-2] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
+                                            phi_poly_diff_e1I_2 += k * (k-1) * n_powers[i, j1, k-2] * n_powers[i, j2, l] * e_powers[j1, j2, m] * phi_p
+                                            theta_poly_diff_e1I_2 += k * (k-1) * n_powers[i, j1, k-2] * n_powers[i, j2, l] * e_powers[j1, j2, m] * theta_p
                                         if l > 1:
-                                            poly_diff_e2I_2 += l * (l-1) * n_powers[i, j1, k] * n_powers[i, j2, l-2] * e_powers[j1, j2, m] * p
+                                            phi_poly_diff_e2I_2 += l * (l-1) * n_powers[i, j1, k] * n_powers[i, j2, l-2] * e_powers[j1, j2, m] * phi_p
+                                            theta_poly_diff_e2I_2 += l * (l - 1) * n_powers[i, j1, k] * n_powers[i, j2, l - 2] * e_powers[j1, j2, m] * theta_p
                                         if m > 1:
-                                            poly_diff_ee_2 += m * (m-1) * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-2] * p
+                                            phi_poly_diff_ee_2 += m * (m-1) * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-2] * phi_p
+                                            theta_poly_diff_ee_2 += m * (m-1) * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-2] * theta_p
                                         if k > 0 and m > 0:
-                                            poly_diff_e1I_ee += k * m * n_powers[i, j1, k-1] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * p
+                                            phi_poly_diff_e1I_ee += k * m * n_powers[i, j1, k-1] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * phi_p
+                                            theta_poly_diff_e1I_ee += k * m * n_powers[i, j1, k - 1] * n_powers[i, j2, l] * e_powers[j1, j2, m - 1] * theta_p
                                         if l > 0 and m > 0:
-                                            poly_diff_e2I_ee += l * m * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m-1] * p
+                                            phi_poly_diff_e2I_ee += l * m * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m-1] * phi_p
+                                            theta_poly_diff_e2I_ee += l * m * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m-1] * theta_p
 
-                            diff_1 = (
-                                (poly_diff_e1I - C*poly/(L - r_e1I))/r_e1I +
-                                (poly_diff_e2I - C*poly/(L - r_e2I))/r_e2I +
-                                4 * poly_diff_ee/r_ee
+                            phi_diff_1 = (
+                                (phi_poly_diff_e1I - C*phi_poly/(L - r_e1I))/r_e1I +
+                                (phi_poly_diff_e2I - C*phi_poly/(L - r_e2I))/r_e2I +
+                                4 * phi_poly_diff_ee/r_ee
                             )
-                            diff_2 = (
-                                (C*(C - 1)*poly/(L - r_e1I)**2 - 2*C*poly_diff_e1I/(L - r_e1I) + poly_diff_e1I_2) +
-                                (C*(C - 1)*poly/(L - r_e2I)**2 - 2*C*poly_diff_e2I/(L - r_e2I) + poly_diff_e2I_2) +
-                                2 * poly_diff_ee_2
+                            phi_diff_2 = (
+                                (C*(C - 1)*phi_poly/(L - r_e1I)**2 - 2*C*phi_poly_diff_e1I/(L - r_e1I) + phi_poly_diff_e1I_2) +
+                                (C*(C - 1)*phi_poly/(L - r_e2I)**2 - 2*C*phi_poly_diff_e2I/(L - r_e2I) + phi_poly_diff_e2I_2) +
+                                2 * phi_poly_diff_ee_2
                             )
-                            dot_product = (
-                                (poly_diff_e1I - C*poly/(L - r_e1I)) * np.eye(3) @ r_e1I_vec/r_e1I -
-                                (poly_diff_e2I - C*poly/(L - r_e2I)) * np.eye(3) @ r_e2I_vec/r_e2I +
-                                (poly_diff_e1I_ee - C*poly_diff_ee/(L - r_e1I)) * np.outer(r_ee_vec, r_ee_vec)/r_ee @ r_e1I_vec/r_e1I -
-                                (poly_diff_e2I_ee - C*poly_diff_ee/(L - r_e2I)) * np.outer(r_ee_vec, r_ee_vec)/r_ee @ r_e2I_vec/r_e2I
+                            phi_dot_product = (
+                                (phi_poly_diff_e1I - C*phi_poly/(L - r_e1I)) * np.eye(3) @ r_e1I_vec/r_e1I -
+                                (phi_poly_diff_e2I - C*phi_poly/(L - r_e2I)) * np.eye(3) @ r_e2I_vec/r_e2I +
+                                (phi_poly_diff_e1I_ee - C*phi_poly_diff_ee/(L - r_e1I)) * np.outer(r_ee_vec, r_ee_vec)/r_ee @ r_e1I_vec/r_e1I -
+                                (phi_poly_diff_e2I_ee - C*phi_poly_diff_ee/(L - r_e2I)) * np.outer(r_ee_vec, r_ee_vec)/r_ee @ r_e2I_vec/r_e2I
                             )
-                            res[j1] += (1-r_e1I/L)**C * (1-r_e2I/L) ** C * ((diff_2 + 2 * diff_1) * r_ee_vec + 2 * dot_product)
-
-                            poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
-                            poly_diff_e1I_2 = poly_diff_e2I_2 = poly_diff_ee_2 = 0.0
-                            poly_diff_e1I_ee = poly_diff_e2I_ee = 0.0
-                            for k in range(theta_parameters.shape[0]):
-                                for l in range(theta_parameters.shape[1]):
-                                    for m in range(theta_parameters.shape[2]):
-                                        p = theta_parameters[k, l, m, phi_set]
-                                        poly += n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
-                                        if k > 0:
-                                            poly_diff_e1I += k * n_powers[i, j1, k-1] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
-                                        if l > 0:
-                                            poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m] * p
-                                        if m > 0:
-                                            poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * p
-                                        if k > 1:
-                                            poly_diff_e1I_2 += k * (k-1) * n_powers[i, j1, k-2] * n_powers[i, j2, l] * e_powers[j1, j2, m] * p
-                                        if l > 1:
-                                            poly_diff_e2I_2 += l * (l-1) * n_powers[i, j1, k] * n_powers[i, j2, l-2] * e_powers[j1, j2, m] * p
-                                        if m > 1:
-                                            poly_diff_ee_2 += m * (m-1) * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-2] * p
-                                        if k > 0 and m > 0:
-                                            poly_diff_e1I_ee += k * m * n_powers[i, j1, k-1] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * p
-                                        if l > 0 and m > 0:
-                                            poly_diff_e2I_ee += l * m * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m-1] * p
-
-                            diff_1 = (
-                                2 * (poly_diff_e1I - C*poly/(L - r_e1I))/r_e1I +
-                                (poly_diff_e2I - C*poly/(L - r_e2I))/r_e2I +
-                                2 * poly_diff_ee/r_ee
+                            theta_diff_1 = (
+                                2 * (theta_poly_diff_e1I - C*theta_poly/(L - r_e1I))/r_e1I +
+                                (theta_poly_diff_e2I - C*theta_poly/(L - r_e2I))/r_e2I +
+                                2 * theta_poly_diff_ee/r_ee
                             )
-                            diff_2 = (
-                                (C*(C - 1)*poly/(L - r_e1I)**2 - 2*C*poly_diff_e1I/(L - r_e1I) + poly_diff_e1I_2) +
-                                (C*(C - 1)*poly/(L - r_e2I)**2 - 2*C*poly_diff_e2I/(L - r_e2I) + poly_diff_e2I_2) +
-                                2 * poly_diff_ee_2
+                            theta_diff_2 = (
+                                (C*(C - 1)*theta_poly/(L - r_e1I)**2 - 2*C*theta_poly_diff_e1I/(L - r_e1I) + theta_poly_diff_e1I_2) +
+                                (C*(C - 1)*theta_poly/(L - r_e2I)**2 - 2*C*theta_poly_diff_e2I/(L - r_e2I) + theta_poly_diff_e2I_2) +
+                                2 * theta_poly_diff_ee_2
                             )
-                            dot_product = (
-                                (poly_diff_e1I_ee - C*poly_diff_ee/(L - r_e1I)) * np.outer(r_e1I_vec, r_e1I_vec)/r_e1I @ r_ee_vec/r_ee -
-                                (poly_diff_e2I_ee - C*poly_diff_ee/(L - r_e2I)) * np.outer(r_e1I_vec, r_e2I_vec)/r_e2I @ r_ee_vec/r_ee +
-                                poly_diff_ee * np.eye(3) @ r_ee_vec/r_ee
+                            theta_dot_product = (
+                                (theta_poly_diff_e1I_ee - C*theta_poly_diff_ee/(L - r_e1I)) * np.outer(r_e1I_vec, r_e1I_vec)/r_e1I @ r_ee_vec/r_ee -
+                                (theta_poly_diff_e2I_ee - C*theta_poly_diff_ee/(L - r_e2I)) * np.outer(r_e1I_vec, r_e2I_vec)/r_e2I @ r_ee_vec/r_ee +
+                                theta_poly_diff_ee * np.eye(3) @ r_ee_vec/r_ee
                             )
-                            res[j1] += (1-r_e1I/L)**C * (1-r_e2I/L) ** C * ((diff_2 + 2 * diff_1) * r_e1I_vec + 2 * dot_product)
+                            res[j1] += (1-r_e1I/L)**C * (1-r_e2I/L) ** C * (
+                                (phi_diff_2 + 2 * phi_diff_1) * r_ee_vec + 2 * phi_dot_product +
+                                (theta_diff_2 + 2 * theta_diff_1) * r_e1I_vec + 2 * theta_dot_product
+                            )
 
         return res.ravel()
 
