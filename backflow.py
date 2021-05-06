@@ -4,6 +4,7 @@ import numpy as np
 import numba as nb
 # import scipy as sp
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 from mpl_toolkits.mplot3d import Axes3D
 
 from readers.casino import Casino
@@ -472,32 +473,41 @@ class Backflow:
                                     for m in range(phi_parameters.shape[2]):
                                         phi_p = phi_parameters[k, l, m, phi_set]
                                         theta_p = theta_parameters[k, l, m, phi_set]
-                                        phi_poly += n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m] * phi_p
-                                        theta_poly += n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m] * theta_p
+                                        poly = n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m]
+                                        phi_poly += poly * phi_p
+                                        theta_poly += poly * theta_p
                                         if k > 0:
-                                            phi_poly_diff_e1I += k * n_powers[i, j1, k-1] * n_powers[i, j2, l] * e_powers[j1, j2, m] * phi_p
-                                            theta_poly_diff_e1I += k * n_powers[i, j1, k - 1] * n_powers[i, j2, l] * e_powers[j1, j2, m] * theta_p
+                                            poly_diff_e1I = k * n_powers[i, j1, k-1] * n_powers[i, j2, l] * e_powers[j1, j2, m]
+                                            phi_poly_diff_e1I += poly_diff_e1I * phi_p
+                                            theta_poly_diff_e1I += poly_diff_e1I * theta_p
                                         if l > 0:
-                                            phi_poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m] * phi_p
-                                            theta_poly_diff_e2I += l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m] * theta_p
+                                            poly_diff_e2I = l * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m]
+                                            phi_poly_diff_e2I += poly_diff_e2I * phi_p
+                                            theta_poly_diff_e2I += poly_diff_e2I * theta_p
                                         if m > 0:
-                                            phi_poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * phi_p
-                                            theta_poly_diff_ee += m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m - 1] * theta_p
+                                            poly_diff_ee = m * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-1]
+                                            phi_poly_diff_ee += poly_diff_ee * phi_p
+                                            theta_poly_diff_ee += poly_diff_ee * theta_p
                                         if k > 1:
-                                            phi_poly_diff_e1I_2 += k * (k-1) * n_powers[i, j1, k-2] * n_powers[i, j2, l] * e_powers[j1, j2, m] * phi_p
-                                            theta_poly_diff_e1I_2 += k * (k-1) * n_powers[i, j1, k-2] * n_powers[i, j2, l] * e_powers[j1, j2, m] * theta_p
+                                            poly_diff_e1I_2 = k * (k-1) * n_powers[i, j1, k-2] * n_powers[i, j2, l] * e_powers[j1, j2, m]
+                                            phi_poly_diff_e1I_2 += poly_diff_e1I_2 * phi_p
+                                            theta_poly_diff_e1I_2 += poly_diff_e1I_2 * theta_p
                                         if l > 1:
-                                            phi_poly_diff_e2I_2 += l * (l-1) * n_powers[i, j1, k] * n_powers[i, j2, l-2] * e_powers[j1, j2, m] * phi_p
-                                            theta_poly_diff_e2I_2 += l * (l - 1) * n_powers[i, j1, k] * n_powers[i, j2, l - 2] * e_powers[j1, j2, m] * theta_p
+                                            poly_diff_e2I_2 = l * (l-1) * n_powers[i, j1, k] * n_powers[i, j2, l-2] * e_powers[j1, j2, m]
+                                            phi_poly_diff_e2I_2 += poly_diff_e2I_2 * phi_p
+                                            theta_poly_diff_e2I_2 += poly_diff_e2I_2 * theta_p
                                         if m > 1:
-                                            phi_poly_diff_ee_2 += m * (m-1) * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-2] * phi_p
-                                            theta_poly_diff_ee_2 += m * (m-1) * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-2] * theta_p
+                                            poly_diff_ee_2 = m * (m-1) * n_powers[i, j1, k] * n_powers[i, j2, l] * e_powers[j1, j2, m-2]
+                                            phi_poly_diff_ee_2 += poly_diff_ee_2 * phi_p
+                                            theta_poly_diff_ee_2 += poly_diff_ee_2 * theta_p
                                         if k > 0 and m > 0:
-                                            phi_poly_diff_e1I_ee += k * m * n_powers[i, j1, k-1] * n_powers[i, j2, l] * e_powers[j1, j2, m-1] * phi_p
-                                            theta_poly_diff_e1I_ee += k * m * n_powers[i, j1, k - 1] * n_powers[i, j2, l] * e_powers[j1, j2, m - 1] * theta_p
+                                            poly_diff_e1I_ee = k * m * n_powers[i, j1, k-1] * n_powers[i, j2, l] * e_powers[j1, j2, m-1]
+                                            phi_poly_diff_e1I_ee += poly_diff_e1I_ee * phi_p
+                                            theta_poly_diff_e1I_ee += poly_diff_e1I_ee * theta_p
                                         if l > 0 and m > 0:
-                                            phi_poly_diff_e2I_ee += l * m * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m-1] * phi_p
-                                            theta_poly_diff_e2I_ee += l * m * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m-1] * theta_p
+                                            poly_diff_e2I_ee = l * m * n_powers[i, j1, k] * n_powers[i, j2, l-1] * e_powers[j1, j2, m-1]
+                                            phi_poly_diff_e2I_ee += poly_diff_e2I_ee * phi_p
+                                            theta_poly_diff_e2I_ee += poly_diff_e2I_ee * theta_p
 
                             phi_diff_1 = (
                                 (phi_poly_diff_e1I - C*phi_poly/(L - r_e1I))/r_e1I +
@@ -552,100 +562,6 @@ class Backflow:
             self.mu_term(n_vectors, n_powers) +
             self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
         )
-
-    def eta_gradient(self, e_vectors, n_vectors):
-        """Gradient with respect to e-coordinates
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return:
-        """
-        e_powers = self.ee_powers(e_vectors)
-        n_powers = self.en_powers(n_vectors)
-
-        a = self.ae_multiplier_gradient(n_vectors, n_powers) * self.eta_term(e_vectors, e_powers).reshape((-1, 1))
-        b = self.eta_term_gradient(e_powers, e_vectors) * self.ae_multiplier(n_vectors, n_powers).reshape((-1, 1))
-
-        return a + b
-
-    def eta_laplacian(self, e_vectors, n_vectors):
-        """Gradient with respect to e-coordinates
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return:
-        """
-        e_powers = self.ee_powers(e_vectors)
-        n_powers = self.en_powers(n_vectors)
-
-        a = self.ae_multiplier_laplacian(n_vectors, n_powers) * self.eta_term(e_vectors, e_powers).ravel()
-        b = np.zeros(((self.neu + self.ned) * 3))
-        term_gradient = self.eta_term_gradient(e_powers, e_vectors)
-        cutoff_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
-        for i in range((self.neu + self.ned) * 3):
-            b[i] = np.sum(term_gradient[i] * cutoff_gradient[i])
-        c = self.eta_term_laplacian(e_powers, e_vectors) * self.ae_multiplier(n_vectors, n_powers).ravel()
-
-        return a + 2 * b + c
-
-    def numerical_eta_gradient(self, e_vectors, n_vectors):
-        """Numerical gradient with respect to a e-coordinates
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return: partial derivatives of displacements of electrons - array(nelec * 3, nelec * 3)
-        """
-        delta = 0.00001
-
-        res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
-
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-                e_powers = self.ee_powers(e_vectors)
-                n_powers = self.en_powers(n_vectors)
-                res[:, :, i, j] -= self.eta_term(e_vectors, e_powers) * self.ae_multiplier(n_vectors, n_powers)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
-                e_powers = self.ee_powers(e_vectors)
-                n_powers = self.en_powers(n_vectors)
-                res[:, :, i, j] += self.eta_term(e_vectors, e_powers) * self.ae_multiplier(n_vectors, n_powers)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-
-        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
-
-    def numerical_eta_laplacian(self, e_vectors, n_vectors):
-        """Numerical laplacian with respect to a e-coordinates
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return: vector laplacian - array(nelec * 3)
-        """
-        delta = 0.00001
-
-        e_powers = self.ee_powers(e_vectors)
-        n_powers = self.en_powers(n_vectors)
-        res = -6 * (self.neu + self.ned) * self.eta_term(e_vectors, e_powers) * self.ae_multiplier(n_vectors, n_powers)
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-                e_powers = self.ee_powers(e_vectors)
-                n_powers = self.en_powers(n_vectors)
-                res += self.eta_term(e_vectors, e_powers) * self.ae_multiplier(n_vectors, n_powers)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
-                e_powers = self.ee_powers(e_vectors)
-                n_powers = self.en_powers(n_vectors)
-                res += self.eta_term(e_vectors, e_powers) * self.ae_multiplier(n_vectors, n_powers)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-
-        return res.ravel() / delta / delta
 
     def numerical_gradient(self, e_vectors, n_vectors):
         """Numerical gradient with respect to a e-coordinates
@@ -742,7 +658,7 @@ if __name__ == '__main__':
     """Plot Backflow terms
     """
 
-    term = 'mu'
+    term = 'all'
 
     path = 'test/stowfn/He/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/'
@@ -760,13 +676,12 @@ if __name__ == '__main__':
         casino.backflow.phi_labels, casino.backflow.phi_irrotational, casino.backflow.ae_cutoff
     )
 
-    steps = 100
-
     if term == 'eta':
         x_min, x_max = 0, np.max(backflow.eta_cutoff)
+        steps = 100
         x_grid = np.linspace(x_min, x_max, steps)
         for spin_dep in range(3):
-            backflow.neu = 2-spin_dep
+            backflow.neu = 2 - spin_dep
             backflow.ned = spin_dep
             y_grid = np.zeros((steps, ))
             for i in range(100):
@@ -781,6 +696,7 @@ if __name__ == '__main__':
     elif term == 'mu':
         for atom in range(casino.wfn.atom_positions.shape[0]):
             x_min, x_max = 0, backflow.mu_cutoff[atom]
+            steps = 100
             x_grid = np.linspace(x_min, x_max, steps)
             for spin_dep in range(2):
                 backflow.neu = 1 - spin_dep
@@ -791,11 +707,109 @@ if __name__ == '__main__':
                     sl = slice(atom, atom+1)
                     backflow.mu_parameters = nb.typed.List.empty_list(mu_parameters_type)
                     [backflow.mu_parameters.append(p) for p in casino.backflow.mu_parameters[sl]]
-                    n_vectors = subtract_outer(casino.wfn.atom_positions[sl], r_e)
+                    n_vectors = -subtract_outer(casino.wfn.atom_positions[sl], r_e)
                     n_powers = backflow.en_powers(n_vectors)
                     y_grid[i] = backflow.mu_term(n_vectors, n_powers)[0, 0]
                 plt.plot(x_grid, y_grid, label=f'atom {atom} ' + ['u', 'd'][spin_dep])
+    elif term == 'all':
+        plot_type = 2
+        xy_nucl = (0.0, 0.0)
+        xy_elec = (1.0, 0.0)
+        for atom in range(casino.wfn.atom_positions.shape[0]):
+            max_l = max((backflow.eta_cutoff, backflow.mu_cutoff[atom], backflow.phi_cutoff[atom]))
+            x_max = y_max = max_l
+            x_min = y_min = -max_l
+            x_steps = 25
+            y_steps = 25
+            x_grid = np.linspace(x_min, x_max, x_steps)
+            y_grid = np.linspace(y_min, y_max, y_steps)
+            ij_certesian = np.meshgrid(x_grid, y_grid, indexing='ij')
+            xy_certesian = np.meshgrid(x_grid, y_grid, indexing='xy')
+            phi_ij_certesian = np.zeros((2, x_steps, y_steps))
+            phi_xy_certesian = np.zeros((2, x_steps, y_steps))
+            for i in range(x_steps):
+                for j in range(y_steps):
+                    r_e = np.array([[x_grid[i], y_grid[j], 0.0], [1.0, 0.0, 0.0]]) + casino.wfn.atom_positions[atom]
+                    sl = slice(atom, atom + 1)
+                    e_vectors = subtract_outer(r_e, r_e)
+                    e_powers = backflow.ee_powers(e_vectors)
+                    n_vectors = -subtract_outer(casino.wfn.atom_positions[sl], r_e)
+                    n_powers = backflow.en_powers(n_vectors)
+                    phi_ij_certesian[:, i, j] = backflow.value(e_vectors, n_vectors)[0, 0:2]
+                    phi_xy_certesian[:, j, i] = backflow.value(e_vectors, n_vectors)[0, 0:2]
+            fig_2D, axs = plt.subplots(1, 2)
+            for spin_dep in range(2):
+                axs[spin_dep].clear()
+                backflow.neu = 2 - spin_dep
+                backflow.ned = spin_dep
+                axs[spin_dep].set_title('{} backflow {} term'.format('all', ['u-u', 'u-d'][spin_dep]))
+                axs[spin_dep].set_aspect('equal', adjustable='box')
+                axs[spin_dep].plot(*xy_nucl, 'ro', label='nucleus')
+                axs[spin_dep].plot(*xy_elec, 'mo', label='electron')
+                axs[spin_dep].set_xlabel('X axis')
+                axs[spin_dep].set_ylabel('Y axis')
+                if plot_type == 0:
+                    axs[spin_dep].quiver(
+                        *ij_certesian,
+                        *phi_ij_certesian,
+                        angles='xy', scale_units='xy',
+                        scale=1, color=['blue', 'green'][spin_dep]
+                    )
+                elif plot_type == 1:
+                    axs[spin_dep].plot(
+                        *(ij_certesian + phi_ij_certesian),
+                        color=['blue', 'green'][spin_dep]
+                    )
+                    axs[spin_dep].plot(
+                        *(xy_certesian + phi_xy_certesian),
+                        color=['blue', 'green'][spin_dep]
+                    )
+                elif plot_type == 2:
+                    x_steps = 10
+                    y_steps = 25
+                    r = np.linspace(0, x_max, x_steps)[:, np.newaxis]
+                    theta = np.linspace(0, 2 * np.pi, y_steps)
+                    x = r * np.cos(theta)
+                    y = r * np.sin(theta)
+                    ij_radial = np.array([x, y])
+                    phi_ij_radial = np.zeros((2, x_steps, y_steps))
+                    axs[spin_dep].plot(
+                        *(ij_radial + phi_ij_radial),
+                        color=['blue', 'green'][spin_dep]
+                    )
 
+                    x_steps = 25
+                    y_steps = 10
+                    theta = np.linspace(0, 2 * np.pi, x_steps)[:, np.newaxis]
+                    r = np.linspace(0, x_max, y_steps)
+                    x = r * np.cos(theta)
+                    y = r * np.sin(theta)
+                    xy_radial = np.array([x, y])
+                    phi_xy_radial = np.zeros((2, x_steps, y_steps))
+                    axs[spin_dep].plot(
+                        *(xy_radial + phi_xy_radial),
+                        color=['blue', 'green'][spin_dep]
+                    )
+                elif plot_type == 3:
+                    pass
+                    # contours = axs[spin_dep].contour(
+                    #     grid_3D('ij')[0][:, :, 1],
+                    #     grid_3D('ij')[1][:, :, 1],
+                    #     jacobian_det('ij', ri_spin, rj_spin, self.set)[:, :, 1],
+                    #     10,
+                    #     colors='black'
+                    # )
+                    # plt.clabel(contours, inline=True, fontsize=8)
+
+                if backflow.eta_cutoff is not None:
+                    axs[spin_dep].add_patch(Circle(xy_elec, backflow.eta_cutoff, fill=False, linestyle=':', label='ETA e-e cutoff'))
+                if backflow.mu_cutoff[atom] is not None:
+                    axs[spin_dep].add_patch(Circle(xy_nucl, backflow.mu_cutoff[atom], fill=False, color='c', label='MU e-n cutoff'))
+                if backflow.phi_cutoff[atom] is not None:
+                    axs[spin_dep].add_patch(Circle(xy_nucl, backflow.phi_cutoff[atom], fill=False, color='y', label='PHI e-n cutoff'))
+                if backflow.ae_cutoff[atom] is not None:
+                    axs[spin_dep].add_patch(Circle(xy_nucl, backflow.ae_cutoff[atom], fill=False, label='AE cutoff'))
+                axs[spin_dep].legend()
     plt.grid(True)
     plt.legend()
     plt.show()
