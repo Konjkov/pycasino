@@ -696,12 +696,13 @@ if __name__ == '__main__':
     sys     0m0,488s
     """
 
-    path = 'test/gwfn/He/HF/cc-pVQZ/Slater/'
+    # path = 'test/gwfn/He/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/Be/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/Ne/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/Ae/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/Kr/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/O3/HF/cc-pVQZ/Slater/'
+
     # path = 'test/stowfn/He/HF/QZ4P/Slater/'
     # path = 'test/stowfn/Be/HF/QZ4P/Slater/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Slater/'

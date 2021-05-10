@@ -660,7 +660,7 @@ if __name__ == '__main__':
 
     term = 'all'
 
-    path = 'test/stowfn/He/HF/QZ4P/Backflow/'
+    # path = 'test/stowfn/He/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Be/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/'
     # path = 'test/stowfn/Ar/HF/QZ4P/Backflow/'
