@@ -405,6 +405,12 @@ class Slater:
 
     def laplacian(self, n_vectors: np.ndarray) -> float:
         """Scalar laplacian Δ(phi).
+        Δ(det(slater)) = det(slater) * sum(tr(slater**-1 * B(n)) over n
+        where the matrix B(n) is zero with the exception of the n-th column
+        as tr(A) + tr(B) = tr(A + B)
+        Δ(det(slater)) = det(slater) * tr(slater**-1 * B)
+        where the matrix Bij = ∆phi i (rj)
+        then using np.trace(A @ B) = np.sum(A * B.T)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         ao = self.AO_wfn(n_vectors)
@@ -415,11 +421,11 @@ class Slater:
 
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
             lap_u = self.mo_up[i] @ ao_laplacian[:self.neu].T
-            res_u = np.trace(np.linalg.inv(wfn_u) @ lap_u)
+            res_u = np.sum(np.linalg.inv(wfn_u) * lap_u.T)
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
             lap_d = self.mo_down[i] @ ao_laplacian[self.neu:].T
-            res_d = np.trace(np.linalg.inv(wfn_d) @ lap_d)
+            res_d = np.sum(np.linalg.inv(wfn_d) * lap_d.T)
 
             res += self.coeff[i] * (res_u + res_d) * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
 
