@@ -373,8 +373,6 @@ class Slater:
         """
         ao = self.AO_wfn(n_vectors)
         gradient_x, gradient_y, gradient_z = self.AO_gradient(n_vectors)
-        cond_u = np.arange(self.neu) * np.ones((self.neu, self.neu))
-        cond_d = np.arange(self.ned) * np.ones((self.ned, self.ned))
 
         res = np.zeros((self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
@@ -386,10 +384,9 @@ class Slater:
             grad_z = self.mo_up[i] @ gradient_z[:self.neu].T
 
             res_u = np.zeros((self.neu, 3))
-            for j in range(self.neu):
-                res_u[j, 0] = np.trace(inv_wfn_u @ np.where(cond_u == j, grad_x, 0))
-                res_u[j, 1] = np.trace(inv_wfn_u @ np.where(cond_u == j, grad_y, 0))
-                res_u[j, 2] = np.trace(inv_wfn_u @ np.where(cond_u == j, grad_z, 0))
+            res_u[:, 0] = np.diag(inv_wfn_u @ grad_x)
+            res_u[:, 1] = np.diag(inv_wfn_u @ grad_y)
+            res_u[:, 2] = np.diag(inv_wfn_u @ grad_z)
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
             inv_wfn_d = np.linalg.inv(wfn_d)
@@ -398,10 +395,9 @@ class Slater:
             grad_z = self.mo_down[i] @ gradient_z[self.neu:].T
 
             res_d = np.zeros((self.ned, 3))
-            for j in range(self.ned):
-                res_d[j, 0] = np.trace(inv_wfn_d @ np.where(cond_d == j, grad_x, 0))
-                res_d[j, 1] = np.trace(inv_wfn_d @ np.where(cond_d == j, grad_y, 0))
-                res_d[j, 2] = np.trace(inv_wfn_d @ np.where(cond_d == j, grad_z, 0))
+            res_d[:, 0] = np.diag(inv_wfn_d @ grad_x)
+            res_d[:, 1] = np.diag(inv_wfn_d @ grad_y)
+            res_d[:, 2] = np.diag(inv_wfn_d @ grad_z)
 
             res += self.coeff[i] * np.concatenate((res_u, res_d)) * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
 
