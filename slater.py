@@ -359,7 +359,9 @@ class Slater:
 
         res = 0.0
         for i in range(self.coeff.shape[0]):
-            res += self.coeff[i] * np.linalg.det(self.mo_up[i] @ ao[:self.neu].T) * np.linalg.det(self.mo_down[i] @ ao[self.neu:].T)
+            wfn_u = self.mo_up[i] @ ao[:self.neu].T
+            wfn_d = self.mo_down[i] @ ao[self.neu:].T
+            res += self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
         return res
 
     def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
@@ -378,28 +380,30 @@ class Slater:
         for i in range(self.coeff.shape[0]):
 
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
+            inv_wfn_u = np.linalg.inv(wfn_u)
             grad_x = self.mo_up[i] @ gradient_x[:self.neu].T
             grad_y = self.mo_up[i] @ gradient_y[:self.neu].T
             grad_z = self.mo_up[i] @ gradient_z[:self.neu].T
 
             res_u = np.zeros((self.neu, 3))
             for j in range(self.neu):
-                res_u[j, 0] = np.linalg.det(np.where(cond_u == j, grad_x, wfn_u))
-                res_u[j, 1] = np.linalg.det(np.where(cond_u == j, grad_y, wfn_u))
-                res_u[j, 2] = np.linalg.det(np.where(cond_u == j, grad_z, wfn_u))
+                res_u[j, 0] = np.trace(inv_wfn_u @ np.where(cond_u == j, grad_x, 0))
+                res_u[j, 1] = np.trace(inv_wfn_u @ np.where(cond_u == j, grad_y, 0))
+                res_u[j, 2] = np.trace(inv_wfn_u @ np.where(cond_u == j, grad_z, 0))
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
+            inv_wfn_d = np.linalg.inv(wfn_d)
             grad_x = self.mo_down[i] @ gradient_x[self.neu:].T
             grad_y = self.mo_down[i] @ gradient_y[self.neu:].T
             grad_z = self.mo_down[i] @ gradient_z[self.neu:].T
 
             res_d = np.zeros((self.ned, 3))
             for j in range(self.ned):
-                res_d[j, 0] = np.linalg.det(np.where(cond_d == j, grad_x, wfn_d))
-                res_d[j, 1] = np.linalg.det(np.where(cond_d == j, grad_y, wfn_d))
-                res_d[j, 2] = np.linalg.det(np.where(cond_d == j, grad_z, wfn_d))
+                res_d[j, 0] = np.trace(inv_wfn_d @ np.where(cond_d == j, grad_x, 0))
+                res_d[j, 1] = np.trace(inv_wfn_d @ np.where(cond_d == j, grad_y, 0))
+                res_d[j, 2] = np.trace(inv_wfn_d @ np.where(cond_d == j, grad_z, 0))
 
-            res += self.coeff[i] * np.concatenate((res_u * np.linalg.det(wfn_d), res_d * np.linalg.det(wfn_u)))
+            res += self.coeff[i] * np.concatenate((res_u, res_d)) * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
 
         return res.ravel()
 
@@ -409,27 +413,19 @@ class Slater:
         """
         ao = self.AO_wfn(n_vectors)
         ao_laplacian = self.AO_laplacian(n_vectors)
-        cond_u = np.arange(self.neu) * np.ones((self.neu, self.neu))
-        cond_d = np.arange(self.ned) * np.ones((self.ned, self.ned))
 
         res = 0
         for i in range(self.coeff.shape[0]):
 
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
             lap_u = self.mo_up[i] @ ao_laplacian[:self.neu].T
-
-            res_u = 0
-            for j in range(self.neu):
-                res_u += np.linalg.det(np.where(cond_u == j, lap_u, wfn_u))
+            res_u = np.trace(np.linalg.inv(wfn_u) @ lap_u)
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
             lap_d = self.mo_down[i] @ ao_laplacian[self.neu:].T
+            res_d = np.trace(np.linalg.inv(wfn_d) @ lap_d)
 
-            res_d = 0
-            for j in range(self.ned):
-                res_d += np.linalg.det(np.where(cond_d == j, lap_d, wfn_d))
-
-            res += self.coeff[i] * (res_u * np.linalg.det(wfn_d) + res_d * np.linalg.det(wfn_u))
+            res += self.coeff[i] * (res_u + res_d) * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
 
         return res
 
