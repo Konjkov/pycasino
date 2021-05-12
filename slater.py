@@ -445,6 +445,7 @@ class Slater:
         for i in range(self.coeff.shape[0]):
 
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
+            inv_wfn_u = np.linalg.inv(wfn_u)
             grad_x = self.mo_up[i] @ gradient_x[:self.neu].T
             grad_y = self.mo_up[i] @ gradient_y[:self.neu].T
             grad_z = self.mo_up[i] @ gradient_z[:self.neu].T
@@ -457,16 +458,18 @@ class Slater:
 
             res_grad_u = np.zeros((self.neu, 3))
             res_u = np.zeros((self.neu, 3, self.neu, 3))
+            res_grad_u[:, 0] = np.diag(inv_wfn_u @ grad_x)
+            res_grad_u[:, 1] = np.diag(inv_wfn_u @ grad_y)
+            res_grad_u[:, 2] = np.diag(inv_wfn_u @ grad_z)
+            t = np.zeros((self.neu, 3, 3))
+            t[:, 0, 0] = np.diag(inv_wfn_u @ hess_xx)
+            t[:, 0, 1] = t[:, 1, 0] = np.diag(inv_wfn_u @ hess_xy)
+            t[:, 1, 1] = np.diag(inv_wfn_u @ hess_yy)
+            t[:, 2, 0] = t[:, 0, 2] = np.diag(inv_wfn_u @ hess_xz)
+            t[:, 2, 1] = t[:, 1, 2] = np.diag(inv_wfn_u @ hess_yz)
+            t[:, 2, 2] = np.diag(inv_wfn_u @ hess_zz)
             for j in range(self.neu):
-                res_grad_u[j, 0] = np.linalg.det(np.where(cond_u == j, grad_x, wfn_u))
-                res_grad_u[j, 1] = np.linalg.det(np.where(cond_u == j, grad_y, wfn_u))
-                res_grad_u[j, 2] = np.linalg.det(np.where(cond_u == j, grad_z, wfn_u))
-                res_u[j, 0, j, 0] = np.linalg.det(np.where(cond_u == j, hess_xx, wfn_u))
-                res_u[j, 0, j, 1] = res_u[j, 1, j, 0] = np.linalg.det(np.where(cond_u == j, hess_xy, wfn_u))
-                res_u[j, 1, j, 1] = np.linalg.det(np.where(cond_u == j, hess_yy, wfn_u))
-                res_u[j, 0, j, 2] = res_u[j, 2, j, 0] = np.linalg.det(np.where(cond_u == j, hess_xz, wfn_u))
-                res_u[j, 1, j, 2] = res_u[j, 2, j, 1] = np.linalg.det(np.where(cond_u == j, hess_yz, wfn_u))
-                res_u[j, 2, j, 2] = np.linalg.det(np.where(cond_u == j, hess_zz, wfn_u))
+                res_u[j, :, j, :] = np.linalg.det(wfn_u) * t[j]
 
             for j in range(self.neu):
                 for k in range(j):
@@ -484,6 +487,7 @@ class Slater:
                     res_u[k, :, j, :] = res_u[j, :, k, :].T
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
+            inv_wfn_d = np.linalg.inv(wfn_d)
             grad_x = self.mo_down[i] @ gradient_x[self.neu:].T
             grad_y = self.mo_down[i] @ gradient_y[self.neu:].T
             grad_z = self.mo_down[i] @ gradient_z[self.neu:].T
@@ -496,16 +500,18 @@ class Slater:
 
             res_grad_d = np.zeros((self.ned, 3))
             res_d = np.zeros((self.ned, 3, self.ned, 3))
+            res_grad_d[:, 0] = np.diag(inv_wfn_d @ grad_x)
+            res_grad_d[:, 1] = np.diag(inv_wfn_d @ grad_y)
+            res_grad_d[:, 2] = np.diag(inv_wfn_d @ grad_z)
+            t = np.zeros((self.ned, 3, 3))
+            t[:, 0, 0] = np.diag(inv_wfn_d @ hess_xx)
+            t[:, 0, 1] = t[:, 1, 0] = np.diag(inv_wfn_d @ hess_xy)
+            t[:, 1, 1] = np.diag(inv_wfn_d @ hess_yy)
+            t[:, 2, 0] = t[:, 0, 2] = np.diag(inv_wfn_d @ hess_xz)
+            t[:, 2, 1] = t[:, 1, 2] = np.diag(inv_wfn_d @ hess_yz)
+            t[:, 2, 2] = np.diag(inv_wfn_d @ hess_zz)
             for j in range(self.ned):
-                res_grad_d[j, 0] = np.linalg.det(np.where(cond_d == j, grad_x, wfn_d))
-                res_grad_d[j, 1] = np.linalg.det(np.where(cond_d == j, grad_y, wfn_d))
-                res_grad_d[j, 2] = np.linalg.det(np.where(cond_d == j, grad_z, wfn_d))
-                res_d[j, 0, j, 0] = np.linalg.det(np.where(cond_d == j, hess_xx, wfn_d))
-                res_d[j, 0, j, 1] = res_d[j, 1, j, 0] = np.linalg.det(np.where(cond_d == j, hess_xy, wfn_d))
-                res_d[j, 1, j, 1] = np.linalg.det(np.where(cond_d == j, hess_yy, wfn_d))
-                res_d[j, 0, j, 2] = res_d[j, 2, j, 0] = np.linalg.det(np.where(cond_d == j, hess_xz, wfn_d))
-                res_d[j, 1, j, 2] = res_d[j, 2, j, 1] = np.linalg.det(np.where(cond_d == j, hess_yz, wfn_d))
-                res_d[j, 2, j, 2] = np.linalg.det(np.where(cond_d == j, hess_zz, wfn_d))
+                res_d[j, :, j, :] = np.linalg.det(wfn_d) * t[j]
 
             for j in range(self.ned):
                 for k in range(j):
@@ -526,8 +532,8 @@ class Slater:
             res[self.neu:, :, self.neu:, :] += self.coeff[i] * res_d * np.linalg.det(wfn_u)
 
             # input is flattened if not already 1 - dimensional
-            res_ud = np.outer(res_grad_u, res_grad_d)
-            res_du = np.outer(res_grad_d, res_grad_u)
+            res_ud = np.outer(res_grad_u, res_grad_d) * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
+            res_du = np.outer(res_grad_d, res_grad_u) * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
             res[:self.neu, :, self.neu:, :] += self.coeff[i] * res_ud.reshape(self.neu, 3, self.ned, 3)
             res[self.neu:, :, :self.neu, :] += self.coeff[i] * res_du.reshape(self.ned, 3, self.neu, 3)
 
