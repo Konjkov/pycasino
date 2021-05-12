@@ -471,7 +471,7 @@ class Slater:
             for j in range(self.neu):
                 res_u[j, :, j, :] = np.linalg.det(wfn_u) * t[j]
 
-            for j in range(self.neu):
+            for j in range(1, self.neu):
                 for k in range(j):
                     cond = np.logical_or(cond_u == j, cond_u == k)
                     not_cond = np.logical_not(cond)
@@ -513,7 +513,7 @@ class Slater:
             for j in range(self.ned):
                 res_d[j, :, j, :] = np.linalg.det(wfn_d) * t[j]
 
-            for j in range(self.ned):
+            for j in range(1, self.ned):
                 for k in range(j):
                     cond = np.logical_or(cond_d == j, cond_d == k)
                     not_cond = np.logical_not(cond)
