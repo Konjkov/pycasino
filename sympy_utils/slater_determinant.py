@@ -25,9 +25,9 @@ def laplacian(dim):
 
 
 def gradient_simplified(dim):
-    return [det(Matrix(
-        [[diff(phi[i](r[j]), r[j]) if j == k else phi[i](r[j]) for j in range(dim)] for i in range(dim)]
-    )) for k in range(dim)]
+    return det(slater(dim)) * simplify(
+        (slater(dim)**-1 * Matrix([[diff(phi[i](r[j]), r[j]) for j in range(dim)] for i in range(dim)])).diagonal()
+    )
 
 
 def hessian_simplified(dim):
@@ -46,9 +46,10 @@ def hessian_simplified(dim):
 
 
 def laplacian_simplified(dim):
-    return sum(det(Matrix(
-        [[diff(phi[i](r[j]), r[j], r[j]) if j == k else phi[i](r[j]) for j in range(dim)] for i in range(dim)]
-    )) for k in range(dim))
+    return det(slater(dim)) * simplify(
+        # HadamardProduct(slater(dim)**-1, Matrix([[diff(phi[i](r[j]), r[j], r[j]) for j in range(dim)] for i in range(dim)]))
+         Trace(slater(dim)**-1 * Matrix([[diff(phi[i](r[j]), r[j], r[j]) for j in range(dim)] for i in range(dim)]))
+    )
 
 
 if __name__ == "__main__":
@@ -58,9 +59,9 @@ if __name__ == "__main__":
     phi = [Function(f'phi{i}') for i in range(N)]
 
     for dim in range(1, N):
-        print(f'laplacian {dim} {laplacian(dim) - laplacian_simplified(dim)}')
+        print(f'laplacian {dim} {simplify(laplacian(dim) - laplacian_simplified(dim))}')
         for i in range(dim):
-            print(f'gradient  {dim} {gradient(dim)[i] - gradient_simplified(dim)[i]}')
+            print(f'gradient  {dim} {simplify(gradient(dim)[i] - gradient_simplified(dim)[i])}')
         for i in range(dim):
             for j in range(dim):
                 print(f'hessian {dim} {hessian(dim)[i][j] - hessian_simplified(dim)[i][j]}')
