@@ -469,21 +469,25 @@ class Slater:
             t[:, 2, 1] = t[:, 1, 2] = np.diag(inv_wfn_u @ hess_yz)
             t[:, 2, 2] = np.diag(inv_wfn_u @ hess_zz)
             for j in range(self.neu):
-                res_u[j, :, j, :] = np.linalg.det(wfn_u) * t[j]
+                res_u[j, :, j, :] = t[j]
 
             for j in range(1, self.neu):
                 for k in range(j):
-                    cond = np.logical_or(cond_u == j, cond_u == k)
-                    not_cond = np.logical_not(cond)
-                    res_u[j, 0, k, 0] = np.linalg.det(np.where(cond, grad_x, wfn_u))
-                    res_u[j, 0, k, 1] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_x, grad_y, wfn_u]))
-                    res_u[j, 1, k, 0] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_y, grad_x, wfn_u]))
-                    res_u[j, 1, k, 1] = np.linalg.det(np.where(cond, grad_y, wfn_u))
-                    res_u[j, 0, k, 2] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_x, grad_z, wfn_u]))
-                    res_u[j, 2, k, 0] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_z, grad_x, wfn_u]))
-                    res_u[j, 1, k, 2] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_y, grad_z, wfn_u]))
-                    res_u[j, 2, k, 1] = np.linalg.det(np.select([cond_u == j, cond_u == k, not_cond], [grad_z, grad_y, wfn_u]))
-                    res_u[j, 2, k, 2] = np.linalg.det(np.where(cond, grad_z, wfn_u))
+                    dxj = inv_wfn_u @ np.where(cond_u == j, grad_x, 0)
+                    dyj = inv_wfn_u @ np.where(cond_u == j, grad_y, 0)
+                    dzj = inv_wfn_u @ np.where(cond_u == j, grad_z, 0)
+                    dxk = inv_wfn_u @ np.where(cond_u == k, grad_x, 0)
+                    dyk = inv_wfn_u @ np.where(cond_u == k, grad_y, 0)
+                    dzk = inv_wfn_u @ np.where(cond_u == k, grad_z, 0)
+                    res_u[j, 0, k, 0] = np.trace(dxj) * np.trace(dxk) - np.trace(dxj @ dxk)
+                    res_u[j, 0, k, 1] = np.trace(dxj) * np.trace(dyk) - np.trace(dxj @ dyk)
+                    res_u[j, 1, k, 0] = np.trace(dyj) * np.trace(dxk) - np.trace(dyj @ dxk)
+                    res_u[j, 1, k, 1] = np.trace(dyj) * np.trace(dyk) - np.trace(dyj @ dyk)
+                    res_u[j, 0, k, 2] = np.trace(dxj) * np.trace(dzk) - np.trace(dxj @ dzk)
+                    res_u[j, 2, k, 0] = np.trace(dzj) * np.trace(dxk) - np.trace(dzj @ dxk)
+                    res_u[j, 1, k, 2] = np.trace(dyj) * np.trace(dzk) - np.trace(dyj @ dzk)
+                    res_u[j, 2, k, 1] = np.trace(dzj) * np.trace(dyk) - np.trace(dzj @ dyk)
+                    res_u[j, 2, k, 2] = np.trace(dzj) * np.trace(dzk) - np.trace(dzj @ dzk)
                     res_u[k, :, j, :] = res_u[j, :, k, :].T
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
@@ -511,31 +515,32 @@ class Slater:
             t[:, 2, 1] = t[:, 1, 2] = np.diag(inv_wfn_d @ hess_yz)
             t[:, 2, 2] = np.diag(inv_wfn_d @ hess_zz)
             for j in range(self.ned):
-                res_d[j, :, j, :] = np.linalg.det(wfn_d) * t[j]
+                res_d[j, :, j, :] = t[j]
 
             for j in range(1, self.ned):
                 for k in range(j):
-                    cond = np.logical_or(cond_d == j, cond_d == k)
-                    not_cond = np.logical_not(cond)
-                    res_d[j, 0, k, 0] = np.linalg.det(np.where(cond, grad_x, wfn_d))
-                    res_d[j, 0, k, 1] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_x, grad_y, wfn_d]))
-                    res_d[j, 1, k, 0] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_y, grad_x, wfn_d]))
-                    res_d[j, 1, k, 1] = np.linalg.det(np.where(cond, grad_y, wfn_d))
-                    res_d[j, 0, k, 2] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_x, grad_z, wfn_d]))
-                    res_d[j, 2, k, 0] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_z, grad_x, wfn_d]))
-                    res_d[j, 1, k, 2] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_y, grad_z, wfn_d]))
-                    res_d[j, 2, k, 1] = np.linalg.det(np.select([cond_d == j, cond_d == k, not_cond], [grad_z, grad_y, wfn_d]))
-                    res_d[j, 2, k, 2] = np.linalg.det(np.where(cond, grad_z, wfn_d))
+                    dxj = inv_wfn_d @ np.where(cond_d == j, grad_x, 0)
+                    dyj = inv_wfn_d @ np.where(cond_d == j, grad_y, 0)
+                    dzj = inv_wfn_d @ np.where(cond_d == j, grad_z, 0)
+                    dxk = inv_wfn_d @ np.where(cond_d == k, grad_x, 0)
+                    dyk = inv_wfn_d @ np.where(cond_d == k, grad_y, 0)
+                    dzk = inv_wfn_d @ np.where(cond_d == k, grad_z, 0)
+                    res_d[j, 0, k, 0] = np.trace(dxj) * np.trace(dxk) - np.trace(dxj @ dxk)
+                    res_d[j, 0, k, 1] = np.trace(dxj) * np.trace(dyk) - np.trace(dxj @ dyk)
+                    res_d[j, 1, k, 0] = np.trace(dyj) * np.trace(dxk) - np.trace(dyj @ dxk)
+                    res_d[j, 1, k, 1] = np.trace(dyj) * np.trace(dyk) - np.trace(dyj @ dyk)
+                    res_d[j, 0, k, 2] = np.trace(dxj) * np.trace(dzk) - np.trace(dxj @ dzk)
+                    res_d[j, 2, k, 0] = np.trace(dzj) * np.trace(dxk) - np.trace(dzj @ dxk)
+                    res_d[j, 1, k, 2] = np.trace(dyj) * np.trace(dzk) - np.trace(dyj @ dzk)
+                    res_d[j, 2, k, 1] = np.trace(dzj) * np.trace(dyk) - np.trace(dzj @ dyk)
+                    res_d[j, 2, k, 2] = np.trace(dzj) * np.trace(dzk) - np.trace(dzj @ dzk)
                     res_d[k, :, j, :] = res_d[j, :, k, :].T
 
-            res[:self.neu, :, :self.neu, :] += self.coeff[i] * res_u * np.linalg.det(wfn_d)
-            res[self.neu:, :, self.neu:, :] += self.coeff[i] * res_d * np.linalg.det(wfn_u)
-
-            # input is flattened if not already 1 - dimensional
-            res_ud = np.outer(res_grad_u, res_grad_d) * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
-            res_du = np.outer(res_grad_d, res_grad_u) * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
-            res[:self.neu, :, self.neu:, :] += self.coeff[i] * res_ud.reshape(self.neu, 3, self.ned, 3)
-            res[self.neu:, :, :self.neu, :] += self.coeff[i] * res_du.reshape(self.ned, 3, self.neu, 3)
+            c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
+            res[:self.neu, :, :self.neu, :] += c * res_u
+            res[self.neu:, :, self.neu:, :] += c * res_d
+            res[:self.neu, :, self.neu:, :] += c * np.outer(res_grad_u, res_grad_d).reshape(self.neu, 3, self.ned, 3)
+            res[self.neu:, :, :self.neu, :] += c * np.outer(res_grad_d, res_grad_u).reshape(self.ned, 3, self.neu, 3)
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
