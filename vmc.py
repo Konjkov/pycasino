@@ -433,12 +433,12 @@ if __name__ == '__main__':
     # path = 'test/gwfn/Kr/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/O3/HF/cc-pVQZ/Slater/'
 
-    # path = 'test/stowfn/He/HF/QZ4P/Slater/'
-    # path = 'test/stowfn/Be/HF/QZ4P/Slater/'
-    # path = 'test/stowfn/Ne/HF/QZ4P/Slater/'
-    # path = 'test/stowfn/Ar/HF/QZ4P/Slater/'
-    # path = 'test/stowfn/Kr/HF/QZ4P/Slater/'
-    # path = 'test/stowfn/O3/HF/QZ4P/Slater/'
+    # path = 'test/stowfn/He/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/Ar/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Slater/'
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow/'
@@ -447,7 +447,7 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Jastrow/'
 
-    path = 'test/stowfn/He/HF/QZ4P/CBCS/Backflow/'
+    # path = 'test/stowfn/He/HF/QZ4P/CBCS/Backflow/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Backflow/'
     # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Backflow/'
     # path = 'test/stowfn/Ar/HF/QZ4P/CBCS/Backflow/'
