@@ -357,12 +357,12 @@ class Slater:
         """
         ao = self.AO_wfn(n_vectors)
 
-        res = 0.0
+        val = 0.0
         for i in range(self.coeff.shape[0]):
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
-            res += self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
-        return res
+            val += self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
+        return val
 
     def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient ∇(phi).
@@ -374,7 +374,8 @@ class Slater:
         ao = self.AO_wfn(n_vectors)
         gradient_x, gradient_y, gradient_z = self.AO_gradient(n_vectors)
 
-        res = np.zeros((self.neu + self.ned, 3))
+        val = 0.0
+        grad = np.zeros((self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
 
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
@@ -399,9 +400,11 @@ class Slater:
             res_d[:, 1] = np.diag(inv_wfn_d @ grad_y)
             res_d[:, 2] = np.diag(inv_wfn_d @ grad_z)
 
-            res += self.coeff[i] * np.concatenate((res_u, res_d)) * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
+            c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
+            val += c
+            grad += c * np.concatenate((res_u, res_d))
 
-        return res.ravel()
+        return grad.ravel() / val
 
     def laplacian(self, n_vectors: np.ndarray) -> float:
         """Scalar laplacian Δ(phi).
@@ -416,7 +419,7 @@ class Slater:
         ao = self.AO_wfn(n_vectors)
         ao_laplacian = self.AO_laplacian(n_vectors)
 
-        res = 0
+        val = lap = 0
         for i in range(self.coeff.shape[0]):
 
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
@@ -427,12 +430,21 @@ class Slater:
             lap_d = self.mo_down[i] @ ao_laplacian[self.neu:].T
             res_d = np.sum(np.linalg.inv(wfn_d) * lap_d.T)
 
-            res += self.coeff[i] * (res_u + res_d) * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
+            c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
+            val += c
+            lap += c * (res_u + res_d)
 
-        return res
+        return lap / val
 
     def hessian(self, n_vectors: np.ndarray):
         """Hessian.
+        d²det(A)/dxdy = det(A) * (
+            tr(A**-1 * d²A/dxdy) +
+            tr(A**-1 * dA/dx) * tr(A**-1 * dA/dy) -
+            tr(A**-1 * dA/dx * A**-1 * dA/dy)
+        )
+        in case of x and y is a coordinates of different electrons first term is zero
+        in other case a sum of last two terms is zero.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         ao = self.AO_wfn(n_vectors)
@@ -441,7 +453,8 @@ class Slater:
         cond_u = np.arange(self.neu) * np.ones((self.neu, self.neu))
         cond_d = np.arange(self.ned) * np.ones((self.ned, self.ned))
 
-        res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
+        val = 0
+        hass = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
 
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
@@ -478,17 +491,28 @@ class Slater:
                 dx[j] = inv_wfn_u @ np.where(cond_u == j, grad_x, 0)
                 dy[j] = inv_wfn_u @ np.where(cond_u == j, grad_y, 0)
                 dz[j] = inv_wfn_u @ np.where(cond_u == j, grad_z, 0)
-                for k in range(j):
-                    res_u[j, 0, k, 0] = np.trace(dx[j]) * np.trace(dx[k]) - np.trace(dx[j] @ dx[k])
-                    res_u[j, 0, k, 1] = np.trace(dx[j]) * np.trace(dy[k]) - np.trace(dx[j] @ dy[k])
-                    res_u[j, 1, k, 0] = np.trace(dy[j]) * np.trace(dx[k]) - np.trace(dy[j] @ dx[k])
-                    res_u[j, 1, k, 1] = np.trace(dy[j]) * np.trace(dy[k]) - np.trace(dy[j] @ dy[k])
-                    res_u[j, 0, k, 2] = np.trace(dx[j]) * np.trace(dz[k]) - np.trace(dx[j] @ dz[k])
-                    res_u[j, 2, k, 0] = np.trace(dz[j]) * np.trace(dx[k]) - np.trace(dz[j] @ dx[k])
-                    res_u[j, 1, k, 2] = np.trace(dy[j]) * np.trace(dz[k]) - np.trace(dy[j] @ dz[k])
-                    res_u[j, 2, k, 1] = np.trace(dz[j]) * np.trace(dy[k]) - np.trace(dz[j] @ dy[k])
-                    res_u[j, 2, k, 2] = np.trace(dz[j]) * np.trace(dz[k]) - np.trace(dz[j] @ dz[k])
-                    res_u[k, :, j, :] = res_u[j, :, k, :].T
+                for k in range(j + 1):
+                    res_u[j, 0, k, 0] = -np.trace(dx[j] @ dx[k])
+                    res_u[j, 0, k, 1] = -np.trace(dx[j] @ dy[k])
+                    res_u[j, 1, k, 0] = -np.trace(dy[j] @ dx[k])
+                    res_u[j, 1, k, 1] = -np.trace(dy[j] @ dy[k])
+                    res_u[j, 0, k, 2] = -np.trace(dx[j] @ dz[k])
+                    res_u[j, 2, k, 0] = -np.trace(dz[j] @ dx[k])
+                    res_u[j, 1, k, 2] = -np.trace(dy[j] @ dz[k])
+                    res_u[j, 2, k, 1] = -np.trace(dz[j] @ dy[k])
+                    res_u[j, 2, k, 2] = -np.trace(dz[j] @ dz[k])
+                    if j != k:
+                        res_u[k, :, j, :] = res_u[j, :, k, :].T
+
+            t = np.zeros((self.neu, 3, 3))
+            t[:, 0, 0] = np.diag(inv_wfn_u @ hess_xx)
+            t[:, 0, 1] = t[:, 1, 0] = np.diag(inv_wfn_u @ hess_xy)
+            t[:, 1, 1] = np.diag(inv_wfn_u @ hess_yy)
+            t[:, 2, 0] = t[:, 0, 2] = np.diag(inv_wfn_u @ hess_xz)
+            t[:, 2, 1] = t[:, 1, 2] = np.diag(inv_wfn_u @ hess_yz)
+            t[:, 2, 2] = np.diag(inv_wfn_u @ hess_zz)
+            for j in range(self.neu):
+                res_u[j, :, j, :] += t[j]
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
             inv_wfn_d = np.linalg.inv(wfn_d)
@@ -507,15 +531,6 @@ class Slater:
             res_grad_d[:, 0] = np.diag(inv_wfn_d @ grad_x)
             res_grad_d[:, 1] = np.diag(inv_wfn_d @ grad_y)
             res_grad_d[:, 2] = np.diag(inv_wfn_d @ grad_z)
-            t = np.zeros((self.ned, 3, 3))
-            t[:, 0, 0] = np.diag(inv_wfn_d @ hess_xx)
-            t[:, 0, 1] = t[:, 1, 0] = np.diag(inv_wfn_d @ hess_xy)
-            t[:, 1, 1] = np.diag(inv_wfn_d @ hess_yy)
-            t[:, 2, 0] = t[:, 0, 2] = np.diag(inv_wfn_d @ hess_xz)
-            t[:, 2, 1] = t[:, 1, 2] = np.diag(inv_wfn_d @ hess_yz)
-            t[:, 2, 2] = np.diag(inv_wfn_d @ hess_zz)
-            for j in range(self.ned):
-                res_d[j, :, j, :] = t[j]
 
             dx = np.zeros((self.ned, self.ned, self.ned))
             dy = np.zeros((self.ned, self.ned, self.ned))
@@ -524,25 +539,37 @@ class Slater:
                 dx[j] = inv_wfn_d @ np.where(cond_d == j, grad_x, 0)
                 dy[j] = inv_wfn_d @ np.where(cond_d == j, grad_y, 0)
                 dz[j] = inv_wfn_d @ np.where(cond_d == j, grad_z, 0)
-                for k in range(j):
-                    res_d[j, 0, k, 0] = np.trace(dx[j]) * np.trace(dx[k]) - np.trace(dx[j] @ dx[k])
-                    res_d[j, 0, k, 1] = np.trace(dx[j]) * np.trace(dy[k]) - np.trace(dx[j] @ dy[k])
-                    res_d[j, 1, k, 0] = np.trace(dy[j]) * np.trace(dx[k]) - np.trace(dy[j] @ dx[k])
-                    res_d[j, 1, k, 1] = np.trace(dy[j]) * np.trace(dy[k]) - np.trace(dy[j] @ dy[k])
-                    res_d[j, 0, k, 2] = np.trace(dx[j]) * np.trace(dz[k]) - np.trace(dx[j] @ dz[k])
-                    res_d[j, 2, k, 0] = np.trace(dz[j]) * np.trace(dx[k]) - np.trace(dz[j] @ dx[k])
-                    res_d[j, 1, k, 2] = np.trace(dy[j]) * np.trace(dz[k]) - np.trace(dy[j] @ dz[k])
-                    res_d[j, 2, k, 1] = np.trace(dz[j]) * np.trace(dy[k]) - np.trace(dz[j] @ dy[k])
-                    res_d[j, 2, k, 2] = np.trace(dz[j]) * np.trace(dz[k]) - np.trace(dz[j] @ dz[k])
-                    res_d[k, :, j, :] = res_d[j, :, k, :].T
+                for k in range(j + 1):
+                    res_d[j, 0, k, 0] = -np.trace(dx[j] @ dx[k])
+                    res_d[j, 0, k, 1] = -np.trace(dx[j] @ dy[k])
+                    res_d[j, 1, k, 0] = -np.trace(dy[j] @ dx[k])
+                    res_d[j, 1, k, 1] = -np.trace(dy[j] @ dy[k])
+                    res_d[j, 0, k, 2] = -np.trace(dx[j] @ dz[k])
+                    res_d[j, 2, k, 0] = -np.trace(dz[j] @ dx[k])
+                    res_d[j, 1, k, 2] = -np.trace(dy[j] @ dz[k])
+                    res_d[j, 2, k, 1] = -np.trace(dz[j] @ dy[k])
+                    res_d[j, 2, k, 2] = -np.trace(dz[j] @ dz[k])
+                    if j != k:
+                        res_d[k, :, j, :] = res_d[j, :, k, :].T
+
+            t = np.zeros((self.ned, 3, 3))
+            t[:, 0, 0] = np.diag(inv_wfn_d @ hess_xx)
+            t[:, 0, 1] = t[:, 1, 0] = np.diag(inv_wfn_d @ hess_xy)
+            t[:, 1, 1] = np.diag(inv_wfn_d @ hess_yy)
+            t[:, 2, 0] = t[:, 0, 2] = np.diag(inv_wfn_d @ hess_xz)
+            t[:, 2, 1] = t[:, 1, 2] = np.diag(inv_wfn_d @ hess_yz)
+            t[:, 2, 2] = np.diag(inv_wfn_d @ hess_zz)
+            for j in range(self.ned):
+                res_d[j, :, j, :] += t[j]
 
             c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
-            res[:self.neu, :, :self.neu, :] += c * res_u
-            res[self.neu:, :, self.neu:, :] += c * res_d
-            res[:self.neu, :, self.neu:, :] += c * np.outer(res_grad_u, res_grad_d).reshape(self.neu, 3, self.ned, 3)
-            res[self.neu:, :, :self.neu, :] += c * np.outer(res_grad_d, res_grad_u).reshape(self.ned, 3, self.neu, 3)
+            val += c
+            res_grad = np.concatenate((res_grad_u.ravel(), res_grad_d.ravel()))
+            hass += c * np.outer(res_grad, res_grad).reshape((self.neu + self.ned), 3, (self.neu + self.ned), 3)
+            hass[:self.neu, :, :self.neu, :] += c * res_u
+            hass[self.neu:, :, self.neu:, :] += c * res_d
 
-        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+        return hass.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / val
 
     def numerical_gradient(self, n_vectors: np.ndarray) -> float:
         """Numerical gradient with respect to a e-coordinates
