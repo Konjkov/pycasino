@@ -491,7 +491,8 @@ class Slater:
                 dx[j] = inv_wfn_u @ np.where(cond_u == j, grad_x, 0)
                 dy[j] = inv_wfn_u @ np.where(cond_u == j, grad_y, 0)
                 dz[j] = inv_wfn_u @ np.where(cond_u == j, grad_z, 0)
-                for k in range(j + 1):
+            for j in range(self.neu):
+                for k in range(self.neu):
                     res_u[j, 0, k, 0] = -np.trace(dx[j] @ dx[k])
                     res_u[j, 0, k, 1] = -np.trace(dx[j] @ dy[k])
                     res_u[j, 1, k, 0] = -np.trace(dy[j] @ dx[k])
@@ -501,8 +502,6 @@ class Slater:
                     res_u[j, 1, k, 2] = -np.trace(dy[j] @ dz[k])
                     res_u[j, 2, k, 1] = -np.trace(dz[j] @ dy[k])
                     res_u[j, 2, k, 2] = -np.trace(dz[j] @ dz[k])
-                    if j != k:
-                        res_u[k, :, j, :] = res_u[j, :, k, :].T
 
             t = np.zeros((self.neu, 3, 3))
             t[:, 0, 0] = np.diag(inv_wfn_u @ hess_xx)
@@ -539,7 +538,8 @@ class Slater:
                 dx[j] = inv_wfn_d @ np.where(cond_d == j, grad_x, 0)
                 dy[j] = inv_wfn_d @ np.where(cond_d == j, grad_y, 0)
                 dz[j] = inv_wfn_d @ np.where(cond_d == j, grad_z, 0)
-                for k in range(j + 1):
+            for j in range(self.ned):
+                for k in range(self.ned):
                     res_d[j, 0, k, 0] = -np.trace(dx[j] @ dx[k])
                     res_d[j, 0, k, 1] = -np.trace(dx[j] @ dy[k])
                     res_d[j, 1, k, 0] = -np.trace(dy[j] @ dx[k])
@@ -549,8 +549,6 @@ class Slater:
                     res_d[j, 1, k, 2] = -np.trace(dy[j] @ dz[k])
                     res_d[j, 2, k, 1] = -np.trace(dz[j] @ dy[k])
                     res_d[j, 2, k, 2] = -np.trace(dz[j] @ dz[k])
-                    if j != k:
-                        res_d[k, :, j, :] = res_d[j, :, k, :].T
 
             t = np.zeros((self.ned, 3, 3))
             t[:, 0, 0] = np.diag(inv_wfn_d @ hess_xx)
@@ -577,6 +575,7 @@ class Slater:
         """
         delta = 0.00001
 
+        val = self.value(n_vectors)
         res = np.zeros((self.neu + self.ned, 3))
         for i in range(self.neu + self.ned):
             for j in range(3):
@@ -586,7 +585,7 @@ class Slater:
                 res[i, j] += self.value(n_vectors)
                 n_vectors[:, i, j] -= delta
 
-        return res.ravel() / delta / 2
+        return res.ravel() / delta / 2 / val
 
     def numerical_laplacian(self, n_vectors: np.ndarray) -> float:
         """Numerical laplacian with respect to a e-coordinates
@@ -594,7 +593,8 @@ class Slater:
         """
         delta = 0.00001
 
-        res = - 6 * (self.neu + self.ned) * self.value(n_vectors)
+        val = self.value(n_vectors)
+        res = - 6 * (self.neu + self.ned) * val
         for i in range(self.neu + self.ned):
             for j in range(3):
                 n_vectors[:, i, j] -= delta
@@ -603,7 +603,7 @@ class Slater:
                 res += self.value(n_vectors)
                 n_vectors[:, i, j] -= delta
 
-        return res / delta / delta
+        return res / delta / delta / val
 
     def numerical_hessian(self, n_vectors: np.ndarray):
         """Numerical hessian with respect to a e-coordinates
@@ -613,7 +613,8 @@ class Slater:
         """
         delta = 0.00001
 
-        res = -2 * self.value(n_vectors) * np.eye((self.neu + self.ned) * 3).reshape(self.neu + self.ned, 3, self.neu + self.ned, 3)
+        val = self.value(n_vectors)
+        res = -2 * val * np.eye((self.neu + self.ned) * 3).reshape(self.neu + self.ned, 3, self.neu + self.ned, 3)
         for i in range(self.neu + self.ned):
             for j in range(3):
                 n_vectors[:, i, j] -= 2 * delta
@@ -641,7 +642,7 @@ class Slater:
                         n_vectors[:, i2, j2] -= delta
                         res[i2, j2, i1, j1] = res[i1, j1, i2, j2]
 
-        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / delta / 4
+        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / delta / 4 / val
 
 
 @nb.jit(nopython=True)
