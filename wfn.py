@@ -90,7 +90,7 @@ class Wfn:
         Δ(f ○ a) = ∇((∇f ○ a) • ∇a) = ∇(∇f ○ a) • ∇a + (∇f ○ a) • ∇²a = tr(transpose(∇a) • (∇²f ○ a) • ∇a) + (∇f ○ a) • Δa
         where ∇²f is a hessian
         tr(transpose(∇a) • (∇²f ○ a) • ∇a) - can be further simplified sins cyclic property of trace
-        and np.trace(A @ B) = np.sum(A * B.T)
+        and np.trace(A @ B) = np.sum(A * B.T) and (A @ A.T).T = A @ A.T
         :return: local energy
         """
         e_vectors = subtract_outer(r_e, r_e)
@@ -104,7 +104,7 @@ class Wfn:
             b_l = self.backflow.laplacian(e_vectors, n_vectors)
             s_g = self.slater.gradient(b_v)
             s_h = self.slater.hessian(b_v)
-            s_l = np.trace(b_g.T @ s_h @ b_g) + s_g @ b_l
+            s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
             if self.jastrow is not None:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
                 j_l = self.jastrow.laplacian(e_vectors, n_vectors)
