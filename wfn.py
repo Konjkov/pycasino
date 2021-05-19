@@ -89,8 +89,8 @@ class Wfn:
         laplacian composition rule
         Δ(f ○ a) = ∇((∇f ○ a) • ∇a) = ∇(∇f ○ a) • ∇a + (∇f ○ a) • ∇²a = tr(transpose(∇a) • (∇²f ○ a) • ∇a) + (∇f ○ a) • Δa
         where ∇²f is a hessian
-        tr(transpose(∇a) • (∇²f ○ a) • ∇a) - can be further simplified.
-
+        tr(transpose(∇a) • (∇²f ○ a) • ∇a) - can be further simplified sins cyclic property of trace
+        and np.trace(A @ B) = np.sum(A * B.T)
         :return: local energy
         """
         e_vectors = subtract_outer(r_e, r_e)
@@ -99,18 +99,16 @@ class Wfn:
         res = coulomb(e_vectors, n_vectors, self.atom_charges)
 
         if self.backflow is not None:
-            b_v = self.backflow.value(e_vectors, n_vectors)
-            b_g = self.backflow.gradient(e_vectors, n_vectors)
+            b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
+            b_g = self.backflow.gradient(e_vectors, n_vectors) + np.eye((self.neu + self.ned) * 3)
             b_l = self.backflow.laplacian(e_vectors, n_vectors)
-            slater_n_vectors = n_vectors + b_v
-            s_g = self.slater.gradient(slater_n_vectors)
-            s_h = self.slater.hessian(slater_n_vectors)
-            b_g_i = np.eye((self.neu + self.ned) * 3) + b_g
-            s_l = np.trace(b_g_i.T @ s_h @ b_g_i) + s_g @ b_l
+            s_g = self.slater.gradient(b_v)
+            s_h = self.slater.hessian(b_v)
+            s_l = np.trace(b_g.T @ s_h @ b_g) + s_g @ b_l
             if self.jastrow is not None:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
                 j_l = self.jastrow.laplacian(e_vectors, n_vectors)
-                s_g += s_g @ b_g
+                s_g = s_g @ b_g
                 F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
                 T = (np.sum(s_g * s_g) - s_l - j_l) / 4
                 res += 2 * T - F
