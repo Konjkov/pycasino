@@ -484,28 +484,19 @@ class Slater:
             for j in range(self.neu):
                 res_u[j, :, j, :] = t[j]
 
-            dx = np.zeros((self.neu, self.neu, self.neu))
-            dy = np.zeros((self.ned, self.ned, self.ned))
-            dz = np.zeros((self.ned, self.ned, self.ned))
+            dx = inv_wfn_u @ grad_x
+            dy = inv_wfn_u @ grad_y
+            dz = inv_wfn_u @ grad_z
 
-            dx_ = inv_wfn_u @ grad_x
-            dy_ = inv_wfn_u @ grad_y
-            dz_ = inv_wfn_u @ grad_z
-
-            for j in range(self.neu):
-                dx[j] = inv_wfn_u @ np.where(cond_u == j, grad_x, 0)
-                dy[j] = inv_wfn_u @ np.where(cond_u == j, grad_y, 0)
-                dz[j] = inv_wfn_u @ np.where(cond_u == j, grad_z, 0)
-            for j in range(self.neu):
-                res_u[j, 0, :, 0] = - np.diag(dx[j] * dx_.T)
-                res_u[j, 0, :, 1] = - np.diag(dx[j] * dy_.T)
-                res_u[j, 1, :, 0] = - np.diag(dy[j] * dx_.T)
-                res_u[j, 1, :, 1] = - np.diag(dy[j] * dy_.T)
-                res_u[j, 0, :, 2] = - np.diag(dx[j] * dz_.T)
-                res_u[j, 2, :, 0] = - np.diag(dz[j] * dx_.T)
-                res_u[j, 1, :, 2] = - np.diag(dy[j] * dz_.T)
-                res_u[j, 2, :, 1] = - np.diag(dz[j] * dy_.T)
-                res_u[j, 2, :, 2] = - np.diag(dz[j] * dz_.T)
+            res_u[:, 0, :, 0] = - dx.T * dx
+            res_u[:, 0, :, 1] = - dx.T * dy
+            res_u[:, 1, :, 0] = - dy.T * dx
+            res_u[:, 1, :, 1] = - dy.T * dy
+            res_u[:, 0, :, 2] = - dx.T * dz
+            res_u[:, 2, :, 0] = - dz.T * dx
+            res_u[:, 1, :, 2] = - dy.T * dz
+            res_u[:, 2, :, 1] = - dz.T * dy
+            res_u[:, 2, :, 2] = - dz.T * dz
 
             t = np.zeros((self.neu, 3, 3))
             t[:, 0, 0] = np.diag(inv_wfn_u @ hess_xx)
@@ -535,24 +526,20 @@ class Slater:
             res_grad_d[:, 1] = np.diag(inv_wfn_d @ grad_y)
             res_grad_d[:, 2] = np.diag(inv_wfn_d @ grad_z)
 
-            dx = np.zeros((self.ned, self.ned, self.ned))
-            dy = np.zeros((self.ned, self.ned, self.ned))
-            dz = np.zeros((self.ned, self.ned, self.ned))
-            for j in range(self.ned):
-                dx[j] = inv_wfn_d @ np.where(cond_d == j, grad_x, 0)
-                dy[j] = inv_wfn_d @ np.where(cond_d == j, grad_y, 0)
-                dz[j] = inv_wfn_d @ np.where(cond_d == j, grad_z, 0)
-            for j in range(self.ned):
-                for k in range(self.ned):
-                    res_d[j, 0, k, 0] = -np.trace(dx[j] @ dx[k])
-                    res_d[j, 0, k, 1] = -np.trace(dx[j] @ dy[k])
-                    res_d[j, 1, k, 0] = -np.trace(dy[j] @ dx[k])
-                    res_d[j, 1, k, 1] = -np.trace(dy[j] @ dy[k])
-                    res_d[j, 0, k, 2] = -np.trace(dx[j] @ dz[k])
-                    res_d[j, 2, k, 0] = -np.trace(dz[j] @ dx[k])
-                    res_d[j, 1, k, 2] = -np.trace(dy[j] @ dz[k])
-                    res_d[j, 2, k, 1] = -np.trace(dz[j] @ dy[k])
-                    res_d[j, 2, k, 2] = -np.trace(dz[j] @ dz[k])
+            dx = inv_wfn_d @ grad_x
+            dy = inv_wfn_d @ grad_y
+            dz = inv_wfn_d @ grad_z
+
+            res_d[:, 0, :, 0] = - dx.T * dx
+            res_d[:, 0, :, 1] = - dx.T * dy
+            res_d[:, 1, :, 0] = - dy.T * dx
+            res_d[:, 1, :, 1] = - dy.T * dy
+            res_d[:, 0, :, 2] = - dx.T * dz
+            res_d[:, 2, :, 0] = - dz.T * dx
+            res_d[:, 1, :, 2] = - dy.T * dz
+            res_d[:, 2, :, 1] = - dz.T * dy
+            res_d[:, 2, :, 2] = - dz.T * dz
+
 
             t = np.zeros((self.ned, 3, 3))
             t[:, 0, 0] = np.diag(inv_wfn_d @ hess_xx)
