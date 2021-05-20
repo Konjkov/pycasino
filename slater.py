@@ -487,21 +487,25 @@ class Slater:
             dx = np.zeros((self.neu, self.neu, self.neu))
             dy = np.zeros((self.ned, self.ned, self.ned))
             dz = np.zeros((self.ned, self.ned, self.ned))
+
+            dx_ = inv_wfn_u @ grad_x
+            dy_ = inv_wfn_u @ grad_y
+            dz_ = inv_wfn_u @ grad_z
+
             for j in range(self.neu):
                 dx[j] = inv_wfn_u @ np.where(cond_u == j, grad_x, 0)
                 dy[j] = inv_wfn_u @ np.where(cond_u == j, grad_y, 0)
                 dz[j] = inv_wfn_u @ np.where(cond_u == j, grad_z, 0)
             for j in range(self.neu):
-                for k in range(self.neu):
-                    res_u[j, 0, k, 0] = -np.trace(dx[j] @ dx[k])
-                    res_u[j, 0, k, 1] = -np.trace(dx[j] @ dy[k])
-                    res_u[j, 1, k, 0] = -np.trace(dy[j] @ dx[k])
-                    res_u[j, 1, k, 1] = -np.trace(dy[j] @ dy[k])
-                    res_u[j, 0, k, 2] = -np.trace(dx[j] @ dz[k])
-                    res_u[j, 2, k, 0] = -np.trace(dz[j] @ dx[k])
-                    res_u[j, 1, k, 2] = -np.trace(dy[j] @ dz[k])
-                    res_u[j, 2, k, 1] = -np.trace(dz[j] @ dy[k])
-                    res_u[j, 2, k, 2] = -np.trace(dz[j] @ dz[k])
+                res_u[j, 0, :, 0] = - np.diag(dx[j] * dx_.T)
+                res_u[j, 0, :, 1] = - np.diag(dx[j] * dy_.T)
+                res_u[j, 1, :, 0] = - np.diag(dy[j] * dx_.T)
+                res_u[j, 1, :, 1] = - np.diag(dy[j] * dy_.T)
+                res_u[j, 0, :, 2] = - np.diag(dx[j] * dz_.T)
+                res_u[j, 2, :, 0] = - np.diag(dz[j] * dx_.T)
+                res_u[j, 1, :, 2] = - np.diag(dy[j] * dz_.T)
+                res_u[j, 2, :, 1] = - np.diag(dz[j] * dy_.T)
+                res_u[j, 2, :, 2] = - np.diag(dz[j] * dz_.T)
 
             t = np.zeros((self.neu, 3, 3))
             t[:, 0, 0] = np.diag(inv_wfn_u @ hess_xx)
