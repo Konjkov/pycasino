@@ -472,15 +472,6 @@ class Slater:
             res_grad_u[:, 0] = np.diag(inv_wfn_u @ grad_x)
             res_grad_u[:, 1] = np.diag(inv_wfn_u @ grad_y)
             res_grad_u[:, 2] = np.diag(inv_wfn_u @ grad_z)
-            t = np.zeros((self.neu, 3, 3))
-            t[:, 0, 0] = np.diag(inv_wfn_u @ hess_xx)
-            t[:, 0, 1] = t[:, 1, 0] = np.diag(inv_wfn_u @ hess_xy)
-            t[:, 1, 1] = np.diag(inv_wfn_u @ hess_yy)
-            t[:, 2, 0] = t[:, 0, 2] = np.diag(inv_wfn_u @ hess_xz)
-            t[:, 2, 1] = t[:, 1, 2] = np.diag(inv_wfn_u @ hess_yz)
-            t[:, 2, 2] = np.diag(inv_wfn_u @ hess_zz)
-            for j in range(self.neu):
-                res_u[j, :, j, :] = t[j]
 
             dx = inv_wfn_u @ grad_x
             dy = inv_wfn_u @ grad_y
@@ -537,7 +528,6 @@ class Slater:
             res_d[:, 1, :, 2] = - dy.T * dz
             res_d[:, 2, :, 1] = - dz.T * dy
             res_d[:, 2, :, 2] = - dz.T * dz
-
 
             t = np.zeros((self.ned, 3, 3))
             t[:, 0, 0] = np.diag(inv_wfn_d @ hess_xx)
