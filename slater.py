@@ -450,8 +450,6 @@ class Slater:
         ao = self.AO_wfn(n_vectors)
         gradient_x, gradient_y, gradient_z = self.AO_gradient(n_vectors)
         hessian_xx, hessian_xy, hessian_yy, hessian_xz, hessian_yz, hessian_zz = self.AO_hessian(n_vectors)
-        cond_u = np.arange(self.neu) * np.ones((self.neu, self.neu))
-        cond_d = np.arange(self.ned) * np.ones((self.ned, self.ned))
 
         val = 0
         hass = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
