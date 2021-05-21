@@ -469,33 +469,24 @@ class Slater:
 
             res_grad_u = np.zeros((self.neu, 3))
             res_u = np.zeros((self.neu, 3, self.neu, 3))
-            res_grad_u[:, 0] = np.diag(inv_wfn_u @ grad_x)
-            res_grad_u[:, 1] = np.diag(inv_wfn_u @ grad_y)
-            res_grad_u[:, 2] = np.diag(inv_wfn_u @ grad_z)
 
             dx = inv_wfn_u @ grad_x
             dy = inv_wfn_u @ grad_y
             dz = inv_wfn_u @ grad_z
 
-            res_u[:, 0, :, 0] = - dx.T * dx
-            res_u[:, 0, :, 1] = - dx.T * dy
-            res_u[:, 1, :, 0] = - dy.T * dx
-            res_u[:, 1, :, 1] = - dy.T * dy
-            res_u[:, 0, :, 2] = - dx.T * dz
-            res_u[:, 2, :, 0] = - dz.T * dx
-            res_u[:, 1, :, 2] = - dy.T * dz
-            res_u[:, 2, :, 1] = - dz.T * dy
-            res_u[:, 2, :, 2] = - dz.T * dz
+            res_grad_u[:, 0] = np.diag(dx)
+            res_grad_u[:, 1] = np.diag(dy)
+            res_grad_u[:, 2] = np.diag(dz)
 
-            t = np.zeros((self.neu, 3, 3))
-            t[:, 0, 0] = np.diag(inv_wfn_u @ hess_xx)
-            t[:, 0, 1] = t[:, 1, 0] = np.diag(inv_wfn_u @ hess_xy)
-            t[:, 1, 1] = np.diag(inv_wfn_u @ hess_yy)
-            t[:, 2, 0] = t[:, 0, 2] = np.diag(inv_wfn_u @ hess_xz)
-            t[:, 2, 1] = t[:, 1, 2] = np.diag(inv_wfn_u @ hess_yz)
-            t[:, 2, 2] = np.diag(inv_wfn_u @ hess_zz)
-            for j in range(self.neu):
-                res_u[j, :, j, :] += t[j]
+            res_u[:, 0, :, 0] = np.eye(self.neu) * (inv_wfn_u @ hess_xx) - dx.T * dx
+            res_u[:, 0, :, 1] = np.eye(self.neu) * (inv_wfn_u @ hess_xy) - dx.T * dy
+            res_u[:, 1, :, 0] = np.eye(self.neu) * (inv_wfn_u @ hess_xy) - dy.T * dx
+            res_u[:, 1, :, 1] = np.eye(self.neu) * (inv_wfn_u @ hess_yy) - dy.T * dy
+            res_u[:, 0, :, 2] = np.eye(self.neu) * (inv_wfn_u @ hess_xz) - dx.T * dz
+            res_u[:, 2, :, 0] = np.eye(self.neu) * (inv_wfn_u @ hess_xz) - dz.T * dx
+            res_u[:, 1, :, 2] = np.eye(self.neu) * (inv_wfn_u @ hess_yz) - dy.T * dz
+            res_u[:, 2, :, 1] = np.eye(self.neu) * (inv_wfn_u @ hess_yz) - dz.T * dy
+            res_u[:, 2, :, 2] = np.eye(self.neu) * (inv_wfn_u @ hess_zz) - dz.T * dz
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
             inv_wfn_d = np.linalg.inv(wfn_d)
@@ -511,33 +502,24 @@ class Slater:
 
             res_grad_d = np.zeros((self.ned, 3))
             res_d = np.zeros((self.ned, 3, self.ned, 3))
-            res_grad_d[:, 0] = np.diag(inv_wfn_d @ grad_x)
-            res_grad_d[:, 1] = np.diag(inv_wfn_d @ grad_y)
-            res_grad_d[:, 2] = np.diag(inv_wfn_d @ grad_z)
 
             dx = inv_wfn_d @ grad_x
             dy = inv_wfn_d @ grad_y
             dz = inv_wfn_d @ grad_z
 
-            res_d[:, 0, :, 0] = - dx.T * dx
-            res_d[:, 0, :, 1] = - dx.T * dy
-            res_d[:, 1, :, 0] = - dy.T * dx
-            res_d[:, 1, :, 1] = - dy.T * dy
-            res_d[:, 0, :, 2] = - dx.T * dz
-            res_d[:, 2, :, 0] = - dz.T * dx
-            res_d[:, 1, :, 2] = - dy.T * dz
-            res_d[:, 2, :, 1] = - dz.T * dy
-            res_d[:, 2, :, 2] = - dz.T * dz
+            res_grad_d[:, 0] = np.diag(dx)
+            res_grad_d[:, 1] = np.diag(dy)
+            res_grad_d[:, 2] = np.diag(dz)
 
-            t = np.zeros((self.ned, 3, 3))
-            t[:, 0, 0] = np.diag(inv_wfn_d @ hess_xx)
-            t[:, 0, 1] = t[:, 1, 0] = np.diag(inv_wfn_d @ hess_xy)
-            t[:, 1, 1] = np.diag(inv_wfn_d @ hess_yy)
-            t[:, 2, 0] = t[:, 0, 2] = np.diag(inv_wfn_d @ hess_xz)
-            t[:, 2, 1] = t[:, 1, 2] = np.diag(inv_wfn_d @ hess_yz)
-            t[:, 2, 2] = np.diag(inv_wfn_d @ hess_zz)
-            for j in range(self.ned):
-                res_d[j, :, j, :] += t[j]
+            res_d[:, 0, :, 0] = np.eye(self.ned) * (inv_wfn_d @ hess_xx) - dx.T * dx
+            res_d[:, 0, :, 1] = np.eye(self.ned) * (inv_wfn_d @ hess_xy) - dx.T * dy
+            res_d[:, 1, :, 0] = np.eye(self.ned) * (inv_wfn_d @ hess_xy) - dy.T * dx
+            res_d[:, 1, :, 1] = np.eye(self.ned) * (inv_wfn_d @ hess_yy) - dy.T * dy
+            res_d[:, 0, :, 2] = np.eye(self.ned) * (inv_wfn_d @ hess_xz) - dx.T * dz
+            res_d[:, 2, :, 0] = np.eye(self.ned) * (inv_wfn_d @ hess_xz) - dz.T * dx
+            res_d[:, 1, :, 2] = np.eye(self.ned) * (inv_wfn_d @ hess_yz) - dy.T * dz
+            res_d[:, 2, :, 1] = np.eye(self.ned) * (inv_wfn_d @ hess_yz) - dz.T * dy
+            res_d[:, 2, :, 2] = np.eye(self.ned) * (inv_wfn_d @ hess_zz) - dz.T * dz
 
             c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
             val += c
