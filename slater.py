@@ -682,16 +682,29 @@ def main(casino):
 
 if __name__ == '__main__':
     """
-    be HF/cc-pVQZ
+    slater.value ** 2
+    He    27.1
+    Be    48.8
+    Ne   107.2
+    Ar   236.9
 
-    steps = 5 * 1000 * 1000 * 1000
-    offset = 4.5
+    slater.gradient
+    He   132.0
+    Be   241.3
+    Ne   510.9
+    Ar  1017.4
 
-    0.925763438273841
+    slater.laplacian
+    He    59.0
+    Be   104.7
+    Ne   226.2
+    Ar   497.1
 
-    real    464m11,715s
-    user    464m11,194s
-    sys     0m0,488s
+    slater.hessian
+    He   384.3
+    Be   721.0
+    Ne  1528.1
+    Ar
     """
 
     # path = 'test/gwfn/He/HF/cc-pVQZ/Slater/'
@@ -701,12 +714,12 @@ if __name__ == '__main__':
     # path = 'test/gwfn/Kr/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/O3/HF/cc-pVQZ/Slater/'
 
-    # path = 'test/stowfn/He/HF/QZ4P/Slater/'
-    # path = 'test/stowfn/Be/HF/QZ4P/Slater/'
-    # path = 'test/stowfn/Ne/HF/QZ4P/Slater/'
-    # path = 'test/stowfn/Ar/HF/QZ4P/Slater/'
-    # path = 'test/stowfn/Kr/HF/QZ4P/Slater/'
-    # path = 'test/stowfn/O3/HF/QZ4P/Slater/'
+    # path = 'test/stowfn/He/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/Ar/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Slater/'
 
     start = default_timer()
     res = main(Casino(path))
