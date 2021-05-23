@@ -219,14 +219,12 @@ class Slater:
                     ao += 2*l+1
         return orbital
 
-    def AO_gradient(self, n_vectors: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def AO_gradient(self, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient matrix.
         :param n_vectors: electron-nuclei - array(natom, nelec, 3)
-        :return: AO gradient - list of array(nelec, nbasis_functions)
+        :return: AO gradient - array(3, nelec, nbasis_functions)
         """
-        orbital_x = np.zeros((self.neu + self.ned, self.nbasis_functions))
-        orbital_y = np.zeros((self.neu + self.ned, self.nbasis_functions))
-        orbital_z = np.zeros((self.neu + self.ned, self.nbasis_functions))
+        orbital = np.zeros((3, self.neu + self.ned, self.nbasis_functions))
         for i in range(self.neu + self.ned):
             p = 0
             ao = 0
@@ -255,11 +253,11 @@ class Slater:
                             radial_2 += exponent
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
-                        orbital_x[i, ao+m] = x * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 0] * radial_2
-                        orbital_y[i, ao+m] = y * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 1] * radial_2
-                        orbital_z[i, ao+m] = z * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 2] * radial_2
+                        orbital[0, i, ao+m] = x * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 0] * radial_2
+                        orbital[1, i, ao+m] = y * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 1] * radial_2
+                        orbital[2, i, ao+m] = z * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 2] * radial_2
                     ao += 2*l+1
-        return orbital_x, orbital_y, orbital_z
+        return orbital
 
     def AO_laplacian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Laplacian matrix.
@@ -367,12 +365,9 @@ class Slater:
     def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient ∇(phi).
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-
-        As numba overloaded function 'dot' and @ only supported on 1-D and 2-D arrays,
-        so I use list of 2-D arrays (gradient_x, gradient_y, gradient_z) to represent gradient.
         """
         ao = self.AO_wfn(n_vectors)
-        gradient_x, gradient_y, gradient_z = self.AO_gradient(n_vectors)
+        gradient = self.AO_gradient(n_vectors)
 
         val = 0.0
         grad = np.zeros((self.neu + self.ned, 3))
@@ -380,9 +375,9 @@ class Slater:
 
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
             inv_wfn_u = np.linalg.inv(wfn_u)
-            grad_x = self.mo_up[i] @ gradient_x[:self.neu].T
-            grad_y = self.mo_up[i] @ gradient_y[:self.neu].T
-            grad_z = self.mo_up[i] @ gradient_z[:self.neu].T
+            grad_x = self.mo_up[i] @ gradient[0, :self.neu].T
+            grad_y = self.mo_up[i] @ gradient[1, :self.neu].T
+            grad_z = self.mo_up[i] @ gradient[2, :self.neu].T
 
             res_u = np.zeros((self.neu, 3))
             res_u[:, 0] = np.diag(inv_wfn_u @ grad_x)
@@ -391,9 +386,9 @@ class Slater:
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
             inv_wfn_d = np.linalg.inv(wfn_d)
-            grad_x = self.mo_down[i] @ gradient_x[self.neu:].T
-            grad_y = self.mo_down[i] @ gradient_y[self.neu:].T
-            grad_z = self.mo_down[i] @ gradient_z[self.neu:].T
+            grad_x = self.mo_down[i] @ gradient[0, self.neu:].T
+            grad_y = self.mo_down[i] @ gradient[1, self.neu:].T
+            grad_z = self.mo_down[i] @ gradient[2, self.neu:].T
 
             res_d = np.zeros((self.ned, 3))
             res_d[:, 0] = np.diag(inv_wfn_d @ grad_x)
@@ -448,7 +443,7 @@ class Slater:
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         ao = self.AO_wfn(n_vectors)
-        gradient_x, gradient_y, gradient_z = self.AO_gradient(n_vectors)
+        gradient = self.AO_gradient(n_vectors)
         hessian_xx, hessian_xy, hessian_yy, hessian_xz, hessian_yz, hessian_zz = self.AO_hessian(n_vectors)
 
         val = 0
@@ -457,9 +452,9 @@ class Slater:
 
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
             inv_wfn_u = np.linalg.inv(wfn_u)
-            grad_x = self.mo_up[i] @ gradient_x[:self.neu].T
-            grad_y = self.mo_up[i] @ gradient_y[:self.neu].T
-            grad_z = self.mo_up[i] @ gradient_z[:self.neu].T
+            grad_x = self.mo_up[i] @ gradient[0, :self.neu].T
+            grad_y = self.mo_up[i] @ gradient[1, :self.neu].T
+            grad_z = self.mo_up[i] @ gradient[2, :self.neu].T
             hess_xx = self.mo_up[i] @ hessian_xx[:self.neu].T
             hess_xy = self.mo_up[i] @ hessian_xy[:self.neu].T
             hess_yy = self.mo_up[i] @ hessian_yy[:self.neu].T
@@ -490,9 +485,9 @@ class Slater:
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
             inv_wfn_d = np.linalg.inv(wfn_d)
-            grad_x = self.mo_down[i] @ gradient_x[self.neu:].T
-            grad_y = self.mo_down[i] @ gradient_y[self.neu:].T
-            grad_z = self.mo_down[i] @ gradient_z[self.neu:].T
+            grad_x = self.mo_down[i] @ gradient[0, self.neu:].T
+            grad_y = self.mo_down[i] @ gradient[1, self.neu:].T
+            grad_z = self.mo_down[i] @ gradient[2, self.neu:].T
             hess_xx = self.mo_down[i] @ hessian_xx[self.neu:].T
             hess_xy = self.mo_down[i] @ hessian_xy[self.neu:].T
             hess_yy = self.mo_down[i] @ hessian_yy[self.neu:].T
@@ -623,7 +618,7 @@ def integral(dX, neu, ned, steps, atom_positions, slater, r_initial):
     for i in range(steps):
         r_e = r_initial + random_step(dX, neu + ned)
         n_vectors = subtract_outer(atom_positions, r_e)
-        result += (slater_determinant_normalization_factor * slater.value(n_vectors)) ** 2
+        slater.gradient(n_vectors)
 
     return result * v / steps
 
@@ -682,6 +677,30 @@ def main(casino):
 
 if __name__ == '__main__':
     """
+    AO_wfn
+    He    14.8
+    Be    29.8
+    Ne    76.2
+    Ar   187.4
+
+    AO_gradient
+    He    59.7
+    Be   129.5 (125.0)
+    Ne
+    Ar
+
+    AO_laplacian
+    He
+    Be
+    Ne
+    Ar
+
+    AO_hessian
+    He
+    Be
+    Ne
+    Ar
+
     slater.value ** 2
     He    27.1
     Be    48.8
@@ -690,7 +709,7 @@ if __name__ == '__main__':
 
     slater.gradient
     He   132.0
-    Be   241.3
+    Be   241.3 (234, 249)
     Ne   510.9
     Ar  1017.4
 
