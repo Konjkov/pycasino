@@ -16,8 +16,11 @@ import numba as nb
 
 from decorators import pool, thread
 from overload import subtract_outer
+from logger import logging
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from readers.casino import Casino
+
+logger = logging.getLogger('vmc')
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
@@ -612,15 +615,42 @@ def random_step(dx, ne):
 
 # @pool
 @nb.jit(nopython=True, nogil=True)
-def profiling(dx, neu, ned, steps, atom_positions, slater, r_initial):
+def profiling_value(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
     for _ in range(steps):
         r_e = r_initial + random_step(dx, neu + ned)
         n_vectors = subtract_outer(atom_positions, r_e)
         slater.value(n_vectors)
-        # slater.gradient(n_vectors)
-        # slater.laplacian(n_vectors)
-        # slater.hessian(n_vectors)
+
+
+# @pool
+@nb.jit(nopython=True, nogil=True)
+def profiling_gradient(dx, neu, ned, steps, atom_positions, slater, r_initial):
+
+    for _ in range(steps):
+        r_e = r_initial + random_step(dx, neu + ned)
+        n_vectors = subtract_outer(atom_positions, r_e)
+        slater.gradient(n_vectors)
+
+
+# @pool
+@nb.jit(nopython=True, nogil=True)
+def profiling_laplacian(dx, neu, ned, steps, atom_positions, slater, r_initial):
+
+    for _ in range(steps):
+        r_e = r_initial + random_step(dx, neu + ned)
+        n_vectors = subtract_outer(atom_positions, r_e)
+        slater.laplacian(n_vectors)
+
+
+# @pool
+@nb.jit(nopython=True, nogil=True)
+def profiling_hessian(dx, neu, ned, steps, atom_positions, slater, r_initial):
+
+    for _ in range(steps):
+        r_e = r_initial + random_step(dx, neu + ned)
+        n_vectors = subtract_outer(atom_positions, r_e)
+        slater.hessian(n_vectors)
 
 
 def main(casino):
@@ -634,60 +664,48 @@ def main(casino):
     )
 
     r_initial = initial_position(casino.input.neu + casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges)
-    profiling(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
+
+    start = default_timer()
+    profiling_value(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
+    end = default_timer()
+    logger.info(' value     %8.1f', end - start)
+
+    start = default_timer()
+    profiling_laplacian(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
+    end = default_timer()
+    logger.info(' laplacian %8.1f', end - start)
+
+    start = default_timer()
+    profiling_gradient(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
+    end = default_timer()
+    logger.info(' gradient  %8.1f', end - start)
+
+    start = default_timer()
+    profiling_hessian(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
+    end = default_timer()
+    logger.info(' hessian   %8.1f', end - start)
 
 
 if __name__ == '__main__':
     """
-    slater.AO_wfn
-    He    14.8
-    Be    29.8
-    Ne    76.2
-    Ar   187.4
-    Kr
-
-    slater.AO_gradient
-    He    59.7
-    Be   129.5 (125.0)
-    Ne
-    Ar
-    Kr
-
-    slater.AO_laplacian
-    He
-    Be
-    Ne
-    Ar
-    Kr
-
-    slater.AO_hessian
-    He
-    Be
-    Ne
-    Ar
-    Kr
-
-    slater.value ** 2
-    He    27.1
-    Be    48.8
-    Ne   107.2
-    Ar   236.9
-    Kr
-
+    slater.value
+    He    27.9
+    Be    44.9
+    Ne   108.6
+    Ar   251.5
+    Kr   778.2
     slater.gradient
     He   132.0
     Be   241.3 (234, 249)
     Ne   510.9
     Ar  1017.4
     kr
-
     slater.laplacian
     He    59.0
     Be   104.7
     Ne   226.2
     Ar   497.1
     Kr
-
     slater.hessian
     He   384.3
     Be   721.0
@@ -700,17 +718,10 @@ if __name__ == '__main__':
     # path = 'test/gwfn/Be/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/Ne/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/Ae/HF/cc-pVQZ/Slater/'
-    path = 'test/gwfn/Kr/HF/cc-pVQZ/Slater/'
+    # path = 'test/gwfn/Kr/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/O3/HF/cc-pVQZ/Slater/'
 
-    # path = 'test/stowfn/He/HF/QZ4P/CBCS/Slater/'
-    # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Slater/'
-    # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Slater/'
-    # path = 'test/stowfn/Ar/HF/QZ4P/CBCS/Slater/'
-    # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Slater/'
-    # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Slater/'
-
-    start = default_timer()
-    main(Casino(path))
-    end = default_timer()
-    print(f'total time {end-start}')
+    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
+        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
+        logger.info('%s:', mol)
+        main(Casino(path))
