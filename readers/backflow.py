@@ -523,8 +523,8 @@ if __name__ == '__main__':
         '51', '52', '53', '54', '55',
     ):
         print(phi_term)
-        # path = f'test/backflow/0_1_0/{phi_term}/correlation.out.1'
-        # path = f'test/backflow/3_1_0/{phi_term}/correlation.out.1'
-        # path = f'test/backflow/0_1_1/{phi_term}/correlation.out.1'
+        path = f'test/backflow/0_1_0/{phi_term}/correlation.out.1'
+        path = f'test/backflow/3_1_0/{phi_term}/correlation.out.1'
+        path = f'test/backflow/0_1_1/{phi_term}/correlation.out.1'
         path = f'test/backflow/3_1_1/{phi_term}/correlation.out.1'
         Backflow(path, atom_positions)

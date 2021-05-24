@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-from typing import Tuple
-from math import gamma
 from timeit import default_timer
 
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -292,17 +290,12 @@ class Slater:
                     ao += 2*l+1
         return orbital
 
-    def AO_hessian(self, n_vectors: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def AO_hessian(self, n_vectors: np.ndarray) -> np.ndarray:
         """hessian matrix.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        :return: AO hessian - array(nelec, nbasis_functions)
+        :return: AO hessian - array(6, nelec, nbasis_functions)
         """
-        orbital_xx = np.zeros((self.neu + self.ned, self.nbasis_functions))
-        orbital_xy = np.zeros((self.neu + self.ned, self.nbasis_functions))
-        orbital_yy = np.zeros((self.neu + self.ned, self.nbasis_functions))
-        orbital_xz = np.zeros((self.neu + self.ned, self.nbasis_functions))
-        orbital_yz = np.zeros((self.neu + self.ned, self.nbasis_functions))
-        orbital_zz = np.zeros((self.neu + self.ned, self.nbasis_functions))
+        orbital = np.zeros((6, self.neu + self.ned, self.nbasis_functions))
 
         for i in range(self.neu + self.ned):
             p = 0
@@ -339,15 +332,15 @@ class Slater:
                             radial_3 += exponent
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
-                        orbital_xx[i, ao+m] = x*x * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * x * angular_2[l*l+m, 0]) * radial_2 + angular_3[l*l+m, 0] * radial_3
-                        orbital_xy[i, ao+m] = x*y * angular_1[l*l+m] * radial_1 + (y * angular_2[l*l+m, 0] + x * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 1] * radial_3
-                        orbital_yy[i, ao+m] = y*y * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * y * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 2] * radial_3
-                        orbital_xz[i, ao+m] = x*z * angular_1[l*l+m] * radial_1 + (z * angular_2[l*l+m, 0] + x * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 3] * radial_3
-                        orbital_yz[i, ao+m] = y*z * angular_1[l*l+m] * radial_1 + (z * angular_2[l*l+m, 1] + y * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 4] * radial_3
-                        orbital_zz[i, ao+m] = z*z * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * z * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 5] * radial_3
+                        orbital[0, i, ao+m] = x*x * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * x * angular_2[l*l+m, 0]) * radial_2 + angular_3[l*l+m, 0] * radial_3
+                        orbital[1, i, ao+m] = x*y * angular_1[l*l+m] * radial_1 + (y * angular_2[l*l+m, 0] + x * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 1] * radial_3
+                        orbital[2, i, ao+m] = y*y * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * y * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 2] * radial_3
+                        orbital[3, i, ao+m] = x*z * angular_1[l*l+m] * radial_1 + (z * angular_2[l*l+m, 0] + x * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 3] * radial_3
+                        orbital[4, i, ao+m] = y*z * angular_1[l*l+m] * radial_1 + (z * angular_2[l*l+m, 1] + y * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 4] * radial_3
+                        orbital[5, i, ao+m] = z*z * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * z * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 5] * radial_3
                     ao += 2*l+1
 
-        return orbital_xx, orbital_xy, orbital_yy, orbital_xz, orbital_yz, orbital_zz
+        return orbital
 
     def value(self, n_vectors: np.ndarray) -> float:
         """Multideterminant wave function value.
@@ -444,7 +437,7 @@ class Slater:
         """
         ao = self.AO_wfn(n_vectors)
         gradient = self.AO_gradient(n_vectors)
-        hessian_xx, hessian_xy, hessian_yy, hessian_xz, hessian_yz, hessian_zz = self.AO_hessian(n_vectors)
+        hessian = self.AO_hessian(n_vectors)
 
         val = 0
         hass = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
@@ -455,12 +448,12 @@ class Slater:
             grad_x = self.mo_up[i] @ gradient[0, :self.neu].T
             grad_y = self.mo_up[i] @ gradient[1, :self.neu].T
             grad_z = self.mo_up[i] @ gradient[2, :self.neu].T
-            hess_xx = self.mo_up[i] @ hessian_xx[:self.neu].T
-            hess_xy = self.mo_up[i] @ hessian_xy[:self.neu].T
-            hess_yy = self.mo_up[i] @ hessian_yy[:self.neu].T
-            hess_xz = self.mo_up[i] @ hessian_xz[:self.neu].T
-            hess_yz = self.mo_up[i] @ hessian_yz[:self.neu].T
-            hess_zz = self.mo_up[i] @ hessian_zz[:self.neu].T
+            hess_xx = self.mo_up[i] @ hessian[0, :self.neu].T
+            hess_xy = self.mo_up[i] @ hessian[1, :self.neu].T
+            hess_yy = self.mo_up[i] @ hessian[2, :self.neu].T
+            hess_xz = self.mo_up[i] @ hessian[3, :self.neu].T
+            hess_yz = self.mo_up[i] @ hessian[4, :self.neu].T
+            hess_zz = self.mo_up[i] @ hessian[5, :self.neu].T
 
             res_grad_u = np.zeros((self.neu, 3))
             res_u = np.zeros((self.neu, 3, self.neu, 3))
@@ -488,12 +481,12 @@ class Slater:
             grad_x = self.mo_down[i] @ gradient[0, self.neu:].T
             grad_y = self.mo_down[i] @ gradient[1, self.neu:].T
             grad_z = self.mo_down[i] @ gradient[2, self.neu:].T
-            hess_xx = self.mo_down[i] @ hessian_xx[self.neu:].T
-            hess_xy = self.mo_down[i] @ hessian_xy[self.neu:].T
-            hess_yy = self.mo_down[i] @ hessian_yy[self.neu:].T
-            hess_xz = self.mo_down[i] @ hessian_xz[self.neu:].T
-            hess_yz = self.mo_down[i] @ hessian_yz[self.neu:].T
-            hess_zz = self.mo_down[i] @ hessian_zz[self.neu:].T
+            hess_xx = self.mo_down[i] @ hessian[0, self.neu:].T
+            hess_xy = self.mo_down[i] @ hessian[1, self.neu:].T
+            hess_yy = self.mo_down[i] @ hessian[2, self.neu:].T
+            hess_xz = self.mo_down[i] @ hessian[3, self.neu:].T
+            hess_yz = self.mo_down[i] @ hessian[4, self.neu:].T
+            hess_zz = self.mo_down[i] @ hessian[5, self.neu:].T
 
             res_grad_d = np.zeros((self.ned, 3))
             res_d = np.zeros((self.ned, 3, self.ned, 3))
@@ -601,55 +594,6 @@ class Slater:
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / delta / 4 / val
 
 
-@nb.jit(nopython=True)
-def random_step(dx, ne):
-    """Random N-dim square distributed step"""
-    return np.random.uniform(-dx, dx, ne * 3).reshape((ne, 3))
-
-
-# @pool
-@nb.jit(nopython=True, nogil=True)
-def integral(dX, neu, ned, steps, atom_positions, slater, r_initial):
-    """https://en.wikipedia.org/wiki/Monte_Carlo_integration"""
-    v = (2 * dX) ** (3 * (neu + ned))  # integration volume
-    slater_determinant_normalization_factor = np.sqrt(1 / gamma(neu+1) / gamma(ned+1))
-
-    result = 0.0
-    for i in range(steps):
-        r_e = r_initial + random_step(dX, neu + ned)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        slater.gradient(n_vectors)
-
-    return result * v / steps
-
-
-def plot_graph(neu, ned, steps, atom_positions, slater):
-    """Plot a graph along random line going through (0, 0, 0)"""
-    import matplotlib.pyplot as plt
-    for n in range(100000):
-        res = np.random.uniform(0, 1, (neu + ned) * 3)
-        res /= np.linalg.norm(res)
-        res = res.reshape((neu + ned, 3))
-        x_grid = np.linspace(0, 5, steps)
-        y_grid = np.zeros((steps, ))
-        n_unit_vectors = subtract_outer(atom_positions, res)
-        for i in range(steps):
-            n_vectors = n_unit_vectors * x_grid[i]
-            y_grid[i] = slater.value(n_vectors, neu)
-        a, b = np.min(y_grid), np.max(y_grid)
-        if np.sign(a) * np.sign(b) < 0:
-            print(f'{n}-th try, random normal vector: {res}, min {a}, max {b}')
-            plt.plot(x_grid, y_grid)
-            plt.xlabel('r_eN (au)')
-            plt.ylabel('polynomial part')
-            plt.title('JASTROW chi-term')
-            plt.grid(True)
-            plt.legend()
-            plt.show()
-
-    return 0
-
-
 @nb.jit(forceobj=True)
 def initial_position(ne, atom_positions, atom_charges):
     """Initial positions of electrons."""
@@ -660,8 +604,27 @@ def initial_position(ne, atom_positions, atom_charges):
     return r_e
 
 
+@nb.jit(nopython=True)
+def random_step(dx, ne):
+    """Random N-dim square distributed step"""
+    return np.random.uniform(-dx, dx, ne * 3).reshape((ne, 3))
+
+
+# @pool
+@nb.jit(nopython=True, nogil=True)
+def profiling(dx, neu, ned, steps, atom_positions, slater, r_initial):
+
+    for _ in range(steps):
+        r_e = r_initial + random_step(dx, neu + ned)
+        n_vectors = subtract_outer(atom_positions, r_e)
+        slater.value(n_vectors)
+        # slater.gradient(n_vectors)
+        # slater.laplacian(n_vectors)
+        # slater.hessian(n_vectors)
+
+
 def main(casino):
-    dX = 3.0
+    dx = 3.0
 
     slater = Slater(
         casino.input.neu, casino.input.ned,
@@ -671,66 +634,73 @@ def main(casino):
     )
 
     r_initial = initial_position(casino.input.neu + casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges)
-    return integral(dX, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
-    # return plot_graph(casino.input.neu, casino.input.ned, 100, casino.wfn.atom_positions, slater)
+    profiling(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
 
 
 if __name__ == '__main__':
     """
-    AO_wfn
+    slater.AO_wfn
     He    14.8
     Be    29.8
     Ne    76.2
     Ar   187.4
+    Kr
 
-    AO_gradient
+    slater.AO_gradient
     He    59.7
     Be   129.5 (125.0)
     Ne
     Ar
+    Kr
 
-    AO_laplacian
+    slater.AO_laplacian
     He
     Be
     Ne
     Ar
+    Kr
 
-    AO_hessian
+    slater.AO_hessian
     He
     Be
     Ne
     Ar
+    Kr
 
     slater.value ** 2
     He    27.1
     Be    48.8
     Ne   107.2
     Ar   236.9
+    Kr
 
     slater.gradient
     He   132.0
     Be   241.3 (234, 249)
     Ne   510.9
     Ar  1017.4
+    kr
 
     slater.laplacian
     He    59.0
     Be   104.7
     Ne   226.2
     Ar   497.1
+    Kr
 
     slater.hessian
     He   384.3
     Be   721.0
     Ne  1528.1
     Ar
+    kr
     """
 
     # path = 'test/gwfn/He/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/Be/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/Ne/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/Ae/HF/cc-pVQZ/Slater/'
-    # path = 'test/gwfn/Kr/HF/cc-pVQZ/Slater/'
+    path = 'test/gwfn/Kr/HF/cc-pVQZ/Slater/'
     # path = 'test/gwfn/O3/HF/cc-pVQZ/Slater/'
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Slater/'
@@ -741,7 +711,6 @@ if __name__ == '__main__':
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Slater/'
 
     start = default_timer()
-    res = main(Casino(path))
-    print(np.mean(res), '+/-', np.var(res))
+    main(Casino(path))
     end = default_timer()
     print(f'total time {end-start}')
