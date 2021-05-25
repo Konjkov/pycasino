@@ -1,14 +1,24 @@
 #!/usr/bin/env python3
 
+import os
+from timeit import default_timer
+
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
 import numpy as np
 import numba as nb
 # import scipy as sp
-import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
-from mpl_toolkits.mplot3d import Axes3D
 
 from readers.casino import Casino
 from overload import subtract_outer
+from logger import logging
+
+logger = logging.getLogger('vmc')
+
 
 labels_type = nb.int64[:]
 eta_parameters_type = nb.float64[:, :]
@@ -652,22 +662,58 @@ class Backflow:
             self.mu_term_laplacian(n_powers, n_vectors) +
             self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
         )
+@nb.jit(forceobj=True)
+def initial_position(ne, atom_positions, atom_charges):
+    """Initial positions of electrons."""
+    natoms = atom_positions.shape[0]
+    r_e = np.zeros((ne, 3))
+    for i in range(ne):
+        r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
+    return r_e
 
 
-if __name__ == '__main__':
-    """Plot Backflow terms
-    """
+@nb.jit(nopython=True)
+def random_step(dx, ne):
+    """Random N-dim square distributed step"""
+    return np.random.uniform(-dx, dx, ne * 3).reshape((ne, 3))
 
-    term = 'all'
 
-    # path = 'test/stowfn/He/HF/QZ4P/Backflow/'
-    # path = 'test/stowfn/Be/HF/QZ4P/Backflow/'
-    # path = 'test/stowfn/Ne/HF/QZ4P/Backflow/'
-    # path = 'test/stowfn/Ar/HF/QZ4P/Backflow/'
-    # path = 'test/stowfn/Kr/HF/QZ4P/Backflow/'
-    # path = 'test/stowfn/O3/HF/QZ4P/Backflow/'
+# @pool
+@nb.jit(nopython=True, nogil=True)
+def profiling_value(dx, neu, ned, steps, atom_positions, backflow, r_initial):
 
-    casino = Casino(path)
+    for _ in range(steps):
+        r_e = r_initial + random_step(dx, neu + ned)
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = subtract_outer(atom_positions, r_e)
+        backflow.value(e_vectors, n_vectors)
+
+
+# @pool
+@nb.jit(nopython=True, nogil=True)
+def profiling_gradient(dx, neu, ned, steps, atom_positions, backflow, r_initial):
+
+    for _ in range(steps):
+        r_e = r_initial + random_step(dx, neu + ned)
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = subtract_outer(atom_positions, r_e)
+        backflow.gradient(e_vectors, n_vectors)
+
+
+# @pool
+@nb.jit(nopython=True, nogil=True)
+def profiling_laplacian(dx, neu, ned, steps, atom_positions, backflow, r_initial):
+
+    for _ in range(steps):
+        r_e = r_initial + random_step(dx, neu + ned)
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = subtract_outer(atom_positions, r_e)
+        backflow.laplacian(e_vectors, n_vectors)
+
+
+def main(casino):
+    dx = 3.0
+
     backflow = Backflow(
         casino.input.neu, casino.input.ned,
         casino.backflow.trunc, casino.backflow.eta_parameters, casino.backflow.eta_cutoff,
@@ -676,140 +722,42 @@ if __name__ == '__main__':
         casino.backflow.phi_labels, casino.backflow.phi_irrotational, casino.backflow.ae_cutoff
     )
 
-    if term == 'eta':
-        x_min, x_max = 0, np.max(backflow.eta_cutoff)
-        steps = 100
-        x_grid = np.linspace(x_min, x_max, steps)
-        for spin_dep in range(3):
-            backflow.neu = 2 - spin_dep
-            backflow.ned = spin_dep
-            y_grid = np.zeros((steps, ))
-            for i in range(100):
-                r_e = np.array([[0.0, 0.0, 0.0], [x_grid[i], 0.0, 0.0]])
-                e_vectors = subtract_outer(r_e, r_e)
-                e_powers = backflow.ee_powers(e_vectors)
-                y_grid[i] = backflow.eta_term(e_vectors, e_powers)[1, 0]
-            plt.plot(x_grid, y_grid, label=['uu', 'ud', 'dd'][spin_dep])
-        plt.xlabel('r_ee (au)')
-        plt.ylabel('polynomial part')
-        plt.title('Backflow eta-term')
-    elif term == 'mu':
-        for atom in range(casino.wfn.atom_positions.shape[0]):
-            x_min, x_max = 0, backflow.mu_cutoff[atom]
-            steps = 100
-            x_grid = np.linspace(x_min, x_max, steps)
-            for spin_dep in range(2):
-                backflow.neu = 1 - spin_dep
-                backflow.ned = spin_dep
-                y_grid = np.zeros((steps, ))
-                for i in range(100):
-                    r_e = np.array([[x_grid[i], 0.0, 0.0]]) + casino.wfn.atom_positions[atom]
-                    sl = slice(atom, atom+1)
-                    backflow.mu_parameters = nb.typed.List.empty_list(mu_parameters_type)
-                    [backflow.mu_parameters.append(p) for p in casino.backflow.mu_parameters[sl]]
-                    n_vectors = -subtract_outer(casino.wfn.atom_positions[sl], r_e)
-                    n_powers = backflow.en_powers(n_vectors)
-                    y_grid[i] = backflow.mu_term(n_vectors, n_powers)[0, 0]
-                plt.plot(x_grid, y_grid, label=f'atom {atom} ' + ['u', 'd'][spin_dep])
-    elif term == 'all':
-        plot_type = 2
-        xy_nucl = (0.0, 0.0)
-        xy_elec = (1.0, 0.0)
-        for atom in range(casino.wfn.atom_positions.shape[0]):
-            max_l = max((backflow.eta_cutoff, backflow.mu_cutoff[atom], backflow.phi_cutoff[atom]))
-            x_max = y_max = max_l
-            x_min = y_min = -max_l
-            x_steps = 25
-            y_steps = 25
-            x_grid = np.linspace(x_min, x_max, x_steps)
-            y_grid = np.linspace(y_min, y_max, y_steps)
-            ij_certesian = np.meshgrid(x_grid, y_grid, indexing='ij')
-            xy_certesian = np.meshgrid(x_grid, y_grid, indexing='xy')
-            phi_ij_certesian = np.zeros((2, x_steps, y_steps))
-            phi_xy_certesian = np.zeros((2, x_steps, y_steps))
-            for i in range(x_steps):
-                for j in range(y_steps):
-                    r_e = np.array([[x_grid[i], y_grid[j], 0.0], [1.0, 0.0, 0.0]]) + casino.wfn.atom_positions[atom]
-                    sl = slice(atom, atom + 1)
-                    e_vectors = subtract_outer(r_e, r_e)
-                    e_powers = backflow.ee_powers(e_vectors)
-                    n_vectors = -subtract_outer(casino.wfn.atom_positions[sl], r_e)
-                    n_powers = backflow.en_powers(n_vectors)
-                    phi_ij_certesian[:, i, j] = backflow.value(e_vectors, n_vectors)[0, 0:2]
-                    phi_xy_certesian[:, j, i] = backflow.value(e_vectors, n_vectors)[0, 0:2]
-            fig_2D, axs = plt.subplots(1, 2)
-            for spin_dep in range(2):
-                axs[spin_dep].clear()
-                backflow.neu = 2 - spin_dep
-                backflow.ned = spin_dep
-                axs[spin_dep].set_title('{} backflow {} term'.format('all', ['u-u', 'u-d'][spin_dep]))
-                axs[spin_dep].set_aspect('equal', adjustable='box')
-                axs[spin_dep].plot(*xy_nucl, 'ro', label='nucleus')
-                axs[spin_dep].plot(*xy_elec, 'mo', label='electron')
-                axs[spin_dep].set_xlabel('X axis')
-                axs[spin_dep].set_ylabel('Y axis')
-                if plot_type == 0:
-                    axs[spin_dep].quiver(
-                        *ij_certesian,
-                        *phi_ij_certesian,
-                        angles='xy', scale_units='xy',
-                        scale=1, color=['blue', 'green'][spin_dep]
-                    )
-                elif plot_type == 1:
-                    axs[spin_dep].plot(
-                        *(ij_certesian + phi_ij_certesian),
-                        color=['blue', 'green'][spin_dep]
-                    )
-                    axs[spin_dep].plot(
-                        *(xy_certesian + phi_xy_certesian),
-                        color=['blue', 'green'][spin_dep]
-                    )
-                elif plot_type == 2:
-                    x_steps = 10
-                    y_steps = 25
-                    r = np.linspace(0, x_max, x_steps)[:, np.newaxis]
-                    theta = np.linspace(0, 2 * np.pi, y_steps)
-                    x = r * np.cos(theta)
-                    y = r * np.sin(theta)
-                    ij_radial = np.array([x, y])
-                    phi_ij_radial = np.zeros((2, x_steps, y_steps))
-                    axs[spin_dep].plot(
-                        *(ij_radial + phi_ij_radial),
-                        color=['blue', 'green'][spin_dep]
-                    )
+    r_initial = initial_position(casino.input.neu + casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges)
 
-                    x_steps = 25
-                    y_steps = 10
-                    theta = np.linspace(0, 2 * np.pi, x_steps)[:, np.newaxis]
-                    r = np.linspace(0, x_max, y_steps)
-                    x = r * np.cos(theta)
-                    y = r * np.sin(theta)
-                    xy_radial = np.array([x, y])
-                    phi_xy_radial = np.zeros((2, x_steps, y_steps))
-                    axs[spin_dep].plot(
-                        *(xy_radial + phi_xy_radial),
-                        color=['blue', 'green'][spin_dep]
-                    )
-                elif plot_type == 3:
-                    pass
-                    # contours = axs[spin_dep].contour(
-                    #     grid_3D('ij')[0][:, :, 1],
-                    #     grid_3D('ij')[1][:, :, 1],
-                    #     jacobian_det('ij', ri_spin, rj_spin, self.set)[:, :, 1],
-                    #     10,
-                    #     colors='black'
-                    # )
-                    # plt.clabel(contours, inline=True, fontsize=8)
+    start = default_timer()
+    profiling_value(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, backflow, r_initial)
+    end = default_timer()
+    logger.info(' value     %8.1f', end - start)
 
-                if backflow.eta_cutoff is not None:
-                    axs[spin_dep].add_patch(Circle(xy_elec, backflow.eta_cutoff, fill=False, linestyle=':', label='ETA e-e cutoff'))
-                if backflow.mu_cutoff[atom] is not None:
-                    axs[spin_dep].add_patch(Circle(xy_nucl, backflow.mu_cutoff[atom], fill=False, color='c', label='MU e-n cutoff'))
-                if backflow.phi_cutoff[atom] is not None:
-                    axs[spin_dep].add_patch(Circle(xy_nucl, backflow.phi_cutoff[atom], fill=False, color='y', label='PHI e-n cutoff'))
-                if backflow.ae_cutoff[atom] is not None:
-                    axs[spin_dep].add_patch(Circle(xy_nucl, backflow.ae_cutoff[atom], fill=False, label='AE cutoff'))
-                axs[spin_dep].legend()
-    plt.grid(True)
-    plt.legend()
-    plt.show()
+    start = default_timer()
+    profiling_gradient(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, backflow, r_initial)
+    end = default_timer()
+    logger.info(' gradient  %8.1f', end - start)
+
+    start = default_timer()
+    profiling_laplacian(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, backflow, r_initial)
+    end = default_timer()
+    logger.info(' laplacian %8.1f', end - start)
+
+
+if __name__ == '__main__':
+    """
+    He:
+     value         40.0
+     gradient     121.6
+     laplacian    138.8
+    Be:
+     value         99.5
+     gradient     481.4
+     laplacian    573.4
+    Ne:
+     value        415.0
+     gradient    1897.3
+     laplacian   2247.9
+    Ar:
+    """
+
+    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
+        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
+        logger.info('%s:', mol)
+        main(Casino(path))

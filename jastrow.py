@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 
+import os
+from timeit import default_timer
+
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
 import numpy as np
 import numba as nb
-# import scipy as sp
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 from readers.casino import Casino
 from overload import subtract_outer
+from logger import logging
 
-"""
-https://github.com/numba/numba/issues/4522
-
-So to summarize the current state (as of numba 0.45.1), jitclasses will (almost) always be slower
- than a functional njit equivalent routine because of the reference counting of class attributes.
-I guess when using classes + numba, @selslack's suggestion of creating a normal class with njit methods,
- which is not the most ideal because it leads to some obfuscation, is the best option.
-"""
+logger = logging.getLogger('vmc')
 
 labels_type = nb.int64[:]
 u_mask_type = nb.boolean[:, :]
@@ -1046,20 +1046,58 @@ class Jastrow:
         return res
 
 
-if __name__ == '__main__':
-    """Plot Jastrow terms
-    """
+@nb.jit(forceobj=True)
+def initial_position(ne, atom_positions, atom_charges):
+    """Initial positions of electrons."""
+    natoms = atom_positions.shape[0]
+    r_e = np.zeros((ne, 3))
+    for i in range(ne):
+        r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
+    return r_e
 
-    term = 'chi'
 
-    # path = 'test/stowfn/He/HF/QZ4P/Jastrow/'
-    # path = 'test/stowfn/Be/HF/QZ4P/Jastrow/'
-    # path = 'test/stowfn/Ne/HF/QZ4P/Jastrow/'
-    # path = 'test/stowfn/Ar/HF/QZ4P/Jastrow/'
-    # path = 'test/stowfn/Kr/HF/QZ4P/Jastrow/'
-    # path = 'test/stowfn/O3/HF/QZ4P/Jastrow/'
+@nb.jit(nopython=True)
+def random_step(dx, ne):
+    """Random N-dim square distributed step"""
+    return np.random.uniform(-dx, dx, ne * 3).reshape((ne, 3))
 
-    casino = Casino(path)
+
+# @pool
+@nb.jit(nopython=True, nogil=True)
+def profiling_value(dx, neu, ned, steps, atom_positions, jastrow, r_initial):
+
+    for _ in range(steps):
+        r_e = r_initial + random_step(dx, neu + ned)
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = subtract_outer(atom_positions, r_e)
+        jastrow.value(e_vectors, n_vectors)
+
+
+# @pool
+@nb.jit(nopython=True, nogil=True)
+def profiling_gradient(dx, neu, ned, steps, atom_positions, jastrow, r_initial):
+
+    for _ in range(steps):
+        r_e = r_initial + random_step(dx, neu + ned)
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = subtract_outer(atom_positions, r_e)
+        jastrow.gradient(e_vectors, n_vectors)
+
+
+# @pool
+@nb.jit(nopython=True, nogil=True)
+def profiling_laplacian(dx, neu, ned, steps, atom_positions, jastrow, r_initial):
+
+    for _ in range(steps):
+        r_e = r_initial + random_step(dx, neu + ned)
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = subtract_outer(atom_positions, r_e)
+        jastrow.laplacian(e_vectors, n_vectors)
+
+
+def main(casino):
+    dx = 3.0
+
     jastrow = Jastrow(
         casino.input.neu, casino.input.ned,
         casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_mask, casino.jastrow.u_cutoff, casino.jastrow.u_cusp_const,
@@ -1068,79 +1106,47 @@ if __name__ == '__main__':
         casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp
     )
 
-    steps = 100
+    r_initial = initial_position(casino.input.neu + casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges)
 
-    if term == 'u':
-        x_min, x_max = 0, jastrow.u_cutoff
-        x_grid = np.linspace(x_min, x_max, steps)
-        for spin_dep in range(3):
-            jastrow.neu = 2-spin_dep
-            jastrow.ned = spin_dep
-            y_grid = np.zeros((steps, ))
-            for i in range(100):
-                r_e = np.array([[0.0, 0.0, 0.0], [x_grid[i], 0.0, 0.0]])
-                e_vectors = subtract_outer(r_e, r_e)
-                e_powers = jastrow.ee_powers(e_vectors)
-                y_grid[i] = jastrow.u_term(e_powers)
-                if spin_dep == 1:
-                    y_grid[i] /= 2.0
-            plt.plot(x_grid, y_grid, label=['uu', 'ud/2', 'dd'][spin_dep])
-        plt.xlabel('r_ee (au)')
-        plt.ylabel('polynomial part')
-        plt.title('JASTROW u-term')
-    elif term == 'chi':
-        for atom in range(casino.wfn.atom_positions.shape[0]):
-            x_min, x_max = 0, jastrow.chi_cutoff[atom]
-            x_grid = np.linspace(x_min, x_max, steps)
-            for spin_dep in range(2):
-                jastrow.neu = 1 - spin_dep
-                jastrow.ned = spin_dep
-                y_grid = np.zeros((steps, ))
-                for i in range(100):
-                    r_e = np.array([[x_grid[i], 0.0, 0.0]]) + casino.wfn.atom_positions[atom]
-                    sl = slice(atom, atom+1)
-                    jastrow.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)
-                    [jastrow.chi_parameters.append(p) for p in casino.jastrow.chi_parameters[sl]]
-                    n_vectors = subtract_outer(casino.wfn.atom_positions[sl], r_e)
-                    n_powers = jastrow.en_powers(n_vectors)
-                    y_grid[i] = jastrow.chi_term(n_powers)
-                plt.plot(x_grid, y_grid, label=f'atom {atom} ' + ['u', 'd'][spin_dep])
-        plt.xlabel('r_eN (au)')
-        plt.ylabel('polynomial part')
-        plt.title('JASTROW chi-term')
-    elif term == 'f':
-        figure = plt.figure()
-        axis = figure.add_subplot(111, projection='3d')
-        for atom in range(casino.wfn.atom_positions.shape[0]):
-            x_min, x_max = -jastrow.f_cutoff[atom], jastrow.f_cutoff[atom]
-            y_min, y_max = 0.0, np.pi
-            x = np.linspace(x_min, x_max, steps)
-            y = np.linspace(y_min, y_max, steps)
-            x_grid, y_grid = np.meshgrid(x, y)
-            for spin_dep in range(3):
-                jastrow.neu = 2 - spin_dep
-                jastrow.ned = spin_dep
-                z_grid = np.zeros((steps, steps))
-                for i in range(100):
-                    for j in range(100):
-                        r_e = np.array([
-                            [x_grid[i, j] * np.cos(y_grid[i, j]), x_grid[i, j] * np.sin(y_grid[i, j]), 0.0],
-                            [x_grid[i, j], 0.0, 0.0]
-                        ]) + casino.wfn.atom_positions[atom]
-                        sl = slice(atom, atom + 1)
-                        jastrow.f_parameters = nb.typed.List.empty_list(f_parameters_type)
-                        [jastrow.f_parameters.append(p) for p in casino.jastrow.f_parameters[sl]]
-                        e_vectors = subtract_outer(r_e, r_e)
-                        e_powers = jastrow.ee_powers(e_vectors)
-                        n_vectors = subtract_outer(casino.wfn.atom_positions[sl], r_e)
-                        n_powers = jastrow.en_powers(n_vectors)
-                        z_grid[i, j] = jastrow.f_term(e_powers, n_powers)
-                axis.plot_wireframe(x_grid, y_grid, z_grid, label=f'atom {atom} ' + ['uu', 'ud', 'dd'][spin_dep])
-        axis.set_xlabel('r_e1N (au)')
-        axis.set_ylabel('r_e2N (au)')
-        axis.set_zlabel('polynomial part')
-        plt.title('JASTROW f-term')
+    start = default_timer()
+    profiling_value(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, jastrow, r_initial)
+    end = default_timer()
+    logger.info(' value     %8.1f', end - start)
 
-    plt.grid(True)
-    plt.legend()
-    plt.show()
+    start = default_timer()
+    profiling_laplacian(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, jastrow, r_initial)
+    end = default_timer()
+    logger.info(' laplacian %8.1f', end - start)
+
+    start = default_timer()
+    profiling_gradient(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, jastrow, r_initial)
+    end = default_timer()
+    logger.info(' gradient  %8.1f', end - start)
+
+
+if __name__ == '__main__':
+    """
+    He:
+     value         27.1
+     gradient      37.5
+     laplacian     30.9
+    Be:
+     value         60.4
+     gradient     113.5
+     laplacian     96.8
+    Ne:
+     value        285.3
+     gradient     548.9
+     laplacian    483.7
+    Ar:
+     value        884.8
+     gradient    1765.9
+     laplacian   1625.8
+    Kr:
+     value       3490.5
+    """
+
+    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
+        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Jastrow/'
+        logger.info('%s:', mol)
+        main(Casino(path))

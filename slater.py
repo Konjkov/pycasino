@@ -688,40 +688,24 @@ def main(casino):
 
 if __name__ == '__main__':
     """
-    slater.value
-    He    27.9
-    Be    44.9
-    Ne   108.6
-    Ar   251.5
-    Kr   778.2
-    slater.gradient
-    He   132.0
-    Be   241.3 (234, 249)
-    Ne   510.9
-    Ar  1017.4
-    kr
-    slater.laplacian
-    He    59.0
-    Be   104.7
-    Ne   226.2
-    Ar   497.1
-    Kr
-    slater.hessian
-    He   384.3
-    Be   721.0
-    Ne  1528.1
-    Ar
-    kr
+    He:
+     value         25.7
+     laplacian     55.8
+     gradient     134.5
+     hessian      413.7
+    Be:
+     value         45.5
+     laplacian     98.2
+     gradient     242.5
+     hessian      729.8
+    Ne:
+     value        125.4
+     laplacian    244.3
+     gradient     555.3
     """
 
-    # path = 'test/gwfn/He/HF/cc-pVQZ/Slater/'
-    # path = 'test/gwfn/Be/HF/cc-pVQZ/Slater/'
-    # path = 'test/gwfn/Ne/HF/cc-pVQZ/Slater/'
-    # path = 'test/gwfn/Ae/HF/cc-pVQZ/Slater/'
-    # path = 'test/gwfn/Kr/HF/cc-pVQZ/Slater/'
-    # path = 'test/gwfn/O3/HF/cc-pVQZ/Slater/'
-
     for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
+        # path = f'test/gwfn/{mol}/HF/cc-pVQZ/CBCS/Slater/'
         path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
         logger.info('%s:', mol)
         main(Casino(path))
