@@ -128,6 +128,7 @@ class Wfn:
         """
         delta = 0.00001
 
+        val = self.slater.value(n_vectors + self.backflow.value(e_vectors, n_vectors))
         res = np.zeros((self.neu + self.ned, 3))
         for i in range(self.neu + self.ned):
             for j in range(3):
@@ -143,7 +144,7 @@ class Wfn:
                 e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
 
-        return res.ravel() / delta / 2
+        return res.ravel() / delta / 2 / val
 
     def slater_numerical_laplacian(self, e_vectors, n_vectors):
         """Numerical laplacian with respect to a e-coordinates
@@ -151,6 +152,7 @@ class Wfn:
         """
         delta = 0.00001
 
+        val = self.slater.value(n_vectors + self.backflow.value(e_vectors, n_vectors))
         res = - 6 * (self.neu + self.ned) * self.slater.value(n_vectors + self.backflow.value(e_vectors, n_vectors))
         for i in range(self.neu + self.ned):
             for j in range(3):
@@ -166,4 +168,4 @@ class Wfn:
                 e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
 
-        return res / delta / delta
+        return res / delta / delta / val
