@@ -4,8 +4,7 @@ import numpy as np
 import numba as nb
 import matplotlib.pyplot as plt
 
-from readers.wfn import Gwfn
-from readers.input import Input
+from readers.casino import Casino
 
 
 def wfn_s(r, atom, mo, shells, atoms):
@@ -36,28 +35,36 @@ def wfn_s(r, atom, mo, shells, atoms):
 
 
 def initial_phi_data(mo, shells, atoms):
-    """Calculate initial phi coefficients."""
+    """Calculate initial phi coefficients.
+    shift variable chosen so that (phi−C) is of one sign within rc.
+    eta = gauss0_full - gauss0_s contribution from Gaussians on other nuclei
+    """
+    alpha = np.zeros((atoms.shape[0], 5))
     for atom in range(atoms.shape[0]):
         rc = 1/atom[atom].charge
-        wfn_0, wfn_derivative_0, _ = wfn_s(0.0, atom, mo, shells, atoms)
-        wfn_rc, wfn_derivative_rc, wfn_second_derivative_rc = wfn_s(rc, atom, mo, shells, atoms)
+        phi_0, phi_1, _ = wfn_s(0.0, atom, mo, shells, atoms)
+        gauss0, gauss1, gauss2 = wfn_s(rc, atom, mo, shells, atoms)
+        eta = 0  # contribution from Gaussians on other nuclei
         for i in range(mo.shape[0]):
-            C = 0 if np.sign(wfn_0[i]) == np.sign(wfn_rc[i]) else 1.1 * wfn_rc[i]
-            print(f"atom {atom}, s-orbital at r=0 {wfn_0[i]}, at r=rc {wfn_rc[i]}, C={C}, psi-sign {np.sign(wfn_0[i])}")
-            X1 = np.log(np.abs(wfn_rc[i] - C))
-            X2 = wfn_derivative_rc[i] / (wfn_rc[i] - C)
-            X3 = wfn_second_derivative_rc[i] / (wfn_rc[i] - C)
-            X4 = wfn_derivative_0[i] / (wfn_0[i] - C)
-            X5 = np.log(np.abs(wfn_0[i] - C))
+            shift = 0 if np.sign(phi_0[i]) == np.sign(gauss0[i]) else 1.1 * gauss0[i]
+            zeff = atom[atom].charge * (1 + eta/phi_0[i])
+            print(f"atom {atom}, s-orbital at r=0 {phi_0[i]}, at r=rc {gauss0[i]}, C={shift}, psi-sign {np.sign(phi_0[i])}")
+            X1 = np.log(np.abs(gauss0[i] - shift))                     # (9)
+            X2 = gauss1[i] / (gauss0[i] - shift)                       # (10)
+            X3 = gauss2[i] / (gauss0[i] - shift)                       # (11)
+            X4 = -zeff * phi_0[i] / (phi_0[i] - shift)                 # (12)
+            X5 = np.log(np.abs(phi_0[i] - shift))                      # (13)
             print(f"X1={X1} X2={X2} X3={X3} X4={X4} X5={X5}")
-            alpha0 = X5
-            alpha1 = X4
-            alpha2 = 6*X1/rc**2 - 3*X2/rc + X3/2 - 3*X4/rc - 6*X5/rc**2 - X2**2/2
-            alpha3 = -8*X1/rc**3 + 5*X2/rc**2 - X3/rc + 3*X4/rc**2 + 8*X5/rc**3 + X2**2/rc
-            alpha4 = 3*X1/rc**4 - 2*X2/rc**3 + X3/2/rc**2 - X4/rc**3 - 3*X5/rc**4 - X2**2/2/rc**2
+            # (14)
+            alpha[atom, 0] = X5
+            alpha[atom, 1] = X4
+            alpha[atom, 2] = 6*X1/rc**2 - 3*X2/rc + X3/2 - 3*X4/rc - 6*X5/rc**2 - X2**2/2
+            alpha[atom, 3] = -8*X1/rc**3 + 5*X2/rc**2 - X3/rc + 3*X4/rc**2 + 8*X5/rc**3 + X2**2/rc
+            alpha[atom, 4] = 3*X1/rc**4 - 2*X2/rc**3 + X3/2/rc**2 - X4/rc**3 - 3*X5/rc**4 - X2**2/2/rc**2
+
+    return alpha
 
 
-#@nb.jit(nopython=True, cache=True)
 def cusp_graph(atom, mo, shells, atoms):
     """In nuclear position dln(phi)/dr|r=r_nucl = -Z_nucl
     """
@@ -99,24 +106,18 @@ if __name__ == '__main__':
     """
     """
 
-    # gwfn = Gwfn('test/h/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/h/HF/cc-pVQZ/input')
-    gwfn = Gwfn('test/be/HF/cc-pVQZ/gwfn.data')
-    inp = Input('test/be/HF/cc-pVQZ/input')
-    # gwfn = Gwfn('test/be2/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/be2/HF/cc-pVQZ/input')
-    # gwfn = Gwfn('test/acetic/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/acetic/HF/cc-pVQZ/input')
-    # gwfn = Gwfn('test/acetaldehyde/HF/cc-pVQZ/gwfn.data')
-    # inp = Input('test/acetaldehyde/HF/cc-pVQZ/input')
+    # path = 'test/stowfn/He/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/Ar/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Slater/'
 
-    mo = gwfn.mo
-    neu = inp.neu
-    ned = inp.ned
+    casino = Casino(path)
 
-    mo_u = mo[0][:neu]
-    mo_d = mo[0][:ned]
+    neu, ned = casino.input.neu, casino.input.ned
+    mo_up, mo_down = casino.mdet.mo_up[:neu], casino.mdet.mo_down[:ned]
+
     # since neu => neb, only up-orbitals are needed to calculate wfn.
     cusp_graph(0, mo_u, gwfn.shells, gwfn.atoms)
-    #initial_phi_data(mo_u, gwfn.nshell, gwfn.shell_types, gwfn.shell_positions, gwfn.primitives, gwfn.contraction_coefficients, gwfn.exponents, gwfn.atomic_positions, gwfn.atom_charges)
-
+    initial_phi_data(mo_u, gwfn.nshell, gwfn.atomic_positions)

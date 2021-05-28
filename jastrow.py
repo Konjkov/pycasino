@@ -1127,23 +1127,23 @@ def main(casino):
 if __name__ == '__main__':
     """
     He:
-     value         27.1
-     gradient      37.5
-     laplacian     30.9
+     value         25.6
+     laplacian     30.4
+     gradient      37.6
     Be:
-     value         60.4
-     gradient     113.5
-     laplacian     96.8
+     value         57.5
+     laplacian     93.9
+     gradient     112.4
     Ne:
-     value        285.3
-     gradient     548.9
-     laplacian    483.7
+     value        277.5
+     laplacian    481.7
+     gradient     536.5
     Ar:
-     value        884.8
-     gradient    1765.9
-     laplacian   1625.8
+     value        875.4
+     laplacian   1612.5
+     gradient    1771.5
     Kr:
-     value       3490.5
+     value       3174.8
     """
 
     for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):

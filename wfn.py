@@ -1,5 +1,4 @@
 import os
-from timeit import default_timer
 from slater import Slater
 from jastrow import Jastrow
 from backflow import Backflow
@@ -11,13 +10,9 @@ os.environ["MKL_NUM_THREADS"] = "1"  # mkl
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # accelerate
 os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
 
-import pyblock
 import numpy as np
 import numba as nb
-import scipy as sp
 
-from decorators import pool, thread
-from readers.casino import Casino
 from overload import subtract_outer
 from logger import logging
 

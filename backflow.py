@@ -11,7 +11,6 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 import numpy as np
 import numba as nb
-# import scipy as sp
 
 from readers.casino import Casino
 from overload import subtract_outer
@@ -755,6 +754,7 @@ if __name__ == '__main__':
      gradient    1897.3
      laplacian   2247.9
     Ar:
+     value       1501.9
     """
 
     for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
