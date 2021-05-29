@@ -713,6 +713,9 @@ if __name__ == '__main__':
      laplacian   1602.4
      gradient    2684.6
      hessian     7316.8
+    O3:
+     value        626.4
+     laplacian   1272.6
     """
 
     for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
