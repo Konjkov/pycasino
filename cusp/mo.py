@@ -31,13 +31,15 @@ def wfn_s(r, atom, mo, shells, atoms):
             orbital_derivative[i, ao] = s_derivative_part
             orbital_second_derivative[i, ao] = s_second_derivative_part
             ao += 2 * l + 1
-    return np.dot(mo, orbital.T)[:, 0], np.dot(mo, orbital_derivative.T)[:, 0], np.dot(mo, orbital_second_derivative.T)[:, 0]
+    return (mo @ orbital.T)[:, 0], (mo @ orbital_derivative.T)[:, 0], (mo @ orbital_second_derivative.T)[:, 0]
 
 
 def initial_phi_data(mo, shells, atoms):
     """Calculate initial phi coefficients.
     shift variable chosen so that (phi−C) is of one sign within rc.
     eta = gauss0_full - gauss0_s contribution from Gaussians on other nuclei
+    if abs(gauss0_s_n(orbital, ion_s, spin_type_full)) < 10**-7:
+        print('Orbital s component effectively zero at this nucleus.')
     """
     alpha = np.zeros((atoms.shape[0], 5))
     for atom in range(atoms.shape[0]):
@@ -99,6 +101,20 @@ def ma_cusp():
 
     In this expression sign[tilde_phi(0)], reflecting the sign of tilde_phĩ at the nucleus,
     and C is a shift chosen so that tilde_phi − C is of one sign within rc.
+
+    To ensure orbitals expanded in Gaussians have correct cusp at the nucleus,
+    we replace the s-part of the orbital within r=rcusp by disign*exp[p(r)],
+    where disign is the sign of the orbital at r=0 and p(r) is the polynomial
+    p = acusp(1) + acusp(2)*r + acusp(3)*r^2 + acusp(4)*r^3 + acusp(5)*r^4
+    such that p(rcusp), p'(rcusp), and p''(rcusp) are continuous, and
+    p'(0) = -zeff.  Local energy at r=0 is set by a smoothness criterion.
+
+    This setup routine calculates appropriate values of rcusp and acusp for
+    each orbital, ion and spin.
+
+    Work out appropriate cusp radius rcusp by looking at fluctuations in the local
+    energy within rcmax. Set rcusp to the largest radius at which the deviation
+    from the "ideal" curve has a magnitude greater than zatom^2/cusp_control.
     """
 
 
@@ -116,8 +132,8 @@ if __name__ == '__main__':
     casino = Casino(path)
 
     neu, ned = casino.input.neu, casino.input.ned
-    mo_up, mo_down = casino.mdet.mo_up[:neu], casino.mdet.mo_down[:ned]
+    mo_up, mo_down = casino.mdet.mo_up[0], casino.mdet.mo_down[0]
 
     # since neu => neb, only up-orbitals are needed to calculate wfn.
-    cusp_graph(0, mo_u, gwfn.shells, gwfn.atoms)
-    initial_phi_data(mo_u, gwfn.nshell, gwfn.atomic_positions)
+    cusp_graph(0, mo_up, gwfn.shells, gwfn.atoms)
+    initial_phi_data(mo_up, gwfn.nshell, gwfn.atomic_positions)

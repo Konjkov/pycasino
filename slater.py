@@ -699,9 +699,9 @@ if __name__ == '__main__':
      gradient     242.5
      hessian      729.8
     Ne:
-     value        125.4
-     laplacian    244.3
-     gradient     555.3
+     value        101.4
+     laplacian    224.5
+     gradient     529.8
      hessian     1616.1
     Ar:
      value        274.7
@@ -719,7 +719,7 @@ if __name__ == '__main__':
     """
 
     for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
-        # path = f'test/gwfn/{mol}/HF/cc-pVQZ/CBCS/Slater/'
-        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
+        path = f'test/gwfn/{mol}/HF/cc-pVQZ/CBCS/Slater/'
+        # path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
         logger.info('%s:', mol)
         main(Casino(path))
