@@ -661,6 +661,8 @@ class Backflow:
             self.mu_term_laplacian(n_powers, n_vectors) +
             self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
         )
+
+
 @nb.jit(forceobj=True)
 def initial_position(ne, atom_positions, atom_charges):
     """Initial positions of electrons."""
