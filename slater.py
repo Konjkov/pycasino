@@ -369,6 +369,7 @@ class Slater:
         grad = np.zeros((self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
 
+            # (up_orbitals, nbasis_functions) @ (nbasis_functions, up_electrons) = (up_orbitals, up_electrons)
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
             inv_wfn_u = np.linalg.inv(wfn_u)
             grad_x = self.mo_up[i] @ gradient[0, :self.neu].T
@@ -414,12 +415,14 @@ class Slater:
         for i in range(self.coeff.shape[0]):
 
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
+            inv_wfn_u = np.linalg.inv(wfn_u)
             lap_u = self.mo_up[i] @ ao_laplacian[:self.neu].T
-            res_u = np.sum(np.linalg.inv(wfn_u) * lap_u.T)
+            res_u = np.sum(inv_wfn_u * lap_u.T)
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
+            inv_wfn_d = np.linalg.inv(wfn_d)
             lap_d = self.mo_down[i] @ ao_laplacian[self.neu:].T
-            res_d = np.sum(np.linalg.inv(wfn_d) * lap_d.T)
+            res_d = np.sum(inv_wfn_d * lap_d.T)
 
             c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
             val += c
