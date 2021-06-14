@@ -188,6 +188,9 @@ class Jastrow:
                         self.f_parameters.append(f_parameters)
                         self.fix_f_parameters(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                         self.check_f_constrains(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
+                        # for i, parameters in enumerate(self.f_parameters):
+                        #     # FIXME: put spin_dep to first place
+                        #     self.f_parameters[i] = parameters.transpose((3, 0, 1, 2))
                     elif line.startswith('END SET'):
                         set_number = None
 
@@ -205,7 +208,7 @@ class Jastrow:
         mask[1] = False
         return mask
 
-    def construct_a_matrix(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
+    def construct_a_matrix(self, f_en_order, f_ee_order, f_cutoff, no_dup_u_term, no_dup_chi_term):
         """A-matrix has the following rows:
         (2 * f_en_order + 1) constraints imposed to satisfy electron–electron no-cusp condition.
         (f_en_order + f_ee_order + 1) constraints imposed to satisfy electron–nucleus no-cusp condition.
@@ -213,9 +216,6 @@ class Jastrow:
         (f_en_order + 1) constraints imposed to prevent duplication of chi-term
         copy-paste from /CASINO/src/pjastrow.f90 SUBROUTINE construct_A
         """
-        f_en_order = f_parameters.shape[0] - 1
-        f_ee_order = f_parameters.shape[2] - 1
-
         ee_constrains = 2 * f_en_order + 1
         en_constrains = f_en_order + f_ee_order + 1
         no_dup_u_constrains = f_ee_order + 1
@@ -227,12 +227,12 @@ class Jastrow:
         if no_dup_chi_term:
             n_constraints += no_dup_chi_constrains
 
-        parameters_size = f_parameters.shape[0] * (f_parameters.shape[1] + 1) * f_parameters.shape[2] // 2
+        parameters_size = (f_en_order + 1) * (f_en_order + 2) * (f_ee_order + 1) // 2
         a = np.zeros((n_constraints, parameters_size))
         p = 0
-        for n in range(f_parameters.shape[2]):
-            for m in range(f_parameters.shape[1]):
-                for l in range(m, f_parameters.shape[0]):
+        for n in range(f_ee_order + 1):
+            for m in range(f_en_order + 1):
+                for l in range(m, f_en_order + 1):
                     if n == 1:
                         if l == m:
                             a[l + m, p] = 1
@@ -259,8 +259,10 @@ class Jastrow:
 
     def get_f_mask(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
         """Mask dependent parameters in f-term."""
+        f_en_order = f_parameters.shape[0] - 1
+        f_ee_order = f_parameters.shape[2] - 1
 
-        a = self.construct_a_matrix(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
+        a = self.construct_a_matrix(f_en_order, f_ee_order, f_cutoff, no_dup_u_term, no_dup_chi_term)
 
         _, pivot = rref(a)
 
@@ -288,6 +290,7 @@ class Jastrow:
             chi_parameters[1] = chi_parameters[0] * C / L
             if chi_cusp:
                 pass
+                # FIXME: chi cusp not implemented
                 # chi_parameters[1] -= charge / (-L) ** C
 
     def fix_f_parameters(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
@@ -304,7 +307,7 @@ class Jastrow:
         f_ee_order = f_parameters.shape[2] - 1
         f_spin_dep = f_parameters.shape[3] - 1
 
-        a = self.construct_a_matrix(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
+        a = self.construct_a_matrix(f_en_order, f_ee_order, f_cutoff, no_dup_u_term, no_dup_chi_term)
         a, pivot = rref(a)
         # remove zero-rows
         a = a[:len(pivot), :]
