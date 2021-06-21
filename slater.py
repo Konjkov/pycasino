@@ -374,22 +374,12 @@ class Slater:
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
             inv_wfn_u = np.linalg.inv(wfn_u)
             grad_u = self.mo_up[i] @ gradient[:self.neu * 3].T
-
-            res_u = np.zeros((self.neu, 3))
-            temp = (inv_wfn_u @ grad_u).reshape((self.neu, self.neu, 3))
-            res_u[:, 0] = np.diag(temp[:, :, 0])
-            res_u[:, 1] = np.diag(temp[:, :, 1])
-            res_u[:, 2] = np.diag(temp[:, :, 2])
+            res_u = (inv_wfn_u * grad_u.reshape((self.neu, self.neu, 3)).T).T.sum(axis=0)
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
             inv_wfn_d = np.linalg.inv(wfn_d)
             grad_d = self.mo_down[i] @ gradient[self.neu * 3:].T
-
-            res_d = np.zeros((self.ned, 3))
-            temp = (inv_wfn_d @ grad_d).reshape((self.ned, self.ned, 3))
-            res_d[:, 0] = np.diag(temp[:, :, 0])
-            res_d[:, 1] = np.diag(temp[:, :, 1])
-            res_d[:, 2] = np.diag(temp[:, :, 2])
+            res_d = (inv_wfn_d * grad_d.reshape((self.ned, self.ned, 3)).T).T.sum(axis=0)
 
             c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
             val += c
