@@ -225,7 +225,7 @@ class Slater:
         :param n_vectors: electron-nuclei - array(natom, nelec, 3)
         :return: AO gradient - array(3, nelec, nbasis_functions)
         """
-        orbital = np.zeros((3, self.neu + self.ned, self.nbasis_functions))
+        orbital = np.zeros((self.neu + self.ned, 3, self.nbasis_functions))
         for i in range(self.neu + self.ned):
             p = 0
             ao = 0
@@ -254,11 +254,11 @@ class Slater:
                             radial_2 += exponent
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
-                        orbital[0, i, ao+m] = x * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 0] * radial_2
-                        orbital[1, i, ao+m] = y * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 1] * radial_2
-                        orbital[2, i, ao+m] = z * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 2] * radial_2
+                        orbital[i, 0, ao+m] = x * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 0] * radial_2
+                        orbital[i, 1, ao+m] = y * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 1] * radial_2
+                        orbital[i, 2, ao+m] = z * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 2] * radial_2
                     ao += 2*l+1
-        return orbital
+        return orbital.reshape(((self.neu + self.ned) * 3, self.nbasis_functions))
 
     def AO_laplacian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Laplacian matrix.
@@ -360,6 +360,8 @@ class Slater:
 
     def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient ∇(phi).
+        d(det(slater))/dri = det(slater) * (tr(slater**-1 * B(n)) over n
+        where the matrix B(n) is zero with the exception of the n-th column.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         ao = self.AO_wfn(n_vectors)
@@ -369,28 +371,25 @@ class Slater:
         grad = np.zeros((self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
 
-            # (up_orbitals, nbasis_functions) @ (nbasis_functions, up_electrons) = (up_orbitals, up_electrons)
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
             inv_wfn_u = np.linalg.inv(wfn_u)
-            grad_x = self.mo_up[i] @ gradient[0, :self.neu].T
-            grad_y = self.mo_up[i] @ gradient[1, :self.neu].T
-            grad_z = self.mo_up[i] @ gradient[2, :self.neu].T
+            grad_u = self.mo_up[i] @ gradient[:self.neu * 3].T
 
             res_u = np.zeros((self.neu, 3))
-            res_u[:, 0] = np.diag(inv_wfn_u @ grad_x)
-            res_u[:, 1] = np.diag(inv_wfn_u @ grad_y)
-            res_u[:, 2] = np.diag(inv_wfn_u @ grad_z)
+            temp = (inv_wfn_u @ grad_u).reshape((self.neu, self.neu, 3))
+            res_u[:, 0] = np.diag(temp[:, :, 0])
+            res_u[:, 1] = np.diag(temp[:, :, 1])
+            res_u[:, 2] = np.diag(temp[:, :, 2])
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
             inv_wfn_d = np.linalg.inv(wfn_d)
-            grad_x = self.mo_down[i] @ gradient[0, self.neu:].T
-            grad_y = self.mo_down[i] @ gradient[1, self.neu:].T
-            grad_z = self.mo_down[i] @ gradient[2, self.neu:].T
+            grad_d = self.mo_down[i] @ gradient[self.neu * 3:].T
 
             res_d = np.zeros((self.ned, 3))
-            res_d[:, 0] = np.diag(inv_wfn_d @ grad_x)
-            res_d[:, 1] = np.diag(inv_wfn_d @ grad_y)
-            res_d[:, 2] = np.diag(inv_wfn_d @ grad_z)
+            temp = (inv_wfn_d @ grad_d).reshape((self.ned, self.ned, 3))
+            res_d[:, 0] = np.diag(temp[:, :, 0])
+            res_d[:, 1] = np.diag(temp[:, :, 1])
+            res_d[:, 2] = np.diag(temp[:, :, 2])
 
             c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
             val += c
@@ -406,6 +405,9 @@ class Slater:
         Δ(det(slater)) = det(slater) * tr(slater**-1 * B)
         where the matrix Bij = ∆phi i (rj)
         then using np.trace(A @ B) = np.sum(A * B.T)
+        Read for details:
+        "Simple formalism for efficient derivatives and multi-determinant expansions in quantum Monte Carlo"
+        C. Filippi, R. Assaraf, S. Moroni
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         ao = self.AO_wfn(n_vectors)
@@ -451,9 +453,7 @@ class Slater:
 
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
             inv_wfn_u = np.linalg.inv(wfn_u)
-            grad_x = self.mo_up[i] @ gradient[0, :self.neu].T
-            grad_y = self.mo_up[i] @ gradient[1, :self.neu].T
-            grad_z = self.mo_up[i] @ gradient[2, :self.neu].T
+            grad_u = self.mo_up[i] @ gradient[:self.neu * 3].T
             hess_xx = self.mo_up[i] @ hessian[0, :self.neu].T
             hess_xy = self.mo_up[i] @ hessian[1, :self.neu].T
             hess_yy = self.mo_up[i] @ hessian[2, :self.neu].T
@@ -464,9 +464,10 @@ class Slater:
             res_grad_u = np.zeros((self.neu, 3))
             res_u = np.zeros((self.neu, 3, self.neu, 3))
 
-            dx = inv_wfn_u @ grad_x
-            dy = inv_wfn_u @ grad_y
-            dz = inv_wfn_u @ grad_z
+            temp = (inv_wfn_u @ grad_u).reshape((self.neu, self.neu, 3))
+            dx = temp[:, :, 0]
+            dy = temp[:, :, 1]
+            dz = temp[:, :, 2]
 
             res_grad_u[:, 0] = np.diag(dx)
             res_grad_u[:, 1] = np.diag(dy)
@@ -484,9 +485,7 @@ class Slater:
 
             wfn_d = self.mo_down[i] @ ao[self.neu:].T
             inv_wfn_d = np.linalg.inv(wfn_d)
-            grad_x = self.mo_down[i] @ gradient[0, self.neu:].T
-            grad_y = self.mo_down[i] @ gradient[1, self.neu:].T
-            grad_z = self.mo_down[i] @ gradient[2, self.neu:].T
+            grad_d = self.mo_down[i] @ gradient[self.neu * 3:].T
             hess_xx = self.mo_down[i] @ hessian[0, self.neu:].T
             hess_xy = self.mo_down[i] @ hessian[1, self.neu:].T
             hess_yy = self.mo_down[i] @ hessian[2, self.neu:].T
@@ -497,9 +496,10 @@ class Slater:
             res_grad_d = np.zeros((self.ned, 3))
             res_d = np.zeros((self.ned, 3, self.ned, 3))
 
-            dx = inv_wfn_d @ grad_x
-            dy = inv_wfn_d @ grad_y
-            dz = inv_wfn_d @ grad_z
+            temp = (inv_wfn_d @ grad_d).reshape((self.ned, self.ned, 3))
+            dx = temp[:, :, 0]
+            dy = temp[:, :, 1]
+            dz = temp[:, :, 2]
 
             res_grad_d[:, 0] = np.diag(dx)
             res_grad_d[:, 1] = np.diag(dy)
