@@ -419,7 +419,7 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Slater/'
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Slater/'
 
-    path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_optimization/'
+    # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_optimization/'
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow/'

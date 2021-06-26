@@ -81,10 +81,14 @@ class Jastrow:
                 elif line.startswith('START F TERM'):
                     f_term = True
                 elif line.startswith('END U TERM'):
+                    self.fix_u_parameters()
                     u_term = False
                 elif line.startswith('END CHI TERM'):
+                    self.fix_chi_parameters()
                     chi_term = False
                 elif line.startswith('END F TERM'):
+                    self.fix_f_parameters()
+                    self.check_f_constrains()
                     f_term = False
                 elif u_term:
                     if line.startswith('START SET'):
@@ -107,7 +111,6 @@ class Jastrow:
                             # set u_term[1] to zero
                             for i in range(u_spin_dep+1):
                                 self.u_parameters[0, i] = -self.u_cutoff / np.array([4, 2, 4])[i] / (-self.u_cutoff) ** self.trunc / self.trunc
-                        self.fix_u_parameters()
                     elif line.startswith('END SET'):
                         pass
                 elif chi_term:
@@ -142,7 +145,6 @@ class Jastrow:
                             pass
                         self.chi_mask.append(chi_mask)
                         self.chi_parameters.append(chi_parameters)
-                        self.fix_chi_parameters()
                     elif line.startswith('END SET'):
                         set_number = None
                 elif f_term:
@@ -186,8 +188,6 @@ class Jastrow:
                             pass
                         self.f_mask.append(f_mask)
                         self.f_parameters.append(f_parameters)
-                        self.fix_f_parameters(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
-                        self.check_f_constrains(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                         # for i, parameters in enumerate(self.f_parameters):
                         #     # FIXME: put spin_dep to first place
                         #     self.f_parameters[i] = parameters.transpose((3, 0, 1, 2))
@@ -293,7 +293,7 @@ class Jastrow:
                 # FIXME: chi cusp not implemented
                 # chi_parameters[1] -= charge / (-L) ** C
 
-    def fix_f_parameters(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
+    def fix_f_parameters(self):
         """To find the dependent coefficients of f-term it is necessary to solve
         the system of linear equations:  A*x=b
         A-matrix has the following rows:
@@ -303,64 +303,67 @@ class Jastrow:
         (f_en_order + 1) constraints imposed to prevent duplication of chi-term
         b-column has the sum of independent coefficients for each condition.
         """
-        f_en_order = f_parameters.shape[0] - 1
-        f_ee_order = f_parameters.shape[2] - 1
-        f_spin_dep = f_parameters.shape[3] - 1
+        for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
+            f_en_order = f_parameters.shape[0] - 1
+            f_ee_order = f_parameters.shape[2] - 1
+            f_spin_dep = f_parameters.shape[3] - 1
 
-        a = self.construct_a_matrix(f_en_order, f_ee_order, f_cutoff, no_dup_u_term, no_dup_chi_term)
-        a, pivot = rref(a)
-        # remove zero-rows
-        a = a[:len(pivot), :]
-        mask = np.zeros((f_parameters.shape[0] * (f_parameters.shape[1] + 1) * f_parameters.shape[2] // 2, ), np.bool)
-        mask[pivot] = True
+            a = self.construct_a_matrix(f_en_order, f_ee_order, L, no_dup_u_term, no_dup_chi_term)
+            a, pivot = rref(a)
+            # remove zero-rows
+            a = a[:len(pivot), :]
+            mask = np.zeros((f_parameters.shape[0] * (f_parameters.shape[1] + 1) * f_parameters.shape[2] // 2, ), np.bool)
+            mask[pivot] = True
 
-        b = np.zeros((f_spin_dep+1, a.shape[0]))
-        p = 0
-        for n in range(f_ee_order + 1):
-            for m in range(f_en_order + 1):
-                for l in range(m, f_en_order + 1):
-                    if p not in pivot:
-                        for temp in range(a.shape[0]):
-                            b[:, temp] -= a[temp, p] * f_parameters[l, m, n, :]
-                    p += 1
-
-        x = np.linalg.solve(a[np.newaxis, :, mask], b)
-
-        p = 0
-        temp = 0
-        for n in range(f_ee_order + 1):
-            for m in range(f_en_order + 1):
-                for l in range(m, f_en_order + 1):
-                    if temp in pivot:
-                        f_parameters[l, m, n, :] = f_parameters[m, l, n, :] = x[:, p]
-                        p += 1
-                    temp += 1
-
-    def check_f_constrains(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
-        """"""
-        f_en_order = f_parameters.shape[0] - 1
-        f_ee_order = f_parameters.shape[2] - 1
-        f_spin_dep = f_parameters.shape[3] - 1
-
-        lm_sum = np.zeros((2 * f_en_order + 1, f_spin_dep + 1))
-        for l in range(f_en_order + 1):
-            for m in range(f_en_order + 1):
-                lm_sum[l + m] += f_parameters[l, m, 1, :]
-        print('lm_sum =', lm_sum)
-
-        mn_sum = np.zeros((f_en_order + f_ee_order + 1, f_spin_dep + 1))
-        for m in range(f_en_order + 1):
+            b = np.zeros((f_spin_dep+1, a.shape[0]))
+            p = 0
             for n in range(f_ee_order + 1):
-                mn_sum[m + n] += self.trunc * f_parameters[0, m, n, :] - f_cutoff * f_parameters[1, m, n, :]
-        print('mn_sum =', mn_sum)
+                for m in range(f_en_order + 1):
+                    for l in range(m, f_en_order + 1):
+                        if p not in pivot:
+                            for temp in range(a.shape[0]):
+                                b[:, temp] -= a[temp, p] * f_parameters[l, m, n, :]
+                        p += 1
 
-        if no_dup_u_term:
-            print('should be equal to zero')
-            print(f_parameters[1, 1, 0, :])
-            print(f_parameters[0, 0, :, :])
-        if no_dup_chi_term:
-            print('should be equal to zero')
-            print(f_parameters[:, 0, 0, :])
+            x = np.linalg.solve(a[np.newaxis, :, mask], b)
+
+            p = 0
+            temp = 0
+            for n in range(f_ee_order + 1):
+                for m in range(f_en_order + 1):
+                    for l in range(m, f_en_order + 1):
+                        if temp in pivot:
+                            f_parameters[l, m, n, :] = f_parameters[m, l, n, :] = x[:, p]
+                            p += 1
+                        temp += 1
+
+    def check_f_constrains(self):
+        """"""
+        C = self.trunc
+        for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
+            f_en_order = f_parameters.shape[0] - 1
+            f_ee_order = f_parameters.shape[2] - 1
+            f_spin_dep = f_parameters.shape[3] - 1
+
+            lm_sum = np.zeros((2 * f_en_order + 1, f_spin_dep + 1))
+            for l in range(f_en_order + 1):
+                for m in range(f_en_order + 1):
+                    lm_sum[l + m] += f_parameters[l, m, 1, :]
+            print('lm_sum =', lm_sum)
+
+            mn_sum = np.zeros((f_en_order + f_ee_order + 1, f_spin_dep + 1))
+            for m in range(f_en_order + 1):
+                for n in range(f_ee_order + 1):
+                    mn_sum[m + n] += C * f_parameters[0, m, n, :] - L * f_parameters[1, m, n, :]
+            print('mn_sum =', mn_sum)
+
+            if no_dup_u_term:
+                print('should be equal to zero')
+                print(f_parameters[1, 1, 0, :])
+                print(f_parameters[0, 0, :, :])
+            if no_dup_chi_term:
+                print('should be equal to zero')
+                print(f_parameters[:, 0, 0, :])
 
 
 if __name__ == '__main__':

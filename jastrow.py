@@ -580,6 +580,23 @@ class Jastrow:
 
         return lower_bonds, upper_bonds
 
+    def fix_u_parameters(self):
+        """Fix u-term parameters"""
+        C = self.trunc
+        L = self.u_cutoff
+        for i in range(3):
+            self.u_cusp_const[i] = 1 / np.array([4, 2, 4])[i] / (-L) ** C + self.u_parameters[0, i % self.u_parameters.shape[1]] * C / L
+
+    def fix_chi_parameters(self):
+        """Fix chi-term parameters"""
+        C = self.trunc
+        for chi_parameters, L, chi_cusp in zip(self.chi_parameters, self.chi_cutoff, self.chi_cusp):
+            chi_parameters[1] = chi_parameters[0] * C / L
+            if chi_cusp:
+                pass
+                # FIXME: chi cusp not implemented
+                # chi_parameters[1] -= charge / (-L) ** C
+
     def get_parameters(self):
         """Returns parameters in the following order:
         u-cutoff, u-linear parameters,
@@ -624,7 +641,7 @@ class Jastrow:
                     if self.u_mask[j1, j2]:
                         n += 1
                         self.u_parameters[j1, j2] = parameters[n]
-            # self.fix_u_parameters()
+            self.fix_u_parameters()
 
         if self.chi_cutoff.any():
             for i, (chi_parameters, chi_mask) in enumerate(zip(self.chi_parameters, self.chi_mask)):
@@ -636,7 +653,7 @@ class Jastrow:
                         if chi_mask[j1, j2]:
                             n += 1
                             chi_parameters[j1, j2] = parameters[n]
-            # self.fix_chi_parameters()
+            self.fix_chi_parameters()
 
         if self.f_cutoff.any():
             for i, (f_parameters, f_mask) in enumerate(zip(self.f_parameters, self.f_mask)):
@@ -665,10 +682,10 @@ class Jastrow:
 
         n = 0
         self.u_cutoff -= delta
-        # self.fix_u_parameters()
+        self.fix_u_parameters()
         res[n] -= self.u_term(e_powers)
         self.u_cutoff += 2 * delta
-        # self.fix_u_parameters()
+        self.fix_u_parameters()
         res[n] += self.u_term(e_powers)
         self.u_cutoff -= delta
 
@@ -677,14 +694,14 @@ class Jastrow:
                 if self.u_mask[i, j]:
                     n += 1
                     self.u_parameters[i, j] -= delta
-                    # self.fix_u_parameters()
+                    self.fix_u_parameters()
                     res[n] -= self.u_term(e_powers)
                     self.u_parameters[i, j] += 2 * delta
-                    # self.fix_u_parameters()
+                    self.fix_u_parameters()
                     res[n] += self.u_term(e_powers)
                     self.u_parameters[i, j] -= delta
 
-        # self.fix_u_parameters()
+        self.fix_u_parameters()
         return res / delta / 2
 
     def chi_term_numerical_d1(self, n_powers):
@@ -704,10 +721,10 @@ class Jastrow:
         for i, (chi_parameters, chi_mask) in enumerate(zip(self.chi_parameters, self.chi_mask)):
             n += 1
             self.chi_cutoff[i] -= delta
-            # self.fix_chi_parameters()
+            self.fix_chi_parameters()
             res[n] -= self.chi_term(n_powers)
             self.chi_cutoff[i] += 2 * delta
-            # self.fix_chi_parameters()
+            self.fix_chi_parameters()
             res[n] += self.chi_term(n_powers)
             self.chi_cutoff[i] -= delta
 
@@ -716,14 +733,14 @@ class Jastrow:
                     if chi_mask[i, j]:
                         n += 1
                         chi_parameters[i, j] -= delta
-                        # self.fix_chi_parameters()
+                        self.fix_chi_parameters()
                         res[n] -= self.chi_term(n_powers)
                         chi_parameters[i, j] += 2 * delta
-                        # self.fix_chi_parameters()
+                        self.fix_chi_parameters()
                         res[n] += self.chi_term(n_powers)
                         chi_parameters[i, j] -= delta
 
-        # self.fix_chi_parameters()
+        self.fix_chi_parameters()
         return res / delta / 2
 
     def f_term_numerical_d1(self, e_powers, n_powers):
