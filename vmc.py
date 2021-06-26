@@ -276,46 +276,19 @@ class VMC:
         res = sp.optimize.root(f, [self.metropolis.step], method='diagbroyden', tol=1 / np.sqrt(steps), callback=callback, options=options)
         self.metropolis.step = np.abs(res.x[0])
 
-    def energy_old(self, steps, nblock):
-        self.optimize_vmc_step(10000)
-
-        E = np.zeros((nblock,))
-        check_point_1 = default_timer()
-        for i in range(nblock):
-            weights, position, _ = self.metropolis.random_walk(steps // nblock)
-            energy = self.metropolis.local_energy(position) + self.metropolis.wfn.nuclear_repulsion
-            E[i] = np.average(energy, weights=weights)
-            mean_energy = np.average(E[:i + 1])
-            if i:
-                std_err = np.std(E[:i + 1], ddof=0) / np.sqrt(i)
-            else:
-                std_err = 0
-
-            check_point_2 = default_timer()
-            logger.info(f'{E[i]}, {mean_energy}, {std_err}, total time {check_point_2 - check_point_1}')
-
-        E = expand(weights, energy)
-        reblock_data = pyblock.blocking.reblock(E)
-        # for reblock_iter in reblock_data:
-        #     print(reblock_iter)
-        opt = pyblock.blocking.find_optimal_block(E.size, reblock_data)
-        opt_data = reblock_data[opt[0]]
-        logger.info(opt_data)
-        logger.info('{} +/- {}'.format(np.mean(opt_data.mean), np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size)))
-
     def energy(self, steps, nblock):
         self.optimize_vmc_step(10000)
 
         start = default_timer()
+        expanded_energy = np.zeros((nblock, steps // nblock))
         for i in range(nblock):
             weights, position, _ = self.metropolis.random_walk(steps // nblock)
             energy = self.metropolis.local_energy(position) + self.metropolis.wfn.nuclear_repulsion
             stop = default_timer()
             logger.info('total time {}'.format(stop - start))
+            expanded_energy[i] = expand(weights, energy)
 
-        reblock_data = pyblock.blocking.reblock(expand(weights, energy))
-        # for reblock_iter in reblock_data:
-        #     print(reblock_iter)
+        reblock_data = pyblock.blocking.reblock(expanded_energy)
         opt = pyblock.blocking.find_optimal_block(steps, reblock_data)
         opt_data = reblock_data[opt[0]]
         logger.info(opt_data)

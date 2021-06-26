@@ -84,7 +84,7 @@ class Wfn:
         laplacian composition rule
         Δ(f ○ a) = ∇((∇f ○ a) • ∇a) = ∇(∇f ○ a) • ∇a + (∇f ○ a) • ∇²a = tr(transpose(∇a) • (∇²f ○ a) • ∇a) + (∇f ○ a) • Δa
         where ∇²f is a hessian
-        tr(transpose(∇a) • (∇²f ○ a) • ∇a) - can be further simplified sins cyclic property of trace
+        tr(transpose(∇a) • (∇²f ○ a) • ∇a) - can be further simplified since cyclic property of trace
         and np.trace(A @ B) = np.sum(A * B.T) and (A @ A.T).T = A @ A.T
         :return: local energy
         """
