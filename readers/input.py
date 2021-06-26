@@ -37,6 +37,13 @@ class Input:
                     self.use_gjastrow = read_bool(line)
                 elif line.startswith('backflow'):
                     self.backflow = read_bool(line)
+                elif line.startswith('runtype'):
+                    self.runtype = read_str(line)
+                elif line.startswith('opt_method'):
+                    self.opt_jastrow = self.use_jastrow = True
+                    self.opt_method = read_str(line)
+                elif line.startswith('opt_cycles'):
+                    self.opt_cycles = read_int(line)
                 elif line.startswith('opt_jastrow'):
                     self.opt_jastrow = self.use_jastrow = read_bool(line)
                 self.vmc_opt_nstep = 1000000

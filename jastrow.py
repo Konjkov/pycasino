@@ -624,7 +624,7 @@ class Jastrow:
                     if self.u_mask[j1, j2]:
                         n += 1
                         self.u_parameters[j1, j2] = parameters[n]
-            self.fix_u_parameters()
+            # self.fix_u_parameters()
 
         if self.chi_cutoff.any():
             for i, (chi_parameters, chi_mask) in enumerate(zip(self.chi_parameters, self.chi_mask)):
@@ -636,7 +636,7 @@ class Jastrow:
                         if chi_mask[j1, j2]:
                             n += 1
                             chi_parameters[j1, j2] = parameters[n]
-            self.fix_chi_parameters()
+            # self.fix_chi_parameters()
 
         if self.f_cutoff.any():
             for i, (f_parameters, f_mask) in enumerate(zip(self.f_parameters, self.f_mask)):
@@ -650,7 +650,7 @@ class Jastrow:
                                 if f_mask[j1, j2, j3, j4]:
                                     n += 1
                                     f_parameters[j1, j2, j3, j4] = f_parameters[j2, j1, j3, j4] = parameters[n]
-            self.fix_f_parameters()
+            # self.fix_f_parameters()
 
     def u_term_numerical_d1(self, e_powers):
         """Numerical first derivatives of logarithm wfn with respect to u-term parameters
@@ -665,10 +665,10 @@ class Jastrow:
 
         n = 0
         self.u_cutoff -= delta
-        self.fix_u_parameters()
+        # self.fix_u_parameters()
         res[n] -= self.u_term(e_powers)
         self.u_cutoff += 2 * delta
-        self.fix_u_parameters()
+        # self.fix_u_parameters()
         res[n] += self.u_term(e_powers)
         self.u_cutoff -= delta
 
@@ -677,14 +677,14 @@ class Jastrow:
                 if self.u_mask[i, j]:
                     n += 1
                     self.u_parameters[i, j] -= delta
-                    self.fix_u_parameters()
+                    # self.fix_u_parameters()
                     res[n] -= self.u_term(e_powers)
                     self.u_parameters[i, j] += 2 * delta
-                    self.fix_u_parameters()
+                    # self.fix_u_parameters()
                     res[n] += self.u_term(e_powers)
                     self.u_parameters[i, j] -= delta
 
-        self.fix_u_parameters()
+        # self.fix_u_parameters()
         return res / delta / 2
 
     def chi_term_numerical_d1(self, n_powers):
@@ -704,10 +704,10 @@ class Jastrow:
         for i, (chi_parameters, chi_mask) in enumerate(zip(self.chi_parameters, self.chi_mask)):
             n += 1
             self.chi_cutoff[i] -= delta
-            self.fix_chi_parameters()
+            # self.fix_chi_parameters()
             res[n] -= self.chi_term(n_powers)
             self.chi_cutoff[i] += 2 * delta
-            self.fix_chi_parameters()
+            # self.fix_chi_parameters()
             res[n] += self.chi_term(n_powers)
             self.chi_cutoff[i] -= delta
 
@@ -716,14 +716,14 @@ class Jastrow:
                     if chi_mask[i, j]:
                         n += 1
                         chi_parameters[i, j] -= delta
-                        self.fix_chi_parameters()
+                        # self.fix_chi_parameters()
                         res[n] -= self.chi_term(n_powers)
                         chi_parameters[i, j] += 2 * delta
-                        self.fix_chi_parameters()
+                        # self.fix_chi_parameters()
                         res[n] += self.chi_term(n_powers)
                         chi_parameters[i, j] -= delta
 
-        self.fix_chi_parameters()
+        # self.fix_chi_parameters()
         return res / delta / 2
 
     def f_term_numerical_d1(self, e_powers, n_powers):
@@ -744,10 +744,10 @@ class Jastrow:
         for i, (f_parameters, f_mask) in enumerate(zip(self.f_parameters, self.f_mask)):
             n += 1
             self.f_cutoff[i] -= delta
-            self.fix_f_parameters()
+            # self.fix_f_parameters()
             res[n] -= self.f_term(e_powers, n_powers)
             self.f_cutoff[i] += 2 * delta
-            self.fix_f_parameters()
+            # self.fix_f_parameters()
             res[n] += self.f_term(e_powers, n_powers)
             self.f_cutoff[i] -= delta
 
@@ -760,18 +760,18 @@ class Jastrow:
                                 f_parameters[i, j, k, l] -= delta
                                 if i != j:
                                     f_parameters[j, i, k, l] -= delta
-                                self.fix_f_parameters()
+                                # self.fix_f_parameters()
                                 res[n] -= self.f_term(e_powers, n_powers)
                                 f_parameters[i, j, k, l] += 2 * delta
                                 if i != j:
                                     f_parameters[j, i, k, l] += 2 * delta
-                                self.fix_f_parameters()
+                                # self.fix_f_parameters()
                                 res[n] += self.f_term(e_powers, n_powers)
                                 f_parameters[i, j, k, l] -= delta
                                 if i != j:
                                     f_parameters[j, i, k, l] -= delta
 
-        self.fix_f_parameters()
+        # self.fix_f_parameters()
         return res / delta / 2
 
     def parameters_numerical_d1(self, e_vectors, n_vectors):
@@ -1016,7 +1016,7 @@ class Jastrow:
         self.fix_f_parameters()
         return res / delta / delta
 
-    def parameters_numerical_d2(self, e_vectors, n_vectors, neu):
+    def parameters_numerical_d2(self, e_vectors, n_vectors):
         """Numerical second derivatives with respect to the Jastrow parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
