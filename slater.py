@@ -360,7 +360,7 @@ class Slater:
 
     def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient ∇(phi).
-        d(det(slater))/dri = det(slater) * (tr(slater**-1 * B(n)) over n
+        d(det(slater))/dri = det(slater) * (tr(slater^-1 * B(n)) over n
         where the matrix B(n) is zero with the exception of the n-th column.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
@@ -389,10 +389,10 @@ class Slater:
 
     def laplacian(self, n_vectors: np.ndarray) -> float:
         """Scalar laplacian Δ(phi).
-        Δ(det(slater)) = det(slater) * sum(tr(slater**-1 * B(n)) over n
+        Δ(det(slater)) = det(slater) * sum(tr(slater^-1 * B(n)) over n
         where the matrix B(n) is zero with the exception of the n-th column
         as tr(A) + tr(B) = tr(A + B)
-        Δ(det(slater)) = det(slater) * tr(slater**-1 * B)
+        Δ(det(slater)) = det(slater) * tr(slater^-1 * B)
         where the matrix Bij = ∆phi i (rj)
         then using np.trace(A @ B) = np.sum(A * B.T)
         Read for details:
@@ -425,9 +425,9 @@ class Slater:
     def hessian(self, n_vectors: np.ndarray):
         """Hessian.
         d²det(A)/dxdy = det(A) * (
-            tr(A**-1 * d²A/dxdy) +
-            tr(A**-1 * dA/dx) * tr(A**-1 * dA/dy) -
-            tr(A**-1 * dA/dx * A**-1 * dA/dy)
+            tr(A^-1 * d²A/dxdy) +
+            tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) -
+            tr(A^-1 * dA/dx * A^-1 * dA/dy)
         )
         in case of x and y is a coordinates of different electrons first term is zero
         in other case a sum of last two terms is zero.

@@ -53,7 +53,7 @@ def initial_position(ne, atom_positions, atom_charges):
 class Metropolis:
 
     def __init__(self, neu, ned, atom_positions, atom_charges, wfn):
-        """Metropolis random walk.
+        """Metropolis algorithm.
         :param neu: number of up electrons
         :param ned: number of down electrons
         :param atom_positions: atomic positions
@@ -70,25 +70,25 @@ class Metropolis:
         self.atom_charges = atom_charges
         self.wfn = wfn
 
-    def random_step(self):
-        """Random N-dim square distributed step
+    def proposal_step(self, r_e):
+        """Random N-dim square proposal distributed step
         configuration-by-configuration sampling (CBCS)
         """
         ne = self.neu + self.ned
-        return np.random.uniform(-self.step, self.step, ne * 3).reshape((ne, 3))
+        return r_e + np.random.uniform(-self.step, self.step, ne * 3).reshape((ne, 3))
 
-    # def random_step(self):
+    # def proposal_step(self, r_e):
     #     """Random N-dim square distributed step
     #     electron-by-electron sampling (EBES)
     #     """
     #     ne = self.neu + self.ned
     #     res = np.zeros((ne, 3))
     #     res[np.random.randint(ne)] = np.random.uniform(-self.step, self.step, 3)
-    #     return res
+    #     return r_e + res
 
     def make_step(self, p, r_e):
-        """Make random step in configuration-by-configuration sampling (CBCS)"""
-        new_r_e = r_e + self.random_step()
+        """Accept or reject proposal step in configuration-by-configuration sampling (CBCS)"""
+        new_r_e = self.proposal_step(r_e)
         e_vectors = subtract_outer(new_r_e, new_r_e)
         n_vectors = -subtract_outer(self.atom_positions, new_r_e)
         new_p = self.wfn.value(e_vectors, n_vectors)
@@ -254,7 +254,7 @@ class VMC:
         self.neu, self.ned = casino.input.neu, casino.input.ned
         self.metropolis = Metropolis(self.neu, self.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.wfn)
         self.metropolis.r_e = initial_position(self.neu + self.ned, self.metropolis.atom_positions, self.metropolis.atom_charges)
-        self.metropolis.r_e += self.metropolis.random_step()
+        self.metropolis.r_e = self.metropolis.proposal_step(self.metropolis.r_e)
 
     def equilibrate(self, steps):
         weight, _, _ = self.metropolis.random_walk(steps)
@@ -262,15 +262,16 @@ class VMC:
 
     def optimize_vmc_step(self, steps):
         """Optimize vmc step size."""
+        acceptance_rate = 0.5
 
         def callback(tau, acc_ration):
             """dr = sqrt(3*dtvmc)"""
-            logger.info('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (self.neu + self.ned), acc_ration[0] + 0.5)
+            logger.info('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (self.neu + self.ned), acc_ration[0] + acceptance_rate)
 
         def f(tau):
             self.metropolis.step = tau[0]
             weight, _, _ = self.metropolis.random_walk(steps)
-            return weight.size / steps - 0.5
+            return weight.size / steps - acceptance_rate
 
         options = dict(jac_options=dict(alpha=1))
         res = sp.optimize.root(f, [self.metropolis.step], method='diagbroyden', tol=1 / np.sqrt(steps), callback=callback, options=options)
