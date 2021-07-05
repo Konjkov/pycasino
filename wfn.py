@@ -169,3 +169,15 @@ class Wfn:
                 n_vectors[:, i, j] -= delta
 
         return res / delta / delta / val
+
+    def jastrow_parameters_numerical_d1(self, r_e):
+        """"""
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = -subtract_outer(self.atom_positions, r_e)
+        return self.jastrow.parameters_numerical_d1(e_vectors, n_vectors)
+
+    def jastrow_parameters_numerical_d2(self, r_e):
+        """"""
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = -subtract_outer(self.atom_positions, r_e)
+        return self.jastrow.parameters_numerical_d2(e_vectors, n_vectors)

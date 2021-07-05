@@ -50,10 +50,10 @@ def initial_position(ne, atom_positions, atom_charges):
 
 
 @nb.experimental.jitclass(spec)
-class Metropolis:
+class MarkovChain:
 
     def __init__(self, neu, ned, atom_positions, atom_charges, wfn):
-        """Metropolis algorithm.
+        """Markov chain Monte Carlo.
         :param neu: number of up electrons
         :param ned: number of down electrons
         :param atom_positions: atomic positions
@@ -70,25 +70,30 @@ class Metropolis:
         self.atom_charges = atom_charges
         self.wfn = wfn
 
-    def proposal_step(self, r_e):
-        """Random N-dim square proposal distributed step
-        configuration-by-configuration sampling (CBCS)
+    def metropolis_proposal_step(self, r_e):
+        """Propose step with random N-dim square proposal density in
+        configuration-by-configuration sampling (CBCS).
+        In general, the proposal step may depend on the current position or
+        have a different proposal density.
+        It is believed that the algorithm works best if the proposal density
+        matches the shape of the target distribution which is in case of
+        Quantum Monte Carlo is squared modulus of WFN.
         """
         ne = self.neu + self.ned
         return r_e + np.random.uniform(-self.step, self.step, ne * 3).reshape((ne, 3))
 
-    # def proposal_step(self, r_e):
-    #     """Random N-dim square distributed step
-    #     electron-by-electron sampling (EBES)
-    #     """
-    #     ne = self.neu + self.ned
-    #     res = np.zeros((ne, 3))
-    #     res[np.random.randint(ne)] = np.random.uniform(-self.step, self.step, 3)
-    #     return r_e + res
+    def gibbs_proposal_step(self, r_e):
+        """Random N-dim square distributed step
+        electron-by-electron sampling (EBES)
+        """
+        ne = self.neu + self.ned
+        res = np.zeros((ne, 3))
+        res[np.random.randint(ne)] = np.random.uniform(-self.step, self.step, 3)
+        return r_e + res
 
     def make_step(self, p, r_e):
         """Accept or reject proposal step in configuration-by-configuration sampling (CBCS)"""
-        new_r_e = self.proposal_step(r_e)
+        new_r_e = self.metropolis_proposal_step(r_e)
         e_vectors = subtract_outer(new_r_e, new_r_e)
         n_vectors = -subtract_outer(self.atom_positions, new_r_e)
         new_p = self.wfn.value(e_vectors, n_vectors)
@@ -136,28 +141,19 @@ class Metropolis:
         :param position: random walk positions
         :return:
         """
-        res = np.zeros((position.shape[0], ))
-        for i in range(position.shape[0]):
-            res[i] = self.wfn.energy(position[i])
-        return res
+        return np.array([self.wfn.energy(p) for p in position])
 
     def jastrow_gradient(self, position):
         """Jastrow gradient with respect to jastrow parameters.
         :param position: random walk positions
         :return:
         """
-        r_e = position[0]
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = -subtract_outer(self.atom_positions, r_e)
-        first_res = self.wfn.jastrow.parameters_numerical_d1(e_vectors, n_vectors)
+        first_res = self.wfn.jastrow_parameters_numerical_d1(position[0])
         res = np.zeros((position.shape[0], ) + first_res.shape)
         res[0] = first_res
 
         for i in range(1, position.shape[0]):
-            r_e = position[i]
-            e_vectors = subtract_outer(r_e, r_e)
-            n_vectors = -subtract_outer(self.atom_positions, r_e)
-            res[i] = self.wfn.jastrow.parameters_numerical_d1(e_vectors, n_vectors)
+            res[i] = self.wfn.jastrow_parameters_numerical_d1(position[i])
         return res
 
     def jastrow_hessian(self, position):
@@ -165,18 +161,12 @@ class Metropolis:
         :param position: random walk positions
         :return:
         """
-        r_e = position[0]
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = -subtract_outer(self.atom_positions, r_e)
-        first_res = self.wfn.jastrow.parameters_numerical_d2(e_vectors, n_vectors)
+        first_res = self.wfn.jastrow_parameters_numerical_d2(position[0])
         res = np.zeros((position.shape[0], ) + first_res.shape)
         res[0] = first_res
 
         for i in range(1, position.shape[0]):
-            r_e = position[i]
-            e_vectors = subtract_outer(r_e, r_e)
-            n_vectors = -subtract_outer(self.atom_positions, r_e)
-            res[i] = self.wfn.jastrow.parameters_numerical_d2(e_vectors, n_vectors)
+            res[i] = self.wfn.jastrow_parameters_numerical_d2(position[i])
         return res
 
 
@@ -252,30 +242,30 @@ class VMC:
         )
         self.wfn = Wfn(casino.input.neu, casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.slater, self.jastrow, self.backflow)
         self.neu, self.ned = casino.input.neu, casino.input.ned
-        self.metropolis = Metropolis(self.neu, self.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.wfn)
-        self.metropolis.r_e = initial_position(self.neu + self.ned, self.metropolis.atom_positions, self.metropolis.atom_charges)
-        self.metropolis.r_e = self.metropolis.proposal_step(self.metropolis.r_e)
+        self.markovchain = MarkovChain(self.neu, self.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.wfn)
+        self.markovchain.r_e = initial_position(self.neu + self.ned, self.markovchain.atom_positions, self.markovchain.atom_charges)
+        self.markovchain.r_e = self.markovchain.metropolis_proposal_step(self.markovchain.r_e)
 
     def equilibrate(self, steps):
-        weight, _, _ = self.metropolis.random_walk(steps)
+        """Burn-in period"""
+        weight, _, _ = self.markovchain.random_walk(steps)
         logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weight.size / steps)
 
-    def optimize_vmc_step(self, steps):
+    def optimize_vmc_step(self, steps, acceptance_rate=0.5):
         """Optimize vmc step size."""
-        acceptance_rate = 0.5
 
         def callback(tau, acc_ration):
             """dr = sqrt(3*dtvmc)"""
             logger.info('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (self.neu + self.ned), acc_ration[0] + acceptance_rate)
 
         def f(tau):
-            self.metropolis.step = tau[0]
-            weight, _, _ = self.metropolis.random_walk(steps)
+            self.markovchain.step = tau[0]
+            weight, _, _ = self.markovchain.random_walk(steps)
             return weight.size / steps - acceptance_rate
 
         options = dict(jac_options=dict(alpha=1))
-        res = sp.optimize.root(f, [self.metropolis.step], method='diagbroyden', tol=1 / np.sqrt(steps), callback=callback, options=options)
-        self.metropolis.step = np.abs(res.x[0])
+        res = sp.optimize.root(f, [self.markovchain.step], method='diagbroyden', tol=1 / np.sqrt(steps), callback=callback, options=options)
+        self.markovchain.step = np.abs(res.x[0])
 
     def energy(self, steps, nblock):
         self.optimize_vmc_step(10000)
@@ -283,8 +273,8 @@ class VMC:
         start = default_timer()
         expanded_energy = np.zeros((nblock, steps // nblock))
         for i in range(nblock):
-            weights, position, _ = self.metropolis.random_walk(steps // nblock)
-            energy = self.metropolis.local_energy(position) + self.metropolis.wfn.nuclear_repulsion
+            weights, position, _ = self.markovchain.random_walk(steps // nblock)
+            energy = self.markovchain.local_energy(position) + self.markovchain.wfn.nuclear_repulsion
             stop = default_timer()
             logger.info('total time {}'.format(stop - start))
             expanded_energy[i] = expand(weights, energy)
@@ -304,11 +294,11 @@ class VMC:
     def vmc_variance_minimization(self, steps):
         """Minimise vmc variance by jastrow parameters optimization."""
         bounds = self.jastrow.get_bounds()
-        weight, position, _ = self.metropolis.random_walk(steps)
+        weight, position, _ = self.markovchain.random_walk(steps)
 
         def f(x, *args, **kwargs):
             self.jastrow.set_parameters(x)
-            energy = self.metropolis.local_energy(position) + self.metropolis.wfn.nuclear_repulsion
+            energy = self.markovchain.local_energy(position) + self.markovchain.wfn.nuclear_repulsion
             energy_average = np.average(energy, weights=weight)
             energy_variance = np.average((energy - energy_average) ** 2, weights=weight)
             std_err = np.sqrt(energy_variance / weight.sum())
@@ -317,7 +307,7 @@ class VMC:
 
         def jac(x, *args, **kwargs):
             self.jastrow.set_parameters(x)
-            return expand(weight, self.metropolis.jastrow_gradient(position))
+            return expand(weight, self.markovchain.jastrow_gradient(position))
 
         parameters = self.jastrow.get_parameters()
         res = sp.optimize.least_squares(
@@ -334,17 +324,17 @@ class VMC:
         Constraints definition only for: COBYLA, SLSQP and trust-constr
         """
         bounds = self.jastrow.get_bounds()
-        weight, position, _ = self.metropolis.random_walk(steps)
+        weight, position, _ = self.markovchain.random_walk(steps)
 
         def callback(x, *args):
             logger.info('inner iteration x = %s', x)
             self.jastrow.set_parameters(x)
-            weight, position, _ = self.metropolis.random_walk(steps)
+            weight, position, _ = self.markovchain.random_walk(steps)
 
         def f(x, *args):
             self.jastrow.set_parameters(x)
-            energy = self.metropolis.local_energy(position) + self.metropolis.wfn.nuclear_repulsion
-            energy_gradient = self.metropolis.jastrow_gradient(position)
+            energy = self.markovchain.local_energy(position) + self.markovchain.wfn.nuclear_repulsion
+            energy_gradient = self.markovchain.jastrow_gradient(position)
             mean_energy = np.average(energy, weights=weight)
             mean_energy_gradient = jastrow_parameters_gradient(weight, energy, energy_gradient)
             energy_average = np.average(energy, weights=weight)
@@ -355,9 +345,9 @@ class VMC:
 
         def hess(x, *args):
             self.jastrow.set_parameters(x)
-            energy = self.metropolis.local_energy(position) + self.metropolis.wfn.nuclear_repulsion
-            energy_gradient = self.metropolis.jastrow_gradient(position)
-            energy_hessian = self.metropolis.jastrow_hessian(position)
+            energy = self.markovchain.local_energy(position) + self.markovchain.wfn.nuclear_repulsion
+            energy_gradient = self.markovchain.jastrow_gradient(position)
+            energy_hessian = self.markovchain.jastrow_hessian(position)
             mean_energy_hessian = jastrow_parameters_hessian(weight, energy, energy_gradient, energy_hessian)
             logger.info('hessian = %s', mean_energy_hessian)
             return mean_energy_hessian

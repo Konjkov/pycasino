@@ -1037,7 +1037,6 @@ class Jastrow:
         """Numerical second derivatives with respect to the Jastrow parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
-        :param neu: number of up electrons
         Using:
             ∂²exp(u(a) + chi(b))/∂a∂b = ∂(∂u(a)/∂a*exp(u(a) + chi(b)))/∂b = ∂u(a)/∂a * ∂chi(b)/∂b * exp(u(a) + chi(b))
 
