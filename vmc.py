@@ -46,7 +46,7 @@ def initial_position(ne, atom_positions, atom_charges):
     r_e = np.zeros((ne, 3))
     for i in range(ne):
         r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
-    return r_e
+    return r_e + np.random.laplace(0, 1, ne * 3).reshape((ne, 3))
 
 
 @nb.experimental.jitclass(spec)
@@ -70,7 +70,15 @@ class MarkovChain:
         self.atom_charges = atom_charges
         self.wfn = wfn
 
-    def metropolis_proposal_step(self, r_e):
+    def gibbs_proposal_step(self, r_e):
+        """Random N-dim square distributed step
+        electron-by-electron sampling (EBES)
+        """
+        step = np.abs(self.step)
+        r_e[np.random.randint(self.neu + self.ned)] += step * np.random.uniform(-1, 1, 3)
+        return r_e
+
+    def simple_random_step(self, p, r_e):
         """Propose step with random N-dim square proposal density in
         configuration-by-configuration sampling (CBCS).
         In general, the proposal step may depend on the current position or
@@ -79,29 +87,40 @@ class MarkovChain:
         matches the shape of the target distribution which is in case of
         Quantum Monte Carlo is squared modulus of WFN.
         """
+        step = np.abs(self.step)
         ne = self.neu + self.ned
-        return r_e + np.random.uniform(-self.step, self.step, ne * 3).reshape((ne, 3))
-
-    def gibbs_proposal_step(self, r_e):
-        """Random N-dim square distributed step
-        electron-by-electron sampling (EBES)
-        """
-        ne = self.neu + self.ned
-        res = np.zeros((ne, 3))
-        res[np.random.randint(ne)] = np.random.uniform(-self.step, self.step, 3)
-        return r_e + res
-
-    def make_step(self, p, r_e):
-        """Accept or reject proposal step in configuration-by-configuration sampling (CBCS)"""
-        new_r_e = self.metropolis_proposal_step(r_e)
+        new_r_e = r_e + step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
         e_vectors = subtract_outer(new_r_e, new_r_e)
         n_vectors = -subtract_outer(self.atom_positions, new_r_e)
         new_p = self.wfn.value(e_vectors, n_vectors)
-        cond = new_p ** 2 > np.random.random() * p ** 2
+        cond = new_p ** 2 / p ** 2 > np.random.random()
         if cond:
             return new_r_e, new_p, cond
         else:
             return r_e, p, cond
+
+    def biased_random_step(self, p, r_e):
+        """Diffusion-drift proposed step
+        diffusion is proportional to sqrt(2*D*dt)
+        drift is proportional to D*F*dt
+        where D is diffusion constant = 1/2
+        """
+        step = np.abs(self.step)
+        ne = self.neu + self.ned
+        res = np.sqrt(step) * np.random.normal(0, 1, ne * 3) + step * self.wfn.drift_velocity(r_e)
+        new_r_e = r_e + res.reshape((ne, 3))
+        e_vectors = subtract_outer(new_r_e, new_r_e)
+        n_vectors = -subtract_outer(self.atom_positions, new_r_e)
+        new_p = self.wfn.value(e_vectors, n_vectors)
+        g_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - step * self.wfn.drift_velocity(r_e)) ** 2) / 2 / step)
+        g_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - step * self.wfn.drift_velocity(new_r_e)) ** 2) / 2 / step)
+        cond = (g_back * new_p ** 2) / (g_forth * p ** 2) > np.random.random()
+        if cond:
+            return new_r_e, new_p, cond
+        else:
+            return r_e, p, cond
+
+    make_step = simple_random_step
 
     def random_walk(self, steps):
         """Metropolis-Hastings random walk.
@@ -243,8 +262,8 @@ class VMC:
         self.wfn = Wfn(casino.input.neu, casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.slater, self.jastrow, self.backflow)
         self.neu, self.ned = casino.input.neu, casino.input.ned
         self.markovchain = MarkovChain(self.neu, self.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.wfn)
+        # FIXME: not supported by numba move to MarkovChain.__init__()
         self.markovchain.r_e = initial_position(self.neu + self.ned, self.markovchain.atom_positions, self.markovchain.atom_charges)
-        self.markovchain.r_e = self.markovchain.metropolis_proposal_step(self.markovchain.r_e)
 
     def equilibrate(self, steps):
         """Burn-in period"""
@@ -264,7 +283,7 @@ class VMC:
             return weight.size / steps - acceptance_rate
 
         options = dict(jac_options=dict(alpha=1))
-        res = sp.optimize.root(f, [self.markovchain.step], method='diagbroyden', tol=1 / np.sqrt(steps), callback=callback, options=options)
+        res = sp.optimize.root(f, [self.markovchain.step], method='diagbroyden', tol=1/np.sqrt(steps), callback=callback, options=options)
         self.markovchain.step = np.abs(res.x[0])
 
     def energy(self, steps, nblock):
@@ -411,6 +430,7 @@ if __name__ == '__main__':
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Slater/'
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_optimization/'
+    # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow_optimization/'
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow/'

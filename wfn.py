@@ -70,6 +70,32 @@ class Wfn:
         res *= self.slater.value(n_vectors)
         return res
 
+    def drift_velocity(self, r_e):
+        """Drift velocity
+        drift velocity = 1/2 * 'drift/quantum force'
+        where D is diffusion constant = 1/2
+        """
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = -subtract_outer(self.atom_positions, r_e)
+
+        if self.backflow is not None:
+            b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
+            b_g = self.backflow.gradient(e_vectors, n_vectors) + np.eye((self.neu + self.ned) * 3)
+            s_g = self.slater.gradient(b_v)
+            s_g = s_g @ b_g
+            if self.jastrow is not None:
+                j_g = self.jastrow.gradient(e_vectors, n_vectors)
+                return s_g + j_g
+            else:
+                return s_g
+        else:
+            s_g = self.slater.gradient(n_vectors)
+            if self.jastrow is not None:
+                j_g = self.jastrow.gradient(e_vectors, n_vectors)
+                return s_g + j_g
+            else:
+                return s_g
+
     def energy(self, r_e) -> float:
         """Local energy.
         :param r_e: electron coordinates - array(nelec, 3)
@@ -104,8 +130,8 @@ class Wfn:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
                 j_l = self.jastrow.laplacian(e_vectors, n_vectors)
                 s_g = s_g @ b_g
-                F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
-                T = (np.sum(s_g * s_g) - s_l - j_l) / 4
+                F = np.sum((s_g + j_g)**2) / 2
+                T = (np.sum(s_g**2) - s_l - j_l) / 4
                 res += 2 * T - F
             else:
                 res -= s_l / 2
@@ -115,8 +141,8 @@ class Wfn:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
                 j_l = self.jastrow.laplacian(e_vectors, n_vectors)
                 s_g = self.slater.gradient(n_vectors)
-                F = np.sum((s_g + j_g) * (s_g + j_g)) / 2
-                T = (np.sum(s_g * s_g) - s_l - j_l) / 4
+                F = np.sum((s_g + j_g)**2) / 2
+                T = (np.sum(s_g**2) - s_l - j_l) / 4
                 res += 2 * T - F
             else:
                 res -= s_l / 2
