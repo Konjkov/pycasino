@@ -59,7 +59,7 @@ class Wfn:
     def value(self, e_vectors, n_vectors) -> float:
         """Value of wave function.
         :param e_vectors: e-e vectors - array(nelec, nelec, 3)
-        :param n_vectors: e-n vectors- array(nelec, natom, 3)
+        :param n_vectors: e-n vectors - array(nelec, natom, 3)
         :return:
         """
         res = 1

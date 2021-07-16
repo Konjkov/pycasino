@@ -597,13 +597,13 @@ def initial_position(ne, atom_positions, atom_charges):
     r_e = np.zeros((ne, 3))
     for i in range(ne):
         r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
-    return r_e
+    return r_e + np.random.laplace(0, 1, ne * 3).reshape((ne, 3))
 
 
 @nb.jit(nopython=True)
-def random_step(dx, ne):
+def random_step(step, ne):
     """Random N-dim square distributed step"""
-    return np.random.uniform(-dx, dx, ne * 3).reshape((ne, 3))
+    return step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
 
 
 # @pool

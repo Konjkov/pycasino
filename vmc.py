@@ -311,7 +311,9 @@ class VMC:
         logger.info('skew = %s, kurtosis = %s', stats.skewtest(E), stats.kurtosistest(E))
 
     def vmc_variance_minimization(self, steps):
-        """Minimise vmc variance by jastrow parameters optimization."""
+        """Minimise vmc variance by jastrow parameters optimization.
+        https://github.com/scipy/scipy/issues/10634
+        """
         bounds = self.jastrow.get_bounds()
         weight, position, _ = self.markovchain.random_walk(steps)
 
@@ -330,8 +332,8 @@ class VMC:
 
         parameters = self.jastrow.get_parameters()
         res = sp.optimize.least_squares(
-            f, parameters, jac=jac, bounds=bounds, method='trf', max_nfev=20,
-            x_scale='jac', loss='linear', tr_solver='lsmr', tr_options=dict(show=False, regularize=False),
+            f, parameters, jac=jac, bounds=bounds, method='trf', xtol=1e-4, max_nfev=20,
+            x_scale='jac', loss='linear', tr_solver='exact', tr_options=dict(show=False, regularize=False),
             verbose=2
         )
         return res
@@ -431,6 +433,7 @@ if __name__ == '__main__':
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_optimization/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow_optimization/'
+    # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Jastrow_optimization/'
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow/'
