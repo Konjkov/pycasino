@@ -123,7 +123,6 @@ class MarkovChain:
         r_e = self.r_e
         weight = np.ones((steps, ), np.int64)
         position = np.zeros((steps, r_e.shape[0], r_e.shape[1]))
-        function = np.ones((steps, ), np.float64)
 
         e_vectors = subtract_outer(r_e, r_e)
         n_vectors = -subtract_outer(self.atom_positions, r_e)
@@ -133,19 +132,17 @@ class MarkovChain:
         # first step
         r_e, p, _ = self.make_step(p, r_e)
         position[i] = r_e
-        function[i] = p
         # other steps
         for _ in range(1, steps):
             r_e, p, cond = self.make_step(p, r_e)
             if cond:
                 i += 1
                 position[i] = r_e
-                function[i] = p
             else:
                 weight[i] += 1
 
         self.r_e = r_e
-        return weight[:i+1], position[:i+1], function[:i+1]
+        return weight[:i+1], position[:i+1]
 
     def local_energy(self, position):
         """
@@ -259,7 +256,7 @@ class VMC:
 
     def equilibrate(self, steps):
         """Burn-in period"""
-        weight, _, _ = self.markovchain.random_walk(steps)
+        weight, _ = self.markovchain.random_walk(steps)
         logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weight.size / steps)
 
     def optimize_vmc_step(self, steps, acceptance_rate=0.5):
@@ -273,7 +270,7 @@ class VMC:
             self.markovchain.step = tau[0]
             logger.info('dr * electrons = %.5f', tau[0] * (self.neu + self.ned))
             if tau[0] > 0:
-                weight, _, _ = self.markovchain.random_walk(steps)
+                weight, _ = self.markovchain.random_walk(steps)
                 acc_ration = weight.size / steps
             else:
                 acc_ration = 1
@@ -289,7 +286,7 @@ class VMC:
         start = default_timer()
         expanded_energy = np.zeros((nblock, steps // nblock))
         for i in range(nblock):
-            weights, position, _ = self.markovchain.random_walk(steps // nblock)
+            weights, position = self.markovchain.random_walk(steps // nblock)
             energy = self.markovchain.local_energy(position) + self.markovchain.wfn.nuclear_repulsion
             stop = default_timer()
             logger.info('total time {}'.format(stop - start))
@@ -312,7 +309,7 @@ class VMC:
         https://github.com/scipy/scipy/issues/10634
         """
         bounds = self.jastrow.get_bounds()
-        weight, position, _ = self.markovchain.random_walk(steps)
+        weight, position = self.markovchain.random_walk(steps)
 
         def f(x, *args, **kwargs):
             self.jastrow.set_parameters(x)
@@ -342,12 +339,12 @@ class VMC:
         Constraints definition only for: COBYLA, SLSQP and trust-constr
         """
         bounds = self.jastrow.get_bounds()
-        weight, position, _ = self.markovchain.random_walk(steps)
+        weight, position = self.markovchain.random_walk(steps)
 
         def callback(x, *args):
             logger.info('inner iteration x = %s', x)
             self.jastrow.set_parameters(x)
-            weight, position, _ = self.markovchain.random_walk(steps)
+            weight, position = self.markovchain.random_walk(steps)
 
         def f(x, *args):
             self.jastrow.set_parameters(x)
