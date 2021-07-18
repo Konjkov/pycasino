@@ -74,8 +74,7 @@ class MarkovChain:
         """Random N-dim square distributed step
         electron-by-electron sampling (EBES)
         """
-        step = np.abs(self.step)
-        r_e[np.random.randint(self.neu + self.ned)] += step * np.random.uniform(-1, 1, 3)
+        r_e[np.random.randint(self.neu + self.ned)] += self.step * np.random.uniform(-1, 1, 3)
         return r_e
 
     def simple_random_step(self, p, r_e):
@@ -87,17 +86,13 @@ class MarkovChain:
         matches the shape of the target distribution which is in case of
         Quantum Monte Carlo is squared modulus of WFN.
         """
-        step = np.abs(self.step)
         ne = self.neu + self.ned
-        new_r_e = r_e + step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
+        new_r_e = r_e + self.step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
         e_vectors = subtract_outer(new_r_e, new_r_e)
         n_vectors = -subtract_outer(self.atom_positions, new_r_e)
         new_p = self.wfn.value(e_vectors, n_vectors)
         cond = new_p ** 2 / p ** 2 > np.random.random()
-        if cond:
-            return new_r_e, new_p, cond
-        else:
-            return r_e, p, cond
+        return cond and (new_r_e, new_p, cond) or (r_e, p, cond)
 
     def biased_random_step(self, p, r_e):
         """Diffusion-drift proposed step
@@ -105,20 +100,17 @@ class MarkovChain:
         drift is proportional to D*F*dt
         where D is diffusion constant = 1/2
         """
-        step = np.abs(self.step)
         ne = self.neu + self.ned
-        res = np.sqrt(step) * np.random.normal(0, 1, ne * 3) + step * self.wfn.drift_velocity(r_e)
+        v_forth = self.wfn.drift_velocity(r_e)
+        res = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth
         new_r_e = r_e + res.reshape((ne, 3))
         e_vectors = subtract_outer(new_r_e, new_r_e)
         n_vectors = -subtract_outer(self.atom_positions, new_r_e)
         new_p = self.wfn.value(e_vectors, n_vectors)
-        g_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - step * self.wfn.drift_velocity(r_e)) ** 2) / 2 / step)
-        g_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - step * self.wfn.drift_velocity(new_r_e)) ** 2) / 2 / step)
+        g_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
+        g_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * self.wfn.drift_velocity(new_r_e)) ** 2) / 2 / self.step)
         cond = (g_back * new_p ** 2) / (g_forth * p ** 2) > np.random.random()
-        if cond:
-            return new_r_e, new_p, cond
-        else:
-            return r_e, p, cond
+        return cond and (new_r_e, new_p, cond) or (r_e, p, cond)
 
     make_step = simple_random_step
 
@@ -279,8 +271,13 @@ class VMC:
 
         def f(tau):
             self.markovchain.step = tau[0]
-            weight, _, _ = self.markovchain.random_walk(steps)
-            return weight.size / steps - acceptance_rate
+            logger.info('dr * electrons = %.5f', tau[0] * (self.neu + self.ned))
+            if tau[0] > 0:
+                weight, _, _ = self.markovchain.random_walk(steps)
+                acc_ration = weight.size / steps
+            else:
+                acc_ration = 1
+            return acc_ration - acceptance_rate
 
         options = dict(jac_options=dict(alpha=1))
         res = sp.optimize.root(f, [self.markovchain.step], method='diagbroyden', tol=1/np.sqrt(steps), callback=callback, options=options)
