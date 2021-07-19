@@ -52,10 +52,11 @@ def initial_position(ne, atom_positions, atom_charges):
 @nb.experimental.jitclass(spec)
 class MarkovChain:
 
-    def __init__(self, neu, ned, atom_positions, atom_charges, wfn):
+    def __init__(self, neu, ned, step, atom_positions, atom_charges, wfn):
         """Markov chain Monte Carlo.
         :param neu: number of up electrons
         :param ned: number of down electrons
+        :param step: time step
         :param atom_positions: atomic positions
         :param atom_charges: atomic charges
         :param wfn: instance of Wfn class
@@ -64,33 +65,10 @@ class MarkovChain:
         self.neu = neu
         self.ned = ned
         self.r_e = np.zeros((neu + ned, 3))
-        self.step = 1 / (neu + ned)
-        # self.step = 1 / np.log(neu + ned)
+        self.step = step
         self.atom_positions = atom_positions
         self.atom_charges = atom_charges
         self.wfn = wfn
-
-    def gibbs_random_walker(self, steps, r_e):
-        """Simple random walker with electron-by-electron sampling (EBES)
-        :param steps: number of steps to walk
-        :param r_e: initial position
-        :return: is step accept, next step position
-        """
-        ne = self.neu + self.ned
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = -subtract_outer(self.atom_positions, r_e)
-        p = self.wfn.value(e_vectors, n_vectors)
-        for _ in range(steps):
-            for _ in range(ne):
-                new_r_e = r_e
-                new_r_e[np.random.randint(self.neu + self.ned)] += self.step * np.random.uniform(-1, 1, 3)
-                e_vectors = subtract_outer(new_r_e, new_r_e)
-                n_vectors = -subtract_outer(self.atom_positions, new_r_e)
-                new_p = self.wfn.value(e_vectors, n_vectors)
-                cond = new_p ** 2 / p ** 2 > np.random.random()
-                if cond:
-                    r_e, p = new_r_e, new_p
-                yield cond, r_e
 
     def simple_random_walker(self, steps, r_e):
         """Simple random walker with random N-dim square proposal density in
@@ -105,13 +83,30 @@ class MarkovChain:
         :return: is step accept, next step position
         """
         ne = self.neu + self.ned
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = -subtract_outer(self.atom_positions, r_e)
+        e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
         p = self.wfn.value(e_vectors, n_vectors)
         for _ in range(steps):
             new_r_e = r_e + self.step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-            e_vectors = subtract_outer(new_r_e, new_r_e)
-            n_vectors = -subtract_outer(self.atom_positions, new_r_e)
+            e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
+            new_p = self.wfn.value(e_vectors, n_vectors)
+            cond = new_p ** 2 / p ** 2 > np.random.random()
+            if cond:
+                r_e, p = new_r_e, new_p
+            yield cond, r_e
+
+    def gibbs_random_walker(self, steps, r_e):
+        """Simple random walker with electron-by-electron sampling (EBES)
+        :param steps: number of steps to walk
+        :param r_e: initial position
+        :return: is step accept, next step position
+        """
+        ne = self.neu + self.ned
+        e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
+        p = self.wfn.value(e_vectors, n_vectors)
+        for _ in range(steps):
+            new_r_e = np.copy(r_e)
+            new_r_e[np.random.randint(ne)] += self.step * np.random.uniform(-1, 1, 3)
+            e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
             new_p = self.wfn.value(e_vectors, n_vectors)
             cond = new_p ** 2 / p ** 2 > np.random.random()
             if cond:
@@ -128,21 +123,59 @@ class MarkovChain:
         :return: is step accept, next step position
         """
         ne = self.neu + self.ned
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = -subtract_outer(self.atom_positions, r_e)
+        e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
         p = self.wfn.value(e_vectors, n_vectors)
         for _ in range(steps):
             v_forth = self.wfn.drift_velocity(r_e)
             move = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth
             new_r_e = r_e + move.reshape((ne, 3))
-            e_vectors = subtract_outer(new_r_e, new_r_e)
-            n_vectors = -subtract_outer(self.atom_positions, new_r_e)
+            e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
             new_p = self.wfn.value(e_vectors, n_vectors)
             g_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
             g_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * self.wfn.drift_velocity(new_r_e)) ** 2) / 2 / self.step)
             cond = (g_back * new_p ** 2) / (g_forth * p ** 2) > np.random.random()
             if cond:
                 r_e, p = new_r_e, new_p
+            yield cond, r_e
+
+    def bbk_random_walker(self, steps, r_e):
+        """Brünger–Brooks–Karplus (13 B. Brünger, C. L. Brooks, and M. Karplus, Chem. Phys. Lett. 105, 495 1984).
+        :param steps: number of steps to walk
+        :param r_e: initial position
+        :return: is step accept, next step position
+        """
+        for _ in range(steps):
+            cond = True
+            yield cond, r_e
+
+    def force_interpolation_random_walker(self, steps, r_e):
+        """M. P. Allen and D. J. Tildesley, Computer Simulation of Liquids Oxford University Press, Oxford, 1989 and references in Sec. 9.3.
+        :param steps: number of steps to walk
+        :param r_e: initial position
+        :return: is step accept, next step position
+        """
+        for _ in range(steps):
+            cond = True
+            yield cond, r_e
+
+    def splitting_random_walker(self, steps, r_e):
+        """J. A. Izaguirre, D. P. Catarello, J. M. Wozniak, and R. D. Skeel, J. Chem. Phys. 114, 2090 2001.
+        :param steps: number of steps to walk
+        :param r_e: initial position
+        :return: is step accept, next step position
+        """
+        for _ in range(steps):
+            cond = True
+            yield cond, r_e
+
+    def ricci_ciccottid_random_walker(self, steps, r_e):
+        """A. Ricci and G. Ciccotti, Mol. Phys. 101, 1927 2003.
+        :param steps: number of steps to walk
+        :param r_e: initial position
+        :return: is step accept, next step position
+        """
+        for _ in range(steps):
+            cond = True
             yield cond, r_e
 
     walker = simple_random_walker
@@ -273,7 +306,17 @@ class VMC:
         )
         self.wfn = Wfn(casino.input.neu, casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.slater, self.jastrow, self.backflow)
         self.neu, self.ned = casino.input.neu, casino.input.ned
-        self.markovchain = MarkovChain(self.neu, self.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.wfn)
+
+        if casino.input.vmc_method == 1:
+            # CBCS
+            step = 1 / (self.neu + self.ned)
+        elif casino.input.vmc_method == 3:
+            # EBES
+            step = 1 / np.log(self.neu + self.ned)
+        else:
+            # wrong method
+            step = 0
+        self.markovchain = MarkovChain(self.neu, self.ned, step, casino.wfn.atom_positions, casino.wfn.atom_charges, self.wfn)
         # FIXME: not supported by numba move to MarkovChain.__init__()
         self.markovchain.r_e = initial_position(self.neu + self.ned, self.markovchain.atom_positions, self.markovchain.atom_charges)
 
@@ -422,12 +465,13 @@ def main(casino):
     vmc = VMC(casino)
     vmc.equilibrate(casino.input.vmc_equil_nstep)
     if casino.input.runtype == 'vmc':
-        vmc.energy(casino.input.vmc_nstep, casino.input.vmc_nblock)
+        # FIXME: in EBEC nstep = vmc_nstep * (neu + ned)
+        vmc.energy(casino.input.vmc_nstep // 10, casino.input.vmc_nblock)
     elif casino.input.runtype == 'vmc_opt':
         if casino.input.opt_method == 'varmin':
-            vmc.varmin(casino.input.vmc_opt_nstep, 5)
+            vmc.varmin(casino.input.vmc_nstep, 5)
         elif casino.input.opt_method == 'emin':
-            vmc.emin(casino.input.vmc_opt_nstep, 5)
+            vmc.emin(casino.input.vmc_nstep, 5)
 
 
 if __name__ == '__main__':

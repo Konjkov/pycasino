@@ -56,6 +56,11 @@ class Wfn:
         self.jastrow = jastrow
         self.backflow = backflow
 
+    def relative_coordinates(self, r_e):
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = -subtract_outer(self.atom_positions, r_e)
+        return e_vectors, n_vectors
+
     def value(self, e_vectors, n_vectors) -> float:
         """Value of wave function.
         :param e_vectors: e-e vectors - array(nelec, nelec, 3)

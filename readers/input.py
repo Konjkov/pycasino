@@ -13,6 +13,7 @@ class Input:
         def read_str(line):
             return str(line.split(':')[1].strip())
 
+        self.vmc_method = 1
         with open(file_name, 'r') as f:
             for line in f:
                 # remove comments
@@ -46,4 +47,5 @@ class Input:
                     self.opt_cycles = read_int(line)
                 elif line.startswith('opt_jastrow'):
                     self.opt_jastrow = self.use_jastrow = read_bool(line)
-                self.vmc_opt_nstep = 1000000
+                elif line.startswith('vmc_method'):
+                    self.vmc_method = read_int(line)
