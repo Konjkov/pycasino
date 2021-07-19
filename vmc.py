@@ -178,6 +178,30 @@ class MarkovChain:
             cond = True
             yield cond, r_e
 
+    def dmc_equilibration_walker(self, steps, r_e):
+        """
+        :param steps: number of steps to walk
+        :param r_e: initial position
+        :return: is step accept, next step position
+        """
+        ne = self.neu + self.ned
+        e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
+        p = self.wfn.value(e_vectors, n_vectors)
+        for _ in range(steps):
+            v_forth = self.wfn.drift_velocity(r_e)
+            v_back = self.wfn.drift_velocity(new_r_e)
+            move = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth
+            new_r_e = r_e + move.reshape((ne, 3))
+            e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
+            new_p = self.wfn.value(e_vectors, n_vectors)
+            g_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
+            g_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * v_back) ** 2) / 2 / self.step)
+            cond = (g_back * new_p ** 2) / (g_forth * p ** 2) > np.random.random()
+            if cond:
+                r_e, p = new_r_e, new_p
+            # br_factor = np.exp(-(self.wfn.energy(new_r_e) + self.wfn.energy(r_e) - 2 * E) / 2 / self.step)
+            yield cond, r_e
+
     walker = simple_random_walker
 
     def random_walk(self, steps):
@@ -466,7 +490,7 @@ def main(casino):
     vmc.equilibrate(casino.input.vmc_equil_nstep)
     if casino.input.runtype == 'vmc':
         # FIXME: in EBEC nstep = vmc_nstep * (neu + ned)
-        vmc.energy(casino.input.vmc_nstep // 10, casino.input.vmc_nblock)
+        vmc.energy(casino.input.vmc_nstep, casino.input.vmc_nblock)
     elif casino.input.runtype == 'vmc_opt':
         if casino.input.opt_method == 'varmin':
             vmc.varmin(casino.input.vmc_nstep, 5)

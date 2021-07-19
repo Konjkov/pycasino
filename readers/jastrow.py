@@ -183,7 +183,7 @@ class Jastrow:
                                         for l in range(f_en_order + 1):
                                             if f_mask[l, m, n, i]:
                                                 # γlmnI = γmlnI
-                                                f_parameters[l, m, n, i], _ = f_parameters[m, l, n, i], _ = self.read_parameter([l, m, n, i + 1, 1])
+                                                f_parameters[l, m, n, i], _ = f_parameters[m, l, n, i], _ = self.read_parameter([l, m, n, i+1, set_number+1])
                         except ValueError:
                             pass
                         self.f_mask.append(f_mask)
