@@ -70,71 +70,94 @@ class MarkovChain:
         self.atom_charges = atom_charges
         self.wfn = wfn
 
-    def gibbs_proposal_step(self, r_e):
-        """Random N-dim square distributed step
-        electron-by-electron sampling (EBES)
+    def gibbs_random_walker(self, steps, r_e):
+        """Simple random walker with electron-by-electron sampling (EBES)
+        :param steps: number of steps to walk
+        :param r_e: initial position
+        :return: is step accept, next step position
         """
-        r_e[np.random.randint(self.neu + self.ned)] += self.step * np.random.uniform(-1, 1, 3)
-        return r_e
+        ne = self.neu + self.ned
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = -subtract_outer(self.atom_positions, r_e)
+        p = self.wfn.value(e_vectors, n_vectors)
+        for _ in range(steps):
+            for _ in range(ne):
+                new_r_e = r_e
+                new_r_e[np.random.randint(self.neu + self.ned)] += self.step * np.random.uniform(-1, 1, 3)
+                e_vectors = subtract_outer(new_r_e, new_r_e)
+                n_vectors = -subtract_outer(self.atom_positions, new_r_e)
+                new_p = self.wfn.value(e_vectors, n_vectors)
+                cond = new_p ** 2 / p ** 2 > np.random.random()
+                if cond:
+                    r_e, p = new_r_e, new_p
+                yield cond, r_e
 
-    def simple_random_step(self, p, r_e):
-        """Propose step with random N-dim square proposal density in
+    def simple_random_walker(self, steps, r_e):
+        """Simple random walker with random N-dim square proposal density in
         configuration-by-configuration sampling (CBCS).
         In general, the proposal step may depend on the current position or
         have a different proposal density.
         It is believed that the algorithm works best if the proposal density
         matches the shape of the target distribution which is in case of
         Quantum Monte Carlo is squared modulus of WFN.
+        :param steps: number of steps to walk
+        :param r_e: initial position
+        :return: is step accept, next step position
         """
         ne = self.neu + self.ned
-        new_r_e = r_e + self.step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-        e_vectors = subtract_outer(new_r_e, new_r_e)
-        n_vectors = -subtract_outer(self.atom_positions, new_r_e)
-        new_p = self.wfn.value(e_vectors, n_vectors)
-        cond = new_p ** 2 / p ** 2 > np.random.random()
-        return cond and (new_r_e, new_p, cond) or (r_e, p, cond)
-
-    def biased_random_step(self, p, r_e):
-        """Diffusion-drift proposed step
-        diffusion is proportional to sqrt(2*D*dt)
-        drift is proportional to D*F*dt
-        where D is diffusion constant = 1/2
-        """
-        ne = self.neu + self.ned
-        v_forth = self.wfn.drift_velocity(r_e)
-        res = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth
-        new_r_e = r_e + res.reshape((ne, 3))
-        e_vectors = subtract_outer(new_r_e, new_r_e)
-        n_vectors = -subtract_outer(self.atom_positions, new_r_e)
-        new_p = self.wfn.value(e_vectors, n_vectors)
-        g_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
-        g_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * self.wfn.drift_velocity(new_r_e)) ** 2) / 2 / self.step)
-        cond = (g_back * new_p ** 2) / (g_forth * p ** 2) > np.random.random()
-        return cond and (new_r_e, new_p, cond) or (r_e, p, cond)
-
-    make_step = simple_random_step
-
-    def random_walk(self, steps):
-        """Metropolis-Hastings random walk.
-        :param steps: steps to walk
-        :return:
-        """
-
-        r_e = self.r_e
-        weight = np.ones((steps, ), np.int64)
-        position = np.zeros((steps, r_e.shape[0], r_e.shape[1]))
-
         e_vectors = subtract_outer(r_e, r_e)
         n_vectors = -subtract_outer(self.atom_positions, r_e)
         p = self.wfn.value(e_vectors, n_vectors)
+        for _ in range(steps):
+            new_r_e = r_e + self.step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
+            e_vectors = subtract_outer(new_r_e, new_r_e)
+            n_vectors = -subtract_outer(self.atom_positions, new_r_e)
+            new_p = self.wfn.value(e_vectors, n_vectors)
+            cond = new_p ** 2 / p ** 2 > np.random.random()
+            if cond:
+                r_e, p = new_r_e, new_p
+            yield cond, r_e
+
+    def biased_random_walker(self, steps, r_e):
+        """Biased random walker with diffusion-drift proposed step
+        diffusion step s proportional to sqrt(2*D*dt)
+        drift step is proportional to D*F*dt
+        where D is diffusion constant = 1/2
+        :param steps: number of steps to walk
+        :param r_e: initial position
+        :return: is step accept, next step position
+        """
+        ne = self.neu + self.ned
+        e_vectors = subtract_outer(r_e, r_e)
+        n_vectors = -subtract_outer(self.atom_positions, r_e)
+        p = self.wfn.value(e_vectors, n_vectors)
+        for _ in range(steps):
+            v_forth = self.wfn.drift_velocity(r_e)
+            move = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth
+            new_r_e = r_e + move.reshape((ne, 3))
+            e_vectors = subtract_outer(new_r_e, new_r_e)
+            n_vectors = -subtract_outer(self.atom_positions, new_r_e)
+            new_p = self.wfn.value(e_vectors, n_vectors)
+            g_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
+            g_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * self.wfn.drift_velocity(new_r_e)) ** 2) / 2 / self.step)
+            cond = (g_back * new_p ** 2) / (g_forth * p ** 2) > np.random.random()
+            if cond:
+                r_e, p = new_r_e, new_p
+            yield cond, r_e
+
+    walker = simple_random_walker
+
+    def random_walk(self, steps):
+        """Metropolis-Hastings random walk.
+        """
+        r_e = self.r_e
+        weight = np.ones((steps, ), np.int64)
+        position = np.zeros((steps, r_e.shape[0], r_e.shape[1]))
+        walker = self.walker(steps, r_e)
+        _, position[0] = next(walker)
 
         i = 0
-        # first step
-        r_e, p, _ = self.make_step(p, r_e)
-        position[i] = r_e
-        # other steps
-        for _ in range(1, steps):
-            r_e, p, cond = self.make_step(p, r_e)
+        for cond, r_e in walker:
             if cond:
                 i += 1
                 position[i] = r_e
