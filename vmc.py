@@ -31,7 +31,7 @@ numba_logger = logging.getLogger('numba')
 spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
-    ('r_e', nb.float64[:, :]),
+    ('r_e', nb.types.ListType(nb.float64[:, :])),
     ('step', nb.float64),
     ('atom_positions', nb.float64[:, :]),
     ('atom_charges', nb.float64[:]),
@@ -64,11 +64,25 @@ class MarkovChain:
         """
         self.neu = neu
         self.ned = ned
-        self.r_e = np.zeros((neu + ned, 3))
         self.step = step
         self.atom_positions = atom_positions
         self.atom_charges = atom_charges
         self.wfn = wfn
+
+    def limited_drift_velocity(self, r_e, a=1):
+        """
+        A significant source of error in DMC calculations comes from sampling electronic
+        configurations near the nodal surface. Here both the drift velocity and local
+        energy diverge, causing large time step errors and increasing the variance of
+        energy estimates respectively. To reduce these undesirable effects it is necessary
+        to limit the magnitude of both quantities.
+        :param r_e: electron coordinates
+        :param a: strength of the limiting
+        :return:
+        """
+        v = self.wfn.drift_velocity(r_e)
+        square_mod_v = np.sum(v**2)
+        return (np.sqrt(1 + 2 * a * square_mod_v * self.step) - 1) / (a * square_mod_v * self.step) * v
 
     def simple_random_walker(self, steps, r_e):
         """Simple random walker with random N-dim square proposal density in
@@ -145,7 +159,7 @@ class MarkovChain:
         :return: is step accept, next step position
         """
         for _ in range(steps):
-            cond = True
+            cond = False
             yield cond, r_e
 
     def force_interpolation_random_walker(self, steps, r_e):
@@ -155,7 +169,7 @@ class MarkovChain:
         :return: is step accept, next step position
         """
         for _ in range(steps):
-            cond = True
+            cond = False
             yield cond, r_e
 
     def splitting_random_walker(self, steps, r_e):
@@ -165,7 +179,7 @@ class MarkovChain:
         :return: is step accept, next step position
         """
         for _ in range(steps):
-            cond = True
+            cond = False
             yield cond, r_e
 
     def ricci_ciccottid_random_walker(self, steps, r_e):
@@ -175,7 +189,7 @@ class MarkovChain:
         :return: is step accept, next step position
         """
         for _ in range(steps):
-            cond = True
+            cond = False
             yield cond, r_e
 
     def dmc_equilibration_walker(self, steps, r_e):
@@ -189,9 +203,9 @@ class MarkovChain:
         p = self.wfn.value(e_vectors, n_vectors)
         for _ in range(steps):
             v_forth = self.wfn.drift_velocity(r_e)
-            v_back = self.wfn.drift_velocity(new_r_e)
             move = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth
             new_r_e = r_e + move.reshape((ne, 3))
+            v_back = self.wfn.drift_velocity(new_r_e)
             e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
             new_p = self.wfn.value(e_vectors, n_vectors)
             g_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
@@ -199,15 +213,14 @@ class MarkovChain:
             cond = (g_back * new_p ** 2) / (g_forth * p ** 2) > np.random.random()
             if cond:
                 r_e, p = new_r_e, new_p
-            # br_factor = np.exp(-(self.wfn.energy(new_r_e) + self.wfn.energy(r_e) - 2 * E) / 2 / self.step)
             yield cond, r_e
 
     walker = simple_random_walker
 
-    def random_walk(self, steps):
+    def vmc_random_walk(self, steps):
         """Metropolis-Hastings random walk.
         """
-        r_e = self.r_e
+        r_e = self.r_e[0]
         weight = np.ones((steps, ), np.int64)
         position = np.zeros((steps, r_e.shape[0], r_e.shape[1]))
         walker = self.walker(steps, r_e)
@@ -221,8 +234,22 @@ class MarkovChain:
             else:
                 weight[i] += 1
 
-        self.r_e = r_e
+        self.r_e[0] = r_e
         return weight[:i+1], position[:i+1]
+
+    def dmc_random_walk(self, steps):
+        """Dmc"""
+        r_e = self.r_e[0]
+        conf = 1000
+        weight = np.ones((conf, ))
+        position = np.zeros((conf, r_e.shape[0], r_e.shape[1]))
+        walkers = [self.dmc_equilibration_walker(steps, r_e) for i in range(conf)]
+        energy_t = np.mean(self.wfn.energy(next(walker)[1]) for walker in walkers)
+        for i, walker in enumerate(walkers):
+            _, position[i] = next(walker)
+            weight[i] *= np.exp(-(self.wfn.energy(position[i]) + self.wfn.energy(position[i-1]) - 2 * energy_t) / 2 / self.step)
+
+        self.r_e[0] = r_e
 
     def local_energy(self, position):
         """
@@ -332,21 +359,22 @@ class VMC:
         self.neu, self.ned = casino.input.neu, casino.input.ned
 
         if casino.input.vmc_method == 1:
-            # CBCS
-            step = 1 / (self.neu + self.ned)
-        elif casino.input.vmc_method == 3:
             # EBES
             step = 1 / np.log(self.neu + self.ned)
+        elif casino.input.vmc_method == 3:
+            # CBCS
+            step = 1 / (self.neu + self.ned)
         else:
             # wrong method
             step = 0
         self.markovchain = MarkovChain(self.neu, self.ned, step, casino.wfn.atom_positions, casino.wfn.atom_charges, self.wfn)
         # FIXME: not supported by numba move to MarkovChain.__init__()
-        self.markovchain.r_e = initial_position(self.neu + self.ned, self.markovchain.atom_positions, self.markovchain.atom_charges)
+        self.markovchain.r_e = nb.typed.List.empty_list(nb.float64[:, :])
+        self.markovchain.r_e.append(initial_position(self.neu + self.ned, self.markovchain.atom_positions, self.markovchain.atom_charges))
 
     def equilibrate(self, steps):
         """Burn-in period"""
-        weight, _ = self.markovchain.random_walk(steps)
+        weight, _ = self.markovchain.vmc_random_walk(steps)
         logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weight.size / steps)
 
     def optimize_vmc_step(self, steps, acceptance_rate=0.5):
@@ -360,7 +388,7 @@ class VMC:
             self.markovchain.step = tau[0]
             logger.info('dr * electrons = %.5f', tau[0] * (self.neu + self.ned))
             if tau[0] > 0:
-                weight, _ = self.markovchain.random_walk(steps)
+                weight, _ = self.markovchain.vmc_random_walk(steps)
                 acc_ration = weight.size / steps
             else:
                 acc_ration = 1
@@ -376,7 +404,7 @@ class VMC:
         start = default_timer()
         expanded_energy = np.zeros((nblock, steps // nblock))
         for i in range(nblock):
-            weights, position = self.markovchain.random_walk(steps // nblock)
+            weights, position = self.markovchain.vmc_random_walk(steps // nblock)
             energy = self.markovchain.local_energy(position) + self.markovchain.wfn.nuclear_repulsion
             stop = default_timer()
             logger.info('total time {}'.format(stop - start))
@@ -399,7 +427,7 @@ class VMC:
         https://github.com/scipy/scipy/issues/10634
         """
         bounds = self.jastrow.get_bounds()
-        weight, position = self.markovchain.random_walk(steps)
+        weight, position = self.markovchain.vmc_random_walk(steps)
 
         def f(x, *args, **kwargs):
             self.jastrow.set_parameters(x)
@@ -429,12 +457,12 @@ class VMC:
         Constraints definition only for: COBYLA, SLSQP and trust-constr
         """
         bounds = self.jastrow.get_bounds()
-        weight, position = self.markovchain.random_walk(steps)
+        weight, position = self.markovchain.vmc_random_walk(steps)
 
         def callback(x, *args):
             logger.info('inner iteration x = %s', x)
             self.jastrow.set_parameters(x)
-            weight, position = self.markovchain.random_walk(steps)
+            weight, position = self.markovchain.vmc_random_walk(steps)
 
         def f(x, *args):
             self.jastrow.set_parameters(x)
@@ -516,9 +544,12 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Slater/'
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Slater/'
 
-    # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_optimization/'
-    # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow_optimization/'
-    # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Jastrow_optimization/'
+    # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_opt/'
+    # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow_opt/'
+    # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Jastrow_opt/'
+    # path = 'test/stowfn/Ar/HF/QZ4P/CBCS/Jastrow_opt/'
+    # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_opt/'
+    # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Jastrow_opt/'
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow/'
