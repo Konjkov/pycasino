@@ -8,7 +8,7 @@ from readers.mdet import Mdet
 from readers.backflow import Backflow
 
 
-class Casino:
+class CasinoConfig:
     """Casino inputs reader."""
 
     def __init__(self, base_path):

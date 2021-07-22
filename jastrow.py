@@ -12,7 +12,7 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import numpy as np
 import numba as nb
 
-from readers.casino import Casino
+from readers.casino import CasinoConfig
 from overload import subtract_outer
 from logger import logging
 
@@ -1165,4 +1165,4 @@ if __name__ == '__main__':
     for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
         path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Jastrow/'
         logger.info('%s:', mol)
-        main(Casino(path))
+        main(CasinoConfig(path))

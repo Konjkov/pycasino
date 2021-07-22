@@ -19,8 +19,7 @@ import numba as nb
 import scipy as sp
 
 from decorators import pool, thread
-from readers.casino import Casino
-from overload import subtract_outer
+from readers.casino import CasinoConfig
 from logger import logging
 
 np.random.seed(31415926)
@@ -140,13 +139,13 @@ class MarkovChain:
         e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
         p = self.wfn.value(e_vectors, n_vectors)
         for _ in range(steps):
-            v_forth = self.wfn.drift_velocity(r_e)
+            v_forth = self.limited_drift_velocity(r_e)
             move = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth
             new_r_e = r_e + move.reshape((ne, 3))
             e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
             new_p = self.wfn.value(e_vectors, n_vectors)
             g_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
-            g_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * self.wfn.drift_velocity(new_r_e)) ** 2) / 2 / self.step)
+            g_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * self.limited_drift_velocity(new_r_e)) ** 2) / 2 / self.step)
             cond = (g_back * new_p ** 2) / (g_forth * p ** 2) > np.random.random()
             if cond:
                 r_e, p = new_r_e, new_p
@@ -237,19 +236,19 @@ class MarkovChain:
         self.r_e[0] = r_e
         return weight[:i+1], position[:i+1]
 
-    def dmc_random_walk(self, steps):
+    def dmc_random_walk(self, steps, conf, energy_t):
         """Dmc"""
-        r_e = self.r_e[0]
-        conf = 1000
-        weight = np.ones((conf, ))
-        position = np.zeros((conf, r_e.shape[0], r_e.shape[1]))
-        walkers = [self.dmc_equilibration_walker(steps, r_e) for i in range(conf)]
-        energy_t = np.mean(self.wfn.energy(next(walker)[1]) for walker in walkers)
-        for i, walker in enumerate(walkers):
-            _, position[i] = next(walker)
-            weight[i] *= np.exp(-(self.wfn.energy(position[i]) + self.wfn.energy(position[i-1]) - 2 * energy_t) / 2 / self.step)
+        r_e = self.r_e
+        weight = nb.typed.List([1.0]*conf)
+        position = r_e
+        walkers = [self.dmc_equilibration_walker(steps, r_e[i]) for i in range(conf)]
+        for _ in range(10):
+            for i, walker in enumerate(walkers):
+                _, p = next(walker)
+                weight[i] *= np.exp(-(self.wfn.energy(p) + self.wfn.energy(position[i]) - 2 * energy_t) / 2 / self.step)
+                position[i] = p
 
-        self.r_e[0] = r_e
+        self.r_e = r_e
 
     def local_energy(self, position):
         """
@@ -332,45 +331,92 @@ def jastrow_parameters_hessian(weight, energy, energy_gradient, energy_hessian):
     return A + B + C
 
 
-class VMC:
+class Casino:
 
-    def __init__(self, casino):
+    def __init__(self, path):
+        """Casino workflow.
+        :param path: path to config
+        """
+        self.config = CasinoConfig(path)
+
         self.slater = Slater(
-            casino.input.neu, casino.input.ned,
-            casino.wfn.nbasis_functions, casino.wfn.first_shells, casino.wfn.orbital_types, casino.wfn.shell_moments,
-            casino.wfn.slater_orders, casino.wfn.primitives, casino.wfn.coefficients, casino.wfn.exponents,
-            casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff
+            self.config.input.neu, self.config.input.ned,
+            self.config.wfn.nbasis_functions, self.config.wfn.first_shells, self.config.wfn.orbital_types, self.config.wfn.shell_moments,
+            self.config.wfn.slater_orders, self.config.wfn.primitives, self.config.wfn.coefficients, self.config.wfn.exponents,
+            self.config.mdet.mo_up, self.config.mdet.mo_down, self.config.mdet.coeff
         )
-        self.jastrow = casino.jastrow and Jastrow(
-            casino.input.neu, casino.input.ned,
-            casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_mask, casino.jastrow.u_cutoff, casino.jastrow.u_cusp_const,
-            casino.jastrow.chi_parameters, casino.jastrow.chi_mask, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
-            casino.jastrow.f_parameters, casino.jastrow.f_mask, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
-            casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp
+        self.jastrow = self.config.jastrow and Jastrow(
+            self.config.input.neu, self.config.input.ned,
+            self.config.jastrow.trunc, self.config.jastrow.u_parameters, self.config.jastrow.u_mask, self.config.jastrow.u_cutoff, self.config.jastrow.u_cusp_const,
+            self.config.jastrow.chi_parameters, self.config.jastrow.chi_mask, self.config.jastrow.chi_cutoff, self.config.jastrow.chi_labels,
+            self.config.jastrow.f_parameters, self.config.jastrow.f_mask, self.config.jastrow.f_cutoff, self.config.jastrow.f_labels,
+            self.config.jastrow.no_dup_u_term, self.config.jastrow.no_dup_chi_term, self.config.jastrow.chi_cusp
         )
-        self.backflow = casino.backflow and Backflow(
-            casino.input.neu, casino.input.ned,
-            casino.backflow.trunc, casino.backflow.eta_parameters, casino.backflow.eta_cutoff,
-            casino.backflow.mu_parameters, casino.backflow.mu_cutoff, casino.backflow.mu_labels,
-            casino.backflow.phi_parameters, casino.backflow.theta_parameters, casino.backflow.phi_cutoff,
-            casino.backflow.phi_labels, casino.backflow.phi_irrotational, casino.backflow.ae_cutoff
+        self.backflow = self.config.backflow and Backflow(
+            self.config.input.neu, self.config.input.ned,
+            self.config.backflow.trunc, self.config.backflow.eta_parameters, self.config.backflow.eta_cutoff,
+            self.config.backflow.mu_parameters, self.config.backflow.mu_cutoff, self.config.backflow.mu_labels,
+            self.config.backflow.phi_parameters, self.config.backflow.theta_parameters, self.config.backflow.phi_cutoff,
+            self.config.backflow.phi_labels, self.config.backflow.phi_irrotational, self.config.backflow.ae_cutoff
         )
-        self.wfn = Wfn(casino.input.neu, casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges, self.slater, self.jastrow, self.backflow)
-        self.neu, self.ned = casino.input.neu, casino.input.ned
+        self.wfn = Wfn(
+            self.config.input.neu, self.config.input.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges, self.slater, self.jastrow, self.backflow
+        )
+        self.neu, self.ned = self.config.input.neu, self.config.input.ned
 
-        if casino.input.vmc_method == 1:
+        if self.config.input.vmc_method == 1:
             # EBES
             step = 1 / np.log(self.neu + self.ned)
-        elif casino.input.vmc_method == 3:
+        elif self.config.input.vmc_method == 3:
             # CBCS
             step = 1 / (self.neu + self.ned)
         else:
             # wrong method
             step = 0
-        self.markovchain = MarkovChain(self.neu, self.ned, step, casino.wfn.atom_positions, casino.wfn.atom_charges, self.wfn)
+        self.markovchain = MarkovChain(self.neu, self.ned, step, self.config.wfn.atom_positions, self.config.wfn.atom_charges, self.wfn)
         # FIXME: not supported by numba move to MarkovChain.__init__()
         self.markovchain.r_e = nb.typed.List.empty_list(nb.float64[:, :])
         self.markovchain.r_e.append(initial_position(self.neu + self.ned, self.markovchain.atom_positions, self.markovchain.atom_charges))
+
+    def run(self):
+        """Run Casino workflow.
+        """
+        self.equilibrate(self.config.input.vmc_equil_nstep)
+        if self.config.input.runtype == 'vmc':
+            # FIXME: in EBEC nstep = vmc_nstep * (neu + ned)
+            self.optimize_vmc_step(10000)
+            self.energy(self.config.input.vmc_nstep, self.config.input.vmc_nblock)
+        elif self.config.input.runtype == 'vmc_opt':
+            if self.config.input.opt_method == 'varmin':
+                for _ in range(self.config.input.opt_cycles):
+                    self.optimize_vmc_step(10000)
+                    res = self.vmc_variance_minimization(self.config.input.vmc_nstep)
+                    # unload to file
+                    # logger.info('x = %s', res.x)
+                    self.jastrow.set_parameters(res.x)
+            elif self.config.input.opt_method == 'emin':
+                for _ in range(self.config.input.opt_cycles):
+                    self.optimize_vmc_step(10000)
+                    res = self.vmc_energy_minimization(self.config.input.vmc_nstep)
+                    # unload to file
+                    # logger.info('x = %s', res.x)
+                    self.jastrow.set_parameters(res.x)
+        elif self.config.input.runtype == 'vmc_dmc':
+            self.optimize_vmc_step(10000)
+            self.markovchain.step = self.config.input.dtdmc
+            weight, position = self.markovchain.vmc_random_walk(self.config.input.vmc_nstep)
+            energy = self.markovchain.local_energy(position) + self.markovchain.wfn.nuclear_repulsion
+            energy_average = np.average(energy, weights=weight)
+            logger.info('VMC energy %.5f', energy_average)
+            expanded_position = expand(weight, position)
+            expanded_position = expanded_position[-self.config.input.vmc_nconfig_write:]
+            self.markovchain.r_e = nb.typed.List.empty_list(nb.float64[:, :])
+            for p in expanded_position:
+                self.markovchain.r_e.append(p)
+            start = default_timer()
+            self.markovchain.dmc_random_walk(self.config.input.dmc_equil_nstep, self.config.input.vmc_nconfig_write, energy_average)
+            stop = default_timer()
+            logger.info('total time {}'.format(stop - start))
 
     def equilibrate(self, steps):
         """Burn-in period"""
@@ -399,16 +445,15 @@ class VMC:
         self.markovchain.step = np.abs(res.x[0])
 
     def energy(self, steps, nblock):
-        self.optimize_vmc_step(10000)
-
+        """Energy accumulation"""
         start = default_timer()
         expanded_energy = np.zeros((nblock, steps // nblock))
         for i in range(nblock):
-            weights, position = self.markovchain.vmc_random_walk(steps // nblock)
+            weight, position = self.markovchain.vmc_random_walk(steps // nblock)
             energy = self.markovchain.local_energy(position) + self.markovchain.wfn.nuclear_repulsion
             stop = default_timer()
             logger.info('total time {}'.format(stop - start))
-            expanded_energy[i] = expand(weights, energy)
+            expanded_energy[i] = expand(weight, energy)
 
         reblock_data = pyblock.blocking.reblock(expanded_energy)
         opt = pyblock.blocking.find_optimal_block(steps, reblock_data)
@@ -492,42 +537,9 @@ class VMC:
         # res = sp.optimize.minimize(f, parameters, method='trust-ncg', jac=True, hess=hess, options=options, callback=callback)
         return res
 
-    def varmin(self, steps, opt_cycles):
-        for _ in range(opt_cycles):
-            self.optimize_vmc_step(10000)
-            res = self.vmc_variance_minimization(steps)
-            # unload to file
-            # logger.info('x = %s', res.x)
-            self.jastrow.set_parameters(res.x)
-
-    def emin(self, steps, opt_cycles):
-        for _ in range(opt_cycles):
-            self.optimize_vmc_step(10000)
-            res = self.vmc_energy_minimization(steps)
-            # unload to file
-            # logger.info('x = %s', res.x)
-            self.jastrow.set_parameters(res.x)
-
-
-def main(casino):
-    """Configuration-by-configuration sampling (CBCS)
-    Should be pure python function.
-    """
-
-    vmc = VMC(casino)
-    vmc.equilibrate(casino.input.vmc_equil_nstep)
-    if casino.input.runtype == 'vmc':
-        # FIXME: in EBEC nstep = vmc_nstep * (neu + ned)
-        vmc.energy(casino.input.vmc_nstep, casino.input.vmc_nblock)
-    elif casino.input.runtype == 'vmc_opt':
-        if casino.input.opt_method == 'varmin':
-            vmc.varmin(casino.input.vmc_nstep, 5)
-        elif casino.input.opt_method == 'emin':
-            vmc.emin(casino.input.vmc_nstep, 5)
-
 
 if __name__ == '__main__':
-    """
+    """Tests
     """
 
     # path = 'test/gwfn/He/HF/cc-pVQZ/CBCS/Slater/'
@@ -565,5 +577,6 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Backflow/'
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Backflow/'
 
-    casino = Casino(path)
-    main(casino)
+    path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_dmc/'
+
+    Casino(path).run()

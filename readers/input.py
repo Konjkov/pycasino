@@ -10,10 +10,14 @@ class Input:
         def read_int(line):
             return int(line.split(':')[1].strip())
 
+        def read_float(line):
+            return float(line.split(':')[1].strip())
+
         def read_str(line):
             return str(line.split(':')[1].strip())
 
         self.vmc_method = 1
+        self.dmc_method = 1
         with open(file_name, 'r') as f:
             for line in f:
                 # remove comments
@@ -49,3 +53,14 @@ class Input:
                     self.opt_jastrow = self.use_jastrow = read_bool(line)
                 elif line.startswith('vmc_method'):
                     self.vmc_method = read_int(line)
+                elif line.startswith('vmc_nconfig_write'):
+                    self.vmc_nconfig_write = read_int(line)
+                elif line.startswith('dmc_method'):
+                    self.dmc_method = read_int(line)
+                elif line.startswith('dmc_equil_nstep'):
+                    self.dmc_equil_nstep = read_int(line)
+                elif line.startswith('dmc_stats_nstep'):
+                    self.dmc_stats_nstep = read_int(line)
+                elif line.startswith('dtdmc'):
+                    self.dtdmc = read_float(line)
+

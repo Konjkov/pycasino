@@ -18,7 +18,7 @@ from decorators import pool, thread
 from overload import subtract_outer
 from logger import logging
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
-from readers.casino import Casino
+from readers.casino import CasinoConfig
 
 logger = logging.getLogger('vmc')
 
@@ -715,4 +715,4 @@ if __name__ == '__main__':
         path = f'test/gwfn/{mol}/HF/cc-pVQZ/CBCS/Slater/'
         # path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
         logger.info('%s:', mol)
-        main(Casino(path))
+        main(CasinoConfig(path))
