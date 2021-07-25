@@ -198,17 +198,16 @@ class MarkovChain:
         :return: is step accept, next step position
         """
         ne = self.neu + self.ned
+        energy = np.zeros(len(r_e))
         weight = np.ones(len(r_e))
         for _ in range(steps):
-            weight_sum = 0
-            energy_sum = 0
             for i in range(len(r_e)):
                 # prev wfn value
                 e_vectors, n_vectors = self.wfn.relative_coordinates(r_e[i])
                 p = self.wfn.value(e_vectors, n_vectors)
                 # FIXME: limit energy
-                v_forth = self.drift_velocity(r_e[i])
-                local_energy = self.wfn.energy(r_e[i])
+                v_forth = self.wfn.drift_velocity(r_e[i])
+                energy[i] = self.wfn.energy(r_e[i])
                 limiting_factor = self.limiting_factor(v_forth)
                 v_forth *= limiting_factor
                 # new wfn value
@@ -216,7 +215,7 @@ class MarkovChain:
                 e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
                 new_p = self.wfn.value(e_vectors, n_vectors)
                 # FIXME: limit energy
-                v_back = self.drift_velocity(new_r_e)
+                v_back = self.wfn.drift_velocity(new_r_e)
                 new_local_energy = self.wfn.energy(new_r_e)
                 limiting_factor = self.limiting_factor(v_back)
                 v_back *= limiting_factor
@@ -225,14 +224,11 @@ class MarkovChain:
                 g_back = np.exp(-np.sum((r_e[i].ravel() - new_r_e.ravel() - self.step * v_back) ** 2) / 2 / self.step)
                 # condition
                 cond = (g_back * new_p ** 2) / (g_forth * p ** 2) > np.random.random()
-                weight[i] *= np.exp(-(new_local_energy + local_energy - 2 * energy_t) / 2 / self.step)
-                # update energy weight
-                weight_sum += weight[i]
-                energy_sum += weight[i] * local_energy
+                weight[i] *= np.exp(-(new_local_energy + energy[i] - 2 * energy_t) / 2 / self.step)
                 # FIXME: implement branching
-                energy_t = energy_sum / weight_sum
                 if cond:
                     r_e[i] = new_r_e
+            energy_t = np.sum(energy * weight) / np.sum(weight)
             yield energy_t
 
     walker = simple_random_walker
@@ -263,7 +259,7 @@ class MarkovChain:
         energy = np.zeros((steps, ))
         for i, energy_t in enumerate(walker):
             energy[i] = energy_t
-        return energy.mean()
+        return energy
 
     def local_energy(self, position):
         """
@@ -430,7 +426,11 @@ class Casino:
                 self.markovchain.r_e.append(p)
             start = default_timer()
             energy_t = self.markovchain.dmc_random_walk(self.config.input.dmc_equil_nstep, self.config.input.vmc_nconfig_write, energy_average)
-            logger.info('DMC energy %.5f', energy_t)
+            reblock_data = pyblock.blocking.reblock(energy_t)
+            opt = pyblock.blocking.find_optimal_block(self.config.input.dmc_equil_nstep, reblock_data)
+            opt_data = reblock_data[opt[0]]
+            logger.info(opt_data)
+            logger.info('{} +/- {}'.format(np.mean(opt_data.mean), np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size)))
             stop = default_timer()
             logger.info('total time {}'.format(stop - start))
 
