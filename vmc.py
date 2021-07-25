@@ -68,20 +68,19 @@ class MarkovChain:
         self.atom_charges = atom_charges
         self.wfn = wfn
 
-    def limited_drift_velocity(self, r_e, a=1):
+    def limiting_factor(self, v, a=1):
         """
         A significant source of error in DMC calculations comes from sampling electronic
         configurations near the nodal surface. Here both the drift velocity and local
         energy diverge, causing large time step errors and increasing the variance of
         energy estimates respectively. To reduce these undesirable effects it is necessary
         to limit the magnitude of both quantities.
-        :param r_e: electron coordinates
+        :param v: drift velocity
         :param a: strength of the limiting
         :return:
         """
-        v = self.wfn.drift_velocity(r_e)
         square_mod_v = np.sum(v**2)
-        return (np.sqrt(1 + 2 * a * square_mod_v * self.step) - 1) / (a * square_mod_v * self.step) * v
+        return (np.sqrt(1 + 2 * a * square_mod_v * self.step) - 1) / (a * square_mod_v * self.step)
 
     def simple_random_walker(self, steps, r_e):
         """Simple random walker with random N-dim square proposal density in
@@ -139,13 +138,13 @@ class MarkovChain:
         e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
         p = self.wfn.value(e_vectors, n_vectors)
         for _ in range(steps):
-            v_forth = self.limited_drift_velocity(r_e)
+            v_forth = self.drift_velocity(r_e)
             move = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth
             new_r_e = r_e + move.reshape((ne, 3))
             e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
             new_p = self.wfn.value(e_vectors, n_vectors)
             g_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
-            g_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * self.limited_drift_velocity(new_r_e)) ** 2) / 2 / self.step)
+            g_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * self.drift_velocity(new_r_e)) ** 2) / 2 / self.step)
             cond = (g_back * new_p ** 2) / (g_forth * p ** 2) > np.random.random()
             if cond:
                 r_e, p = new_r_e, new_p
@@ -191,28 +190,50 @@ class MarkovChain:
             cond = False
             yield cond, r_e
 
-    def dmc_equilibration_walker(self, steps, r_e):
-        """
+    def dmc_random_walker(self, steps, r_e, energy_t):
+        """DMC swarm of walkers.
         :param steps: number of steps to walk
         :param r_e: initial position
+        :param energy_t: energy of trial wfn
         :return: is step accept, next step position
         """
         ne = self.neu + self.ned
-        e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
-        p = self.wfn.value(e_vectors, n_vectors)
+        weight = np.ones(len(r_e))
         for _ in range(steps):
-            v_forth = self.wfn.drift_velocity(r_e)
-            move = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth
-            new_r_e = r_e + move.reshape((ne, 3))
-            v_back = self.wfn.drift_velocity(new_r_e)
-            e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
-            new_p = self.wfn.value(e_vectors, n_vectors)
-            g_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
-            g_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * v_back) ** 2) / 2 / self.step)
-            cond = (g_back * new_p ** 2) / (g_forth * p ** 2) > np.random.random()
-            if cond:
-                r_e, p = new_r_e, new_p
-            yield cond, r_e
+            weight_sum = 0
+            energy_sum = 0
+            for i in range(len(r_e)):
+                # prev wfn value
+                e_vectors, n_vectors = self.wfn.relative_coordinates(r_e[i])
+                p = self.wfn.value(e_vectors, n_vectors)
+                # FIXME: limit energy
+                v_forth = self.drift_velocity(r_e[i])
+                local_energy = self.wfn.energy(r_e[i])
+                limiting_factor = self.limiting_factor(v_forth)
+                v_forth *= limiting_factor
+                # new wfn value
+                new_r_e = r_e[i] + (np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth).reshape((ne, 3))
+                e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
+                new_p = self.wfn.value(e_vectors, n_vectors)
+                # FIXME: limit energy
+                v_back = self.drift_velocity(new_r_e)
+                new_local_energy = self.wfn.energy(new_r_e)
+                limiting_factor = self.limiting_factor(v_back)
+                v_back *= limiting_factor
+                # Green`s functions
+                g_forth = np.exp(-np.sum((new_r_e.ravel() - r_e[i].ravel() - self.step * v_forth) ** 2) / 2 / self.step)
+                g_back = np.exp(-np.sum((r_e[i].ravel() - new_r_e.ravel() - self.step * v_back) ** 2) / 2 / self.step)
+                # condition
+                cond = (g_back * new_p ** 2) / (g_forth * p ** 2) > np.random.random()
+                weight[i] *= np.exp(-(new_local_energy + local_energy - 2 * energy_t) / 2 / self.step)
+                # update energy weight
+                weight_sum += weight[i]
+                energy_sum += weight[i] * local_energy
+                # FIXME: implement branching
+                energy_t = energy_sum / weight_sum
+                if cond:
+                    r_e[i] = new_r_e
+            yield energy_t
 
     walker = simple_random_walker
 
@@ -236,19 +257,13 @@ class MarkovChain:
         self.r_e[0] = r_e
         return weight[:i+1], position[:i+1]
 
-    def dmc_random_walk(self, steps, conf, energy_t):
+    def dmc_random_walk(self, steps, _, energy_t):
         """Dmc"""
-        r_e = self.r_e
-        weight = nb.typed.List([1.0]*conf)
-        position = r_e
-        walkers = [self.dmc_equilibration_walker(steps, r_e[i]) for i in range(conf)]
-        for _ in range(10):
-            for i, walker in enumerate(walkers):
-                _, p = next(walker)
-                weight[i] *= np.exp(-(self.wfn.energy(p) + self.wfn.energy(position[i]) - 2 * energy_t) / 2 / self.step)
-                position[i] = p
-
-        self.r_e = r_e
+        walker = self.dmc_random_walker(steps, self.r_e, energy_t)
+        energy = np.zeros((steps, ))
+        for i, energy_t in enumerate(walker):
+            energy[i] = energy_t
+        return energy.mean()
 
     def local_energy(self, position):
         """
@@ -403,18 +418,19 @@ class Casino:
                     self.jastrow.set_parameters(res.x)
         elif self.config.input.runtype == 'vmc_dmc':
             self.optimize_vmc_step(10000)
-            self.markovchain.step = self.config.input.dtdmc
             weight, position = self.markovchain.vmc_random_walk(self.config.input.vmc_nstep)
             energy = self.markovchain.local_energy(position) + self.markovchain.wfn.nuclear_repulsion
             energy_average = np.average(energy, weights=weight)
             logger.info('VMC energy %.5f', energy_average)
             expanded_position = expand(weight, position)
             expanded_position = expanded_position[-self.config.input.vmc_nconfig_write:]
+            self.markovchain.step = self.config.input.dtdmc
             self.markovchain.r_e = nb.typed.List.empty_list(nb.float64[:, :])
             for p in expanded_position:
                 self.markovchain.r_e.append(p)
             start = default_timer()
-            self.markovchain.dmc_random_walk(self.config.input.dmc_equil_nstep, self.config.input.vmc_nconfig_write, energy_average)
+            energy_t = self.markovchain.dmc_random_walk(self.config.input.dmc_equil_nstep, self.config.input.vmc_nconfig_write, energy_average)
+            logger.info('DMC energy %.5f', energy_t)
             stop = default_timer()
             logger.info('total time {}'.format(stop - start))
 
@@ -577,6 +593,6 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Backflow/'
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Backflow/'
 
-    path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_dmc/'
+    # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_dmc/'
 
     Casino(path).run()
