@@ -196,20 +196,29 @@ class MarkovChain:
         :param r_e: initial position
         :return: is step accept, next step position
         """
+        def dmc_energy(energy, weight):
+            """E_dmc = E_t"""
+            sum_e = sum_ew = 0.0
+            for e, w in zip(energy, weight):
+                sum_e += w
+                sum_ew += e * w
+            return sum_ew / sum_e
+
         ne = self.neu + self.ned
-        p = np.zeros(len(r_e))
-        energy = np.zeros((len(r_e), ))
-        weight = np.ones((len(r_e), ))
-        velocity = np.zeros((len(r_e), ne * 3))
+        p = nb.typed.List()
+        energy = nb.typed.List()
+        weight = nb.typed.List()
+        velocity = nb.typed.List()
         for i in range(len(r_e)):
             e_vectors, n_vectors = self.wfn.relative_coordinates(r_e[i])
-            p[i] = self.wfn.value(e_vectors, n_vectors)
+            p.append(self.wfn.value(e_vectors, n_vectors))
             # FIXME: limit energy
-            energy[i] = self.wfn.energy(r_e[i])
-            velocity[i] = self.wfn.drift_velocity(r_e[i])
-            limiting_factor = self.limiting_factor(velocity[i])
-            velocity[i] *= limiting_factor
-        energy_t = np.sum(energy * weight) / np.sum(weight)
+            energy.append(self.wfn.energy(r_e[i]))
+            weight.append(1.0)
+            v = self.wfn.drift_velocity(r_e[i])
+            l = self.limiting_factor(v)
+            velocity.append(l * v)
+        energy_t = dmc_energy(energy, weight)
         for _ in range(steps):
             for i in range(len(r_e)):
                 new_r_e = r_e[i] + (np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * velocity[i]).reshape((ne, 3))
@@ -227,12 +236,13 @@ class MarkovChain:
                 cond = (g_back * new_p ** 2) / (g_forth * p[i] ** 2) > np.random.random()
                 weight[i] *= np.exp(-(new_energy + energy[i] - 2 * energy_t) / 2 / self.step)
                 # FIXME: implement branching
+                n_spawn = int(weight[i] + np.random.uniform(0, 1))
                 if cond:
                     p[i] = new_p
                     r_e[i] = new_r_e
                     energy[i] = new_energy
                     velocity[i] = new_velocity
-            energy_t = np.sum(energy * weight) / np.sum(weight)
+            energy_t = dmc_energy(energy, weight)
             yield energy_t
 
     walker = simple_random_walker
@@ -602,5 +612,6 @@ if __name__ == '__main__':
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Backflow/'
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_dmc/'
+    # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow_dmc/'
 
     Casino(path).run()

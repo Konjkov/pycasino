@@ -63,4 +63,6 @@ class Input:
                     self.dmc_stats_nstep = read_int(line)
                 elif line.startswith('dtdmc'):
                     self.dtdmc = read_float(line)
+                elif line.startswith('dmc_target_weight'):
+                    self.dmc_target_weight = read_float(line)
 
