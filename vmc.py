@@ -96,14 +96,14 @@ class MarkovChain:
         """
         ne = self.neu + self.ned
         e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
-        p = self.wfn.value(e_vectors, n_vectors)
+        probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
         for _ in range(steps):
             new_r_e = r_e + self.step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
             e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
-            new_p = self.wfn.value(e_vectors, n_vectors)
-            cond = new_p ** 2 / p ** 2 > np.random.random()
+            new_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
+            cond = new_probability_density / probability_density > np.random.random()
             if cond:
-                r_e, p = new_r_e, new_p
+                r_e, probability_density = new_r_e, new_probability_density
             yield cond, r_e
 
     def gibbs_random_walker(self, steps, r_e):
@@ -114,15 +114,15 @@ class MarkovChain:
         """
         ne = self.neu + self.ned
         e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
-        p = self.wfn.value(e_vectors, n_vectors)
+        probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
         for _ in range(steps):
             new_r_e = np.copy(r_e)
             new_r_e[np.random.randint(ne)] += self.step * np.random.uniform(-1, 1, 3)
             e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
-            new_p = self.wfn.value(e_vectors, n_vectors)
-            cond = new_p ** 2 / p ** 2 > np.random.random()
+            new_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
+            cond = new_probability_density / probability_density > np.random.random()
             if cond:
-                r_e, p = new_r_e, new_p
+                r_e, p = new_r_e, new_probability_density
             yield cond, r_e
 
     def biased_random_walker(self, steps, r_e):
@@ -136,18 +136,18 @@ class MarkovChain:
         """
         ne = self.neu + self.ned
         e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
-        p = self.wfn.value(e_vectors, n_vectors)
+        probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
         for _ in range(steps):
             v_forth = self.drift_velocity(r_e)
             move = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth
             new_r_e = r_e + move.reshape((ne, 3))
             e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
-            new_p = self.wfn.value(e_vectors, n_vectors)
-            g_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
-            g_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * self.drift_velocity(new_r_e)) ** 2) / 2 / self.step)
-            cond = (g_back * new_p ** 2) / (g_forth * p ** 2) > np.random.random()
+            new_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
+            green_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
+            green_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * self.drift_velocity(new_r_e)) ** 2) / 2 / self.step)
+            cond = (green_back * new_probability_density) / (green_forth * probability_density) > np.random.random()
             if cond:
-                r_e, p = new_r_e, new_p
+                r_e, probability_density = new_r_e, new_probability_density
             yield cond, r_e
 
     def bbk_random_walker(self, steps, r_e):
@@ -190,7 +190,7 @@ class MarkovChain:
             cond = False
             yield cond, r_e
 
-    def dmc_random_walker(self, steps, r_e):
+    def dmc_random_walker(self, steps, r_e_list):
         """DMC swarm of walkers.
         :param steps: number of steps to walk
         :param r_e: initial position
@@ -205,23 +205,23 @@ class MarkovChain:
             return sum_ew / sum_e
 
         ne = self.neu + self.ned
-        p = nb.typed.List()
-        energy = nb.typed.List()
-        weight = nb.typed.List()
-        velocity = nb.typed.List()
-        for i in range(len(r_e)):
-            e_vectors, n_vectors = self.wfn.relative_coordinates(r_e[i])
-            p.append(self.wfn.value(e_vectors, n_vectors))
+        p_list = nb.typed.List()
+        energy_list = nb.typed.List()
+        weight_list = nb.typed.List()
+        velocity_list = nb.typed.List()
+        for r_e in r_e_list:
+            e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
+            p_list.append(self.wfn.value(e_vectors, n_vectors))
             # FIXME: limit energy
-            energy.append(self.wfn.energy(r_e[i]))
-            weight.append(1.0)
-            v = self.wfn.drift_velocity(r_e[i])
+            energy_list.append(self.wfn.energy(r_e))
+            weight_list.append(1.0)
+            v = self.wfn.drift_velocity(r_e)
             l = self.limiting_factor(v)
-            velocity.append(l * v)
-        energy_t = dmc_energy(energy, weight)
+            velocity_list.append(l * v)
+        energy_t = dmc_energy(energy_list, weight_list)
         for _ in range(steps):
-            for i in range(len(r_e)):
-                new_r_e = r_e[i] + (np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * velocity[i]).reshape((ne, 3))
+            for i in range(len(r_e_list)):
+                new_r_e = r_e_list[i] + (np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * velocity_list[i]).reshape((ne, 3))
                 e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
                 new_p = self.wfn.value(e_vectors, n_vectors)
                 # FIXME: limit energy
@@ -230,19 +230,19 @@ class MarkovChain:
                 limiting_factor = self.limiting_factor(new_velocity)
                 new_velocity *= limiting_factor
                 # Green`s functions
-                g_forth = np.exp(-np.sum((new_r_e.ravel() - r_e[i].ravel() - self.step * velocity[i]) ** 2) / 2 / self.step)
-                g_back = np.exp(-np.sum((r_e[i].ravel() - new_r_e.ravel() - self.step * new_velocity) ** 2) / 2 / self.step)
+                green_forth = np.exp(-np.sum((new_r_e.ravel() - r_e_list[i].ravel() - self.step * velocity_list[i]) ** 2) / 2 / self.step)
+                green_back = np.exp(-np.sum((r_e_list[i].ravel() - new_r_e.ravel() - self.step * new_velocity) ** 2) / 2 / self.step)
                 # condition
-                cond = (g_back * new_p ** 2) / (g_forth * p[i] ** 2) > np.random.random()
-                weight[i] *= np.exp(-(new_energy + energy[i] - 2 * energy_t) / 2 / self.step)
+                cond = (green_back * new_p ** 2) / (green_forth * p_list[i] ** 2) > np.random.random()
+                weight_list[i] *= np.exp(-(new_energy + energy_list[i] - 2 * energy_t) / 2 / self.step)
                 # FIXME: implement branching
-                n_spawn = int(weight[i] + np.random.uniform(0, 1))
+                n_spawn = int(weight_list[i] + np.random.uniform(0, 1))
                 if cond:
-                    p[i] = new_p
-                    r_e[i] = new_r_e
-                    energy[i] = new_energy
-                    velocity[i] = new_velocity
-            energy_t = dmc_energy(energy, weight)
+                    p_list[i] = new_p
+                    r_e_list[i] = new_r_e
+                    energy_list[i] = new_energy
+                    velocity_list[i] = new_velocity
+            energy_t = dmc_energy(energy_list, weight_list)
             yield energy_t
 
     walker = simple_random_walker
@@ -446,9 +446,10 @@ class Casino:
             energy_t = self.markovchain.dmc_random_walk(self.config.input.dmc_equil_nstep, self.config.input.vmc_nconfig_write)
             reblock_data = pyblock.blocking.reblock(energy_t)
             opt = pyblock.blocking.find_optimal_block(self.config.input.dmc_equil_nstep, reblock_data)
-            opt_data = reblock_data[opt[0]]
-            logger.info(opt_data)
-            logger.info('{} +/- {}'.format(np.mean(opt_data.mean), np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size)))
+            if opt[0]:
+                opt_data = reblock_data[opt[0]]
+                logger.info(opt_data)
+                logger.info('{} +/- {}'.format(np.mean(opt_data.mean), np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size)))
             stop = default_timer()
             logger.info('total time {}'.format(stop - start))
 
