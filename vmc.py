@@ -246,11 +246,6 @@ class MarkovChain:
                 # FIXME: implement branching
                 n_spawn = int(new_weight + np.random.uniform(0, 1))
                 if cond:
-                    p_list[i] = new_p
-                    r_e_list[i] = new_r_e
-                    weight_list[i] = new_weight
-                    energy_list[i] = new_energy
-                    velocity_list[i] = new_velocity
                     new_p_list.append(new_p)
                     new_r_e_list.append(new_r_e)
                     new_energy_list.append(new_energy)
@@ -262,6 +257,11 @@ class MarkovChain:
                     new_energy_list.append(energy)
                     new_weight_list.append(weight)
                     new_velocity_list.append(velocity)
+            p_list = new_p_list
+            r_e_list = new_r_e_list
+            energy_list = new_energy_list
+            weight_list = new_weight_list
+            velocity_list = new_velocity_list
             energy_t = dmc_energy(energy_list, weight_list)
             yield energy_t
 
