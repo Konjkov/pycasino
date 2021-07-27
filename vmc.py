@@ -190,10 +190,10 @@ class MarkovChain:
             cond = False
             yield cond, r_e
 
-    def dmc_random_walker(self, steps, r_e_list):
+    def dmc_random_walker(self, steps, positions):
         """DMC swarm of walkers.
         :param steps: number of steps to walk
-        :param r_e: initial position
+        :param positions: initial positions of electrons
         :return: is step accept, next step position
         """
         def dmc_energy(energy, weight):
@@ -206,12 +206,15 @@ class MarkovChain:
 
         ne = self.neu + self.ned
         p_list = nb.typed.List()
+        r_e_list = nb.typed.List()
         energy_list = nb.typed.List()
         weight_list = nb.typed.List()
         velocity_list = nb.typed.List()
-        for r_e in r_e_list:
+        for r_e in positions:
             e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
             p_list.append(self.wfn.value(e_vectors, n_vectors))
+            # FIXME: numba incorrectly determine contiguous type of array
+            r_e_list.append(np.ascontiguousarray(r_e))
             # FIXME: limit energy
             energy_list.append(self.wfn.energy(r_e))
             weight_list.append(1.0)
@@ -220,8 +223,13 @@ class MarkovChain:
             velocity_list.append(l * v)
         energy_t = dmc_energy(energy_list, weight_list)
         for _ in range(steps):
-            for i in range(len(r_e_list)):
-                new_r_e = r_e_list[i] + (np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * velocity_list[i]).reshape((ne, 3))
+            new_p_list = nb.typed.List()
+            new_r_e_list = nb.typed.List()
+            new_energy_list = nb.typed.List()
+            new_weight_list = nb.typed.List()
+            new_velocity_list = nb.typed.List()
+            for i, (r_e, p, velocity, energy, weight) in enumerate(zip(r_e_list, p_list, velocity_list, energy_list, weight_list)):
+                new_r_e = r_e + (np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * velocity).reshape((ne, 3))
                 e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
                 new_p = self.wfn.value(e_vectors, n_vectors)
                 # FIXME: limit energy
@@ -230,18 +238,30 @@ class MarkovChain:
                 limiting_factor = self.limiting_factor(new_velocity)
                 new_velocity *= limiting_factor
                 # Green`s functions
-                green_forth = np.exp(-np.sum((new_r_e.ravel() - r_e_list[i].ravel() - self.step * velocity_list[i]) ** 2) / 2 / self.step)
-                green_back = np.exp(-np.sum((r_e_list[i].ravel() - new_r_e.ravel() - self.step * new_velocity) ** 2) / 2 / self.step)
+                green_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * velocity) ** 2) / 2 / self.step)
+                green_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * new_velocity) ** 2) / 2 / self.step)
                 # condition
-                cond = (green_back * new_p ** 2) / (green_forth * p_list[i] ** 2) > np.random.random()
-                weight_list[i] *= np.exp(-(new_energy + energy_list[i] - 2 * energy_t) / 2 / self.step)
+                cond = (green_back * new_p ** 2) / (green_forth * p ** 2) > np.random.random()
+                new_weight = weight * np.exp(-(new_energy + energy - 2 * energy_t) / 2 / self.step)
                 # FIXME: implement branching
-                n_spawn = int(weight_list[i] + np.random.uniform(0, 1))
+                n_spawn = int(new_weight + np.random.uniform(0, 1))
                 if cond:
                     p_list[i] = new_p
                     r_e_list[i] = new_r_e
+                    weight_list[i] = new_weight
                     energy_list[i] = new_energy
                     velocity_list[i] = new_velocity
+                    new_p_list.append(new_p)
+                    new_r_e_list.append(new_r_e)
+                    new_energy_list.append(new_energy)
+                    new_weight_list.append(new_weight)
+                    new_velocity_list.append(new_velocity)
+                else:
+                    new_p_list.append(p)
+                    new_r_e_list.append(r_e)
+                    new_energy_list.append(energy)
+                    new_weight_list.append(weight)
+                    new_velocity_list.append(velocity)
             energy_t = dmc_energy(energy_list, weight_list)
             yield energy_t
 
