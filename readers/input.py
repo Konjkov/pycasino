@@ -18,6 +18,7 @@ class Input:
 
         self.vmc_method = 1
         self.dmc_method = 1
+        self.ebest_av_window = 25
         with open(file_name, 'r') as f:
             for line in f:
                 # remove comments
@@ -65,4 +66,3 @@ class Input:
                     self.dtdmc = read_float(line)
                 elif line.startswith('dmc_target_weight'):
                     self.dmc_target_weight = read_float(line)
-

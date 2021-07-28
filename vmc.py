@@ -27,10 +27,12 @@ np.random.seed(31415926)
 logger = logging.getLogger('vmc')
 numba_logger = logging.getLogger('numba')
 
+r_e_type = nb.types.Array(dtype=nb.float64, ndim=2, layout="C")
+
 spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
-    ('r_e', nb.types.ListType(nb.float64[:, :])),
+    ('r_e', nb.types.ListType(r_e_type)),
     ('step', nb.float64),
     ('atom_positions', nb.float64[:, :]),
     ('atom_charges', nb.float64[:]),
@@ -190,19 +192,27 @@ class MarkovChain:
             cond = False
             yield cond, r_e
 
-    def dmc_random_walker(self, steps, positions):
-        """DMC swarm of walkers.
+    def dmc_random_walker(self, steps, positions, target_weight):
+        """Collection of walkers representing wfn.
         :param steps: number of steps to walk
-        :param positions: initial positions of electrons
-        :return: is step accept, next step position
+        :param positions: initial positions of walkers
+        :param target_weight: target weight of walkers
+        :return: best estimate of energy
         """
+        def average_weight(weight):
+            """average weigt"""
+            sum_w = 0.0
+            for w in weight:
+                sum_w += w
+            return sum_w / target_weight
+
         def dmc_energy(energy, weight):
-            """E_dmc = E_t"""
-            sum_e = sum_ew = 0.0
+            """Mixed estimator of energy"""
+            sum_ew = sum_w = 0.0
             for e, w in zip(energy, weight):
-                sum_e += w
+                sum_w += w
                 sum_ew += e * w
-            return sum_ew / sum_e
+            return sum_ew / sum_w
 
         ne = self.neu + self.ned
         p_list = nb.typed.List()
@@ -210,60 +220,70 @@ class MarkovChain:
         energy_list = nb.typed.List()
         weight_list = nb.typed.List()
         velocity_list = nb.typed.List()
+        branching_energy_list = nb.typed.List()
         for r_e in positions:
             e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
             p_list.append(self.wfn.value(e_vectors, n_vectors))
-            # FIXME: numba incorrectly determine contiguous type of array
-            r_e_list.append(np.ascontiguousarray(r_e))
-            # FIXME: limit energy
+            r_e_list.append(r_e)
             energy_list.append(self.wfn.energy(r_e))
+            branching_energy_list.append(self.wfn.energy(r_e))
             weight_list.append(1.0)
             v = self.wfn.drift_velocity(r_e)
             l = self.limiting_factor(v)
             velocity_list.append(l * v)
-        energy_t = dmc_energy(energy_list, weight_list)
-        for _ in range(steps):
+        best_estimate_energy = dmc_energy(energy_list, weight_list)
+        energy_t = best_estimate_energy - np.log(len(energy_list)/target_weight) / self.step
+        for step in range(steps):
             new_p_list = nb.typed.List()
             new_r_e_list = nb.typed.List()
-            new_energy_list = nb.typed.List()
             new_weight_list = nb.typed.List()
+            new_energy_list = nb.typed.List()
             new_velocity_list = nb.typed.List()
-            for i, (r_e, p, velocity, energy, weight) in enumerate(zip(r_e_list, p_list, velocity_list, energy_list, weight_list)):
+            new_branching_energy_list = nb.typed.List()
+            for r_e, p, velocity, energy, branching_energy in zip(r_e_list, p_list, velocity_list, energy_list, branching_energy_list):
                 new_r_e = r_e + (np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * velocity).reshape((ne, 3))
                 e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
                 new_p = self.wfn.value(e_vectors, n_vectors)
-                # FIXME: limit energy
+                # prevent crossing nodal surface
+                cond = np.sign(p) * np.sign(new_p) > 0
                 new_velocity = self.wfn.drift_velocity(new_r_e)
                 new_energy = self.wfn.energy(new_r_e)
                 limiting_factor = self.limiting_factor(new_velocity)
                 new_velocity *= limiting_factor
-                # Green`s functions
-                green_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * velocity) ** 2) / 2 / self.step)
-                green_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * new_velocity) ** 2) / 2 / self.step)
-                # condition
-                cond = (green_back * new_p ** 2) / (green_forth * p ** 2) > np.random.random()
-                new_weight = weight * np.exp(-(new_energy + energy - 2 * energy_t) / 2 / self.step)
-                # FIXME: implement branching
-                n_spawn = int(new_weight + np.random.uniform(0, 1))
+                new_branching_energy = best_estimate_energy - (best_estimate_energy - new_energy) * limiting_factor
                 if cond:
-                    new_p_list.append(new_p)
-                    new_r_e_list.append(new_r_e)
-                    new_energy_list.append(new_energy)
-                    new_weight_list.append(new_weight)
-                    new_velocity_list.append(new_velocity)
+                    # Green`s functions
+                    green_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * velocity) ** 2) / 2 / self.step)
+                    green_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * new_velocity) ** 2) / 2 / self.step)
+                    # condition
+                    cond = (green_back * new_p ** 2) / (green_forth * p ** 2) > np.random.random()
+                # branching
+                if cond:
+                    weight = np.exp(-self.step * (new_branching_energy + branching_energy - 2 * energy_t) / 2)
                 else:
-                    new_p_list.append(p)
-                    new_r_e_list.append(r_e)
-                    new_energy_list.append(energy)
-                    new_weight_list.append(weight)
-                    new_velocity_list.append(velocity)
+                    weight = np.exp(-self.step * (branching_energy - energy_t))
+                new_weight_list.append(weight)
+                for _ in range(int(weight + np.random.uniform(0, 1))):
+                    if cond:
+                        new_p_list.append(new_p)
+                        new_r_e_list.append(new_r_e)
+                        new_energy_list.append(new_energy)
+                        new_velocity_list.append(new_velocity)
+                        new_branching_energy_list.append(new_branching_energy)
+                    else:
+                        new_p_list.append(p)
+                        new_r_e_list.append(r_e)
+                        new_energy_list.append(energy)
+                        new_velocity_list.append(velocity)
+                        new_branching_energy_list.append(branching_energy)
             p_list = new_p_list
             r_e_list = new_r_e_list
             energy_list = new_energy_list
-            weight_list = new_weight_list
             velocity_list = new_velocity_list
-            energy_t = dmc_energy(energy_list, weight_list)
-            yield energy_t
+            branching_energy_list = new_branching_energy_list
+            best_estimate_energy = dmc_energy(energy_list, new_weight_list)
+            energy_t = best_estimate_energy - np.log(average_weight(new_weight_list)) / self.step
+            yield best_estimate_energy, r_e_list
 
     walker = simple_random_walker
 
@@ -287,16 +307,20 @@ class MarkovChain:
         self.r_e[0] = r_e
         return weight[:i+1], position[:i+1]
 
-    def dmc_random_walk(self, steps, nconfig):
+    def dmc_random_walk(self, steps, target_weight):
         """DMC
         :param steps: number of steps to walk
-        :param nconfig:
+        :param target_weight: target weight
         :return:
         """
-        walker = self.dmc_random_walker(steps, self.r_e)
+        r_e = self.r_e
+        walker = self.dmc_random_walker(steps, r_e, target_weight)
         energy = np.zeros((steps, ))
-        for i, energy_t in enumerate(walker):
+        for i, (energy_t, r_e) in enumerate(walker):
             energy[i] = energy_t
+
+        # FIXME: class attribute is always any-array?
+        self.r_e = r_e
         return energy
 
     def local_energy(self, position):
@@ -424,7 +448,7 @@ class Casino:
             step = 0
         self.markovchain = MarkovChain(self.neu, self.ned, step, self.config.wfn.atom_positions, self.config.wfn.atom_charges, self.wfn)
         # FIXME: not supported by numba move to MarkovChain.__init__()
-        self.markovchain.r_e = nb.typed.List.empty_list(nb.float64[:, :])
+        self.markovchain.r_e = nb.typed.List.empty_list(r_e_type)
         self.markovchain.r_e.append(initial_position(self.neu + self.ned, self.markovchain.atom_positions, self.markovchain.atom_charges))
 
     def run(self):
@@ -459,12 +483,23 @@ class Casino:
             expanded_position = expand(weight, position)
             expanded_position = expanded_position[-self.config.input.vmc_nconfig_write:]
             self.markovchain.step = self.config.input.dtdmc
-            self.markovchain.r_e = nb.typed.List.empty_list(nb.float64[:, :])
+            self.markovchain.r_e = nb.typed.List.empty_list(r_e_type)
             for p in expanded_position:
                 self.markovchain.r_e.append(p)
             start = default_timer()
-            energy_t = self.markovchain.dmc_random_walk(self.config.input.dmc_equil_nstep, self.config.input.vmc_nconfig_write)
-            reblock_data = pyblock.blocking.reblock(energy_t)
+
+            energy = self.markovchain.dmc_random_walk(self.config.input.dmc_equil_nstep, self.config.input.dmc_target_weight)
+            reblock_data = pyblock.blocking.reblock(energy)
+            opt = pyblock.blocking.find_optimal_block(self.config.input.dmc_equil_nstep, reblock_data)
+            if opt[0]:
+                opt_data = reblock_data[opt[0]]
+                logger.info(opt_data)
+                logger.info('{} +/- {}'.format(np.mean(opt_data.mean), np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size)))
+            stop = default_timer()
+            logger.info('total time {}'.format(stop - start))
+
+            energy = self.markovchain.dmc_random_walk(self.config.input.dmc_equil_nstep, self.config.input.dmc_target_weight)
+            reblock_data = pyblock.blocking.reblock(energy)
             opt = pyblock.blocking.find_optimal_block(self.config.input.dmc_equil_nstep, reblock_data)
             if opt[0]:
                 opt_data = reblock_data[opt[0]]
