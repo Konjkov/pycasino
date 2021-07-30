@@ -231,7 +231,7 @@ class MarkovChain:
             new_velocity = self.wfn.drift_velocity(r_e)
             limiting_factor = self.limiting_factor(new_velocity)
             velocity_list.append(limiting_factor * new_velocity)
-        step_eff = 0.83 * self.step
+        step_eff = 0.85 * self.step
         best_estimate_energy = dmc_energy(energy_list, weight_list)
         energy_t = best_estimate_energy - np.log(sum_weight(weight_list) / target_weight) / step_eff
         for step in range(steps):
@@ -259,10 +259,7 @@ class MarkovChain:
                     # condition
                     cond = (green_back * new_p ** 2) / (green_forth * p ** 2) > np.random.random()
                 # branching
-                if cond:
-                    weight = np.exp(-step_eff * (new_branching_energy + branching_energy - 2 * energy_t) / 2)
-                else:
-                    weight = np.exp(-step_eff * (branching_energy - energy_t))
+                weight = np.exp(-step_eff * (new_branching_energy + branching_energy - 2 * energy_t) / 2)
                 weight_list.append(weight)
                 for _ in range(int(weight + np.random.uniform(0, 1))):
                     if cond:
@@ -282,7 +279,7 @@ class MarkovChain:
             energy_list = new_energy_list
             velocity_list = new_velocity_list
             branching_energy_list = new_branching_energy_list
-            step_eff = 0.83 * self.step
+            step_eff = 0.85 * self.step
             best_estimate_energy = dmc_energy(energy_list, weight_list)
             energy_t = best_estimate_energy - np.log(sum_weight(weight_list) / target_weight) * self.step / step_eff
             # print(step, len(p_list), branching_factor, best_estimate_energy, energy_t)
