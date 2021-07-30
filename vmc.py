@@ -197,14 +197,14 @@ class MarkovChain:
         :param steps: number of steps to walk
         :param positions: initial positions of walkers
         :param target_weight: target weight of walkers
-        :return: best estimate of energy
+        :return: (best estimate of energy, next position)
         """
-        def average_weight(weight):
+        def sum_weight(weight):
             """average weigt"""
             sum_w = 0.0
             for w in weight:
                 sum_w += w
-            return sum_w / target_weight
+            return sum_w
 
         def dmc_energy(energy, weight):
             """Mixed estimator of energy"""
@@ -228,15 +228,16 @@ class MarkovChain:
             energy_list.append(self.wfn.energy(r_e))
             branching_energy_list.append(self.wfn.energy(r_e))
             weight_list.append(1.0)
-            v = self.wfn.drift_velocity(r_e)
-            l = self.limiting_factor(v)
-            velocity_list.append(l * v)
+            new_velocity = self.wfn.drift_velocity(r_e)
+            limiting_factor = self.limiting_factor(new_velocity)
+            velocity_list.append(limiting_factor * new_velocity)
+        step_eff = 0.83 * self.step
         best_estimate_energy = dmc_energy(energy_list, weight_list)
-        energy_t = best_estimate_energy - np.log(len(energy_list)/target_weight) / self.step
+        energy_t = best_estimate_energy - np.log(sum_weight(weight_list) / target_weight) / step_eff
         for step in range(steps):
+            weight_list = nb.typed.List()
             new_p_list = nb.typed.List()
             new_r_e_list = nb.typed.List()
-            new_weight_list = nb.typed.List()
             new_energy_list = nb.typed.List()
             new_velocity_list = nb.typed.List()
             new_branching_energy_list = nb.typed.List()
@@ -259,10 +260,10 @@ class MarkovChain:
                     cond = (green_back * new_p ** 2) / (green_forth * p ** 2) > np.random.random()
                 # branching
                 if cond:
-                    weight = np.exp(-self.step * (new_branching_energy + branching_energy - 2 * energy_t) / 2)
+                    weight = np.exp(-step_eff * (new_branching_energy + branching_energy - 2 * energy_t) / 2)
                 else:
-                    weight = np.exp(-self.step * (branching_energy - energy_t))
-                new_weight_list.append(weight)
+                    weight = np.exp(-step_eff * (branching_energy - energy_t))
+                weight_list.append(weight)
                 for _ in range(int(weight + np.random.uniform(0, 1))):
                     if cond:
                         new_p_list.append(new_p)
@@ -281,8 +282,10 @@ class MarkovChain:
             energy_list = new_energy_list
             velocity_list = new_velocity_list
             branching_energy_list = new_branching_energy_list
-            best_estimate_energy = dmc_energy(energy_list, new_weight_list)
-            energy_t = best_estimate_energy - np.log(average_weight(new_weight_list)) / self.step
+            step_eff = 0.83 * self.step
+            best_estimate_energy = dmc_energy(energy_list, weight_list)
+            energy_t = best_estimate_energy - np.log(sum_weight(weight_list) / target_weight) * self.step / step_eff
+            # print(step, len(p_list), branching_factor, best_estimate_energy, energy_t)
             yield best_estimate_energy, r_e_list
 
     walker = simple_random_walker
@@ -498,9 +501,9 @@ class Casino:
             stop = default_timer()
             logger.info('total time {}'.format(stop - start))
 
-            energy = self.markovchain.dmc_random_walk(self.config.input.dmc_equil_nstep, self.config.input.dmc_target_weight)
+            energy = self.markovchain.dmc_random_walk(self.config.input.dmc_stats_nstep, self.config.input.dmc_target_weight)
             reblock_data = pyblock.blocking.reblock(energy)
-            opt = pyblock.blocking.find_optimal_block(self.config.input.dmc_equil_nstep, reblock_data)
+            opt = pyblock.blocking.find_optimal_block(self.config.input.dmc_stats_nstep, reblock_data)
             if opt[0]:
                 opt_data = reblock_data[opt[0]]
                 logger.info(opt_data)
