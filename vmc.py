@@ -199,26 +199,17 @@ class MarkovChain:
         :param target_weight: target weight of walkers
         :return: (best estimate of energy, next position)
         """
-        def sum_weight(weight):
-            """average weigt"""
-            sum_w = 0.0
-            for w in weight:
-                sum_w += w
-            return sum_w
-
-        def dmc_energy(energy, weight):
+        def sum_energy(energy):
             """Mixed estimator of energy"""
-            sum_ew = sum_w = 0.0
-            for e, w in zip(energy, weight):
-                sum_w += w
-                sum_ew += e * w
-            return sum_ew / sum_w
+            sum_e = 0.0
+            for e in energy:
+                sum_e += e
+            return sum_e
 
         ne = self.neu + self.ned
         p_list = nb.typed.List()
         r_e_list = nb.typed.List()
         energy_list = nb.typed.List()
-        weight_list = nb.typed.List()
         velocity_list = nb.typed.List()
         branching_energy_list = nb.typed.List()
         for r_e in positions:
@@ -227,15 +218,13 @@ class MarkovChain:
             r_e_list.append(r_e)
             energy_list.append(self.wfn.energy(r_e))
             branching_energy_list.append(self.wfn.energy(r_e))
-            weight_list.append(1.0)
             new_velocity = self.wfn.drift_velocity(r_e)
             limiting_factor = self.limiting_factor(new_velocity)
             velocity_list.append(limiting_factor * new_velocity)
-        step_eff = 0.85 * self.step
-        best_estimate_energy = dmc_energy(energy_list, weight_list)
-        energy_t = best_estimate_energy - np.log(sum_weight(weight_list) / target_weight) / step_eff
+        step_eff = 1.0 * self.step
+        best_estimate_energy = sum_energy(energy_list) / len(energy_list)
+        energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) / step_eff
         for step in range(steps):
-            weight_list = nb.typed.List()
             new_p_list = nb.typed.List()
             new_r_e_list = nb.typed.List()
             new_energy_list = nb.typed.List()
@@ -259,8 +248,10 @@ class MarkovChain:
                     # condition
                     cond = (green_back * new_p ** 2) / (green_forth * p ** 2) > np.random.random()
                 # branching
-                weight = np.exp(-step_eff * (new_branching_energy + branching_energy - 2 * energy_t) / 2)
-                weight_list.append(weight)
+                if cond:
+                    weight = np.exp(-step_eff * (new_branching_energy + branching_energy - 2 * energy_t) / 2)
+                else:
+                    weight = np.exp(-step_eff * (branching_energy - energy_t))
                 for _ in range(int(weight + np.random.uniform(0, 1))):
                     if cond:
                         new_p_list.append(new_p)
@@ -279,10 +270,10 @@ class MarkovChain:
             energy_list = new_energy_list
             velocity_list = new_velocity_list
             branching_energy_list = new_branching_energy_list
-            step_eff = 0.85 * self.step
-            best_estimate_energy = dmc_energy(energy_list, weight_list)
-            energy_t = best_estimate_energy - np.log(sum_weight(weight_list) / target_weight) * self.step / step_eff
-            # print(step, len(p_list), branching_factor, best_estimate_energy, energy_t)
+            step_eff = 1.0 * self.step
+            best_estimate_energy = sum_energy(energy_list) / len(energy_list)
+            energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) * self.step / step_eff
+            # print(step, len(p_list), best_estimate_energy, energy_t)
             yield best_estimate_energy, r_e_list
 
     walker = simple_random_walker

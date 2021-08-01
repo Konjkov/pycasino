@@ -19,6 +19,7 @@ class Input:
         self.vmc_method = 1
         self.dmc_method = 1
         self.ebest_av_window = 25
+        self.nucleus_gf_mods = True
         with open(file_name, 'r') as f:
             for line in f:
                 # remove comments
