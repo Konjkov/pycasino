@@ -40,6 +40,17 @@ spec = [
 ]
 
 
+@nb.jit(nopython=True, nogil=True, parallel=False)
+def sum_energy(energy):
+    """Mixed estimator of energy
+    Для проверки утечек пямяти
+    """
+    sum_e = 0.0
+    for e in energy:
+        sum_e += e
+    return sum_e
+
+
 @nb.jit(forceobj=True)
 def initial_position(ne, atom_positions, atom_charges):
     """Initial positions of electrons."""
@@ -100,12 +111,12 @@ class MarkovChain:
         e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
         probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
         for _ in range(steps):
-            new_r_e = r_e + self.step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-            e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
-            new_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
-            cond = new_probability_density / probability_density > np.random.random()
+            next_r_e = r_e + self.step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
+            e_vectors, n_vectors = self.wfn.relative_coordinates(next_r_e)
+            next_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
+            cond = next_probability_density / probability_density > np.random.random()
             if cond:
-                r_e, probability_density = new_r_e, new_probability_density
+                r_e, probability_density = next_r_e, next_probability_density
             yield cond, r_e
 
     def gibbs_random_walker(self, steps, r_e):
@@ -118,13 +129,13 @@ class MarkovChain:
         e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
         probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
         for _ in range(steps):
-            new_r_e = np.copy(r_e)
-            new_r_e[np.random.randint(ne)] += self.step * np.random.uniform(-1, 1, 3)
-            e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
-            new_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
-            cond = new_probability_density / probability_density > np.random.random()
+            next_r_e = np.copy(r_e)
+            next_r_e[np.random.randint(ne)] += self.step * np.random.uniform(-1, 1, 3)
+            e_vectors, n_vectors = self.wfn.relative_coordinates(next_r_e)
+            next_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
+            cond = next_probability_density / probability_density > np.random.random()
             if cond:
-                r_e, p = new_r_e, new_probability_density
+                r_e, p = next_r_e, next_probability_density
             yield cond, r_e
 
     def biased_random_walker(self, steps, r_e):
@@ -142,14 +153,14 @@ class MarkovChain:
         for _ in range(steps):
             v_forth = self.drift_velocity(r_e)
             move = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth
-            new_r_e = r_e + move.reshape((ne, 3))
-            e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
-            new_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
-            green_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
-            green_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * self.drift_velocity(new_r_e)) ** 2) / 2 / self.step)
-            cond = (green_back * new_probability_density) / (green_forth * probability_density) > np.random.random()
+            next_r_e = r_e + move.reshape((ne, 3))
+            e_vectors, n_vectors = self.wfn.relative_coordinates(next_r_e)
+            next_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
+            green_forth = np.exp(-np.sum((next_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
+            green_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step * self.drift_velocity(next_r_e)) ** 2) / 2 / self.step)
+            cond = (green_back * next_probability_density) / (green_forth * probability_density) > np.random.random()
             if cond:
-                r_e, probability_density = new_r_e, new_probability_density
+                r_e, probability_density = next_r_e, next_probability_density
             yield cond, r_e
 
     def bbk_random_walker(self, steps, r_e):
@@ -199,13 +210,6 @@ class MarkovChain:
         :param target_weight: target weight of walkers
         :return: (best estimate of energy, next position)
         """
-        def sum_energy(energy):
-            """Mixed estimator of energy"""
-            sum_e = 0.0
-            for e in energy:
-                sum_e += e
-            return sum_e
-
         ne = self.neu + self.ned
         p_list = nb.typed.List()
         r_e_list = nb.typed.List()
@@ -218,59 +222,59 @@ class MarkovChain:
             r_e_list.append(r_e)
             energy_list.append(self.wfn.energy(r_e))
             branching_energy_list.append(self.wfn.energy(r_e))
-            new_velocity = self.wfn.drift_velocity(r_e)
-            limiting_factor = self.limiting_factor(new_velocity)
-            velocity_list.append(limiting_factor * new_velocity)
-        step_eff = 1.0 * self.step
+            velocity = self.wfn.drift_velocity(r_e)
+            limiting_factor = self.limiting_factor(velocity)
+            velocity_list.append(limiting_factor * velocity)
+        step_eff = 0.85 * self.step
         best_estimate_energy = sum_energy(energy_list) / len(energy_list)
         energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) / step_eff
         for step in range(steps):
-            new_p_list = nb.typed.List()
-            new_r_e_list = nb.typed.List()
-            new_energy_list = nb.typed.List()
-            new_velocity_list = nb.typed.List()
-            new_branching_energy_list = nb.typed.List()
+            next_p_list = nb.typed.List()
+            next_r_e_list = nb.typed.List()
+            next_energy_list = nb.typed.List()
+            next_velocity_list = nb.typed.List()
+            next_branching_energy_list = nb.typed.List()
             for r_e, p, velocity, energy, branching_energy in zip(r_e_list, p_list, velocity_list, energy_list, branching_energy_list):
-                new_r_e = r_e + (np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * velocity).reshape((ne, 3))
-                e_vectors, n_vectors = self.wfn.relative_coordinates(new_r_e)
-                new_p = self.wfn.value(e_vectors, n_vectors)
+                next_r_e = r_e + (np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * velocity).reshape((ne, 3))
+                e_vectors, n_vectors = self.wfn.relative_coordinates(next_r_e)
+                next_p = self.wfn.value(e_vectors, n_vectors)
                 # prevent crossing nodal surface
-                cond = np.sign(p) * np.sign(new_p) > 0
-                new_velocity = self.wfn.drift_velocity(new_r_e)
-                new_energy = self.wfn.energy(new_r_e)
-                limiting_factor = self.limiting_factor(new_velocity)
-                new_velocity *= limiting_factor
-                new_branching_energy = best_estimate_energy - (best_estimate_energy - new_energy) * limiting_factor
+                cond = np.sign(p) * np.sign(next_p) > 0
+                next_velocity = self.wfn.drift_velocity(next_r_e)
+                next_energy = self.wfn.energy(next_r_e)
+                limiting_factor = self.limiting_factor(next_velocity)
+                next_velocity *= limiting_factor
+                next_branching_energy = best_estimate_energy - (best_estimate_energy - next_energy) * limiting_factor
                 if cond:
                     # Green`s functions
-                    green_forth = np.exp(-np.sum((new_r_e.ravel() - r_e.ravel() - self.step * velocity) ** 2) / 2 / self.step)
-                    green_back = np.exp(-np.sum((r_e.ravel() - new_r_e.ravel() - self.step * new_velocity) ** 2) / 2 / self.step)
+                    green_forth = np.exp(-np.sum((next_r_e.ravel() - r_e.ravel() - self.step * velocity) ** 2) / 2 / self.step)
+                    green_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step * next_velocity) ** 2) / 2 / self.step)
                     # condition
-                    cond = (green_back * new_p ** 2) / (green_forth * p ** 2) > np.random.random()
+                    cond = (green_back * next_p ** 2) / (green_forth * p ** 2) > np.random.random()
                 # branching
                 if cond:
-                    weight = np.exp(-step_eff * (new_branching_energy + branching_energy - 2 * energy_t) / 2)
+                    weight = np.exp(-step_eff * (next_branching_energy + branching_energy - 2 * energy_t) / 2)
                 else:
                     weight = np.exp(-step_eff * (branching_energy - energy_t))
                 for _ in range(int(weight + np.random.uniform(0, 1))):
                     if cond:
-                        new_p_list.append(new_p)
-                        new_r_e_list.append(new_r_e)
-                        new_energy_list.append(new_energy)
-                        new_velocity_list.append(new_velocity)
-                        new_branching_energy_list.append(new_branching_energy)
+                        next_p_list.append(next_p)
+                        next_r_e_list.append(next_r_e)
+                        next_energy_list.append(next_energy)
+                        next_velocity_list.append(next_velocity)
+                        next_branching_energy_list.append(next_branching_energy)
                     else:
-                        new_p_list.append(p)
-                        new_r_e_list.append(r_e)
-                        new_energy_list.append(energy)
-                        new_velocity_list.append(velocity)
-                        new_branching_energy_list.append(branching_energy)
-            p_list = new_p_list
-            r_e_list = new_r_e_list
-            energy_list = new_energy_list
-            velocity_list = new_velocity_list
-            branching_energy_list = new_branching_energy_list
-            step_eff = 1.0 * self.step
+                        next_p.append(p)
+                        next_r_e_list.append(r_e)
+                        next_energy_list.append(energy)
+                        next_velocity_list.append(velocity)
+                        next_branching_energy_list.append(branching_energy)
+            p_list = next_p_list
+            r_e_list = next_r_e_list
+            energy_list = next_energy_list
+            velocity_list = next_velocity_list
+            branching_energy_list = next_branching_energy_list
+            step_eff = 0.85 * self.step
             best_estimate_energy = sum_energy(energy_list) / len(energy_list)
             energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) * self.step / step_eff
             # print(step, len(p_list), best_estimate_energy, energy_t)
