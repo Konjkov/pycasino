@@ -41,12 +41,12 @@ spec = [
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
-def sum_energy(energy):
+def sum_typed_list(x):
     """Mixed estimator of energy
     Для проверки утечек пямяти
     """
     sum_e = 0.0
-    for e in energy:
+    for e in x:
         sum_e += e
     return sum_e
 
@@ -95,7 +95,7 @@ class MarkovChain:
         square_mod_v = np.sum(v**2)
         return (np.sqrt(1 + 2 * a * square_mod_v * self.step) - 1) / (a * square_mod_v * self.step)
 
-    def simple_random_walker(self, steps, r_e):
+    def simple_random_walker(self, steps, r_e, decorr_period=1):
         """Simple random walker with random N-dim square proposal density in
         configuration-by-configuration sampling (CBCS).
         In general, the proposal step may depend on the current position or
@@ -225,10 +225,11 @@ class MarkovChain:
             velocity = self.wfn.drift_velocity(r_e)
             limiting_factor = self.limiting_factor(velocity)
             velocity_list.append(limiting_factor * velocity)
-        step_eff = 0.85 * self.step
-        best_estimate_energy = sum_energy(energy_list) / len(energy_list)
+        step_eff = self.step
+        best_estimate_energy = sum_typed_list(energy_list) / len(energy_list)
         energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) / step_eff
         for step in range(steps):
+            accepted_move = 0
             next_p_list = nb.typed.List()
             next_r_e_list = nb.typed.List()
             next_energy_list = nb.typed.List()
@@ -258,13 +259,14 @@ class MarkovChain:
                     weight = np.exp(-step_eff * (branching_energy - energy_t))
                 for _ in range(int(weight + np.random.uniform(0, 1))):
                     if cond:
+                        accepted_move += 1
                         next_p_list.append(next_p)
                         next_r_e_list.append(next_r_e)
                         next_energy_list.append(next_energy)
                         next_velocity_list.append(next_velocity)
                         next_branching_energy_list.append(next_branching_energy)
                     else:
-                        next_p.append(p)
+                        next_p_list.append(p)
                         next_r_e_list.append(r_e)
                         next_energy_list.append(energy)
                         next_velocity_list.append(velocity)
@@ -274,10 +276,11 @@ class MarkovChain:
             energy_list = next_energy_list
             velocity_list = next_velocity_list
             branching_energy_list = next_branching_energy_list
-            step_eff = 0.85 * self.step
-            best_estimate_energy = sum_energy(energy_list) / len(energy_list)
+            # FIXME: Umrigar (24)
+            step_eff = accepted_move / len(energy_list) * self.step
+            best_estimate_energy = sum_typed_list(energy_list) / len(energy_list)
             energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) * self.step / step_eff
-            # print(step, len(p_list), best_estimate_energy, energy_t)
+            # print(step, len(p_list), best_estimate_energy, energy_t, accepted_move / len(energy_list))
             yield best_estimate_energy, r_e_list
 
     walker = simple_random_walker

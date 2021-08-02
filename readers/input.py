@@ -18,6 +18,7 @@ class Input:
 
         self.vmc_method = 1
         self.dmc_method = 1
+        self.vmc_decorr_period = 3
         self.ebest_av_window = 25
         self.nucleus_gf_mods = True
         with open(file_name, 'r') as f:
@@ -67,3 +68,6 @@ class Input:
                     self.dtdmc = read_float(line)
                 elif line.startswith('dmc_target_weight'):
                     self.dmc_target_weight = read_float(line)
+                elif line.startswith('vmc_decorr_period'):
+                    self.vmc_decorr_period = read_int(line)
+
