@@ -18,6 +18,7 @@ class Input:
 
         self.vmc_method = 1
         self.dmc_method = 1
+        self.limdmc = 4
         self.vmc_decorr_period = 3
         self.ebest_av_window = 25
         self.nucleus_gf_mods = True
