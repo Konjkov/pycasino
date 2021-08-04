@@ -82,8 +82,7 @@ class MarkovChain:
         self.wfn = wfn
 
     def limiting_factor(self, v, a=1):
-        """
-        A significant source of error in DMC calculations comes from sampling electronic
+        """A significant source of error in DMC calculations comes from sampling electronic
         configurations near the nodal surface. Here both the drift velocity and local
         energy diverge, causing large time step errors and increasing the variance of
         energy estimates respectively. To reduce these undesirable effects it is necessary
@@ -95,18 +94,14 @@ class MarkovChain:
         square_mod_v = np.sum(v**2)
         return (np.sqrt(1 + 2 * a * square_mod_v * self.step) - 1) / (a * square_mod_v * self.step)
 
-    def simple_random_walker(self, steps, r_e, decorr_period=1):
+    def simple_random_walker(self, steps, r_e):
         """Simple random walker with random N-dim square proposal density in
         configuration-by-configuration sampling (CBCS).
-        In general, the proposal step may depend on the current position or
-        have a different proposal density.
-        It is believed that the algorithm works best if the proposal density
-        matches the shape of the target distribution which is in case of
-        Quantum Monte Carlo is squared modulus of WFN.
         :param steps: number of steps to walk
         :param r_e: initial position
         :return: is step accept, next step position
         """
+        decorr_period = 1
         ne = self.neu + self.ned
         e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
         probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
@@ -204,7 +199,8 @@ class MarkovChain:
             yield cond, r_e
 
     def dmc_random_walker(self, steps, positions, target_weight):
-        """Collection of walkers representing wfn.
+        """Collection of walkers representing the instantaneous wfn.
+        C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
         :param steps: number of steps to walk
         :param positions: initial positions of walkers
         :param target_weight: target weight of walkers
@@ -276,11 +272,13 @@ class MarkovChain:
             energy_list = next_energy_list
             velocity_list = next_velocity_list
             branching_energy_list = next_branching_energy_list
-            # FIXME: Umrigar (24)
+            # FIXME: An estimate of Tefl' is readily obtained iteratively from sets of equilibration runs.
+            #  During the initial run, 1'efl'is set equal to 1'. For the next runs, the value of Tefl' is
+            #  obtained from the values of 1'eff computed with Eq. (24) during the previous equilibration run.
             step_eff = accepted_move / len(energy_list) * self.step
             best_estimate_energy = sum_typed_list(energy_list) / len(energy_list)
             energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) * self.step / step_eff
-            # print(step, len(p_list), best_estimate_energy, energy_t, accepted_move / len(energy_list))
+            print(step, len(p_list), best_estimate_energy, energy_t, accepted_move / len(energy_list))
             yield best_estimate_energy, r_e_list
 
     walker = simple_random_walker
@@ -289,21 +287,16 @@ class MarkovChain:
         """Metropolis-Hastings random walk.
         """
         r_e = self.r_e[0]
-        weight = np.ones((steps, ), np.int64)
+        condition = np.zeros((steps, ), nb.boolean)
         position = np.zeros((steps, r_e.shape[0], r_e.shape[1]))
         walker = self.walker(steps, r_e)
-        _, position[0] = next(walker)
 
-        i = 0
-        for cond, r_e in walker:
-            if cond:
-                i += 1
-                position[i] = r_e
-            else:
-                weight[i] += 1
+        for i, (cond, r_e) in enumerate(walker):
+            condition[i] = cond
+            position[i] = r_e
 
         self.r_e[0] = r_e
-        return weight[:i+1], position[:i+1]
+        return condition, position
 
     def dmc_random_walk(self, steps, target_weight):
         """DMC
@@ -312,23 +305,30 @@ class MarkovChain:
         :return:
         """
         r_e = self.r_e
-        walker = self.dmc_random_walker(steps, r_e, target_weight)
         energy = np.zeros((steps, ))
+        walker = self.dmc_random_walker(steps, r_e, target_weight)
+
         for i, (energy_t, r_e) in enumerate(walker):
             energy[i] = energy_t
 
-        # FIXME: class attribute is always any-array?
         self.r_e = r_e
         return energy
 
-    def local_energy(self, position):
-        """
+    def local_energy(self, condition, position):
+        """VMC local energy estimator.
+        :param condition: accept/reject condition
         :param position: random walk positions
         :return:
         """
-        return np.array([self.wfn.energy(p) for p in position])
+        energy = np.zeros((condition.size, ))
+        for i, (c, p) in enumerate(zip(condition, position)):
+            if i == 0 or c:
+                energy[i] = self.wfn.energy(p)
+            else:
+                energy[i] = energy[i-1]
+        return energy
 
-    def jastrow_gradient(self, position):
+    def jastrow_gradient(self, condition, position):
         """Jastrow gradient with respect to jastrow parameters.
         :param position: random walk positions
         :return:
@@ -341,7 +341,7 @@ class MarkovChain:
             res[i] = self.wfn.jastrow_parameters_numerical_d1(position[i])
         return res
 
-    def jastrow_hessian(self, position):
+    def jastrow_hessian(self, condition, position):
         """Jastrow hessian with respect to jastrow parameters.
         :param position: random walk positions
         :return:
@@ -353,17 +353,6 @@ class MarkovChain:
         for i in range(1, position.shape[0]):
             res[i] = self.wfn.jastrow_parameters_numerical_d2(position[i])
         return res
-
-
-@nb.jit(nopython=True, nogil=True, parallel=False)
-def expand(weight, value):
-    res = np.zeros((weight.sum(), ) + value.shape[1:])
-    n = 0
-    for i in range(value.shape[0]):
-        for j in range(weight[i]):
-            res[n] = value[i]
-            n += 1
-    return res
 
 
 def jastrow_parameters_gradient(weight, energy, energy_gradient):
@@ -474,15 +463,13 @@ class Casino:
                     self.jastrow.set_parameters(res.x)
         elif self.config.input.runtype == 'vmc_dmc':
             self.optimize_vmc_step(10000)
-            weight, position = self.markovchain.vmc_random_walk(self.config.input.vmc_nstep)
-            energy = self.markovchain.local_energy(position) + self.markovchain.wfn.nuclear_repulsion
-            energy_average = np.average(energy, weights=weight)
-            logger.info('VMC energy %.5f', energy_average)
-            expanded_position = expand(weight, position)
-            expanded_position = expanded_position[-self.config.input.vmc_nconfig_write:]
+            cond, position = self.markovchain.vmc_random_walk(self.config.input.vmc_nstep)
+            energy = self.markovchain.local_energy(cond, position) + self.markovchain.wfn.nuclear_repulsion
+            logger.info('VMC energy %.5f', energy.mean())
+            position = position[-self.config.input.vmc_nconfig_write:]
             self.markovchain.step = self.config.input.dtdmc
             self.markovchain.r_e = nb.typed.List.empty_list(r_e_type)
-            for p in expanded_position:
+            for p in position:
                 self.markovchain.r_e.append(p)
             start = default_timer()
 
@@ -507,9 +494,12 @@ class Casino:
             logger.info('total time {}'.format(stop - start))
 
     def equilibrate(self, steps):
-        """Burn-in period"""
-        weight, _ = self.markovchain.vmc_random_walk(steps)
-        logger.info('dr * electrons = 1.00000, acc_ration = %.5f', weight.size / steps)
+        """
+        :param steps: burn-in period
+        :return:
+        """
+        condition, _ = self.markovchain.vmc_random_walk(steps)
+        logger.info('dr * electrons = 1.00000, acc_ration = %.5f', condition.mean())
 
     def optimize_vmc_step(self, steps, acceptance_rate=0.5):
         """Optimize vmc step size."""
@@ -522,8 +512,8 @@ class Casino:
             self.markovchain.step = tau[0]
             logger.info('dr * electrons = %.5f', tau[0] * (self.neu + self.ned))
             if tau[0] > 0:
-                weight, _ = self.markovchain.vmc_random_walk(steps)
-                acc_ration = weight.size / steps
+                condition, _ = self.markovchain.vmc_random_walk(steps)
+                acc_ration = condition.mean()
             else:
                 acc_ration = 1
             return acc_ration - acceptance_rate
@@ -535,45 +525,42 @@ class Casino:
     def energy(self, steps, nblock):
         """Energy accumulation"""
         start = default_timer()
-        expanded_energy = np.zeros((nblock, steps // nblock))
+        energy = np.zeros((nblock, steps // nblock))
         for i in range(nblock):
-            weight, position = self.markovchain.vmc_random_walk(steps // nblock)
-            energy = self.markovchain.local_energy(position) + self.markovchain.wfn.nuclear_repulsion
-            stop = default_timer()
-            logger.info('total time {}'.format(stop - start))
-            expanded_energy[i] = expand(weight, energy)
-
-        reblock_data = pyblock.blocking.reblock(expanded_energy)
+            condition, position = self.markovchain.vmc_random_walk(steps // nblock)
+            energy[i] = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
+        stop = default_timer()
+        logger.info('total time {}'.format(stop - start))
+        reblock_data = pyblock.blocking.reblock(energy)
         opt = pyblock.blocking.find_optimal_block(steps, reblock_data)
         opt_data = reblock_data[opt[0]]
         logger.info(opt_data)
         logger.info('{} +/- {}'.format(np.mean(opt_data.mean), np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size)))
 
-    def normal_test(self, weight, energy):
+    def normal_test(self, energy):
         """Test whether energy distribution differs from a normal one."""
         from scipy import stats
-        E = expand(weight, energy)
-        logger.info('skew = %s, kurtosis = %s', stats.skewtest(E), stats.kurtosistest(E))
+        logger.info('skew = %s, kurtosis = %s', stats.skewtest(energy), stats.kurtosistest(energy))
 
     def vmc_variance_minimization(self, steps):
         """Minimise vmc variance by jastrow parameters optimization.
         https://github.com/scipy/scipy/issues/10634
         """
         bounds = self.jastrow.get_bounds()
-        weight, position = self.markovchain.vmc_random_walk(steps)
+        condition, position = self.markovchain.vmc_random_walk(steps)
 
         def f(x, *args, **kwargs):
             self.jastrow.set_parameters(x)
-            energy = self.markovchain.local_energy(position) + self.markovchain.wfn.nuclear_repulsion
-            energy_average = np.average(energy, weights=weight)
-            energy_variance = np.average((energy - energy_average) ** 2, weights=weight)
-            std_err = np.sqrt(energy_variance / weight.sum())
+            energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
+            energy_average = np.average(energy)
+            energy_variance = np.average((energy - energy_average) ** 2)
+            std_err = np.sqrt(energy_variance / energy.shape[0])
             logger.info('energy = %.8f +- %.8f, variance = %.8f', energy_average, std_err, energy_variance)
-            return expand(weight, energy) - energy_average
+            return energy - energy_average
 
         def jac(x, *args, **kwargs):
             self.jastrow.set_parameters(x)
-            return expand(weight, self.markovchain.jastrow_gradient(position))
+            return self.markovchain.jastrow_gradient(condition, position)
 
         parameters = self.jastrow.get_parameters()
         res = sp.optimize.least_squares(
@@ -590,22 +577,22 @@ class Casino:
         Constraints definition only for: COBYLA, SLSQP and trust-constr
         """
         bounds = self.jastrow.get_bounds()
-        weight, position = self.markovchain.vmc_random_walk(steps)
+        condition, position = self.markovchain.vmc_random_walk(steps)
 
         def callback(x, *args):
             logger.info('inner iteration x = %s', x)
             self.jastrow.set_parameters(x)
-            weight, position = self.markovchain.vmc_random_walk(steps)
+            condition, position = self.markovchain.vmc_random_walk(steps)
 
         def f(x, *args):
             self.jastrow.set_parameters(x)
-            energy = self.markovchain.local_energy(position) + self.markovchain.wfn.nuclear_repulsion
-            energy_gradient = self.markovchain.jastrow_gradient(position)
-            mean_energy = np.average(energy, weights=weight)
-            mean_energy_gradient = jastrow_parameters_gradient(weight, energy, energy_gradient)
-            energy_average = np.average(energy, weights=weight)
-            energy_variance = np.average((energy - energy_average) ** 2, weights=weight)
-            std_err = np.sqrt(energy_variance / weight.sum())
+            energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
+            energy_gradient = self.markovchain.jastrow_gradient(condition, position)
+            mean_energy = np.average(energy)
+            mean_energy_gradient = jastrow_parameters_gradient(condition, energy, energy_gradient)
+            energy_average = np.average(energy)
+            energy_variance = np.average((energy - energy_average) ** 2)
+            std_err = np.sqrt(energy_variance / energy.shape[0])
             logger.info('energy = %.8f +- %.8f, variance = %.8f', energy_average, std_err, energy_variance)
             return mean_energy, mean_energy_gradient
 
@@ -614,7 +601,7 @@ class Casino:
             energy = self.markovchain.local_energy(position) + self.markovchain.wfn.nuclear_repulsion
             energy_gradient = self.markovchain.jastrow_gradient(position)
             energy_hessian = self.markovchain.jastrow_hessian(position)
-            mean_energy_hessian = jastrow_parameters_hessian(weight, energy, energy_gradient, energy_hessian)
+            mean_energy_hessian = jastrow_parameters_hessian(condition, energy, energy_gradient, energy_hessian)
             logger.info('hessian = %s', mean_energy_hessian)
             return mean_energy_hessian
 
@@ -667,5 +654,9 @@ if __name__ == '__main__':
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_dmc/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow_dmc/'
+    # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Jastrow_dmc/'
+    # path = 'test/stowfn/Ar/HF/QZ4P/CBCS/Jastrow_dmc/'
+    # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_dmc/'
+    # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Jastrow_dmc/'
 
     Casino(path).run()
