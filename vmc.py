@@ -94,108 +94,131 @@ class MarkovChain:
         square_mod_v = np.sum(v**2)
         return (np.sqrt(1 + 2 * a * square_mod_v * self.step) - 1) / (a * square_mod_v * self.step)
 
-    def simple_random_walker(self, steps, r_e):
+    def simple_random_walker(self, steps, r_e, decorr_period):
         """Simple random walker with random N-dim square proposal density in
         configuration-by-configuration sampling (CBCS).
         :param steps: number of steps to walk
-        :param r_e: initial position
-        :return: is step accept, next step position
+        :param r_e: initial electron`s position
+        :param decorr_period: decorrelation period
+        :return: is step accepted, next electron`s position
         """
-        decorr_period = 1
         ne = self.neu + self.ned
         e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
         probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
         for _ in range(steps):
-            next_r_e = r_e + self.step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-            e_vectors, n_vectors = self.wfn.relative_coordinates(next_r_e)
-            next_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
-            cond = next_probability_density / probability_density > np.random.random()
-            if cond:
-                r_e, probability_density = next_r_e, next_probability_density
+            cond = False
+            for _ in range(decorr_period):
+                next_state = r_e + self.step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
+                e_vectors, n_vectors = self.wfn.relative_coordinates(next_state)
+                next_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
+                partial_cond = next_probability_density / probability_density > np.random.random()
+                if partial_cond:
+                    r_e, probability_density = next_state, next_probability_density
+                    cond = True
             yield cond, r_e
 
-    def gibbs_random_walker(self, steps, r_e):
+    def gibbs_random_walker(self, steps, r_e, decorr_period):
         """Simple random walker with electron-by-electron sampling (EBES)
         :param steps: number of steps to walk
         :param r_e: initial position
-        :return: is step accept, next step position
+        :param decorr_period: decorrelation period
+        :return: is step accepted, next step position
         """
         ne = self.neu + self.ned
         e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
         probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
         for _ in range(steps):
-            next_r_e = np.copy(r_e)
-            next_r_e[np.random.randint(ne)] += self.step * np.random.uniform(-1, 1, 3)
-            e_vectors, n_vectors = self.wfn.relative_coordinates(next_r_e)
-            next_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
-            cond = next_probability_density / probability_density > np.random.random()
-            if cond:
-                r_e, p = next_r_e, next_probability_density
+            cond = False
+            for _ in range(decorr_period):
+                next_r_e = np.copy(r_e)
+                next_r_e[np.random.randint(ne)] += self.step * np.random.uniform(-1, 1, 3)
+                e_vectors, n_vectors = self.wfn.relative_coordinates(next_r_e)
+                next_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
+                partial_cond = next_probability_density / probability_density > np.random.random()
+                if partial_cond:
+                    r_e, p = next_r_e, next_probability_density
+                    cond = True
             yield cond, r_e
 
-    def biased_random_walker(self, steps, r_e):
+    def biased_random_walker(self, steps, r_e, decorr_period):
         """Biased random walker with diffusion-drift proposed step
         diffusion step s proportional to sqrt(2*D*dt)
         drift step is proportional to D*F*dt
         where D is diffusion constant = 1/2
         :param steps: number of steps to walk
         :param r_e: initial position
-        :return: is step accept, next step position
+        :param decorr_period: decorrelation period
+        :return: is step accepted, next step position
         """
         ne = self.neu + self.ned
         e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
         probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
         for _ in range(steps):
-            v_forth = self.drift_velocity(r_e)
-            move = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth
-            next_r_e = r_e + move.reshape((ne, 3))
-            e_vectors, n_vectors = self.wfn.relative_coordinates(next_r_e)
-            next_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
-            green_forth = np.exp(-np.sum((next_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
-            green_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step * self.drift_velocity(next_r_e)) ** 2) / 2 / self.step)
-            cond = (green_back * next_probability_density) / (green_forth * probability_density) > np.random.random()
-            if cond:
-                r_e, probability_density = next_r_e, next_probability_density
+            cond = False
+            for _ in range(decorr_period):
+                v_forth = self.drift_velocity(r_e)
+                move = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth
+                next_r_e = r_e + move.reshape((ne, 3))
+                e_vectors, n_vectors = self.wfn.relative_coordinates(next_r_e)
+                next_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
+                green_forth = np.exp(-np.sum((next_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
+                green_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step * self.drift_velocity(next_r_e)) ** 2) / 2 / self.step)
+                partial_cond = (green_back * next_probability_density) / (green_forth * probability_density) > np.random.random()
+                if partial_cond:
+                    r_e, probability_density = next_r_e, next_probability_density
+                    cond = True
             yield cond, r_e
 
-    def bbk_random_walker(self, steps, r_e):
+    def bbk_random_walker(self, steps, r_e, decorr_period):
         """Brünger–Brooks–Karplus (13 B. Brünger, C. L. Brooks, and M. Karplus, Chem. Phys. Lett. 105, 495 1984).
         :param steps: number of steps to walk
         :param r_e: initial position
-        :return: is step accept, next step position
+        :param decorr_period: decorrelation period
+        :return: is step accepted, next step position
         """
         for _ in range(steps):
             cond = False
+            for _ in range(decorr_period):
+                pass
             yield cond, r_e
 
-    def force_interpolation_random_walker(self, steps, r_e):
+    def force_interpolation_random_walker(self, steps, r_e, decorr_period):
         """M. P. Allen and D. J. Tildesley, Computer Simulation of Liquids Oxford University Press, Oxford, 1989 and references in Sec. 9.3.
         :param steps: number of steps to walk
         :param r_e: initial position
-        :return: is step accept, next step position
+        :param decorr_period: decorrelation period
+        :return: is step accepted, next step position
         """
         for _ in range(steps):
             cond = False
+            for _ in range(decorr_period):
+                pass
             yield cond, r_e
 
-    def splitting_random_walker(self, steps, r_e):
+    def splitting_random_walker(self, steps, r_e, decorr_period):
         """J. A. Izaguirre, D. P. Catarello, J. M. Wozniak, and R. D. Skeel, J. Chem. Phys. 114, 2090 2001.
         :param steps: number of steps to walk
         :param r_e: initial position
-        :return: is step accept, next step position
+        :param decorr_period: decorrelation period
+        :return: is step accepted, next step position
         """
         for _ in range(steps):
             cond = False
+            for _ in range(decorr_period):
+                pass
             yield cond, r_e
 
-    def ricci_ciccottid_random_walker(self, steps, r_e):
+    def ricci_ciccottid_random_walker(self, steps, r_e, decorr_period):
         """A. Ricci and G. Ciccotti, Mol. Phys. 101, 1927 2003.
         :param steps: number of steps to walk
         :param r_e: initial position
-        :return: is step accept, next step position
+        :param decorr_period: decorrelation period
+        :return: is step accepted, next step position
         """
         for _ in range(steps):
             cond = False
+            for _ in range(decorr_period):
+                pass
             yield cond, r_e
 
     def dmc_random_walker(self, steps, positions, target_weight):
@@ -204,7 +227,7 @@ class MarkovChain:
         :param steps: number of steps to walk
         :param positions: initial positions of walkers
         :param target_weight: target weight of walkers
-        :return: (best estimate of energy, next position)
+        :return: best estimate of energy, next position
         """
         ne = self.neu + self.ned
         p_list = nb.typed.List()
@@ -272,9 +295,9 @@ class MarkovChain:
             energy_list = next_energy_list
             velocity_list = next_velocity_list
             branching_energy_list = next_branching_energy_list
-            # FIXME: An estimate of Tefl' is readily obtained iteratively from sets of equilibration runs.
-            #  During the initial run, 1'efl'is set equal to 1'. For the next runs, the value of Tefl' is
-            #  obtained from the values of 1'eff computed with Eq. (24) during the previous equilibration run.
+            # FIXME: An estimate of Teff is readily obtained iteratively from sets of equilibration runs.
+            #  During the initial run, Teff is set equal to 1. For the next runs, the value of Teff is
+            #  obtained from the values of Teff computed with Eq. (24) during the previous equilibration run.
             step_eff = accepted_move / len(energy_list) * self.step
             best_estimate_energy = sum_typed_list(energy_list) / len(energy_list)
             energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) * self.step / step_eff
@@ -283,13 +306,13 @@ class MarkovChain:
 
     walker = simple_random_walker
 
-    def vmc_random_walk(self, steps):
+    def vmc_random_walk(self, steps, decorr_period):
         """Metropolis-Hastings random walk.
         """
         r_e = self.r_e[0]
         condition = np.zeros((steps, ), nb.boolean)
         position = np.zeros((steps, r_e.shape[0], r_e.shape[1]))
-        walker = self.walker(steps, r_e)
+        walker = self.walker(steps, r_e, decorr_period)
 
         for i, (cond, r_e) in enumerate(walker):
             condition[i] = cond
@@ -445,7 +468,11 @@ class Casino:
         if self.config.input.runtype == 'vmc':
             # FIXME: in EBEC nstep = vmc_nstep * (neu + ned)
             self.optimize_vmc_step(10000)
-            self.energy(self.config.input.vmc_nstep, self.config.input.vmc_nblock)
+            if self.config.input.vmc_decorr_period == 0:
+                decorr_period = self.optimize_decorr_period()
+            else:
+                decorr_period = self.config.input.vmc_decorr_period
+            self.energy(self.config.input.vmc_nstep, self.config.input.vmc_nblock, decorr_period)
         elif self.config.input.runtype == 'vmc_opt':
             if self.config.input.opt_method == 'varmin':
                 for _ in range(self.config.input.opt_cycles):
@@ -463,7 +490,8 @@ class Casino:
                     self.jastrow.set_parameters(res.x)
         elif self.config.input.runtype == 'vmc_dmc':
             self.optimize_vmc_step(10000)
-            cond, position = self.markovchain.vmc_random_walk(self.config.input.vmc_nstep)
+            # FIXME: decorr_period for dmc?
+            cond, position = self.markovchain.vmc_random_walk(self.config.input.vmc_nstep, 1)
             energy = self.markovchain.local_energy(cond, position) + self.markovchain.wfn.nuclear_repulsion
             logger.info('VMC energy %.5f', energy.mean())
             position = position[-self.config.input.vmc_nconfig_write:]
@@ -498,7 +526,7 @@ class Casino:
         :param steps: burn-in period
         :return:
         """
-        condition, _ = self.markovchain.vmc_random_walk(steps)
+        condition, _ = self.markovchain.vmc_random_walk(steps, 1)
         logger.info('dr * electrons = 1.00000, acc_ration = %.5f', condition.mean())
 
     def optimize_vmc_step(self, steps, acceptance_rate=0.5):
@@ -512,7 +540,7 @@ class Casino:
             self.markovchain.step = tau[0]
             logger.info('dr * electrons = %.5f', tau[0] * (self.neu + self.ned))
             if tau[0] > 0:
-                condition, _ = self.markovchain.vmc_random_walk(steps)
+                condition, _ = self.markovchain.vmc_random_walk(steps, 1)
                 acc_ration = condition.mean()
             else:
                 acc_ration = 1
@@ -522,12 +550,16 @@ class Casino:
         res = sp.optimize.root(f, [self.markovchain.step], method='diagbroyden', tol=1/np.sqrt(steps), callback=callback, options=options)
         self.markovchain.step = np.abs(res.x[0])
 
-    def energy(self, steps, nblock):
+    def optimize_decorr_period(self):
+        """Optimize _decorr period"""
+        return 3
+
+    def energy(self, steps, nblock, decorr_period):
         """Energy accumulation"""
         start = default_timer()
         energy = np.zeros((nblock, steps // nblock))
         for i in range(nblock):
-            condition, position = self.markovchain.vmc_random_walk(steps // nblock)
+            condition, position = self.markovchain.vmc_random_walk(steps // nblock, decorr_period)
             energy[i] = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
         stop = default_timer()
         logger.info('total time {}'.format(stop - start))
@@ -582,7 +614,7 @@ class Casino:
         def callback(x, *args):
             logger.info('inner iteration x = %s', x)
             self.jastrow.set_parameters(x)
-            condition, position = self.markovchain.vmc_random_walk(steps)
+            condition, position = self.markovchain.vmc_random_walk(steps, 1)
 
         def f(x, *args):
             self.jastrow.set_parameters(x)
@@ -598,9 +630,9 @@ class Casino:
 
         def hess(x, *args):
             self.jastrow.set_parameters(x)
-            energy = self.markovchain.local_energy(position) + self.markovchain.wfn.nuclear_repulsion
-            energy_gradient = self.markovchain.jastrow_gradient(position)
-            energy_hessian = self.markovchain.jastrow_hessian(position)
+            energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
+            energy_gradient = self.markovchain.jastrow_gradient(condition, position)
+            energy_hessian = self.markovchain.jastrow_hessian(condition, position)
             mean_energy_hessian = jastrow_parameters_hessian(condition, energy, energy_gradient, energy_hessian)
             logger.info('hessian = %s', mean_energy_hessian)
             return mean_energy_hessian
