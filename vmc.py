@@ -248,14 +248,15 @@ class MarkovChain:
         best_estimate_energy = sum_typed_list(energy_list) / len(energy_list)
         energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) / step_eff
         for step in range(steps):
-            accepted_move = 0
+            mean_probability_density = 0
             next_p_list = nb.typed.List()
             next_r_e_list = nb.typed.List()
             next_energy_list = nb.typed.List()
             next_velocity_list = nb.typed.List()
             next_branching_energy_list = nb.typed.List()
             for r_e, p, velocity, energy, branching_energy in zip(r_e_list, p_list, velocity_list, energy_list, branching_energy_list):
-                next_r_e = r_e + (np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * velocity).reshape((ne, 3))
+                diffusion = np.random.normal(0, 1, ne * 3)
+                next_r_e = r_e + (np.sqrt(self.step) * diffusion + self.step * velocity).reshape((ne, 3))
                 e_vectors, n_vectors = self.wfn.relative_coordinates(next_r_e)
                 next_p = self.wfn.value(e_vectors, n_vectors)
                 # prevent crossing nodal surface
@@ -265,20 +266,22 @@ class MarkovChain:
                 limiting_factor = self.limiting_factor(next_velocity)
                 next_velocity *= limiting_factor
                 next_branching_energy = best_estimate_energy - (best_estimate_energy - next_energy) * limiting_factor
+                probability_density = 0
                 if cond:
                     # Green`s functions
                     green_forth = np.exp(-np.sum((next_r_e.ravel() - r_e.ravel() - self.step * velocity) ** 2) / 2 / self.step)
                     green_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step * next_velocity) ** 2) / 2 / self.step)
                     # condition
-                    cond = (green_back * next_p ** 2) / (green_forth * p ** 2) > np.random.random()
+                    probability_density = (green_back * next_p ** 2) / (green_forth * p ** 2)
+                    cond = probability_density > np.random.random()
                 # branching
                 if cond:
-                    weight = np.exp(-step_eff * (next_branching_energy + branching_energy - 2 * energy_t) / 2)
+                    weight = np.exp(-self.step * (next_branching_energy + branching_energy - 2 * energy_t) / 2)
                 else:
-                    weight = np.exp(-step_eff * (branching_energy - energy_t))
+                    weight = np.exp(-self.step * (branching_energy - energy_t))
                 for _ in range(int(weight + np.random.uniform(0, 1))):
+                    mean_probability_density += min(1, probability_density)
                     if cond:
-                        accepted_move += 1
                         next_p_list.append(next_p)
                         next_r_e_list.append(next_r_e)
                         next_energy_list.append(next_energy)
@@ -298,10 +301,10 @@ class MarkovChain:
             # FIXME: An estimate of Teff is readily obtained iteratively from sets of equilibration runs.
             #  During the initial run, Teff is set equal to 1. For the next runs, the value of Teff is
             #  obtained from the values of Teff computed with Eq. (24) during the previous equilibration run.
-            step_eff = accepted_move / len(energy_list) * self.step
+            step_eff = mean_probability_density / len(energy_list) * self.step
             best_estimate_energy = sum_typed_list(energy_list) / len(energy_list)
             energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) * self.step / step_eff
-            print(step, len(p_list), best_estimate_energy, energy_t, accepted_move / len(energy_list))
+            # print(step, len(p_list), best_estimate_energy, energy_t, k)
             yield best_estimate_energy, r_e_list
 
     walker = simple_random_walker
