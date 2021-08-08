@@ -230,14 +230,14 @@ class MarkovChain:
         :return: best estimate of energy, next position
         """
         ne = self.neu + self.ned
-        p_list = nb.typed.List()
         r_e_list = nb.typed.List()
         energy_list = nb.typed.List()
         velocity_list = nb.typed.List()
+        wfn_value_list = nb.typed.List()
         branching_energy_list = nb.typed.List()
         for r_e in positions:
             e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
-            p_list.append(self.wfn.value(e_vectors, n_vectors))
+            wfn_value_list.append(self.wfn.value(e_vectors, n_vectors))
             r_e_list.append(r_e)
             energy_list.append(self.wfn.energy(r_e))
             branching_energy_list.append(self.wfn.energy(r_e))
@@ -248,63 +248,58 @@ class MarkovChain:
         best_estimate_energy = sum_typed_list(energy_list) / len(energy_list)
         energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) / step_eff
         for step in range(steps):
-            mean_probability_density = 0
-            next_p_list = nb.typed.List()
+            sum_acceptance_probability = 0
             next_r_e_list = nb.typed.List()
             next_energy_list = nb.typed.List()
             next_velocity_list = nb.typed.List()
+            next_wfn_value_list = nb.typed.List()
             next_branching_energy_list = nb.typed.List()
-            for r_e, p, velocity, energy, branching_energy in zip(r_e_list, p_list, velocity_list, energy_list, branching_energy_list):
-                diffusion = np.random.normal(0, 1, ne * 3)
-                next_r_e = r_e + (np.sqrt(self.step) * diffusion + self.step * velocity).reshape((ne, 3))
+            for r_e, wfn_value, velocity, energy, branching_energy in zip(r_e_list, wfn_value_list, velocity_list, energy_list, branching_energy_list):
+                next_r_e = r_e + (np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * velocity).reshape((ne, 3))
                 e_vectors, n_vectors = self.wfn.relative_coordinates(next_r_e)
-                next_p = self.wfn.value(e_vectors, n_vectors)
+                next_wfn_value = self.wfn.value(e_vectors, n_vectors)
                 # prevent crossing nodal surface
-                cond = np.sign(p) * np.sign(next_p) > 0
+                cond = np.sign(wfn_value) == np.sign(next_wfn_value)
                 next_velocity = self.wfn.drift_velocity(next_r_e)
                 next_energy = self.wfn.energy(next_r_e)
                 limiting_factor = self.limiting_factor(next_velocity)
                 next_velocity *= limiting_factor
                 next_branching_energy = best_estimate_energy - (best_estimate_energy - next_energy) * limiting_factor
-                probability_density = 0
+                p = 0
                 if cond:
                     # Green`s functions
                     green_forth = np.exp(-np.sum((next_r_e.ravel() - r_e.ravel() - self.step * velocity) ** 2) / 2 / self.step)
                     green_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step * next_velocity) ** 2) / 2 / self.step)
                     # condition
-                    probability_density = (green_back * next_p ** 2) / (green_forth * p ** 2)
-                    cond = probability_density > np.random.random()
+                    p = min(1, (green_back * next_wfn_value ** 2) / (green_forth * wfn_value ** 2))
+                    cond = p >= np.random.random()
                 # branching
                 if cond:
                     weight = np.exp(-self.step * (next_branching_energy + branching_energy - 2 * energy_t) / 2)
                 else:
                     weight = np.exp(-self.step * (branching_energy - energy_t))
                 for _ in range(int(weight + np.random.uniform(0, 1))):
-                    mean_probability_density += min(1, probability_density)
+                    sum_acceptance_probability += p
                     if cond:
-                        next_p_list.append(next_p)
                         next_r_e_list.append(next_r_e)
                         next_energy_list.append(next_energy)
                         next_velocity_list.append(next_velocity)
+                        next_wfn_value_list.append(next_wfn_value)
                         next_branching_energy_list.append(next_branching_energy)
                     else:
-                        next_p_list.append(p)
                         next_r_e_list.append(r_e)
                         next_energy_list.append(energy)
                         next_velocity_list.append(velocity)
+                        next_wfn_value_list.append(wfn_value)
                         next_branching_energy_list.append(branching_energy)
-            p_list = next_p_list
             r_e_list = next_r_e_list
             energy_list = next_energy_list
             velocity_list = next_velocity_list
+            wfn_value_list = next_wfn_value_list
             branching_energy_list = next_branching_energy_list
-            # FIXME: An estimate of Teff is readily obtained iteratively from sets of equilibration runs.
-            #  During the initial run, Teff is set equal to 1. For the next runs, the value of Teff is
-            #  obtained from the values of Teff computed with Eq. (24) during the previous equilibration run.
-            step_eff = mean_probability_density / len(energy_list) * self.step
+            step_eff = sum_acceptance_probability / len(energy_list) * self.step
             best_estimate_energy = sum_typed_list(energy_list) / len(energy_list)
             energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) * self.step / step_eff
-            # print(step, len(p_list), best_estimate_energy, energy_t, k)
             yield best_estimate_energy, r_e_list
 
     walker = simple_random_walker
