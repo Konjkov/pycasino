@@ -190,6 +190,181 @@ class Slater:
         self.mo_down = mo_down
         self.coeff = coeff
 
+    def cusp_wfn(self, n_vectors: np.ndarray):
+        """Calculate cusped correction for s-part of orbitals.
+        We apply a cusp correction to each orbital at each nucleus at which it is nonzero. Inside some cusp
+        correction radius rc we replace φ, the part of the orbital arising from s-type Gaussian functions centred
+        on the nucleus in question, by
+        φ̃ = C + sgn[φ̃(0)] * exp[p(r)]
+        in gaussians.f90 set
+        POLYPRINT=.true. ! Include cusp polynomial coefficients in CUSP_INFO output.
+        """
+        atom = 'He'
+        if atom == 'He':
+            # atoms, MO
+            orbital_sign = np.array([
+                [1.0]
+            ])
+            # atoms, MO
+            cusp_r = np.array([
+                [0.4375]
+            ])
+            # atoms, MO, alpha index
+            alpha = np.array([[
+                [0.29141713, -2, 0.25262478E+00, -0.98352818E-01, 0.11124336E+00],
+            ]])
+        # elif atom == 'Be':
+        #     # atoms, MO
+        #     orbital_sign = np.array([
+        #         [-1.0, -1.0]
+        #     ])
+        #     # atoms, MO
+        #     cusp_r = np.array([
+        #         [0.1205, 0.1180]
+        #     ])
+        #     # atoms, MO, alpha index
+        #     alpha = np.array([[
+        #         [ 1.24736449, -4,  0.49675975E+00, -0.30582868E+00,  0.10897532E+01],
+        #         [-0.45510824, -4, -0.73882727E+00, -0.89716308E+00, -0.58491770E+01],
+        #     ]])
+        # elif atom == 'N':
+        #     pass
+        # elif atom == 'Ne':
+        #     # atoms, MO
+        #     orbital_sign = np.array([
+        #         [1.0, 1.0, 0.0, 0.0, 0.0]
+        #     ])
+        #     # atoms, MO
+        #     cusp_r = np.array([
+        #         [0.0455, 0.0460, 0, 0, 0]
+        #     ])
+        #     # atoms, MO, alpha index
+        #     alpha = np.array([[
+        #         [2.36314075, -10,  0.81732253E+00,  0.15573932E+02, -0.15756663E+03],
+        #         [0.91422900, -10, -0.84570201E+01, -0.26889022E+02, -0.17583628E+03],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #     ]])
+        # elif atom == 'Ar':
+        #     # atoms, MO
+        #     orbital_sign = np.array([
+        #         [1.0, 1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0]
+        #     ])
+        #     # atoms, MO
+        #     cusp_r = np.array([
+        #         [0.0205, 0.0200, 0, 0, 0, 0.0205, 0, 0, 0]
+        #     ])
+        #     # atoms, MO, alpha index
+        #     alpha = np.array([[
+        #         [3.02622267, -18,  0.22734669E+01,  0.79076581E+02, -0.15595740E+04],
+        #         [1.76719238, -18, -0.30835348E+02, -0.23112278E+03, -0.45351148E+03],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #         [0.60405204, -18, -0.35203155E+02, -0.13904842E+03, -0.35690426E+04],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #     ]])
+        # elif atom == 'Kr':
+        #     # atoms, MO
+        #     orbital_sign = np.array([
+        #         [1.0, 1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0]
+        #     ])
+        #     # atoms, MO
+        #     cusp_r = np.array([
+        #         [0.0045, 0.0045, 0, 0, 0, 0.0045, 0, 0, 0, 0, 0, 0, 0, 0, 0.0045, 0, 0, 0]
+        #     ])
+        #     # atoms, MO, alpha index
+        #     alpha = np.array([[
+        #         [3.77764947, -36,  0.22235586E+02, -0.56621947E+04, 0.62983424E+06],
+        #         [2.62138667, -36, -0.12558804E+03, -0.72801257E+04, 0.58905979E+06],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #         [1.70814456, -36, -0.14280857E+03, -0.80481344E+04, 0.63438487E+06],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #         [0.56410983, -36, -0.14519895E+03, -0.85628812E+04, 0.69239963E+06],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #         [0, 0, 0, 0, 0],
+        #     ]])
+        # elif atom == 'O3':
+        #     # atoms, MO
+        #     orbital_sign = np.array([
+        #         [-1.0, -1.0,  1.0, -1.0,  1.0, -1.0, 0.0, -1.0, -1.0, 0.0, -1.0,  1.0],
+        #         [-1.0,  1.0, -1.0, -1.0, -1.0,  1.0, 0.0, -1.0, -1.0, 0.0,  1.0, -1.0],
+        #         [-1.0, -1.0, -1.0, -1.0,  1.0,  1.0, 0.0, -1.0,  1.0, 0.0, -1.0, -1.0],
+        #     ])
+        #     # atoms, MO
+        #     cusp_r = np.array([
+        #         [0.0580, 0.0570, 0.0580, 0.0580, 0.0580, 0.0585, 0, 0.0605, 0.0565, 0, 0.0615, 0.0595],
+        #         [0.0605, 0.0580, 0.0620, 0.0790, 0.0415, 0.0590, 0, 0.0595, 0.0580, 0, 0.0935, 0.0910],
+        #         [0.0605, 0.0565, 0.0580, 0.0805, 0.0780, 0.0575, 0, 0.0660, 0.0580, 0, 0.0680, 0.1345],
+        #     ])
+        #     # atoms, MO, alpha index
+        #     alpha = np.array([[
+        #         [1.66696112, -0.80000242E+01, 0.72538040E+00, 0.74822749E+01, -0.59832829E+02],
+        #         [],
+        #         [],
+        #         [],
+        #         [],
+        #         [],
+        #         [],
+        #         [],
+        #         [],
+        #         [],
+        #         [],
+        #         [],
+        #     ]])
+        else:
+            # atoms, MO
+            orbital_sign = np.array([[0.0]])
+            # atoms, MO
+            cusp_r = np.array([[0.0]])
+            # atoms, MO, alpha index
+            alpha = np.array([[[0.0]]])
+
+        orbital_up = np.zeros((self.neu, self.neu))
+        for i in range(self.neu):
+            for j in range(self.neu):
+                for atom in range(n_vectors.shape[0]):
+                    x, y, z = n_vectors[atom, j]
+                    r = np.sqrt(x * x + y * y + z * z)
+                    if r < cusp_r[atom, i]:
+                        orbital_up[i, j] += orbital_sign[atom, i] * np.exp(
+                            alpha[atom, i, 0] +
+                            alpha[atom, i, 1] * r +
+                            alpha[atom, i, 2] * r**2 +
+                            alpha[atom, i, 3] * r**3 +
+                            alpha[atom, i, 4] * r**4
+                        )
+
+        orbital_down = np.zeros((self.ned, self.ned))
+        for i in range(self.ned):
+            for j in range(self.ned):
+                for atom in range(n_vectors.shape[0]):
+                    x, y, z = n_vectors[atom, j]
+                    r = np.sqrt(x * x + y * y + z * z)
+                    if r < cusp_r[atom, i]:
+                        orbital_down[i, j] += orbital_sign[atom, i] * np.exp(
+                            alpha[atom, i, 0] +
+                            alpha[atom, i, 1] * r +
+                            alpha[atom, i, 2] * r**2 +
+                            alpha[atom, i, 3] * r**3 +
+                            alpha[atom, i, 4] * r**4
+                        )
+
+        return orbital_up, orbital_down
+
     def AO_wfn(self, n_vectors: np.ndarray) -> np.ndarray:
         """
         Atomic orbitals for every electron
@@ -350,11 +525,12 @@ class Slater:
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         ao = self.AO_wfn(n_vectors)
+        cusp_wfn_up, cusp_wfn_down = self.cusp_wfn(n_vectors)
 
         val = 0.0
         for i in range(self.coeff.shape[0]):
-            wfn_u = self.mo_up[i] @ ao[:self.neu].T
-            wfn_d = self.mo_down[i] @ ao[self.neu:].T
+            wfn_u = self.mo_up[i] @ ao[:self.neu].T + cusp_wfn_up
+            wfn_d = self.mo_down[i] @ ao[self.neu:].T + cusp_wfn_down
             val += self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
         return val
 

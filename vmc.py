@@ -656,6 +656,7 @@ if __name__ == '__main__':
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Slater/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/N/HF/QZ4P/CBCS/Slater/'
     # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Slater/'
     # path = 'test/stowfn/Ar/HF/QZ4P/CBCS/Slater/'
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Slater/'
