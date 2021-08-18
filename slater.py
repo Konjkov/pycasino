@@ -192,7 +192,7 @@ class Slater:
         self.mo_up = mo_up
         self.mo_down = mo_down
         self.coeff = coeff
-        atom = ''
+        atom = 'Be'
         if atom == 'He':
             # atoms, MO
             self.orbital_sign = np.array([[1]])
@@ -339,14 +339,14 @@ class Slater:
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.cusp_r[atom, i]:
                         gradient_up[i, j] = self.orbital_sign[atom, i] * (
-                                self.alpha[atom, i, 1] + 2*self.alpha[atom, i, 2]*r + 3*self.alpha[atom, i, 3]*r**2 + 4*self.alpha[atom, i, 4]*r**3
+                                self.alpha[atom, i, 1] + 2 * self.alpha[atom, i, 2]*r + 3 * self.alpha[atom, i, 3] * r**2 + 4 * self.alpha[atom, i, 4] * r**3
                         ) * np.exp(
                             self.alpha[atom, i, 0] +
                             self.alpha[atom, i, 1] * r +
                             self.alpha[atom, i, 2] * r ** 2 +
                             self.alpha[atom, i, 3] * r ** 3 +
                             self.alpha[atom, i, 4] * r ** 4
-                        ) * n_vectors[atom, j]
+                        ) * n_vectors[atom, j] / r
 
         gradient_down = np.zeros((self.ned, self.ned, 3))
         for i in range(self.ned):
@@ -356,14 +356,14 @@ class Slater:
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.cusp_r[atom, i]:
                         gradient_down[i, j] = self.orbital_sign[atom, i] * (
-                                self.alpha[atom, i, 1] + 2*self.alpha[atom, i, 2]*r + 3*self.alpha[atom, i, 3]*r**2 + 4*self.alpha[atom, i, 4]*r**3
+                                self.alpha[atom, i, 1] + 2 * self.alpha[atom, i, 2] * r + 3 * self.alpha[atom, i, 3] * r**2 + 4 * self.alpha[atom, i, 4] * r**3
                         ) * np.exp(
                             self.alpha[atom, i, 0] +
                             self.alpha[atom, i, 1] * r +
                             self.alpha[atom, i, 2] * r ** 2 +
                             self.alpha[atom, i, 3] * r ** 3 +
                             self.alpha[atom, i, 4] * r ** 4
-                        ) * n_vectors[atom, self.neu + j]
+                        ) * n_vectors[atom, self.neu + j] / r
 
         return gradient_up, gradient_down
 
@@ -377,8 +377,8 @@ class Slater:
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.cusp_r[atom, i]:
                         laplacian_up[i, j] = self.orbital_sign[atom, i] * (
-                            2 * self.alpha[atom, i, 1] + 4 * self.alpha[atom, i, 2] * r + 6 * self.alpha[atom, i, 3]*r**2 + 8 * self.alpha[atom, i, 4] * r**3 +
-                            2 * r*(self.alpha[atom, i, 2] + 3 * self.alpha[atom, i, 3] * r + 6 * self.alpha[atom, i, 4]*r**2) +
+                            2 * self.alpha[atom, i, 1] + 4 * self.alpha[atom, i, 2] * r + 6 * self.alpha[atom, i, 3] * r**2 + 8 * self.alpha[atom, i, 4] * r**3 +
+                            2 * r * (self.alpha[atom, i, 2] + 3 * self.alpha[atom, i, 3] * r + 6 * self.alpha[atom, i, 4] * r**2) +
                             r * (self.alpha[atom, i, 1] + 2 * self.alpha[atom, i, 2] * r + 3*self.alpha[atom, i, 3] * r**2 + 4*self.alpha[atom, i, 4] * r**3)**2
                         ) * np.exp(
                             self.alpha[atom, i, 0] +
@@ -396,8 +396,8 @@ class Slater:
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.cusp_r[atom, i]:
                         laplacian_down[i, j] = self.orbital_sign[atom, i] * (
-                            2 * self.alpha[atom, i, 1] + 4 * self.alpha[atom, i, 2] * r + 6 * self.alpha[atom, i, 3]*r**2 + 8 * self.alpha[atom, i, 4] * r**3 +
-                            2 * r*(self.alpha[atom, i, 2] + 3 * self.alpha[atom, i, 3] * r + 6 * self.alpha[atom, i, 4]*r**2) +
+                            2 * self.alpha[atom, i, 1] + 4 * self.alpha[atom, i, 2] * r + 6 * self.alpha[atom, i, 3] * r**2 + 8 * self.alpha[atom, i, 4] * r**3 +
+                            2 * r * (self.alpha[atom, i, 2] + 3 * self.alpha[atom, i, 3] * r + 6 * self.alpha[atom, i, 4] * r**2) +
                             r * (self.alpha[atom, i, 1] + 2 * self.alpha[atom, i, 2] * r + 3*self.alpha[atom, i, 3] * r**2 + 4*self.alpha[atom, i, 4] * r**3)**2
                         ) * np.exp(
                             self.alpha[atom, i, 0] +
@@ -408,6 +408,28 @@ class Slater:
                         ) / r
 
         return laplacian_up, laplacian_down
+
+    def cusp_hessian(self, n_vectors: np.ndarray):
+        """Cusp part of laplacian"""
+        hessian_up = np.zeros((self.neu, self.neu))
+        for i in range(self.neu):
+            for j in range(self.neu):
+                for atom in range(n_vectors.shape[0]):
+                    x, y, z = n_vectors[atom, j]
+                    r = np.sqrt(x * x + y * y + z * z)
+                    if r < self.cusp_r[atom, i]:
+                        pass
+
+        hessian_down = np.zeros((self.ned, self.ned))
+        for i in range(self.ned):
+            for j in range(self.ned):
+                for atom in range(n_vectors.shape[0]):
+                    x, y, z = n_vectors[atom, self.neu + j]
+                    r = np.sqrt(x * x + y * y + z * z)
+                    if r < self.cusp_r[atom, i]:
+                        pass
+
+        return hessian_up, hessian_down
 
     def AO_wfn(self, n_vectors: np.ndarray) -> np.ndarray:
         """
@@ -569,12 +591,17 @@ class Slater:
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         ao = self.AO_wfn(n_vectors)
-        # cusp_wfn_up, cusp_wfn_down = self.cusp_wfn(n_vectors)
+        if self.orbital_sign is not None:
+            cusp_wfn_up, cusp_wfn_down = self.cusp_wfn(n_vectors)
 
         val = 0.0
         for i in range(self.coeff.shape[0]):
-            wfn_u = self.mo_up[i] @ ao[:self.neu].T
-            wfn_d = self.mo_down[i] @ ao[self.neu:].T
+            if self.orbital_sign is not None:
+                wfn_u = np.where(cusp_wfn_up, cusp_wfn_up, self.mo_up[i] @ ao[:self.neu].T)
+                wfn_d = np.where(cusp_wfn_down, cusp_wfn_down, self.mo_down[i] @ ao[self.neu:].T)
+            else:
+                wfn_u = self.mo_up[i] @ ao[:self.neu].T
+                wfn_d = self.mo_down[i] @ ao[self.neu:].T
             val += self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
         return val
 
@@ -586,21 +613,31 @@ class Slater:
         """
         ao = self.AO_wfn(n_vectors)
         gradient = self.AO_gradient(n_vectors)
-        # cusp_gradient_up, cusp_gradient_down = self.cusp_gradient(n_vectors)
+        if self.orbital_sign is not None:
+            cusp_wfn_up, cusp_wfn_down = self.cusp_wfn(n_vectors)
+            cusp_gradient_up, cusp_gradient_down = self.cusp_gradient(n_vectors)
 
         val = 0.0
         grad = np.zeros((self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
 
-            wfn_u = self.mo_up[i] @ ao[:self.neu].T
+            if self.orbital_sign is not None:
+                wfn_u = np.where(cusp_wfn_up, cusp_wfn_up, self.mo_up[i] @ ao[:self.neu].T)
+                grad_u = np.where(cusp_gradient_up, cusp_gradient_up, (self.mo_up[i] @ gradient[:self.neu * 3].T).reshape((self.neu, self.neu, 3)))
+            else:
+                wfn_u = self.mo_up[i] @ ao[:self.neu].T
+                grad_u = (self.mo_up[i] @ gradient[:self.neu * 3].T).reshape((self.neu, self.neu, 3))
             inv_wfn_u = np.linalg.inv(wfn_u)
-            grad_u = self.mo_up[i] @ gradient[:self.neu * 3].T
-            res_u = (inv_wfn_u * grad_u.reshape((self.neu, self.neu, 3)).T).T.sum(axis=0)
+            res_u = (inv_wfn_u * grad_u.T).T.sum(axis=0)
 
-            wfn_d = self.mo_down[i] @ ao[self.neu:].T
+            if self.orbital_sign is not None:
+                wfn_d = np.where(cusp_wfn_down, cusp_wfn_down, self.mo_down[i] @ ao[self.neu:].T)
+                grad_d = np.where(cusp_gradient_down, cusp_gradient_down, (self.mo_down[i] @ gradient[self.neu * 3:].T).reshape((self.ned, self.ned, 3)))
+            else:
+                wfn_d = self.mo_down[i] @ ao[self.neu:].T
+                grad_d = (self.mo_down[i] @ gradient[self.neu * 3:].T).reshape((self.ned, self.ned, 3))
             inv_wfn_d = np.linalg.inv(wfn_d)
-            grad_d = self.mo_down[i] @ gradient[self.neu * 3:].T
-            res_d = (inv_wfn_d * grad_d.reshape((self.ned, self.ned, 3)).T).T.sum(axis=0)
+            res_d = (inv_wfn_d * grad_d.T).T.sum(axis=0)
 
             c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
             val += c
@@ -623,19 +660,29 @@ class Slater:
         """
         ao = self.AO_wfn(n_vectors)
         ao_laplacian = self.AO_laplacian(n_vectors)
-        # cusp_laplacian_up, cusp_laplacian_down = self.cusp_laplacian(n_vectors)
+        if self.orbital_sign is not None:
+            cusp_wfn_up, cusp_wfn_down = self.cusp_wfn(n_vectors)
+            cusp_laplacian_up, cusp_laplacian_down = self.cusp_laplacian(n_vectors)
 
         val = lap = 0
         for i in range(self.coeff.shape[0]):
 
-            wfn_u = self.mo_up[i] @ ao[:self.neu].T
+            if self.orbital_sign is not None:
+                wfn_u = np.where(cusp_wfn_up, cusp_wfn_up, self.mo_up[i] @ ao[:self.neu].T)
+                lap_u = np.where(cusp_laplacian_up, cusp_laplacian_up, self.mo_up[i] @ ao_laplacian[:self.neu].T)
+            else:
+                wfn_u = self.mo_up[i] @ ao[:self.neu].T
+                lap_u = self.mo_up[i] @ ao_laplacian[:self.neu].T
             inv_wfn_u = np.linalg.inv(wfn_u)
-            lap_u = self.mo_up[i] @ ao_laplacian[:self.neu].T
             res_u = np.sum(inv_wfn_u * lap_u.T)
 
-            wfn_d = self.mo_down[i] @ ao[self.neu:].T
+            if self.orbital_sign is not None:
+                wfn_d = np.where(cusp_wfn_down, cusp_wfn_down, self.mo_down[i] @ ao[self.neu:].T)
+                lap_d = np.where(cusp_laplacian_down, cusp_laplacian_down, self.mo_down[i] @ ao_laplacian[self.neu:].T)
+            else:
+                wfn_d = self.mo_down[i] @ ao[self.neu:].T
+                lap_d = self.mo_down[i] @ ao_laplacian[self.neu:].T
             inv_wfn_d = np.linalg.inv(wfn_d)
-            lap_d = self.mo_down[i] @ ao_laplacian[self.neu:].T
             res_d = np.sum(inv_wfn_d * lap_d.T)
 
             c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
@@ -658,6 +705,10 @@ class Slater:
         ao = self.AO_wfn(n_vectors)
         gradient = self.AO_gradient(n_vectors)
         hessian = self.AO_hessian(n_vectors)
+        # if self.orbital_sign is not None:
+        #     cusp_wfn_up, cusp_wfn_down = self.cusp_wfn(n_vectors)
+        #     cusp_gradient_up, cusp_gradient_down = self.cusp_gradient(n_vectors)
+        #     cusp_hessian_up, cusp_hessian_down = self.cusp_hessian(n_vectors)
 
         val = 0
         hass = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
