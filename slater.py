@@ -151,6 +151,7 @@ spec = [
     ('mo_up', nb.float64[:, :, :]),
     ('mo_down', nb.float64[:, :, :]),
     ('coeff', nb.float64[:]),
+    ('cusp_shift', nb.optional(nb.float64[:, :])),
     ('orbital_sign', nb.optional(nb.int64[:, :])),
     ('cusp_r', nb.optional(nb.float64[:, :])),
     ('alpha', nb.optional(nb.float64[:, :, :])),
@@ -194,20 +195,22 @@ class Slater:
         self.coeff = coeff
         atom = 'Be'
         if atom == 'He':
+            self.cusp_shift = np.array([[0.0]])
             # atoms, MO
             self.orbital_sign = np.array([[1]])
             # atoms, MO
             self.cusp_r = np.array([[0.4375]])
             # atoms, MO, alpha index
             self.alpha = np.array([[
-                [0.29141713, -2.0, 0.25262478E+00, -0.98352818E-01, 0.11124336E+00],
+                [0.29141713, -2.0, 0.25262478, -0.098352818, 0.11124336],
             ]])
         elif atom == 'Be':
+            self.cusp_shift = np.array([[0.0, 0.0]])
             self.orbital_sign = np.array([[-1, -1]])
             self.cusp_r = np.array([[0.1205, 0.1180]])
             self.alpha = np.array([[
-                [ 1.24736449, -4,  0.49675975E+00, -0.30582868E+00,  0.10897532E+01],
-                [-0.45510824, -4, -0.73882727E+00, -0.89716308E+00, -0.58491770E+01],
+                [ 1.24736449, -4.0,  0.49675975, -0.30582868,  1.0897532],
+                [-0.45510824, -4.0, -0.73882727, -0.89716308, -5.8491770]
             ]])
         elif atom == 'N':
             pass
@@ -310,7 +313,7 @@ class Slater:
                             self.alpha[atom, i, 2] * r**2 +
                             self.alpha[atom, i, 3] * r**3 +
                             self.alpha[atom, i, 4] * r**4
-                        )
+                        ) + self.cusp_shift[atom, i]
 
         orbital_down = np.zeros((self.ned, self.ned))
         for i in range(self.ned):
@@ -325,7 +328,7 @@ class Slater:
                             self.alpha[atom, i, 2] * r**2 +
                             self.alpha[atom, i, 3] * r**3 +
                             self.alpha[atom, i, 4] * r**4
-                        )
+                        ) + self.cusp_shift[atom, i]
 
         return orbital_up, orbital_down
 
@@ -346,7 +349,7 @@ class Slater:
                             self.alpha[atom, i, 2] * r ** 2 +
                             self.alpha[atom, i, 3] * r ** 3 +
                             self.alpha[atom, i, 4] * r ** 4
-                        ) * n_vectors[atom, j] / r
+                        ) * n_vectors[atom, j] / r + self.cusp_shift[atom, i]
 
         gradient_down = np.zeros((self.ned, self.ned, 3))
         for i in range(self.ned):
@@ -363,7 +366,7 @@ class Slater:
                             self.alpha[atom, i, 2] * r ** 2 +
                             self.alpha[atom, i, 3] * r ** 3 +
                             self.alpha[atom, i, 4] * r ** 4
-                        ) * n_vectors[atom, self.neu + j] / r
+                        ) * n_vectors[atom, self.neu + j] / r + self.cusp_shift[atom, i]
 
         return gradient_up, gradient_down
 
@@ -386,7 +389,7 @@ class Slater:
                             self.alpha[atom, i, 2] * r ** 2 +
                             self.alpha[atom, i, 3] * r ** 3 +
                             self.alpha[atom, i, 4] * r ** 4
-                        ) / r
+                        ) / r + self.cusp_shift[atom, i]
 
         laplacian_down = np.zeros((self.ned, self.ned))
         for i in range(self.ned):
@@ -405,7 +408,7 @@ class Slater:
                             self.alpha[atom, i, 2] * r ** 2 +
                             self.alpha[atom, i, 3] * r ** 3 +
                             self.alpha[atom, i, 4] * r ** 4
-                        ) / r
+                        ) / r + self.cusp_shift[atom, i]
 
         return laplacian_up, laplacian_down
 
@@ -586,7 +589,7 @@ class Slater:
 
         return orbital
 
-    def value(self, n_vectors: np.ndarray) -> float:
+    def value(self, n_vectors: np.ndarray, flag=False) -> float:
         """Multideterminant wave function value.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
@@ -599,6 +602,9 @@ class Slater:
             if self.orbital_sign is not None:
                 wfn_u = np.where(cusp_wfn_up, cusp_wfn_up, self.mo_up[i] @ ao[:self.neu].T)
                 wfn_d = np.where(cusp_wfn_down, cusp_wfn_down, self.mo_down[i] @ ao[self.neu:].T)
+                if flag:
+                    print(cusp_wfn_up, self.mo_up[i] @ ao[:self.neu].T)
+                    print(cusp_wfn_down, self.mo_down[i] @ ao[self.neu:].T)
             else:
                 wfn_u = self.mo_up[i] @ ao[:self.neu].T
                 wfn_d = self.mo_down[i] @ ao[self.neu:].T
@@ -787,7 +793,7 @@ class Slater:
 
         return hass.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / val
 
-    def numerical_gradient(self, n_vectors: np.ndarray) -> float:
+    def numerical_gradient(self, n_vectors: np.ndarray, flag=False) -> float:
         """Numerical gradient with respect to a e-coordinates
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
@@ -798,10 +804,20 @@ class Slater:
         for i in range(self.neu + self.ned):
             for j in range(3):
                 n_vectors[:, i, j] -= delta
+                if flag:
+                    a = self.value(n_vectors)
+                    a_vector = np.copy(n_vectors)
                 res[i, j] -= self.value(n_vectors)
                 n_vectors[:, i, j] += 2 * delta
+                if flag:
+                    b = self.value(n_vectors)
+                    b_vector = np.copy(n_vectors)
                 res[i, j] += self.value(n_vectors)
                 n_vectors[:, i, j] -= delta
+                if flag and np.abs((a - b) / (a + b)) > 0.001:
+                    print('--------------')
+                    self.value(a_vector, True)
+                    self.value(b_vector, True)
 
         return res.ravel() / delta / 2 / val
 
