@@ -793,7 +793,7 @@ class Slater:
 
         return hass.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / val
 
-    def numerical_gradient(self, n_vectors: np.ndarray, flag=False) -> float:
+    def numerical_gradient(self, n_vectors: np.ndarray) -> float:
         """Numerical gradient with respect to a e-coordinates
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
@@ -804,20 +804,10 @@ class Slater:
         for i in range(self.neu + self.ned):
             for j in range(3):
                 n_vectors[:, i, j] -= delta
-                if flag:
-                    a = self.value(n_vectors)
-                    a_vector = np.copy(n_vectors)
                 res[i, j] -= self.value(n_vectors)
                 n_vectors[:, i, j] += 2 * delta
-                if flag:
-                    b = self.value(n_vectors)
-                    b_vector = np.copy(n_vectors)
                 res[i, j] += self.value(n_vectors)
                 n_vectors[:, i, j] -= delta
-                if flag and np.abs((a - b) / (a + b)) > 0.001:
-                    print('--------------')
-                    self.value(a_vector, True)
-                    self.value(b_vector, True)
 
         return res.ravel() / delta / 2 / val
 
