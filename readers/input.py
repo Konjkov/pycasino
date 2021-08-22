@@ -22,6 +22,8 @@ class Input:
         self.vmc_decorr_period = 3
         self.ebest_av_window = 25
         self.nucleus_gf_mods = True
+        self.cusp_correction = False
+        self.use_gpcc = False
         with open(file_name, 'r') as f:
             for line in f:
                 # remove comments
@@ -71,4 +73,5 @@ class Input:
                     self.dmc_target_weight = read_float(line)
                 elif line.startswith('vmc_decorr_period'):
                     self.vmc_decorr_period = read_int(line)
-
+                elif line.startswith('cusp_correction'):
+                    self.cusp_correction = read_bool(line)

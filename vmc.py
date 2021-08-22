@@ -650,14 +650,14 @@ if __name__ == '__main__':
     # path = 'test/gwfn/He/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/Be/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/Ne/HF/cc-pVQZ/CBCS/Slater/'
-    # path = 'test/gwfn/Ae/HF/cc-pVQZ/CBCS/Slater/'
+    # path = 'test/gwfn/Ar/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/Kr/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/O3/HF/cc-pVQZ/CBCS/Slater/'
 
     # path = 'test/gwfn/He/HF/cc-pVQZ/CBCS/Jastrow/'
     # path = 'test/gwfn/Be/HF/cc-pVQZ/CBCS/Jastrow/'
     # path = 'test/gwfn/Ne/HF/cc-pVQZ/CBCS/Jastrow/'
-    # path = 'test/gwfn/Ae/HF/cc-pVQZ/CBCS/Jastrow/'
+    # path = 'test/gwfn/Ar/HF/cc-pVQZ/CBCS/Jastrow/'
     # path = 'test/gwfn/Kr/HF/cc-pVQZ/CBCS/Jastrow/'
     # path = 'test/gwfn/O3/HF/cc-pVQZ/CBCS/Jastrow/'
 

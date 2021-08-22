@@ -5,7 +5,7 @@ import numba as nb
 
 import matplotlib.pyplot as plt
 
-from readers.casino import Casino
+from readers.casino import CasinoConfig
 from overload import subtract_outer
 
 
@@ -146,11 +146,9 @@ if __name__ == '__main__':
 
     rank = [2, 0]
 
-    # path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/casl/8__1/'
-    path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/casl/8__1/'
-    # path = 'test/gwfn/be/HF/cc-pVQZ/VMC_OPT/emin/casl/8__4/'
+    path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/casl/8__1/'
 
-    casino = Casino(path)
+    casino = CasinoConfig(path)
     gjastrow = Gjastrow(
         casino.jastrow.e_rank, casino.jastrow.n_rank,
         casino.jastrow.ee_basis_type, casino.jastrow.en_basis_type,
