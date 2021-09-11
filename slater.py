@@ -718,8 +718,6 @@ class Slater:
             if self.cusp_orbital_sign is not None:
                 wfn_u = np.where(cusp_wfn_up, cusp_wfn_up, self.mo_up[i] @ ao[:self.neu].T)
                 wfn_d = np.where(cusp_wfn_down, cusp_wfn_down, self.mo_down[i] @ ao[self.neu:].T)
-                # print(cusp_wfn_up, self.mo_up[i] @ ao[:self.neu].T)
-                # print(cusp_wfn_down, self.mo_down[i] @ ao[self.neu:].T)
             else:
                 wfn_u = self.mo_up[i] @ ao[:self.neu].T
                 wfn_d = self.mo_down[i] @ ao[self.neu:].T
