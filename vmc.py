@@ -2,7 +2,7 @@
 
 import os
 from timeit import default_timer
-from slater import Slater
+from slater import Slater, Cusp
 from jastrow import Jastrow
 from backflow import Backflow
 from wfn import Wfn
@@ -420,11 +420,13 @@ class Casino:
         """
         self.config = CasinoConfig(path)
 
+        cusp = Cusp(self.config.input.neu, self.config.input.ned, self.config.wfn.nbasis_functions)
+
         self.slater = Slater(
             self.config.input.neu, self.config.input.ned,
             self.config.wfn.nbasis_functions, self.config.wfn.first_shells, self.config.wfn.orbital_types, self.config.wfn.shell_moments,
             self.config.wfn.slater_orders, self.config.wfn.primitives, self.config.wfn.coefficients, self.config.wfn.exponents,
-            self.config.mdet.mo_up, self.config.mdet.mo_down, self.config.mdet.coeff
+            self.config.mdet.mo_up, self.config.mdet.mo_down, self.config.mdet.coeff, cusp
         )
         self.jastrow = self.config.jastrow and Jastrow(
             self.config.input.neu, self.config.input.ned,
