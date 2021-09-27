@@ -141,13 +141,14 @@ cusp_spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
     ('nbasis_functions', nb.int64),
-    ('norm', nb.optional(nb.float64)),
-    ('s_mask', nb.optional(nb.float64[:])),
-    ('shift', nb.optional(nb.float64[:, :])),
-    ('orbital_sign', nb.optional(nb.int64[:, :])),
-    ('r', nb.optional(nb.float64[:, :])),
-    ('alpha', nb.optional(nb.float64[:, :, :])),
+    ('norm', nb.float64),
+    ('s_mask', nb.float64[:]),
+    ('shift', nb.float64[:, :]),
+    ('orbital_sign', nb.int64[:, :]),
+    ('r', nb.float64[:, :]),
+    ('alpha', nb.float64[:, :, :]),
 ]
+
 
 @nb.experimental.jitclass(cusp_spec)
 class Cusp:
@@ -364,6 +365,157 @@ class Cusp:
         self.r = np.concatenate((cusp_r_up, cusp_r_down), axis=1)
         self.alpha = np.concatenate((cusp_alpha_up, cusp_alpha_down), axis=1)
 
+    def wfn(self, n_vectors: np.ndarray):
+        """Calculate cusped correction for s-part of orbitals.
+        We apply a cusp correction to each orbital at each nucleus at which it is nonzero. Inside some cusp
+        correction radius rc we replace φ, the part of the orbital arising from s-type Gaussian functions centred
+        on the nucleus in question, by
+        φ̃ = C + sign[φ̃(0)] * exp[p(r)]
+        in gaussians.f90 set
+        POLYPRINT=.true. ! Include cusp polynomial coefficients in CUSP_INFO output.
+        """
+        orbital = np.zeros((self.neu + self.ned, self.neu + self.ned))
+        for i in range(self.neu):
+            for j in range(self.neu):
+                for atom in range(n_vectors.shape[0]):
+                    x, y, z = n_vectors[atom, j]
+                    r = np.sqrt(x * x + y * y + z * z)
+                    if r < self.r[atom, i]:
+                        orbital[i, j] = self.orbital_sign[atom, i] * np.exp(
+                            self.alpha[atom, i, 0] +
+                            self.alpha[atom, i, 1] * r +
+                            self.alpha[atom, i, 2] * r**2 +
+                            self.alpha[atom, i, 3] * r**3 +
+                            self.alpha[atom, i, 4] * r**4
+                        ) + self.shift[atom, i]
+
+        for i in range(self.neu, self.neu + self.ned):
+            for j in range(self.neu, self.neu + self.ned):
+                for atom in range(n_vectors.shape[0]):
+                    x, y, z = n_vectors[atom, j]
+                    r = np.sqrt(x * x + y * y + z * z)
+                    if r < self.r[atom, i]:
+                        orbital[i, j] = self.orbital_sign[atom, i] * np.exp(
+                            self.alpha[atom, i, 0] +
+                            self.alpha[atom, i, 1] * r +
+                            self.alpha[atom, i, 2] * r**2 +
+                            self.alpha[atom, i, 3] * r**3 +
+                            self.alpha[atom, i, 4] * r**4
+                        ) + self.shift[atom, i]
+
+        return self.norm * orbital
+
+    def gradient(self, n_vectors: np.ndarray):
+        """Cusp part of gradient"""
+        gradient = np.zeros((self.neu + self.ned, self.neu + self.ned, 3))
+        for i in range(self.neu):
+            for j in range(self.neu):
+                for atom in range(n_vectors.shape[0]):
+                    x, y, z = n_vectors[atom, j]
+                    r = np.sqrt(x * x + y * y + z * z)
+                    if r < self.r[atom, i]:
+                        gradient[i, j] = self.orbital_sign[atom, i] * (
+                                self.alpha[atom, i, 1] +
+                                2 * self.alpha[atom, i, 2] * r +
+                                3 * self.alpha[atom, i, 3] * r**2 +
+                                4 * self.alpha[atom, i, 4] * r**3
+                        ) * np.exp(
+                            self.alpha[atom, i, 0] +
+                            self.alpha[atom, i, 1] * r +
+                            self.alpha[atom, i, 2] * r ** 2 +
+                            self.alpha[atom, i, 3] * r ** 3 +
+                            self.alpha[atom, i, 4] * r ** 4
+                        ) * n_vectors[atom, j] / r + self.shift[atom, i]
+
+        for i in range(self.neu, self.neu + self.ned):
+            for j in range(self.neu, self.neu + self.ned):
+                for atom in range(n_vectors.shape[0]):
+                    x, y, z = n_vectors[atom, j]
+                    r = np.sqrt(x * x + y * y + z * z)
+                    if r < self.r[atom, i]:
+                        gradient[i, j] = self.orbital_sign[atom, i] * (
+                                self.alpha[atom, i, 1] +
+                                2 * self.alpha[atom, i, 2] * r +
+                                3 * self.alpha[atom, i, 3] * r**2 +
+                                4 * self.alpha[atom, i, 4] * r**3
+                        ) * np.exp(
+                            self.alpha[atom, i, 0] +
+                            self.alpha[atom, i, 1] * r +
+                            self.alpha[atom, i, 2] * r ** 2 +
+                            self.alpha[atom, i, 3] * r ** 3 +
+                            self.alpha[atom, i, 4] * r ** 4
+                        ) * n_vectors[atom, j] / r + self.shift[atom, i]
+
+        return self.norm * gradient
+
+    def laplacian(self, n_vectors: np.ndarray):
+        """Cusp part of laplacian"""
+        laplacian = np.zeros((self.neu + self.ned, self.neu + self.ned))
+        for i in range(self.neu):
+            for j in range(self.neu):
+                for atom in range(n_vectors.shape[0]):
+                    x, y, z = n_vectors[atom, j]
+                    r = np.sqrt(x * x + y * y + z * z)
+                    if r < self.r[atom, i]:
+                        laplacian[i, j] = self.orbital_sign[atom, i] * (
+                            2 * self.alpha[atom, i, 1] +
+                            4 * self.alpha[atom, i, 2] * r +
+                            6 * self.alpha[atom, i, 3] * r**2 +
+                            8 * self.alpha[atom, i, 4] * r**3 +
+                            2 * r * (self.alpha[atom, i, 2] + 3 * self.alpha[atom, i, 3] * r + 6 * self.alpha[atom, i, 4] * r**2) +
+                            r * (self.alpha[atom, i, 1] + 2 * self.alpha[atom, i, 2] * r + 3*self.alpha[atom, i, 3] * r**2 + 4*self.alpha[atom, i, 4] * r**3)**2
+                        ) * np.exp(
+                            self.alpha[atom, i, 0] +
+                            self.alpha[atom, i, 1] * r +
+                            self.alpha[atom, i, 2] * r ** 2 +
+                            self.alpha[atom, i, 3] * r ** 3 +
+                            self.alpha[atom, i, 4] * r ** 4
+                        ) / r + self.shift[atom, i]
+
+        for i in range(self.neu, self.neu + self.ned):
+            for j in range(self.neu, self.neu + self.ned):
+                for atom in range(n_vectors.shape[0]):
+                    x, y, z = n_vectors[atom, j]
+                    r = np.sqrt(x * x + y * y + z * z)
+                    if r < self.r[atom, i]:
+                        laplacian[i, j] = self.orbital_sign[atom, i] * (
+                            2 * self.alpha[atom, i, 1] +
+                            4 * self.alpha[atom, i, 2] * r +
+                            6 * self.alpha[atom, i, 3] * r**2 +
+                            8 * self.alpha[atom, i, 4] * r**3 +
+                            2 * r * (self.alpha[atom, i, 2] + 3 * self.alpha[atom, i, 3] * r + 6 * self.alpha[atom, i, 4] * r**2) +
+                            r * (self.alpha[atom, i, 1] + 2 * self.alpha[atom, i, 2] * r + 3*self.alpha[atom, i, 3] * r**2 + 4*self.alpha[atom, i, 4] * r**3)**2
+                        ) * np.exp(
+                            self.alpha[atom, i, 0] +
+                            self.alpha[atom, i, 1] * r +
+                            self.alpha[atom, i, 2] * r ** 2 +
+                            self.alpha[atom, i, 3] * r ** 3 +
+                            self.alpha[atom, i, 4] * r ** 4
+                        ) / r + self.shift[atom, i]
+
+        return self.norm * laplacian
+
+    def hessian(self, n_vectors: np.ndarray):
+        """Cusp part of laplacian"""
+        hessian = np.zeros((self.neu + self.ned, self.neu + self.ned))
+        for i in range(self.neu):
+            for j in range(self.neu):
+                for atom in range(n_vectors.shape[0]):
+                    x, y, z = n_vectors[atom, j]
+                    r = np.sqrt(x * x + y * y + z * z)
+                    if r < self.r[atom, i]:
+                        pass
+
+        for i in range(self.ned):
+            for j in range(self.ned):
+                for atom in range(n_vectors.shape[0]):
+                    x, y, z = n_vectors[atom, self.neu + j]
+                    r = np.sqrt(x * x + y * y + z * z)
+                    if r < self.r[atom, i]:
+                        pass
+
+        return self.norm * hessian
+
 
 slater_spec = [
     ('neu', nb.int64),
@@ -420,157 +572,6 @@ class Slater:
         self.mo_down = mo_down
         self.coeff = coeff
         self.cusp = cusp
-
-    def cusp_wfn(self, n_vectors: np.ndarray):
-        """Calculate cusped correction for s-part of orbitals.
-        We apply a cusp correction to each orbital at each nucleus at which it is nonzero. Inside some cusp
-        correction radius rc we replace φ, the part of the orbital arising from s-type Gaussian functions centred
-        on the nucleus in question, by
-        φ̃ = C + sign[φ̃(0)] * exp[p(r)]
-        in gaussians.f90 set
-        POLYPRINT=.true. ! Include cusp polynomial coefficients in CUSP_INFO output.
-        """
-        orbital = np.zeros((self.neu + self.ned, self.neu + self.ned))
-        for i in range(self.neu):
-            for j in range(self.neu):
-                for atom in range(n_vectors.shape[0]):
-                    x, y, z = n_vectors[atom, j]
-                    r = np.sqrt(x * x + y * y + z * z)
-                    if r < self.cusp.r[atom, i]:
-                        orbital[i, j] = self.cusp.orbital_sign[atom, i] * np.exp(
-                            self.cusp.alpha[atom, i, 0] +
-                            self.cusp.alpha[atom, i, 1] * r +
-                            self.cusp.alpha[atom, i, 2] * r**2 +
-                            self.cusp.alpha[atom, i, 3] * r**3 +
-                            self.cusp.alpha[atom, i, 4] * r**4
-                        ) + self.cusp.shift[atom, i]
-
-        for i in range(self.neu, self.neu + self.ned):
-            for j in range(self.neu, self.neu + self.ned):
-                for atom in range(n_vectors.shape[0]):
-                    x, y, z = n_vectors[atom, j]
-                    r = np.sqrt(x * x + y * y + z * z)
-                    if r < self.cusp.r[atom, i]:
-                        orbital[i, j] = self.cusp.orbital_sign[atom, i] * np.exp(
-                            self.cusp.alpha[atom, i, 0] +
-                            self.cusp.alpha[atom, i, 1] * r +
-                            self.cusp.alpha[atom, i, 2] * r**2 +
-                            self.cusp.alpha[atom, i, 3] * r**3 +
-                            self.cusp.alpha[atom, i, 4] * r**4
-                        ) + self.cusp.shift[atom, i]
-
-        return self.cusp.norm * orbital
-
-    def cusp_gradient(self, n_vectors: np.ndarray):
-        """Cusp part of gradient"""
-        gradient = np.zeros((self.neu + self.ned, self.neu + self.ned, 3))
-        for i in range(self.neu):
-            for j in range(self.neu):
-                for atom in range(n_vectors.shape[0]):
-                    x, y, z = n_vectors[atom, j]
-                    r = np.sqrt(x * x + y * y + z * z)
-                    if r < self.cusp.r[atom, i]:
-                        gradient[i, j] = self.cusp.orbital_sign[atom, i] * (
-                                self.cusp.alpha[atom, i, 1] +
-                                2 * self.cusp.alpha[atom, i, 2] * r +
-                                3 * self.cusp.alpha[atom, i, 3] * r**2 +
-                                4 * self.cusp.alpha[atom, i, 4] * r**3
-                        ) * np.exp(
-                            self.cusp.alpha[atom, i, 0] +
-                            self.cusp.alpha[atom, i, 1] * r +
-                            self.cusp.alpha[atom, i, 2] * r ** 2 +
-                            self.cusp.alpha[atom, i, 3] * r ** 3 +
-                            self.cusp.alpha[atom, i, 4] * r ** 4
-                        ) * n_vectors[atom, j] / r + self.cusp.shift[atom, i]
-
-        for i in range(self.neu, self.neu + self.ned):
-            for j in range(self.neu, self.neu + self.ned):
-                for atom in range(n_vectors.shape[0]):
-                    x, y, z = n_vectors[atom, j]
-                    r = np.sqrt(x * x + y * y + z * z)
-                    if r < self.cusp.r[atom, i]:
-                        gradient[i, j] = self.cusp.orbital_sign[atom, i] * (
-                                self.cusp.alpha[atom, i, 1] +
-                                2 * self.cusp.alpha[atom, i, 2] * r +
-                                3 * self.cusp.alpha[atom, i, 3] * r**2 +
-                                4 * self.cusp.alpha[atom, i, 4] * r**3
-                        ) * np.exp(
-                            self.cusp.alpha[atom, i, 0] +
-                            self.cusp.alpha[atom, i, 1] * r +
-                            self.cusp.alpha[atom, i, 2] * r ** 2 +
-                            self.cusp.alpha[atom, i, 3] * r ** 3 +
-                            self.cusp.alpha[atom, i, 4] * r ** 4
-                        ) * n_vectors[atom, j] / r + self.cusp.shift[atom, i]
-
-        return self.cusp.norm * gradient
-
-    def cusp_laplacian(self, n_vectors: np.ndarray):
-        """Cusp part of laplacian"""
-        laplacian = np.zeros((self.neu + self.ned, self.neu + self.ned))
-        for i in range(self.neu):
-            for j in range(self.neu):
-                for atom in range(n_vectors.shape[0]):
-                    x, y, z = n_vectors[atom, j]
-                    r = np.sqrt(x * x + y * y + z * z)
-                    if r < self.cusp.r[atom, i]:
-                        laplacian[i, j] = self.cusp.orbital_sign[atom, i] * (
-                            2 * self.cusp.alpha[atom, i, 1] +
-                            4 * self.cusp.alpha[atom, i, 2] * r +
-                            6 * self.cusp.alpha[atom, i, 3] * r**2 +
-                            8 * self.cusp.alpha[atom, i, 4] * r**3 +
-                            2 * r * (self.cusp.alpha[atom, i, 2] + 3 * self.cusp.alpha[atom, i, 3] * r + 6 * self.cusp.alpha[atom, i, 4] * r**2) +
-                            r * (self.cusp.alpha[atom, i, 1] + 2 * self.cusp.alpha[atom, i, 2] * r + 3*self.cusp.alpha[atom, i, 3] * r**2 + 4*self.cusp.alpha[atom, i, 4] * r**3)**2
-                        ) * np.exp(
-                            self.cusp.alpha[atom, i, 0] +
-                            self.cusp.alpha[atom, i, 1] * r +
-                            self.cusp.alpha[atom, i, 2] * r ** 2 +
-                            self.cusp.alpha[atom, i, 3] * r ** 3 +
-                            self.cusp.alpha[atom, i, 4] * r ** 4
-                        ) / r + self.cusp.shift[atom, i]
-
-        for i in range(self.neu, self.neu + self.ned):
-            for j in range(self.neu, self.neu + self.ned):
-                for atom in range(n_vectors.shape[0]):
-                    x, y, z = n_vectors[atom, j]
-                    r = np.sqrt(x * x + y * y + z * z)
-                    if r < self.cusp.r[atom, i]:
-                        laplacian[i, j] = self.cusp.orbital_sign[atom, i] * (
-                            2 * self.cusp.alpha[atom, i, 1] +
-                            4 * self.cusp.alpha[atom, i, 2] * r +
-                            6 * self.cusp.alpha[atom, i, 3] * r**2 +
-                            8 * self.cusp.alpha[atom, i, 4] * r**3 +
-                            2 * r * (self.cusp.alpha[atom, i, 2] + 3 * self.cusp.alpha[atom, i, 3] * r + 6 * self.cusp.alpha[atom, i, 4] * r**2) +
-                            r * (self.cusp.alpha[atom, i, 1] + 2 * self.cusp.alpha[atom, i, 2] * r + 3*self.cusp.alpha[atom, i, 3] * r**2 + 4*self.cusp.alpha[atom, i, 4] * r**3)**2
-                        ) * np.exp(
-                            self.cusp.alpha[atom, i, 0] +
-                            self.cusp.alpha[atom, i, 1] * r +
-                            self.cusp.alpha[atom, i, 2] * r ** 2 +
-                            self.cusp.alpha[atom, i, 3] * r ** 3 +
-                            self.cusp.alpha[atom, i, 4] * r ** 4
-                        ) / r + self.cusp.shift[atom, i]
-
-        return self.cusp.norm * laplacian
-
-    def cusp_hessian(self, n_vectors: np.ndarray):
-        """Cusp part of laplacian"""
-        hessian = np.zeros((self.neu + self.ned, self.neu + self.ned))
-        for i in range(self.neu):
-            for j in range(self.neu):
-                for atom in range(n_vectors.shape[0]):
-                    x, y, z = n_vectors[atom, j]
-                    r = np.sqrt(x * x + y * y + z * z)
-                    if r < self.cusp.r[atom, i]:
-                        pass
-
-        for i in range(self.ned):
-            for j in range(self.ned):
-                for atom in range(n_vectors.shape[0]):
-                    x, y, z = n_vectors[atom, self.neu + j]
-                    r = np.sqrt(x * x + y * y + z * z)
-                    if r < self.cusp.r[atom, i]:
-                        pass
-
-        return self.cusp.norm * hessian
 
     def AO_wfn(self, n_vectors: np.ndarray) -> np.ndarray:
         """
@@ -736,7 +737,7 @@ class Slater:
         val = 0.0
         for i in range(self.coeff.shape[0]):
             if self.cusp is not None:
-                cusp_wfn = self.cusp_wfn(n_vectors)
+                cusp_wfn = self.cusp.wfn(n_vectors)
                 wfn_u = np.where(cusp_wfn[:self.neu, :self.neu], cusp_wfn[:self.neu, :self.neu], self.mo_up[i] @ ao[:self.neu].T)
                 wfn_d = np.where(cusp_wfn[self.neu:, self.neu:], cusp_wfn[self.neu:, self.neu:], self.mo_down[i] @ ao[self.neu:].T)
             else:
@@ -754,14 +755,14 @@ class Slater:
         ao = self.AO_wfn(n_vectors)
         gradient = self.AO_gradient(n_vectors)
         if self.cusp is not None:
-            cusp_wfn = self.cusp_wfn(n_vectors)
-            cusp_gradient = self.cusp_gradient(n_vectors)
+            cusp_wfn = self.cusp.wfn(n_vectors)
+            cusp_gradient = self.cusp.gradient(n_vectors)
 
         val = 0.0
         grad = np.zeros((self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
 
-            if self.cusp.orbital_sign is not None:
+            if self.cusp is not None:
                 wfn_u = np.where(cusp_wfn[:self.neu, :self.neu], cusp_wfn[:self.neu, :self.neu], self.mo_up[i] @ ao[:self.neu].T)
                 grad_u = np.where(cusp_gradient[:self.neu, :self.neu], cusp_gradient[:self.neu, :self.neu], (self.mo_up[i] @ gradient[:self.neu * 3].T).reshape((self.neu, self.neu, 3)))
             else:
@@ -770,7 +771,7 @@ class Slater:
             inv_wfn_u = np.linalg.inv(wfn_u)
             res_u = (inv_wfn_u * grad_u.T).T.sum(axis=0)
 
-            if self.cusp.orbital_sign is not None:
+            if self.cusp is not None:
                 wfn_d = np.where(cusp_wfn[self.neu:, self.neu:], cusp_wfn[self.neu:, self.neu:], self.mo_down[i] @ ao[self.neu:].T)
                 grad_d = np.where(cusp_gradient[self.neu:, self.neu:], cusp_gradient[self.neu:, self.neu:], (self.mo_down[i] @ gradient[self.neu * 3:].T).reshape((self.ned, self.ned, 3)))
             else:
@@ -801,13 +802,13 @@ class Slater:
         ao = self.AO_wfn(n_vectors)
         ao_laplacian = self.AO_laplacian(n_vectors)
         if self.cusp is not None:
-            cusp_wfn = self.cusp_wfn(n_vectors)
-            cusp_laplacian = self.cusp_laplacian(n_vectors)
+            cusp_wfn = self.cusp.wfn(n_vectors)
+            cusp_laplacian = self.cusp.laplacian(n_vectors)
 
         val = lap = 0
         for i in range(self.coeff.shape[0]):
 
-            if self.cusp.orbital_sign is not None:
+            if self.cusp is not None:
                 wfn_u = np.where(cusp_wfn[:self.neu, :self.neu], cusp_wfn[:self.neu, :self.neu], self.mo_up[i] @ ao[:self.neu].T)
                 lap_u = np.where(cusp_laplacian[:self.neu, :self.neu], cusp_laplacian[:self.neu, :self.neu], self.mo_up[i] @ ao_laplacian[:self.neu].T)
             else:
@@ -816,7 +817,7 @@ class Slater:
             inv_wfn_u = np.linalg.inv(wfn_u)
             res_u = np.sum(inv_wfn_u * lap_u.T)
 
-            if self.cusp.orbital_sign is not None:
+            if self.cusp is not None:
                 wfn_d = np.where(cusp_wfn[self.neu:, self.neu:], cusp_wfn[self.neu:, self.neu:], self.mo_down[i] @ ao[self.neu:].T)
                 lap_d = np.where(cusp_laplacian[self.neu:, self.neu:], cusp_laplacian[self.neu:, self.neu:], self.mo_down[i] @ ao_laplacian[self.neu:].T)
             else:
@@ -846,9 +847,9 @@ class Slater:
         gradient = self.AO_gradient(n_vectors)
         hessian = self.AO_hessian(n_vectors)
         if self.cusp is not None:
-            cusp_wfn = self.cusp_wfn(n_vectors)
-            cusp_gradient = self.cusp_gradient(n_vectors)
-            cusp_hessian = self.cusp_hessian(n_vectors)
+            cusp_wfn = self.cusp.wfn(n_vectors)
+            cusp_gradient = self.cusp.gradient(n_vectors)
+            cusp_hessian = self.cusp.hessian(n_vectors)
 
         val = 0
         hass = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
@@ -1062,7 +1063,10 @@ def profiling_hessian(dx, neu, ned, steps, atom_positions, slater, r_initial):
 def main(casino):
     dx = 3.0
 
-    cusp = Cusp()
+    if casino.config.input.cusp_correction:
+        cusp = Cusp(casino.config.input.neu, casino.config.input.ned, casino.config.wfn.nbasis_functions)
+    else:
+        cusp = None
 
     slater = Slater(
         casino.input.neu, casino.input.ned,

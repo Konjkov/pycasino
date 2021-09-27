@@ -22,8 +22,8 @@ class Input:
         self.vmc_decorr_period = 3
         self.ebest_av_window = 25
         self.nucleus_gf_mods = True
-        self.cusp_correction = False
-        self.use_gpcc = False
+        self.cusp_correction = None
+        self.use_gpcc = None
         with open(file_name, 'r') as f:
             for line in f:
                 # remove comments
@@ -75,3 +75,8 @@ class Input:
                     self.vmc_decorr_period = read_int(line)
                 elif line.startswith('cusp_correction'):
                     self.cusp_correction = read_bool(line)
+        if self.cusp_correction is None:
+            if self.atom_basis_type == 'gaussian':
+                self.cusp_correction = True
+            if self.atom_basis_type == 'slater-type':
+                self.cusp_correction = False

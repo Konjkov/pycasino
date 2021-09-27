@@ -420,7 +420,10 @@ class Casino:
         """
         self.config = CasinoConfig(path)
 
-        cusp = Cusp(self.config.input.neu, self.config.input.ned, self.config.wfn.nbasis_functions)
+        if self.config.input.cusp_correction:
+            cusp = Cusp(self.config.input.neu, self.config.input.ned, self.config.wfn.nbasis_functions)
+        else:
+            cusp = None
 
         self.slater = Slater(
             self.config.input.neu, self.config.input.ned,
