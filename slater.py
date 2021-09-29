@@ -138,6 +138,55 @@ def hessian_angular_part(x, y, z):
     ])
 
 
+slater_spec = [
+    ('neu', nb.int64),
+    ('ned', nb.int64),
+    ('nbasis_functions', nb.int64),
+    ('first_shells', nb.int64[:]),
+    ('orbital_types', nb.int64[:]),
+    ('shell_moments', nb.int64[:]),
+    ('slater_orders', nb.int64[:]),
+    ('primitives', nb.int64[:]),
+    ('coefficients', nb.float64[:]),
+    ('exponents', nb.float64[:]),
+    ('mo_up', nb.float64[:, :, :]),
+    ('mo_down', nb.float64[:, :, :]),
+    ('coeff', nb.float64[:]),
+    ('cusp', nb.optional(Cusp.class_type.instance_type)),
+]
+
+
+@nb.experimental.jitclass(slater_spec)
+class Slater:
+
+    def __init__(
+        self, neu, ned,
+        nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders, primitives, coefficients, exponents, mo_up, mo_down, coeff, cusp
+    ):
+        """
+        Slater
+        :param neu: number of up electrons
+        :param ned: number of down electrons
+        :param nbasis_functions:
+        :param first_shells:
+        :param orbital_types:
+        :param shell_moments:
+        :param slater_orders:
+        :param primitives:
+        :param coefficients:
+        :param exponents:
+        :param mo_up:
+        :param mo_down:
+        :param coeff:
+        """
+        self.neu = neu
+        self.ned = ned
+        self.nbasis_functions = nbasis_functions
+        self.first_shells = first_shells
+        self.orbital_types = orbital_types
+        self.shell_moments = shell_moments
+        self.slater_orders = slater_orders
+
     def wfn(self, n_vectors: np.ndarray):
         """Calculate cusped correction for s-part of orbitals.
         We apply a cusp correction to each orbital at each nucleus at which it is nonzero. Inside some cusp
