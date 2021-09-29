@@ -19,6 +19,7 @@ from overload import subtract_outer
 from logger import logging
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from readers.casino import CasinoConfig
+from cusp.cusp import Cusp
 
 logger = logging.getLogger('vmc')
 

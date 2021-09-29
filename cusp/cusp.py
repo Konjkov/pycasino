@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
-import numpy as nb
+import numba as nb
 import matplotlib.pyplot as plt
 
 from scipy.optimize import curve_fit
@@ -234,6 +234,7 @@ class Cusp:
         self.orbital_sign = np.concatenate((cusp_orbital_sign_up, cusp_orbital_sign_down), axis=1)
         self.r = np.concatenate((cusp_r_up, cusp_r_down), axis=1)
         self.alpha = np.concatenate((cusp_alpha_up, cusp_alpha_down), axis=1)
+
 
 def wfn_s(r, coefficients, exponents):
     """wfn of single electron of any s-orbital"""
