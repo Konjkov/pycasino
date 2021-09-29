@@ -1060,40 +1060,40 @@ def profiling_hessian(dx, neu, ned, steps, atom_positions, slater, r_initial):
         slater.hessian(n_vectors)
 
 
-def main(casino):
+def main(config):
     dx = 3.0
 
-    if casino.config.input.cusp_correction:
-        cusp = Cusp(casino.config.input.neu, casino.config.input.ned, casino.config.wfn.nbasis_functions)
+    if config.input.cusp_correction:
+        cusp = Cusp(config.input.neu, config.input.ned, config.wfn.nbasis_functions)
     else:
         cusp = None
 
     slater = Slater(
-        casino.input.neu, casino.input.ned,
-        casino.wfn.nbasis_functions, casino.wfn.first_shells, casino.wfn.orbital_types, casino.wfn.shell_moments,
-        casino.wfn.slater_orders, casino.wfn.primitives, casino.wfn.coefficients, casino.wfn.exponents,
-        casino.mdet.mo_up, casino.mdet.mo_down, casino.mdet.coeff, cusp
+        config.input.neu, config.input.ned,
+        config.wfn.nbasis_functions, config.wfn.first_shells, config.wfn.orbital_types, config.wfn.shell_moments,
+        config.wfn.slater_orders, config.wfn.primitives, config.wfn.coefficients, config.wfn.exponents,
+        config.mdet.mo_up, config.mdet.mo_down, config.mdet.coeff, cusp
     )
 
-    r_initial = initial_position(casino.input.neu + casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges)
+    r_initial = initial_position(config.input.neu + config.input.ned, config.wfn.atom_positions, config.wfn.atom_charges)
 
     start = default_timer()
-    profiling_value(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
+    profiling_value(dx, config.input.neu, config.input.ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
     end = default_timer()
     logger.info(' value     %8.1f', end - start)
 
     start = default_timer()
-    profiling_laplacian(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
+    profiling_laplacian(dx, config.input.neu, config.input.ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
     end = default_timer()
     logger.info(' laplacian %8.1f', end - start)
 
     start = default_timer()
-    profiling_gradient(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
+    profiling_gradient(dx, config.input.neu, config.input.ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
     end = default_timer()
     logger.info(' gradient  %8.1f', end - start)
 
     start = default_timer()
-    profiling_hessian(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, slater, r_initial)
+    profiling_hessian(dx, config.input.neu, config.input.ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
     end = default_timer()
     logger.info(' hessian   %8.1f', end - start)
 
