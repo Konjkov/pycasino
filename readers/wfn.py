@@ -2,7 +2,7 @@ from math import factorial, pi, sqrt
 
 import numpy as np
 import numba as nb
-from cusp.cusp import multiple_fits
+#from cusp.cusp import multiple_fits
 
 GAUSSIAN_TYPE = 0
 SLATER_TYPE = 1

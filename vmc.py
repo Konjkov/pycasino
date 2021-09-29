@@ -2,7 +2,8 @@
 
 import os
 from timeit import default_timer
-from slater import Slater, Cusp
+from cusp import Cusp
+from slater import Slater
 from jastrow import Jastrow
 from backflow import Backflow
 from wfn import Wfn
