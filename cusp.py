@@ -40,21 +40,21 @@ class Cusp:
         if self.neu == 1 and self.ned == 1:
             self.s_mask[:4] = 0.0
             # atoms, MO
-            cusp_shift_up = cusp_shift_down = np.array([[0.0]])
+            shift_up = shift_down = np.array([[0.0]])
             # atoms, MO - sign of s-type Gaussian functions centered on the nucleus
-            cusp_orbital_sign_up = cusp_orbital_sign_down = np.array([[1]])
+            orbital_sign_up = orbital_sign_down = np.array([[1]])
             # atoms, MO
-            cusp_r_up = cusp_r_down = np.array([[0.4375]])
+            r_up = r_down = np.array([[0.4375]])
             # atoms, MO, alpha index
-            cusp_alpha_up = cusp_alpha_down = np.array([[
+            alpha_up = alpha_down = np.array([[
                 [0.29141713, -2.0, 0.25262478, -0.098352818, 0.11124336],
             ]])
         elif self.neu == 2 and self.ned == 2:
             self.s_mask[:5] = 0.0
-            cusp_shift_up = cusp_shift_down = np.array([[0.0, 0.0]])
-            cusp_orbital_sign_up = cusp_orbital_sign_down = np.array([[-1, -1]])
-            cusp_r_up = cusp_r_down = np.array([[0.1205, 0.1180]])
-            cusp_alpha_up = cusp_alpha_down = np.array([[
+            shift_up = shift_down = np.array([[0.0, 0.0]])
+            orbital_sign_up = orbital_sign_down = np.array([[-1, -1]])
+            r_up = r_down = np.array([[0.1205, 0.1180]])
+            alpha_up = alpha_down = np.array([[
                 [ 1.24736449, -4.0,  0.49675975, -0.30582868,  1.0897532],
                 [-0.45510824, -4.0, -0.73882727, -0.89716308, -5.8491770]
             ]])
@@ -62,10 +62,10 @@ class Cusp:
             pass
         elif self.neu == 5 and self.ned == 5:
             self.s_mask[:5] = 0.0
-            cusp_shift_up = cusp_shift_down = np.array([[0.0, 0.0, 0.0, 0.0, 0.0]])
-            cusp_orbital_sign_up = cusp_orbital_sign_down = np.array([[1, 1, 0, 0, 0]])
-            cusp_r_up = cusp_r_down = np.array([[0.0455, 0.0460, 0.0, 0.0, 0.0]])
-            cusp_alpha_up = cusp_alpha_down = np.array([[
+            shift_up = shift_down = np.array([[0.0, 0.0, 0.0, 0.0, 0.0]])
+            orbital_sign_up = orbital_sign_down = np.array([[1, 1, 0, 0, 0]])
+            r_up = r_down = np.array([[0.0455, 0.0460, 0.0, 0.0, 0.0]])
+            alpha_up = alpha_down = np.array([[
                 [2.36314075, -10.0,  0.81732253,  0.15573932E+02, -0.15756663E+03],
                 [0.91422900, -10.0, -0.84570201E+01, -0.26889022E+02, -0.17583628E+03],
                 [0.0, 0.0, 0.0, 0.0, 0.0],
@@ -74,10 +74,10 @@ class Cusp:
             ]])
         elif self.neu == 9 and self.ned == 9:
             self.s_mask[:6] = 0.0
-            cusp_shift_up = cusp_shift_down = np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
-            cusp_orbital_sign_up = cusp_orbital_sign_down = np.array([[1, 1, 0, 0, 0, -1, 0, 0, 0]])
-            cusp_r_up = cusp_r_down = np.array([[0.0205, 0.0200, 0, 0, 0, 0.0205, 0, 0, 0]])
-            cusp_alpha_up = cusp_alpha_down = np.array([[
+            shift_up = shift_down = np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
+            orbital_sign_up = orbital_sign_down = np.array([[1, 1, 0, 0, 0, -1, 0, 0, 0]])
+            r_up = r_down = np.array([[0.0205, 0.0200, 0, 0, 0, 0.0205, 0, 0, 0]])
+            alpha_up = alpha_down = np.array([[
                 [3.02622267, -18.0,  0.22734669E+01,  0.79076581E+02, -0.15595740E+04],
                 [1.76719238, -18.0, -0.30835348E+02, -0.23112278E+03, -0.45351148E+03],
                 [0.0, 0.0, 0.0, 0.0, 0.0],
@@ -90,10 +90,10 @@ class Cusp:
             ]])
         elif self.neu == 18 and self.ned == 18:
             self.s_mask[:7] = 0.0
-            cusp_shift_up = cusp_shift_down = np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
-            cusp_orbital_sign_up = cusp_orbital_sign_down = np.array([[1, 1, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0]])
-            cusp_r_up = cusp_r_down = np.array([[0.0045, 0.0045, 0, 0, 0, 0.0045, 0, 0, 0, 0, 0, 0, 0, 0, 0.0045, 0, 0, 0]])
-            cusp_alpha_up = cusp_alpha_down = np.array([[
+            shift_up = shift_down = np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
+            orbital_sign_up = orbital_sign_down = np.array([[1, 1, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0]])
+            r_up = r_down = np.array([[0.0045, 0.0045, 0, 0, 0, 0.0045, 0, 0, 0, 0, 0, 0, 0, 0, 0.0045, 0, 0, 0]])
+            alpha_up = alpha_down = np.array([[
                 [3.77764947, -36.0,  0.22235586E+02, -0.56621947E+04, 0.62983424E+06],
                 [2.62138667, -36.0, -0.12558804E+03, -0.72801257E+04, 0.58905979E+06],
                 [0.0, 0.0, 0.0, 0.0, 0.0],
@@ -117,32 +117,32 @@ class Cusp:
             self.s_mask[:5] = 0.0
             self.s_mask[55:55+5] = 0.0
             self.s_mask[110:110+5] = 0.0
-            cusp_shift_up = cusp_shift_down = np.array([
+            shift_up = shift_down = np.array([
                 [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
             ])
-            cusp_orbital_sign_up = np.array([
+            orbital_sign_up = np.array([
                 [-1, -1,  1, -1,  1, -1, 0, -1, -1, 0, -1,  1],
                 [-1,  1, -1, -1, -1,  1, 0, -1, -1, 0,  1, -1],
                 [-1, -1, -1, -1,  1,  1, 0, -1,  1, 0, -1, -1],
             ])
-            cusp_orbital_sign_down = np.array([
+            orbital_sign_down = np.array([
                 [-1, -1,  1,  1, -1, -1, 0, -1, -1, 0,  1, -1],
                 [-1, -1, -1,  1, -1,  1, 0, -1,  1, 0,  1,  1],
                 [-1,  1, -1,  1,  1,  1, 0, -1, -1, 0, -1,  1],
             ])
-            cusp_r_up = np.array([
+            r_up = np.array([
                 [0.0580, 0.0570, 0.0580, 0.0580, 0.0580, 0.0585, 0, 0.0605, 0.0565, 0, 0.0615, 0.0595],
                 [0.0605, 0.0580, 0.0620, 0.0790, 0.0415, 0.0590, 0, 0.0595, 0.0580, 0, 0.0935, 0.0910],
                 [0.0605, 0.0565, 0.0580, 0.0805, 0.0780, 0.0575, 0, 0.0660, 0.0580, 0, 0.0680, 0.1345],
             ])
-            cusp_r_down = np.array([
+            r_down = np.array([
                 [0.0580, 0.0570, 0.0580, 0.0580, 0.0580, 0.0585, 0, 0.0605, 0.0565, 0, 0.0615, 0.0595],
                 [0.0605, 0.0565, 0.0580, 0.0805, 0.0780, 0.0575, 0, 0.0660, 0.0580, 0, 0.0680, 0.1345],
                 [0.0605, 0.0580, 0.0620, 0.0790, 0.0415, 0.0590, 0, 0.0595, 0.0580, 0, 0.0935, 0.0910],
             ])
-            cusp_alpha_up = np.array([
+            alpha_up = np.array([
                 [
                     [ 1.66696112, -0.80000242E+01,  0.72538040E+00,  0.74822749E+01, -0.59832829E+02],
                     [-3.67934712, -0.80068146E+01,  0.52306712E+00,  0.74024477E+01, -0.66331792E+02],
@@ -186,7 +186,7 @@ class Cusp:
                     [-4.40492810, -0.52578816E+01,  0.37442246E+01,  0.60259540E+01,  0.24340638E+01],
                 ],
             ])
-            cusp_alpha_down = np.array([
+            alpha_down = np.array([
                 [
                     [ 1.66696112, -0.80000242E+01,  0.72538040E+00,  0.74822749E+01, -0.59832829E+02],
                     [-3.67934711, -0.80068146E+01,  0.52306718E+00,  0.74024468E+01, -0.66331787E+02],
@@ -230,10 +230,10 @@ class Cusp:
                     [-3.64299934, -0.72053551E+01, -0.11465606E+01, -0.73818076E+01,  0.16054597E+00],
                 ]
             ])
-        self.shift = np.concatenate((cusp_shift_up, cusp_shift_down), axis=1)
-        self.orbital_sign = np.concatenate((cusp_orbital_sign_up, cusp_orbital_sign_down), axis=1)
-        self.r = np.concatenate((cusp_r_up, cusp_r_down), axis=1)
-        self.alpha = np.concatenate((cusp_alpha_up, cusp_alpha_down), axis=1)
+        self.shift = np.concatenate((shift_up, shift_down), axis=1)
+        self.orbital_sign = np.concatenate((orbital_sign_up, orbital_sign_down), axis=1)
+        self.r = np.concatenate((r_up, r_down), axis=1)
+        self.alpha = np.concatenate((alpha_up, alpha_down), axis=1)
 
     def wfn(self, n_vectors: np.ndarray):
         """Calculate cusped correction for s-part of orbitals.
@@ -425,18 +425,18 @@ def initial_phi_data(mo, first_shells, shell_moments, primitives, coefficients, 
     """
     alpha = np.zeros((atom_positions.shape[0], mo.shape[0], 5))
     for natom in range(atom_positions.shape[0]):
-        rc = 1/atom_charges[natom]
-        phi_0, phi_1, _ = wfn_s(0.0, natom, mo, first_shells, shell_moments, primitives, coefficients, exponents, atom_positions)
+        rc = 1 / atom_charges[natom]
+        phi_0, _, _ = wfn_s(0.0, natom, mo, first_shells, shell_moments, primitives, coefficients, exponents, atom_positions)
         gauss0, gauss1, gauss2 = wfn_s(rc, natom, mo, first_shells, shell_moments, primitives, coefficients, exponents, atom_positions)
         eta = 0  # contribution from Gaussians on other nuclei
         for i in range(mo.shape[0]):
             shift = 0 if np.sign(phi_0[i]) == np.sign(gauss0[i]) else 1.1 * gauss0[i]
-            zeff = atom_charges[natom] * (1 + eta/phi_0[i])
-            print(f"atom {natom}, s-orbital at r=0 {phi_0[i]}, at r=rc {gauss0[i]}, C={shift}, psi-sign {np.sign(phi_0[i])}")
+            z_eff = atom_charges[natom] * (1 + eta/phi_0[i])
+            print(f"atom {natom}, rc {rc}, s-orbital at r=0 {phi_0[i]}, at r=rc {gauss0[i]}, C={shift}, psi-sign {np.sign(phi_0[i])}")
             X1 = np.log(np.abs(gauss0[i] - shift))                     # (9)
             X2 = gauss1[i] / (gauss0[i] - shift)                       # (10)
             X3 = gauss2[i] / (gauss0[i] - shift)                       # (11)
-            X4 = -zeff * phi_0[i] / (phi_0[i] - shift)                 # (12)
+            X4 = -z_eff * phi_0[i] / (phi_0[i] - shift)                # (12)
             X5 = np.log(np.abs(phi_0[i] - shift))                      # (13)
             print(f"X1={X1} X2={X2} X3={X3} X4={X4} X5={X5}")
             # (14)
