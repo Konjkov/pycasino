@@ -105,7 +105,27 @@ class Cusp:
                 [-0.45510824, -4.0, -0.73882727, -0.89716308, -5.8491770]
             ]])
         elif self.neu == 5 and self.ned == 2:
-            pass
+            wfn_0_up = np.array([[6.069114031640, -1.397116693472, 0.0, 0.0, 0.0]])
+            wfn_0_down = np.array([[6.095832387803, 1.268342737910]])
+            phi_0_up = np.array([[6.130043694767, -1.412040439372, 0.0, 0.0, 0.0]])
+            phi_0_down = np.array([[6.155438260537, 1.280709246720]])
+            shift_up = np.array([[0.0, 0.0, 0.0, 0.0, 0.0]])
+            shift_down = np.array([[0.0, 0.0]])
+            orbital_sign_up = np.array([[1, 1, 0, 0, 0]])
+            orbital_sign_down = np.array([[1, 1]])
+            r_up = np.array([[0.0670, 0.0695, 0.0, 0.0, 0.0]])
+            r_down = np.array([[0.0675, 0.0680]])
+            alpha_up = np.array([[
+                [1.81320188, -7.0,  0.66956651, 0.60574099E+01, -0.42786390E+02],
+                [0.34503578, -7.0, -0.34059064E+01, -0.10410228E+02, -0.22372391E+02],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+            ]])
+            alpha_down = np.array([[
+                [1.81733596, -7.0, 0.72913009, 0.19258618E+01, -0.12077748E+02],
+                [0.24741402, -7.0, -0.36101513E+01, -0.11720244E+02, -0.17700238E+02],
+            ]])
         elif self.neu == 5 and self.ned == 5:
             self.s_mask[:5] = 0.0
             wfn_0_up = wfn_0_down = np.array([[10.523069754656, 2.470734575103, 0.0, 0.0, 0.0]])
@@ -567,6 +587,7 @@ if __name__ == '__main__':
 
     # path = 'test/gwfn/He/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/Be/HF/cc-pVQZ/CBCS/Slater/'
+    # path = 'test/gwfn/N/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/Ne/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/Ar/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/Kr/HF/cc-pVQZ/CBCS/Slater/'
