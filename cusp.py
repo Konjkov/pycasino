@@ -111,7 +111,7 @@ class Cusp:
             phi_0_down = np.array([[6.155438260537, 1.280709246720]])
             shift_up = np.array([[0.0, 0.0, 0.0, 0.0, 0.0]])
             shift_down = np.array([[0.0, 0.0]])
-            orbital_sign_up = np.array([[1, 1, 0, 0, 0]])
+            orbital_sign_up = np.array([[1, -1, 0, 0, 0]])
             orbital_sign_down = np.array([[1, 1]])
             r_up = np.array([[0.0670, 0.0695, 0.0, 0.0, 0.0]])
             r_down = np.array([[0.0675, 0.0680]])
