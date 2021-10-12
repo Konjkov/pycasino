@@ -422,7 +422,11 @@ class Casino:
         self.config = CasinoConfig(path)
 
         if self.config.input.cusp_correction:
-            cusp = Cusp(self.config.input.neu, self.config.input.ned, self.config.wfn.nbasis_functions)
+            cusp = Cusp(
+                self.config.input.neu, self.config.input.ned, self.config.mdet.mo_up, self.config.mdet.mo_down,
+                self.config.wfn.nbasis_functions, self.config.wfn.first_shells, self.config.wfn.shell_moments, self.config.wfn.primitives,
+                self.config.wfn.coefficients, self.config.wfn.exponents, self.config.wfn.atom_positions, self.config.wfn.atom_charges
+            )
         else:
             cusp = None
 
@@ -687,6 +691,7 @@ if __name__ == '__main__':
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Jastrow/'
+    # path = 'test/stowfn/N/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/Ar/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Jastrow/'

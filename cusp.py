@@ -11,6 +11,16 @@ cusp_spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
     ('nbasis_functions', nb.int64),
+    ('first_shells', nb.int64[:]),
+    ('shell_moments', nb.int64[:]),
+    ('slater_orders', nb.int64[:]),
+    ('primitives', nb.int64[:]),
+    ('coefficients', nb.float64[:]),
+    ('exponents', nb.float64[:]),
+    ('mo_up', nb.float64[:, :, :]),
+    ('mo_down', nb.float64[:, :, :]),
+    ('atom_positions', nb.float64[:, :]),
+    ('atom_charges', nb.float64[:]),
     ('norm', nb.float64),
     ('s_mask', nb.float64[:]),
     ('wfn_0', nb.float64[:, :]),
@@ -62,19 +72,25 @@ class Cusp:
     energy within rcmax. Set rcusp to the largest radius at which the deviation
     from the "ideal" curve has a magnitude greater than zatom^2/cusp_control.
     """
-    def __init__(self, neu, ned, nbasis_functions):
+    def __init__(
+            self, neu, ned, mo_up, mo_down, nbasis_functions, first_shells, shell_moments,
+            primitives, coefficients, exponents, atom_positions, atom_charges
+    ):
         """
         Cusp
         """
         self.neu = neu
         self.ned = ned
         self.nbasis_functions = nbasis_functions
-        # self.s_mask = s_mask
-        # self.shift = shift
-        # self.orbital_sign = orbital_sign
-        # self.r = r
-        # self.alpha = alpha
-        # phi_0, _, _ = self.wfn_s(0.0, natom, mo, first_shells, shell_moments, primitives, coefficients, exponents, atom_positions)
+        self.first_shells = first_shells
+        self.shell_moments = shell_moments
+        self.primitives = primitives
+        self.coefficients = coefficients
+        self.exponents = exponents
+        self.mo_up = mo_up
+        self.mo_down = mo_down
+        self.atom_positions = atom_positions
+        self.atom_charges = atom_charges
         self.norm = np.exp(np.math.lgamma(self.neu + 1) / self.neu / 2)
         self.s_mask = np.ones((self.nbasis_functions,))
         if self.neu == 1 and self.ned == 1:
@@ -332,58 +348,59 @@ class Cusp:
         self.orbital_sign = np.concatenate((orbital_sign_up, orbital_sign_down), axis=1)
         self.r = np.concatenate((r_up, r_down), axis=1)
         self.alpha = np.concatenate((alpha_up, alpha_down), axis=1)
+        # self.alpha = self.phi_data()
 
-    def wfn_s(self, r, natom, mo, first_shells, shell_moments, primitives, coefficients, exponents, atoms_positions):
+    def wfn_s(self, r, natom, mo):
         """wfn of single electron of s-orbitals an each atom"""
         orbital = np.zeros(mo.shape[1])
         orbital_derivative = np.zeros(mo.shape[1])
         orbital_second_derivative = np.zeros(mo.shape[1])
         p = ao = 0
-        for atom in range(atoms_positions.shape[0]):
-            for nshell in range(first_shells[atom] - 1, first_shells[atom + 1] - 1):
-                l = shell_moments[nshell]
+        for atom in range(self.atom_positions.shape[0]):
+            for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
+                l = self.shell_moments[nshell]
                 s_part = s_derivative_part = s_second_derivative_part = 0.0
-                if atom == natom and shell_moments[nshell] == 0:
-                    for primitive in range(primitives[nshell]):
-                        alpha = exponents[p + primitive]
-                        exponent = coefficients[p + primitive] * np.exp(-alpha * r * r)
+                if atom == natom and self.shell_moments[nshell] == 0:
+                    for primitive in range(self.primitives[nshell]):
+                        alpha = self.exponents[p + primitive]
+                        exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                         s_part += exponent
                         s_derivative_part -= 2 * alpha * r * exponent
                         s_second_derivative_part += 2 * alpha * (2 * alpha * r * r - 1) * exponent
                     orbital[ao] = s_part
                     orbital_derivative[ao] = s_derivative_part
                     orbital_second_derivative[ao] = s_second_derivative_part
-                p += primitives[nshell]
+                p += self.primitives[nshell]
                 ao += 2 * l + 1
         return (mo @ orbital.T) / self.norm, (mo @ orbital_derivative.T) / self.norm, (mo @ orbital_second_derivative.T) / self.norm
 
-    def wfn_eta(self, r, natom, mo, first_shells, shell_moments, primitives, coefficients, exponents, atoms_positions):
+    def wfn_eta(self, r, natom, mo, first_shells, shell_moments, primitives, coefficients, exponents, atom_positions):
         """contribution from Gaussians on other nuclei"""
 
-    def phi_data(self, mo_up, mo_down, first_shells, shell_moments, primitives, coefficients, exponents, atom_positions, atom_charges):
+    def phi_data(self):
         """Calculate phi coefficients.
         shift variable chosen so that (phi−C) is of one sign within rc.
         eta = gauss0_full - gauss0_s contribution from Gaussians on other nuclei
         if abs(gauss0_s_n(orbital, ion_s, spin_type_full)) < 10**-7:
             print('Orbital s component effectively zero at this nucleus.')
         """
-        alpha = np.zeros((atom_positions.shape[0], self.neu + self.ned, 5))
-        for natom in range(atom_positions.shape[0]):
+        alpha = np.zeros((self.atom_positions.shape[0], self.neu + self.ned, 5))
+        for natom in range(self.atom_positions.shape[0]):
             for i in range(self.neu):
                 r = self.r[natom, i]
                 if not r:
                     continue
-                wfn_s_0, _, _ = self.wfn_s(0.0, natom, mo_up, first_shells, shell_moments, primitives, coefficients, exponents, atom_positions)
+                wfn_s_0, _, _ = self.wfn_s(0.0, natom, self.mo_up[0])
                 eta = self.wfn_0[natom, i] - wfn_s_0[i]  # contribution from Gaussians on other nuclei
                 phi_0 = self.phi_0[natom, i]
                 shift = self.shift[natom, i]
-                gauss0, gauss1, gauss2 = self.wfn_s(r, natom, mo_up, first_shells, shell_moments, primitives, coefficients, exponents, atom_positions)
+                gauss0, gauss1, gauss2 = self.wfn_s(r, natom, self.mo_up[0])
                 # print(f"atom {natom}, rc {r}, s-orbital at r=0 {phi_0}, at r=rc {gauss0[i]}, C={shift}, psi-sign {np.sign(phi_0)}")
-                X1 = np.log(np.abs(gauss0[i] - shift))                   # (9)
-                X2 = gauss1[i] / (gauss0[i] - shift)                     # (10)
-                X3 = gauss2[i] / (gauss0[i] - shift)                     # (11)
-                X4 = -atom_charges[natom] * (1 + (shift + eta) / phi_0)  # (12)
-                X5 = np.log(np.abs(phi_0 - shift))                       # (13)
+                X1 = np.log(np.abs(gauss0[i] - shift))                        # (9)
+                X2 = gauss1[i] / (gauss0[i] - shift)                          # (10)
+                X3 = gauss2[i] / (gauss0[i] - shift)                          # (11)
+                X4 = -self.atom_charges[natom] * (1 + (shift + eta) / phi_0)  # (12)
+                X5 = np.log(np.abs(phi_0 - shift))                            # (13)
                 # print(f"X1={X1} X2={X2} X3={X3} X4={X4} X5={X5}")
                 # (14)
                 alpha[natom, i, 0] = X5
@@ -396,17 +413,17 @@ class Cusp:
                 r = self.r[natom, i]
                 if not r:
                     continue
-                wfn_s_0, _, _ = self.wfn_s(0.0, natom, mo_down, first_shells, shell_moments, primitives, coefficients, exponents, atom_positions)
+                wfn_s_0, _, _ = self.wfn_s(0.0, natom, self.mo_down[0])
                 eta = self.wfn_0[natom, i] - wfn_s_0[i - self.neu]  # contribution from Gaussians on other nuclei
                 phi_0 = self.phi_0[natom, i]
                 shift = self.shift[natom, i]
-                gauss0, gauss1, gauss2 = self.wfn_s(r, natom, mo_down, first_shells, shell_moments, primitives, coefficients, exponents, atom_positions)
+                gauss0, gauss1, gauss2 = self.wfn_s(r, natom, self.mo_down[0])
                 # print(f"atom {natom}, rc {r}, s-orbital at r=0 {phi_0}, at r=rc {gauss0[i]}, C={shift}, psi-sign {np.sign(phi_0)}")
-                X1 = np.log(np.abs(gauss0[i - self.neu] - shift))                   # (9)
-                X2 = gauss1[i - self.neu] / (gauss0[i - self.neu] - shift)                     # (10)
-                X3 = gauss2[i - self.neu] / (gauss0[i - self.neu] - shift)                     # (11)
-                X4 = -atom_charges[natom] * (1 + (shift + eta) / phi_0)  # (12)
-                X5 = np.log(np.abs(phi_0 - shift))                       # (13)
+                X1 = np.log(np.abs(gauss0[i - self.neu] - shift))             # (9)
+                X2 = gauss1[i - self.neu] / (gauss0[i - self.neu] - shift)    # (10)
+                X3 = gauss2[i - self.neu] / (gauss0[i - self.neu] - shift)    # (11)
+                X4 = -self.atom_charges[natom] * (1 + (shift + eta) / phi_0)  # (12)
+                X5 = np.log(np.abs(phi_0 - shift))                            # (13)
                 # print(f"X1={X1} X2={X2} X3={X3} X4={X4} X5={X5}")
                 # (14)
                 alpha[natom, i, 0] = X5
@@ -595,12 +612,13 @@ if __name__ == '__main__':
 
     config = CasinoConfig(path)
 
-    cusp = Cusp(config.input.neu, config.input.ned, config.wfn.nbasis_functions)
-
-    alpha = cusp.phi_data(
-        config.mdet.mo_up[0], config.mdet.mo_down[0], config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
+    cusp = Cusp(
+        config.input.neu, config.input.ned, config.mdet.mo_up, config.mdet.mo_down, config.wfn.nbasis_functions,
+        config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
         config.wfn.coefficients, config.wfn.exponents, config.wfn.atom_positions, config.wfn.atom_charges
     )
+
+    alpha = cusp.phi_data()
 
     print(alpha / cusp.alpha)
 
