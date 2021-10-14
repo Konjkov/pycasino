@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 
+import os
+
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
 import numpy as np
 import numba as nb
 import matplotlib.pyplot as plt
@@ -158,8 +166,8 @@ class Cusp:
             ]])
         elif self.neu == 9 and self.ned == 9:
             self.s_mask[:6] = 0.0
-            wfn_0_up = wfn_0_down = np.array([[20.515046538335, 5.824658914949, 0.0, 0.0, 0.0, -1.820248905891, 0.0, 0.0]])
-            phi_0_up = phi_0_down = np.array([[20.619199783780, 5.854393350981, 0.0, 0.0, 0.0, -1.829517070413, 0.0, 0.0]])
+            wfn_0_up = wfn_0_down = np.array([[20.515046538335, 5.824658914949, 0.0, 0.0, 0.0, -1.820248905891, 0.0, 0.0, 0.0]])
+            phi_0_up = phi_0_down = np.array([[20.619199783780, 5.854393350981, 0.0, 0.0, 0.0, -1.829517070413, 0.0, 0.0, 0.0]])
             shift_up = shift_down = np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
             orbital_sign_up = orbital_sign_down = np.array([[1, 1, 0, 0, 0, -1, 0, 0, 0]])
             r_up = r_down = np.array([[0.0205, 0.0200, 0, 0, 0, 0.0205, 0, 0, 0]])
@@ -169,7 +177,7 @@ class Cusp:
                 [0.0, 0.0, 0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.60405204, -18, -0.35203155E+02, -0.13904842E+03, -0.35690426E+04],
+                [0.60405204, -18.0, -0.35203155E+02, -0.13904842E+03, -0.35690426E+04],
                 [0.0, 0.0, 0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0, 0.0, 0.0],
@@ -183,7 +191,7 @@ class Cusp:
                 [43.713171699758, -13.754783719428, 0.0, 0.0, 0.0, -5.518712340056, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.757882280257, 0.0, 0.0, 0.0],
             ]))
             shift_up = shift_down = np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
-            orbital_sign_up = orbital_sign_down = np.array([[1, 1, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0]])
+            orbital_sign_up = orbital_sign_down = np.array([[1, -1, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0]])
             r_up = r_down = np.array([[0.0045, 0.0045, 0, 0, 0, 0.0045, 0, 0, 0, 0, 0, 0, 0, 0, 0.0045, 0, 0, 0]])
             alpha_up = alpha_down = np.array([[
                 [3.77764947, -36.0,  0.22235586E+02, -0.56621947E+04, 0.62983424E+06],
@@ -342,13 +350,16 @@ class Cusp:
                     [-3.64299934, -0.72053551E+01, -0.11465606E+01, -0.73818076E+01,  0.16054597E+00],
                 ]
             ])
-        self.wfn_0 = np.concatenate((wfn_0_up, wfn_0_down), axis=1)
+        # optimisable values
         self.phi_0 = np.concatenate((phi_0_up, phi_0_down), axis=1)
-        self.shift = np.concatenate((shift_up, shift_down), axis=1)
-        self.orbital_sign = np.concatenate((orbital_sign_up, orbital_sign_down), axis=1)
         self.r = np.concatenate((r_up, r_down), axis=1)
-        self.alpha = np.concatenate((alpha_up, alpha_down), axis=1)
-        # self.alpha = self.phi_data()
+        # initial values
+        self.wfn_0 = np.concatenate((wfn_0_up, wfn_0_down), axis=1)
+        self.shift = np.concatenate((shift_up, shift_down), axis=1)
+        # self.orbital_sign = np.concatenate((orbital_sign_up, orbital_sign_down), axis=1)
+        self.orbital_sign = self.phi_sign()
+        # self.alpha = np.concatenate((alpha_up, alpha_down), axis=1)
+        self.alpha = self.phi_data()
 
     def wfn_s(self, r, natom, mo):
         """wfn of single electron of s-orbitals an each atom"""
@@ -377,6 +388,25 @@ class Cusp:
     def wfn_eta(self, r, natom, mo, first_shells, shell_moments, primitives, coefficients, exponents, atom_positions):
         """contribution from Gaussians on other nuclei"""
 
+    def phi_sign(self):
+        """Calculate phi sign.
+        """
+        cusp_threshold = 1e-7  # FIXME: take from config
+
+        orbital_sign = np.zeros((self.atom_positions.shape[0], self.neu + self.ned), np.int64)
+        for natom in range(self.atom_positions.shape[0]):
+            wfn_s_0, _, _ = self.wfn_s(0.0, natom, self.mo_up[0])
+            for i in range(self.neu):
+                if np.abs(wfn_s_0[i]) > cusp_threshold:
+                    orbital_sign[natom, i] = np.sign(wfn_s_0[i])
+
+            wfn_s_0, _, _ = self.wfn_s(0.0, natom, self.mo_down[0])
+            for i in range(self.neu, self.neu + self.ned):
+                if np.abs(wfn_s_0[i - self.neu]) > cusp_threshold:
+                    orbital_sign[natom, i] = np.sign(wfn_s_0[i - self.neu])
+
+        return orbital_sign
+
     def phi_data(self):
         """Calculate phi coefficients.
         shift variable chosen so that (phi−C) is of one sign within rc.
@@ -386,11 +416,11 @@ class Cusp:
         """
         alpha = np.zeros((self.atom_positions.shape[0], self.neu + self.ned, 5))
         for natom in range(self.atom_positions.shape[0]):
+            wfn_s_0, _, _ = self.wfn_s(0.0, natom, self.mo_up[0])
             for i in range(self.neu):
                 r = self.r[natom, i]
-                if not r:
+                if r == 0.0:
                     continue
-                wfn_s_0, _, _ = self.wfn_s(0.0, natom, self.mo_up[0])
                 eta = self.wfn_0[natom, i] - wfn_s_0[i]  # contribution from Gaussians on other nuclei
                 phi_0 = self.phi_0[natom, i]
                 shift = self.shift[natom, i]
@@ -409,11 +439,11 @@ class Cusp:
                 alpha[natom, i, 3] = -8*X1/r**3 + 5*X2/r**2 - X3/r + 3*X4/r**2 + 8 * X5/r**3 + X2**2/r
                 alpha[natom, i, 4] = 3*X1/r**4 - 2*X2/r**3 + X3/2/r**2 - X4/r**3 - 3*X5/r**4 - X2**2/2/r**2
 
+            wfn_s_0, _, _ = self.wfn_s(0.0, natom, self.mo_down[0])
             for i in range(self.neu, self.neu + self.ned):
                 r = self.r[natom, i]
-                if not r:
+                if r == 0.0:
                     continue
-                wfn_s_0, _, _ = self.wfn_s(0.0, natom, self.mo_down[0])
                 eta = self.wfn_0[natom, i] - wfn_s_0[i - self.neu]  # contribution from Gaussians on other nuclei
                 phi_0 = self.phi_0[natom, i]
                 shift = self.shift[natom, i]
@@ -618,7 +648,10 @@ if __name__ == '__main__':
         config.wfn.coefficients, config.wfn.exponents, config.wfn.atom_positions, config.wfn.atom_charges
     )
 
-    alpha = cusp.phi_data()
+    #alpha = cusp.phi_data()
 
-    print(alpha / cusp.alpha)
+    #print(alpha / cusp.alpha)
 
+    # print(cusp.phi_sign() - cusp.orbital_sign)
+
+    print(cusp.phi_00(), cusp.phi_0)

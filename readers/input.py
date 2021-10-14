@@ -23,6 +23,7 @@ class Input:
         self.ebest_av_window = 25
         self.nucleus_gf_mods = True
         self.cusp_correction = None
+        self.cusp_threshold = 1e-7
         self.use_gpcc = None
         with open(file_name, 'r') as f:
             for line in f:
