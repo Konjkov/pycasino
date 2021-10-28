@@ -685,7 +685,11 @@ def main(config):
     dx = 3.0
 
     if config.input.cusp_correction:
-        cusp = Cusp(config.input.neu, config.input.ned, config.wfn.nbasis_functions)
+        cusp = Cusp(
+        config.input.neu, config.input.ned, config.mdet.mo_up, config.mdet.mo_down,
+        config.wfn.nbasis_functions, config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
+        config.wfn.coefficients, config.wfn.exponents, config.wfn.atom_positions, config.wfn.atom_charges
+    )
     else:
         cusp = None
 

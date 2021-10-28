@@ -17,7 +17,8 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
 import pyblock
 import numpy as np
 import numba as nb
-import scipy as sp
+from scipy.optimize import least_squares, minimize, root
+# import scipy as sp
 
 from decorators import pool, thread
 from readers.casino import CasinoConfig
@@ -555,11 +556,11 @@ class Casino:
             return acc_ration - acceptance_rate
 
         options = dict(jac_options=dict(alpha=1))
-        res = sp.optimize.root(f, [self.markovchain.step], method='diagbroyden', tol=1/np.sqrt(steps), callback=callback, options=options)
+        res = root(f, [self.markovchain.step], method='diagbroyden', tol=1/np.sqrt(steps), callback=callback, options=options)
         self.markovchain.step = np.abs(res.x[0])
 
     def optimize_decorr_period(self):
-        """Optimize _decorr period"""
+        """Optimize decorr period"""
         return 3
 
     def energy(self, steps, nblock, decorr_period):
@@ -603,7 +604,7 @@ class Casino:
             return self.markovchain.jastrow_gradient(condition, position)
 
         parameters = self.jastrow.get_parameters()
-        res = sp.optimize.least_squares(
+        res = least_squares(
             f, parameters, jac=jac, bounds=bounds, method='trf', xtol=1e-4, max_nfev=20,
             x_scale='jac', loss='linear', tr_solver='exact', tr_options=dict(show=False, regularize=False),
             verbose=2
@@ -647,9 +648,9 @@ class Casino:
 
         parameters = self.jastrow.get_parameters()
         options = dict(disp=True, maxfun=50)
-        res = sp.optimize.minimize(f, parameters, method='TNC', jac=True, bounds=list(zip(*bounds)), options=options, callback=callback)
+        res = minimize(f, parameters, method='TNC', jac=True, bounds=list(zip(*bounds)), options=options, callback=callback)
         # options = dict(disp=True)
-        # res = sp.optimize.minimize(f, parameters, method='trust-ncg', jac=True, hess=hess, options=options, callback=callback)
+        # res = minimize(f, parameters, method='trust-ncg', jac=True, hess=hess, options=options, callback=callback)
         return res
 
 

@@ -10,10 +10,13 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 import numpy as np
 import numba as nb
+from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 
 from readers.casino import CasinoConfig
-from scipy.optimize import curve_fit
+from logger import logging
+
+logger = logging.getLogger('vmc')
 
 cusp_spec = [
     ('neu', nb.int64),
@@ -25,8 +28,7 @@ cusp_spec = [
     ('primitives', nb.int64[:]),
     ('coefficients', nb.float64[:]),
     ('exponents', nb.float64[:]),
-    ('mo_up', nb.float64[:, :, :]),
-    ('mo_down', nb.float64[:, :, :]),
+    ('mo', nb.float64[:, :, :]),
     ('atom_positions', nb.float64[:, :]),
     ('atom_charges', nb.float64[:]),
     ('norm', nb.float64),
@@ -37,6 +39,7 @@ cusp_spec = [
     ('orbital_sign', nb.int64[:, :]),
     ('r', nb.float64[:, :]),
     ('alpha', nb.float64[:, :, :]),
+    ('cusp_threshold', nb.float64),
 ]
 
 
@@ -95,12 +98,12 @@ class Cusp:
         self.primitives = primitives
         self.coefficients = coefficients
         self.exponents = exponents
-        self.mo_up = mo_up
-        self.mo_down = mo_down
+        self.mo = np.concatenate((mo_up, mo_down), axis=1)
         self.atom_positions = atom_positions
         self.atom_charges = atom_charges
         self.norm = np.exp(np.math.lgamma(self.neu + 1) / self.neu / 2)
         self.s_mask = np.ones((self.nbasis_functions,))
+        self.cusp_threshold = 1e-7  # FIXME: take from config
         if self.neu == 1 and self.ned == 1:
             self.s_mask[:4] = 0.0
             # atoms, MO - Value of uncorrected orbital at nucleus
@@ -356,8 +359,10 @@ class Cusp:
         # initial values
         self.wfn_0 = np.concatenate((wfn_0_up, wfn_0_down), axis=1)
         self.shift = np.concatenate((shift_up, shift_down), axis=1)
+        # atoms, MO - sign of s-type Gaussian functions centered on the nucleus
         # self.orbital_sign = np.concatenate((orbital_sign_up, orbital_sign_down), axis=1)
         self.orbital_sign = self.phi_sign()
+        # atoms, MO, alpha index
         # self.alpha = np.concatenate((alpha_up, alpha_down), axis=1)
         self.alpha = self.phi_data()
 
@@ -387,82 +392,111 @@ class Cusp:
 
     def wfn_eta(self, r, natom, mo, first_shells, shell_moments, primitives, coefficients, exponents, atom_positions):
         """contribution from Gaussians on other nuclei"""
+        return 0
 
     def phi_sign(self):
         """Calculate phi sign.
         """
-        cusp_threshold = 1e-7  # FIXME: take from config
-
         orbital_sign = np.zeros((self.atom_positions.shape[0], self.neu + self.ned), np.int64)
-        for natom in range(self.atom_positions.shape[0]):
-            wfn_s_0, _, _ = self.wfn_s(0.0, natom, self.mo_up[0])
-            for i in range(self.neu):
-                if np.abs(wfn_s_0[i]) > cusp_threshold:
-                    orbital_sign[natom, i] = np.sign(wfn_s_0[i])
-
-            wfn_s_0, _, _ = self.wfn_s(0.0, natom, self.mo_down[0])
-            for i in range(self.neu, self.neu + self.ned):
-                if np.abs(wfn_s_0[i - self.neu]) > cusp_threshold:
-                    orbital_sign[natom, i] = np.sign(wfn_s_0[i - self.neu])
-
+        for atom in range(self.atom_positions.shape[0]):
+            wfn_s_0, _, _ = self.wfn_s(0.0, atom, self.mo[0])
+            for orb in range(self.neu + self.ned):
+                if np.abs(wfn_s_0[orb]) > self.cusp_threshold:
+                    orbital_sign[atom, orb] = np.sign(wfn_s_0[orb])
         return orbital_sign
 
     def phi_data(self):
         """Calculate phi coefficients.
-        shift variable chosen so that (phi−C) is of one sign within rc.
-        eta = gauss0_full - gauss0_s contribution from Gaussians on other nuclei
-        if abs(gauss0_s_n(orbital, ion_s, spin_type_full)) < 10**-7:
-            print('Orbital s component effectively zero at this nucleus.')
+        shift variable chosen so that (phi−shift) is of one sign within rc.
+        eta is a contribution from Gaussians on other nuclei.
         """
         alpha = np.zeros((self.atom_positions.shape[0], self.neu + self.ned, 5))
-        for natom in range(self.atom_positions.shape[0]):
-            wfn_s_0, _, _ = self.wfn_s(0.0, natom, self.mo_up[0])
-            for i in range(self.neu):
-                r = self.r[natom, i]
+        for atom in range(self.atom_positions.shape[0]):
+            wfn_s_0, _, _ = self.wfn_s(0.0, atom, self.mo[0])
+            for orb in range(self.neu + self.ned):
+                r = self.r[atom, orb]
                 if r == 0.0:
                     continue
-                eta = self.wfn_0[natom, i] - wfn_s_0[i]  # contribution from Gaussians on other nuclei
-                phi_0 = self.phi_0[natom, i]
-                shift = self.shift[natom, i]
-                gauss0, gauss1, gauss2 = self.wfn_s(r, natom, self.mo_up[0])
-                # print(f"atom {natom}, rc {r}, s-orbital at r=0 {phi_0}, at r=rc {gauss0[i]}, C={shift}, psi-sign {np.sign(phi_0)}")
-                X1 = np.log(np.abs(gauss0[i] - shift))                        # (9)
-                X2 = gauss1[i] / (gauss0[i] - shift)                          # (10)
-                X3 = gauss2[i] / (gauss0[i] - shift)                          # (11)
-                X4 = -self.atom_charges[natom] * (1 + (shift + eta) / phi_0)  # (12)
-                X5 = np.log(np.abs(phi_0 - shift))                            # (13)
-                # print(f"X1={X1} X2={X2} X3={X3} X4={X4} X5={X5}")
+                eta = self.wfn_0[atom, orb] - wfn_s_0[orb]  # contribution from Gaussians on other nuclei
+                phi_0 = self.phi_0[atom, orb]
+                shift = self.shift[atom, orb]
+                gauss0, gauss1, gauss2 = self.wfn_s(r, atom, self.mo[0])
+                X1 = np.log(np.abs(gauss0[orb] - shift))                     # (9)
+                X2 = gauss1[orb] / (gauss0[orb] - shift)                       # (10)
+                X3 = gauss2[orb] / (gauss0[orb] - shift)                       # (11)
+                X4 = -self.atom_charges[atom] * (1 + (shift + eta) / phi_0)  # (12)
+                X5 = np.log(np.abs(phi_0 - shift))                           # (13)
                 # (14)
-                alpha[natom, i, 0] = X5
-                alpha[natom, i, 1] = X4
-                alpha[natom, i, 2] = 6*X1/r**2 - 3*X2/r + X3/2 - 3*X4/r - 6*X5/r**2 - X2**2/2
-                alpha[natom, i, 3] = -8*X1/r**3 + 5*X2/r**2 - X3/r + 3*X4/r**2 + 8 * X5/r**3 + X2**2/r
-                alpha[natom, i, 4] = 3*X1/r**4 - 2*X2/r**3 + X3/2/r**2 - X4/r**3 - 3*X5/r**4 - X2**2/2/r**2
-
-            wfn_s_0, _, _ = self.wfn_s(0.0, natom, self.mo_down[0])
-            for i in range(self.neu, self.neu + self.ned):
-                r = self.r[natom, i]
-                if r == 0.0:
-                    continue
-                eta = self.wfn_0[natom, i] - wfn_s_0[i - self.neu]  # contribution from Gaussians on other nuclei
-                phi_0 = self.phi_0[natom, i]
-                shift = self.shift[natom, i]
-                gauss0, gauss1, gauss2 = self.wfn_s(r, natom, self.mo_down[0])
-                # print(f"atom {natom}, rc {r}, s-orbital at r=0 {phi_0}, at r=rc {gauss0[i]}, C={shift}, psi-sign {np.sign(phi_0)}")
-                X1 = np.log(np.abs(gauss0[i - self.neu] - shift))             # (9)
-                X2 = gauss1[i - self.neu] / (gauss0[i - self.neu] - shift)    # (10)
-                X3 = gauss2[i - self.neu] / (gauss0[i - self.neu] - shift)    # (11)
-                X4 = -self.atom_charges[natom] * (1 + (shift + eta) / phi_0)  # (12)
-                X5 = np.log(np.abs(phi_0 - shift))                            # (13)
-                # print(f"X1={X1} X2={X2} X3={X3} X4={X4} X5={X5}")
-                # (14)
-                alpha[natom, i, 0] = X5
-                alpha[natom, i, 1] = X4
-                alpha[natom, i, 2] = 6*X1/r**2 - 3*X2/r + X3/2 - 3*X4/r - 6*X5/r**2 - X2**2/2
-                alpha[natom, i, 3] = -8*X1/r**3 + 5*X2/r**2 - X3/r + 3*X4/r**2 + 8 * X5/r**3 + X2**2/r
-                alpha[natom, i, 4] = 3*X1/r**4 - 2*X2/r**3 + X3/2/r**2 - X4/r**3 - 3*X5/r**4 - X2**2/2/r**2
-
+                alpha[atom, orb, 0] = X5
+                alpha[atom, orb, 1] = X4
+                alpha[atom, orb, 2] = 6*X1/r**2 - 3*X2/r + X3/2 - 3*X4/r - 6*X5/r**2 - X2**2/2
+                alpha[atom, orb, 3] = -8*X1/r**3 + 5*X2/r**2 - X3/r + 3*X4/r**2 + 8 * X5/r**3 + X2**2/r
+                alpha[atom, orb, 4] = 3*X1/r**4 - 2*X2/r**3 + X3/2/r**2 - X4/r**3 - 3*X5/r**4 - X2**2/2/r**2
         return alpha
+
+    def real_energy(self, r, atom, orb):
+        """Real energy.
+        Equation (15)
+        :param r:
+        :param atom:
+        :param orb:
+        :return:
+        """
+        p = (
+                self.alpha[atom, orb, 0] +
+                self.alpha[atom, orb, 1] * r +
+                self.alpha[atom, orb, 2] * r ** 2 +
+                self.alpha[atom, orb, 3] * r ** 3 +
+                self.alpha[atom, orb, 4] * r ** 4
+        )
+        p_diff_1 = (
+                self.alpha[atom, orb, 1] +
+                2 * self.alpha[atom, orb, 2] * r +
+                3 * self.alpha[atom, orb, 3] * r ** 2 +
+                4 * self.alpha[atom, orb, 4] * r ** 3
+        )
+        p_diff_2 = (
+                2 * self.alpha[atom, orb, 2] +
+                2 * 3 * self.alpha[atom, orb, 3] * r +
+                3 * 4 * self.alpha[atom, orb, 4] * r ** 2
+        )
+        R = self.orbital_sign[atom, orb] * np.exp(p)
+        wfn_s_0, _, _ = self.wfn_s(0.0, atom, self.mo[0])
+        eta = self.wfn_0[atom, orb] - wfn_s_0[orb]  # contribution from Gaussians on other nuclei
+        z_eff = self.atom_charges[atom] * (1 + eta / (R + self.shift[atom, orb]))  # (16)
+        if r == 0:
+            # apply L'Hôpital's rule to find energy limit at r=0 in (15)
+            return -0.5 * R / (R + self.shift[atom, orb]) * (3 * p_diff_2 + p_diff_1 ** 2)
+        else:
+            return -0.5 * R / (R + self.shift[atom, orb]) * (2 * p_diff_1 / r + p_diff_2 + p_diff_1 ** 2) - z_eff / r
+
+    def ideal_energy(self, r, atom, beta0):
+        """Ideal energy.
+        Equation (17)
+        :param r:
+        :param atom:
+        :param beta0:
+        :return:
+        """
+        if self.atom_charges[atom] == 1:
+            ideal_energy = beta0
+        else:
+            ideal_energy = 0
+            for i, beta in enumerate([beta0, 0.0, 3.25819, -15.0126, 33.7308, -42.8705, 31.2276, -12.1316, 1.94692]):
+                ideal_energy += beta * r ** i
+        return ideal_energy * self.atom_charges[atom] ** 2
+
+    def energy_diff_max(self, atom, orb):
+        """Electron energy curve
+        :param atom:
+        :param orb:
+        :return:
+        """
+        energy = np.zeros((1000,))
+        beta0 = ((self.real_energy(self.r[atom, orb], atom, orb) - self.ideal_energy(self.r[atom, orb], atom, 0))) / self.atom_charges[atom] ** 2
+        for i, r in enumerate(np.linspace(0, self.r[atom, orb] / 1000)):
+            energy[i] = (self.real_energy(r, atom, orb) - self.ideal_energy(r, atom, beta0)) ** 2
+        return np.max(energy)
 
     def wfn(self, n_vectors: np.ndarray):
         """Calculate cusped correction for s-part of orbitals.
@@ -616,6 +650,29 @@ class Cusp:
         return self.norm * hessian
 
 
+def optimize_phi_0(cusp, atom, orb):
+    """Optimize phi_0
+    :param config:
+    :param atom:
+    :param orb:
+    :return:
+    """
+    wfn_s_0, _, _ = cusp.wfn_s(0.0, atom, cusp.mo[0])
+
+    def callback(x, *args):
+        """"""
+        logger.info('phi_0 = %.5f', x)
+
+    def f(x):
+        cusp.phi_0[atom, orb] = x
+        cusp.alpha = cusp.phi_data()
+        return cusp.energy_diff_max(atom, orb)
+
+    options = dict(disp=True)
+    res = minimize(f, [wfn_s_0[orb]], method='TNC', options=options, callback=callback)
+    return res.x[0]
+
+
 def cusp_graph(config, atom, mo, shells, atoms):
     """In nuclear position dln(phi)/dr|r=r_nucl = -Z_nucl
     """
@@ -648,10 +705,15 @@ if __name__ == '__main__':
         config.wfn.coefficients, config.wfn.exponents, config.wfn.atom_positions, config.wfn.atom_charges
     )
 
-    #alpha = cusp.phi_data()
+    for atom in range(cusp.atom_positions.shape[0]):
+        for orb in range(cusp.neu + cusp.ned):
+            r = cusp.r[atom, orb]
+            if r == 0.0:
+                continue
+            cusp.phi_0[atom, orb] = optimize_phi_0(cusp, atom, orb)
 
-    #print(alpha / cusp.alpha)
+    # print(cusp.phi_data() / cusp.alpha)
 
-    # print(cusp.phi_sign() - cusp.orbital_sign)
+    # print(cusp.phi_sign(),  cusp.orbital_sign)
 
-    print(cusp.phi_00(), cusp.phi_0)
+    # print(cusp.phi_00(), cusp.phi_0)
