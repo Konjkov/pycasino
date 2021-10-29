@@ -2,7 +2,7 @@
 
 import os
 from timeit import default_timer
-from cusp import Cusp
+from cusp import CuspFactory
 from slater import Slater
 from jastrow import Jastrow
 from backflow import Backflow
@@ -423,11 +423,11 @@ class Casino:
         self.config = CasinoConfig(path)
 
         if self.config.input.cusp_correction:
-            cusp = Cusp(
+            cusp = CuspFactory(
                 self.config.input.neu, self.config.input.ned, self.config.mdet.mo_up, self.config.mdet.mo_down,
                 self.config.wfn.nbasis_functions, self.config.wfn.first_shells, self.config.wfn.shell_moments, self.config.wfn.primitives,
                 self.config.wfn.coefficients, self.config.wfn.exponents, self.config.wfn.atom_positions, self.config.wfn.atom_charges
-            )
+            ).create()
         else:
             cusp = None
 
