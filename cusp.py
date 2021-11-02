@@ -12,6 +12,7 @@ import numpy as np
 import numba as nb
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
+from numpy.polynomial.polynomial import polyval
 
 from readers.casino import CasinoConfig
 from logger import logging
@@ -317,22 +318,17 @@ class CuspFactory:
         alpha = np.zeros((5, self.atom_positions.shape[0], self.neu + self.ned))
         wfn_s_0, _, _ = self.wfn_s(rc_0)
         gauss0, gauss1, gauss2 = self.wfn_s(rc)
-        for atom in range(self.atom_positions.shape[0]):
-            for orb in range(self.neu + self.ned):
-                r = rc[atom, orb]
-                if r == 0.0:
-                    continue
-                X1 = np.log(np.abs(gauss0[atom, orb] - shift[atom, orb]))                                     # (9)
-                X2 = gauss1[atom, orb] / (gauss0[atom, orb] - shift[atom, orb])                               # (10)
-                X3 = gauss2[atom, orb] / (gauss0[atom, orb] - shift[atom, orb])                               # (11)
-                X4 = -self.atom_charges[atom] * (1 + (shift[atom, orb] + eta[atom, orb]) / phi_0[atom, orb])  # (12)
-                X5 = np.log(np.abs(phi_0[atom, orb] - shift[atom, orb]))                                      # (13)
-                # (14)
-                alpha[0, atom, orb] = X5
-                alpha[1, atom, orb] = X4
-                alpha[2, atom, orb] = 6*X1/r**2 - 3*X2/r + X3/2 - 3*X4/r - 6*X5/r**2 - X2**2/2
-                alpha[3, atom, orb] = -8*X1/r**3 + 5*X2/r**2 - X3/r + 3*X4/r**2 + 8 * X5/r**3 + X2**2/r
-                alpha[4, atom, orb] = 3*X1/r**4 - 2*X2/r**3 + X3/2/r**2 - X4/r**3 - 3*X5/r**4 - X2**2/2/r**2
+        X1 = np.log(np.abs(gauss0 - shift))                                   # (9)
+        X2 = gauss1 / (gauss0 - shift)                                        # (10)
+        X3 = gauss2 / (gauss0 - shift)                                        # (11)
+        X4 = -self.atom_charges[:, np.newaxis] * (1 + (shift + eta) / phi_0)  # (12)
+        X5 = np.log(np.abs(phi_0 - shift))                                    # (13)
+        # (14)
+        alpha[0] = X5
+        alpha[1] = X4
+        alpha[2] = 6*X1/rc**2 - 3*X2/rc + X3/2 - 3*X4/rc - 6*X5/rc**2 - X2**2/2
+        alpha[3] = -8*X1/rc**3 + 5*X2/rc**2 - X3/rc + 3*X4/rc**2 + 8 * X5/rc**3 + X2**2/rc
+        alpha[4] = 3*X1/rc**4 - 2*X2/rc**3 + X3/2/rc**2 - X4/rc**3 - 3*X5/rc**4 - X2**2/2/rc**2
         return alpha
 
     def real_energy(self, r, eta, shift, orbital_sign, alpha):
@@ -346,6 +342,8 @@ class CuspFactory:
         p_diff_2 = 2 * alpha[2] + 2 * 3 * alpha[3] * r + 3 * 4 * alpha[4] * r ** 2
         R = orbital_sign * np.exp(p)
         z_eff = self.atom_charges[:, np.newaxis] * (1 + eta / (R + shift))  # (16)
+        # np.where is not lazy
+        # https://pretagteam.com/question/numpy-where-function-can-not-avoid-evaluate-sqrtnegative
         return np.where(
             r == 0,
             # apply L'Hôpital's rule to find energy limit at r=0 in (15)
@@ -353,7 +351,7 @@ class CuspFactory:
             -0.5 * R / (R + shift) * (2 * p_diff_1 / r + p_diff_2 + p_diff_1 ** 2) - z_eff / r
         )
 
-    def ideal_energy(self, r, atom, beta0):
+    def ideal_energy(self, r, beta0):
         """Ideal energy.
         Equation (17)
         :param r:
@@ -361,13 +359,11 @@ class CuspFactory:
         :param beta0:
         :return:
         """
-        if self.atom_charges[atom] == 1:
-            ideal_energy = beta0
-        else:
-            ideal_energy = 0
-            for i, beta in enumerate([beta0, 0.0, 3.25819, -15.0126, 33.7308, -42.8705, 31.2276, -12.1316, 1.94692]):
-                ideal_energy += beta * r ** i
-        return ideal_energy * self.atom_charges[atom] ** 2
+        return np.where(
+            self.atom_charges[:, np.newaxis] == 1,
+            beta0 * np.ones_like(r),
+            polyval(r, [beta0, 0.0, 3.25819, -15.0126, 33.7308, -42.8705, 31.2276, -12.1316, 1.94692])
+        ) * self.atom_charges[:, np.newaxis] ** 2
 
     def energy_diff_max(self, rc, eta, shift, orbital_sign, alpha, atom, orb):
         """Electron energy curve
@@ -375,11 +371,11 @@ class CuspFactory:
         :param orb:
         :return:
         """
-        steps = 50
+        steps = 100  # FIXME - take 1000
         energy = np.zeros((steps,))
-        beta0 = (self.real_energy(rc, eta, shift, orbital_sign, alpha)[atom, orb] - self.ideal_energy(rc[atom, orb], atom, 0)) / self.atom_charges[atom] ** 2
-        for i, r in enumerate(np.linspace(0, rc[atom, orb], steps)):
-            energy[i] = (self.real_energy(r, eta, shift, orbital_sign, alpha)[atom, orb] - self.ideal_energy(r, atom, beta0)) ** 2
+        beta0 = (self.real_energy(rc, eta, shift, orbital_sign, alpha) - self.ideal_energy(rc, 0)) / self.atom_charges[:, np.newaxis] ** 2
+        for i, r in enumerate(np.linspace(0, rc, steps)):
+            energy[i] = (self.real_energy(r, eta, shift, orbital_sign, alpha) - self.ideal_energy(r, beta0[atom, orb]))[atom, orb] ** 2
         return np.max(energy)
 
     def optimize_phi_0(self, rc, eta, phi_0, shift, orbital_sign, atom, orb):
@@ -764,7 +760,7 @@ if __name__ == '__main__':
     """
     """
 
-    # path = 'test/gwfn/He/HF/cc-pVQZ/CBCS/Slater/'/
+    # path = 'test/gwfn/He/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/Be/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/N/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/Ne/HF/cc-pVQZ/CBCS/Slater/'
