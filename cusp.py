@@ -369,17 +369,9 @@ class CuspFactory:
         :return:
         """
         beta = np.array([0.0, 0.0, 3.25819, -15.0126, 33.7308, -42.8705, 31.2276, -12.1316, 1.94692])
-        beta[0] = beta0
-        return np.where(
-            self.atom_charges[:, np.newaxis] == 1,
-            beta0 * np.ones_like(r),
-            # Array of coefficients ordered so that the coefficients for terms of degree n are contained in c[n].
-            # If c is multidimensional the remaining indices enumerate multiple polynomials. In the two dimensional
-            # case the coefficients may be thought of as stored in the columns of c.
-            polyval(r, beta)
-        ) * self.atom_charges[:, np.newaxis] ** 2
+        return (beta0 + np.where(self.atom_charges[:, np.newaxis] == 1, np.zeros_like(r), polyval(r, beta))) * self.atom_charges[:, np.newaxis] ** 2
 
-    def energy_diff_max(self, rc, eta, shift, orbital_sign, alpha, atom, orb):
+    def energy_diff_max(self, rc, eta, shift, orbital_sign, alpha):
         """Electron energy curve
         :param atom:
         :param orb:
@@ -388,8 +380,8 @@ class CuspFactory:
         steps = 1000  # FIXME - take 1000
         beta0 = (self.real_energy(rc, eta, shift, orbital_sign, alpha) - self.ideal_energy(rc, 0)) / self.atom_charges[:, np.newaxis] ** 2
         r = np.linspace(0, rc, steps)
-        energy = (self.real_energy(r, eta, shift, orbital_sign, alpha) - self.ideal_energy(r, beta0[atom, orb])) ** 2
-        return np.max(energy[:, atom, orb])
+        energy = (self.real_energy(r, eta, shift, orbital_sign, alpha) - self.ideal_energy(r, beta0)) ** 2
+        return np.max(energy, axis=0)
 
     def optimize_phi_0(self, rc, eta, phi_0, shift, orbital_sign, atom, orb):
         """Optimize phi_0
@@ -413,7 +405,7 @@ class CuspFactory:
         def f(x):
             phi_0[atom, orb] = x
             alpha = self.phi_data(rc, eta, phi_0, shift)
-            return self.energy_diff_max(rc, eta, shift, orbital_sign, alpha, atom, orb)
+            return self.energy_diff_max(rc, eta, shift, orbital_sign, alpha)[atom, orb]
 
         options = dict(disp=True)
         res = minimize(f, [phi_0[atom, orb]], method='TNC', options=options, callback=callback)
