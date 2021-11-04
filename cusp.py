@@ -200,7 +200,7 @@ class Cusp:
                             4 * self.alpha[2, atom, i] * r +
                             6 * self.alpha[3, atom, i] * r**2 +
                             8 * self.alpha[4, atom, i] * r**3 +
-                            2 * r * (self.alpha[atom, i, 2] + 3 * self.alpha[atom, i, 3] * r + 6 * self.alpha[atom, i, 4] * r**2) +
+                            2 * r * (self.alpha[2, atom, i] + 3 * self.alpha[3, atom, i] * r + 6 * self.alpha[4, atom, i] * r**2) +
                             r * (self.alpha[1, atom, i] + 2 * self.alpha[2, atom, i] * r + 3*self.alpha[3, atom, i] * r**2 + 4*self.alpha[4, atom, i] * r**3)**2
                         ) * np.exp(
                             self.alpha[0, atom, i] +
@@ -288,6 +288,15 @@ class CuspFactory:
         """contribution from Gaussians on other nuclei"""
         return 0
 
+    def mask(self):
+        mask = np.zeros((self.atom_positions.shape[0], self.neu + self.ned))
+        wfn_s_0, _, _ = self.wfn_s(mask)
+        for atom in range(self.atom_positions.shape[0]):
+            for orb in range(self.neu + self.ned):
+                if np.abs(wfn_s_0[atom, orb]) > self.cusp_threshold:
+                    mask[atom, orb] = 1
+        return mask
+
     def rc_initial(self):
         rc = np.zeros((self.atom_positions.shape[0], self.neu + self.ned))
         wfn_s_0, _, _ = self.wfn_s(rc)
@@ -359,10 +368,15 @@ class CuspFactory:
         :param beta0:
         :return:
         """
+        beta = np.array([0.0, 0.0, 3.25819, -15.0126, 33.7308, -42.8705, 31.2276, -12.1316, 1.94692])
+        beta[0] = beta0
         return np.where(
             self.atom_charges[:, np.newaxis] == 1,
             beta0 * np.ones_like(r),
-            polyval(r, [beta0, 0.0, 3.25819, -15.0126, 33.7308, -42.8705, 31.2276, -12.1316, 1.94692])
+            # Array of coefficients ordered so that the coefficients for terms of degree n are contained in c[n].
+            # If c is multidimensional the remaining indices enumerate multiple polynomials. In the two dimensional
+            # case the coefficients may be thought of as stored in the columns of c.
+            polyval(r, beta)
         ) * self.atom_charges[:, np.newaxis] ** 2
 
     def energy_diff_max(self, rc, eta, shift, orbital_sign, alpha, atom, orb):
@@ -371,12 +385,11 @@ class CuspFactory:
         :param orb:
         :return:
         """
-        steps = 100  # FIXME - take 1000
-        energy = np.zeros((steps,))
+        steps = 1000  # FIXME - take 1000
         beta0 = (self.real_energy(rc, eta, shift, orbital_sign, alpha) - self.ideal_energy(rc, 0)) / self.atom_charges[:, np.newaxis] ** 2
-        for i, r in enumerate(np.linspace(0, rc, steps)):
-            energy[i] = (self.real_energy(r, eta, shift, orbital_sign, alpha) - self.ideal_energy(r, beta0[atom, orb]))[atom, orb] ** 2
-        return np.max(energy)
+        r = np.linspace(0, rc, steps)
+        energy = (self.real_energy(r, eta, shift, orbital_sign, alpha) - self.ideal_energy(r, beta0[atom, orb])) ** 2
+        return np.max(energy[:, atom, orb])
 
     def optimize_phi_0(self, rc, eta, phi_0, shift, orbital_sign, atom, orb):
         """Optimize phi_0
