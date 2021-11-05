@@ -314,15 +314,15 @@ class CuspFactory:
         alpha[4] = 3*X1/rc**4 - 2*X2/rc**3 + X3/2/rc**2 - X4/rc**3 - 3*X5/rc**4 - X2**2/2/rc**2
         return alpha
 
-    def phi_energy(self, r, eta, phi_tilde_0, shift):
+    def phi_energy(self, r, eta, shift):
         """Effective one-electron local energy for gaussian s-part orbital.
         :param r:
         :return: energy
         """
-        R = phi_tilde_0 - shift
-        phi_rc, _, phi_diff_2_rc = self.phi(r)
-        z_eff = self.atom_charges[:, np.newaxis] * (1 + eta / (R + shift))  # (16)
-        return - 0.5 * phi_diff_2_rc / phi_rc - z_eff / r
+        R = self.phi_0 - shift
+        phi_rc, phi_diff_rc, phi_diff_2_rc = self.phi(r)
+        z_eff = self.atom_charges[:, np.newaxis] * (1 + eta / (R + shift))         # (16)
+        return - 0.5 * (2 * phi_diff_rc / r + phi_diff_2_rc) / phi_rc - z_eff / r  # (15)
 
     def phi_tilde_energy(self, r, eta, shift, alpha):
         """effective one-electron local energy for corrected orbital.
@@ -362,7 +362,7 @@ class CuspFactory:
         energy = np.abs(self.phi_tilde_energy(r, eta, shift, alpha) - self.ideal_energy(r, beta0))
         return np.max(energy, axis=0)
 
-    def optimize_rc(self, rc, eta, phi_0, shift):
+    def optimize_rc(self, rc, eta, shift):
         """Optimize rc
         from SUBROUTINE choose_init_rc in gpcc.f90
 
@@ -370,17 +370,9 @@ class CuspFactory:
             This function returns the one-electron local energy calculated using the
             spherical part of the uncorrected orbital.
         """
-        alpha = self.alpha_data(rc, eta, phi_0, shift)
-        beta0 = (self.phi_tilde_energy(rc, eta, shift, alpha) - self.ideal_energy(rc, 0)) / self.atom_charges[:, np.newaxis] ** 2
-        energy = np.abs(self.phi_energy(rc, eta, self.phi_0, shift) - self.ideal_energy(rc, beta0))
-        for atom in range(self.atom_positions.shape[0]):
-            for orb in range(self.neu + self.ned):
-                r = rc[atom, orb]
-                if r == 0.0:
-                    rc[atom, orb] = 0.0
-                    continue
-                print(energy[atom, orb], self.atom_charges[atom] ** 2 / 50)
-        return rc
+        beta0 = (self.phi_energy(rc, eta, shift) - self.ideal_energy(self.rc_initial(), 0)) / self.atom_charges[:, np.newaxis] ** 2
+        energy_delta = np.abs(self.phi_energy(rc, eta, shift) - self.ideal_energy(rc, beta0))
+        print(energy_delta / (self.atom_charges[:, np.newaxis] ** 2 / 50))
 
     def optimize_phi_tilde_0(self, rc, eta, phi_tilde_0, shift):
         """Optimize phi_tilde at r=0
@@ -491,10 +483,8 @@ class CuspFactory:
         if debug:
             rc = np.concatenate((rc_up, rc_down), axis=1)
         else:
-            rc = self.rc_initial()
-            self.optimize_rc(rc, eta, self.phi_0, shift)
             rc = np.concatenate((rc_up, rc_down), axis=1)
-            self.optimize_rc(rc, eta, self.phi_0, shift)
+            self.optimize_rc(rc, eta, shift)
         # atoms, MO - Value of corrected orbital at nucleus
         if debug:
             phi_tilde_0 = np.concatenate((phi_tilde_0_up, phi_tilde_0_down), axis=1)
