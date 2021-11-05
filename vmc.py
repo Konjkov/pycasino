@@ -328,7 +328,7 @@ class MarkovChain:
         :return:
         """
         r_e = self.r_e
-        energy = np.zeros((steps, ))
+        energy = np.zeros(shape=(steps, ))
         walker = self.dmc_random_walker(steps, r_e, target_weight)
 
         for i, (energy_t, r_e) in enumerate(walker):
@@ -343,7 +343,7 @@ class MarkovChain:
         :param position: random walk positions
         :return:
         """
-        energy = np.zeros((condition.size, ))
+        energy = np.zeros(shape=(condition.size, ))
         for i, (c, p) in enumerate(zip(condition, position)):
             if i == 0 or c:
                 energy[i] = self.wfn.energy(p)
@@ -357,7 +357,7 @@ class MarkovChain:
         :return:
         """
         first_res = self.wfn.jastrow_parameters_numerical_d1(position[0])
-        res = np.zeros((position.shape[0], ) + first_res.shape)
+        res = np.zeros(shape=(position.shape[0], ) + first_res.shape)
         res[0] = first_res
 
         for i in range(1, position.shape[0]):
@@ -370,7 +370,7 @@ class MarkovChain:
         :return:
         """
         first_res = self.wfn.jastrow_parameters_numerical_d2(position[0])
-        res = np.zeros((position.shape[0], ) + first_res.shape)
+        res = np.zeros(shape=(position.shape[0], ) + first_res.shape)
         res[0] = first_res
 
         for i in range(1, position.shape[0]):

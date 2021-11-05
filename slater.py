@@ -19,7 +19,7 @@ from overload import subtract_outer
 from logger import logging
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from readers.casino import CasinoConfig
-from cusp import Cusp
+from cusp import Cusp, CuspFactory
 
 logger = logging.getLogger('vmc')
 
@@ -200,7 +200,7 @@ class Slater:
         :param n_vectors: electron-nuclei array(nelec, natom, 3)
         :return: AO array(nelec, nbasis_functions)
         """
-        orbital = np.zeros((self.neu + self.ned, self.nbasis_functions))
+        orbital = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
         for i in range(self.neu + self.ned):
             p = 0
             ao = 0
@@ -229,7 +229,7 @@ class Slater:
         :param n_vectors: electron-nuclei - array(natom, nelec, 3)
         :return: AO gradient - array(3, nelec, nbasis_functions)
         """
-        orbital = np.zeros((self.neu + self.ned, 3, self.nbasis_functions))
+        orbital = np.zeros(shape=(self.neu + self.ned, 3, self.nbasis_functions))
         for i in range(self.neu + self.ned):
             p = 0
             ao = 0
@@ -269,7 +269,7 @@ class Slater:
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :return: AO laplacian - array(nelec, nbasis_functions)
         """
-        orbital = np.zeros((self.neu + self.ned, self.nbasis_functions))
+        orbital = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
         for i in range(self.neu + self.ned):
             p = 0
             ao = 0
@@ -302,7 +302,7 @@ class Slater:
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :return: AO hessian - array(6, nelec, nbasis_functions)
         """
-        orbital = np.zeros((6, self.neu + self.ned, self.nbasis_functions))
+        orbital = np.zeros(shape=(6, self.neu + self.ned, self.nbasis_functions))
 
         for i in range(self.neu + self.ned):
             p = 0
@@ -473,7 +473,7 @@ class Slater:
             cusp_hessian = self.cusp.hessian(n_vectors)
 
         val = 0
-        hass = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
+        hass = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
 
             wfn_u = self.mo_up[i] @ ao[:self.neu].T
@@ -556,7 +556,7 @@ class Slater:
         delta = 0.00001
 
         val = self.value(n_vectors)
-        res = np.zeros((self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3))
         for i in range(self.neu + self.ned):
             for j in range(3):
                 n_vectors[:, i, j] -= delta
@@ -685,11 +685,11 @@ def main(config):
     dx = 3.0
 
     if config.input.cusp_correction:
-        cusp = Cusp(
-        config.input.neu, config.input.ned, config.mdet.mo_up, config.mdet.mo_down,
-        config.wfn.nbasis_functions, config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
-        config.wfn.coefficients, config.wfn.exponents, config.wfn.atom_positions, config.wfn.atom_charges
-    )
+        cusp = CuspFactory(
+            config.input.neu, config.input.ned, config.mdet.mo_up, config.mdet.mo_down,
+            config.wfn.nbasis_functions, config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
+            config.wfn.coefficients, config.wfn.exponents, config.wfn.atom_positions, config.wfn.atom_charges
+        ).create()
     else:
         cusp = None
 
