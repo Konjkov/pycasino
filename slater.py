@@ -20,122 +20,9 @@ from logger import logging
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from readers.casino import CasinoConfig
 from cusp import Cusp, CuspFactory
+from spherical_harmonics import angular_part, gradient_angular_part, hessian_angular_part
 
 logger = logging.getLogger('vmc')
-
-
-@nb.jit(nopython=True, nogil=True, parallel=False)
-def angular_part(x, y, z):
-    """Angular part of gaussian WFN.
-    :return:
-    """
-    x2 = x**2
-    y2 = y**2
-    z2 = z**2
-    r2 = x2 + y2 + z2
-    return np.array([
-        1.0,
-        x,
-        y,
-        z,
-        (3.0 * z2 - r2) / 2.0,
-        3.0 * x*z,
-        3.0 * y*z,
-        3.0 * (x2 - y2),
-        6.0 * x*y,
-        z * (5.0 * z2 - 3.0 * r2) / 2.0,
-        1.5 * x * (5 * z2 - r2),
-        1.5 * y * (5 * z2 - r2),
-        15.0 * z * (x2 - y2),
-        30.0 * x * y*z,
-        15.0 * x * (x2 - 3 * y2),
-        15.0 * y * (3 * x2 - y2),
-        (35.0 * z**4 - 30.0 * z2 * r2 + 3.0 * r2**2) / 8.0,
-        2.5 * x*z * (7 * z2 - 3 * r2),
-        2.5 * y*z * (7 * z2 - 3 * r2),
-        7.5 * (x2 - y2) * (7 * z2 - r2),
-        15.0 * x*y * (7 * z2 - r2),
-        105.0 * x*z * (x2 - 3 * y2),
-        105.0 * y*z * (3 * x2 - y2),
-        105.0 * (x2**2 - 6 * x2 * y2 + y2**2),
-        420.0 * x*y * (x2 - y2)
-    ])
-
-
-@nb.jit(nopython=True, nogil=True, parallel=False)
-def gradient_angular_part(x, y, z):
-    """Angular part of gaussian WFN gradient.
-    order: dx, dy, dz
-    :return:
-    """
-    x2 = x**2
-    y2 = y**2
-    z2 = z**2
-    return np.array([
-        [0.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, 0.0, 1.0],
-        [-x, -y, 2.0*z],
-        [3.0*z, 0.0, 3.0*x],
-        [0.0, 3.0*z, 3.0*y],
-        [6.0*x, -6.0*y, 0.0],
-        [6.0*y, 6.0*x, 0.0],
-        [-3.0*x*z, -3.0*y*z, -1.5*x2 - 1.5*y2 + 3.0*z2],
-        [-4.5*x2 - 1.5*y2 + 6.0*z2, -3.0*x*y, 12.0*x*z],
-        [-3.0*x*y, -1.5*x2 - 4.5*y2 + 6.0*z2, 12.0*y*z],
-        [30.0*x*z, -30.0*y*z, 15.0*x2 - 15.0*y2],
-        [30.0*y*z, 30.0*x*z, 30.0*x*y],
-        [45.0*x2 - 45.0*y2, -90.0*x*y, 0],
-        [90.0*x*y, 45.0*x2 - 45.0*y2, 0],
-        [x*(1.5*x2 + 1.5*y2 - 6.0*z2), y*(1.5*x2 + 1.5*y2 - 6.0*z2), z*(-6.0*x2 - 6.0*y2 + 4.0*z2)],
-        [z*(-22.5*x2 - 7.5*y2 + 10.0*z2), -15.0*x*y*z, x*(-7.5*x2 - 7.5*y2 + 30.0*z2)],
-        [-15.0*x*y*z, z*(-7.5*x2 - 22.5*y2 + 10.0*z2), y*(-7.5*x2 - 7.5*y2 + 30.0*z2)],
-        [x*(-30.0*x2 + 90.0*z2), y*(30.0*y2 - 90.0*z2), 90.0*z*(x2 - y2)],
-        [y*(-45.0*x2 - 15.0*y2 + 90.0*z2), x*(-15.0*x2 - 45.0*y2 + 90.0*z2), 180.0*x*y*z],
-        [315.0*z*(x2 - y2), -630.0*x*y*z, x*(105.0*x2 - 315.0*y2)],
-        [630.0*x*y*z, 315.0*z*(x2 - y2), y*(315.0*x2 - 105.0*y2)],
-        [x*(420.0*x2 - 1260.0*y2), y*(-1260.0*x2 + 420.0*y2), 0],
-        [y*(1260.0*x2 - 420.0*y2), x*(420.0*x2 - 1260.0*y2), 0]
-    ])
-
-
-@nb.jit(nopython=True, nogil=True, parallel=False)
-def hessian_angular_part(x, y, z):
-    """Angular part of gaussian WFN hessian.
-    order: dxdx, dxdy, dydy, dxdz, dydz, dzdz
-    :return:
-    """
-    x2 = x**2
-    y2 = y**2
-    z2 = z**2
-    return np.array([
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [-1.0, 0.0, -1.0, 0.0, 0.0, 2.0],
-        [0.0, 0.0, 0.0, 3.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 3.0, 0.0],
-        [6.0, 0.0, -6.0, 0.0, 0.0, 0.0],
-        [0.0, 6.0, 0.0, 0.0, 0.0, 0.0],
-        [-3.0*z, 0, -3.0*z, -3.0*x, -3.0*y, 6.0*z],
-        [-9.0*x, -3.0*y, -3.0*x, 12.0*z, 0, 12.0*x],
-        [-3.0*y, -3.0*x, -9.0*y, 0, 12.0*z, 12.0*y],
-        [30.0*z, 0, -30.0*z, 30.0*x, -30.0*y, 0],
-        [0, 30.0*z, 0, 30.0 * y, 30.0*x, 0],
-        [90.0*x, -90.0*y, -90.0*x, 0, 0, 0],
-        [90.0*y, 90.0*x, -90.0*y, 0, 0, 0],
-        [4.5*x2 + 1.5*y2 - 6.0*z2, 3.0*x*y, 1.5*x2 + 4.5*y2 - 6.0*z2, -12.0*x*z, -12.0*y*z, -6.0*x2 - 6.0*y2 + 12.0*z2],
-        [-45.0*x*z, -15.0*y*z, -15.0*x*z, -22.5*x2 - 7.5*y2 + 30.0*z2, -15.0*x*y, 60.0*x*z],
-        [-15.0*y*z, -15.0*x*z, -45.0*y*z, -15.0*x*y, -7.5*x2 - 22.5*y2 + 30.0*z2, 60.0*y*z],
-        [-90.0*x2 + 90.0*z2, 0, 90.0*y2 - 90.0*z2, 180.0*x*z, -180.0*y*z, 90.0*x2 - 90.0*y2],
-        [-90.0*x*y, -45.0*x2 - 45.0*y2 + 90.0*z2, -90.0*x*y, 180.0*y*z, 180.0*x*z, 180.0*x*y],
-        [630.0*x*z, -630.0*y*z, -630.0*x*z, 315.0*x2 - 315.0*y2, -630.0*x*y, 0],
-        [630.0*y*z, 630.0*x*z, -630.0*y*z, 630.0*x*y, 315.0*x2 - 315.0*y2, 0],
-        [1260.0*x2 - 1260.0*y2, -2520.0*x*y, -1260.0*x2 + 1260.0*y2, 0, 0, 0],
-        [2520.0*x*y, 1260.0*x2 - 1260.0*y2, -2520.0*x*y, 0, 0, 0],
-    ])
 
 
 slater_spec = [
@@ -202,8 +89,7 @@ class Slater:
         """
         orbital = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
         for i in range(self.neu + self.ned):
-            p = 0
-            ao = 0
+            p = ao = 0
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
                 r2 = x * x + y * y + z * z
@@ -231,8 +117,7 @@ class Slater:
         """
         orbital = np.zeros(shape=(self.neu + self.ned, 3, self.nbasis_functions))
         for i in range(self.neu + self.ned):
-            p = 0
-            ao = 0
+            p = ao = 0
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
                 r2 = x * x + y * y + z * z
@@ -271,8 +156,7 @@ class Slater:
         """
         orbital = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
         for i in range(self.neu + self.ned):
-            p = 0
-            ao = 0
+            p = ao = 0
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
                 r2 = x * x + y * y + z * z
@@ -305,8 +189,7 @@ class Slater:
         orbital = np.zeros(shape=(6, self.neu + self.ned, self.nbasis_functions))
 
         for i in range(self.neu + self.ned):
-            p = 0
-            ao = 0
+            p = ao = 0
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
                 r2 = x * x + y * y + z * z
@@ -380,7 +263,7 @@ class Slater:
             cusp_gradient = self.cusp.gradient(n_vectors)
 
         val = 0.0
-        grad = np.zeros((self.neu + self.ned, 3))
+        grad = np.zeros(shape=(self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
 
             if self.cusp is not None:

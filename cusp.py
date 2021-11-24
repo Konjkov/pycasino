@@ -11,9 +11,9 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import numpy as np
 import numba as nb
 from scipy.optimize import minimize, root
-import matplotlib.pyplot as plt
 from numpy.polynomial.polynomial import polyval
 
+from spherical_harmonics import angular_part
 from readers.casino import CasinoConfig
 from logger import logging
 
@@ -247,7 +247,6 @@ class CuspFactory:
         self.cusp_threshold = 1e-7  # FIXME: take from config
         self.phi_0, _, _ = self.phi(np.zeros(shape=(self.atom_positions.shape[0], self.neu + self.ned)))
         self.orb_mask = np.abs(self.phi_0) > self.cusp_threshold
-        #  aa(0) = -0.560928
         self.beta = np.array([3.25819, -15.0126, 33.7308, -42.8705, 31.2276, -12.1316, 1.94692])
         # atoms, MO - sign of s-type Gaussian functions centered on the nucleus
         self.orbital_sign = self.phi_sign()
@@ -274,17 +273,35 @@ class CuspFactory:
                         orbital[atom, orb, ao] = s_part
                         orbital_derivative[atom, orb, ao] = s_derivative_part
                         orbital_second_derivative[atom, orb, ao] = s_second_derivative_part
-                    p += self.primitives[nshell]
                     ao += 2 * l + 1
+                    p += self.primitives[nshell]
         return (
             np.sum(orbital * self.mo[0], axis=2) / self.norm,
             np.sum(orbital_derivative * self.mo[0], axis=2) / self.norm,
             np.sum(orbital_second_derivative * self.mo[0], axis=2) / self.norm
         )
 
-    def eta_data(self, wfn_0):
+    def eta_data(self):
         """Contribution from Gaussians on other nuclei"""
-        return wfn_0 - self.phi_0
+        orbital = np.zeros(shape=(self.atom_positions.shape[0], self.neu + self.ned, self.mo[0].shape[1]))
+        for atom in range(self.atom_positions.shape[0]):
+            for orb in range(self.neu + self.ned):
+                p = ao = 0
+                for orb_atom in range(self.atom_positions.shape[0]):
+                    x, y, z = self.atom_positions[atom] - self.atom_positions[orb_atom]
+                    r2 = x * x + y * y + z * z
+                    angular = angular_part(x, y, z)
+                    for nshell in range(self.first_shells[orb_atom] - 1, self.first_shells[orb_atom + 1] - 1):
+                        l = self.shell_moments[nshell]
+                        radial = 0.0
+                        if atom != orb_atom:
+                            for primitive in range(self.primitives[nshell]):
+                                radial += self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r2)
+                            for m in range(2 * l + 1):
+                                orbital[atom, orb, ao+m] += angular[l*l+m] * radial
+                        ao += 2 * l + 1
+                        p += self.primitives[nshell]
+        return np.sum(orbital * self.mo[0], axis=2) / self.norm
 
     def rc_initial(self):
         """Initial rc"""
@@ -488,16 +505,16 @@ class CuspFactory:
                 [-0.018824846884, -0.002828414129, -5.299444354528,  0.398174414615, -0.701172068569,  0.709930839504, 0.0, -0.026979314668,  0.436599565976, 0.0,  0.032554800149,  0.012216984810],
                 [-0.024767570392,  5.292572118630, -0.002698702856,  0.625758024578,  0.816314024042,  0.547346193858, 0.0, -0.243109138643, -0.182823180811, 0.0, -0.009584833190,  0.026173722176],
             ]))
-        # atoms, MO - Value of uncorrected orbital at nucleus
-        wfn_0 = np.concatenate((wfn_0_up, wfn_0_down), axis=1)
-        # contribution from Gaussians on other nuclei
-        eta = self.eta_data(wfn_0)
         # atoms, MO - shift chosen so that phi − shift is of one sign within rc
         shift = np.zeros((self.atom_positions.shape[0], self.neu + self.ned))
         # atoms, MO - cusp correction radius
         if debug:
+            # atoms, MO - Value of uncorrected orbital at nucleus
+            wfn_0 = np.concatenate((wfn_0_up, wfn_0_down), axis=1)
+            eta = wfn_0 - self.phi_0
             rc = np.concatenate((rc_up, rc_down), axis=1)
         else:
+            eta = self.eta_data()
             rc = np.concatenate((rc_up, rc_down), axis=1)
             print(self.optimize_rc(rc, eta, shift))
         # atoms, MO - Value of corrected orbital at nucleus

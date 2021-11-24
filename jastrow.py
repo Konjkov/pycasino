@@ -12,6 +12,8 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import numpy as np
 import numba as nb
 
+from numpy.polynomial.polynomial import polyval, polyval3d
+
 from readers.casino import CasinoConfig
 from overload import subtract_outer
 from logger import logging
@@ -98,7 +100,7 @@ class Jastrow:
         :param e_vectors: e-e vectors - array(nelec, nelec, 3)
         :return: powers of e-e distances - array(nelec, nelec, max_ee_order)
         """
-        res = np.ones((e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
+        res = np.ones(shape=(e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
         for i in range(1, self.neu + self.ned):
             for j in range(i):
                 r_ee = np.linalg.norm(e_vectors[i, j])
@@ -111,7 +113,7 @@ class Jastrow:
         :param n_vectors: e-n vectors - array(natom, nelec, 3)
         :return: powers of e-n distances - array(natom, nelec, max_en_order)
         """
-        res = np.ones((n_vectors.shape[0], n_vectors.shape[1], self.max_en_order))
+        res = np.ones(shape=(n_vectors.shape[0], n_vectors.shape[1], self.max_en_order))
         for i in range(n_vectors.shape[0]):
             for j in range(n_vectors.shape[1]):
                 r_eI = np.linalg.norm(n_vectors[i, j])
@@ -162,6 +164,8 @@ class Jastrow:
                     r = n_powers[i, j, 1]
                     if r < L:
                         chi_set = int(j >= self.neu) % parameters.shape[1]
+                        # FIXME: maybe in next numba
+                        # res += polyval(r, parameters[:, chi_set]) * (r - L) ** C
                         poly = 0.0
                         for k in range(parameters.shape[0]):
                             poly += parameters[k, chi_set] * n_powers[i, j, k]
@@ -201,7 +205,7 @@ class Jastrow:
         :param e_vectors: e-e vectors
         :return:
         """
-        res = np.zeros((self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3))
 
         if not self.u_cutoff:
             return res.ravel()
@@ -237,7 +241,7 @@ class Jastrow:
         :param n_vectors: e-n vectors
         :return:
         """
-        res = np.zeros((self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3))
 
         if not self.chi_cutoff.any():
             return res.ravel()
@@ -268,7 +272,7 @@ class Jastrow:
         :param n_vectors: e-n vectors
         :return:
         """
-        res = np.zeros((self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3))
 
         if not self.f_cutoff.any():
             return res.ravel()
@@ -501,7 +505,7 @@ class Jastrow:
         """
         delta = 0.00001
 
-        res = np.zeros((self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3))
 
         for i in range(self.neu + self.ned):
             for j in range(3):

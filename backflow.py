@@ -86,7 +86,7 @@ class Backflow:
         :param e_vectors: e-e vectors - array(nelec, nelec, 3)
         :return:
         """
-        res = np.ones((e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
+        res = np.ones(shape=(e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
         for i in range(1, e_vectors.shape[0]):
             for j in range(i):
                 r_ee = np.linalg.norm(e_vectors[i, j])
@@ -99,7 +99,7 @@ class Backflow:
         :param n_vectors: e-n vectors
         :return:
         """
-        res = np.ones((n_vectors.shape[0], n_vectors.shape[1], self.max_en_order))
+        res = np.ones(shape=(n_vectors.shape[0], n_vectors.shape[1], self.max_en_order))
         for i in range(n_vectors.shape[0]):
             for j in range(n_vectors.shape[1]):
                 r_eI = np.linalg.norm(n_vectors[i, j])
@@ -109,7 +109,7 @@ class Backflow:
 
     def ae_multiplier(self, n_vectors, n_powers):
         """Zeroing the backflow displacement at AE atoms."""
-        res = np.ones((self.neu + self.ned, 3))
+        res = np.ones(shape=(self.neu + self.ned, 3))
         for i in range(n_vectors.shape[0]):
             Lg = self.ae_cutoff[i]
             for j in range(self.neu + self.ned):
@@ -123,7 +123,7 @@ class Backflow:
         Gradient of spherically symmetric function (in 3-D space) is:
             ∇(f) = df/dr * r_vec/r
         """
-        res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
         for i in range(n_vectors.shape[0]):
             Lg = self.ae_cutoff[i]
             for j in range(self.neu + self.ned):
@@ -138,7 +138,7 @@ class Backflow:
         Laplace operator of spherically symmetric function (in 3-D space) is:
             ∇²(f) = d²f/dr² + 2/r * df/dr
         """
-        res = np.zeros((self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3))
         for i in range(n_vectors.shape[0]):
             Lg = self.ae_cutoff[i]
             for j in range(self.neu + self.ned):
@@ -153,7 +153,7 @@ class Backflow:
         :param e_powers: powers of e-e distances
         :return: displacements of electrons - array(nelec, 3)
         """
-        res = np.zeros((self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
             return res
 
@@ -180,7 +180,7 @@ class Backflow:
         :param n_powers: powers of e-n distances
         :return: displacements of electrons - array(nelec, 3)
         """
-        res = np.zeros((self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3))
         if not self.mu_cutoff.any():
             return res
 
@@ -206,7 +206,7 @@ class Backflow:
         :param n_powers:
         :return: displacements of electrons - array(nelec, 3)
         """
-        res = np.zeros((self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3))
         if not self.phi_cutoff.any():
             return res
 
@@ -241,7 +241,7 @@ class Backflow:
         Gradient of spherically symmetric function (in 3-D space) is df/dr * (x, y, z)
         :return: partial derivatives of displacements of electrons - array(nelec * 3, nelec * 3)
         """
-        res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
             return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
@@ -277,7 +277,7 @@ class Backflow:
         :param n_vectors:
         :return: partial derivatives of displacements of electrons - array(nelec * 3, nelec * 3)
         """
-        res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.mu_cutoff.any():
             return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
@@ -308,7 +308,7 @@ class Backflow:
         :param e_vectors:
         :return: partial derivatives of displacements of electrons - array(nelec * 3, nelec * 3)
         """
-        res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.mu_cutoff.any():
             return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
@@ -375,7 +375,7 @@ class Backflow:
             ∇²(f) = d²f/dr² + 2/r * df/dr
         :return: vector laplacian - array(nelec * 3)
         """
-        res = np.zeros((self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
             return res.ravel()
 
@@ -414,7 +414,7 @@ class Backflow:
             ∇²(f) = d²f/dr² + 2/r * df/dr
         :return: vector laplacian - array(nelec * 3)
         """
-        res = np.zeros((self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3))
         if not self.mu_cutoff.any():
             return res.ravel()
 
@@ -452,7 +452,7 @@ class Backflow:
             ∇²(f) = d²f/dr² + 2/r * df/dr
         :return: vector laplacian - array(nelec * 3)
         """
-        res = np.zeros((self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3))
         if not self.phi_cutoff.any():
             return res.ravel()
 
@@ -580,7 +580,7 @@ class Backflow:
         """
         delta = 0.00001
 
-        res = np.zeros((self.neu + self.ned, 3, self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
 
         for i in range(self.neu + self.ned):
             for j in range(3):
