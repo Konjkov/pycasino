@@ -45,10 +45,10 @@ class Jastrow:
 
     def __init__(self, file):
         self.trunc = 0
-        self.u_mask = np.zeros((0, 0), np.bool)
+        self.u_mask = np.zeros(shape=(0, 0), dtype=np.bool)
         self.chi_mask = nb.typed.List.empty_list(chi_mask_type)
         self.f_mask = nb.typed.List.empty_list(f_mask_type)
-        self.u_parameters = np.zeros((0, 0), np.float)  # uu, ud, dd order
+        self.u_parameters = np.zeros(shape=(0, 0), dtype=np.float)  # uu, ud, dd order
         self.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)  # u, d order
         self.f_parameters = nb.typed.List.empty_list(f_parameters_type)  # uu, ud, dd order
         self.u_cutoff = 0
@@ -59,7 +59,7 @@ class Jastrow:
         self.f_labels = nb.typed.List.empty_list(labels_type)
         self.no_dup_u_term = np.zeros(0, np.bool)
         self.no_dup_chi_term = np.zeros(0, np.bool)
-        self.u_cusp_const = np.zeros((3, ))
+        self.u_cusp_const = np.zeros(shape=(3, ))
 
         if not os.path.isfile(file):
             return

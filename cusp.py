@@ -10,7 +10,7 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 import numpy as np
 import numba as nb
-from scipy.optimize import minimize
+from scipy.optimize import minimize, root
 import matplotlib.pyplot as plt
 from numpy.polynomial.polynomial import polyval
 
@@ -247,6 +247,7 @@ class CuspFactory:
         self.cusp_threshold = 1e-7  # FIXME: take from config
         self.phi_0, _, _ = self.phi(np.zeros(shape=(self.atom_positions.shape[0], self.neu + self.ned)))
         self.orb_mask = np.abs(self.phi_0) > self.cusp_threshold
+        #  aa(0) = -0.560928
         self.beta = np.array([3.25819, -15.0126, 33.7308, -42.8705, 31.2276, -12.1316, 1.94692])
         # atoms, MO - sign of s-type Gaussian functions centered on the nucleus
         self.orbital_sign = self.phi_sign()
@@ -358,21 +359,32 @@ class CuspFactory:
         """
         steps = 1000
         beta0 = (self.phi_tilde_energy(rc, eta, shift, alpha) - self.ideal_energy(rc, 0)) / self.atom_charges[:, np.newaxis] ** 2
-        r = np.linspace(0, rc, steps)
+        r = np.linspace(0, rc, steps + 1)
         energy = np.abs(self.phi_tilde_energy(r, eta, shift, alpha) - self.ideal_energy(r, beta0))
         return np.max(energy, axis=0)
 
     def optimize_rc(self, rc, eta, shift):
-        """Optimize rc
-        from SUBROUTINE choose_init_rc in gpcc.f90
+        """Optimize rc"""
+        beta0 = (self.phi_energy(self.rc_initial(), eta, shift) - self.ideal_energy(self.rc_initial(), 0)) / self.atom_charges[:, np.newaxis] ** 2
+        for atom in range(self.atom_positions.shape[0]):
+            for orb in range(self.neu + self.ned):
+                r = rc[atom, orb]
+                if r == 0.0:
+                    rc[atom, orb] = 0.0
+                    continue
 
-        REAL(dp) FUNCTION E_L_uncorr(iorb,jion,r)
-            This function returns the one-electron local energy calculated using the
-            spherical part of the uncorrected orbital.
-        """
-        beta0 = (self.phi_energy(rc, eta, shift) - self.ideal_energy(self.rc_initial(), 0)) / self.atom_charges[:, np.newaxis] ** 2
-        energy_delta = np.abs(self.phi_energy(rc, eta, shift) - self.ideal_energy(rc, beta0))
-        print(energy_delta / (self.atom_charges[:, np.newaxis] ** 2 / 50))
+                for r in np.linspace(rc[atom, orb], 0, int(rc[atom, orb] * 2000) + 1):
+                    energy_delta = np.abs(self.phi_energy(rc, eta, shift) - self.ideal_energy(rc, beta0))
+                    if (energy_delta > self.atom_charges[:, np.newaxis] ** 2 / 50)[atom, orb]:
+                        rc[atom, orb] = r
+                        break
+
+        drc = rc * 0.05 * 2000
+
+        for r in np.linspace(rc - 4 * drc, rc + 4 * drc, 9):
+            self.optimize_phi_tilde_0(r, eta, np.copy(self.phi_0), shift)
+
+        return rc
 
     def optimize_phi_tilde_0(self, rc, eta, phi_tilde_0, shift):
         """Optimize phi_tilde at r=0
@@ -387,6 +399,9 @@ class CuspFactory:
                 r = rc[atom, orb]
                 if r == 0.0:
                     phi_tilde_0[atom, orb] = 0.0
+                    continue
+
+                if not (0 < r < self.atom_charges[atom]):
                     continue
 
                 def callback(x, *args):
@@ -484,12 +499,12 @@ class CuspFactory:
             rc = np.concatenate((rc_up, rc_down), axis=1)
         else:
             rc = np.concatenate((rc_up, rc_down), axis=1)
-            self.optimize_rc(rc, eta, shift)
+            print(self.optimize_rc(rc, eta, shift))
         # atoms, MO - Value of corrected orbital at nucleus
         if debug:
             phi_tilde_0 = np.concatenate((phi_tilde_0_up, phi_tilde_0_down), axis=1)
         else:
-            phi_tilde_0 = self.optimize_phi_tilde_0(rc, eta, self.phi_0, shift)
+            phi_tilde_0 = self.optimize_phi_tilde_0(rc, eta, np.copy(self.phi_0), shift)
 
         alpha = self.alpha_data(rc, eta, phi_tilde_0, shift)
         return Cusp(self.neu, self.ned, rc, shift, self.orbital_sign, alpha)
@@ -736,18 +751,6 @@ class TestCuspFactory:
         # atoms, MO - Optimum corrected s orbital at nucleus
         # phi_0 = np.concatenate((phi_0_up, phi_0_down), axis=1)
         # wfn_0 = np.concatenate((wfn_0_up, wfn_0_down), axis=1)
-
-
-# def cusp_graph(config, atom, mo, shells, atoms):
-#     """In nuclear position dln(phi)/dr|r=r_nucl = -Z_nucl
-#     """
-#     cusp = Cusp(config.input.neu, config.input.ned, config.wfn.nbasis_functions)
-#
-#     x = np.linspace(0, 1/atom[atom].charge**2, 1000)
-#     args = (atom, mo, shells, atoms)
-#     wfn = [cusp.wfn_s(r, *args)[1]/cusp.wfn_s(r, *args)[0] for r in x]
-#     plt.plot(x, wfn, x, -atoms[atom].charge*np.ones(1000))
-#     plt.show()
 
 
 if __name__ == '__main__':
