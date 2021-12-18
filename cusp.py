@@ -13,7 +13,7 @@ import numba as nb
 from scipy.optimize import minimize, root
 from numpy.polynomial.polynomial import polyval
 
-from spherical_harmonics import angular_part
+from harmonics import angular_part
 from readers.casino import CasinoConfig
 from logger import logging
 
@@ -328,7 +328,7 @@ class CuspFactory:
         alpha[0] = X5
         alpha[1] = X4
         alpha[2] = 6*X1/rc**2 - 3*X2/rc + X3/2 - 3*X4/rc - 6*X5/rc**2 - X2**2/2
-        alpha[3] = -8*X1/rc**3 + 5*X2/rc**2 - X3/rc + 3*X4/rc**2 + 8 * X5/rc**3 + X2**2/rc
+        alpha[3] = -8*X1/rc**3 + 5*X2/rc**2 - X3/rc + 3*X4/rc**2 + 8*X5/rc**3 + X2**2/rc
         alpha[4] = 3*X1/rc**4 - 2*X2/rc**3 + X3/2/rc**2 - X4/rc**3 - 3*X5/rc**4 - X2**2/2/rc**2
         return alpha
 
@@ -423,16 +423,16 @@ class CuspFactory:
 
                 def callback(x, *args):
                     """"""
-                    logger.info('phi_0 = %.5f', x)
+                    logger.info('phi_0 = %.5f', x[0])
 
                 def f(x):
-                    phi_tilde_0[atom, orb] = x
+                    phi_tilde_0[atom, orb], = x
                     alpha = self.alpha_data(rc, eta, phi_tilde_0, shift)
                     return self.energy_diff_max(rc, eta, shift, alpha)[atom, orb]
 
                 options = dict(disp=True)
-                res = minimize(f, [phi_tilde_0[atom, orb]], method='TNC', options=options, callback=callback)
-                phi_tilde_0[atom, orb] = res.x[0]
+                res = minimize(f, [phi_tilde_0[atom, orb]], method='Powell', options=options, callback=callback)
+                phi_tilde_0[atom, orb], = res.x
         return phi_tilde_0
 
     def create(self, debug=False):
@@ -508,17 +508,17 @@ class CuspFactory:
         # atoms, MO - shift chosen so that phi − shift is of one sign within rc
         shift = np.zeros((self.atom_positions.shape[0], self.neu + self.ned))
         # atoms, MO - cusp correction radius
-        if debug:
+        if False:
             # atoms, MO - Value of uncorrected orbital at nucleus
             wfn_0 = np.concatenate((wfn_0_up, wfn_0_down), axis=1)
             eta = wfn_0 - self.phi_0
             rc = np.concatenate((rc_up, rc_down), axis=1)
         else:
             eta = self.eta_data()
-            rc = np.concatenate((rc_up, rc_down), axis=1)
-            print(self.optimize_rc(rc, eta, shift))
+            rc = self.rc_initial()
+            # rc = self.optimize_rc(rc, eta, shift)
         # atoms, MO - Value of corrected orbital at nucleus
-        if debug:
+        if False:
             phi_tilde_0 = np.concatenate((phi_tilde_0_up, phi_tilde_0_down), axis=1)
         else:
             phi_tilde_0 = self.optimize_phi_tilde_0(rc, eta, np.copy(self.phi_0), shift)

@@ -20,7 +20,7 @@ from logger import logging
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from readers.casino import CasinoConfig
 from cusp import Cusp, CuspFactory
-from spherical_harmonics import angular_part, gradient_angular_part, hessian_angular_part
+from harmonics import angular_part, gradient_angular_part, hessian_angular_part
 
 logger = logging.getLogger('vmc')
 
@@ -639,7 +639,7 @@ if __name__ == '__main__':
     """
 
     for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
-        path = f'test/gwfn/{mol}/HF/cc-pVQZ/CBCS/Slater/'
-        # path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
+        #path = f'test/gwfn/{mol}/HF/cc-pVQZ/CBCS/Slater/'
+        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
         logger.info('%s:', mol)
         main(CasinoConfig(path))
