@@ -23,6 +23,7 @@ from decorators import pool, thread
 from readers.casino import CasinoConfig
 from sem import correlated_sem
 from logger import logging
+from numba.core.runtime import rtsys
 
 np.random.seed(31415926)
 
@@ -104,6 +105,9 @@ class MarkovChain:
         :param decorr_period: decorrelation period
         :return: is step accepted, next electron`s position
         """
+        # FIXME: yield statement yields leaky memory
+        #  https://github.com/numba/numba/issues/5350
+        #  https://github.com/numba/numba/issues/6993
         ne = self.neu + self.ned
         e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
         probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
@@ -553,6 +557,7 @@ class Casino:
 
     def optimize_decorr_period(self):
         """Optimize decorr period"""
+        # TODO:
         return 3
 
     def vmc_energy(self, steps, nblock, decorr_period):
@@ -560,7 +565,6 @@ class Casino:
         start = default_timer()
         energy_block_mean = np.zeros(shape=(nblock, ))
         energy_block_sem = np.zeros(shape=(nblock, ))
-        # FIXME: memory leak
         for i in range(nblock):
             condition, position = self.markovchain.vmc_random_walk(steps // nblock, decorr_period)
             energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
@@ -646,9 +650,53 @@ class Casino:
         return res
 
 
+@nb.jit(nopython=True, nogil=True)
+def profiling_random_walk(markovchain, steps, r_initial, decorr_period):
+    walker = markovchain.simple_random_walker(steps, r_initial, decorr_period)
+    list(walker)
+
+
+def main(config):
+
+    cusp = None
+
+    neu, ned = config.input.neu, config.input.ned
+
+    r_initial = initial_position(neu + ned, config.wfn.atom_positions, config.wfn.atom_charges)
+
+    slater = Slater(
+        neu, ned,
+        config.wfn.nbasis_functions, config.wfn.first_shells, config.wfn.orbital_types, config.wfn.shell_moments,
+        config.wfn.slater_orders, config.wfn.primitives, config.wfn.coefficients, config.wfn.exponents,
+        config.mdet.mo_up, config.mdet.mo_down, config.mdet.coeff, cusp
+    )
+
+    jastrow = None
+
+    backflow = None
+
+    wfn = Wfn(neu, ned, config.wfn.atom_positions, config.wfn.atom_charges, slater, jastrow, backflow)
+
+    step = 1 / (neu + ned)
+
+    markovchain = MarkovChain(neu, ned, step, config.wfn.atom_positions, config.wfn.atom_charges, wfn)
+
+    start = default_timer()
+    profiling_random_walk(markovchain, config.input.vmc_nstep, r_initial, 1)
+    end = default_timer()
+    logger.info(' value     %8.1f', end - start)
+    stats = rtsys.get_allocation_stats()
+    logger.info(f'{stats} total: {stats[0] - stats[1]}')
+
+
 if __name__ == '__main__':
     """Tests
     """
+
+    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
+        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
+        logger.info('%s:', mol)
+        main(CasinoConfig(path))
 
     # path = 'test/gwfn/He/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/Be/HF/cc-pVQZ/CBCS/Slater/'
@@ -706,4 +754,4 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_dmc/'
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Jastrow_dmc/'
 
-    Casino(path).run()
+    # Casino(path).run()

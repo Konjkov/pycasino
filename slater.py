@@ -21,6 +21,7 @@ from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from readers.casino import CasinoConfig
 from cusp import Cusp, CuspFactory
 from harmonics import angular_part, gradient_angular_part, hessian_angular_part
+from numba.core.runtime import rtsys
 
 logger = logging.getLogger('vmc')
 
@@ -589,21 +590,29 @@ def main(config):
     profiling_value(dx, config.input.neu, config.input.ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
     end = default_timer()
     logger.info(' value     %8.1f', end - start)
+    stats = rtsys.get_allocation_stats()
+    logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
     start = default_timer()
     profiling_laplacian(dx, config.input.neu, config.input.ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
     end = default_timer()
     logger.info(' laplacian %8.1f', end - start)
+    stats = rtsys.get_allocation_stats()
+    logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
     start = default_timer()
     profiling_gradient(dx, config.input.neu, config.input.ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
     end = default_timer()
     logger.info(' gradient  %8.1f', end - start)
+    stats = rtsys.get_allocation_stats()
+    logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
     start = default_timer()
     profiling_hessian(dx, config.input.neu, config.input.ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
     end = default_timer()
     logger.info(' hessian   %8.1f', end - start)
+    stats = rtsys.get_allocation_stats()
+    logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
 
 if __name__ == '__main__':
