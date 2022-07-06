@@ -14,7 +14,6 @@ os.environ["MKL_NUM_THREADS"] = "1"  # mkl
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # accelerate
 os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
 
-import pyblock
 import numpy as np
 import numba as nb
 from scipy.optimize import least_squares, minimize, root
@@ -22,6 +21,7 @@ from scipy.optimize import least_squares, minimize, root
 
 from decorators import pool, thread
 from readers.casino import CasinoConfig
+from sem import correlated_sem
 from logger import logging
 
 np.random.seed(31415926)
@@ -482,7 +482,7 @@ class Casino:
                 decorr_period = self.optimize_decorr_period()
             else:
                 decorr_period = self.config.input.vmc_decorr_period
-            self.energy(self.config.input.vmc_nstep, self.config.input.vmc_nblock, decorr_period)
+            self.vmc_energy(self.config.input.vmc_nstep, self.config.input.vmc_nblock, decorr_period)
         elif self.config.input.runtype == 'vmc_opt':
             if self.config.input.opt_method == 'varmin':
                 for _ in range(self.config.input.opt_cycles):
@@ -512,22 +512,13 @@ class Casino:
             start = default_timer()
 
             energy = self.markovchain.dmc_random_walk(self.config.input.dmc_equil_nstep, self.config.input.dmc_target_weight)
-            reblock_data = pyblock.blocking.reblock(energy)
-            opt = pyblock.blocking.find_optimal_block(self.config.input.dmc_equil_nstep, reblock_data)
-            if opt[0]:
-                opt_data = reblock_data[opt[0]]
-                logger.info(opt_data)
-                logger.info('{} +/- {}'.format(np.mean(opt_data.mean), np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size)))
+            logger.info('{} +/- {}'.format(energy.mean(), correlated_sem(energy)))
             stop = default_timer()
             logger.info('total time {}'.format(stop - start))
 
             energy = self.markovchain.dmc_random_walk(self.config.input.dmc_stats_nstep, self.config.input.dmc_target_weight)
-            reblock_data = pyblock.blocking.reblock(energy)
-            opt = pyblock.blocking.find_optimal_block(self.config.input.dmc_stats_nstep, reblock_data)
-            if opt[0]:
-                opt_data = reblock_data[opt[0]]
-                logger.info(opt_data)
-                logger.info('{} +/- {}'.format(np.mean(opt_data.mean), np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size)))
+            logger.info('{} +/- {}'.format(energy.mean(), correlated_sem(energy)))
+
             stop = default_timer()
             logger.info('total time {}'.format(stop - start))
 
@@ -564,20 +555,20 @@ class Casino:
         """Optimize decorr period"""
         return 3
 
-    def energy(self, steps, nblock, decorr_period):
-        """Energy accumulation"""
+    def vmc_energy(self, steps, nblock, decorr_period):
+        """VMC energy accumulation"""
         start = default_timer()
-        energy = np.zeros((nblock, steps // nblock))
+        energy_block_mean = np.zeros(shape=(nblock, ))
+        energy_block_sem = np.zeros(shape=(nblock, ))
+        # FIXME: memory leak
         for i in range(nblock):
             condition, position = self.markovchain.vmc_random_walk(steps // nblock, decorr_period)
-            energy[i] = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
+            energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
+            energy_block_mean[i] = energy.mean()
+            energy_block_sem[i] = correlated_sem(energy)
         stop = default_timer()
         logger.info('total time {}'.format(stop - start))
-        reblock_data = pyblock.blocking.reblock(energy)
-        opt = pyblock.blocking.find_optimal_block(steps, reblock_data)
-        opt_data = reblock_data[opt[0]]
-        logger.info(opt_data)
-        logger.info('{} +/- {}'.format(np.mean(opt_data.mean), np.mean(opt_data.std_err) / np.sqrt(opt_data.std_err.size)))
+        logger.info('{} +/- {}'.format(energy_block_mean.mean(), energy_block_sem.mean() / np.sqrt(nblock)))
 
     def normal_test(self, energy):
         """Test whether energy distribution differs from a normal one."""
@@ -667,6 +658,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/Kr/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/O3/HF/cc-pVQZ/CBCS/Slater/'
 
+    # path = 'test/gwfn/Be/HF/ano-pVDZ/CBCS/Slater/'
     # path = 'test/gwfn/Ne/HF/ano-pVDZ/CBCS/Slater/'
 
     # path = 'test/gwfn/He/HF/cc-pVQZ/CBCS/Jastrow/'
