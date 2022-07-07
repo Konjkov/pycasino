@@ -236,6 +236,7 @@ class MarkovChain:
         :return: best estimate of energy, next position
         """
         ne = self.neu + self.ned
+        # TODO: change to numpy.array
         r_e_list = nb.typed.List()
         energy_list = nb.typed.List()
         velocity_list = nb.typed.List()
@@ -584,7 +585,7 @@ class Casino:
         https://github.com/scipy/scipy/issues/10634
         """
         bounds = self.jastrow.get_bounds()
-        condition, position = self.markovchain.vmc_random_walk(steps)
+        condition, position = self.markovchain.vmc_random_walk(steps, 1)
 
         def f(x, *args, **kwargs):
             self.jastrow.set_parameters(x)
@@ -614,7 +615,7 @@ class Casino:
         Constraints definition only for: COBYLA, SLSQP and trust-constr
         """
         bounds = self.jastrow.get_bounds()
-        condition, position = self.markovchain.vmc_random_walk(steps)
+        condition, position = self.markovchain.vmc_random_walk(steps, 1)
 
         def callback(x, *args):
             logger.info('inner iteration x = %s', x)
