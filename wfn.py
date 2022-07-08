@@ -119,6 +119,8 @@ class Wfn:
         and np.trace(A @ B) = np.sum(A * B.T) and (A @ A.T).T = A @ A.T
         :return: local energy
         """
+        with_F_and_T = True
+
         e_vectors = subtract_outer(r_e, r_e)
         n_vectors = -subtract_outer(self.atom_positions, r_e)
 
@@ -148,6 +150,11 @@ class Wfn:
                 s_g = self.slater.gradient(n_vectors)
                 F = np.sum((s_g + j_g)**2) / 2
                 T = (np.sum(s_g**2) - s_l - j_l) / 4
+                res += 2 * T - F
+            elif with_F_and_T:
+                s_g = self.slater.gradient(n_vectors)
+                F = np.sum(s_g**2) / 2
+                T = (np.sum(s_g**2) - s_l) / 4
                 res += 2 * T - F
             else:
                 res -= s_l / 2
