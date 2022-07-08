@@ -28,7 +28,6 @@ from numba.core.runtime import rtsys
 np.random.seed(31415926)
 
 logger = logging.getLogger('vmc')
-numba_logger = logging.getLogger('numba')
 
 r_e_type = nb.types.Array(dtype=nb.float64, ndim=2, layout="C")
 
@@ -494,14 +493,14 @@ class Casino:
                     self.optimize_vmc_step(10000)
                     res = self.vmc_variance_minimization(self.config.input.vmc_nstep)
                     # unload to file
-                    # logger.info('x = %s', res.x)
+                    # logger.debug('x = %s', res.x)
                     self.jastrow.set_parameters(res.x)
             elif self.config.input.opt_method == 'emin':
                 for _ in range(self.config.input.opt_cycles):
                     self.optimize_vmc_step(10000)
                     res = self.vmc_energy_minimization(self.config.input.vmc_nstep)
                     # unload to file
-                    # logger.info('x = %s', res.x)
+                    # logger.debug('x = %s', res.x)
                     self.jastrow.set_parameters(res.x)
         elif self.config.input.runtype == 'vmc_dmc':
             self.optimize_vmc_step(10000)
@@ -517,15 +516,20 @@ class Casino:
             start = default_timer()
 
             energy = self.markovchain.dmc_random_walk(self.config.input.dmc_equil_nstep, self.config.input.dmc_target_weight)
-            logger.info('{} +/- {}'.format(energy.mean(), correlated_sem(energy)))
             stop = default_timer()
-            logger.info('total time {}'.format(stop - start))
+            logger.info(
+                f'{energy.mean():.12f} +/- {correlated_sem(energy):.12f}'
+                f' =========================================================================\n\n'
+                f' Total PyCasino real time : : :    {stop - start:.4f}'
+            )
 
             energy = self.markovchain.dmc_random_walk(self.config.input.dmc_stats_nstep, self.config.input.dmc_target_weight)
-            logger.info('{} +/- {}'.format(energy.mean(), correlated_sem(energy)))
-
             stop = default_timer()
-            logger.info('total time {}'.format(stop - start))
+            logger.info(
+                f'{energy.mean():.12f} +/- {correlated_sem(energy):.12f}'
+                f' =========================================================================\n\n'
+                f' Total PyCasino real time : : :    {stop - start:.4f}'
+            )
 
     def equilibrate(self, steps):
         """
@@ -533,18 +537,21 @@ class Casino:
         :return:
         """
         condition, _ = self.markovchain.vmc_random_walk(steps, 1)
-        logger.info('dr * electrons = 1.00000, acc_ration = %.5f', condition.mean())
+        logger.info(
+            f'Running VMC equilibration ({steps} moves).'
+        )
+        logger.debug('dr * electrons = 1.00000, acc_ration = %.5f', condition.mean())
 
     def optimize_vmc_step(self, steps, acceptance_rate=0.5):
         """Optimize vmc step size."""
 
         def callback(tau, acc_ration):
             """dr = sqrt(3*dtvmc)"""
-            logger.info('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (self.neu + self.ned), acc_ration[0] + acceptance_rate)
+            logger.debug('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (self.neu + self.ned), acc_ration[0] + acceptance_rate)
 
         def f(tau):
             self.markovchain.step = tau[0]
-            logger.info('dr * electrons = %.5f', tau[0] * (self.neu + self.ned))
+            logger.debug('dr * electrons = %.5f', tau[0] * (self.neu + self.ned))
             if tau[0] > 0:
                 condition, _ = self.markovchain.vmc_random_walk(steps, 1)
                 acc_ration = condition.mean()
@@ -566,14 +573,24 @@ class Casino:
         start = default_timer()
         energy_block_mean = np.zeros(shape=(nblock, ))
         energy_block_sem = np.zeros(shape=(nblock, ))
+        logger.info(
+            f'Starting VMC.'
+        )
         for i in range(nblock):
             condition, position = self.markovchain.vmc_random_walk(steps // nblock, decorr_period)
             energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
         stop = default_timer()
-        logger.info('total time {}'.format(stop - start))
-        logger.info('{} +/- {}'.format(energy_block_mean.mean(), energy_block_sem.mean() / np.sqrt(nblock)))
+        logger.info(
+            f' =========================================================================\n'
+            f' FINAL RESULT:\n\n'
+            f'  VMC energy (au)    Standard error      Correction for serial correlation\n'
+            f' {energy_block_mean.mean():.12f} +/- {energy_block_sem.mean() / np.sqrt(nblock):.12f}      On-the-fly reblocking method\n\n'
+            f' Sample variance of E_L (au^2/sim.cell) : {0:.12f}\n\n'
+            f' =========================================================================\n\n'
+            f' Total PyCasino real time : : :    {stop - start:.4f}'
+        )
 
     def normal_test(self, energy):
         """Test whether energy distribution differs from a normal one."""
@@ -694,10 +711,10 @@ if __name__ == '__main__':
     """Tests
     """
 
-    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
-        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
-        logger.info('%s:', mol)
-        main(CasinoConfig(path))
+    # for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
+    #     path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
+    #     logger.info('%s:', mol)
+    #     main(CasinoConfig(path))
 
     # path = 'test/gwfn/He/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/Be/HF/cc-pVQZ/CBCS/Slater/'
@@ -735,14 +752,15 @@ if __name__ == '__main__':
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow/'
-    # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/N/HF/QZ4P/CBCS/Jastrow/'
+    # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/Ar/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Jastrow/'
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Backflow/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Backflow/'
+    # path = 'test/stowfn/N/HF/QZ4P/CBCS/Backflow/'
     # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Backflow/'
     # path = 'test/stowfn/Ar/HF/QZ4P/CBCS/Backflow/'
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Backflow/'
@@ -750,6 +768,7 @@ if __name__ == '__main__':
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_dmc/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow_dmc/'
+    # path = 'test/stowfn/N/HF/QZ4P/CBCS/Jastrow_dmc/'
     # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Jastrow_dmc/'
     # path = 'test/stowfn/Ar/HF/QZ4P/CBCS/Jastrow_dmc/'
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_dmc/'

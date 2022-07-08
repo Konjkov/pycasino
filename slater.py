@@ -567,88 +567,105 @@ def profiling_hessian(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
 def main(config):
     dx = 3.0
+    neu, ned = config.input.neu, config.input.ned
 
-    if config.input.cusp_correction:
-        cusp = CuspFactory(
-            config.input.neu, config.input.ned, config.mdet.mo_up, config.mdet.mo_down,
-            config.wfn.nbasis_functions, config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
-            config.wfn.coefficients, config.wfn.exponents, config.wfn.atom_positions, config.wfn.atom_charges
-        ).create()
-    else:
-        cusp = None
+    # if config.input.cusp_correction:
+    #     cusp = CuspFactory(
+    #         neu, ned, config.mdet.mo_up, config.mdet.mo_down,
+    #         config.wfn.nbasis_functions, config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
+    #         config.wfn.coefficients, config.wfn.exponents, config.wfn.atom_positions, config.wfn.atom_charges
+    #     ).create()
+    # else:
+    cusp = None
 
     slater = Slater(
-        config.input.neu, config.input.ned,
+        neu, ned,
         config.wfn.nbasis_functions, config.wfn.first_shells, config.wfn.orbital_types, config.wfn.shell_moments,
         config.wfn.slater_orders, config.wfn.primitives, config.wfn.coefficients, config.wfn.exponents,
         config.mdet.mo_up, config.mdet.mo_down, config.mdet.coeff, cusp
     )
 
-    r_initial = initial_position(config.input.neu + config.input.ned, config.wfn.atom_positions, config.wfn.atom_charges)
+    r_initial = initial_position(neu + ned, config.wfn.atom_positions, config.wfn.atom_charges)
 
     start = default_timer()
-    profiling_value(dx, config.input.neu, config.input.ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
+    profiling_value(dx, neu, ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
     end = default_timer()
     logger.info(' value     %8.1f', end - start)
-    stats = rtsys.get_allocation_stats()
-    logger.info(f'{stats} total: {stats[0] - stats[1]}')
+    # stats = rtsys.get_allocation_stats()
+    # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
     start = default_timer()
-    profiling_laplacian(dx, config.input.neu, config.input.ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
+    profiling_laplacian(dx, neu, ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
     end = default_timer()
     logger.info(' laplacian %8.1f', end - start)
-    stats = rtsys.get_allocation_stats()
-    logger.info(f'{stats} total: {stats[0] - stats[1]}')
+    # stats = rtsys.get_allocation_stats()
+    # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
     start = default_timer()
-    profiling_gradient(dx, config.input.neu, config.input.ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
+    profiling_gradient(dx, neu, ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
     end = default_timer()
     logger.info(' gradient  %8.1f', end - start)
-    stats = rtsys.get_allocation_stats()
-    logger.info(f'{stats} total: {stats[0] - stats[1]}')
+    # stats = rtsys.get_allocation_stats()
+    # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
     start = default_timer()
-    profiling_hessian(dx, config.input.neu, config.input.ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
+    profiling_hessian(dx, neu, ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
     end = default_timer()
     logger.info(' hessian   %8.1f', end - start)
-    stats = rtsys.get_allocation_stats()
-    logger.info(f'{stats} total: {stats[0] - stats[1]}')
+    # stats = rtsys.get_allocation_stats()
+    # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
 
 if __name__ == '__main__':
     """
-    He:
-     value         25.7
-     laplacian     55.8
-     gradient     134.5
-     hessian      413.7
-    Be:
-     value         45.5
-     laplacian     98.2
-     gradient     242.5
-     hessian      729.8
-    Ne:
-     value        101.4
-     laplacian    224.5
-     gradient     529.8
-     hessian     1616.1
-    Ar:
-     value        274.7
-     laplacian    538.0
-     gradient    1078.3
-     hessian     3029.9
-    Kr:
-     value        751.1
-     laplacian   1602.4
-     gradient    2684.6
-     hessian     7316.8
-    O3:
-     value        626.4
-     laplacian   1272.6
+    Slater:
+        He:
+         value         28.7
+         laplacian     53.7
+         gradient      74.1
+         hessian      251.2
+        Be:
+         value         50.5
+         laplacian    100.9
+         gradient     136.9
+         hessian      365.3
+        Ne:
+         value        116.1
+         laplacian    228.9
+         gradient     294.9
+         hessian      777.2
+        Ar:
+         value        269.5
+         laplacian    555.6
+         gradient     657.0
+         hessian     1670.7
+        -- old --
+        Kr:
+         value        781.9
+         laplacian   1589.5
+         gradient    2526.0
+         hessian     6741.8
+        O3:
+         value        655.3
+         laplacian   1300.4
+         gradient    2669.2
+    Gaussian:
+        He:
+         value         29.1
+         laplacian     55.0
+         gradient     114.3
+         hessian      386.1
+        Be:
+         value         55.9
+         laplacian    110.2
+         gradient     243.6
+         hessian      769.3
+        Ne:
+         value        125.0
     """
 
     for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
-        #path = f'test/gwfn/{mol}/HF/cc-pVQZ/CBCS/Slater/'
+        # path = f'test/gwfn/{mol}/HF/cc-pVQZ/CBCS/Slater/'
         path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
         logger.info('%s:', mol)
         main(CasinoConfig(path))
