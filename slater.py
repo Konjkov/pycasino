@@ -519,14 +519,14 @@ def initial_position(ne, atom_positions, atom_charges):
     return r_e + np.random.laplace(0, 1, ne * 3).reshape((ne, 3))
 
 
-@nb.jit(nopython=True)
+@nb.jit(nopython=True, nogil=True, cache=True)
 def random_step(step, ne):
     """Random N-dim square distributed step"""
     return step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
 
 
 # @pool
-@nb.jit(nopython=True, nogil=True)
+@nb.jit(nopython=True, nogil=True, cache=True)
 def profiling_value(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
     for _ in range(steps):
@@ -536,7 +536,7 @@ def profiling_value(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
 
 # @pool
-@nb.jit(nopython=True, nogil=True)
+@nb.jit(nopython=True, nogil=True, cache=True)
 def profiling_gradient(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
     for _ in range(steps):
@@ -546,7 +546,7 @@ def profiling_gradient(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
 
 # @pool
-@nb.jit(nopython=True, nogil=True)
+@nb.jit(nopython=True, nogil=True, cache=True)
 def profiling_laplacian(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
     for _ in range(steps):
@@ -556,7 +556,7 @@ def profiling_laplacian(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
 
 # @pool
-@nb.jit(nopython=True, nogil=True)
+@nb.jit(nopython=True, nogil=True, cache=True)
 def profiling_hessian(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
     for _ in range(steps):

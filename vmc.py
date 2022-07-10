@@ -480,13 +480,24 @@ class Casino:
         """
         self.equilibrate(self.config.input.vmc_equil_nstep)
         if self.config.input.runtype == 'vmc':
+            logger.info(
+                ' ====================================\n'
+                ' PERFORMING A SINGLE VMC CALCULATION.\n'
+                ' ====================================\n\n'
+            )
             # FIXME: in EBEC nstep = vmc_nstep * (neu + ned)
             self.optimize_vmc_step(10000)
+            start = default_timer()
             if self.config.input.vmc_decorr_period == 0:
                 decorr_period = self.optimize_decorr_period()
             else:
                 decorr_period = self.config.input.vmc_decorr_period
             self.vmc_energy(self.config.input.vmc_nstep, self.config.input.vmc_nblock, decorr_period)
+            stop = default_timer()
+            logger.info(
+                f' =========================================================================\n\n'
+                f' Total PyCasino real time : : :    {stop - start:.4f}'
+            )
         elif self.config.input.runtype == 'vmc_opt':
             if self.config.input.opt_method == 'varmin':
                 for _ in range(self.config.input.opt_cycles):
@@ -513,8 +524,8 @@ class Casino:
             self.markovchain.r_e = nb.typed.List.empty_list(r_e_type)
             for p in position:
                 self.markovchain.r_e.append(p)
-            start = default_timer()
 
+            start = default_timer()
             energy = self.markovchain.dmc_random_walk(self.config.input.dmc_equil_nstep, self.config.input.dmc_target_weight)
             stop = default_timer()
             logger.info(
@@ -570,26 +581,33 @@ class Casino:
 
     def vmc_energy(self, steps, nblock, decorr_period):
         """VMC energy accumulation"""
-        start = default_timer()
         energy_block_mean = np.zeros(shape=(nblock, ))
         energy_block_sem = np.zeros(shape=(nblock, ))
         logger.info(
             f'Starting VMC.'
         )
         for i in range(nblock):
+            block_start = default_timer()
             condition, position = self.markovchain.vmc_random_walk(steps // nblock, decorr_period)
             energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
-        stop = default_timer()
+            block_stop = default_timer()
+            logger.info(
+                f' =========================================================================\n'
+                f' In block : {i + 1}\n'
+                f'  Number of VMC steps           = {steps // nblock}\n\n'
+                f'  Block average energies (au)\n\n'
+                f'  Total energy                       (au) =         {energy_block_mean[i]:.12f}\n'
+                f'  Standard error                        +/-         {energy_block_sem[i]:.12f}\n\n'
+                f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
+            )
         logger.info(
             f' =========================================================================\n'
             f' FINAL RESULT:\n\n'
             f'  VMC energy (au)    Standard error      Correction for serial correlation\n'
             f' {energy_block_mean.mean():.12f} +/- {energy_block_sem.mean() / np.sqrt(nblock):.12f}      On-the-fly reblocking method\n\n'
             f' Sample variance of E_L (au^2/sim.cell) : {0:.12f}\n\n'
-            f' =========================================================================\n\n'
-            f' Total PyCasino real time : : :    {stop - start:.4f}'
         )
 
     def normal_test(self, energy):
