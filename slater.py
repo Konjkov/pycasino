@@ -516,7 +516,7 @@ def initial_position(ne, atom_positions, atom_charges):
     r_e = np.zeros((ne, 3))
     for i in range(ne):
         r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
-    return r_e + np.random.laplace(0, 1, ne * 3).reshape((ne, 3))
+    return r_e
 
 
 @nb.jit(nopython=True, nogil=True, cache=True)
@@ -526,7 +526,7 @@ def random_step(step, ne):
 
 
 # @pool
-@nb.jit(nopython=True, nogil=True, cache=True)
+@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
 def profiling_value(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
     for _ in range(steps):
@@ -536,7 +536,7 @@ def profiling_value(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
 
 # @pool
-@nb.jit(nopython=True, nogil=True, cache=True)
+@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
 def profiling_gradient(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
     for _ in range(steps):
@@ -546,7 +546,7 @@ def profiling_gradient(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
 
 # @pool
-@nb.jit(nopython=True, nogil=True, cache=True)
+@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
 def profiling_laplacian(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
     for _ in range(steps):
@@ -556,7 +556,7 @@ def profiling_laplacian(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
 
 # @pool
-@nb.jit(nopython=True, nogil=True, cache=True)
+@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
 def profiling_hessian(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
     for _ in range(steps):
@@ -566,6 +566,9 @@ def profiling_hessian(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
 
 def main(config):
+    """For multithreaded
+    https://numba.pydata.org/numba-doc/latest/user/threading-layer.html
+    """
     dx = 3.0
     neu, ned = config.input.neu, config.input.ned
 
