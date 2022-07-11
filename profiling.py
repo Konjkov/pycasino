@@ -146,7 +146,7 @@ def backflow_laplacian(dx, neu, ned, steps, atom_positions, backflow, r_initial)
         backflow.laplacian(e_vectors, n_vectors)
 
 
-def slater_main(config):
+def slater_profiling(config):
     """For multithreaded
     https://numba.pydata.org/numba-doc/latest/user/threading-layer.html
     """
@@ -200,7 +200,7 @@ def slater_main(config):
     # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
 
-def jastrow_main(casino):
+def jastrow_profiling(casino):
     dx = 3.0
 
     jastrow = Jastrow(
@@ -229,7 +229,7 @@ def jastrow_main(casino):
     logger.info(' gradient  %8.1f', end - start)
 
 
-def backflow_main(casino):
+def backflow_profiling(casino):
     dx = 3.0
 
     backflow = Backflow(
@@ -310,7 +310,7 @@ if __name__ == '__main__':
         # path = f'test/gwfn/{mol}/HF/cc-pVQZ/CBCS/Slater/'
         path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
         logger.info('%s:', mol)
-        slater_main(CasinoConfig(path))
+        slater_profiling(CasinoConfig(path))
 
     """
     He:
@@ -336,7 +336,7 @@ if __name__ == '__main__':
     for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
         path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Jastrow/'
         logger.info('%s:', mol)
-        jastrow_main(CasinoConfig(path))
+        jastrow_profiling(CasinoConfig(path))
 
     """
     He:
@@ -358,4 +358,4 @@ if __name__ == '__main__':
     for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
         path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
         logger.info('%s:', mol)
-        backflow_main(CasinoConfig(path))
+        backflow_profiling(CasinoConfig(path))
