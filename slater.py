@@ -525,7 +525,7 @@ def random_step(step, ne):
     return step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
 
 
-# @pool
+# @thread
 @nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
 def profiling_value(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
@@ -535,7 +535,7 @@ def profiling_value(dx, neu, ned, steps, atom_positions, slater, r_initial):
         slater.value(n_vectors)
 
 
-# @pool
+# @thread
 @nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
 def profiling_gradient(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
@@ -545,7 +545,7 @@ def profiling_gradient(dx, neu, ned, steps, atom_positions, slater, r_initial):
         slater.gradient(n_vectors)
 
 
-# @pool
+# @thread
 @nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
 def profiling_laplacian(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
@@ -555,7 +555,7 @@ def profiling_laplacian(dx, neu, ned, steps, atom_positions, slater, r_initial):
         slater.laplacian(n_vectors)
 
 
-# @pool
+# @thread
 @nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
 def profiling_hessian(dx, neu, ned, steps, atom_positions, slater, r_initial):
 

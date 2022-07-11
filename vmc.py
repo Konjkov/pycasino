@@ -96,21 +96,19 @@ class MarkovChain:
         square_mod_v = np.sum(v**2)
         return (np.sqrt(1 + 2 * a * square_mod_v * self.step) - 1) / (a * square_mod_v * self.step)
 
-    def simple_random_walker(self, steps, r_e, decorr_period):
+    def simple_random_walker(self, r_e, decorr_period):
         """Simple random walker with random N-dim square proposal density in
         configuration-by-configuration sampling (CBCS).
         :param steps: number of steps to walk
-        :param r_e: initial electron`s position
         :param decorr_period: decorrelation period
         :return: is step accepted, next electron`s position
         """
         # FIXME: yield statement yields leaky memory
-        #  https://github.com/numba/numba/issues/5350
         #  https://github.com/numba/numba/issues/6993
         ne = self.neu + self.ned
         e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
         probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
-        for _ in range(steps):
+        while True:
             cond = False
             for _ in range(decorr_period):
                 next_state = r_e + self.step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
@@ -122,9 +120,8 @@ class MarkovChain:
                     cond = True
             yield cond, r_e
 
-    def gibbs_random_walker(self, steps, r_e, decorr_period):
+    def gibbs_random_walker(self, r_e, decorr_period):
         """Simple random walker with electron-by-electron sampling (EBES)
-        :param steps: number of steps to walk
         :param r_e: initial position
         :param decorr_period: decorrelation period
         :return: is step accepted, next step position
@@ -132,7 +129,7 @@ class MarkovChain:
         ne = self.neu + self.ned
         e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
         probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
-        for _ in range(steps):
+        while True:
             cond = False
             for _ in range(decorr_period):
                 next_r_e = np.copy(r_e)
@@ -145,12 +142,11 @@ class MarkovChain:
                     cond = True
             yield cond, r_e
 
-    def biased_random_walker(self, steps, r_e, decorr_period):
+    def biased_random_walker(self, r_e, decorr_period):
         """Biased random walker with diffusion-drift proposed step
         diffusion step s proportional to sqrt(2*D*dt)
         drift step is proportional to D*F*dt
         where D is diffusion constant = 1/2
-        :param steps: number of steps to walk
         :param r_e: initial position
         :param decorr_period: decorrelation period
         :return: is step accepted, next step position
@@ -158,7 +154,7 @@ class MarkovChain:
         ne = self.neu + self.ned
         e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
         probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
-        for _ in range(steps):
+        while True:
             cond = False
             for _ in range(decorr_period):
                 v_forth = self.drift_velocity(r_e)
@@ -174,59 +170,55 @@ class MarkovChain:
                     cond = True
             yield cond, r_e
 
-    def bbk_random_walker(self, steps, r_e, decorr_period):
+    def bbk_random_walker(self, r_e, decorr_period):
         """Brünger–Brooks–Karplus (13 B. Brünger, C. L. Brooks, and M. Karplus, Chem. Phys. Lett. 105, 495 1984).
-        :param steps: number of steps to walk
         :param r_e: initial position
         :param decorr_period: decorrelation period
         :return: is step accepted, next step position
         """
-        for _ in range(steps):
+        while True:
             cond = False
             for _ in range(decorr_period):
                 pass
             yield cond, r_e
 
-    def force_interpolation_random_walker(self, steps, r_e, decorr_period):
+    def force_interpolation_random_walker(self, r_e, decorr_period):
         """M. P. Allen and D. J. Tildesley, Computer Simulation of Liquids Oxford University Press, Oxford, 1989 and references in Sec. 9.3.
-        :param steps: number of steps to walk
         :param r_e: initial position
         :param decorr_period: decorrelation period
         :return: is step accepted, next step position
         """
-        for _ in range(steps):
+        while True:
             cond = False
             for _ in range(decorr_period):
                 pass
             yield cond, r_e
 
-    def splitting_random_walker(self, steps, r_e, decorr_period):
+    def splitting_random_walker(self, r_e, decorr_period):
         """J. A. Izaguirre, D. P. Catarello, J. M. Wozniak, and R. D. Skeel, J. Chem. Phys. 114, 2090 2001.
-        :param steps: number of steps to walk
         :param r_e: initial position
         :param decorr_period: decorrelation period
         :return: is step accepted, next step position
         """
-        for _ in range(steps):
+        while True:
             cond = False
             for _ in range(decorr_period):
                 pass
             yield cond, r_e
 
-    def ricci_ciccottid_random_walker(self, steps, r_e, decorr_period):
+    def ricci_ciccottid_random_walker(self, r_e, decorr_period):
         """A. Ricci and G. Ciccotti, Mol. Phys. 101, 1927 2003.
-        :param steps: number of steps to walk
         :param r_e: initial position
         :param decorr_period: decorrelation period
         :return: is step accepted, next step position
         """
-        for _ in range(steps):
+        while True:
             cond = False
             for _ in range(decorr_period):
                 pass
             yield cond, r_e
 
-    def dmc_random_walker(self, steps, positions, target_weight):
+    def dmc_random_walker(self, positions, target_weight):
         """Collection of walkers representing the instantaneous wfn.
         C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
         :param steps: number of steps to walk
@@ -253,7 +245,7 @@ class MarkovChain:
         step_eff = self.step
         best_estimate_energy = sum_typed_list(energy_list) / len(energy_list)
         energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) / step_eff
-        for step in range(steps):
+        while True:
             sum_acceptance_probability = 0
             next_r_e_list = nb.typed.List()
             next_energy_list = nb.typed.List()
@@ -316,9 +308,10 @@ class MarkovChain:
         r_e = self.r_e[0]
         condition = np.zeros((steps, ), nb.boolean)
         position = np.zeros((steps, r_e.shape[0], r_e.shape[1]))
-        walker = self.walker(steps, r_e, decorr_period)
+        walker = self.walker(r_e, decorr_period)
 
-        for i, (cond, r_e) in enumerate(walker):
+        for i in range(steps):
+            cond, r_e = next(walker)
             condition[i] = cond
             position[i] = r_e
 
@@ -333,9 +326,10 @@ class MarkovChain:
         """
         r_e = self.r_e
         energy = np.zeros(shape=(steps, ))
-        walker = self.dmc_random_walker(steps, r_e, target_weight)
+        walker = self.dmc_random_walker(r_e, target_weight)
 
-        for i, (energy_t, r_e) in enumerate(walker):
+        for i in range(steps):
+            energy_t, r_e = next(walker)
             energy[i] = energy_t
 
         self.r_e = r_e
