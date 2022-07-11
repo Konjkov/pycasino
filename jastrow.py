@@ -1,7 +1,4 @@
-#!/usr/bin/env python3
-
 import os
-from timeit import default_timer
 
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -14,8 +11,6 @@ import numba as nb
 
 from numpy.polynomial.polynomial import polyval, polyval3d
 
-from readers.casino import CasinoConfig
-from overload import subtract_outer
 from logger import logging
 
 logger = logging.getLogger('vmc')
@@ -1064,109 +1059,3 @@ class Jastrow:
         res[b[1]:b[2], b[1]:b[2]] = chi_term
         res[b[2]:b[3], b[2]:b[3]] = f_term
         return res
-
-
-@nb.jit(forceobj=True)
-def initial_position(ne, atom_positions, atom_charges):
-    """Initial positions of electrons."""
-    natoms = atom_positions.shape[0]
-    r_e = np.zeros((ne, 3))
-    for i in range(ne):
-        r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
-    return r_e
-
-
-@nb.jit(nopython=True)
-def random_step(dx, ne):
-    """Random N-dim square distributed step"""
-    return np.random.uniform(-dx, dx, ne * 3).reshape((ne, 3))
-
-
-# @pool
-@nb.jit(nopython=True, nogil=True)
-def profiling_value(dx, neu, ned, steps, atom_positions, jastrow, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        jastrow.value(e_vectors, n_vectors)
-
-
-# @pool
-@nb.jit(nopython=True, nogil=True)
-def profiling_gradient(dx, neu, ned, steps, atom_positions, jastrow, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        jastrow.gradient(e_vectors, n_vectors)
-
-
-# @pool
-@nb.jit(nopython=True, nogil=True)
-def profiling_laplacian(dx, neu, ned, steps, atom_positions, jastrow, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        jastrow.laplacian(e_vectors, n_vectors)
-
-
-def main(casino):
-    dx = 3.0
-
-    jastrow = Jastrow(
-        casino.input.neu, casino.input.ned,
-        casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_mask, casino.jastrow.u_cutoff, casino.jastrow.u_cusp_const,
-        casino.jastrow.chi_parameters, casino.jastrow.chi_mask, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
-        casino.jastrow.f_parameters, casino.jastrow.f_mask, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
-        casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp
-    )
-
-    r_initial = initial_position(casino.input.neu + casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges)
-
-    start = default_timer()
-    profiling_value(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, jastrow, r_initial)
-    end = default_timer()
-    logger.info(' value     %8.1f', end - start)
-
-    start = default_timer()
-    profiling_laplacian(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, jastrow, r_initial)
-    end = default_timer()
-    logger.info(' laplacian %8.1f', end - start)
-
-    start = default_timer()
-    profiling_gradient(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, jastrow, r_initial)
-    end = default_timer()
-    logger.info(' gradient  %8.1f', end - start)
-
-
-if __name__ == '__main__':
-    """
-    He:
-     value         25.6
-     laplacian     30.4
-     gradient      37.6
-    Be:
-     value         57.5
-     laplacian     93.9
-     gradient     112.4
-    Ne:
-     value        277.5
-     laplacian    481.7
-     gradient     536.5
-    Ar:
-     value        875.4
-     laplacian   1612.5
-     gradient    1771.5
-    Kr:
-     value       3174.8
-    """
-
-    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
-        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Jastrow/'
-        logger.info('%s:', mol)
-        main(CasinoConfig(path))

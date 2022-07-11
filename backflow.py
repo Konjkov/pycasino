@@ -1,7 +1,4 @@
-#!/usr/bin/env python3
-
 import os
-from timeit import default_timer
 
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -12,8 +9,6 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import numpy as np
 import numba as nb
 
-from readers.casino import CasinoConfig
-from overload import subtract_outer
 from logger import logging
 
 logger = logging.getLogger('vmc')
@@ -661,105 +656,3 @@ class Backflow:
             self.mu_term_laplacian(n_powers, n_vectors) +
             self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
         )
-
-
-@nb.jit(forceobj=True)
-def initial_position(ne, atom_positions, atom_charges):
-    """Initial positions of electrons."""
-    natoms = atom_positions.shape[0]
-    r_e = np.zeros((ne, 3))
-    for i in range(ne):
-        r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
-    return r_e
-
-
-@nb.jit(nopython=True)
-def random_step(dx, ne):
-    """Random N-dim square distributed step"""
-    return np.random.uniform(-dx, dx, ne * 3).reshape((ne, 3))
-
-
-# @pool
-@nb.jit(nopython=True, nogil=True)
-def profiling_value(dx, neu, ned, steps, atom_positions, backflow, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        backflow.value(e_vectors, n_vectors)
-
-
-# @pool
-@nb.jit(nopython=True, nogil=True)
-def profiling_gradient(dx, neu, ned, steps, atom_positions, backflow, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        backflow.gradient(e_vectors, n_vectors)
-
-
-# @pool
-@nb.jit(nopython=True, nogil=True)
-def profiling_laplacian(dx, neu, ned, steps, atom_positions, backflow, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        backflow.laplacian(e_vectors, n_vectors)
-
-
-def main(casino):
-    dx = 3.0
-
-    backflow = Backflow(
-        casino.input.neu, casino.input.ned,
-        casino.backflow.trunc, casino.backflow.eta_parameters, casino.backflow.eta_cutoff,
-        casino.backflow.mu_parameters, casino.backflow.mu_cutoff, casino.backflow.mu_labels,
-        casino.backflow.phi_parameters, casino.backflow.theta_parameters, casino.backflow.phi_cutoff,
-        casino.backflow.phi_labels, casino.backflow.phi_irrotational, casino.backflow.ae_cutoff
-    )
-
-    r_initial = initial_position(casino.input.neu + casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges)
-
-    start = default_timer()
-    profiling_value(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, backflow, r_initial)
-    end = default_timer()
-    logger.info(' value     %8.1f', end - start)
-
-    start = default_timer()
-    profiling_gradient(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, backflow, r_initial)
-    end = default_timer()
-    logger.info(' gradient  %8.1f', end - start)
-
-    start = default_timer()
-    profiling_laplacian(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, backflow, r_initial)
-    end = default_timer()
-    logger.info(' laplacian %8.1f', end - start)
-
-
-if __name__ == '__main__':
-    """
-    He:
-     value         40.0
-     gradient     121.6
-     laplacian    138.8
-    Be:
-     value         99.5
-     gradient     481.4
-     laplacian    573.4
-    Ne:
-     value        415.0
-     gradient    1897.3
-     laplacian   2247.9
-    Ar:
-     value       1501.9
-    """
-
-    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
-        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
-        logger.info('%s:', mol)
-        main(CasinoConfig(path))

@@ -1,9 +1,26 @@
+# import time
 from psutil import cpu_count
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+# from pathos.multiprocessing import ProcessPool, ThreadPool
 
 import numpy as np
 
 num_proc = cpu_count(logical=False)
+
+
+# def pathos_pool(function):
+#     """https://pathos.readthedocs.io/en/latest/pathos.html
+#
+#     """
+#
+#     def wrapper(*args):
+#         executor = ProcessPool(nodes=num_proc)
+#         async_result = executor.amap(function, *[args for _ in range(7)])
+#         while not async_result.ready():
+#             time.sleep(5)
+#         return async_result.get()
+#
+#     return wrapper
 
 
 def pool(function):
