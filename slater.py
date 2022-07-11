@@ -434,7 +434,7 @@ class Slater:
         return hass.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / val
 
     def numerical_gradient(self, n_vectors: np.ndarray) -> float:
-        """Numerical gradient with respect to a e-coordinates
+        """Numerical gradient with respect to e-coordinates
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         delta = 0.00001
@@ -452,7 +452,7 @@ class Slater:
         return res.ravel() / delta / 2 / val
 
     def numerical_laplacian(self, n_vectors: np.ndarray) -> float:
-        """Numerical laplacian with respect to a e-coordinates
+        """Numerical laplacian with respect to e-coordinates
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         delta = 0.00001
@@ -470,7 +470,7 @@ class Slater:
         return res / delta / delta / val
 
     def numerical_hessian(self, n_vectors: np.ndarray):
-        """Numerical hessian with respect to a e-coordinates
+        """Numerical hessian with respect to e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
