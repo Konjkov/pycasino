@@ -474,6 +474,7 @@ class Casino:
         """
         self.equilibrate(self.config.input.vmc_equil_nstep)
         if self.config.input.runtype == 'vmc':
+            start = default_timer()
             logger.info(
                 ' ====================================\n'
                 ' PERFORMING A SINGLE VMC CALCULATION.\n'
@@ -481,7 +482,6 @@ class Casino:
             )
             # FIXME: in EBEC nstep = vmc_nstep * (neu + ned)
             self.optimize_vmc_step(10000)
-            start = default_timer()
             if self.config.input.vmc_decorr_period == 0:
                 decorr_period = self.optimize_decorr_period()
             else:
@@ -592,8 +592,8 @@ class Casino:
                 f' In block : {i + 1}\n'
                 f'  Number of VMC steps           = {steps // nblock}\n\n'
                 f'  Block average energies (au)\n\n'
-                f'  Total energy                       (au) =         {energy_block_mean[i]:.12f}\n'
-                f'  Standard error                        +/-         {energy_block_sem[i]:.12f}\n\n'
+                f'  Total energy                       (au) =       {energy_block_mean[i]:18.12f}\n'
+                f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
         logger.info(
