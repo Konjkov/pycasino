@@ -2,7 +2,6 @@ import os
 from slater import Slater
 from jastrow import Jastrow
 from backflow import Backflow
-from coulomb import coulomb, nuclear_repulsion
 
 os.environ["OMP_NUM_THREADS"] = "1"  # openmp
 os.environ["OPENBLAS_NUM_THREADS"] = "1"  # openblas
@@ -17,7 +16,6 @@ from overload import subtract_outer
 from logger import logging
 
 logger = logging.getLogger('vmc')
-numba_logger = logging.getLogger('numba')
 
 spec = [
     ('neu', nb.int64),
@@ -51,7 +49,7 @@ class Wfn:
         self.ned = ned
         self.atom_positions = atom_positions
         self.atom_charges = atom_charges
-        self.nuclear_repulsion = nuclear_repulsion(atom_positions, atom_charges)
+        self.nuclear_repulsion = self._nuclear_repulsion()
         self.slater = slater
         self.jastrow = jastrow
         self.backflow = backflow
@@ -60,6 +58,25 @@ class Wfn:
         e_vectors = subtract_outer(r_e, r_e)
         n_vectors = -subtract_outer(self.atom_positions, r_e)
         return e_vectors, n_vectors
+
+    def _nuclear_repulsion(self) -> float:
+        """Value of n-n repulsion."""
+        res = 0.0
+        for i in range(self.atom_positions.shape[0] - 1):
+            for j in range(i + 1, self.atom_positions.shape[0]):
+                res += self.atom_charges[i] * self.atom_charges[j] / np.linalg.norm(self.atom_positions[i] - self.atom_positions[j])
+        return res
+
+    def coulomb(self, e_vectors, n_vectors) -> float:
+        """Value of e-e and e-n coulomb interaction."""
+        res = 0.0
+        for i in range(n_vectors.shape[0]):
+            for j in range(n_vectors.shape[1]):
+                res -= self.atom_charges[i] / np.linalg.norm(n_vectors[i, j])
+        for i in range(e_vectors.shape[0] - 1):
+            for j in range(i + 1, e_vectors.shape[1]):
+                res += 1 / np.linalg.norm(e_vectors[i, j])
+        return res
 
     def value(self, e_vectors, n_vectors) -> float:
         """Value of wave function.
@@ -124,7 +141,7 @@ class Wfn:
         e_vectors = subtract_outer(r_e, r_e)
         n_vectors = -subtract_outer(self.atom_positions, r_e)
 
-        res = coulomb(e_vectors, n_vectors, self.atom_charges)
+        res = self.coulomb(e_vectors, n_vectors)
 
         if self.backflow is not None:
             b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
@@ -161,7 +178,7 @@ class Wfn:
         return res
 
     def slater_numerical_gradient(self, e_vectors, n_vectors):
-        """Numerical gradient with respect to a e-coordinates
+        """Numerical gradient with respect to e-coordinates
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         delta = 0.00001
@@ -185,7 +202,7 @@ class Wfn:
         return res.ravel() / delta / 2 / val
 
     def slater_numerical_laplacian(self, e_vectors, n_vectors):
-        """Numerical laplacian with respect to a e-coordinates
+        """Numerical laplacian with respect to e-coordinates
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         delta = 0.00001
