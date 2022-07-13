@@ -596,6 +596,9 @@ class Jastrow:
                 # FIXME: chi cusp not implemented
                 # chi_parameters[1] -= charge / (-L) ** C
 
+    def fix_f_parameters(self):
+        """Fix f-term parameters"""
+
     def get_parameters(self):
         """Returns parameters in the following order:
         u-cutoff, u-linear parameters,

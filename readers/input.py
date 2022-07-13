@@ -66,8 +66,12 @@ class Input:
                     self.dmc_method = read_int(line)
                 elif line.startswith('dmc_equil_nstep'):
                     self.dmc_equil_nstep = read_int(line)
+                elif line.startswith('dmc_equil_nblock'):
+                    self.dmc_equil_nblock = read_int(line)
                 elif line.startswith('dmc_stats_nstep'):
                     self.dmc_stats_nstep = read_int(line)
+                elif line.startswith('dmc_stats_nblock'):
+                    self.dmc_stats_nblock = read_int(line)
                 elif line.startswith('dtdmc'):
                     self.dtdmc = read_float(line)
                 elif line.startswith('dmc_target_weight'):

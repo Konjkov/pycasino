@@ -11,6 +11,7 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 import numpy as np
 import numba as nb
+from numba.core.runtime import rtsys
 
 from overload import subtract_outer
 from logger import logging
@@ -19,6 +20,8 @@ from cusp import CuspFactory, TestCuspFactory
 from slater import Slater
 from jastrow import Jastrow
 from backflow import Backflow
+from wfn import Wfn
+from vmc import MarkovChain
 
 
 logger = logging.getLogger('vmc')
@@ -81,7 +84,7 @@ def slater_hessian(dx, neu, ned, steps, atom_positions, slater, r_initial):
 
 
 # @pool
-@nb.jit(nopython=True, nogil=True)
+@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
 def jastrow_value(dx, neu, ned, steps, atom_positions, jastrow, r_initial):
 
     for _ in range(steps):
@@ -92,7 +95,7 @@ def jastrow_value(dx, neu, ned, steps, atom_positions, jastrow, r_initial):
 
 
 # @pool
-@nb.jit(nopython=True, nogil=True)
+@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
 def jastrow_gradient(dx, neu, ned, steps, atom_positions, jastrow, r_initial):
 
     for _ in range(steps):
@@ -103,7 +106,7 @@ def jastrow_gradient(dx, neu, ned, steps, atom_positions, jastrow, r_initial):
 
 
 # @pool
-@nb.jit(nopython=True, nogil=True)
+@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
 def jastrow_laplacian(dx, neu, ned, steps, atom_positions, jastrow, r_initial):
 
     for _ in range(steps):
@@ -114,7 +117,7 @@ def jastrow_laplacian(dx, neu, ned, steps, atom_positions, jastrow, r_initial):
 
 
 # @pool
-@nb.jit(nopython=True, nogil=True)
+@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
 def backflow_value(dx, neu, ned, steps, atom_positions, backflow, r_initial):
 
     for _ in range(steps):
@@ -125,7 +128,7 @@ def backflow_value(dx, neu, ned, steps, atom_positions, backflow, r_initial):
 
 
 # @pool
-@nb.jit(nopython=True, nogil=True)
+@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
 def backflow_gradient(dx, neu, ned, steps, atom_positions, backflow, r_initial):
 
     for _ in range(steps):
@@ -136,7 +139,7 @@ def backflow_gradient(dx, neu, ned, steps, atom_positions, backflow, r_initial):
 
 
 # @pool
-@nb.jit(nopython=True, nogil=True)
+@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
 def backflow_laplacian(dx, neu, ned, steps, atom_positions, backflow, r_initial):
 
     for _ in range(steps):
@@ -146,6 +149,13 @@ def backflow_laplacian(dx, neu, ned, steps, atom_positions, backflow, r_initial)
         backflow.laplacian(e_vectors, n_vectors)
 
 
+@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
+def profiling_simple_random_walk(markovchain, steps, r_initial, decorr_period):
+    walker = markovchain.simple_random_walker(steps, r_initial, decorr_period)
+    for _ in range(steps):
+        next(walker)
+
+
 def slater_profiling(config):
     """For multithreaded
     https://numba.pydata.org/numba-doc/latest/user/threading-layer.html
@@ -153,14 +163,14 @@ def slater_profiling(config):
     dx = 3.0
     neu, ned = config.input.neu, config.input.ned
 
-    # if config.input.cusp_correction:
-    #     cusp = CuspFactory(
-    #         neu, ned, config.mdet.mo_up, config.mdet.mo_down,
-    #         config.wfn.nbasis_functions, config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
-    #         config.wfn.coefficients, config.wfn.exponents, config.wfn.atom_positions, config.wfn.atom_charges
-    #     ).create()
-    # else:
-    cusp = None
+    if config.input.cusp_correction:
+        cusp = CuspFactory(
+            neu, ned, config.mdet.mo_up, config.mdet.mo_down,
+            config.wfn.nbasis_functions, config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
+            config.wfn.coefficients, config.wfn.exponents, config.wfn.atom_positions, config.wfn.atom_charges
+        ).create()
+    else:
+        cusp = None
 
     slater = Slater(
         neu, ned,
@@ -256,6 +266,39 @@ def backflow_profiling(casino):
     backflow_laplacian(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, backflow, r_initial)
     end = default_timer()
     logger.info(' laplacian %8.1f', end - start)
+
+
+def markovchain_profiling(config):
+
+    cusp = None
+
+    neu, ned = config.input.neu, config.input.ned
+
+    r_initial = initial_position(neu + ned, config.wfn.atom_positions, config.wfn.atom_charges)
+
+    slater = Slater(
+        neu, ned,
+        config.wfn.nbasis_functions, config.wfn.first_shells, config.wfn.orbital_types, config.wfn.shell_moments,
+        config.wfn.slater_orders, config.wfn.primitives, config.wfn.coefficients, config.wfn.exponents,
+        config.mdet.mo_up, config.mdet.mo_down, config.mdet.coeff, cusp
+    )
+
+    jastrow = None
+
+    backflow = None
+
+    wfn = Wfn(neu, ned, config.wfn.atom_positions, config.wfn.atom_charges, slater, jastrow, backflow)
+
+    step = 1 / (neu + ned)
+
+    markovchain = MarkovChain(neu, ned, step, config.wfn.atom_positions, config.wfn.atom_charges, wfn)
+
+    start = default_timer()
+    profiling_simple_random_walk(markovchain, config.input.vmc_nstep, r_initial, 1)
+    end = default_timer()
+    logger.info(' value     %8.1f', end - start)
+    stats = rtsys.get_allocation_stats()
+    logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
 
 if __name__ == '__main__':
@@ -359,3 +402,8 @@ if __name__ == '__main__':
         path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
         logger.info('%s:', mol)
         backflow_profiling(CasinoConfig(path))
+
+    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
+        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
+        logger.info('%s:', mol)
+        markovchain_profiling(CasinoConfig(path))

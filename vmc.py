@@ -19,11 +19,9 @@ import numba as nb
 from scipy.optimize import least_squares, minimize, root
 # import scipy as sp
 
-from decorators import pool, thread
 from readers.casino import CasinoConfig
 from sem import correlated_sem
 from logger import logging
-from numba.core.runtime import rtsys
 
 np.random.seed(31415926)
 
@@ -430,20 +428,20 @@ class Casino:
         else:
             cusp = None
 
-        self.slater = Slater(
+        slater = Slater(
             self.config.input.neu, self.config.input.ned,
             self.config.wfn.nbasis_functions, self.config.wfn.first_shells, self.config.wfn.orbital_types, self.config.wfn.shell_moments,
             self.config.wfn.slater_orders, self.config.wfn.primitives, self.config.wfn.coefficients, self.config.wfn.exponents,
             self.config.mdet.mo_up, self.config.mdet.mo_down, self.config.mdet.coeff, cusp
         )
-        self.jastrow = self.config.jastrow and Jastrow(
+        jastrow = self.config.jastrow and Jastrow(
             self.config.input.neu, self.config.input.ned,
             self.config.jastrow.trunc, self.config.jastrow.u_parameters, self.config.jastrow.u_mask, self.config.jastrow.u_cutoff, self.config.jastrow.u_cusp_const,
             self.config.jastrow.chi_parameters, self.config.jastrow.chi_mask, self.config.jastrow.chi_cutoff, self.config.jastrow.chi_labels,
             self.config.jastrow.f_parameters, self.config.jastrow.f_mask, self.config.jastrow.f_cutoff, self.config.jastrow.f_labels,
             self.config.jastrow.no_dup_u_term, self.config.jastrow.no_dup_chi_term, self.config.jastrow.chi_cusp
         )
-        self.backflow = self.config.backflow and Backflow(
+        backflow = self.config.backflow and Backflow(
             self.config.input.neu, self.config.input.ned,
             self.config.backflow.trunc, self.config.backflow.eta_parameters, self.config.backflow.eta_cutoff,
             self.config.backflow.mu_parameters, self.config.backflow.mu_cutoff, self.config.backflow.mu_labels,
@@ -451,7 +449,7 @@ class Casino:
             self.config.backflow.phi_labels, self.config.backflow.phi_irrotational, self.config.backflow.ae_cutoff
         )
         self.wfn = Wfn(
-            self.config.input.neu, self.config.input.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges, self.slater, self.jastrow, self.backflow
+            self.config.input.neu, self.config.input.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges, slater, jastrow, backflow
         )
         self.neu, self.ned = self.config.input.neu, self.config.input.ned
 
@@ -486,7 +484,7 @@ class Casino:
                 decorr_period = self.optimize_decorr_period()
             else:
                 decorr_period = self.config.input.vmc_decorr_period
-            self.vmc_energy(self.config.input.vmc_nstep, self.config.input.vmc_nblock, decorr_period)
+            self.vmc_energy_accumulation(decorr_period)
             stop = default_timer()
             logger.info(
                 f' =========================================================================\n\n'
@@ -494,19 +492,23 @@ class Casino:
             )
         elif self.config.input.runtype == 'vmc_opt':
             if self.config.input.opt_method == 'varmin':
+                self.vmc_energy_accumulation(1)
                 for _ in range(self.config.input.opt_cycles):
                     self.optimize_vmc_step(10000)
                     res = self.vmc_variance_minimization(self.config.input.vmc_nstep)
                     # unload to file
                     # logger.debug('x = %s', res.x)
-                    self.jastrow.set_parameters(res.x)
+                    self.wfn.jastrow.set_parameters(res.x)
+                    self.vmc_energy_accumulation(1)
             elif self.config.input.opt_method == 'emin':
+                self.vmc_energy_accumulation(1)
                 for _ in range(self.config.input.opt_cycles):
                     self.optimize_vmc_step(10000)
                     res = self.vmc_energy_minimization(self.config.input.vmc_nstep)
                     # unload to file
                     # logger.debug('x = %s', res.x)
-                    self.jastrow.set_parameters(res.x)
+                    self.wfn.jastrow.set_parameters(res.x)
+                    self.vmc_energy_accumulation(1)
         elif self.config.input.runtype == 'vmc_dmc':
             self.optimize_vmc_step(10000)
             # FIXME: decorr_period for dmc?
@@ -514,27 +516,16 @@ class Casino:
             energy = self.markovchain.local_energy(cond, position) + self.markovchain.wfn.nuclear_repulsion
             logger.info('VMC energy %.5f', energy.mean())
             position = position[-self.config.input.vmc_nconfig_write:]
+
+            # FIXME: local variables?
             self.markovchain.step = self.config.input.dtdmc
             self.markovchain.r_e = nb.typed.List.empty_list(r_e_type)
             for p in position:
                 self.markovchain.r_e.append(p)
 
-            start = default_timer()
-            energy = self.markovchain.dmc_random_walk(self.config.input.dmc_equil_nstep, self.config.input.dmc_target_weight)
-            stop = default_timer()
-            logger.info(
-                f'{energy.mean():.12f} +/- {correlated_sem(energy):.12f}'
-                f' =========================================================================\n\n'
-                f' Total PyCasino real time : : :    {stop - start:.4f}'
-            )
+            self.dmc_energy_equilibration()
 
-            energy = self.markovchain.dmc_random_walk(self.config.input.dmc_stats_nstep, self.config.input.dmc_target_weight)
-            stop = default_timer()
-            logger.info(
-                f'{energy.mean():.12f} +/- {correlated_sem(energy):.12f}'
-                f' =========================================================================\n\n'
-                f' Total PyCasino real time : : :    {stop - start:.4f}'
-            )
+            self.dmc_energy_accumulation()
 
     def equilibrate(self, steps):
         """
@@ -573,8 +564,11 @@ class Casino:
         # TODO:
         return 3
 
-    def vmc_energy(self, steps, nblock, decorr_period):
+    def vmc_energy_accumulation(self, decorr_period):
         """VMC energy accumulation"""
+        steps = self.config.input.vmc_nstep
+        nblock = self.config.input.vmc_nblock
+
         energy_block_mean = np.zeros(shape=(nblock, ))
         energy_block_sem = np.zeros(shape=(nblock, ))
         logger.info(
@@ -604,6 +598,64 @@ class Casino:
             f' Sample variance of E_L (au^2/sim.cell) : {0:.12f}\n\n'
         )
 
+    def dmc_energy_equilibration(self):
+        """DMC energy equilibration"""
+        logger.info(
+            ' ===========================================\n'
+            ' PERFORMING A DMC EQUILIBRATION CALCULATION.\n'
+            ' ===========================================\n\n'
+        )
+
+        steps = self.config.input.dmc_equil_nstep
+        nblock = self.config.input.dmc_equil_nblock
+        energy_block_mean = np.zeros(shape=(nblock,))
+        energy_block_sem = np.zeros(shape=(nblock,))
+
+        for i in range(nblock):
+            block_start = default_timer()
+            energy = self.markovchain.dmc_random_walk(steps // nblock, self.config.input.dmc_target_weight)
+            energy_block_mean[i] = energy.mean()
+            energy_block_sem[i] = correlated_sem(energy)
+            block_stop = default_timer()
+            logger.info(
+                f' =========================================================================\n'
+                f' In block : {i + 1}\n'
+                f'  Number of DMC steps           = {steps // nblock}\n\n'
+                f'  Block average energies (au)\n\n'
+                f'  Total energy                       (au) =       {energy_block_mean[i]:18.12f}\n'
+                f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
+                f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
+            )
+
+    def dmc_energy_accumulation(self):
+        """DMC energy accumulation"""
+        logger.info(
+            ' =====================================================\n'
+            ' PERFORMING A DMC STATISTICS-ACCUMULATION CALCULATION.\n'
+            ' =====================================================\n\n'
+        )
+
+        steps = self.config.input.dmc_stats_nstep
+        nblock = self.config.input.dmc_stats_nblock
+        energy_block_mean = np.zeros(shape=(nblock,))
+        energy_block_sem = np.zeros(shape=(nblock,))
+
+        for i in range(nblock):
+            block_start = default_timer()
+            energy = self.markovchain.dmc_random_walk(steps // nblock, self.config.input.dmc_target_weight)
+            energy_block_mean[i] = energy.mean()
+            energy_block_sem[i] = correlated_sem(energy)
+            block_stop = default_timer()
+            logger.info(
+                f' =========================================================================\n'
+                f' In block : {i + 1}\n'
+                f'  Number of DMC steps           = {steps // nblock}\n\n'
+                f'  Block average energies (au)\n\n'
+                f'  Total energy                       (au) =       {energy_block_mean[i]:18.12f}\n'
+                f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
+                f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
+            )
+
     def normal_test(self, energy):
         """Test whether energy distribution differs from a normal one."""
         from scipy import stats
@@ -613,11 +665,11 @@ class Casino:
         """Minimise vmc variance by jastrow parameters optimization.
         https://github.com/scipy/scipy/issues/10634
         """
-        bounds = self.jastrow.get_bounds()
+        bounds = self.wfn.jastrow.get_bounds()
         condition, position = self.markovchain.vmc_random_walk(steps, 1)
 
         def f(x, *args, **kwargs):
-            self.jastrow.set_parameters(x)
+            self.wfn.jastrow.set_parameters(x)
             energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
             energy_average = np.average(energy)
             energy_variance = np.average((energy - energy_average) ** 2)
@@ -626,10 +678,10 @@ class Casino:
             return energy - energy_average
 
         def jac(x, *args, **kwargs):
-            self.jastrow.set_parameters(x)
+            self.wfn.jastrow.set_parameters(x)
             return self.markovchain.jastrow_gradient(condition, position)
 
-        parameters = self.jastrow.get_parameters()
+        parameters = self.wfn.jastrow.get_parameters()
         res = least_squares(
             f, parameters, jac=jac, bounds=bounds, method='trf', xtol=1e-4, max_nfev=20,
             x_scale='jac', loss='linear', tr_solver='exact', tr_options=dict(show=False, regularize=False),
@@ -643,16 +695,16 @@ class Casino:
         Gradient and Hessian is required for: Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact, trust-constr
         Constraints definition only for: COBYLA, SLSQP and trust-constr
         """
-        bounds = self.jastrow.get_bounds()
+        bounds = self.wfn.jastrow.get_bounds()
         condition, position = self.markovchain.vmc_random_walk(steps, 1)
 
         def callback(x, *args):
             logger.info('inner iteration x = %s', x)
-            self.jastrow.set_parameters(x)
+            self.wfn.jastrow.set_parameters(x)
             condition, position = self.markovchain.vmc_random_walk(steps, 1)
 
         def f(x, *args):
-            self.jastrow.set_parameters(x)
+            self.wfn.jastrow.set_parameters(x)
             energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
             energy_gradient = self.markovchain.jastrow_gradient(condition, position)
             mean_energy = np.average(energy)
@@ -664,7 +716,7 @@ class Casino:
             return mean_energy, mean_energy_gradient
 
         def hess(x, *args):
-            self.jastrow.set_parameters(x)
+            self.wfn.jastrow.set_parameters(x)
             energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
             energy_gradient = self.markovchain.jastrow_gradient(condition, position)
             energy_hessian = self.markovchain.jastrow_hessian(condition, position)
@@ -672,7 +724,7 @@ class Casino:
             logger.info('hessian = %s', mean_energy_hessian)
             return mean_energy_hessian
 
-        parameters = self.jastrow.get_parameters()
+        parameters = self.wfn.jastrow.get_parameters()
         options = dict(disp=True, maxfun=50)
         res = minimize(f, parameters, method='TNC', jac=True, bounds=list(zip(*bounds)), options=options, callback=callback)
         # options = dict(disp=True)
@@ -680,54 +732,9 @@ class Casino:
         return res
 
 
-@nb.jit(nopython=True, nogil=True)
-def profiling_random_walk(markovchain, steps, r_initial, decorr_period):
-    walker = markovchain.simple_random_walker(steps, r_initial, decorr_period)
-    list(walker)
-
-
-def main(config):
-
-    cusp = None
-
-    neu, ned = config.input.neu, config.input.ned
-
-    r_initial = initial_position(neu + ned, config.wfn.atom_positions, config.wfn.atom_charges)
-
-    slater = Slater(
-        neu, ned,
-        config.wfn.nbasis_functions, config.wfn.first_shells, config.wfn.orbital_types, config.wfn.shell_moments,
-        config.wfn.slater_orders, config.wfn.primitives, config.wfn.coefficients, config.wfn.exponents,
-        config.mdet.mo_up, config.mdet.mo_down, config.mdet.coeff, cusp
-    )
-
-    jastrow = None
-
-    backflow = None
-
-    wfn = Wfn(neu, ned, config.wfn.atom_positions, config.wfn.atom_charges, slater, jastrow, backflow)
-
-    step = 1 / (neu + ned)
-
-    markovchain = MarkovChain(neu, ned, step, config.wfn.atom_positions, config.wfn.atom_charges, wfn)
-
-    start = default_timer()
-    profiling_random_walk(markovchain, config.input.vmc_nstep, r_initial, 1)
-    end = default_timer()
-    logger.info(' value     %8.1f', end - start)
-    stats = rtsys.get_allocation_stats()
-    logger.info(f'{stats} total: {stats[0] - stats[1]}')
-
-
 if __name__ == '__main__':
     """Tests
     """
-
-    # for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
-    #     path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
-    #     logger.info('%s:', mol)
-    #     main(CasinoConfig(path))
-
     # path = 'test/gwfn/He/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/Be/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/N/HF/cc-pVQZ/CBCS/Slater/'
