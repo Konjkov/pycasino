@@ -314,22 +314,19 @@ class Jastrow:
             a, pivot_positions = rref(a)
             # remove zero-rows
             a = a[:pivot_positions.size, :]
-            mask = np.zeros(shape=(f_parameters.shape[0] * (f_parameters.shape[1] + 1) * f_parameters.shape[2] // 2, ), dtype=bool)
-            mask[pivot_positions] = True
-
-            b = np.zeros(shape=(f_spin_dep + 1, a.shape[0]))
+            b = np.zeros(shape=(f_spin_dep + 1, pivot_positions.size))
             p = 0
             for n in range(f_ee_order + 1):
                 for m in range(f_en_order + 1):
                     for l in range(m, f_en_order + 1):
                         if p not in pivot_positions:
-                            for temp in range(a.shape[0]):
+                            for temp in range(pivot_positions.size):
                                 b[:, temp] -= a[temp, p] * f_parameters[l, m, n, :]
                         p += 1
 
             x = np.empty(shape=(f_spin_dep + 1, a.shape[0]))
             for i in range(f_spin_dep + 1):
-                x[i, :] = np.linalg.solve(a[:, mask], b[i])
+                x[i, :] = np.linalg.solve(a[:, pivot_positions], b[i])
 
             p = 0
             temp = 0
@@ -347,17 +344,17 @@ class Jastrow:
             f_ee_order = f_parameters.shape[2] - 1
             f_spin_dep = f_parameters.shape[3] - 1
 
-            lm_sum = np.zeros((2 * f_en_order + 1, f_spin_dep + 1))
+            lm_sum = np.zeros(shape=(2 * f_en_order + 1, f_spin_dep + 1))
             for l in range(f_en_order + 1):
                 for m in range(f_en_order + 1):
                     lm_sum[l + m] += f_parameters[l, m, 1, :]
-            print('lm_sum =', lm_sum)
+            np.abs(lm_sum).max() > 1e-18 and print('lm_sum =', lm_sum)
 
-            mn_sum = np.zeros((f_en_order + f_ee_order + 1, f_spin_dep + 1))
+            mn_sum = np.zeros(shape=(f_en_order + f_ee_order + 1, f_spin_dep + 1))
             for m in range(f_en_order + 1):
                 for n in range(f_ee_order + 1):
                     mn_sum[m + n] += self.trunc * f_parameters[0, m, n, :] - L * f_parameters[1, m, n, :]
-            print('mn_sum =', mn_sum)
+            np.abs(mn_sum).max() > 1e-18 and print('mn_sum =', mn_sum)
 
             if no_dup_u_term:
                 print('should be equal to zero')
