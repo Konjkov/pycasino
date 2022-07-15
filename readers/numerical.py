@@ -42,4 +42,4 @@ def rref(a, tol=1e-12):
             i += 1
             j += 1
     # Finished
-    return a, pivot_positions
+    return a, np.array(pivot_positions)

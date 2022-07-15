@@ -96,20 +96,20 @@ class Jastrow:
 
     def __init__(self, file):
         self.trunc = 0
-        self.u_mask = np.zeros(shape=(0, 0), dtype=np.bool)
+        self.u_mask = np.zeros(shape=(0, 0), dtype=bool)
         self.chi_mask = nb.typed.List.empty_list(chi_mask_type)
         self.f_mask = nb.typed.List.empty_list(f_mask_type)
-        self.u_parameters = np.zeros(shape=(0, 0), dtype=np.float)  # uu, ud, dd order
+        self.u_parameters = np.zeros(shape=(0, 0), dtype=float)  # uu, ud, dd order
         self.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)  # u, d order
         self.f_parameters = nb.typed.List.empty_list(f_parameters_type)  # uu, ud, dd order
         self.u_cutoff = 0
         self.chi_cutoff = np.zeros(0)
         self.f_cutoff = np.zeros(0)
-        self.chi_cusp = np.zeros(0, np.bool)
+        self.chi_cusp = np.zeros(0, bool)
         self.chi_labels = nb.typed.List.empty_list(labels_type)
         self.f_labels = nb.typed.List.empty_list(labels_type)
-        self.no_dup_u_term = np.zeros(0, np.bool)
-        self.no_dup_chi_term = np.zeros(0, np.bool)
+        self.no_dup_u_term = np.zeros(0, bool)
+        self.no_dup_chi_term = np.zeros(0, bool)
         self.u_cusp_const = np.zeros(shape=(3, ))
 
         if not os.path.isfile(file):
@@ -151,7 +151,7 @@ class Jastrow:
                     elif line.startswith('Cutoff'):
                         self.u_cutoff, _ = self.read_parameter()
                     elif line.startswith('Parameter'):
-                        self.u_parameters = np.zeros(shape=(u_order+1, u_spin_dep+1), dtype=np.float)
+                        self.u_parameters = np.zeros(shape=(u_order+1, u_spin_dep+1), dtype=float)
                         self.u_mask = self.get_u_mask(self.u_parameters)
                         try:
                             for i in range(u_spin_dep + 1):
@@ -168,7 +168,7 @@ class Jastrow:
                     if line.startswith('Number of set'):
                         number_of_sets = self.read_ints()[0]
                         self.chi_cutoff = np.zeros(number_of_sets)
-                        self.chi_cusp = np.zeros(number_of_sets, np.bool)
+                        self.chi_cusp = np.zeros(number_of_sets, bool)
                     elif line.startswith('START SET'):
                         set_number = int(line.split()[2]) - 1
                     elif line.startswith('Label'):
@@ -202,8 +202,8 @@ class Jastrow:
                     if line.startswith('Number of set'):
                         number_of_sets = self.read_ints()[0]
                         self.f_cutoff = np.zeros(number_of_sets)
-                        self.no_dup_u_term = np.zeros(shape=number_of_sets, dtype=np.bool)
-                        self.no_dup_chi_term = np.zeros(shape=number_of_sets, dtype=np.bool)
+                        self.no_dup_u_term = np.zeros(shape=number_of_sets, dtype=bool)
+                        self.no_dup_chi_term = np.zeros(shape=number_of_sets, dtype=bool)
                     elif line.startswith('START SET'):
                         set_number = int(line.split()[2]) - 1
                     elif line.startswith('Label'):
@@ -225,7 +225,7 @@ class Jastrow:
                         f_cutoff, _ = self.read_parameter()
                         self.f_cutoff[set_number] = f_cutoff
                     elif line.startswith('Parameter'):
-                        f_parameters = np.zeros(shape=(f_en_order+1, f_en_order+1, f_ee_order+1, f_spin_dep+1), dtype=np.float)
+                        f_parameters = np.zeros(shape=(f_en_order+1, f_en_order+1, f_ee_order+1, f_spin_dep+1), dtype=float)
                         f_mask = self.get_f_mask(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                         try:
                             for i in range(f_spin_dep + 1):
@@ -248,14 +248,14 @@ class Jastrow:
     @staticmethod
     def get_u_mask(parameters):
         """Mask dependent parameters in u-term"""
-        mask = np.ones(parameters.shape, np.bool)
+        mask = np.ones(parameters.shape, bool)
         mask[1] = False
         return mask
 
     @staticmethod
     def get_chi_mask(parameters):
         """Mask dependent parameters in chi-term"""
-        mask = np.ones(parameters.shape, np.bool)
+        mask = np.ones(parameters.shape, bool)
         mask[1] = False
         return mask
 
@@ -266,14 +266,14 @@ class Jastrow:
 
         a = construct_a_matrix(self.trunc, f_en_order, f_ee_order, f_cutoff, no_dup_u_term, no_dup_chi_term)
 
-        _, pivot = rref(a)
+        _, pivot_positions = rref(a)
 
         p = 0
-        mask = np.zeros(f_parameters.shape, np.bool)
+        mask = np.zeros(shape=f_parameters.shape, dtype=bool)
         for n in range(f_parameters.shape[2]):
             for m in range(f_parameters.shape[1]):
                 for l in range(m, f_parameters.shape[0]):
-                    if p not in pivot:
+                    if p not in pivot_positions:
                         mask[l, m, n] = True
                     p += 1
         return mask
@@ -313,11 +313,11 @@ class Jastrow:
             a = construct_a_matrix(self.trunc, f_en_order, f_ee_order, L, no_dup_u_term, no_dup_chi_term)
             a, pivot_positions = rref(a)
             # remove zero-rows
-            a = a[:len(pivot_positions), :]
-            mask = np.zeros((f_parameters.shape[0] * (f_parameters.shape[1] + 1) * f_parameters.shape[2] // 2, ), np.bool)
+            a = a[:pivot_positions.size, :]
+            mask = np.zeros(shape=(f_parameters.shape[0] * (f_parameters.shape[1] + 1) * f_parameters.shape[2] // 2, ), dtype=bool)
             mask[pivot_positions] = True
 
-            b = np.zeros((f_spin_dep+1, a.shape[0]))
+            b = np.zeros(shape=(f_spin_dep + 1, a.shape[0]))
             p = 0
             for n in range(f_ee_order + 1):
                 for m in range(f_en_order + 1):
@@ -327,7 +327,9 @@ class Jastrow:
                                 b[:, temp] -= a[temp, p] * f_parameters[l, m, n, :]
                         p += 1
 
-            x = np.linalg.solve(a[np.newaxis, :, mask], b)
+            x = np.empty(shape=(f_spin_dep + 1, a.shape[0]))
+            for i in range(f_spin_dep + 1):
+                x[i, :] = np.linalg.solve(a[:, mask], b[i])
 
             p = 0
             temp = 0
@@ -340,8 +342,6 @@ class Jastrow:
                         temp += 1
 
     def check_f_constrains(self):
-        """"""
-        C = self.trunc
         for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
             f_en_order = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[2] - 1
@@ -356,7 +356,7 @@ class Jastrow:
             mn_sum = np.zeros((f_en_order + f_ee_order + 1, f_spin_dep + 1))
             for m in range(f_en_order + 1):
                 for n in range(f_ee_order + 1):
-                    mn_sum[m + n] += C * f_parameters[0, m, n, :] - L * f_parameters[1, m, n, :]
+                    mn_sum[m + n] += self.trunc * f_parameters[0, m, n, :] - L * f_parameters[1, m, n, :]
             print('mn_sum =', mn_sum)
 
             if no_dup_u_term:

@@ -9,6 +9,7 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import numpy as np
 import numba as nb
 from readers.numerical import rref
+from readers.jastrow import construct_a_matrix
 
 from numpy.polynomial.polynomial import polyval, polyval3d
 
@@ -598,7 +599,76 @@ class Jastrow:
                 # chi_parameters[1] -= charge / (-L) ** C
 
     def fix_f_parameters(self):
-        """Fix f-term parameters"""
+        """To find the dependent coefficients of f-term it is necessary to solve
+        the system of linear equations:  A*x=b
+        A-matrix has the following rows:
+        (2 * f_en_order + 1) constraints imposed to satisfy electron–electron no-cusp condition.
+        (f_en_order + f_ee_order + 1) constraints imposed to satisfy electron–nucleus no-cusp condition.
+        (f_ee_order + 1) constraints imposed to prevent duplication of u-term
+        (f_en_order + 1) constraints imposed to prevent duplication of chi-term
+        b-column has the sum of independent coefficients for each condition.
+        """
+        for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
+            f_en_order = f_parameters.shape[0] - 1
+            f_ee_order = f_parameters.shape[2] - 1
+            f_spin_dep = f_parameters.shape[3] - 1
+
+            a = construct_a_matrix(self.trunc, f_en_order, f_ee_order, L, no_dup_u_term, no_dup_chi_term)
+            a, pivot_positions = rref(a)
+            # remove zero-rows
+            a = a[:pivot_positions.size, :]
+            mask = np.zeros(shape=(f_parameters.shape[0] * (f_parameters.shape[1] + 1) * f_parameters.shape[2] // 2, ), dtype=nb.boolean)
+            mask[pivot_positions] = True
+
+            b = np.zeros(shape=(f_spin_dep+1, a.shape[0]))
+            p = 0
+            for n in range(f_ee_order + 1):
+                for m in range(f_en_order + 1):
+                    for l in range(m, f_en_order + 1):
+                        if p not in pivot_positions:
+                            for temp in range(a.shape[0]):
+                                b[:, temp] -= a[temp, p] * f_parameters[l, m, n, :]
+                        p += 1
+
+            x = np.empty(shape=(f_spin_dep + 1, a.shape[0]))
+            for i in range(f_spin_dep + 1):
+                x[i, :] = np.linalg.solve(a[:, mask], b[i])
+
+            p = 0
+            temp = 0
+            for n in range(f_ee_order + 1):
+                for m in range(f_en_order + 1):
+                    for l in range(m, f_en_order + 1):
+                        if temp in pivot_positions:
+                            f_parameters[l, m, n, :] = f_parameters[m, l, n, :] = x[:, p]
+                            p += 1
+                        temp += 1
+
+    def check_f_constrains(self):
+        for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
+            f_en_order = f_parameters.shape[0] - 1
+            f_ee_order = f_parameters.shape[2] - 1
+            f_spin_dep = f_parameters.shape[3] - 1
+
+            lm_sum = np.zeros((2 * f_en_order + 1, f_spin_dep + 1))
+            for l in range(f_en_order + 1):
+                for m in range(f_en_order + 1):
+                    lm_sum[l + m] += f_parameters[l, m, 1, :]
+            print('lm_sum =', lm_sum)
+
+            mn_sum = np.zeros((f_en_order + f_ee_order + 1, f_spin_dep + 1))
+            for m in range(f_en_order + 1):
+                for n in range(f_ee_order + 1):
+                    mn_sum[m + n] += self.trunc * f_parameters[0, m, n, :] - L * f_parameters[1, m, n, :]
+            print('mn_sum =', mn_sum)
+
+            if no_dup_u_term:
+                print('should be equal to zero')
+                print(f_parameters[1, 1, 0, :])
+                print(f_parameters[0, 0, :, :])
+            if no_dup_chi_term:
+                print('should be equal to zero')
+                print(f_parameters[:, 0, 0, :])
 
     def get_parameters(self):
         """Returns parameters in the following order:
@@ -670,7 +740,7 @@ class Jastrow:
                                 if f_mask[j1, j2, j3, j4]:
                                     n += 1
                                     f_parameters[j1, j2, j3, j4] = f_parameters[j2, j1, j3, j4] = parameters[n]
-            # self.fix_f_parameters()
+            self.fix_f_parameters()
 
     def u_term_numerical_d1(self, e_powers):
         """Numerical first derivatives of logarithm wfn with respect to u-term parameters
@@ -764,10 +834,10 @@ class Jastrow:
         for i, (f_parameters, f_mask) in enumerate(zip(self.f_parameters, self.f_mask)):
             n += 1
             self.f_cutoff[i] -= delta
-            # self.fix_f_parameters()
+            self.fix_f_parameters()
             res[n] -= self.f_term(e_powers, n_powers)
             self.f_cutoff[i] += 2 * delta
-            # self.fix_f_parameters()
+            self.fix_f_parameters()
             res[n] += self.f_term(e_powers, n_powers)
             self.f_cutoff[i] -= delta
 
@@ -780,18 +850,18 @@ class Jastrow:
                                 f_parameters[i, j, k, l] -= delta
                                 if i != j:
                                     f_parameters[j, i, k, l] -= delta
-                                # self.fix_f_parameters()
+                                self.fix_f_parameters()
                                 res[n] -= self.f_term(e_powers, n_powers)
                                 f_parameters[i, j, k, l] += 2 * delta
                                 if i != j:
                                     f_parameters[j, i, k, l] += 2 * delta
-                                # self.fix_f_parameters()
+                                self.fix_f_parameters()
                                 res[n] += self.f_term(e_powers, n_powers)
                                 f_parameters[i, j, k, l] -= delta
                                 if i != j:
                                     f_parameters[j, i, k, l] -= delta
 
-        # self.fix_f_parameters()
+        self.fix_f_parameters()
         return res / delta / 2
 
     def parameters_numerical_d1(self, e_vectors, n_vectors):

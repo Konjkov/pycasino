@@ -48,7 +48,7 @@ class Backflow:
 
     def __init__(self, file, atoms):
         self.trunc = 0
-        self.eta_parameters = np.zeros((0, 0), np.float)  # uu, ud, dd order
+        self.eta_parameters = np.zeros((0, 0), float)  # uu, ud, dd order
         self.mu_parameters = nb.typed.List.empty_list(mu_parameters_type)  # u, d order
         self.phi_parameters = nb.typed.List.empty_list(phi_parameters_type)  # uu, ud, dd order
         self.theta_parameters = nb.typed.List.empty_list(theta_parameters_type)  # uu, ud, dd order
@@ -57,9 +57,9 @@ class Backflow:
         self.phi_cutoff = np.zeros(0)
         self.mu_labels = nb.typed.List.empty_list(labels_type)
         self.phi_labels = nb.typed.List.empty_list(labels_type)
-        self.eta_cutoff = np.zeros((2,), np.float)
+        self.eta_cutoff = np.zeros((2,), float)
         self.ae_cutoff = np.zeros(atoms.shape[0])
-        self.phi_irrotational = np.zeros(0, np.bool)
+        self.phi_irrotational = np.zeros(0, bool)
 
         if not os.path.isfile(file):
             return
@@ -133,7 +133,7 @@ class Backflow:
                         mu_cutoff, _ = self.read_parameter()
                         self.mu_cutoff[set_number] = mu_cutoff
                     elif line.startswith('Parameter values'):
-                        mu_parameters = np.zeros((mu_order+1, mu_spin_dep+1), np.float)
+                        mu_parameters = np.zeros((mu_order+1, mu_spin_dep+1), float)
                         mu_mask = self.get_mu_mask(mu_parameters)
                         try:
                             for i in range(mu_spin_dep + 1):
@@ -149,7 +149,7 @@ class Backflow:
                     if line.startswith('Number of sets'):
                         number_of_sets = self.read_ints()[0]
                         self.phi_cutoff = np.zeros(number_of_sets)
-                        self.phi_irrotational = np.zeros(number_of_sets, np.bool)
+                        self.phi_irrotational = np.zeros(number_of_sets, bool)
                     elif line.startswith('START SET'):
                         set_number = int(line.split()[2]) - 1
                     elif line.startswith('Label'):
@@ -169,8 +169,8 @@ class Backflow:
                         phi_cutoff, _ = self.read_parameter()
                         self.phi_cutoff[set_number] = phi_cutoff
                     elif line.startswith('Parameter values'):
-                        phi_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
-                        theta_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), np.float)
+                        phi_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), float)
+                        theta_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), float)
                         for i in range(phi_spin_dep + 1):
                             phi_mask, theta_mask = self.get_phi_theta_mask(phi_parameters, phi_cutoff, i, phi_cusp, phi_irrotational)
                             for m in range(phi_ee_order + 1):
@@ -355,7 +355,7 @@ class Backflow:
         _, pivot_positions = rref(c)
 
         p = 0
-        phi_mask = np.zeros(phi_parameters.shape[:3], np.bool)
+        phi_mask = np.zeros(shape=phi_parameters.shape[:3], dtype=bool)
         for m in range(phi_parameters.shape[2]):
             for l in range(phi_parameters.shape[1]):
                 for k in range(phi_parameters.shape[0]):
@@ -363,7 +363,7 @@ class Backflow:
                         phi_mask[k, l, m] = True
                     p += 1
 
-        theta_mask = np.zeros(phi_parameters.shape[:3], np.bool)
+        theta_mask = np.zeros(shape=phi_parameters.shape[:3], dtype=bool)
         for m in range(phi_parameters.shape[2]):
             for l in range(phi_parameters.shape[1]):
                 for k in range(phi_parameters.shape[0]):
@@ -388,8 +388,8 @@ class Backflow:
         """Fix phi-term parameters"""
         c = self.construct_c_matrix(phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
         c, pivot_positions = rref(c)
-        c = c[:len(pivot_positions), :]
-        mask = np.zeros(phi_parameters.size, np.bool)
+        c = c[:pivot_positions.size, :]
+        mask = np.zeros(shape=phi_parameters.size, dtype=bool)
         mask[pivot_positions] = True
 
         b = np.zeros((c.shape[0], ))
@@ -435,11 +435,11 @@ class Backflow:
         phi_en_order = phi_parameters.shape[0] - 1
         phi_ee_order = phi_parameters.shape[2] - 1
 
-        lm_phi_sum = np.zeros((2 * phi_en_order + 1,))
-        lm_phi_ae_sum = np.zeros((2 * phi_en_order + 1,))
-        lm_phi_m_ae_sum = np.zeros((2 * phi_en_order + 1,))
-        lm_theta_ae_sum = np.zeros((2 * phi_en_order + 1,))
-        lm_theta_m_ae_sum = np.zeros((2 * phi_en_order + 1,))
+        lm_phi_sum = np.zeros((phi_en_order + phi_ee_order + 1,))
+        lm_phi_ae_sum = np.zeros((phi_en_order + phi_ee_order + 1,))
+        lm_phi_m_ae_sum = np.zeros((phi_en_order + phi_ee_order + 1,))
+        lm_theta_ae_sum = np.zeros((phi_en_order + phi_ee_order + 1,))
+        lm_theta_m_ae_sum = np.zeros((phi_en_order + phi_ee_order + 1,))
 
         for l in range(phi_parameters.shape[1]):
             for m in range(phi_parameters.shape[2]):
@@ -525,6 +525,6 @@ if __name__ == '__main__':
         print(phi_term)
         path = f'test/backflow/0_1_0/{phi_term}/correlation.out.1'
         path = f'test/backflow/3_1_0/{phi_term}/correlation.out.1'
-        path = f'test/backflow/0_1_1/{phi_term}/correlation.out.1'
-        path = f'test/backflow/3_1_1/{phi_term}/correlation.out.1'
+        # path = f'test/backflow/0_1_1/{phi_term}/correlation.out.1'
+        # path = f'test/backflow/3_1_1/{phi_term}/correlation.out.1'
         Backflow(path, atom_positions)
