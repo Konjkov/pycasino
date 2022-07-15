@@ -352,14 +352,14 @@ class Backflow:
         copy-paste from /CASINO/src/pbackflow.f90 SUBROUTINE construct_C
         """
         c = self.construct_c_matrix(phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
-        _, pivot = rref(c)
+        _, pivot_positions = rref(c)
 
         p = 0
         phi_mask = np.zeros(phi_parameters.shape[:3], np.bool)
         for m in range(phi_parameters.shape[2]):
             for l in range(phi_parameters.shape[1]):
                 for k in range(phi_parameters.shape[0]):
-                    if p not in pivot:
+                    if p not in pivot_positions:
                         phi_mask[k, l, m] = True
                     p += 1
 
@@ -367,7 +367,7 @@ class Backflow:
         for m in range(phi_parameters.shape[2]):
             for l in range(phi_parameters.shape[1]):
                 for k in range(phi_parameters.shape[0]):
-                    if p not in pivot:
+                    if p not in pivot_positions:
                         theta_mask[k, l, m] = True
                     p += 1
         return phi_mask, theta_mask
@@ -387,17 +387,17 @@ class Backflow:
     def fix_phi_parameters(self, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
         """Fix phi-term parameters"""
         c = self.construct_c_matrix(phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
-        c, pivot = rref(c)
-        c = c[:len(pivot), :]
+        c, pivot_positions = rref(c)
+        c = c[:len(pivot_positions), :]
         mask = np.zeros(phi_parameters.size, np.bool)
-        mask[pivot] = True
+        mask[pivot_positions] = True
 
         b = np.zeros((c.shape[0], ))
         p = 0
         for m in range(phi_parameters.shape[2]):
             for l in range(phi_parameters.shape[1]):
                 for k in range(phi_parameters.shape[0]):
-                    if p not in pivot:
+                    if p not in pivot_positions:
                         for temp in range(c.shape[0]):
                             b[temp] -= c[temp, p] * phi_parameters[k, l, m, spin_dep]
                     p += 1
@@ -405,7 +405,7 @@ class Backflow:
         for m in range(phi_parameters.shape[2]):
             for l in range(phi_parameters.shape[1]):
                 for k in range(phi_parameters.shape[0]):
-                    if p not in pivot:
+                    if p not in pivot_positions:
                         for temp in range(c.shape[0]):
                             b[temp] -= c[temp, p] * theta_parameters[k, l, m, spin_dep]
                     p += 1
@@ -417,7 +417,7 @@ class Backflow:
         for m in range(phi_parameters.shape[2]):
             for l in range(phi_parameters.shape[1]):
                 for k in range(phi_parameters.shape[0]):
-                    if temp in pivot:
+                    if temp in pivot_positions:
                         phi_parameters[k, l, m, spin_dep] = x[p]
                         p += 1
                     temp += 1
@@ -425,7 +425,7 @@ class Backflow:
         for m in range(phi_parameters.shape[2]):
             for l in range(phi_parameters.shape[1]):
                 for k in range(phi_parameters.shape[0]):
-                    if temp in pivot:
+                    if temp in pivot_positions:
                         theta_parameters[k, l, m, spin_dep] = x[p]
                         p += 1
                     temp += 1

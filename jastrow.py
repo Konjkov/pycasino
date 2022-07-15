@@ -8,6 +8,7 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 import numpy as np
 import numba as nb
+from readers.numerical import rref
 
 from numpy.polynomial.polynomial import polyval, polyval3d
 

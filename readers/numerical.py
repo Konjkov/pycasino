@@ -1,7 +1,9 @@
 import numpy as np
+import numba as nb
 
 
-def rref(A, tol=1.0e-12):
+@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
+def rref(a, tol=1e-12):
     """
     Construct RREF matrix which:
     1. All the rows consisting entirely of zeros are at the bottom
@@ -14,31 +16,30 @@ def rref(A, tol=1.0e-12):
     definitions
     https://www.statlect.com/matrix-algebra/row-echelon-form
     """
-    m, n = A.shape
-    i, j = 0, 0
-    jb = []
+    m, n = a.shape
+    i = j = 0
+    pivot_positions = []
 
     while i < m and j < n:
-        # Find value and index of largest element in the remainder of column j
-        k = np.argmax(np.abs(A[i:m, j])) + i
-        p = np.abs(A[k, j])
-        if p <= tol:
+        # Find value and index of the largest element in the remainder of column j
+        k = np.argmax(np.abs(a[i:m, j])) + i
+        if np.abs(a[k, j]) <= tol:
             # The column is negligible, zero it out
-            A[i:m, j] = 0.0
+            a[i:m, j] = 0.0
             j += 1
         else:
             # Remember the column index
-            jb.append(j)
+            pivot_positions.append(j)
             if i != k:
                 # Swap the i-th and k-th rows
-                A[[i, k], j:n] = A[[k, i], j:n]
+                a[np.array([i, k]), j:n] = a[np.array([k, i]), j:n]
             # Divide the pivot row i by the pivot element A[i, j]
-            A[i, j:n] = A[i, j:n] / A[i, j]
+            a[i, j:n] = a[i, j:n] / a[i, j]
             # Subtract multiples of the pivot row from all the other rows
             for k in range(m):
                 if k != i:
-                    A[k, j:n] -= A[k, j] * A[i, j:n]
+                    a[k, j:n] -= a[k, j] * a[i, j:n]
             i += 1
             j += 1
     # Finished
-    return A, jb
+    return a, pivot_positions

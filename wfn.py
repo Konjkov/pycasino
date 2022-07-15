@@ -20,8 +20,6 @@ logger = logging.getLogger('vmc')
 spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
-    ('r_e', nb.float64[:, :]),
-    ('step', nb.float64),
     ('atom_positions', nb.float64[:, :]),
     ('atom_charges', nb.float64[:]),
     ('nuclear_repulsion', nb.float64),
@@ -94,7 +92,7 @@ class Wfn:
 
     def drift_velocity(self, r_e):
         """Drift velocity
-        drift velocity = 1/2 * 'drift/quantum force'
+        drift velocity = 1/2 * 'drift or quantum force'
         where D is diffusion constant = 1/2
         """
         e_vectors = subtract_outer(r_e, r_e)

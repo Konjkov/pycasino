@@ -326,34 +326,21 @@ if __name__ == '__main__':
          hessian     1670.7
         -- old --
         Kr:
-         value        781.9
-         laplacian   1589.5
-         gradient    2526.0
-         hessian     6741.8
+         value        725.7
+         laplacian   1529.8
+         gradient    1918.6
+         hessian     5085.5
         O3:
-         value        655.3
-         laplacian   1300.4
-         gradient    2669.2
-    Gaussian:
-        He:
-         value         29.1
-         laplacian     55.0
-         gradient     114.3
-         hessian      386.1
-        Be:
-         value         55.9
-         laplacian    110.2
-         gradient     243.6
-         hessian      769.3
-        Ne:
-         value        125.0
+         value        657.9
+         laplacian   1302.7
+         gradient    1648.3
+         hessian     3853.4
     """
 
-    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
-        # path = f'test/gwfn/{mol}/HF/cc-pVQZ/CBCS/Slater/'
-        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
-        logger.info('%s:', mol)
-        slater_profiling(CasinoConfig(path))
+    # for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
+    #     path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
+    #     logger.info('%s:', mol)
+    #     slater_profiling(CasinoConfig(path))
 
     """
     He:
@@ -376,10 +363,10 @@ if __name__ == '__main__':
      value       3174.8
     """
 
-    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
-        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Jastrow/'
-        logger.info('%s:', mol)
-        jastrow_profiling(CasinoConfig(path))
+    # for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
+    #     path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Jastrow/'
+    #     logger.info('%s:', mol)
+    #     jastrow_profiling(CasinoConfig(path))
 
     """
     He:
@@ -398,12 +385,15 @@ if __name__ == '__main__':
      value       1501.9
     """
 
-    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
-        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
-        logger.info('%s:', mol)
-        backflow_profiling(CasinoConfig(path))
+    # for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
+    #     path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
+    #     logger.info('%s:', mol)
+    #     backflow_profiling(CasinoConfig(path))
 
-    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
-        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
-        logger.info('%s:', mol)
-        markovchain_profiling(CasinoConfig(path))
+    """
+    """
+
+    # for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
+    #     path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
+    #     logger.info('%s:', mol)
+    #     markovchain_profiling(CasinoConfig(path))
