@@ -374,23 +374,21 @@ class MarkovChain:
         return res
 
 
-def jastrow_parameters_gradient(weight, energy, energy_gradient):
+def jastrow_parameters_gradient(energy, energy_gradient):
     """
-    :param weight:
     :param energy:
     :param energy_gradient:
     :return:
     """
     return 2 * (
-        np.average((energy_gradient * energy[:, np.newaxis]), axis=0, weights=weight) -
-        np.average(energy_gradient, axis=0, weights=weight) * np.average(energy, weights=weight)
+        np.average((energy_gradient * energy[:, np.newaxis]), axis=0) -
+        np.average(energy_gradient, axis=0) * np.average(energy)
     )
 
 
-def jastrow_parameters_hessian(weight, energy, energy_gradient, energy_hessian):
+def jastrow_parameters_hessian(energy, energy_gradient, energy_hessian):
     """Lin, Zhang and Rappe (LZR) hessian from
     Optimization of quantum Monte Carlo wave functions by energy minimization.
-    :param weight:
     :param energy:
     :param energy_gradient:
     :param energy_hessian:
@@ -398,14 +396,14 @@ def jastrow_parameters_hessian(weight, energy, energy_gradient, energy_hessian):
     """
     t1 = np.einsum('ij,ik->ijk', energy_gradient, energy_gradient)
     A = 2 * (
-        np.average(energy_hessian * energy[:, np.newaxis, np.newaxis], axis=0, weights=weight) -
-        np.average(energy_hessian, axis=0, weights=weight) * np.average(energy, axis=0, weights=weight) -
-        np.average(t1 * energy[..., np.newaxis, np.newaxis], axis=0, weights=weight) +
-        np.average(t1, axis=0, weights=weight) * np.average(energy, weights=weight)
+        np.average(energy_hessian * energy[:, np.newaxis, np.newaxis], axis=0) -
+        np.average(energy_hessian, axis=0) * np.average(energy, axis=0) -
+        np.average(t1 * energy[..., np.newaxis, np.newaxis], axis=0) +
+        np.average(t1, axis=0) * np.average(energy)
     )
-    t2 = energy_gradient - np.average(energy_gradient, axis=0, weights=weight)
-    t3 = (energy - np.average(energy, axis=0, weights=weight))
-    B = 4 * np.average(np.einsum('ij,ik->ijk', t2, t2) * t3[..., np.newaxis, np.newaxis], axis=0, weights=weight)
+    t2 = energy_gradient - np.average(energy_gradient, axis=0)
+    t3 = (energy - np.average(energy, axis=0))
+    B = 4 * np.average(np.einsum('ij,ik->ijk', t2, t2) * t3[..., np.newaxis, np.newaxis], axis=0)
     C = 0.0
     return A + B + C
 
@@ -492,23 +490,33 @@ class Casino:
             )
         elif self.config.input.runtype == 'vmc_opt':
             if self.config.input.opt_method == 'varmin':
+                start = default_timer()
                 self.vmc_energy_accumulation(1)
                 for _ in range(self.config.input.opt_cycles):
                     self.optimize_vmc_step(10000)
                     res = self.vmc_variance_minimization(self.config.input.vmc_nstep)
                     # unload to file
-                    # logger.debug('x = %s', res.x)
                     self.wfn.jastrow.set_parameters(res.x)
                     self.vmc_energy_accumulation(1)
+                stop = default_timer()
+                logger.info(
+                    f' =========================================================================\n\n'
+                    f' Total PyCasino real time : : :    {stop - start:.4f}'
+                )
             elif self.config.input.opt_method == 'emin':
+                start = default_timer()
                 self.vmc_energy_accumulation(1)
                 for _ in range(self.config.input.opt_cycles):
                     self.optimize_vmc_step(10000)
                     res = self.vmc_energy_minimization(self.config.input.vmc_nstep)
                     # unload to file
-                    # logger.debug('x = %s', res.x)
                     self.wfn.jastrow.set_parameters(res.x)
                     self.vmc_energy_accumulation(1)
+                stop = default_timer()
+                logger.info(
+                    f' =========================================================================\n\n'
+                    f' Total PyCasino real time : : :    {stop - start:.4f}'
+                )
         elif self.config.input.runtype == 'vmc_dmc':
             self.optimize_vmc_step(10000)
             # FIXME: decorr_period for dmc?
@@ -659,7 +667,7 @@ class Casino:
     def normal_test(self, energy):
         """Test whether energy distribution differs from a normal one."""
         from scipy import stats
-        logger.info('skew = %s, kurtosis = %s', stats.skewtest(energy), stats.kurtosistest(energy))
+        logger.info(f'skew = {stats.skewtest(energy)}, kurtosis = {stats.kurtosistest(energy)}')
 
     def vmc_variance_minimization(self, steps):
         """Minimise vmc variance by jastrow parameters optimization.
@@ -670,21 +678,17 @@ class Casino:
 
         def f(x, *args, **kwargs):
             self.wfn.jastrow.set_parameters(x)
-            energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
-            energy_average = np.average(energy)
-            energy_variance = np.average((energy - energy_average) ** 2)
-            std_err = np.sqrt(energy_variance / energy.shape[0])
-            logger.info('energy = %.8f +- %.8f, variance = %.8f', energy_average, std_err, energy_variance)
-            return energy - energy_average
+            energy = self.markovchain.local_energy(condition, position)
+            return energy - np.mean(energy)
 
-        def jac(x, *args, **kwargs):
-            self.wfn.jastrow.set_parameters(x)
-            return self.markovchain.jastrow_gradient(condition, position)
+        # def jac(x, *args, **kwargs):
+        #     self.wfn.jastrow.set_parameters(x)
+        #     return self.markovchain.jastrow_gradient(condition, position)
 
         parameters = self.wfn.jastrow.get_parameters()
         res = least_squares(
-            f, parameters, jac=jac, bounds=bounds, method='trf', xtol=1e-4, max_nfev=20,
-            x_scale='jac', loss='linear', tr_solver='exact', tr_options=dict(show=False, regularize=False),
+            f, parameters, jac='2-point', bounds=bounds, method='trf', xtol=1e-4, max_nfev=10,
+            x_scale='jac', loss='linear', tr_solver='exact', tr_options=dict(show=True, regularize=False),
             verbose=2
         )
         return res
@@ -694,6 +698,8 @@ class Casino:
         Gradient only for : CG, BFGS, L-BFGS-B, TNC, SLSQP
         Gradient and Hessian is required for: Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact, trust-constr
         Constraints definition only for: COBYLA, SLSQP and trust-constr
+
+        SciPy, оптимизация с условиями - https://habr.com/ru/company/ods/blog/448054/
         """
         bounds = self.wfn.jastrow.get_bounds()
         condition, position = self.markovchain.vmc_random_walk(steps, 1)
@@ -708,7 +714,7 @@ class Casino:
             energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
             energy_gradient = self.markovchain.jastrow_gradient(condition, position)
             mean_energy = np.average(energy)
-            mean_energy_gradient = jastrow_parameters_gradient(condition, energy, energy_gradient)
+            mean_energy_gradient = jastrow_parameters_gradient(energy, energy_gradient)
             energy_average = np.average(energy)
             energy_variance = np.average((energy - energy_average) ** 2)
             std_err = np.sqrt(energy_variance / energy.shape[0])
@@ -720,7 +726,7 @@ class Casino:
             energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
             energy_gradient = self.markovchain.jastrow_gradient(condition, position)
             energy_hessian = self.markovchain.jastrow_hessian(condition, position)
-            mean_energy_hessian = jastrow_parameters_hessian(condition, energy, energy_gradient, energy_hessian)
+            mean_energy_hessian = jastrow_parameters_hessian(energy, energy_gradient, energy_hessian)
             logger.info('hessian = %s', mean_energy_hessian)
             return mean_energy_hessian
 
@@ -762,12 +768,13 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Slater/'
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Slater/'
 
-    # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_opt/'
-    # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow_opt/'
-    # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Jastrow_opt/'
-    # path = 'test/stowfn/Ar/HF/QZ4P/CBCS/Jastrow_opt/'
-    # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_opt/'
-    # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Jastrow_opt/'
+    # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_varmin/'
+    # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow_varmin/'
+    # path = 'test/stowfn/N/HF/QZ4P/CBCS/Jastrow_varmin/'
+    # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Jastrow_varmin/'
+    # path = 'test/stowfn/Ar/HF/QZ4P/CBCS/Jastrow_varmin/'
+    # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_varmin/'
+    # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Jastrow_varmin/'
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow/'
