@@ -46,7 +46,7 @@ class Backflow:
     def read_ints(self):
         return list(map(int, self.f.readline().split()))
 
-    def __init__(self, file, atoms):
+    def __init__(self, atoms):
         self.trunc = 0
         self.eta_parameters = np.zeros((0, 0), float)  # uu, ud, dd order
         self.mu_parameters = nb.typed.List.empty_list(mu_parameters_type)  # u, d order
@@ -61,6 +61,7 @@ class Backflow:
         self.ae_cutoff = np.zeros(atoms.shape[0])
         self.phi_irrotational = np.zeros(0, bool)
 
+    def read(self, file):
         if not os.path.isfile(file):
             return
         with open(file, 'r') as f:

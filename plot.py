@@ -250,9 +250,12 @@ if __name__ == '__main__':
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Jastrow/'
 
     term = 'u'
-    JastrowPlot(os.path.join(path, 'correlation.data')).plot(term)
+    jastrow_plot = JastrowPlot()
+    jastrow_plot.read(os.path.join(path, 'correlation.data'))
+    jastrow_plot.plot(term)
     term = 'chi'
-    JastrowPlot(os.path.join(path, 'correlation.data')).plot(term)
+    jastrow_plot.read(os.path.join(path, 'correlation.data'))
+    jastrow_plot.plot(term)
     # term = 'f'
     # JastrowPlot(os.path.join(path, 'correlation.data')).plot(term)
     # term = 'all'
@@ -266,6 +269,9 @@ if __name__ == '__main__':
     # path = 'test/stowfn/O3/HF/QZ4P/Backflow/'
 
     term = 'eta'
-    BackflowPlot(os.path.join(path, 'correlation.data'), np.zeros(shape=(1,))).plot(term)
+    backflow_plot = BackflowPlot(np.zeros(shape=(1,)))
+    backflow_plot.read(os.path.join(path, 'correlation.data'))
+    backflow_plot.plot(term)
     term = 'mu'
-    BackflowPlot(os.path.join(path, 'correlation.data'), np.zeros(shape=(1,))).plot(term)
+    backflow_plot.read(os.path.join(path, 'correlation.data'))
+    backflow_plot.plot(term)

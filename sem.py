@@ -27,4 +27,8 @@ def correlated_sem(energy):
     reblock_data = pyblock.blocking.reblock(energy)
     opt = pyblock.blocking.find_optimal_block(steps, reblock_data)
     if opt[0]:
-        return reblock_data[opt[0]].std_err
+        try:
+            return reblock_data[opt[0]].std_err
+        except TypeError:
+            print(opt)
+            return reblock_data[int(opt[0])].std_err

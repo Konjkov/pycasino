@@ -491,12 +491,15 @@ class Casino:
         elif self.config.input.runtype == 'vmc_opt':
             if self.config.input.opt_method == 'varmin':
                 start = default_timer()
+                self.optimize_vmc_step(10000)
                 self.vmc_energy_accumulation(1)
-                for _ in range(self.config.input.opt_cycles):
-                    self.optimize_vmc_step(10000)
+                for i in range(self.config.input.opt_cycles):
                     res = self.vmc_variance_minimization(self.config.input.vmc_nstep)
                     # unload to file
                     self.wfn.jastrow.set_parameters(res.x)
+                    print(res.x)
+                    # self.wfn.jastrow.write(f'./correlation.out.{i+1}')
+                    self.optimize_vmc_step(10000)
                     self.vmc_energy_accumulation(1)
                 stop = default_timer()
                 logger.info(
@@ -505,12 +508,14 @@ class Casino:
                 )
             elif self.config.input.opt_method == 'emin':
                 start = default_timer()
+                self.optimize_vmc_step(10000)
                 self.vmc_energy_accumulation(1)
-                for _ in range(self.config.input.opt_cycles):
-                    self.optimize_vmc_step(10000)
+                for i in range(self.config.input.opt_cycles):
                     res = self.vmc_energy_minimization(self.config.input.vmc_nstep)
                     # unload to file
                     self.wfn.jastrow.set_parameters(res.x)
+                    # self.wfn.jastrow.write(f'./correlation.out.{i+1}')
+                    self.optimize_vmc_step(10000)
                     self.vmc_energy_accumulation(1)
                 stop = default_timer()
                 logger.info(
@@ -579,6 +584,7 @@ class Casino:
 
         energy_block_mean = np.zeros(shape=(nblock, ))
         energy_block_sem = np.zeros(shape=(nblock, ))
+        energy_block_var = np.zeros(shape=(nblock,))
         logger.info(
             f'Starting VMC.'
         )
@@ -588,6 +594,7 @@ class Casino:
             energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
+            energy_block_var[i] = np.var(energy)
             block_stop = default_timer()
             logger.info(
                 f' =========================================================================\n'
@@ -603,7 +610,7 @@ class Casino:
             f' FINAL RESULT:\n\n'
             f'  VMC energy (au)    Standard error      Correction for serial correlation\n'
             f' {energy_block_mean.mean():.12f} +/- {energy_block_sem.mean() / np.sqrt(nblock):.12f}      On-the-fly reblocking method\n\n'
-            f' Sample variance of E_L (au^2/sim.cell) : {0:.12f}\n\n'
+            f' Sample variance of E_L (au^2/sim.cell) : {energy_block_var.mean():.12f}\n\n'
         )
 
     def dmc_energy_equilibration(self):
@@ -675,11 +682,13 @@ class Casino:
         """
         bounds = self.wfn.jastrow.get_bounds()
         condition, position = self.markovchain.vmc_random_walk(steps, 1)
+        energy = self.markovchain.local_energy(condition, position)
+        f_scale = 3 * energy.std()
 
         def f(x, *args, **kwargs):
             self.wfn.jastrow.set_parameters(x)
             energy = self.markovchain.local_energy(condition, position)
-            return energy - np.mean(energy)
+            return energy - energy.mean()
 
         # def jac(x, *args, **kwargs):
         #     self.wfn.jastrow.set_parameters(x)
@@ -688,8 +697,8 @@ class Casino:
         parameters = self.wfn.jastrow.get_parameters()
         res = least_squares(
             f, parameters, jac='2-point', bounds=bounds, method='trf', xtol=1e-4, max_nfev=10,
-            x_scale='jac', loss='linear', tr_solver='exact', tr_options=dict(show=True, regularize=False),
-            verbose=2
+            x_scale='jac', loss='arctan', f_scale=f_scale, tr_solver='exact',
+            tr_options=dict(show=True, regularize=False), verbose=2
         )
         return res
 
@@ -713,9 +722,9 @@ class Casino:
             self.wfn.jastrow.set_parameters(x)
             energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
             energy_gradient = self.markovchain.jastrow_gradient(condition, position)
-            mean_energy = np.average(energy)
+            mean_energy = energy.mean()
             mean_energy_gradient = jastrow_parameters_gradient(energy, energy_gradient)
-            energy_average = np.average(energy)
+            energy_average = energy.mean()
             energy_variance = np.average((energy - energy_average) ** 2)
             std_err = np.sqrt(energy_variance / energy.shape[0])
             logger.info('energy = %.8f +- %.8f, variance = %.8f', energy_average, std_err, energy_variance)
@@ -800,4 +809,4 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_dmc/'
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Jastrow_dmc/'
 
-    # Casino(path).run()
+    Casino(path).run()
