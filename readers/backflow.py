@@ -241,6 +241,7 @@ class Backflow:
         parameters_size = 2 * (phi_parameters.shape[0] * phi_parameters.shape[1] * phi_parameters.shape[2])
         c = np.zeros((n_constraints, parameters_size))
         p = 0
+        # Do Phi bit of the constraint matrix.
         for m in range(phi_parameters.shape[2]):
             for l in range(phi_parameters.shape[1]):
                 for k in range(phi_parameters.shape[0]):
@@ -260,7 +261,7 @@ class Backflow:
                     elif k == 1:
                         c[l+m + offset + 2 * en_constrains, p] = 1
                     p += 1
-
+        # Do Theta bit of the constraint matrix.
         offset = phi_constraints
         for m in range(phi_parameters.shape[2]):
             for l in range(phi_parameters.shape[1]):
@@ -280,7 +281,7 @@ class Backflow:
                     elif k == 1:
                         c[l+m + offset + ee_constrains + en_constrains, p] = 1
                     p += 1
-
+        # Do irrotational bit of the constraint matrix.
         n = phi_constraints + theta_constraints
         if phi_irrotational:
             p = 0
@@ -474,7 +475,7 @@ class Backflow:
                 km_theta_m_ae_sum[k + m] += m * theta_parameters[k, 0, m, i]
 
         np.abs(km_phi_sum).max() > 1e-14 and print(f'km_phi_sum = {km_phi_sum}')
-        np.abs(km_theta_sum).max() > 1e-14 and print(f'km_theta_sum = {km_theta_sum}')
+        np.abs(km_theta_sum).max() > 1e-13 and print(f'km_theta_sum = {km_theta_sum}')
         np.abs(km_phi_ae_sum).max() > 1e-14 and print(f'km_phi_ae_sum = {km_phi_ae_sum}')
         np.abs(km_phi_m_ae_sum).max() > 1e-14 and print(f'km_phi_m_ae_sum = {km_phi_m_ae_sum}')
         np.abs(km_theta_m_ae_sum).max() > 1e-14 and print(f'km_theta_m_ae_sum = {km_theta_m_ae_sum}')
@@ -512,7 +513,7 @@ class Backflow:
                             if phi_parameters.shape[0] > k - 1 >= 0 and phi_parameters.shape[2] > m + 1:
                                 irrot_sum[k, l, m] -= (m + 1) * theta_parameters[k - 1, l, m + 1, i]
 
-            np.abs(irrot_sum).max() > 1e-14 and print('irrot_sum', irrot_sum)
+            np.abs(irrot_sum).max() > 1e-13 and print('irrot_sum', irrot_sum)
 
 
 if __name__ == '__main__':
@@ -530,6 +531,6 @@ if __name__ == '__main__':
         print(phi_term)
         # path = f'test/backflow/0_1_0/{phi_term}/correlation.out.1'
         # path = f'test/backflow/3_1_0/{phi_term}/correlation.out.1'
-        # path = f'test/backflow/0_1_1/{phi_term}/correlation.out.1'
-        path = f'test/backflow/3_1_1/{phi_term}/correlation.out.1'
-        Backflow(path, atom_positions)
+        path = f'test/backflow/0_1_1/{phi_term}/correlation.out.1'
+        # path = f'test/backflow/3_1_1/{phi_term}/correlation.out.1'
+        Backflow(atom_positions).read(path)
