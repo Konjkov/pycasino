@@ -16,7 +16,7 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
 
 import numpy as np
 import numba as nb
-from scipy.optimize import least_squares, minimize, root
+from scipy.optimize import least_squares, minimize, root, Bounds
 # import scipy as sp
 
 from readers.casino import CasinoConfig
@@ -494,10 +494,10 @@ class Casino:
                 self.optimize_vmc_step(10000)
                 self.vmc_energy_accumulation(1)
                 for i in range(self.config.input.opt_cycles):
-                    res = self.vmc_variance_minimization(self.config.input.vmc_nstep)
+                    res = self.vmc_variance_minimization(self.config.input.vmc_nconfig_write)
                     # unload to file
                     self.wfn.jastrow.set_parameters(res.x)
-                    print(res.x)
+                    print(res.x / self.wfn.jastrow.get_bounds()[1])
                     # self.wfn.jastrow.write(f'./correlation.out.{i+1}')
                     self.optimize_vmc_step(10000)
                     self.vmc_energy_accumulation(1)
@@ -511,9 +511,10 @@ class Casino:
                 self.optimize_vmc_step(10000)
                 self.vmc_energy_accumulation(1)
                 for i in range(self.config.input.opt_cycles):
-                    res = self.vmc_energy_minimization(self.config.input.vmc_nstep)
+                    res = self.vmc_energy_minimization(self.config.input.vmc_nconfig_write)
                     # unload to file
                     self.wfn.jastrow.set_parameters(res.x)
+                    print(res.x / self.wfn.jastrow.get_bounds()[1])
                     # self.wfn.jastrow.write(f'./correlation.out.{i+1}')
                     self.optimize_vmc_step(10000)
                     self.vmc_energy_accumulation(1)
@@ -676,63 +677,51 @@ class Casino:
         from scipy import stats
         logger.info(f'skew = {stats.skewtest(energy)}, kurtosis = {stats.kurtosistest(energy)}')
 
-    def vmc_variance_minimization(self, steps):
+    def vmc_variance_minimization(self, steps, loss='linear', f_scale=1):
         """Minimise vmc variance by jastrow parameters optimization.
         https://github.com/scipy/scipy/issues/10634
         """
-        bounds = self.wfn.jastrow.get_bounds()
         condition, position = self.markovchain.vmc_random_walk(steps, 1)
-        energy = self.markovchain.local_energy(condition, position)
-        f_scale = 3 * energy.std()
 
-        def f(x, *args, **kwargs):
+        # if loss == 'arctan':
+        #     energy = self.markovchain.local_energy(condition, position)
+        #     f_scale = 3 * energy.std()
+
+        def fun(x, *args, **kwargs):
             self.wfn.jastrow.set_parameters(x)
             energy = self.markovchain.local_energy(condition, position)
-            return energy - energy.mean()
+            # median energy is lower than mean, but maybe np.min(np.median(energy), np.mean(energy))
+            return energy - np.median(energy)
 
-        # def jac(x, *args, **kwargs):
-        #     self.wfn.jastrow.set_parameters(x)
-        #     return self.markovchain.jastrow_gradient(condition, position)
-
-        parameters = self.wfn.jastrow.get_parameters()
-        res = least_squares(
-            f, parameters, jac='2-point', bounds=bounds, method='trf', xtol=1e-4, max_nfev=10,
-            x_scale='jac', loss='arctan', f_scale=f_scale, tr_solver='exact',
-            tr_options=dict(show=True, regularize=False), verbose=2
+        return least_squares(
+            fun, x0=self.wfn.jastrow.get_parameters(), jac='2-point', method='trf',
+            max_nfev=7, x_scale=self.wfn.jastrow.get_x_scale(), loss=loss, f_scale=f_scale,
+            tr_solver='lsmr', tr_options=dict(regularize=False), verbose=2
         )
-        return res
 
     def vmc_energy_minimization(self, steps):
         """Minimise vmc energy by jastrow parameters optimization.
         Gradient only for : CG, BFGS, L-BFGS-B, TNC, SLSQP
         Gradient and Hessian is required for: Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact, trust-constr
-        Constraints definition only for: COBYLA, SLSQP and trust-constr
+        Constraints definition only for: COBYLA, SLSQP and trust-constr.
+        Bounds on variables for Nelder-Mead, L-BFGS-B, TNC, SLSQP, Powell, and trust-constr methods.
 
         SciPy, оптимизация с условиями - https://habr.com/ru/company/ods/blog/448054/
         """
-        bounds = self.wfn.jastrow.get_bounds()
+        bounds = Bounds(*self.wfn.jastrow.get_bounds(), keep_feasible=True)
         condition, position = self.markovchain.vmc_random_walk(steps, 1)
 
-        def callback(x, *args):
-            logger.info('inner iteration x = %s', x)
+        def fun(x, *args):
             self.wfn.jastrow.set_parameters(x)
-            condition, position = self.markovchain.vmc_random_walk(steps, 1)
-
-        def f(x, *args):
-            self.wfn.jastrow.set_parameters(x)
-            energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
-            energy_gradient = self.markovchain.jastrow_gradient(condition, position)
+            energy = self.markovchain.local_energy(condition, position)
             mean_energy = energy.mean()
+            energy_gradient = self.markovchain.jastrow_gradient(condition, position)
             mean_energy_gradient = jastrow_parameters_gradient(energy, energy_gradient)
-            energy_average = energy.mean()
-            energy_variance = np.average((energy - energy_average) ** 2)
-            std_err = np.sqrt(energy_variance / energy.shape[0])
-            logger.info('energy = %.8f +- %.8f, variance = %.8f', energy_average, std_err, energy_variance)
             return mean_energy, mean_energy_gradient
 
         def hess(x, *args):
             self.wfn.jastrow.set_parameters(x)
-            energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
+            energy = self.markovchain.local_energy(condition, position)
             energy_gradient = self.markovchain.jastrow_gradient(condition, position)
             energy_hessian = self.markovchain.jastrow_hessian(condition, position)
             mean_energy_hessian = jastrow_parameters_hessian(energy, energy_gradient, energy_hessian)
@@ -740,10 +729,8 @@ class Casino:
             return mean_energy_hessian
 
         parameters = self.wfn.jastrow.get_parameters()
-        options = dict(disp=True, maxfun=50)
-        res = minimize(f, parameters, method='TNC', jac=True, bounds=list(zip(*bounds)), options=options, callback=callback)
-        # options = dict(disp=True)
-        # res = minimize(f, parameters, method='trust-ncg', jac=True, hess=hess, options=options, callback=callback)
+        res = minimize(fun, parameters, method='TNC', jac=True, bounds=bounds, options=dict(disp=True, maxfun=10))
+        # res = minimize(f, parameters, method='trust-ncg', jac=True, hess=hess, options=dict(disp=True)
         return res
 
 
@@ -809,4 +796,4 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_dmc/'
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Jastrow_dmc/'
 
-    Casino(path).run()
+    # Casino(path).run()

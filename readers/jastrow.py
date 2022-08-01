@@ -396,7 +396,11 @@ class Jastrow:
                 n_f_sets=n_f_set + 1,
                 f_sets=f_sets,
             )
-            f.write(jastrow)
+            template.format(
+                title='no title given',
+                jastrow=jastrow,
+            )
+            f.write(template)
 
     @staticmethod
     def get_u_mask(parameters):

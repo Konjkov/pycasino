@@ -546,40 +546,45 @@ class Jastrow:
         return res / delta / delta
 
     def get_bounds(self):
-        """"""
-        lower_bonds = np.zeros((0,))
-        upper_bonds = np.zeros((0,))
+        """Bonds constraints fluctuation of Jastrow parameters
+        and thus increases robustness of the energy minimization procedure.
+        :return:
+        """
+        lower_bonds = []
+        upper_bonds = []
 
         if self.u_cutoff:
-            size = self.u_mask.sum() + 1
-            u_lower_bonds = - np.ones((size,)) * np.inf
-            u_upper_bonds = np.ones((size,)) * np.inf
-            u_lower_bonds[0] = 1
-            u_upper_bonds[0] = 10
-            lower_bonds = np.concatenate((lower_bonds, u_lower_bonds))
-            upper_bonds = np.concatenate((upper_bonds, u_upper_bonds))
+            lower_bonds.append(1)
+            upper_bonds.append(10)
+            for j1 in range(self.u_parameters.shape[0]):
+                for j2 in range(self.u_parameters.shape[1]):
+                    if self.u_mask[j1, j2]:
+                        lower_bonds.append(-1 / self.u_cutoff ** j1)
+                        upper_bonds.append(1 / self.u_cutoff ** j1)
 
         if self.chi_cutoff.any():
-            for chi_mask in self.chi_mask:
-                size = chi_mask.sum() + 1
-                chi_lower_bonds = - np.ones((size,)) * np.inf
-                chi_upper_bonds = np.ones((size,)) * np.inf
-                chi_lower_bonds[0] = 1
-                chi_upper_bonds[0] = 10
-                lower_bonds = np.concatenate((lower_bonds, chi_lower_bonds))
-                upper_bonds = np.concatenate((upper_bonds, chi_upper_bonds))
+            for i, (chi_parameters, chi_mask, chi_cutoff) in enumerate(zip(self.chi_parameters, self.chi_mask, self.chi_cutoff)):
+                lower_bonds.append(1)
+                upper_bonds.append(10)
+                for j1 in range(chi_parameters.shape[0]):
+                    for j2 in range(chi_parameters.shape[1]):
+                        if chi_mask[j1, j2]:
+                            lower_bonds.append(-1 / chi_cutoff ** j1)
+                            upper_bonds.append(1 / chi_cutoff ** j1)
 
         if self.f_cutoff.any():
-            for f_mask in self.f_mask:
-                size = f_mask.sum() + 1
-                f_lower_bonds = - np.ones((size,)) * np.inf
-                f_upper_bonds = np.ones((size,)) * np.inf
-                f_lower_bonds[0] = 1
-                f_upper_bonds[0] = 10
-                lower_bonds = np.concatenate((lower_bonds, f_lower_bonds))
-                upper_bonds = np.concatenate((upper_bonds, f_upper_bonds))
+            for i, (f_parameters, f_mask, f_cutoff) in enumerate(zip(self.f_parameters, self.f_mask, self.f_cutoff)):
+                lower_bonds.append(1)
+                upper_bonds.append(10)
+                for j1 in range(f_parameters.shape[0]):
+                    for j2 in range(f_parameters.shape[1]):
+                        for j3 in range(f_parameters.shape[2]):
+                            for j4 in range(f_parameters.shape[3]):
+                                if f_mask[j1, j2, j3, j4]:
+                                    lower_bonds.append(-1 / f_cutoff ** (j1 + j2 + j3))
+                                    upper_bonds.append(1 / f_cutoff ** (j1 + j2 + j3))
 
-        return lower_bonds, upper_bonds
+        return np.array(lower_bonds), np.array(upper_bonds)
 
     def fix_u_parameters(self):
         """Fix u-term parameters"""
@@ -666,6 +671,42 @@ class Jastrow:
             if no_dup_chi_term:
                 print('should be equal to zero')
                 print(f_parameters[:, 0, 0, :])
+
+    def get_x_scale(self):
+        """Characteristic scale of each variable. Setting x_scale is equivalent
+        to reformulating the problem in scaled variables xs = x / x_scale.
+        An alternative view is that the size of a trust region along j-th
+        dimension is proportional to x_scale[j].
+        The purpose of this method is to reformulate the optimization problem
+        with dimensionless variables having only one dimensional parameter - cutoff length.
+        """
+        res = []
+        if self.u_cutoff:
+            res.append(self.u_cutoff)
+            for j1 in range(self.u_parameters.shape[0]):
+                for j2 in range(self.u_parameters.shape[1]):
+                    if self.u_mask[j1, j2]:
+                        res.append(1 / self.u_cutoff ** j1)
+
+        if self.chi_cutoff.any():
+            for i, (chi_parameters, chi_mask, chi_cutoff) in enumerate(zip(self.chi_parameters, self.chi_mask, self.chi_cutoff)):
+                res.append(chi_cutoff)
+                for j1 in range(chi_parameters.shape[0]):
+                    for j2 in range(chi_parameters.shape[1]):
+                        if chi_mask[j1, j2]:
+                            res.append(1 / chi_cutoff ** j1)
+
+        if self.f_cutoff.any():
+            for i, (f_parameters, f_mask, f_cutoff) in enumerate(zip(self.f_parameters, self.f_mask, self.f_cutoff)):
+                res.append(f_cutoff)
+                for j1 in range(f_parameters.shape[0]):
+                    for j2 in range(f_parameters.shape[1]):
+                        for j3 in range(f_parameters.shape[2]):
+                            for j4 in range(f_parameters.shape[3]):
+                                if f_mask[j1, j2, j3, j4]:
+                                    res.append(1 / f_cutoff ** (j1 + j2 + j3))
+
+        return np.array(res)
 
     def get_parameters(self):
         """Returns parameters in the following order:
