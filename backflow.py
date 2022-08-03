@@ -8,6 +8,8 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 import numpy as np
 import numba as nb
+from readers.numerical import rref
+from readers.backflow import construct_c_matrix
 
 from logger import logging
 
@@ -567,6 +569,45 @@ class Backflow:
             self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
         )
 
+    def gradient(self, e_vectors, n_vectors):
+        """Gradient with respect to e-coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :return:
+        """
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        return (
+            self.ae_multiplier_gradient(n_vectors, n_powers) * self.eta_term(e_vectors, e_powers).reshape((-1, 1)) +
+            self.eta_term_gradient(e_powers, e_vectors) * self.ae_multiplier(n_vectors, n_powers).reshape((-1, 1)) +
+            self.mu_term_gradient(n_powers, n_vectors) +
+            self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
+        )
+
+    def laplacian(self, e_vectors, n_vectors):
+        """Laplacian with respect to e-coordinates
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :return:
+        """
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        a = self.ae_multiplier_laplacian(n_vectors, n_powers) * self.eta_term(e_vectors, e_powers).ravel()
+        b = np.zeros(((self.neu + self.ned) * 3))
+        term_gradient = self.eta_term_gradient(e_powers, e_vectors)
+        cutoff_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
+        for i in range((self.neu + self.ned) * 3):
+            b[i] = np.sum(term_gradient[i] * cutoff_gradient[i])
+        c = self.eta_term_laplacian(e_powers, e_vectors) * self.ae_multiplier(n_vectors, n_powers).ravel()
+
+        return (
+            a + 2 * b + c +
+            self.mu_term_laplacian(n_powers, n_vectors) +
+            self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
+        )
+
     def numerical_gradient(self, e_vectors, n_vectors):
         """Numerical gradient with respect to a e-coordinates
         :param e_vectors: e-e vectors
@@ -618,41 +659,176 @@ class Backflow:
 
         return res.ravel() / delta / delta
 
-    def gradient(self, e_vectors, n_vectors):
-        """Gradient with respect to e-coordinates
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
+    def fix_eta_parameters(self):
+        """Fix eta-term parameters"""
+        C = self.trunc
+        L = self.eta_cutoff[0]
+        self.eta_parameters[1, 0] = C * self.eta_parameters[0, 0] / L
+        if self.eta_parameters.shape[1] == 3:
+            L = self.eta_cutoff[2] or self.eta_cutoff[0]
+            self.eta_parameters[1, 2] = C * self.eta_parameters[0, 2] / L
+
+    def fix_mu_parameters(self):
+        """Fix mu-term parameters"""
+
+    def fix_phi_parameters(self, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
+        """Fix phi-term parameters"""
+        c = construct_c_matrix(phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+        c, pivot_positions = rref(c)
+        c = c[:pivot_positions.size, :]
+        mask = np.zeros(shape=phi_parameters.size, dtype=bool)
+        mask[pivot_positions] = True
+
+        b = np.zeros((c.shape[0], ))
+        p = 0
+        for m in range(phi_parameters.shape[2]):
+            for l in range(phi_parameters.shape[1]):
+                for k in range(phi_parameters.shape[0]):
+                    if p not in pivot_positions:
+                        for temp in range(c.shape[0]):
+                            b[temp] -= c[temp, p] * phi_parameters[k, l, m, spin_dep]
+                    p += 1
+
+        for m in range(phi_parameters.shape[2]):
+            for l in range(phi_parameters.shape[1]):
+                for k in range(phi_parameters.shape[0]):
+                    if p not in pivot_positions:
+                        for temp in range(c.shape[0]):
+                            b[temp] -= c[temp, p] * theta_parameters[k, l, m, spin_dep]
+                    p += 1
+
+        x = np.linalg.solve(c[:, mask], b)
+
+        p = 0
+        temp = 0
+        for m in range(phi_parameters.shape[2]):
+            for l in range(phi_parameters.shape[1]):
+                for k in range(phi_parameters.shape[0]):
+                    if temp in pivot_positions:
+                        phi_parameters[k, l, m, spin_dep] = x[p]
+                        p += 1
+                    temp += 1
+
+        for m in range(phi_parameters.shape[2]):
+            for l in range(phi_parameters.shape[1]):
+                for k in range(phi_parameters.shape[0]):
+                    if temp in pivot_positions:
+                        theta_parameters[k, l, m, spin_dep] = x[p]
+                        p += 1
+                    temp += 1
+
+    def get_x_scale(self):
+        """Characteristic scale of each variable. Setting x_scale is equivalent
+        to reformulating the problem in scaled variables xs = x / x_scale.
+        An alternative view is that the size of a trust region along j-th
+        dimension is proportional to x_scale[j].
+        The purpose of this method is to reformulate the optimization problem
+        with dimensionless variables having only one dimensional parameter - cutoff length.
+        """
+        res = []
+        if self.eta_cutoff:
+            res.append(self.eta_cutoff)
+            for j1 in range(self.eta_parameters.shape[0]):
+                for j2 in range(self.eta_parameters.shape[1]):
+                    if self.eta_mask[j1, j2]:
+                        res.append(1 / self.eta_cutoff ** j1)
+
+        if self.mu_cutoff.any():
+            for i, (mu_parameters, mu_mask, mu_cutoff) in enumerate(zip(self.mu_parameters, self.mu_mask, self.mu_cutoff)):
+                res.append(mu_cutoff)
+                for j1 in range(mu_parameters.shape[0]):
+                    for j2 in range(mu_parameters.shape[1]):
+                        if mu_mask[j1, j2]:
+                            res.append(1 / mu_cutoff ** j1)
+
+        if self.phi_cutoff.any():
+            for i, (phi_parameters, phi_mask, theta_mask, phi_cutoff) in enumerate(zip(self.phi_parameters, self.phi_mask, self.theta_mask, self.phi_cutoff)):
+                res.append(phi_cutoff)
+                for j1 in range(phi_parameters.shape[0]):
+                    for j2 in range(phi_parameters.shape[1]):
+                        for j3 in range(phi_parameters.shape[2]):
+                            for j4 in range(phi_parameters.shape[3]):
+                                if phi_mask[j1, j2, j3, j4]:
+                                    res.append(1 / phi_cutoff ** (j1 + j2 + j3))
+
+                for j1 in range(phi_parameters.shape[0]):
+                    for j2 in range(phi_parameters.shape[1]):
+                        for j3 in range(phi_parameters.shape[2]):
+                            for j4 in range(phi_parameters.shape[3]):
+                                if theta_mask[j1, j2, j3, j4]:
+                                    res.append(1 / phi_cutoff ** (j1 + j2 + j3))
+
+        return np.array(res)
+
+    def get_parameters(self):
+        """Returns parameters in the following order:
+        eta-cutoff, eta-linear parameters,
+        for every mu-set: mu-cutoff, mu-linear parameters,
+        for every phi/theta-set: phi-cutoff, phi-linear parameters, theta-linear parameters.
         :return:
         """
-        e_powers = self.ee_powers(e_vectors)
-        n_powers = self.en_powers(n_vectors)
+        res = np.zeros(0)
+        if self.eta_cutoff:
+            res = np.concatenate((
+                res, np.array((self.eta_cutoff, )), self.eta_parameters.ravel()[self.eta_mask.ravel()]
+            ))
 
-        return (
-            self.ae_multiplier_gradient(n_vectors, n_powers) * self.eta_term(e_vectors, e_powers).reshape((-1, 1)) +
-            self.eta_term_gradient(e_powers, e_vectors) * self.ae_multiplier(n_vectors, n_powers).reshape((-1, 1)) +
-            self.mu_term_gradient(n_powers, n_vectors) +
-            self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
-        )
+        if self.mu_cutoff.any():
+            for mu_parameters, mu_mask, mu_cutoff in zip(self.mu_parameters, self.mu_mask, self.mu_cutoff):
+                res = np.concatenate((
+                    res, np.array((mu_cutoff, )), mu_parameters.ravel()[mu_mask.ravel()]
+                ))
 
-    def laplacian(self, e_vectors, n_vectors):
-        """Laplacian with respect to e-coordinates
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
+        if self.phi_cutoff.any():
+            for phi_parameters, theta_parameters, phi_mask, theta_mask, phi_cutoff in zip(self.phi_parameters, self.theta_parameters, self.phi_mask, self.theta_mask, self.phi_cutoff):
+                res = np.concatenate((
+                    res, np.array((phi_cutoff, )), phi_parameters.ravel()[phi_mask.ravel()], theta_parameters.ravel()[theta_mask.ravel()]
+                ))
+
+        return res
+
+    def set_parameters(self, parameters):
+        """Set parameters in the following order:
+        eta-cutoff, eta-linear parameters,
+        for every mu-set: mu-cutoff, mu-linear parameters,
+        for every phi/theta-set: phi-cutoff, phi-linear parameters, theta-linear parameters.
+        :param parameters:
         :return:
         """
-        e_powers = self.ee_powers(e_vectors)
-        n_powers = self.en_powers(n_vectors)
+        n = -1
+        if self.eta_cutoff:
+            n += 1
+            self.eta_cutoff = parameters[n]
+            for j1 in range(self.eta_parameters.shape[0]):
+                for j2 in range(self.eta_parameters.shape[1]):
+                    if self.eta_mask[j1, j2]:
+                        n += 1
+                        self.eta_parameters[j1, j2] = parameters[n]
+            self.fix_eta_parameters()
 
-        a = self.ae_multiplier_laplacian(n_vectors, n_powers) * self.eta_term(e_vectors, e_powers).ravel()
-        b = np.zeros(((self.neu + self.ned) * 3))
-        term_gradient = self.eta_term_gradient(e_powers, e_vectors)
-        cutoff_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
-        for i in range((self.neu + self.ned) * 3):
-            b[i] = np.sum(term_gradient[i] * cutoff_gradient[i])
-        c = self.eta_term_laplacian(e_powers, e_vectors) * self.ae_multiplier(n_vectors, n_powers).ravel()
+        if self.mu_cutoff.any():
+            for i, (mu_parameters, mu_mask) in enumerate(zip(self.mu_parameters, self.mu_mask)):
+                n += 1
+                # Sequence types is a pointer, but numeric types is not.
+                self.mu_cutoff[i] = parameters[n]
+                for j1 in range(mu_parameters.shape[0]):
+                    for j2 in range(mu_parameters.shape[1]):
+                        if mu_mask[j1, j2]:
+                            n += 1
+                            mu_parameters[j1, j2] = parameters[n]
+            self.fix_mu_parameters()
 
-        return (
-            a + 2 * b + c +
-            self.mu_term_laplacian(n_powers, n_vectors) +
-            self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
-        )
+        if self.phi_cutoff.any():
+            for i, (phi_parameters, phi_mask) in enumerate(zip(self.phi_parameters, self.phi_mask)):
+                n += 1
+                # Sequence types is a pointer, but numeric types is not.
+                self.phi_cutoff[i] = parameters[n]
+                for j1 in range(phi_parameters.shape[0]):
+                    for j2 in range(phi_parameters.shape[1]):
+                        for j3 in range(phi_parameters.shape[2]):
+                            for j4 in range(phi_parameters.shape[3]):
+                                if phi_mask[j1, j2, j3, j4]:
+                                    n += 1
+                                    phi_parameters[j1, j2, j3, j4] = parameters[n]
+            self.fix_phi_parameters()
+

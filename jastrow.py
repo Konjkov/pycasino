@@ -736,7 +736,7 @@ class Jastrow:
         return res
 
     def set_parameters(self, parameters):
-        """
+        """Set parameters in the following order:
         u-cutoff, u-linear parameters,
         for every chi-set: chi-cutoff, chi-linear parameters,
         for every f-set: f-cutoff, f-linear parameters.

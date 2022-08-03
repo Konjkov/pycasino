@@ -498,7 +498,8 @@ class Casino:
                     # unload to file
                     self.wfn.jastrow.set_parameters(res.x)
                     print(res.x / self.wfn.jastrow.get_bounds()[1])
-                    # self.wfn.jastrow.write(f'./correlation.out.{i+1}')
+                    self.config.jastrow.u_cutoff = self.wfn.jastrow.u_cutoff
+                    self.config.jastrow.write(f'./correlation.out.{i+1}')
                     self.optimize_vmc_step(10000)
                     self.vmc_energy_accumulation(1)
                 stop = default_timer()
@@ -515,7 +516,8 @@ class Casino:
                     # unload to file
                     self.wfn.jastrow.set_parameters(res.x)
                     print(res.x / self.wfn.jastrow.get_bounds()[1])
-                    # self.wfn.jastrow.write(f'./correlation.out.{i+1}')
+                    self.config.jastrow.u_cutoff = self.wfn.jastrow.u_cutoff
+                    self.config.jastrow.write(f'./correlation.out.{i + 1}')
                     self.optimize_vmc_step(10000)
                     self.vmc_energy_accumulation(1)
                 stop = default_timer()
@@ -714,10 +716,10 @@ class Casino:
         def fun(x, *args):
             self.wfn.jastrow.set_parameters(x)
             energy = self.markovchain.local_energy(condition, position)
-            mean_energy = energy.mean()
-            energy_gradient = self.markovchain.jastrow_gradient(condition, position)
-            mean_energy_gradient = jastrow_parameters_gradient(energy, energy_gradient)
-            return mean_energy, mean_energy_gradient
+            mean_energy = np.median(energy)
+            # energy_gradient = self.markovchain.jastrow_gradient(condition, position)
+            # mean_energy_gradient = jastrow_parameters_gradient(energy, energy_gradient)
+            return mean_energy  #, mean_energy_gradient
 
         def hess(x, *args):
             self.wfn.jastrow.set_parameters(x)
@@ -764,7 +766,7 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Slater/'
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Slater/'
 
-    # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_varmin/'
+    path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow_varmin/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow_varmin/'
     # path = 'test/stowfn/N/HF/QZ4P/CBCS/Jastrow_varmin/'
     # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Jastrow_varmin/'
@@ -796,4 +798,4 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_dmc/'
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Jastrow_dmc/'
 
-    # Casino(path).run()
+    Casino(path).run()

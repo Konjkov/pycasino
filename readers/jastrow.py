@@ -13,7 +13,7 @@ f_mask_type = nb.boolean[:, :, :, :]
 chi_parameters_type = nb.float64[:, :]
 f_parameters_type = nb.float64[:, :, :, :]
 
-template = """
+template = """\
  START HEADER
  {title}
  END HEADER
@@ -339,23 +339,25 @@ class Jastrow:
     def write(self, file):
         with open(file, 'w') as f:
             u_parameters_list = []
+            self.u_mask = self.get_u_mask(self.u_parameters)
             for i in range(self.u_parameters.shape[1]):
                 for l in range(self.u_parameters.shape[0]):
                     if self.u_mask[l, i]:
-                        u_parameters_list.append(f'{self.u_parameters[l, i]:.16e}            1       ! alpha_{l},{i + 1}')
+                        u_parameters_list.append(f'{self.u_parameters[l, i]: .16e}            1       ! alpha_{l},{i + 1}')
             u_set = u_set_template.format(
                 u_order=self.u_parameters.shape[0] - 1,
                 u_spin_dep=self.u_parameters.shape[1] - 1,
                 u_cutoff=self.u_cutoff,
-                u_parameters='\n   '.join(u_parameters_list),
+                u_parameters='\n  '.join(u_parameters_list),
             )
             chi_sets = ''
-            for n_chi_set, (chi_labels, chi_parameters, chi_mask, chi_cusp) in enumerate(zip(self.chi_labels, self.chi_parameters, self.chi_mask, self.chi_cusp)):
+            for n_chi_set, (chi_labels, chi_parameters, chi_cutoff, chi_cusp) in enumerate(zip(self.chi_labels, self.chi_parameters, self.chi_cutoff, self.chi_cusp)):
                 chi_parameters_list = []
+                chi_mask = self.get_chi_mask(chi_parameters)
                 for i in range(chi_parameters.shape[1]):
                     for m in range(chi_parameters.shape[0]):
                         if chi_mask[m, i]:
-                            chi_parameters_list.append(f'{chi_parameters[m, i]:.16e}            1       ! beta_{m},{i + 1},{n_chi_set + 1}')
+                            chi_parameters_list.append(f'{chi_parameters[m, i]: .16e}            1       ! beta_{m},{i + 1},{n_chi_set + 1}')
                 chi_sets += chi_set_template.format(
                     n_set=n_chi_set + 1,
                     n_atoms=len(chi_labels),
@@ -363,29 +365,30 @@ class Jastrow:
                     chi_labels=' '.join(['{}'.format(i + 1) for i in chi_labels]),
                     chi_order=chi_parameters.shape[0] - 1,
                     chi_spin_dep=chi_parameters.shape[1] - 1,
-                    chi_cutoff=self.chi_cutoff[n_chi_set],
-                    chi_parameters='\n   '.join(chi_parameters_list),
+                    chi_cutoff=chi_cutoff,
+                    chi_parameters='\n  '.join(chi_parameters_list),
                 )
             f_sets = ''
-            for n_f_set, (f_labels, f_parameters, f_mask) in enumerate(zip(self.f_labels, self.f_parameters, self.f_mask)):
+            for n_f_set, (f_labels, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term) in enumerate(zip(self.f_labels, self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term)):
                 f_parameters_list = []
+                f_mask = self.get_f_mask(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                 for i in range(f_parameters.shape[3]):
                     for n in range(f_parameters.shape[2]):
                         for m in range(f_parameters.shape[1]):
                             for l in range(f_parameters.shape[0]):
                                 if f_mask[l, m, n, i]:
-                                    f_parameters_list.append(f'{f_parameters[l, m, n, i]:.16e}            1       ! gamma_{l},{m},{n},{i + 1}.{n_f_set + 1}')
+                                    f_parameters_list.append(f'{f_parameters[l, m, n, i]: .16e}            1       ! gamma_{l},{m},{n},{i + 1},{n_f_set + 1}')
                 f_sets += f_set_template.format(
                     n_set=n_f_set + 1,
                     n_atoms=len(f_labels),
                     f_labels=' '.join(['{}'.format(i + 1) for i in f_labels]),
-                    no_dup_u_term=self.no_dup_u_term[n_f_set],
-                    no_dup_chi_term=self.no_dup_chi_term[n_f_set],
+                    no_dup_u_term=int(no_dup_u_term),
+                    no_dup_chi_term=int(no_dup_chi_term),
                     f_en_order=f_parameters.shape[0] - 1,
                     f_ee_order=f_parameters.shape[2] - 1,
                     f_spin_dep=f_parameters.shape[3] - 1,
-                    f_cutoff=self.f_cutoff[n_f_set],
-                    f_parameters='\n   '.join(f_parameters_list),
+                    f_cutoff=f_cutoff,
+                    f_parameters='\n  '.join(f_parameters_list),
                 )
             jastrow = jastrow_template.format(
                 title='no title given',
@@ -396,11 +399,11 @@ class Jastrow:
                 n_f_sets=n_f_set + 1,
                 f_sets=f_sets,
             )
-            template.format(
+            correlation = template.format(
                 title='no title given',
                 jastrow=jastrow,
             )
-            f.write(template)
+            f.write(correlation)
 
     @staticmethod
     def get_u_mask(parameters):

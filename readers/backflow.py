@@ -15,6 +15,147 @@ phi_parameters_type = nb.float64[:, :, :, :]
 theta_parameters_type = nb.float64[:, :, :, :]
 
 
+@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
+def construct_c_matrix(trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
+    """C-matrix has the following rows:
+    ...
+    copy-paste from /CASINO/src/pbackflow.f90 SUBROUTINE construct_C
+    """
+    phi_en_order = phi_parameters.shape[0] - 1
+    phi_ee_order = phi_parameters.shape[2] - 1
+
+    ee_constrains = 2 * phi_en_order + 1
+    en_constrains = phi_en_order + phi_ee_order + 1
+
+    offset = 0
+    phi_constraints = 6 * en_constrains - 2
+    if phi_cusp and spin_dep in (0, 2):
+        phi_constraints += ee_constrains
+        offset += ee_constrains
+
+    theta_constraints = 5 * en_constrains + ee_constrains - 2
+    n_constraints = phi_constraints + theta_constraints
+    if phi_irrotational:
+        n_constraints += ((phi_en_order + 3) * (phi_ee_order + 2) - 4) * (phi_en_order + 1)
+        if trunc == 0:
+            n_constraints -= (phi_en_order + 1) * (phi_ee_order + 1)
+
+    parameters_size = 2 * (phi_parameters.shape[0] * phi_parameters.shape[1] * phi_parameters.shape[2])
+    c = np.zeros((n_constraints, parameters_size))
+    p = 0
+    # Do Phi bit of the constraint matrix.
+    for m in range(phi_parameters.shape[2]):
+        for l in range(phi_parameters.shape[1]):
+            for k in range(phi_parameters.shape[0]):
+                if phi_cusp and spin_dep in (0, 2):  # e-e cusp
+                    if m == 1:
+                        c[k + l, p] = 1
+                if l == 0:
+                    c[k + m + offset + en_constrains, p] = 1
+                    if m > 0:
+                        c[k + m - 1 + offset + 5 * en_constrains - 1, p] = m
+                elif l == 1:
+                    c[k + m + offset + 3 * en_constrains, p] = 1
+                if k == 0:
+                    c[l + m + offset, p] = 1
+                    if m > 0:
+                        c[l + m - 1 + offset + 4 * en_constrains, p] = m
+                elif k == 1:
+                    c[l + m + offset + 2 * en_constrains, p] = 1
+                p += 1
+    # Do Theta bit of the constraint matrix.
+    offset = phi_constraints
+    for m in range(phi_parameters.shape[2]):
+        for l in range(phi_parameters.shape[1]):
+            for k in range(phi_parameters.shape[0]):
+                if m == 1:
+                    c[k + l + offset, p] = 1
+                if l == 0:
+                    c[k + m + offset + ee_constrains + 2 * en_constrains, p] = -trunc / phi_cutoff
+                    if m > 0:
+                        c[k + m - 1 + offset + ee_constrains + 4 * en_constrains - 1, p] = m
+                elif l == 1:
+                    c[k + m + offset + ee_constrains + 2 * en_constrains, p] = 1
+                if k == 0:
+                    c[l + m + offset + ee_constrains, p] = 1
+                    if m > 0:
+                        c[l + m - 1 + offset + ee_constrains + 3 * en_constrains, p] = m
+                elif k == 1:
+                    c[l + m + offset + ee_constrains + en_constrains, p] = 1
+                p += 1
+    # Do irrotational bit of the constraint matrix.
+    n = phi_constraints + theta_constraints
+    if phi_irrotational:
+        p = 0
+        inc_k = 1
+        inc_l = inc_k * (phi_en_order + 1)
+        inc_m = inc_l * (phi_en_order + 1)
+        nphi = inc_m * (phi_ee_order + 1)
+        for m in range(phi_parameters.shape[2]):
+            for l in range(phi_parameters.shape[1]):
+                for k in range(phi_parameters.shape[0]):
+                    if trunc > 0:
+                        if m > 0:
+                            c[n, p - inc_m] = trunc + k
+                            if k < phi_en_order:
+                                c[n, p + inc_k - inc_m] = -phi_cutoff * (k + 1)
+                        if m < phi_ee_order:
+                            if k > 1:
+                                c[n, p + nphi - 2 * inc_k + inc_m] = -(m + 1)
+                            if k > 0:
+                                c[n, p + nphi - inc_k + inc_m] = phi_cutoff * (m + 1)
+                    else:
+                        if m > 0 and k < phi_en_order:
+                            c[n, p + inc_k - inc_m] = k + 1
+                        if k > 0 and m < phi_ee_order:
+                            c[n, p + nphi - inc_k + inc_m] = -(m + 1)
+                    p += 1
+                    n += 1
+        if trunc > 0:
+            # Same as above, for m=N_ee+1...
+            p = phi_ee_order * (phi_en_order + 1) ** 2
+            for l in range(phi_parameters.shape[1]):
+                for k in range(phi_parameters.shape[0]):
+                    c[n, p] = trunc + k
+                    if k < phi_en_order:
+                        c[n, p + inc_k] = -phi_cutoff * (k + 1)
+                    p += 1
+                    n += 1
+            # ...for k=N_eN+1...
+            p = phi_en_order - 1
+            for m in range(phi_parameters.shape[2] - 1):
+                for l in range(phi_parameters.shape[1]):
+                    c[n, p + nphi + inc_m] = -(m + 1)
+                    c[n, p + nphi + inc_k + inc_m] = phi_cutoff * (m + 1)
+                    p += inc_l
+                    n += 1
+            # ...and for k=N_eN+2.
+            p = phi_en_order
+            for m in range(phi_parameters.shape[2] - 1):
+                for l in range(phi_parameters.shape[1]):
+                    c[n, p + nphi + inc_m] = -(m + 1)
+                    p += inc_l
+                    n += 1
+        else:
+            # Same as above, for m=N_ee+1...
+            p = phi_ee_order * (phi_en_order + 1) ** 2
+            for l in range(phi_parameters.shape[1]):
+                for k in range(phi_parameters.shape[0] - 1):
+                    c[n, p + inc_k] = 1  # just zeroes the corresponding param
+                    p += 1
+                    n += 1
+            # ...and for k=N_eN+1.
+            p = phi_en_order - 1
+            for m in range(phi_parameters.shape[2] - 1):
+                for l in range(phi_parameters.shape[1]):
+                    c[n, p + nphi + inc_m] = 1  # just zeroes the corresponding param
+                    p += inc_l
+                    n += 1
+
+    assert n == n_constraints
+    return c
+
+
 class Backflow:
     """Backflow reader from file.
     Inhomogeneous backflow transformations in quantum Monte Carlo.
@@ -214,149 +355,10 @@ class Backflow:
         mask[0] = mask[1] = False
         return mask
 
-    def construct_c_matrix(self, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
-        """C-matrix has the following rows:
-        ...
-        copy-paste from /CASINO/src/pbackflow.f90 SUBROUTINE construct_C
-        """
-        phi_en_order = phi_parameters.shape[0] - 1
-        phi_ee_order = phi_parameters.shape[2] - 1
-
-        ee_constrains = 2 * phi_en_order + 1
-        en_constrains = phi_en_order + phi_ee_order + 1
-
-        offset = 0
-        phi_constraints = 6 * en_constrains - 2
-        if phi_cusp and spin_dep in (0, 2):
-            phi_constraints += ee_constrains
-            offset += ee_constrains
-
-        theta_constraints = 5 * en_constrains + ee_constrains - 2
-        n_constraints = phi_constraints + theta_constraints
-        if phi_irrotational:
-            n_constraints += ((phi_en_order + 3) * (phi_ee_order + 2) - 4) * (phi_en_order + 1)
-            if self.trunc == 0:
-                n_constraints -= (phi_en_order + 1) * (phi_ee_order + 1)
-
-        parameters_size = 2 * (phi_parameters.shape[0] * phi_parameters.shape[1] * phi_parameters.shape[2])
-        c = np.zeros((n_constraints, parameters_size))
-        p = 0
-        # Do Phi bit of the constraint matrix.
-        for m in range(phi_parameters.shape[2]):
-            for l in range(phi_parameters.shape[1]):
-                for k in range(phi_parameters.shape[0]):
-                    if phi_cusp and spin_dep in (0, 2):  # e-e cusp
-                        if m == 1:
-                            c[k+l, p] = 1
-                    if l == 0:
-                        c[k+m + offset + en_constrains, p] = 1
-                        if m > 0:
-                            c[k+m-1 + offset + 5 * en_constrains - 1, p] = m
-                    elif l == 1:
-                        c[k+m + offset + 3 * en_constrains, p] = 1
-                    if k == 0:
-                        c[l+m + offset, p] = 1
-                        if m > 0:
-                            c[l+m-1 + offset + 4 * en_constrains, p] = m
-                    elif k == 1:
-                        c[l+m + offset + 2 * en_constrains, p] = 1
-                    p += 1
-        # Do Theta bit of the constraint matrix.
-        offset = phi_constraints
-        for m in range(phi_parameters.shape[2]):
-            for l in range(phi_parameters.shape[1]):
-                for k in range(phi_parameters.shape[0]):
-                    if m == 1:
-                        c[k+l + offset, p] = 1
-                    if l == 0:
-                        c[k+m + offset + ee_constrains + 2 * en_constrains, p] = -self.trunc/phi_cutoff
-                        if m > 0:
-                            c[k+m-1 + offset + ee_constrains + 4 * en_constrains - 1, p] = m
-                    elif l == 1:
-                        c[k+m + offset + ee_constrains + 2 * en_constrains, p] = 1
-                    if k == 0:
-                        c[l+m + offset + ee_constrains, p] = 1
-                        if m > 0:
-                            c[l+m-1 + offset + ee_constrains + 3 * en_constrains, p] = m
-                    elif k == 1:
-                        c[l+m + offset + ee_constrains + en_constrains, p] = 1
-                    p += 1
-        # Do irrotational bit of the constraint matrix.
-        n = phi_constraints + theta_constraints
-        if phi_irrotational:
-            p = 0
-            inc_k = 1
-            inc_l = inc_k * (phi_en_order+1)
-            inc_m = inc_l * (phi_en_order+1)
-            nphi = inc_m * (phi_ee_order+1)
-            for m in range(phi_parameters.shape[2]):
-                for l in range(phi_parameters.shape[1]):
-                    for k in range(phi_parameters.shape[0]):
-                        if self.trunc > 0:
-                            if m > 0:
-                                c[n, p - inc_m] = self.trunc + k
-                                if k < phi_en_order:
-                                    c[n, p + inc_k - inc_m] = -phi_cutoff * (k+1)
-                            if m < phi_ee_order:
-                                if k > 1:
-                                    c[n, p + nphi - 2*inc_k + inc_m] = -(m+1)
-                                if k > 0:
-                                    c[n, p + nphi - inc_k + inc_m] = phi_cutoff * (m+1)
-                        else:
-                            if m > 0 and k < phi_en_order:
-                                c[n, p + inc_k - inc_m] = k+1
-                            if k > 0 and m < phi_ee_order:
-                                c[n, p + nphi - inc_k + inc_m] = -(m+1)
-                        p += 1
-                        n += 1
-            if self.trunc > 0:
-                # Same as above, for m=N_ee+1...
-                p = phi_ee_order * (phi_en_order+1)**2
-                for l in range(phi_parameters.shape[1]):
-                    for k in range(phi_parameters.shape[0]):
-                        c[n, p] = self.trunc + k
-                        if k < phi_en_order:
-                            c[n, p+inc_k] = -phi_cutoff * (k+1)
-                        p += 1
-                        n += 1
-                # ...for k=N_eN+1...
-                p = phi_en_order-1
-                for m in range(phi_parameters.shape[2]-1):
-                    for l in range(phi_parameters.shape[1]):
-                        c[n, p+nphi+inc_m] = -(m+1)
-                        c[n, p+nphi+inc_k+inc_m] = phi_cutoff * (m+1)
-                        p += inc_l
-                        n += 1
-                # ...and for k=N_eN+2.
-                p = phi_en_order
-                for m in range(phi_parameters.shape[2]-1):
-                    for l in range(phi_parameters.shape[1]):
-                        c[n, p+nphi+inc_m] = -(m+1)
-                        p += inc_l
-                        n += 1
-            else:
-                # Same as above, for m=N_ee+1...
-                p = phi_ee_order * (phi_en_order+1)**2
-                for l in range(phi_parameters.shape[1]):
-                    for k in range(phi_parameters.shape[0]-1):
-                        c[n, p+inc_k] = 1  # just zeroes the corresponding param
-                        p += 1
-                        n += 1
-                # ...and for k=N_eN+1.
-                p = phi_en_order-1
-                for m in range(phi_parameters.shape[2]-1):
-                    for l in range(phi_parameters.shape[1]):
-                        c[n, p+nphi+inc_m] = 1  # just zeroes the corresponding param
-                        p += inc_l
-                        n += 1
-
-        assert n == n_constraints
-        return c
-
     def get_phi_theta_mask(self, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
         """Mask dependent parameters in phi-term.
         """
-        c = self.construct_c_matrix(phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+        c = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
         _, pivot_positions = rref(c)
 
         p = 0
@@ -391,7 +393,7 @@ class Backflow:
 
     def fix_phi_parameters(self, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
         """Fix phi-term parameters"""
-        c = self.construct_c_matrix(phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+        c = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
         c, pivot_positions = rref(c)
         c = c[:pivot_positions.size, :]
         mask = np.zeros(shape=phi_parameters.size, dtype=bool)
@@ -529,8 +531,8 @@ if __name__ == '__main__':
         '51', '52', '53', '54', '55',
     ):
         print(phi_term)
-        # path = f'test/backflow/0_1_0/{phi_term}/correlation.out.1'
+        path = f'test/backflow/0_1_0/{phi_term}/correlation.out.1'
         # path = f'test/backflow/3_1_0/{phi_term}/correlation.out.1'
-        path = f'test/backflow/0_1_1/{phi_term}/correlation.out.1'
+        # path = f'test/backflow/0_1_1/{phi_term}/correlation.out.1'
         # path = f'test/backflow/3_1_1/{phi_term}/correlation.out.1'
         Backflow(atom_positions).read(path)
