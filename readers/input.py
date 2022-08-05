@@ -25,6 +25,7 @@ class Input:
         self.cusp_correction = None
         self.cusp_threshold = 1e-7
         self.use_gpcc = None
+        self.opt_backflow = False
         with open(file_name, 'r') as f:
             for line in f:
                 # remove comments
@@ -58,6 +59,8 @@ class Input:
                     self.opt_cycles = read_int(line)
                 elif line.startswith('opt_jastrow'):
                     self.opt_jastrow = self.use_jastrow = read_bool(line)
+                elif line.startswith('opt_backflow'):
+                    self.opt_backflow = read_bool(line)
                 elif line.startswith('vmc_method'):
                     self.vmc_method = read_int(line)
                 elif line.startswith('vmc_nconfig_write'):
