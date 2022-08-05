@@ -175,6 +175,39 @@ class Wfn:
                 res -= s_l / 2
         return res
 
+    def get_parameters(self, opt_jastrow=True, opt_backflow=True):
+        """Get WFN parameters to be optimized"""
+        res = np.zeros(0)
+        if self.jastrow is not None and opt_jastrow:
+            res = np.concatenate((
+                res, self.jastrow.get_parameters()
+            ))
+        if self.backflow is not None and opt_backflow:
+            res = np.concatenate((
+                res, self.backflow.get_parameters()
+            ))
+        return res
+
+    def set_parameters(self, parameters, opt_jastrow=True, opt_backflow=True):
+        """Update optimized parameters"""
+        if self.jastrow is not None and opt_jastrow:
+            self.jastrow.set_parameters(parameters)
+        if self.backflow is not None and opt_backflow:
+            self.backflow.set_parameters(parameters)
+
+    def get_parameters_scale(self, opt_jastrow=True, opt_backflow=True):
+        """Characteristic scale of each optimized parameter."""
+        res = np.zeros(0)
+        if self.jastrow is not None and opt_jastrow:
+            res = np.concatenate((
+                res, self.jastrow.get_x_scale()
+            ))
+        if self.backflow is not None and opt_backflow:
+            np.concatenate((
+                res, self.backflow.get_x_scale()
+            ))
+        return res
+
     def slater_numerical_gradient(self, e_vectors, n_vectors):
         """Numerical gradient with respect to e-coordinates
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)

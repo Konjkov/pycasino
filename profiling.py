@@ -244,10 +244,10 @@ def backflow_profiling(casino):
 
     backflow = Backflow(
         casino.input.neu, casino.input.ned,
-        casino.backflow.trunc, casino.backflow.eta_parameters, casino.backflow.eta_cutoff,
-        casino.backflow.mu_parameters, casino.backflow.mu_cutoff, casino.backflow.mu_labels,
-        casino.backflow.phi_parameters, casino.backflow.theta_parameters, casino.backflow.phi_cutoff,
-        casino.backflow.phi_labels, casino.backflow.phi_irrotational, casino.backflow.ae_cutoff
+        casino.backflow.trunc, casino.backflow.eta_parameters, casino.backflow.eta_mask, casino.backflow.eta_cutoff,
+        casino.backflow.mu_parameters, casino.backflow.mu_mask, casino.backflow.mu_cutoff, casino.backflow.mu_labels,
+        casino.backflow.phi_parameters, casino.backflow.phi_mask, casino.backflow.theta_parameters, casino.backflow.theta_mask,
+        casino.backflow.phi_cutoff, casino.backflow.phi_labels, casino.backflow.phi_irrotational, casino.backflow.ae_cutoff
     )
 
     r_initial = initial_position(casino.input.neu + casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges)

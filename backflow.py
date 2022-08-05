@@ -17,6 +17,10 @@ logger = logging.getLogger('vmc')
 
 
 labels_type = nb.int64[:]
+eta_mask_type = nb.boolean[:, :]
+mu_mask_type = nb.boolean[:, :]
+phi_mask_type = nb.boolean[:, :, :, :]
+theta_mask_type = nb.boolean[:, :, :, :]
 eta_parameters_type = nb.float64[:, :]
 mu_parameters_type = nb.float64[:, :]
 phi_parameters_type = nb.float64[:, :, :, :]
@@ -27,6 +31,10 @@ spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
     ('trunc', nb.int64),
+    ('eta_mask', eta_mask_type),
+    ('mu_mask', nb.types.ListType(mu_mask_type)),
+    ('phi_mask', nb.types.ListType(phi_mask_type)),
+    ('theta_mask', nb.types.ListType(theta_mask_type)),
     ('eta_parameters', eta_parameters_type),
     ('mu_parameters', nb.types.ListType(mu_parameters_type)),
     ('phi_parameters', nb.types.ListType(phi_parameters_type)),
@@ -47,12 +55,19 @@ spec = [
 class Backflow:
 
     def __init__(
-        self, neu, ned, trunc, eta_parameters, eta_cutoff, mu_parameters, mu_cutoff, mu_labels, phi_parameters,
-        theta_parameters, phi_cutoff, phi_labels, phi_irrotational, ae_cutoff
+        self, neu, ned, trunc, eta_parameters, eta_mask, eta_cutoff, mu_parameters, mu_mask,mu_cutoff, mu_labels,
+        phi_parameters, phi_mask, theta_parameters, theta_mask, phi_cutoff, phi_labels, phi_irrotational, ae_cutoff
     ):
         self.neu = neu
         self.ned = ned
         self.trunc = trunc
+        self.eta_mask = eta_mask
+        self.mu_mask = nb.typed.List.empty_list(mu_mask_type)
+        [self.mu_mask.append(m) for m in mu_mask]
+        self.phi_mask = nb.typed.List.empty_list(phi_mask_type)
+        [self.phi_mask.append(m) for m in phi_mask]
+        self.theta_mask = nb.typed.List.empty_list(theta_mask_type)
+        [self.theta_mask.append(m) for m in theta_mask]
         self.eta_parameters = eta_parameters
         self.mu_parameters = nb.typed.List.empty_list(mu_parameters_type)
         [self.mu_parameters.append(p) for p in mu_parameters]
@@ -671,51 +686,53 @@ class Backflow:
     def fix_mu_parameters(self):
         """Fix mu-term parameters"""
 
-    def fix_phi_parameters(self, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
+    def fix_phi_parameters(self):
         """Fix phi-term parameters"""
-        c = construct_c_matrix(phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
-        c, pivot_positions = rref(c)
-        c = c[:pivot_positions.size, :]
-        mask = np.zeros(shape=phi_parameters.size, dtype=bool)
-        mask[pivot_positions] = True
+        for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cusp, self.phi_irrotational):
+            for spin_dep in range(phi_parameters.shape[3]):
+                c = construct_c_matrix(phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+                c, pivot_positions = rref(c)
+                c = c[:pivot_positions.size, :]
+                mask = np.zeros(shape=phi_parameters.size, dtype=bool)
+                mask[pivot_positions] = True
 
-        b = np.zeros((c.shape[0], ))
-        p = 0
-        for m in range(phi_parameters.shape[2]):
-            for l in range(phi_parameters.shape[1]):
-                for k in range(phi_parameters.shape[0]):
-                    if p not in pivot_positions:
-                        for temp in range(c.shape[0]):
-                            b[temp] -= c[temp, p] * phi_parameters[k, l, m, spin_dep]
-                    p += 1
+                b = np.zeros((c.shape[0], ))
+                p = 0
+                for m in range(phi_parameters.shape[2]):
+                    for l in range(phi_parameters.shape[1]):
+                        for k in range(phi_parameters.shape[0]):
+                            if p not in pivot_positions:
+                                for temp in range(c.shape[0]):
+                                    b[temp] -= c[temp, p] * phi_parameters[k, l, m, spin_dep]
+                            p += 1
 
-        for m in range(phi_parameters.shape[2]):
-            for l in range(phi_parameters.shape[1]):
-                for k in range(phi_parameters.shape[0]):
-                    if p not in pivot_positions:
-                        for temp in range(c.shape[0]):
-                            b[temp] -= c[temp, p] * theta_parameters[k, l, m, spin_dep]
-                    p += 1
+                for m in range(phi_parameters.shape[2]):
+                    for l in range(phi_parameters.shape[1]):
+                        for k in range(phi_parameters.shape[0]):
+                            if p not in pivot_positions:
+                                for temp in range(c.shape[0]):
+                                    b[temp] -= c[temp, p] * theta_parameters[k, l, m, spin_dep]
+                            p += 1
 
-        x = np.linalg.solve(c[:, mask], b)
+                x = np.linalg.solve(c[:, mask], b)
 
-        p = 0
-        temp = 0
-        for m in range(phi_parameters.shape[2]):
-            for l in range(phi_parameters.shape[1]):
-                for k in range(phi_parameters.shape[0]):
-                    if temp in pivot_positions:
-                        phi_parameters[k, l, m, spin_dep] = x[p]
-                        p += 1
-                    temp += 1
+                p = 0
+                temp = 0
+                for m in range(phi_parameters.shape[2]):
+                    for l in range(phi_parameters.shape[1]):
+                        for k in range(phi_parameters.shape[0]):
+                            if temp in pivot_positions:
+                                phi_parameters[k, l, m, spin_dep] = x[p]
+                                p += 1
+                            temp += 1
 
-        for m in range(phi_parameters.shape[2]):
-            for l in range(phi_parameters.shape[1]):
-                for k in range(phi_parameters.shape[0]):
-                    if temp in pivot_positions:
-                        theta_parameters[k, l, m, spin_dep] = x[p]
-                        p += 1
-                    temp += 1
+                for m in range(phi_parameters.shape[2]):
+                    for l in range(phi_parameters.shape[1]):
+                        for k in range(phi_parameters.shape[0]):
+                            if temp in pivot_positions:
+                                theta_parameters[k, l, m, spin_dep] = x[p]
+                                p += 1
+                            temp += 1
 
     def get_x_scale(self):
         """Characteristic scale of each variable. Setting x_scale is equivalent
@@ -727,11 +744,13 @@ class Backflow:
         """
         res = []
         if self.eta_cutoff:
-            res.append(self.eta_cutoff)
+            for eta_cutoff in self.eta_cutoff:
+                res.append(eta_cutoff)
             for j1 in range(self.eta_parameters.shape[0]):
                 for j2 in range(self.eta_parameters.shape[1]):
                     if self.eta_mask[j1, j2]:
-                        res.append(1 / self.eta_cutoff ** j1)
+                        # FIXME: check !!!
+                        res.append(1 / self.eta_cutoff[j2 % self.eta_cutoff.shape[0]] ** j1)
 
         if self.mu_cutoff.any():
             for i, (mu_parameters, mu_mask, mu_cutoff) in enumerate(zip(self.mu_parameters, self.mu_mask, self.mu_cutoff)):
@@ -762,7 +781,7 @@ class Backflow:
 
     def get_parameters(self):
         """Returns parameters in the following order:
-        eta-cutoff, eta-linear parameters,
+        eta-cutoff(s), eta-linear parameters,
         for every mu-set: mu-cutoff, mu-linear parameters,
         for every phi/theta-set: phi-cutoff, phi-linear parameters, theta-linear parameters.
         :return:
@@ -770,7 +789,7 @@ class Backflow:
         res = np.zeros(0)
         if self.eta_cutoff:
             res = np.concatenate((
-                res, np.array((self.eta_cutoff, )), self.eta_parameters.ravel()[self.eta_mask.ravel()]
+                res, self.eta_cutoff, self.eta_parameters.ravel()[self.eta_mask.ravel()]
             ))
 
         if self.mu_cutoff.any():
@@ -789,7 +808,7 @@ class Backflow:
 
     def set_parameters(self, parameters):
         """Set parameters in the following order:
-        eta-cutoff, eta-linear parameters,
+        eta-cutoff(s), eta-linear parameters,
         for every mu-set: mu-cutoff, mu-linear parameters,
         for every phi/theta-set: phi-cutoff, phi-linear parameters, theta-linear parameters.
         :param parameters:
@@ -797,8 +816,9 @@ class Backflow:
         """
         n = -1
         if self.eta_cutoff:
-            n += 1
-            self.eta_cutoff = parameters[n]
+            for j1 in range(self.eta_cutoff.shape[0]):
+                n += 1
+                self.eta_cutoff[j1] = parameters[n]
             for j1 in range(self.eta_parameters.shape[0]):
                 for j2 in range(self.eta_parameters.shape[1]):
                     if self.eta_mask[j1, j2]:
@@ -830,5 +850,4 @@ class Backflow:
                                 if phi_mask[j1, j2, j3, j4]:
                                     n += 1
                                     phi_parameters[j1, j2, j3, j4] = parameters[n]
-            self.fix_phi_parameters()
-
+            # self.fix_phi_parameters()
