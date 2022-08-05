@@ -191,7 +191,7 @@ class Wfn:
     def set_parameters(self, parameters, opt_jastrow=True, opt_backflow=True):
         """Update optimized parameters"""
         if self.jastrow is not None and opt_jastrow:
-            self.jastrow.set_parameters(parameters)
+            parameters = self.jastrow.set_parameters(parameters)
         if self.backflow is not None and opt_backflow:
             self.backflow.set_parameters(parameters)
 
@@ -203,7 +203,7 @@ class Wfn:
                 res, self.jastrow.get_x_scale()
             ))
         if self.backflow is not None and opt_backflow:
-            np.concatenate((
+            res = np.concatenate((
                 res, self.backflow.get_x_scale()
             ))
         return res

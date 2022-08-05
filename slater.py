@@ -246,8 +246,12 @@ class Slater:
 
     def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient ∇(phi).
-        d(det(slater))/dri = det(slater) * (tr(slater^-1 * B(n)) over n
-        where the matrix B(n) is zero with the exception of the n-th column.
+        ∇ln(det(A)) = tr(A^-1 * ∇A)
+        where matrix ∇A is column-wise gradient of A
+        then using np.trace(A @ B) = np.sum(A * B.T)
+        Read for details:
+        "Simple formalism for efficient derivatives and multi-determinant expansions in quantum Monte Carlo"
+        C. Filippi, R. Assaraf, S. Moroni
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         ao = self.AO_wfn(n_vectors)
@@ -286,10 +290,10 @@ class Slater:
 
     def laplacian(self, n_vectors: np.ndarray) -> float:
         """Scalar laplacian Δ(phi).
-        Δ(det(slater)) = det(slater) * sum(tr(slater^-1 * B(n)) over n
-        where the matrix B(n) is zero with the exception of the n-th column
+        Δln(det(A)) = sum(tr(slater^-1 * B(n)) over n
+        where matrix B(n) is zero with exception of the n-th column
         as tr(A) + tr(B) = tr(A + B)
-        Δ(det(slater)) = det(slater) * tr(slater^-1 * B)
+        Δln(det(A)) = tr(slater^-1 * B)
         where the matrix Bij = ∆phi i (rj)
         then using np.trace(A @ B) = np.sum(A * B.T)
         Read for details:
@@ -332,7 +336,7 @@ class Slater:
 
     def hessian(self, n_vectors: np.ndarray):
         """Hessian.
-        d²det(A)/dxdy = det(A) * (
+        d²ln(det(A))/dxdy = (
             tr(A^-1 * d²A/dxdy) +
             tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) -
             tr(A^-1 * dA/dx * A^-1 * dA/dy)

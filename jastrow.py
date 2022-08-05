@@ -743,42 +743,44 @@ class Jastrow:
         :param parameters:
         :return:
         """
-        n = -1
+        n = 0
         if self.u_cutoff:
-            n += 1
             self.u_cutoff = parameters[n]
+            n += 1
             for j1 in range(self.u_parameters.shape[0]):
                 for j2 in range(self.u_parameters.shape[1]):
                     if self.u_mask[j1, j2]:
-                        n += 1
                         self.u_parameters[j1, j2] = parameters[n]
+                        n += 1
             self.fix_u_parameters()
 
         if self.chi_cutoff.any():
             for i, (chi_parameters, chi_mask) in enumerate(zip(self.chi_parameters, self.chi_mask)):
-                n += 1
                 # Sequence types is a pointer, but numeric types is not.
                 self.chi_cutoff[i] = parameters[n]
+                n += 1
                 for j1 in range(chi_parameters.shape[0]):
                     for j2 in range(chi_parameters.shape[1]):
                         if chi_mask[j1, j2]:
-                            n += 1
                             chi_parameters[j1, j2] = parameters[n]
+                            n += 1
             self.fix_chi_parameters()
 
         if self.f_cutoff.any():
             for i, (f_parameters, f_mask) in enumerate(zip(self.f_parameters, self.f_mask)):
-                n += 1
                 # Sequence types is a pointer, but numeric types is not.
                 self.f_cutoff[i] = parameters[n]
+                n += 1
                 for j1 in range(f_parameters.shape[0]):
                     for j2 in range(f_parameters.shape[1]):
                         for j3 in range(f_parameters.shape[2]):
                             for j4 in range(f_parameters.shape[3]):
                                 if f_mask[j1, j2, j3, j4]:
-                                    n += 1
                                     f_parameters[j1, j2, j3, j4] = f_parameters[j2, j1, j3, j4] = parameters[n]
+                                    n += 1
             self.fix_f_parameters()
+
+        return parameters[n:]
 
     def u_term_numerical_d1(self, e_powers):
         """Numerical first derivatives of logarithm wfn with respect to u-term parameters

@@ -46,6 +46,7 @@ spec = [
     ('phi_labels', nb.types.ListType(labels_type)),
     ('max_ee_order', nb.int64),
     ('max_en_order', nb.int64),
+    ('phi_cusp', nb.boolean[:]),
     ('phi_irrotational', nb.boolean[:]),
     ('ae_cutoff', nb.float64[:]),
 ]
@@ -56,7 +57,7 @@ class Backflow:
 
     def __init__(
         self, neu, ned, trunc, eta_parameters, eta_mask, eta_cutoff, mu_parameters, mu_mask,mu_cutoff, mu_labels,
-        phi_parameters, phi_mask, theta_parameters, theta_mask, phi_cutoff, phi_labels, phi_irrotational, ae_cutoff
+        phi_parameters, phi_mask, theta_parameters, theta_mask, phi_cutoff, phi_cusp, phi_labels, phi_irrotational, ae_cutoff
     ):
         self.neu = neu
         self.ned = ned
@@ -90,7 +91,9 @@ class Backflow:
         ))
         self.eta_cutoff = eta_cutoff
         self.mu_cutoff = mu_cutoff
+        self.phi_cusp = phi_cusp
         self.phi_cutoff = phi_cutoff
+        self.phi_irrotational = phi_irrotational
         self.ae_cutoff = ae_cutoff
 
     def ee_powers(self, e_vectors):
@@ -690,11 +693,9 @@ class Backflow:
         """Fix phi-term parameters"""
         for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cusp, self.phi_irrotational):
             for spin_dep in range(phi_parameters.shape[3]):
-                c = construct_c_matrix(phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+                c = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
                 c, pivot_positions = rref(c)
                 c = c[:pivot_positions.size, :]
-                mask = np.zeros(shape=phi_parameters.size, dtype=bool)
-                mask[pivot_positions] = True
 
                 b = np.zeros((c.shape[0], ))
                 p = 0
@@ -714,7 +715,7 @@ class Backflow:
                                     b[temp] -= c[temp, p] * theta_parameters[k, l, m, spin_dep]
                             p += 1
 
-                x = np.linalg.solve(c[:, mask], b)
+                x = np.linalg.solve(c[:, pivot_positions], b)
 
                 p = 0
                 temp = 0
@@ -814,40 +815,42 @@ class Backflow:
         :param parameters:
         :return:
         """
-        n = -1
+        n = 0
         if self.eta_cutoff:
             for j1 in range(self.eta_cutoff.shape[0]):
-                n += 1
                 self.eta_cutoff[j1] = parameters[n]
+                n += 1
             for j1 in range(self.eta_parameters.shape[0]):
                 for j2 in range(self.eta_parameters.shape[1]):
                     if self.eta_mask[j1, j2]:
-                        n += 1
                         self.eta_parameters[j1, j2] = parameters[n]
+                        n += 1
             self.fix_eta_parameters()
 
         if self.mu_cutoff.any():
             for i, (mu_parameters, mu_mask) in enumerate(zip(self.mu_parameters, self.mu_mask)):
-                n += 1
                 # Sequence types is a pointer, but numeric types is not.
                 self.mu_cutoff[i] = parameters[n]
+                n += 1
                 for j1 in range(mu_parameters.shape[0]):
                     for j2 in range(mu_parameters.shape[1]):
                         if mu_mask[j1, j2]:
-                            n += 1
                             mu_parameters[j1, j2] = parameters[n]
+                            n += 1
             self.fix_mu_parameters()
 
         if self.phi_cutoff.any():
             for i, (phi_parameters, phi_mask) in enumerate(zip(self.phi_parameters, self.phi_mask)):
-                n += 1
                 # Sequence types is a pointer, but numeric types is not.
                 self.phi_cutoff[i] = parameters[n]
+                n += 1
                 for j1 in range(phi_parameters.shape[0]):
                     for j2 in range(phi_parameters.shape[1]):
                         for j3 in range(phi_parameters.shape[2]):
                             for j4 in range(phi_parameters.shape[3]):
                                 if phi_mask[j1, j2, j3, j4]:
-                                    n += 1
                                     phi_parameters[j1, j2, j3, j4] = parameters[n]
-            # self.fix_phi_parameters()
+                                    n += 1
+            self.fix_phi_parameters()
+
+        return parameters[n:]
