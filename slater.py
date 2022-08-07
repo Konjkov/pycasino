@@ -341,6 +341,7 @@ class Slater:
             tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) -
             tr(A^-1 * dA/dx * A^-1 * dA/dy)
         )
+        https://math.stackexchange.com/questions/2325807/second-derivative-of-a-determinant
         in case of x and y is a coordinates of different electrons first term is zero
         in other case a sum of last two terms is zero.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)

@@ -434,17 +434,24 @@ class Casino:
         )
         jastrow = self.config.jastrow and Jastrow(
             self.config.input.neu, self.config.input.ned,
-            self.config.jastrow.trunc, self.config.jastrow.u_parameters, self.config.jastrow.u_mask, self.config.jastrow.u_cutoff, self.config.jastrow.u_cusp_const,
-            self.config.jastrow.chi_parameters, self.config.jastrow.chi_mask, self.config.jastrow.chi_cutoff, self.config.jastrow.chi_labels,
-            self.config.jastrow.f_parameters, self.config.jastrow.f_mask, self.config.jastrow.f_cutoff, self.config.jastrow.f_labels,
-            self.config.jastrow.no_dup_u_term, self.config.jastrow.no_dup_chi_term, self.config.jastrow.chi_cusp
+            self.config.jastrow.trunc, self.config.jastrow.u_parameters, self.config.jastrow.u_parameters_optimizable, self.config.jastrow.u_mask,
+            self.config.jastrow.u_cutoff, self.config.jastrow.u_cusp_const,
+            self.config.jastrow.chi_parameters, self.config.jastrow.chi_parameters_optimizable, self.config.jastrow.chi_mask, self.config.jastrow.chi_cutoff,
+            self.config.jastrow.chi_labels, self.config.jastrow.chi_cusp,
+            self.config.jastrow.f_parameters, self.config.jastrow.f_parameters_optimizable, self.config.jastrow.f_mask, self.config.jastrow.f_cutoff,
+            self.config.jastrow.f_labels,
+            self.config.jastrow.no_dup_u_term, self.config.jastrow.no_dup_chi_term
         )
         backflow = self.config.backflow and Backflow(
             self.config.input.neu, self.config.input.ned,
-            self.config.backflow.trunc, self.config.backflow.eta_parameters, self.config.backflow.eta_mask, self.config.backflow.eta_cutoff,
-            self.config.backflow.mu_parameters, self.config.backflow.mu_mask, self.config.backflow.mu_cutoff, self.config.backflow.mu_labels,
-            self.config.backflow.phi_parameters, self.config.backflow.phi_mask, self.config.backflow.theta_parameters, self.config.backflow.theta_mask,
-            self.config.backflow.phi_cutoff, self.config.backflow.phi_labels, self.config.backflow.phi_irrotational, self.config.backflow.ae_cutoff
+            self.config.backflow.trunc, self.config.backflow.eta_parameters, self.config.backflow.eta_parameters_optimizable, self.config.backflow.eta_mask,
+            self.config.backflow.eta_cutoff,
+            self.config.backflow.mu_parameters, self.config.backflow.mu_parameters_optimizable, self.config.backflow.mu_mask, self.config.backflow.mu_cutoff,
+            self.config.backflow.mu_cusp, self.config.backflow.mu_labels,
+            self.config.backflow.phi_parameters, self.config.backflow.phi_parameters_optimizable, self.config.backflow.phi_mask,
+            self.config.backflow.theta_parameters, self.config.backflow.theta_parameters_optimizable, self.config.backflow.theta_mask,
+            self.config.backflow.phi_cutoff, self.config.backflow.phi_cusp, self.config.backflow.phi_labels, self.config.backflow.phi_irrotational,
+            self.config.backflow.ae_cutoff
         )
         self.wfn = Wfn(
             self.config.input.neu, self.config.input.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges, slater, jastrow, backflow
@@ -497,7 +504,7 @@ class Casino:
                         self.config.input.opt_backflow
                     )
                     self.wfn.set_parameters(res.x, self.config.input.opt_jastrow, self.config.input.opt_backflow)
-                    print(res.x / self.wfn.jastrow.get_bounds()[1])
+                    print(res.x / self.wfn.get_parameters_scale(self.config.input.opt_jastrow, self.config.input.opt_backflow))
                     self.config.jastrow.u_cutoff = self.wfn.jastrow.u_cutoff
                     self.config.jastrow.write(f'./correlation.out.{i+1}')
                     self.optimize_vmc_step(10000)
@@ -519,7 +526,7 @@ class Casino:
                         self.config.input.opt_backflow
                     )
                     self.wfn.set_parameters(res.x, self.config.input.opt_jastrow, self.config.input.opt_backflow)
-                    print(res.x / self.wfn.jastrow.get_bounds()[1])
+                    print(res.x)
                     self.config.jastrow.u_cutoff = self.wfn.jastrow.u_cutoff
                     self.config.jastrow.write(f'./correlation.out.{i + 1}')
                     self.optimize_vmc_step(10000)
@@ -786,6 +793,8 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Ar/HF/QZ4P/CBCS/Jastrow_varmin/'
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_varmin/'
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Jastrow_varmin/'
+
+    # path = 'test/stowfn/He/HF/QZ4P/CBCS/Backflow_varmin/'
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow/'
