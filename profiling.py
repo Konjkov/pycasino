@@ -215,10 +215,10 @@ def jastrow_profiling(casino):
 
     jastrow = Jastrow(
         casino.input.neu, casino.input.ned,
-        casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_mask, casino.jastrow.u_cutoff, casino.jastrow.u_cusp_const,
-        casino.jastrow.chi_parameters, casino.jastrow.chi_mask, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels,
-        casino.jastrow.f_parameters, casino.jastrow.f_mask, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
-        casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term, casino.jastrow.chi_cusp
+        casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_parameters_optimizable, casino.jastrow.u_mask, casino.jastrow.u_cutoff, casino.jastrow.u_cusp_const,
+        casino.jastrow.chi_parameters, casino.jastrow.chi_parameters_optimizable, casino.jastrow.chi_mask, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels, casino.jastrow.chi_cusp,
+        casino.jastrow.f_parameters, casino.jastrow.f_parameters_optimizable, casino.jastrow.f_mask, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
+        casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term
     )
 
     r_initial = initial_position(casino.input.neu + casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges)
@@ -244,11 +244,11 @@ def backflow_profiling(casino):
 
     backflow = Backflow(
         casino.input.neu, casino.input.ned,
-        casino.backflow.trunc, casino.backflow.eta_parameters, casino.backflow.eta_mask, casino.backflow.eta_cutoff,
-        casino.backflow.mu_parameters, casino.backflow.mu_mask, casino.backflow.mu_cutoff, casino.backflow.mu_labels,
-        casino.backflow.phi_parameters, casino.backflow.phi_mask, casino.backflow.theta_parameters, casino.backflow.theta_mask,
-        casino.backflow.phi_cutoff, casino.backflow.phi_cusp, casino.backflow.phi_labels, casino.backflow.phi_irrotational,
-        casino.backflow.ae_cutoff
+        casino.backflow.trunc, casino.backflow.eta_parameters, casino.backflow.eta_parameters_optimizable, casino.backflow.eta_mask, casino.backflow.eta_cutoff,
+        casino.backflow.mu_parameters, casino.backflow.mu_parameters_optimizable, casino.backflow.mu_mask, casino.backflow.mu_cutoff, casino.backflow.mu_cusp,
+        casino.backflow.mu_labels, casino.backflow.phi_parameters, casino.backflow.phi_parameters_optimizable, casino.backflow.phi_mask,
+        casino.backflow.theta_parameters, casino.backflow.theta_parameters_optimizable, casino.backflow.theta_mask, casino.backflow.phi_cutoff,
+        casino.backflow.phi_cusp, casino.backflow.phi_labels, casino.backflow.phi_irrotational, casino.backflow.ae_cutoff
     )
 
     r_initial = initial_position(casino.input.neu + casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges)
