@@ -10,6 +10,7 @@ import numpy as np
 import numba as nb
 from readers.numerical import rref
 from readers.jastrow import construct_a_matrix
+from overload import subtract_outer, random_step
 
 from numpy.polynomial.polynomial import polyval, polyval3d
 
@@ -352,7 +353,7 @@ class Jastrow:
         return res.ravel()
 
     def u_term_laplacian(self, e_powers) -> float:
-        """Jastrow u-term laplacian with respect to a e-coordinates
+        """Jastrow u-term laplacian with respect to e-coordinates
         :param e_powers: powers of e-e distances
         :return:
         """
@@ -388,7 +389,7 @@ class Jastrow:
         return 2 * res
 
     def chi_term_laplacian(self, n_powers) -> float:
-        """Jastrow chi-term laplacian with respect to a e-coordinates
+        """Jastrow chi-term laplacian with respect to e-coordinates
         :param n_powers: powers of e-n distances
         :return:
         """
@@ -419,7 +420,7 @@ class Jastrow:
         return res
 
     def f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors) -> float:
-        """Jastrow f-term laplacian with respect to a e-coordinates
+        """Jastrow f-term laplacian with respect to e-coordinates
         f-term is a product of two spherically symmetric functions f(r_eI) and g(r_ee) so using
             ∇²(f*g) = ∇²(f)*g + 2*∇(f)*∇(g) + f*∇²(g)
         then Laplace operator of spherically symmetric function (in 3-D space) is
@@ -1217,3 +1218,27 @@ class Jastrow:
         res[b[1]:b[2], b[1]:b[2]] = chi_term
         res[b[2]:b[3], b[2]:b[3]] = f_term
         return res
+
+    def profile_value(self, dx, steps, atom_positions, r_initial):
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dx, self.neu + self.ned)
+            e_vectors = subtract_outer(r_e, r_e)
+            n_vectors = subtract_outer(atom_positions, r_e)
+            self.value(e_vectors, n_vectors)
+
+    def profile_gradient(self, dx, steps, atom_positions, r_initial):
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dx, self.neu + self.ned)
+            e_vectors = subtract_outer(r_e, r_e)
+            n_vectors = subtract_outer(atom_positions, r_e)
+            self.gradient(e_vectors, n_vectors)
+
+    def profile_laplacian(self, dx, steps, atom_positions, r_initial):
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dx, self.neu + self.ned)
+            e_vectors = subtract_outer(r_e, r_e)
+            n_vectors = subtract_outer(atom_positions, r_e)
+            self.laplacian(e_vectors, n_vectors)

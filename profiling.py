@@ -13,140 +13,11 @@ import numpy as np
 import numba as nb
 from numba.core.runtime import rtsys
 
-from overload import subtract_outer
 from logger import logging
-from readers.casino import CasinoConfig
-from cusp import CuspFactory, TestCuspFactory
-from slater import Slater
-from jastrow import Jastrow
-from backflow import Backflow
-from wfn import Wfn
-from casino import MarkovChain
+from casino import Casino
 
 
 logger = logging.getLogger('vmc')
-
-
-@nb.jit(forceobj=True)
-def initial_position(ne, atom_positions, atom_charges):
-    """Initial positions of electrons."""
-    natoms = atom_positions.shape[0]
-    r_e = np.zeros((ne, 3))
-    for i in range(ne):
-        r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
-    return r_e
-
-
-@nb.jit(nopython=True, nogil=True, cache=True)
-def random_step(step, ne):
-    """Random N-dim square distributed step"""
-    return step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-
-
-# @thread
-@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
-def slater_value(dx, neu, ned, steps, atom_positions, slater, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        slater.value(n_vectors)
-
-
-# @thread
-@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
-def slater_gradient(dx, neu, ned, steps, atom_positions, slater, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        slater.gradient(n_vectors)
-
-
-# @thread
-@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
-def slater_laplacian(dx, neu, ned, steps, atom_positions, slater, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        slater.laplacian(n_vectors)
-
-
-# @thread
-@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
-def slater_hessian(dx, neu, ned, steps, atom_positions, slater, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        slater.hessian(n_vectors)
-
-
-# @pool
-@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
-def jastrow_value(dx, neu, ned, steps, atom_positions, jastrow, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        jastrow.value(e_vectors, n_vectors)
-
-
-# @pool
-@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
-def jastrow_gradient(dx, neu, ned, steps, atom_positions, jastrow, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        jastrow.gradient(e_vectors, n_vectors)
-
-
-# @pool
-@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
-def jastrow_laplacian(dx, neu, ned, steps, atom_positions, jastrow, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        jastrow.laplacian(e_vectors, n_vectors)
-
-
-# @pool
-@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
-def backflow_value(dx, neu, ned, steps, atom_positions, backflow, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        backflow.value(e_vectors, n_vectors)
-
-
-# @pool
-@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
-def backflow_gradient(dx, neu, ned, steps, atom_positions, backflow, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        backflow.gradient(e_vectors, n_vectors)
-
-
-# @pool
-@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
-def backflow_laplacian(dx, neu, ned, steps, atom_positions, backflow, r_initial):
-
-    for _ in range(steps):
-        r_e = r_initial + random_step(dx, neu + ned)
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = subtract_outer(atom_positions, r_e)
-        backflow.laplacian(e_vectors, n_vectors)
 
 
 @nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
@@ -156,153 +27,144 @@ def profiling_simple_random_walk(markovchain, steps, r_initial, decorr_period):
         next(walker)
 
 
-def slater_profiling(config):
-    """For multithreaded
-    https://numba.pydata.org/numba-doc/latest/user/threading-layer.html
-    """
-    dx = 3.0
-    neu, ned = config.input.neu, config.input.ned
+class Profiler(Casino):
 
-    if config.input.cusp_correction:
-        cusp = CuspFactory(
-            neu, ned, config.mdet.mo_up, config.mdet.mo_down,
-            config.wfn.nbasis_functions, config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
-            config.wfn.coefficients, config.wfn.exponents, config.wfn.atom_positions, config.wfn.atom_charges
-        ).create()
-    else:
-        cusp = None
+    def __init__(self, config_path):
+        super().__init__(config_path)
+        self.dx = 3.0
+        self.steps, self.atom_positions = self.config.input.vmc_nstep, self.config.wfn.atom_positions
 
-    slater = Slater(
-        neu, ned,
-        config.wfn.nbasis_functions, config.wfn.first_shells, config.wfn.orbital_types, config.wfn.shell_moments,
-        config.wfn.slater_orders, config.wfn.primitives, config.wfn.coefficients, config.wfn.exponents,
-        config.mdet.mo_up, config.mdet.mo_down, config.mdet.coeff, cusp
-    )
+    def initial_position(self, ne, atom_positions, atom_charges):
+        """Initial positions of electrons."""
+        natoms = atom_positions.shape[0]
+        r_e = np.zeros((ne, 3))
+        for i in range(ne):
+            r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
+        return r_e
 
-    r_initial = initial_position(neu + ned, config.wfn.atom_positions, config.wfn.atom_charges)
+    def slater_profiling(self):
+        """For multithreaded
+        https://numba.pydata.org/numba-doc/latest/user/threading-layer.html
+        """
+        start = default_timer()
+        self.wfn.slater.profile_value(self.dx, self.steps, self.atom_positions, self.r_initial)
+        end = default_timer()
+        logger.info(' slater value       %8.1f', end - start)
+        # stats = rtsys.get_allocation_stats()
+        # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
-    start = default_timer()
-    slater_value(dx, neu, ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
-    end = default_timer()
-    logger.info(' value     %8.1f', end - start)
-    # stats = rtsys.get_allocation_stats()
-    # logger.info(f'{stats} total: {stats[0] - stats[1]}')
+        start = default_timer()
+        self.wfn.slater.profile_laplacian(self.dx, self.steps, self.atom_positions, self.r_initial)
+        end = default_timer()
+        logger.info(' slater laplacian   %8.1f', end - start)
+        # stats = rtsys.get_allocation_stats()
+        # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
-    start = default_timer()
-    slater_laplacian(dx, neu, ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
-    end = default_timer()
-    logger.info(' laplacian %8.1f', end - start)
-    # stats = rtsys.get_allocation_stats()
-    # logger.info(f'{stats} total: {stats[0] - stats[1]}')
+        start = default_timer()
+        self.wfn.slater.profile_gradient(self.dx, self.steps, self.atom_positions, self.r_initial)
+        end = default_timer()
+        logger.info(' slater gradient    %8.1f', end - start)
+        # stats = rtsys.get_allocation_stats()
+        # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
-    start = default_timer()
-    slater_gradient(dx, neu, ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
-    end = default_timer()
-    logger.info(' gradient  %8.1f', end - start)
-    # stats = rtsys.get_allocation_stats()
-    # logger.info(f'{stats} total: {stats[0] - stats[1]}')
+        start = default_timer()
+        self.wfn.slater.profile_hessian(self.dx, self.steps, self.atom_positions, self.r_initial)
+        end = default_timer()
+        logger.info(' slater hessian     %8.1f', end - start)
+        # stats = rtsys.get_allocation_stats()
+        # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
-    start = default_timer()
-    slater_hessian(dx, neu, ned, config.input.vmc_nstep, config.wfn.atom_positions, slater, r_initial)
-    end = default_timer()
-    logger.info(' hessian   %8.1f', end - start)
-    # stats = rtsys.get_allocation_stats()
-    # logger.info(f'{stats} total: {stats[0] - stats[1]}')
+    def jastrow_profiling(self):
 
+        start = default_timer()
+        self.wfn.jastrow.profile_value(self.dx, self.steps, self.atom_positions, self.r_initial)
+        end = default_timer()
+        logger.info(' jastrow value      %8.1f', end - start)
 
-def jastrow_profiling(casino):
-    dx = 3.0
+        start = default_timer()
+        self.wfn.jastrow.profile_laplacian(self.dx, self.steps, self.atom_positions, self.r_initial)
+        end = default_timer()
+        logger.info(' jastrow laplacian  %8.1f', end - start)
 
-    jastrow = Jastrow(
-        casino.input.neu, casino.input.ned,
-        casino.jastrow.trunc, casino.jastrow.u_parameters, casino.jastrow.u_parameters_optimizable, casino.jastrow.u_mask, casino.jastrow.u_cutoff, casino.jastrow.u_cusp_const,
-        casino.jastrow.chi_parameters, casino.jastrow.chi_parameters_optimizable, casino.jastrow.chi_mask, casino.jastrow.chi_cutoff, casino.jastrow.chi_labels, casino.jastrow.chi_cusp,
-        casino.jastrow.f_parameters, casino.jastrow.f_parameters_optimizable, casino.jastrow.f_mask, casino.jastrow.f_cutoff, casino.jastrow.f_labels,
-        casino.jastrow.no_dup_u_term, casino.jastrow.no_dup_chi_term
-    )
+        start = default_timer()
+        self.wfn.jastrow.profile_gradient(self.dx, self.steps, self.atom_positions, self.r_initial)
+        end = default_timer()
+        logger.info(' jastrow gradient   %8.1f', end - start)
 
-    r_initial = initial_position(casino.input.neu + casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges)
+    def backflow_profiling(self):
 
-    start = default_timer()
-    jastrow_value(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, jastrow, r_initial)
-    end = default_timer()
-    logger.info(' value     %8.1f', end - start)
+        start = default_timer()
+        self.wfn.backflow.profile_value(self.dx, self.steps, self.atom_positions, self.r_initial)
+        end = default_timer()
+        logger.info(' backflow value     %8.1f', end - start)
 
-    start = default_timer()
-    jastrow_laplacian(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, jastrow, r_initial)
-    end = default_timer()
-    logger.info(' laplacian %8.1f', end - start)
+        start = default_timer()
+        self.wfn.backflow.profile_gradient(self.dx, self.steps, self.atom_positions, self.r_initial)
+        end = default_timer()
+        logger.info(' backflow gradient  %8.1f', end - start)
 
-    start = default_timer()
-    jastrow_gradient(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, jastrow, r_initial)
-    end = default_timer()
-    logger.info(' gradient  %8.1f', end - start)
+        start = default_timer()
+        self.wfn.backflow.profile_laplacian(self.dx, self.steps, self.atom_positions, self.r_initial)
+        end = default_timer()
+        logger.info(' backflow laplacian %8.1f', end - start)
 
+    def markovchain_profiling(self):
 
-def backflow_profiling(casino):
-    dx = 3.0
-
-    backflow = Backflow(
-        casino.input.neu, casino.input.ned,
-        casino.backflow.trunc, casino.backflow.eta_parameters, casino.backflow.eta_parameters_optimizable, casino.backflow.eta_mask, casino.backflow.eta_cutoff,
-        casino.backflow.mu_parameters, casino.backflow.mu_parameters_optimizable, casino.backflow.mu_mask, casino.backflow.mu_cutoff, casino.backflow.mu_cusp,
-        casino.backflow.mu_labels, casino.backflow.phi_parameters, casino.backflow.phi_parameters_optimizable, casino.backflow.phi_mask,
-        casino.backflow.theta_parameters, casino.backflow.theta_parameters_optimizable, casino.backflow.theta_mask, casino.backflow.phi_cutoff,
-        casino.backflow.phi_cusp, casino.backflow.phi_labels, casino.backflow.phi_irrotational, casino.backflow.ae_cutoff
-    )
-
-    r_initial = initial_position(casino.input.neu + casino.input.ned, casino.wfn.atom_positions, casino.wfn.atom_charges)
-
-    start = default_timer()
-    backflow_value(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, backflow, r_initial)
-    end = default_timer()
-    logger.info(' value     %8.1f', end - start)
-
-    start = default_timer()
-    backflow_gradient(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, backflow, r_initial)
-    end = default_timer()
-    logger.info(' gradient  %8.1f', end - start)
-
-    start = default_timer()
-    backflow_laplacian(dx, casino.input.neu, casino.input.ned, casino.input.vmc_nstep, casino.wfn.atom_positions, backflow, r_initial)
-    end = default_timer()
-    logger.info(' laplacian %8.1f', end - start)
-
-
-def markovchain_profiling(config):
-
-    cusp = None
-
-    neu, ned = config.input.neu, config.input.ned
-
-    r_initial = initial_position(neu + ned, config.wfn.atom_positions, config.wfn.atom_charges)
-
-    slater = Slater(
-        neu, ned,
-        config.wfn.nbasis_functions, config.wfn.first_shells, config.wfn.orbital_types, config.wfn.shell_moments,
-        config.wfn.slater_orders, config.wfn.primitives, config.wfn.coefficients, config.wfn.exponents,
-        config.mdet.mo_up, config.mdet.mo_down, config.mdet.coeff, cusp
-    )
-
-    jastrow = None
-
-    backflow = None
-
-    wfn = Wfn(neu, ned, config.wfn.atom_positions, config.wfn.atom_charges, slater, jastrow, backflow)
-
-    step = 1 / (neu + ned)
-
-    markovchain = MarkovChain(neu, ned, step, config.wfn.atom_positions, config.wfn.atom_charges, wfn)
-
-    start = default_timer()
-    profiling_simple_random_walk(markovchain, config.input.vmc_nstep, r_initial, 1)
-    end = default_timer()
-    logger.info(' value     %8.1f', end - start)
-    stats = rtsys.get_allocation_stats()
-    logger.info(f'{stats} total: {stats[0] - stats[1]}')
+        start = default_timer()
+        profiling_simple_random_walk(self.markovchain, self.config.input.vmc_nstep, self.r_initial, 1)
+        end = default_timer()
+        logger.info(' markovchain value     %8.1f', end - start)
+        stats = rtsys.get_allocation_stats()
+        logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
 
 if __name__ == '__main__':
+
+    """
+    He:
+     slater value           33.1
+     slater laplacian       61.1
+     slater gradient        85.7
+     slater hessian        274.0
+     jastrow value          31.2
+     jastrow laplacian      40.0
+     jastrow gradient       47.4
+     backflow value         43.6
+     backflow gradient     121.4
+     backflow laplacian    162.8
+    Be:
+     slater value           49.4
+     slater laplacian      103.1
+     slater gradient       147.3
+     slater hessian        381.8
+     jastrow value          70.0
+     jastrow laplacian     114.0
+     jastrow gradient      134.3
+     backflow value        133.5
+     backflow gradient     536.1
+     backflow laplacian    696.7
+    Ne:
+     slater value          126.8
+     slater laplacian      240.8
+     slater gradient       323.7
+     slater hessian        782.0
+     jastrow value         338.2
+     jastrow laplacian     648.3
+     jastrow gradient      689.7
+     backflow value        551.8
+     backflow gradient    2152.2
+     backflow laplacian   2688.3
+    """
+
+    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
+        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
+        logger.info('%s:', mol)
+        profileler = Profiler(path)
+        profileler.slater_profiling()
+        profileler.jastrow_profiling()
+        profileler.backflow_profiling()
+        # profileler.markovchain_profiling()
+
     """
     Slater:
         He:
@@ -336,14 +198,7 @@ if __name__ == '__main__':
          laplacian   1302.7
          gradient    1648.3
          hessian     3853.4
-    """
-
-    # for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
-    #     path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
-    #     logger.info('%s:', mol)
-    #     slater_profiling(CasinoConfig(path))
-
-    """
+    Jatrow
     He:
      value         25.6
      laplacian     30.4
@@ -362,14 +217,7 @@ if __name__ == '__main__':
      gradient    1771.5
     Kr:
      value       3174.8
-    """
-
-    # for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
-    #     path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Jastrow/'
-    #     logger.info('%s:', mol)
-    #     jastrow_profiling(CasinoConfig(path))
-
-    """
+    Backflow
     He:
      value         40.0
      gradient     121.6
@@ -385,16 +233,3 @@ if __name__ == '__main__':
     Ar:
      value       1501.9
     """
-
-    # for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr'):
-    #     path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
-    #     logger.info('%s:', mol)
-    #     backflow_profiling(CasinoConfig(path))
-
-    """
-    """
-
-    # for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
-    #     path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Slater/'
-    #     logger.info('%s:', mol)
-    #     markovchain_profiling(CasinoConfig(path))

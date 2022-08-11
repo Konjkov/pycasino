@@ -10,6 +10,7 @@ import numpy as np
 import numba as nb
 from readers.numerical import rref
 from readers.backflow import construct_c_matrix
+from overload import subtract_outer, random_step
 
 from logger import logging
 
@@ -924,3 +925,28 @@ class Backflow:
             self.fix_phi_parameters()
 
         return parameters[n:]
+
+    def profile_value(self, dx, steps, atom_positions, r_initial):
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dx, self.neu + self.ned)
+            e_vectors = subtract_outer(r_e, r_e)
+            n_vectors = subtract_outer(atom_positions, r_e)
+            self.value(e_vectors, n_vectors)
+
+    def profile_gradient(self, dx, steps, atom_positions, r_initial):
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dx, self.neu + self.ned)
+            e_vectors = subtract_outer(r_e, r_e)
+            n_vectors = subtract_outer(atom_positions, r_e)
+            self.gradient(e_vectors, n_vectors)
+
+    def profile_laplacian(self, dx, steps, atom_positions, r_initial):
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dx, self.neu + self.ned)
+            e_vectors = subtract_outer(r_e, r_e)
+            n_vectors = subtract_outer(atom_positions, r_e)
+            self.laplacian(e_vectors, n_vectors)
+

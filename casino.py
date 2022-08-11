@@ -51,16 +51,6 @@ def sum_typed_list(x):
     return sum_e
 
 
-@nb.jit(forceobj=True)
-def initial_position(ne, atom_positions, atom_charges):
-    """Initial positions of electrons."""
-    natoms = atom_positions.shape[0]
-    r_e = np.zeros((ne, 3))
-    for i in range(ne):
-        r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
-    return r_e + np.random.laplace(0, 1, ne * 3).reshape((ne, 3))
-
-
 @nb.experimental.jitclass(spec)
 class MarkovChain:
 
@@ -415,6 +405,8 @@ class Casino:
         :param path: path to config
         """
         self.config = CasinoConfig(path)
+        self.neu, self.ned = self.config.input.neu, self.config.input.ned
+        self.r_initial = self.initial_position(self.neu + self.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges)
 
         if self.config.input.cusp_correction:
             cusp = CuspFactory(
@@ -456,7 +448,6 @@ class Casino:
         self.wfn = Wfn(
             self.config.input.neu, self.config.input.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges, slater, jastrow, backflow
         )
-        self.neu, self.ned = self.config.input.neu, self.config.input.ned
 
         if self.config.input.vmc_method == 1:
             # EBES
@@ -470,7 +461,15 @@ class Casino:
         self.markovchain = MarkovChain(self.neu, self.ned, step, self.config.wfn.atom_positions, self.config.wfn.atom_charges, self.wfn)
         # FIXME: not supported by numba move to MarkovChain.__init__()
         self.markovchain.r_e = nb.typed.List.empty_list(r_e_type)
-        self.markovchain.r_e.append(initial_position(self.neu + self.ned, self.markovchain.atom_positions, self.markovchain.atom_charges))
+        self.markovchain.r_e.append(self.r_initial)
+
+    def initial_position(self, ne, atom_positions, atom_charges):
+        """Initial positions of electrons."""
+        natoms = atom_positions.shape[0]
+        r_e = np.zeros((ne, 3))
+        for i in range(ne):
+            r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
+        return r_e
 
     def run(self):
         """Run Casino workflow.
@@ -593,7 +592,7 @@ class Casino:
         else:
             return self.config.input.vmc_decorr_period
 
-    def vmc_energy_accumulation(self, step=0):
+    def vmc_energy_accumulation(self):
         """VMC energy accumulation"""
         steps = self.config.input.vmc_nstep
         nblock = self.config.input.vmc_nblock
@@ -795,6 +794,7 @@ if __name__ == '__main__':
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Jastrow_varmin/'
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Backflow_varmin/'
+    # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Backflow_varmin/'
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Jastrow/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Jastrow/'
