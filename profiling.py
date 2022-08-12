@@ -43,9 +43,7 @@ class Profiler(Casino):
         return r_e
 
     def slater_profiling(self):
-        """For multithreaded
-        https://numba.pydata.org/numba-doc/latest/user/threading-layer.html
-        """
+
         start = default_timer()
         self.wfn.slater.profile_value(self.dx, self.steps, self.atom_positions, self.r_initial)
         end = default_timer()
@@ -119,41 +117,48 @@ class Profiler(Casino):
 
 
 if __name__ == '__main__':
-
     """
     He:
-     slater value           33.1
-     slater laplacian       61.1
-     slater gradient        85.7
-     slater hessian        274.0
-     jastrow value          31.2
-     jastrow laplacian      40.0
-     jastrow gradient       47.4
-     backflow value         43.6
-     backflow gradient     121.4
-     backflow laplacian    162.8
+     slater value           29.3
+     slater laplacian       54.6
+     slater gradient        75.5
+     slater hessian        252.4
+     jastrow value          28.1
+     jastrow laplacian      36.4
+     jastrow gradient       44.7
+     backflow value         42.3
+     backflow gradient     116.5
+     backflow laplacian    147.5
     Be:
-     slater value           49.4
-     slater laplacian      103.1
-     slater gradient       147.3
-     slater hessian        381.8
-     jastrow value          70.0
-     jastrow laplacian     114.0
-     jastrow gradient      134.3
-     backflow value        133.5
-     backflow gradient     536.1
-     backflow laplacian    696.7
+     slater value           49.6
+     slater laplacian       99.6
+     slater gradient       121.8
+     slater hessian        336.0
+     jastrow value          63.6
+     jastrow laplacian     103.6
+     jastrow gradient      116.9
+     backflow value        109.5
+     backflow gradient     500.4
+     backflow laplacian    595.4
     Ne:
-     slater value          126.8
-     slater laplacian      240.8
-     slater gradient       323.7
-     slater hessian        782.0
-     jastrow value         338.2
-     jastrow laplacian     648.3
-     jastrow gradient      689.7
-     backflow value        551.8
-     backflow gradient    2152.2
-     backflow laplacian   2688.3
+     slater value          105.9
+     slater laplacian      221.1
+     slater gradient       275.2
+     slater hessian        727.2
+     jastrow value         302.6
+     jastrow laplacian     599.1
+     jastrow gradient      668.7
+     backflow value        458.5
+     backflow gradient    2017.4
+     backflow laplacian   2448.1
+    Ar:
+     slater value          238.4
+     slater laplacian      514.4
+     slater gradient       644.3
+     slater hessian       1677.0
+     jastrow value         958.2
+     jastrow laplacian    1910.5
+     jastrow gradient     2109.0
     """
 
     for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
@@ -164,72 +169,3 @@ if __name__ == '__main__':
         profileler.jastrow_profiling()
         profileler.backflow_profiling()
         # profileler.markovchain_profiling()
-
-    """
-    Slater:
-        He:
-         value         28.7
-         laplacian     53.7
-         gradient      74.1
-         hessian      251.2
-        Be:
-         value         50.5
-         laplacian    100.9
-         gradient     136.9
-         hessian      365.3
-        Ne:
-         value        116.1
-         laplacian    228.9
-         gradient     294.9
-         hessian      777.2
-        Ar:
-         value        269.5
-         laplacian    555.6
-         gradient     657.0
-         hessian     1670.7
-        -- old --
-        Kr:
-         value        725.7
-         laplacian   1529.8
-         gradient    1918.6
-         hessian     5085.5
-        O3:
-         value        657.9
-         laplacian   1302.7
-         gradient    1648.3
-         hessian     3853.4
-    Jatrow
-    He:
-     value         25.6
-     laplacian     30.4
-     gradient      37.6
-    Be:
-     value         57.5
-     laplacian     93.9
-     gradient     112.4
-    Ne:
-     value        277.5
-     laplacian    481.7
-     gradient     536.5
-    Ar:
-     value        875.4
-     laplacian   1612.5
-     gradient    1771.5
-    Kr:
-     value       3174.8
-    Backflow
-    He:
-     value         40.0
-     gradient     121.6
-     laplacian    138.8
-    Be:
-     value         99.5
-     gradient     481.4
-     laplacian    573.4
-    Ne:
-     value        415.0
-     gradient    1897.3
-     laplacian   2247.9
-    Ar:
-     value       1501.9
-    """
