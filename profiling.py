@@ -9,8 +9,6 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
-import numpy as np
-import numba as nb
 from numba.core.runtime import rtsys
 
 from logger import logging
@@ -20,27 +18,12 @@ from casino import Casino
 logger = logging.getLogger('vmc')
 
 
-@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
-def profiling_simple_random_walk(markovchain, steps, r_initial, decorr_period):
-    walker = markovchain.simple_random_walker(steps, r_initial, decorr_period)
-    for _ in range(steps):
-        next(walker)
-
-
 class Profiler(Casino):
 
     def __init__(self, config_path):
         super().__init__(config_path)
         self.dx = 3.0
         self.steps, self.atom_positions = self.config.input.vmc_nstep, self.config.wfn.atom_positions
-
-    def initial_position(self, ne, atom_positions, atom_charges):
-        """Initial positions of electrons."""
-        natoms = atom_positions.shape[0]
-        r_e = np.zeros((ne, 3))
-        for i in range(ne):
-            r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
-        return r_e
 
     def slater_profiling(self):
 
@@ -109,9 +92,9 @@ class Profiler(Casino):
     def markovchain_profiling(self):
 
         start = default_timer()
-        profiling_simple_random_walk(self.markovchain, self.config.input.vmc_nstep, self.r_initial, 1)
+        self.markovchain.profiling_simple_random_walk(self.config.input.vmc_nstep, self.r_initial, 1)
         end = default_timer()
-        logger.info(' markovchain value     %8.1f', end - start)
+        logger.info(' markovchain value  %8.1f', end - start)
         stats = rtsys.get_allocation_stats()
         logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
