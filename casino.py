@@ -30,8 +30,6 @@ np.random.seed(31415926)
 
 logger = logging.getLogger('vmc')
 
-r_e_type = nb.types.Array(dtype=nb.float64, ndim=2, layout="C")
-
 
 def jastrow_parameters_gradient(energy, energy_gradient):
     """
@@ -77,7 +75,8 @@ class Casino:
         self.config = CasinoConfig(self.config_path)
         self.num_proc = cpu_count(logical=False)
         self.neu, self.ned = self.config.input.neu, self.config.input.ned
-        self.r_initial = self.initial_position(self.neu + self.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges)
+        self.r_e = self.initial_position(self.neu + self.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges)
+        self.r_e += np.random.uniform(-1, 1, (self.neu + self.ned) * 3).reshape((self.neu + self.ned, 3))
 
         if self.config.input.cusp_correction:
             cusp = CuspFactory(
@@ -130,13 +129,10 @@ class Casino:
             # wrong method
             step = 0
         self.markovchain = MarkovChain(self.neu, self.ned, step, self.config.wfn.atom_positions, self.config.wfn.atom_charges, self.wfn)
-        # FIXME: not supported by numba move to MarkovChain.__init__()
-        self.markovchain.r_e = nb.typed.List.empty_list(r_e_type)
-        self.markovchain.r_e.append(self.r_initial)
 
     def __reduce__(self):
         """to fix TypeError: cannot pickle '_io.TextIOWrapper' object"""
-        return self.__class__, (self.config_path, )
+        return self.__class__, (self.config_path, ), {'r_e': self.r_e}
 
     def parallel_execution(self, function, *args):
         """Parallel execution of methods
@@ -229,19 +225,14 @@ class Casino:
         elif self.config.input.runtype == 'vmc_dmc':
             self.optimize_vmc_step(10000)
             # FIXME: decorr_period for dmc?
-            cond, position = self.markovchain.vmc_random_walk(self.config.input.vmc_nstep, 1)
+            cond, position = self.markovchain.vmc_random_walk(self.r_e, self.config.input.vmc_nstep, 1)
             energy = self.markovchain.local_energy(cond, position) + self.markovchain.wfn.nuclear_repulsion
             logger.info('VMC energy %.5f', energy.mean())
-            position = position[-self.config.input.vmc_nconfig_write:]
+            self.r_e = position[-self.config.input.vmc_nconfig_write:]
 
             # FIXME: local variables?
             self.markovchain.step = self.config.input.dtdmc
-            self.markovchain.r_e = nb.typed.List.empty_list(r_e_type)
-            for p in position:
-                self.markovchain.r_e.append(p)
-
             self.dmc_energy_equilibration()
-
             self.dmc_energy_accumulation()
 
     def equilibrate(self, steps):
@@ -249,7 +240,8 @@ class Casino:
         :param steps: burn-in period
         :return:
         """
-        condition, _ = self.markovchain.vmc_random_walk(steps, 1)
+        condition, position = self.markovchain.vmc_random_walk(self.r_e, steps, 1)
+        self.r_e = position[-1]
         logger.info(
             f'Running VMC equilibration ({steps} moves).'
         )
@@ -266,7 +258,8 @@ class Casino:
             self.markovchain.step = tau[0]
             logger.debug('dr * electrons = %.5f', tau[0] * (self.neu + self.ned))
             if tau[0] > 0:
-                condition, _ = self.markovchain.vmc_random_walk(steps, 1)
+                condition, position = self.markovchain.vmc_random_walk(self.r_e, steps, 1)
+                self.r_e = position[-1]
                 acc_ration = condition.mean()
             else:
                 acc_ration = 1
@@ -283,40 +276,44 @@ class Casino:
         else:
             return self.config.input.vmc_decorr_period
 
+    def vmc_energy(self, steps, decorr_period):
+        """wrapper for VMC energy"""
+        condition, position = self.markovchain.vmc_random_walk(self.r_e, steps, decorr_period)
+        return self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
+
     def vmc_energy_accumulation(self):
         """VMC energy accumulation"""
         steps = self.config.input.vmc_nstep
         nblock = self.config.input.vmc_nblock
 
         decorr_period = self.get_decorr_period()
-        energy_block_mean = np.zeros(shape=(nblock, ))
-        energy_block_sem = np.zeros(shape=(nblock, ))
-        energy_block_var = np.zeros(shape=(nblock,))
+        energy_block_mean = np.zeros(shape=(nblock, self.num_proc))
+        energy_block_sem = np.zeros(shape=(nblock, self.num_proc))
+        energy_block_var = np.zeros(shape=(nblock, self.num_proc))
         logger.info(
             f'Starting VMC.'
         )
         for i in range(nblock):
             block_start = default_timer()
-            condition, position = self.markovchain.vmc_random_walk(steps // nblock, decorr_period)
-            energy = self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
-            energy_block_mean[i] = energy.mean()
-            energy_block_sem[i] = correlated_sem(energy)
-            energy_block_var[i] = energy.var()
+            for j, energy in enumerate(self.parallel_execution(self.vmc_energy, steps // nblock // self.num_proc, decorr_period)):
+                energy_block_mean[i, j] = energy.mean()
+                energy_block_sem[i, j] = correlated_sem(energy)
+                energy_block_var[i, j] = energy.var()
             block_stop = default_timer()
             logger.info(
                 f' =========================================================================\n'
                 f' In block : {i + 1}\n'
                 f'  Number of VMC steps           = {steps // nblock}\n\n'
                 f'  Block average energies (au)\n\n'
-                f'  Total energy                       (au) =       {energy_block_mean[i]:18.12f}\n'
-                f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
+                f'  Total energy                       (au) =       {energy_block_mean[i].mean():18.12f}\n'
+                f'  Standard error                        +/-       {energy_block_sem[i].mean() / np.sqrt(self.num_proc):18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
         logger.info(
             f' =========================================================================\n'
             f' FINAL RESULT:\n\n'
             f'  VMC energy (au)    Standard error      Correction for serial correlation\n'
-            f' {energy_block_mean.mean():.12f} +/- {energy_block_sem.mean() / np.sqrt(nblock):.12f}      On-the-fly reblocking method\n\n'
+            f' {energy_block_mean.mean():.12f} +/- {energy_block_sem.mean() / np.sqrt(nblock * self.num_proc):.12f}      On-the-fly reblocking method\n\n'
             f' Sample variance of E_L (au^2/sim.cell) : {energy_block_var.mean():.12f}\n\n'
         )
 
@@ -335,7 +332,7 @@ class Casino:
 
         for i in range(nblock):
             block_start = default_timer()
-            energy = self.markovchain.dmc_random_walk(steps // nblock, self.config.input.dmc_target_weight)
+            energy = self.markovchain.dmc_random_walk(self.r_e, steps // nblock, self.config.input.dmc_target_weight)
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
             block_stop = default_timer()
@@ -364,7 +361,7 @@ class Casino:
 
         for i in range(nblock):
             block_start = default_timer()
-            energy = self.markovchain.dmc_random_walk(steps // nblock, self.config.input.dmc_target_weight)
+            energy = self.markovchain.dmc_random_walk(self.r_e, steps // nblock, self.config.input.dmc_target_weight)
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
             block_stop = default_timer()
@@ -395,7 +392,7 @@ class Casino:
         """Minimise vmc variance by jastrow parameters optimization.
         https://github.com/scipy/scipy/issues/10634
         """
-        condition, position = self.markovchain.vmc_random_walk(steps, decorr_period)
+        condition, position = self.markovchain.vmc_random_walk(self.r_e, steps, decorr_period)
         # huber loss cause difficulties in optimization process.
         # energy = self.markovchain.local_energy(condition, position)
         # f_scale = 5 * energy.std()
@@ -421,7 +418,7 @@ class Casino:
         SciPy, оптимизация с условиями - https://habr.com/ru/company/ods/blog/448054/
         """
         bounds = Bounds(*self.wfn.jastrow.get_bounds(), keep_feasible=True)
-        condition, position = self.markovchain.vmc_random_walk(steps, decorr_period)
+        condition, position = self.markovchain.vmc_random_walk(self.r_e, steps, decorr_period)
 
         def fun(x, *args):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)

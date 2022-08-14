@@ -26,37 +26,37 @@ class Profiler(Casino):
         self.steps, self.atom_positions = self.config.input.vmc_nstep, self.config.wfn.atom_positions
 
     def profile_slater_value(self, dx):
-        self.wfn.slater.profile_value(dx, self.steps, self.atom_positions, self.r_initial)
+        self.wfn.slater.profile_value(dx, self.steps, self.atom_positions, self.r_e)
 
     def profile_slater_gradient(self, dx):
-        self.wfn.slater.profile_gradient(dx, self.steps, self.atom_positions, self.r_initial)
+        self.wfn.slater.profile_gradient(dx, self.steps, self.atom_positions, self.r_e)
 
     def profile_slater_laplacian(self, dx):
-        self.wfn.slater.profile_laplacian(dx, self.steps, self.atom_positions, self.r_initial)
+        self.wfn.slater.profile_laplacian(dx, self.steps, self.atom_positions, self.r_e)
 
     def profile_slater_hessian(self, dx):
-        self.wfn.slater.profile_hessian(dx, self.steps, self.atom_positions, self.r_initial)
+        self.wfn.slater.profile_hessian(dx, self.steps, self.atom_positions, self.r_e)
 
     def profile_jastrow_value(self, dx):
-        self.wfn.jastrow.profile_value(dx, self.steps, self.atom_positions, self.r_initial)
+        self.wfn.jastrow.profile_value(dx, self.steps, self.atom_positions, self.r_e)
 
     def profile_jastrow_gradient(self, dx):
-        self.wfn.jastrow.profile_gradient(dx, self.steps, self.atom_positions, self.r_initial)
+        self.wfn.jastrow.profile_gradient(dx, self.steps, self.atom_positions, self.r_e)
 
     def profile_jastrow_laplacian(self, dx):
-        self.wfn.jastrow.profile_laplacian(dx, self.steps, self.atom_positions, self.r_initial)
+        self.wfn.jastrow.profile_laplacian(dx, self.steps, self.atom_positions, self.r_e)
 
     def profile_backflow_value(self, dx):
-        self.wfn.backflow.profile_value(dx, self.steps, self.atom_positions, self.r_initial)
+        self.wfn.backflow.profile_value(dx, self.steps, self.atom_positions, self.r_e)
 
     def profile_backflow_gradient(self, dx):
-        self.wfn.backflow.profile_gradient(dx, self.steps, self.atom_positions, self.r_initial)
+        self.wfn.backflow.profile_gradient(dx, self.steps, self.atom_positions, self.r_e)
 
     def profile_backflow_laplacian(self, dx):
-        self.wfn.backflow.profile_laplacian(dx, self.steps, self.atom_positions, self.r_initial)
+        self.wfn.backflow.profile_laplacian(dx, self.steps, self.atom_positions, self.r_e)
 
     def profiling_simple_random_walk(self):
-        self.markovchain.profiling_simple_random_walk(self.steps, self.r_initial, 1)
+        self.markovchain.profiling_simple_random_walk(self.steps, self.r_e, 1)
 
     def slater_profiling(self):
 
@@ -125,7 +125,7 @@ class Profiler(Casino):
     def markovchain_profiling(self):
 
         start = default_timer()
-        self.parallel_execution(self.markovchain.profiling_simple_random_walk, self.config.input.vmc_nstep, self.r_initial, 1)
+        self.parallel_execution(self.markovchain.profiling_simple_random_walk, self.config.input.vmc_nstep, self.r_e, 1)
         end = default_timer()
         logger.info(' markovchain value     %8.1f', end - start)
         stats = rtsys.get_allocation_stats()

@@ -11,12 +11,9 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
 import numpy as np
 import numba as nb
 
-r_e_type = nb.types.Array(dtype=nb.float64, ndim=2, layout="C")
-
 spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
-    ('r_e', nb.types.ListType(r_e_type)),
     ('step', nb.float64),
     ('atom_positions', nb.float64[:, :]),
     ('atom_charges', nb.float64[:]),
@@ -27,7 +24,7 @@ spec = [
 @nb.jit(nopython=True, nogil=True, parallel=False)
 def sum_typed_list(x):
     """Mixed estimator of energy
-    Для проверки утечек пямяти
+    Для проверки утечек памяти
     """
     sum_e = 0.0
     for e in x:
@@ -274,10 +271,13 @@ class MarkovChain:
 
     walker = simple_random_walker
 
-    def vmc_random_walk(self, steps, decorr_period):
+    def vmc_random_walk(self, r_e, steps, decorr_period):
         """Metropolis-Hastings random walk.
+        :param r_e: initial electron configuration
+        :param steps: number of steps to walk
+        :param decorr_period: number of steps to walk
+        :return:
         """
-        r_e = self.r_e[0]
         condition = np.zeros((steps, ), nb.boolean)
         position = np.zeros((steps, r_e.shape[0], r_e.shape[1]))
         walker = self.walker(r_e, decorr_period)
@@ -287,16 +287,15 @@ class MarkovChain:
             condition[i] = cond
             position[i] = r_e
 
-        self.r_e[0] = r_e
         return condition, position
 
-    def dmc_random_walk(self, steps, target_weight):
+    def dmc_random_walk(self, r_e, steps, target_weight):
         """DMC
+        :param r_e: initial electron configuration
         :param steps: number of steps to walk
         :param target_weight: target weight
         :return:
         """
-        r_e = self.r_e
         energy = np.zeros(shape=(steps, ))
         walker = self.dmc_random_walker(r_e, target_weight)
 
@@ -304,7 +303,6 @@ class MarkovChain:
             energy_t, r_e = next(walker)
             energy[i] = energy_t
 
-        self.r_e = r_e
         return energy
 
     def local_energy(self, condition, position):
