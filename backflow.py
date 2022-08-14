@@ -926,26 +926,26 @@ class Backflow:
 
         return parameters[n:]
 
-    def profile_value(self, dx, steps, atom_positions, r_initial):
+    def profile_value(self, dr, steps, atom_positions, r_initial):
         """auxiliary code"""
         for _ in range(steps):
-            r_e = r_initial + random_step(dx, self.neu + self.ned)
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
             e_vectors = subtract_outer(r_e, r_e)
             n_vectors = subtract_outer(atom_positions, r_e)
             self.value(e_vectors, n_vectors)
 
-    def profile_gradient(self, dx, steps, atom_positions, r_initial):
+    def profile_gradient(self, dr, steps, atom_positions, r_initial):
         """auxiliary code"""
         for _ in range(steps):
-            r_e = r_initial + random_step(dx, self.neu + self.ned)
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
             e_vectors = subtract_outer(r_e, r_e)
             n_vectors = subtract_outer(atom_positions, r_e)
             self.gradient(e_vectors, n_vectors)
 
-    def profile_laplacian(self, dx, steps, atom_positions, r_initial):
+    def profile_laplacian(self, dr, steps, atom_positions, r_initial):
         """auxiliary code"""
         for _ in range(steps):
-            r_e = r_initial + random_step(dx, self.neu + self.ned)
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
             e_vectors = subtract_outer(r_e, r_e)
             n_vectors = subtract_outer(atom_positions, r_e)
             self.laplacian(e_vectors, n_vectors)

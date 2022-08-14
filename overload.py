@@ -3,9 +3,9 @@ import numba as nb
 
 
 @nb.jit(nopython=True, nogil=True, cache=True)
-def random_step(step, ne):
+def random_step(dr, ne):
     """Random N-dim square distributed step"""
-    return step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
+    return dr * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
 
 
 @nb.jit(nopython=True, nogil=True, parallel=False)

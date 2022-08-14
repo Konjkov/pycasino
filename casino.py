@@ -115,7 +115,7 @@ class Casino:
             self.config.backflow.phi_cutoff, self.config.backflow.phi_cusp, self.config.backflow.phi_labels, self.config.backflow.phi_irrotational,
             self.config.backflow.ae_cutoff
         )
-        self.wfn = Wfn(
+        wfn = Wfn(
             self.config.input.neu, self.config.input.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges, slater, jastrow, backflow
         )
 
@@ -128,7 +128,7 @@ class Casino:
         else:
             # wrong method
             step = 0
-        self.markovchain = MarkovChain(self.neu, self.ned, step, self.config.wfn.atom_positions, self.config.wfn.atom_charges, self.wfn)
+        self.markovchain = MarkovChain(self.neu, self.ned, step, self.config.wfn.atom_positions, self.config.wfn.atom_charges, wfn)
 
     def __reduce__(self):
         """to fix TypeError: cannot pickle '_io.TextIOWrapper' object"""
@@ -145,8 +145,26 @@ class Casino:
         :param args: arguments
         :return:
         """
+        # FIXME: if not cached numba compiled it everytime
         with ProcessPoolExecutor(max_workers=self.num_proc) as executor:
             futures = [executor.submit(function, *args) for _ in range(self.num_proc)]
+            # to get task results in order they were submitted
+            return [res.result() for res in futures]
+
+    def parallel_execution_map(self, function, *args):
+        """Parallel execution of methods
+        https://github.com/numba/numba/issues/1846
+
+        Sharing big NumPy arrays across python processes
+        https://luis-sena.medium.com/sharing-big-numpy-arrays-across-python-processes-abf0dc2a0ab2
+
+        :param function: callable objects
+        :param args: arguments iterables
+        :return:
+        """
+        # FIXME: if not cached numba compiled it everytime
+        with ProcessPoolExecutor(max_workers=self.num_proc) as executor:
+            futures = executor.map(function, *args)
             # to get task results in order they were submitted
             return [res.result() for res in futures]
 
@@ -189,9 +207,9 @@ class Casino:
                         self.config.input.opt_jastrow,
                         self.config.input.opt_backflow
                     )
-                    self.wfn.set_parameters(res.x, self.config.input.opt_jastrow, self.config.input.opt_backflow)
-                    print(res.x / self.wfn.get_parameters_scale(self.config.input.opt_jastrow, self.config.input.opt_backflow))
-                    self.config.jastrow.u_cutoff = self.wfn.jastrow.u_cutoff
+                    self.markovchain.wfn.set_parameters(res.x, self.config.input.opt_jastrow, self.config.input.opt_backflow)
+                    print(res.x / self.markovchain.wfn.get_parameters_scale(self.config.input.opt_jastrow, self.config.input.opt_backflow))
+                    self.config.jastrow.u_cutoff = self.markovchain.wfn.jastrow.u_cutoff
                     self.config.jastrow.write(f'./correlation.out.{i+1}')
                     self.optimize_vmc_step(10000)
                     self.vmc_energy_accumulation()
@@ -211,9 +229,9 @@ class Casino:
                         self.config.input.opt_jastrow,
                         self.config.input.opt_backflow
                     )
-                    self.wfn.set_parameters(res.x, self.config.input.opt_jastrow, self.config.input.opt_backflow)
+                    self.markovchain.wfn.set_parameters(res.x, self.config.input.opt_jastrow, self.config.input.opt_backflow)
                     print(res.x)
-                    self.config.jastrow.u_cutoff = self.wfn.jastrow.u_cutoff
+                    self.config.jastrow.u_cutoff = self.markovchain.wfn.jastrow.u_cutoff
                     self.config.jastrow.write(f'./correlation.out.{i + 1}')
                     self.optimize_vmc_step(10000)
                     self.vmc_energy_accumulation()
@@ -275,6 +293,14 @@ class Casino:
             return 3
         else:
             return self.config.input.vmc_decorr_period
+
+    def vmc_random_walk(self, steps, decorr_period):
+        return self.markovchain.vmc_random_walk(self.r_e, steps, decorr_period)
+
+    def vmc_energy_for_parameters(self, parameters, opt_jastrow, opt_backflow, condition, position):
+        # FIXME: add self.markovchain.wfn.set_parameters in __setstate__ for pickled CASINO instance
+        self.markovchain.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
+        return self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
 
     def vmc_energy(self, steps, decorr_period):
         """wrapper for VMC energy"""
@@ -392,19 +418,22 @@ class Casino:
         """Minimise vmc variance by jastrow parameters optimization.
         https://github.com/scipy/scipy/issues/10634
         """
-        condition, position = self.markovchain.vmc_random_walk(self.r_e, steps, decorr_period)
+        # zip is its own inverse! Provided you use the special * operator
+        # x = [(0, 1, 2, 3, 4), (0, 1, 2, 3, 4)]
+        # list(zip(*zip(*x))) -> x
+        condition, position = map(np.concatenate, zip(*self.parallel_execution(self.vmc_random_walk, steps // self.num_proc, decorr_period)))
         # huber loss cause difficulties in optimization process.
         # energy = self.markovchain.local_energy(condition, position)
         # f_scale = 5 * energy.std()
 
         def fun(x, *args, **kwargs):
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.markovchain.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy = self.markovchain.local_energy(condition, position)
             return energy - energy.mean()
 
         return least_squares(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), jac='2-point', method='trf',
-            max_nfev=7, x_scale=self.wfn.get_parameters_scale(opt_jastrow, opt_backflow), loss='linear',
+            fun, x0=self.markovchain.wfn.get_parameters(opt_jastrow, opt_backflow), jac='2-point', method='trf',
+            max_nfev=7, x_scale=self.markovchain.wfn.get_parameters_scale(opt_jastrow, opt_backflow), loss='linear',
             f_scale=1, tr_solver='lsmr', tr_options=dict(regularize=False), verbose=2
         )
 
@@ -417,11 +446,11 @@ class Casino:
 
         SciPy, оптимизация с условиями - https://habr.com/ru/company/ods/blog/448054/
         """
-        bounds = Bounds(*self.wfn.jastrow.get_bounds(), keep_feasible=True)
-        condition, position = self.markovchain.vmc_random_walk(self.r_e, steps, decorr_period)
+        bounds = Bounds(*self.markovchain.wfn.jastrow.get_bounds(), keep_feasible=True)
+        condition, position = map(np.concatenate, zip(*self.parallel_execution(self.vmc_random_walk, steps // self.num_proc, decorr_period)))
 
         def fun(x, *args):
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.markovchain.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy = self.markovchain.local_energy(condition, position)
             mean_energy = energy.mean()
             energy_gradient = self.markovchain.jastrow_gradient(condition, position)
@@ -429,7 +458,7 @@ class Casino:
             return mean_energy, mean_energy_gradient
 
         def hess(x, *args):
-            self.wfn.jastrow.set_parameters(x, opt_jastrow, opt_backflow)
+            self.markovchain.wfn.jastrow.set_parameters(x, opt_jastrow, opt_backflow)
             energy = self.markovchain.local_energy(condition, position)
             energy_gradient = self.markovchain.jastrow_gradient(condition, position)
             energy_hessian = self.markovchain.jastrow_hessian(condition, position)
@@ -437,7 +466,7 @@ class Casino:
             logger.info('hessian = %s', mean_energy_hessian)
             return mean_energy_hessian
 
-        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        parameters = self.markovchain.wfn.get_parameters(opt_jastrow, opt_backflow)
         res = minimize(fun, parameters, method='TNC', jac=True, bounds=bounds, options=dict(disp=True, maxfun=10))
         # res = minimize(f, parameters, method='trust-ncg', jac=True, hess=hess, options=dict(disp=True)
         return res

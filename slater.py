@@ -507,30 +507,30 @@ class Slater:
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / delta / 4 / val
 
-    def profile_value(self, dx, steps, atom_positions, r_initial):
+    def profile_value(self, dr, steps, atom_positions, r_initial):
         """auxiliary code"""
         for _ in range(steps):
-            r_e = r_initial + random_step(dx, self.neu + self.ned)
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
             n_vectors = subtract_outer(atom_positions, r_e)
             self.value(n_vectors)
 
-    def profile_gradient(self, dx, steps, atom_positions, r_initial):
+    def profile_gradient(self, dr, steps, atom_positions, r_initial):
         """auxiliary code"""
         for _ in range(steps):
-            r_e = r_initial + random_step(dx, self.neu + self.ned)
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
             n_vectors = subtract_outer(atom_positions, r_e)
             self.gradient(n_vectors)
 
-    def profile_laplacian(self, dx, steps, atom_positions, r_initial):
+    def profile_laplacian(self, dr, steps, atom_positions, r_initial):
         """auxiliary code"""
         for _ in range(steps):
-            r_e = r_initial + random_step(dx, self.neu + self.ned)
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
             n_vectors = subtract_outer(atom_positions, r_e)
             self.laplacian(n_vectors)
 
-    def profile_hessian(self, dx, steps, atom_positions, r_initial):
+    def profile_hessian(self, dr, steps, atom_positions, r_initial):
         """auxiliary code"""
         for _ in range(steps):
-            r_e = r_initial + random_step(dx, self.neu + self.ned)
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
             n_vectors = subtract_outer(atom_positions, r_e)
             self.hessian(n_vectors)

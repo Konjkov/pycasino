@@ -22,34 +22,34 @@ class Profiler(Casino):
 
     def __init__(self, config_path):
         super().__init__(config_path)
-        self.dx = 3.0
+        self.dr = 3.0  # AU
         self.steps, self.atom_positions = self.config.input.vmc_nstep, self.config.wfn.atom_positions
 
     def slater_profiling(self):
 
         start = default_timer()
-        self.wfn.slater.profile_value(self.dx, self.steps, self.atom_positions, self.r_e)
+        self.markovchain.wfn.slater.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' slater value       %8.1f', end - start)
         # stats = rtsys.get_allocation_stats()
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
         start = default_timer()
-        self.wfn.slater.profile_laplacian(self.dx, self.steps, self.atom_positions, self.r_e)
+        self.markovchain.wfn.slater.profile_laplacian(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' slater laplacian   %8.1f', end - start)
         # stats = rtsys.get_allocation_stats()
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
         start = default_timer()
-        self.wfn.slater.profile_gradient(self.dx, self.steps, self.atom_positions, self.r_e)
+        self.markovchain.wfn.slater.profile_gradient(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' slater gradient    %8.1f', end - start)
         # stats = rtsys.get_allocation_stats()
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
         start = default_timer()
-        self.wfn.slater.profile_hessian(self.dx, self.steps, self.atom_positions, self.r_e)
+        self.markovchain.wfn.slater.profile_hessian(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' slater hessian     %8.1f', end - start)
         # stats = rtsys.get_allocation_stats()
@@ -58,34 +58,34 @@ class Profiler(Casino):
     def jastrow_profiling(self):
 
         start = default_timer()
-        self.wfn.jastrow.profile_value(self.dx, self.steps, self.atom_positions, self.r_e)
+        self.markovchain.wfn.jastrow.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' jastrow value      %8.1f', end - start)
 
         start = default_timer()
-        self.wfn.jastrow.profile_laplacian(self.dx, self.steps, self.atom_positions, self.r_e)
+        self.markovchain.wfn.jastrow.profile_laplacian(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' jastrow laplacian  %8.1f', end - start)
 
         start = default_timer()
-        self.wfn.jastrow.profile_gradient(self.dx, self.steps, self.atom_positions, self.r_e)
+        self.markovchain.wfn.jastrow.profile_gradient(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' jastrow gradient   %8.1f', end - start)
 
     def backflow_profiling(self):
 
         start = default_timer()
-        self.wfn.backflow.profile_value(self.dx, self.steps, self.atom_positions, self.r_e)
+        self.markovchain.wfn.backflow.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' backflow value     %8.1f', end - start)
 
         start = default_timer()
-        self.wfn.backflow.profile_gradient(self.dx, self.steps, self.atom_positions, self.r_e)
+        self.markovchain.wfn.backflow.profile_gradient(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' backflow gradient  %8.1f', end - start)
 
         start = default_timer()
-        self.wfn.backflow.profile_laplacian(self.dx, self.steps, self.atom_positions, self.r_e)
+        self.markovchain.wfn.backflow.profile_laplacian(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' backflow laplacian %8.1f', end - start)
 
