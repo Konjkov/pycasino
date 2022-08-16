@@ -164,9 +164,7 @@ class Casino:
         """
         # FIXME: if not cached numba compiled it everytime
         with ProcessPoolExecutor(max_workers=self.num_proc) as executor:
-            futures = executor.map(function, *args)
-            # to get task results in order they were submitted
-            return [res.result() for res in futures]
+            return list(executor.map(function, *args))
 
     def initial_position(self, ne, atom_positions, atom_charges):
         """Initial positions of electrons."""
@@ -294,16 +292,12 @@ class Casino:
         else:
             return self.config.input.vmc_decorr_period
 
-    def vmc_random_walk(self, steps, decorr_period):
-        return self.markovchain.vmc_random_walk(self.r_e, steps, decorr_period)
-
-    def vmc_energy_for_parameters(self, parameters, opt_jastrow, opt_backflow, condition, position):
-        # FIXME: add self.markovchain.wfn.set_parameters in __setstate__ for pickled CASINO instance
-        self.markovchain.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        return self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
-
     def vmc_energy(self, steps, decorr_period):
-        """wrapper for VMC energy"""
+        """wrapper for VMC energy
+            https://github.com/numba/numba/issues/4830
+            https://github.com/numba/numba/issues/6522  - use structrefs instead of jitclasses
+            https://numba.readthedocs.io/en/stable/extending/high-level.html#implementing-mutable-structures
+        """
         condition, position = self.markovchain.vmc_random_walk(self.r_e, steps, decorr_period)
         return self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
 
@@ -418,10 +412,7 @@ class Casino:
         """Minimise vmc variance by jastrow parameters optimization.
         https://github.com/scipy/scipy/issues/10634
         """
-        # zip is its own inverse! Provided you use the special * operator
-        # x = [(0, 1, 2, 3, 4), (0, 1, 2, 3, 4)]
-        # list(zip(*zip(*x))) -> x
-        condition, position = map(np.concatenate, zip(*self.parallel_execution(self.vmc_random_walk, steps // self.num_proc, decorr_period)))
+        condition, position = self.markovchain.vmc_random_walk(self.r_e, steps, decorr_period)
         # huber loss cause difficulties in optimization process.
         # energy = self.markovchain.local_energy(condition, position)
         # f_scale = 5 * energy.std()
@@ -447,7 +438,7 @@ class Casino:
         SciPy, оптимизация с условиями - https://habr.com/ru/company/ods/blog/448054/
         """
         bounds = Bounds(*self.markovchain.wfn.jastrow.get_bounds(), keep_feasible=True)
-        condition, position = map(np.concatenate, zip(*self.parallel_execution(self.vmc_random_walk, steps // self.num_proc, decorr_period)))
+        condition, position = self.markovchain.vmc_random_walk(self.r_e, steps, decorr_period)
 
         def fun(x, *args):
             self.markovchain.wfn.set_parameters(x, opt_jastrow, opt_backflow)

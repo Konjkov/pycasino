@@ -145,6 +145,14 @@ if __name__ == '__main__':
      backflow value       1698.0
      backflow gradient    9133.1
      backflow laplacian  11405.6
+    Kr:
+     slater value          695.6
+     slater laplacian     1505.7
+     slater gradient      1869.0
+     slater hessian       4965.5
+     jastrow value        3552.8
+     jastrow laplacian    5946.7
+     jastrow gradient     6377.9
     """
 
     for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
