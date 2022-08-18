@@ -278,8 +278,8 @@ class MarkovChain:
         :param decorr_period: number of steps to walk
         :return:
         """
-        condition = np.zeros((steps, ), nb.boolean)
-        position = np.zeros((steps, r_e.shape[0], r_e.shape[1]))
+        condition = np.zeros(shape=(steps, ), dtype=nb.boolean)
+        position = np.zeros(shape=(steps, ) + r_e.shape)
         walker = self.walker(r_e, decorr_period)
 
         for i in range(steps):

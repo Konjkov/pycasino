@@ -603,29 +603,29 @@ class Jastrow:
             upper_bonds.append(10)
             for j1 in range(self.u_parameters.shape[0]):
                 for j2 in range(self.u_parameters.shape[1]):
-                    if self.u_mask[j1, j2]:
+                    if self.u_mask[j1, j2] and self.u_parameters_optimizable[j1, j2]:
                         lower_bonds.append(-1 / self.u_cutoff ** j1)
                         upper_bonds.append(1 / self.u_cutoff ** j1)
 
         if self.chi_cutoff.any():
-            for i, (chi_parameters, chi_mask, chi_cutoff) in enumerate(zip(self.chi_parameters, self.chi_mask, self.chi_cutoff)):
+            for i, (chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff)):
                 lower_bonds.append(1)
                 upper_bonds.append(10)
                 for j1 in range(chi_parameters.shape[0]):
                     for j2 in range(chi_parameters.shape[1]):
-                        if chi_mask[j1, j2]:
+                        if chi_mask[j1, j2] and chi_parameters_optimizable[j1, j2]:
                             lower_bonds.append(-1 / chi_cutoff ** j1)
                             upper_bonds.append(1 / chi_cutoff ** j1)
 
         if self.f_cutoff.any():
-            for i, (f_parameters, f_mask, f_cutoff) in enumerate(zip(self.f_parameters, self.f_mask, self.f_cutoff)):
+            for i, (f_parameters, f_parameters_optimizable, f_mask, f_cutoff) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff)):
                 lower_bonds.append(1)
                 upper_bonds.append(10)
                 for j1 in range(f_parameters.shape[0]):
                     for j2 in range(f_parameters.shape[1]):
                         for j3 in range(f_parameters.shape[2]):
                             for j4 in range(f_parameters.shape[3]):
-                                if f_mask[j1, j2, j3, j4]:
+                                if f_mask[j1, j2, j3, j4] and f_parameters_optimizable[j1, j2, j3, j4]:
                                     lower_bonds.append(-1 / f_cutoff ** (j1 + j2 + j3))
                                     upper_bonds.append(1 / f_cutoff ** (j1 + j2 + j3))
 
@@ -835,8 +835,8 @@ class Jastrow:
             return np.zeros((0,))
 
         delta = 0.00001
-        size = self.u_mask.sum() + 1
-        res = np.zeros((size,))
+        size = (self.u_mask & self.u_parameters_optimizable).sum() + 1
+        res = np.zeros(shape=(size,))
 
         n = 0
         self.u_cutoff -= delta
@@ -870,13 +870,15 @@ class Jastrow:
             return np.zeros((0,))
 
         delta = 0.00001
-        size = 0
-        for chi_mask in self.chi_mask:
-            size += chi_mask.sum() + 1
-        res = np.zeros((size,))
+        size = sum([
+            (chi_mask & chi_parameters_optimizable).sum() + 1
+            for chi_parameters_optimizable, chi_mask
+            in zip(self.chi_parameters_optimizable, self.chi_mask)
+        ])
+        res = np.zeros(shape=(size,))
 
         n = -1
-        for i, (chi_parameters, chi_mask) in enumerate(zip(self.chi_parameters, self.chi_mask)):
+        for i, (chi_parameters, chi_parameters_optimizable, chi_mask) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask)):
             n += 1
             self.chi_cutoff[i] -= delta
             self.fix_chi_parameters()
@@ -888,7 +890,7 @@ class Jastrow:
 
             for i in range(chi_parameters.shape[0]):
                 for j in range(chi_parameters.shape[1]):
-                    if chi_mask[i, j]:
+                    if chi_mask[i, j] and chi_parameters_optimizable[i, j]:
                         n += 1
                         chi_parameters[i, j] -= delta
                         self.fix_chi_parameters()
@@ -909,14 +911,16 @@ class Jastrow:
             return np.zeros((0,))
 
         delta = 0.00001
-        size = 0
-        for f_mask in self.f_mask:
-            size += f_mask.sum() + 1
-        res = np.zeros((size,))
+        size = sum([
+            (f_mask & f_parameters_optimizable).sum() + 1
+            for f_parameters_optimizable, f_mask
+            in zip(self.f_parameters_optimizable, self.f_mask)
+        ])
+        res = np.zeros(shape=(size,))
 
         n = -1
 
-        for i, (f_parameters, f_mask) in enumerate(zip(self.f_parameters, self.f_mask)):
+        for i, (f_parameters, f_parameters_optimizable, f_mask) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask)):
             n += 1
             self.f_cutoff[i] -= delta
             self.fix_f_parameters()
@@ -930,7 +934,7 @@ class Jastrow:
                 for j in range(f_parameters.shape[1]):
                     for k in range(f_parameters.shape[2]):
                         for l in range(f_parameters.shape[3]):
-                            if f_mask[i, j, k, l]:
+                            if f_mask[i, j, k, l] and f_parameters_optimizable[i, j, k, l]:
                                 n += 1
                                 f_parameters[i, j, k, l] -= delta
                                 if i != j:
@@ -969,7 +973,7 @@ class Jastrow:
         """
 
         delta = 0.00001
-        size = self.u_mask.sum() + 1
+        size = (self.u_mask & self.u_parameters_optimizable).sum() + 1
         res = -2 * self.u_term(e_powers) * np.eye(size)
 
         n = 0
@@ -1056,9 +1060,11 @@ class Jastrow:
             return np.zeros((0, 0))
 
         delta = 0.00001
-        size = 0
-        for chi_mask in self.chi_mask:
-            size += chi_mask.sum() + 1
+        size = sum([
+            (chi_mask & chi_parameters_optimizable).sum() + 1
+            for chi_parameters_optimizable, chi_mask
+            in zip(self.chi_parameters_optimizable, self.chi_mask)
+        ])
         res = -2 * self.chi_term(n_powers) * np.eye(size)
 
         n = -1
@@ -1148,9 +1154,11 @@ class Jastrow:
             return np.zeros((0, 0))
 
         delta = 0.00001
-        size = 0
-        for f_mask in self.f_mask:
-            size += f_mask.sum() + 1
+        size = sum([
+            (f_mask & f_parameters_optimizable).sum() + 1
+            for f_parameters_optimizable, f_mask
+            in zip(self.f_parameters_optimizable, self.f_mask)
+        ])
         res = -2 * self.f_term(e_powers, n_powers) * np.eye(size)
 
         n = -1

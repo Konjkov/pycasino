@@ -132,7 +132,13 @@ class Casino:
 
     def __reduce__(self):
         """to fix TypeError: cannot pickle '_io.TextIOWrapper' object"""
-        return self.__class__, (self.config_path, ), {'r_e': self.r_e}
+        parameters = self.markovchain.wfn.get_parameters(self.config.jastrow is not None, self.config.backflow is not None)
+        return self.__class__, (self.config_path, ), {'r_e': self.r_e, 'parameters': parameters}
+
+    def __setstate__(self, state):
+        """set state"""
+        self.r_e = state['r_e']
+        self.markovchain.wfn.set_parameters(state['parameters'], self.config.jastrow is not None, self.config.backflow is not None)
 
     def parallel_execution(self, function, *args):
         """Parallel execution of methods
@@ -228,7 +234,7 @@ class Casino:
                         self.config.input.opt_backflow
                     )
                     self.markovchain.wfn.set_parameters(res.x, self.config.input.opt_jastrow, self.config.input.opt_backflow)
-                    print(res.x)
+                    print(res.x / self.markovchain.wfn.get_parameters_scale(self.config.input.opt_jastrow, self.config.input.opt_backflow))
                     self.config.jastrow.u_cutoff = self.markovchain.wfn.jastrow.u_cutoff
                     self.config.jastrow.write(f'./correlation.out.{i + 1}')
                     self.optimize_vmc_step(10000)

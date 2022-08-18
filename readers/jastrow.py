@@ -58,7 +58,7 @@ START SET 1
  Spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
    {u_spin_dep}
  Cutoff (a.u.)     ;  Optimizable (0=NO; 1=YES)
-   {u_cutoff}                               1
+   {u_cutoff}                      {u_cutoff_optimizable}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
    {u_parameters}
  END SET 1"""
@@ -78,7 +78,7 @@ START SET {n_set}
  Spin dep (0->u=d; 1->u/=d)
    {chi_spin_dep}
  Cutoff (a.u.)     ;  Optimizable (0=NO; 1=YES)
-   {chi_cutoff}                               1
+   {chi_cutoff}                    {chi_cutoff_optimizable}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
    {chi_parameters}
  END SET {n_set}"""
@@ -100,7 +100,7 @@ START SET {n_set}
  Spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
    {f_spin_dep}
  Cutoff (a.u.)     ;  Optimizable (0=NO; 1=YES)
-   {f_cutoff}                               1
+   {f_cutoff}                      {f_cutoff_optimizable}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
    {f_parameters}
  END SET {n_set}"""
@@ -366,10 +366,11 @@ class Jastrow:
                 u_order=self.u_parameters.shape[0] - 1,
                 u_spin_dep=self.u_parameters.shape[1] - 1,
                 u_cutoff=self.u_cutoff,
+                u_cutoff_optimizable=int(self.u_cutoff_optimizable),
                 u_parameters='\n   '.join(u_parameters_list),
             )
             chi_sets = ''
-            for n_chi_set, (chi_labels, chi_parameters, chi_cutoff, chi_cusp) in enumerate(zip(self.chi_labels, self.chi_parameters, self.chi_cutoff, self.chi_cusp)):
+            for n_chi_set, (chi_labels, chi_parameters, chi_cutoff, chi_cutoff_optimizable, chi_cusp) in enumerate(zip(self.chi_labels, self.chi_parameters, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_cusp)):
                 chi_parameters_list = []
                 chi_mask = self.get_chi_mask(chi_parameters)
                 for i in range(chi_parameters.shape[1]):
@@ -384,10 +385,11 @@ class Jastrow:
                     chi_order=chi_parameters.shape[0] - 1,
                     chi_spin_dep=chi_parameters.shape[1] - 1,
                     chi_cutoff=chi_cutoff,
+                    chi_cutoff_optimizable=int(chi_cutoff_optimizable),
                     chi_parameters='\n   '.join(chi_parameters_list),
                 )
             f_sets = ''
-            for n_f_set, (f_labels, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term) in enumerate(zip(self.f_labels, self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term)):
+            for n_f_set, (f_labels, f_parameters, f_cutoff, f_cutoff_optimizable, no_dup_u_term, no_dup_chi_term) in enumerate(zip(self.f_labels, self.f_parameters, self.f_cutoff, self.f_cutoff_optimizable, self.no_dup_u_term, self.no_dup_chi_term)):
                 f_parameters_list = []
                 f_mask = self.get_f_mask(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                 for i in range(f_parameters.shape[3]):
@@ -406,6 +408,7 @@ class Jastrow:
                     f_ee_order=f_parameters.shape[2] - 1,
                     f_spin_dep=f_parameters.shape[3] - 1,
                     f_cutoff=f_cutoff,
+                    f_cutoff_optimizable=int(f_cutoff_optimizable),
                     f_parameters='\n   '.join(f_parameters_list),
                 )
             jastrow = jastrow_template.format(
