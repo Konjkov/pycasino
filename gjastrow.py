@@ -149,6 +149,7 @@ if __name__ == '__main__':
     path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/casl/8__1/'
 
     casino = CasinoConfig(path)
+    casino.read(path)
     gjastrow = Gjastrow(
         casino.jastrow.e_rank, casino.jastrow.n_rank,
         casino.jastrow.ee_basis_type, casino.jastrow.en_basis_type,

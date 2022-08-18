@@ -6,14 +6,15 @@ import numpy as np
 class Mdet:
     """"""
 
-    def __init__(self, file, neu, ned, mo_up, mo_down):
+    def __init__(self, base_path, neu, ned, mo_up, mo_down):
+        file_path = os.path.join(base_path, 'correlation.data')
         mdet = False
         n_dets = 1
         self.coeff = np.ones(n_dets)
         up = np.stack([np.arange(neu)] * n_dets)
         down = np.stack([np.arange(ned)] * n_dets)
 
-        if not os.path.isfile(file):
+        if not os.path.isfile(file_path):
             self.mo_up = np.zeros((n_dets, neu, mo_up.shape[1]), np.float)
             self.mo_down = np.zeros((n_dets, ned, mo_down.shape[1]), np.float)
             for i in range(n_dets):
@@ -21,7 +22,7 @@ class Mdet:
                 self.mo_down[i] = mo_down[down[i]]
             return
 
-        with open(file, 'r') as f:
+        with open(file_path, 'r') as f:
             for line in f:
                 line = line.strip()
                 if line.startswith('START MDET'):
@@ -49,3 +50,6 @@ class Mdet:
         for i in range(n_dets):
             self.mo_up[i] = mo_up[up[i]]
             self.mo_down[i] = mo_down[down[i]]
+
+    def read(self, base_path):
+        file_path = os.path.join(base_path, 'correlation.data')

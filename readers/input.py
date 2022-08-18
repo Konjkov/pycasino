@@ -1,9 +1,23 @@
+import os
 
 
 class Input:
     """Input reader from file."""
 
-    def __init__(self, file_name):
+    def __init__(self):
+        """Default values"""
+        self.vmc_method = 1
+        self.dmc_method = 1
+        self.limdmc = 4
+        self.vmc_decorr_period = 3
+        self.ebest_av_window = 25
+        self.nucleus_gf_mods = True
+        self.cusp_correction = None
+        self.cusp_threshold = 1e-7
+        self.use_gpcc = None
+        self.opt_backflow = False
+
+    def read(self, base_path):
         def read_bool(line):
             return line.split(':')[1].strip() == 'T'
 
@@ -16,17 +30,8 @@ class Input:
         def read_str(line):
             return str(line.split(':')[1].strip())
 
-        self.vmc_method = 1
-        self.dmc_method = 1
-        self.limdmc = 4
-        self.vmc_decorr_period = 3
-        self.ebest_av_window = 25
-        self.nucleus_gf_mods = True
-        self.cusp_correction = None
-        self.cusp_threshold = 1e-7
-        self.use_gpcc = None
-        self.opt_backflow = False
-        with open(file_name, 'r') as f:
+        file_path = os.path.join(base_path, 'input')
+        with open(file_path, 'r') as f:
             for line in f:
                 # remove comments
                 line = line.partition('#')[0].strip()

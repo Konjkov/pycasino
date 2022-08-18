@@ -1,3 +1,5 @@
+import os
+
 from collections import ChainMap
 from typing import Tuple, Dict
 
@@ -163,8 +165,15 @@ class Gjastrow:
                 res[i, j] = val[0]
         return res
 
-    def __init__(self, file, atom_charges):
-        with open(file, 'r') as f:
+    def __init__(self):
+        """init method"""
+
+    def read(self, base_path):
+        file_path = os.path.join(base_path, 'parameters.casl')
+        if not os.path.isfile(file_path):
+            return
+
+        with open(file_path, 'r') as f:
             self._jastrow_data = safe_load(f)['JASTROW']
 
         terms = self.get_terms()

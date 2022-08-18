@@ -1,3 +1,4 @@
+import os
 from math import factorial, pi, sqrt
 
 import numpy as np
@@ -11,9 +12,9 @@ SLATER_TYPE = 1
 class FortranFile:
     """Reader of fortran formatted data from file."""
 
-    def __init__(self, file_name):
+    def __init__(self):
         """Open file and read base types"""
-        self.f = open(file_name, 'r')
+        self.f = None
 
     def read_bool(self):
         return self.f.readline().strip() == '.true.'
@@ -49,10 +50,10 @@ class Gwfn(FortranFile):
     # shell types (s/sp/p/d/f... 1/2/3/4/5...) -> l
     shell_map = {1: 0, 2: 1, 3: 1, 4: 2, 5: 3, 6: 4}
 
-    def __init__(self, file_name):
+    def read(self, base_path):
         """Open file and read gwfn.data"""
-
-        super().__init__(file_name)
+        file_path = os.path.join(base_path, 'gwfn.data')
+        self.f = open(file_path, 'r')
 
         for line in self.f:
             if line.startswith('TITLE'):
@@ -200,10 +201,10 @@ class Stowfn(FortranFile):
     # shell types (s/sp/p/d/f... 1/2/3/4/5...) -> l
     shell_map = {1: 0, 2: 1, 3: 1, 4: 2, 5: 3, 6: 4}
 
-    def __init__(self, file_name):
+    def read(self, base_path):
         """Open file and read stowfn.data"""
-
-        super().__init__(file_name)
+        file_path = os.path.join(base_path, 'stowfn.data')
+        self.f = open(file_path, 'r')
 
         for line in self.f:
             # BASIC_INFO

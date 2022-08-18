@@ -783,6 +783,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/O3/HF/cc-pVQZ/CBCS/Slater/'
 
     config = CasinoConfig(path)
+    config.read(path)
 
     cusp = CuspFactory(
         config.input.neu, config.input.ned, config.mdet.mo_up, config.mdet.mo_down, config.wfn.nbasis_functions,

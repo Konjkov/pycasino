@@ -73,6 +73,7 @@ class Casino:
         """
         self.config_path = config_path
         self.config = CasinoConfig(self.config_path)
+        self.config.read(self.config_path)
         self.num_proc = cpu_count(logical=False)
         self.neu, self.ned = self.config.input.neu, self.config.input.ned
         self.r_e = self.initial_position(self.neu + self.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges)
@@ -202,6 +203,7 @@ class Casino:
         elif self.config.input.runtype == 'vmc_opt':
             if self.config.input.opt_method == 'varmin':
                 start = default_timer()
+                self.config.write('.', 0)
                 self.optimize_vmc_step(10000)
                 self.vmc_energy_accumulation()
                 for i in range(self.config.input.opt_cycles):
@@ -212,9 +214,9 @@ class Casino:
                         self.config.input.opt_backflow
                     )
                     self.markovchain.wfn.set_parameters(res.x, self.config.input.opt_jastrow, self.config.input.opt_backflow)
-                    print(res.x / self.markovchain.wfn.get_parameters_scale(self.config.input.opt_jastrow, self.config.input.opt_backflow))
+                    logger.info(res.x / self.markovchain.wfn.get_parameters_scale(self.config.input.opt_jastrow, self.config.input.opt_backflow))
                     self.config.jastrow.u_cutoff = self.markovchain.wfn.jastrow.u_cutoff
-                    self.config.jastrow.write(f'./correlation.out.{i+1}')
+                    self.config.write('.', i + 1)
                     self.optimize_vmc_step(10000)
                     self.vmc_energy_accumulation()
                 stop = default_timer()
@@ -224,6 +226,7 @@ class Casino:
                 )
             elif self.config.input.opt_method == 'emin':
                 start = default_timer()
+                self.config.write('.', 0)
                 self.optimize_vmc_step(10000)
                 self.vmc_energy_accumulation()
                 for i in range(self.config.input.opt_cycles):
@@ -234,9 +237,9 @@ class Casino:
                         self.config.input.opt_backflow
                     )
                     self.markovchain.wfn.set_parameters(res.x, self.config.input.opt_jastrow, self.config.input.opt_backflow)
-                    print(res.x / self.markovchain.wfn.get_parameters_scale(self.config.input.opt_jastrow, self.config.input.opt_backflow))
+                    logger.info(res.x / self.markovchain.wfn.get_parameters_scale(self.config.input.opt_jastrow, self.config.input.opt_backflow))
                     self.config.jastrow.u_cutoff = self.markovchain.wfn.jastrow.u_cutoff
-                    self.config.jastrow.write(f'./correlation.out.{i + 1}')
+                    self.config.write('.', i + 1)
                     self.optimize_vmc_step(10000)
                     self.vmc_energy_accumulation()
                 stop = default_timer()
