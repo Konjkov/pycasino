@@ -18,7 +18,7 @@ f_parameters_optimizable_type = nb.boolean[:, :, :, :]
 jastrow_template = """\
  START JASTROW
  Title
- {title}
+  {title}
  Truncation order C
    {trunc}
  START U TERM
@@ -49,7 +49,7 @@ START SET 1
  Spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
    {u_spin_dep}
  Cutoff (a.u.)     ;  Optimizable (0=NO; 1=YES)
-  {u_cutoff: .16e}            {u_cutoff_optimizable}
+   {u_cutoff:.16f}                {u_cutoff_optimizable}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
   {u_parameters}
  END SET 1"""
@@ -69,7 +69,7 @@ START SET {n_set}
  Spin dep (0->u=d; 1->u/=d)
    {chi_spin_dep}
  Cutoff (a.u.)     ;  Optimizable (0=NO; 1=YES)
-  {chi_cutoff: .16e}            {chi_cutoff_optimizable}
+   {chi_cutoff:.16f}                {chi_cutoff_optimizable}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
   {chi_parameters}
  END SET {n_set}"""
@@ -91,7 +91,7 @@ START SET {n_set}
  Spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
    {f_spin_dep}
  Cutoff (a.u.)     ;  Optimizable (0=NO; 1=YES)
-  {f_cutoff: .16e}            {f_cutoff_optimizable}
+   {f_cutoff:.16f}                {f_cutoff_optimizable}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
   {f_parameters}
  END SET {n_set}"""
@@ -354,7 +354,7 @@ class Jastrow:
         for i in range(self.u_parameters.shape[1]):
             for l in range(self.u_parameters.shape[0]):
                 if u_mask[l, i]:
-                    u_parameters_list.append(f'{self.u_parameters[l, i]: .16e}            1       ! alpha_{l},{i + 1}')
+                    u_parameters_list.append(f'{self.u_parameters[l, i]: .16e}            {int(self.u_parameters_optimizable[l, i])}       ! alpha_{l},{i + 1}')
         u_set = u_set_template.format(
             u_order=self.u_parameters.shape[0] - 1,
             u_spin_dep=self.u_parameters.shape[1] - 1,
@@ -363,13 +363,13 @@ class Jastrow:
             u_parameters='\n  '.join(u_parameters_list),
         )
         chi_sets = ''
-        for n_chi_set, (chi_labels, chi_parameters, chi_cutoff, chi_cutoff_optimizable, chi_cusp) in enumerate(zip(self.chi_labels, self.chi_parameters, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_cusp)):
+        for n_chi_set, (chi_labels, chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_cusp) in enumerate(zip(self.chi_labels, self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_cusp)):
             chi_parameters_list = []
             chi_mask = self.get_chi_mask(chi_parameters)
             for i in range(chi_parameters.shape[1]):
                 for m in range(chi_parameters.shape[0]):
                     if chi_mask[m, i]:
-                        chi_parameters_list.append(f'{chi_parameters[m, i]: .16e}            1       ! beta_{m},{i + 1},{n_chi_set + 1}')
+                        chi_parameters_list.append(f'{chi_parameters[m, i]: .16e}            {int(chi_parameters_optimizable[m, i])}       ! beta_{m},{i + 1},{n_chi_set + 1}')
             chi_sets += chi_set_template.format(
                 n_set=n_chi_set + 1,
                 n_atoms=len(chi_labels),
@@ -382,7 +382,7 @@ class Jastrow:
                 chi_parameters='\n  '.join(chi_parameters_list),
             )
         f_sets = ''
-        for n_f_set, (f_labels, f_parameters, f_cutoff, f_cutoff_optimizable, no_dup_u_term, no_dup_chi_term) in enumerate(zip(self.f_labels, self.f_parameters, self.f_cutoff, self.f_cutoff_optimizable, self.no_dup_u_term, self.no_dup_chi_term)):
+        for n_f_set, (f_labels, f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, no_dup_u_term, no_dup_chi_term) in enumerate(zip(self.f_labels, self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.no_dup_u_term, self.no_dup_chi_term)):
             f_parameters_list = []
             f_mask = self.get_f_mask(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
             for i in range(f_parameters.shape[3]):
@@ -390,7 +390,7 @@ class Jastrow:
                     for m in range(f_parameters.shape[1]):
                         for l in range(f_parameters.shape[0]):
                             if f_mask[l, m, n, i]:
-                                f_parameters_list.append(f'{f_parameters[l, m, n, i]: .16e}            1       ! gamma_{l},{m},{n},{i + 1},{n_f_set + 1}')
+                                f_parameters_list.append(f'{f_parameters[l, m, n, i]: .16e}            {int(f_parameters_optimizable[l, m, n, i])}       ! gamma_{l},{m},{n},{i + 1},{n_f_set + 1}')
             f_sets += f_set_template.format(
                 n_set=n_f_set + 1,
                 n_atoms=len(f_labels),

@@ -9,7 +9,7 @@ from readers.backflow import Backflow
 
 template = """\
  START HEADER
- {title}
+  {title}
  END HEADER
 
  START VERSION

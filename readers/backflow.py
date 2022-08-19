@@ -20,9 +20,9 @@ theta_parameters_optimizable_type = nb.boolean[:, :, :, :]
 backflow_template = """\
  START BACKFLOW
  Title
- title
+  {title}
  Truncation order
-  {trunc}
+   {trunc}
  START ETA TERM
  {eta_set}
  END ETA TERM
@@ -37,6 +37,7 @@ backflow_template = """\
  {phi_sets}
  END PHI TERM
  START AE CUTOFFS
+ Nucleus ; Set ; Cutoff length     ;  Optimizable (0=NO; 1=YES)
  {ae_cutoffs}
  END AE CUTOFFS
  END BACKFLOW
@@ -49,7 +50,7 @@ Expansion order
  Spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
    {eta_spin_dep}
  Cut-off radii ;      Optimizable (0=NO; 1=YES; 2=YES BUT NO SPIN-DEP)
-   {eta_cutoff}                               1
+   {eta_cutoff:.16f}                               {eta_cutoff_optimizable}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
   {eta_parameters}"""
 
@@ -66,7 +67,7 @@ START SET {n_set}
  Spin dep (0->u=d; 1->u/=d)
    {mu_spin_dep}
  Cutoff (a.u.)     ;  Optimizable (0=NO; 1=YES)
-   {mu_cutoff}                               1
+   {mu_cutoff:.16f}                               {mu_cutoff_optimizable}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
   {mu_parameters}
  END SET {n_set}"""
@@ -80,15 +81,15 @@ START SET {n_set}
  Type of e-N cusp conditions (0=PP; 1=AE)
    {phi_cusp}
  Irrotational Phi term (0=NO; 1=YES)
-   0
+   {phi_irrotational}
  Electron-nucleus expansion order N_eN
-   3
+   {phi_en_order}
  Electron-electron expansion order N_ee
-   3
+   {phi_ee_order}
  Spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
    {phi_spin_dep}
  Cutoff (a.u.)     ;  Optimizable (0=NO; 1=YES)
-   {phi_cutoff}                               1
+   {phi_cutoff:.16f}                               {phi_cutoff_optimizable}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
   {phi_parameters}
  END SET {n_set}"""
@@ -291,6 +292,7 @@ class Backflow:
         self.mu_cusp = np.zeros(0, dtype=bool)
         self.phi_cusp = np.zeros(0, dtype=bool)
         self.ae_cutoff = np.zeros(0)
+        self.ae_cutoff_optimizable = np.zeros(0)
         self.phi_irrotational = np.zeros(0, dtype=bool)
 
     def read(self, base_path):
@@ -325,9 +327,11 @@ class Backflow:
                 elif line.startswith('START AE CUTOFFS'):
                     ae_term = True
                     ae_cutoff = []
+                    ae_cutoff_optimizable = []
                 elif line.startswith('END AE CUTOFFS'):
                     ae_term = False
                     self.ae_cutoff = np.array(ae_cutoff)
+                    self.ae_cutoff_optimizable = np.array(ae_cutoff_optimizable)
                 elif eta_term:
                     if line.startswith('Expansion order'):
                         eta_order = self.read_int()
@@ -338,11 +342,13 @@ class Backflow:
                         # Optimizable (0=NO; 1=YES; 2=YES BUT NO SPIN-DEP)
                         if line[1] == '2':
                             self.eta_cutoff = np.zeros((1, ))
+                            self.eta_cutoff_optimizable = np.zeros((1,), dtype=bool)
                         else:
                             self.eta_cutoff = np.zeros((eta_spin_dep+1,))
+                            self.eta_cutoff_optimizable = np.zeros((eta_spin_dep + 1,), dtype=bool)
                         self.eta_cutoff[0] = float(line[0])
                         for i in range(1, self.eta_cutoff.shape[0]):
-                            self.eta_cutoff[i], _ = self.read_parameter()
+                            self.eta_cutoff[i], self.eta_cutoff_optimizable[i] = self.read_parameter()
                     elif line.startswith('Parameter'):
                         self.eta_parameters = np.zeros((eta_order+1, eta_spin_dep+1), dtype=float)
                         self.eta_parameters_optimizable = np.zeros((eta_order + 1, eta_spin_dep + 1), dtype=bool)
@@ -361,6 +367,7 @@ class Backflow:
                         number_of_sets = self.read_ints()[0]
                         self.mu_cusp = np.zeros(number_of_sets, dtype=bool)
                         self.mu_cutoff = np.zeros(number_of_sets, dtype=float)
+                        self.mu_cutoff_optimizable = np.zeros(number_of_sets, dtype=bool)
                     elif line.startswith('START SET'):
                         set_number = int(line.split()[2]) - 1
                     elif line.startswith('Label'):
@@ -374,8 +381,9 @@ class Backflow:
                     elif line.startswith('Spin dep'):
                         mu_spin_dep = self.read_int()
                     elif line.startswith('Cutoff (a.u.)'):
-                        mu_cutoff, _ = self.read_parameter()
+                        mu_cutoff, mu_cutoff_optimizable = self.read_parameter()
                         self.mu_cutoff[set_number] = mu_cutoff
+                        self.mu_cutoff_optimizable[set_number] = mu_cutoff_optimizable
                     elif line.startswith('Parameter values'):
                         mu_parameters = np.zeros((mu_order+1, mu_spin_dep+1), dtype=float)
                         mu_parameters_optimizable = np.zeros((mu_order + 1, mu_spin_dep + 1), dtype=bool)
@@ -398,6 +406,7 @@ class Backflow:
                         self.phi_cusp = np.zeros(number_of_sets, dtype=bool)
                         self.phi_cutoff = np.zeros(number_of_sets, dtype=float)
                         self.phi_irrotational = np.zeros(number_of_sets, dtype=bool)
+                        self.phi_cutoff_optimizable = np.zeros(number_of_sets, dtype=bool)
                     elif line.startswith('START SET'):
                         set_number = int(line.split()[2]) - 1
                     elif line.startswith('Label'):
@@ -415,8 +424,9 @@ class Backflow:
                     elif line.startswith('Spin dep'):
                         phi_spin_dep = self.read_int()
                     elif line.startswith('Cutoff (a.u.)'):
-                        phi_cutoff, _ = self.read_parameter()
+                        phi_cutoff, phi_cutoff_optimizable = self.read_parameter()
                         self.phi_cutoff[set_number] = phi_cutoff
+                        self.phi_cutoff_optimizable[set_number] = phi_cutoff_optimizable
                     elif line.startswith('Parameter values'):
                         phi_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), float)
                         phi_parameters_optimizable = np.zeros((phi_en_order + 1, phi_en_order + 1, phi_ee_order + 1, phi_spin_dep + 1), bool)
@@ -452,8 +462,9 @@ class Backflow:
                         # Nucleus ; Set ; Cutoff length     ;  Optimizable (0=NO; 1=YES)
                         pass
                     else:
-                        _, _, cutoff_length, _ = line.split()
+                        _, _, cutoff_length, cutoff_length_optimizable = line.split()
                         ae_cutoff.append(float(cutoff_length))
+                        ae_cutoff_optimizable.append(float(cutoff_length_optimizable))
 
     def write(self):
         eta_parameters_list = []
@@ -461,22 +472,23 @@ class Backflow:
         for i in range(self.eta_parameters.shape[1]):
             for j in range(self.eta_parameters.shape[0]):
                 if eta_mask[j, i]:
-                    eta_parameters_list.append(f'{self.eta_parameters[j, i]: .16e}            1       ! c_{j},{i + 1}')
+                    eta_parameters_list.append(f'{self.eta_parameters[j, i]: .16e}            {int(self.eta_parameters_optimizable[j, i])}       ! c_{j},{i + 1}')
         eta_set = eta_set_template.format(
             eta_order=self.eta_parameters.shape[0] - 1,
             eta_spin_dep=self.eta_parameters.shape[1] - 1,
+            # FIXME: Optimizable (0=NO; 1=YES; 2=YES BUT NO SPIN-DEP)
             eta_cutoff=self.eta_cutoff[0],
-            eta_cutoff_optimizable=int(True),
+            eta_cutoff_optimizable=int(self.eta_cutoff_optimizable[0]),
             eta_parameters='\n  '.join(eta_parameters_list),
         )
         mu_sets = ''
-        for n_mu_set, (mu_labels, mu_parameters, mu_cutoff, mu_cusp) in enumerate(zip(self.mu_labels, self.mu_parameters, self.mu_cutoff, self.mu_cusp)):
+        for n_mu_set, (mu_labels, mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_cusp) in enumerate(zip(self.mu_labels, self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_cusp)):
             mu_parameters_list = []
             mu_mask = self.get_mu_mask(mu_parameters)
             for i in range(mu_parameters.shape[1]):
                 for j in range(mu_parameters.shape[0]):
                     if mu_mask[j, i]:
-                        mu_parameters_list.append(f'{mu_parameters[j, i]: .16e}            1       ! mu_{j},{i + 1}')
+                        mu_parameters_list.append(f'{mu_parameters[j, i]: .16e}            {int(mu_parameters_optimizable[j, i])}       ! mu_{j},{i + 1}')
             mu_sets += mu_set_template.format(
                 n_set=n_mu_set + 1,
                 n_atoms=len(mu_labels),
@@ -485,11 +497,11 @@ class Backflow:
                 mu_order=mu_parameters.shape[0] - 1,
                 mu_spin_dep=mu_parameters.shape[1] - 1,
                 mu_cutoff=mu_cutoff,
-                mu_cutoff_optimizable=int(1),
+                mu_cutoff_optimizable=int(mu_cutoff_optimizable),
                 mu_parameters='\n  '.join(mu_parameters_list),
             )
         phi_sets = ''
-        for n_phi_set, (phi_labels, phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational) in enumerate(zip(self.phi_labels, self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cusp, self.phi_irrotational)):
+        for n_phi_set, (phi_labels, phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable, phi_cutoff, phi_cutoff_optimizable, phi_cusp, phi_irrotational) in enumerate(zip(self.phi_labels, self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable, self.phi_cutoff, self.phi_cutoff_optimizable, self.phi_cusp, self.phi_irrotational)):
             phi_theta_parameters_list = []
             phi_mask, theta_mask = self.get_phi_theta_mask(phi_parameters, phi_cutoff, phi_cusp, phi_irrotational)
             for i in range(phi_parameters.shape[3]):
@@ -497,12 +509,12 @@ class Backflow:
                     for l in range(phi_parameters.shape[1]):
                         for k in range(phi_parameters.shape[0]):
                             if phi_mask[k, l, m, i]:
-                                phi_theta_parameters_list.append(f'{phi_parameters[k, l, m, i]: .16e}            1       ! phi_{l},{i + 1}')
+                                phi_theta_parameters_list.append(f'{phi_parameters[k, l, m, i]: .16e}            {int(phi_parameters_optimizable[k, l, m, i])}       ! phi_{l},{i + 1}')
                 for m in range(phi_parameters.shape[2]):
                     for l in range(phi_parameters.shape[1]):
                         for k in range(phi_parameters.shape[0]):
                             if theta_mask[k, l, m, i]:
-                                phi_theta_parameters_list.append(f'{theta_parameters[k, l, m, i]: .16e}            1       ! theta_{l},{i + 1}')
+                                phi_theta_parameters_list.append(f'{theta_parameters[k, l, m, i]: .16e}            {int(theta_parameters_optimizable[k, l, m, i])}       ! theta_{l},{i + 1}')
             phi_sets += phi_set_template.format(
                 n_set=n_phi_set + 1,
                 n_atoms=len(phi_labels),
@@ -512,12 +524,13 @@ class Backflow:
                 phi_ee_order=phi_parameters.shape[2] - 1,
                 phi_spin_dep=phi_parameters.shape[3] - 1,
                 phi_cutoff=phi_cutoff,
-                phi_cutoff_optimizable=int(1),
+                phi_cutoff_optimizable=int(phi_cutoff_optimizable),
+                phi_irrotational=int(phi_irrotational),
                 phi_parameters='\n  '.join(phi_theta_parameters_list),
             )
         ae_cutoff_list = []
-        for i, ae_cutoff in enumerate(self.ae_cutoff):
-            ae_cutoff_list.append(f'{i + 1}        1        {ae_cutoff}          1')
+        for i, (ae_cutoff, ae_cutoff_optimizable) in enumerate(zip(self.ae_cutoff, self.ae_cutoff_optimizable)):
+            ae_cutoff_list.append(f' {i + 1}         1      {ae_cutoff}            {int(ae_cutoff_optimizable)}')
         backflow = backflow_template.format(
             title='no title given',
             trunc=self.trunc,
