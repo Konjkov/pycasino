@@ -311,38 +311,52 @@ class MarkovChain:
         :param position: random walk positions
         :return:
         """
-        energy = np.zeros(shape=(condition.size, ))
-        for i, (c, p) in enumerate(zip(condition, position)):
-            if i == 0 or c:
-                energy[i] = self.wfn.energy(p)
+        first_res = self.wfn.energy(position[0])
+        res = np.zeros(shape=condition.shape + np.shape(first_res))
+
+        for i, c in enumerate(condition):
+            if i == 0:
+                res[i] = first_res
+            elif c:
+                res[i] = self.wfn.energy(position[i])
             else:
-                energy[i] = energy[i-1]
-        return energy
+                res[i] = res[i-1]
+        return res
 
     def jastrow_gradient(self, condition, position):
         """Jastrow gradient with respect to jastrow parameters.
+        :param condition: accept/reject condition
         :param position: random walk positions
         :return:
         """
         first_res = self.wfn.jastrow_parameters_numerical_d1(position[0])
-        res = np.zeros(shape=(position.shape[0], ) + first_res.shape)
-        res[0] = first_res
+        res = np.zeros(shape=condition.shape + np.shape(first_res))
 
-        for i in range(1, position.shape[0]):
-            res[i] = self.wfn.jastrow_parameters_numerical_d1(position[i])
+        for i, c in enumerate(condition):
+            if i == 0:
+                res[i] = first_res
+            elif c:
+                res[i] = self.wfn.jastrow_parameters_numerical_d1(position[i])
+            else:
+                res[i] = res[i-1]
         return res
 
     def jastrow_hessian(self, condition, position):
         """Jastrow hessian with respect to jastrow parameters.
+        :param condition: accept/reject condition
         :param position: random walk positions
         :return:
         """
         first_res = self.wfn.jastrow_parameters_numerical_d2(position[0])
-        res = np.zeros(shape=(position.shape[0], ) + first_res.shape)
-        res[0] = first_res
+        res = np.zeros(shape=condition.shape + np.shape(first_res))
 
-        for i in range(1, position.shape[0]):
-            res[i] = self.wfn.jastrow_parameters_numerical_d2(position[i])
+        for i, c in enumerate(condition):
+            if i == 0:
+                res[i] = first_res
+            elif c:
+                res[i] = self.wfn.jastrow_parameters_numerical_d2(position[i])
+            else:
+                res[i] = res[i-1]
         return res
 
     def profiling_simple_random_walk(self, steps, r_initial, decorr_period):

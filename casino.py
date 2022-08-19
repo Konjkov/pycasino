@@ -152,11 +152,14 @@ class Casino:
         :param args: arguments
         :return:
         """
-        # FIXME: if not cached numba compiled it everytime
-        with ProcessPoolExecutor(max_workers=self.num_proc) as executor:
-            futures = [executor.submit(function, *args) for _ in range(self.num_proc)]
-            # to get task results in order they were submitted
-            return [res.result() for res in futures]
+        if self.num_proc == 1:
+            return [function(*args)]
+        else:
+            # FIXME: if not cached numba compiled it everytime
+            with ProcessPoolExecutor(max_workers=self.num_proc) as executor:
+                futures = [executor.submit(function, *args) for _ in range(self.num_proc)]
+                # to get task results in order they were submitted
+                return [res.result() for res in futures]
 
     def parallel_execution_map(self, function, *args):
         """Parallel execution of methods
