@@ -278,8 +278,8 @@ class MarkovChain:
         :param decorr_period: number of steps to walk
         :return:
         """
-        condition = np.zeros(shape=(steps, ), dtype=nb.boolean)
-        position = np.zeros(shape=(steps, ) + r_e.shape)
+        condition = np.empty(shape=(steps, ), dtype=nb.boolean)
+        position = np.empty(shape=(steps, ) + r_e.shape)
         walker = self.walker(r_e, decorr_period)
 
         for i in range(steps):
@@ -296,7 +296,7 @@ class MarkovChain:
         :param target_weight: target weight
         :return:
         """
-        energy = np.zeros(shape=(steps, ))
+        energy = np.empty(shape=(steps, ))
         walker = self.dmc_random_walker(r_e, target_weight)
 
         for i in range(steps):
@@ -305,61 +305,27 @@ class MarkovChain:
 
         return energy
 
-    def local_energy(self, condition, position):
-        """VMC local energy estimator.
-        :param condition: accept/reject condition
-        :param position: random walk positions
-        :return:
-        """
-        first_res = self.wfn.energy(position[0])
-        res = np.zeros(shape=condition.shape + np.shape(first_res))
-
-        for i, c in enumerate(condition):
-            if i == 0:
-                res[i] = first_res
-            elif c:
-                res[i] = self.wfn.energy(position[i])
-            else:
-                res[i] = res[i-1]
-        return res
-
-    def jastrow_gradient(self, condition, position):
-        """Jastrow gradient with respect to jastrow parameters.
-        :param condition: accept/reject condition
-        :param position: random walk positions
-        :return:
-        """
-        first_res = self.wfn.jastrow_parameters_numerical_d1(position[0])
-        res = np.zeros(shape=condition.shape + np.shape(first_res))
-
-        for i, c in enumerate(condition):
-            if i == 0:
-                res[i] = first_res
-            elif c:
-                res[i] = self.wfn.jastrow_parameters_numerical_d1(position[i])
-            else:
-                res[i] = res[i-1]
-        return res
-
-    def jastrow_hessian(self, condition, position):
-        """Jastrow hessian with respect to jastrow parameters.
-        :param condition: accept/reject condition
-        :param position: random walk positions
-        :return:
-        """
-        first_res = self.wfn.jastrow_parameters_numerical_d2(position[0])
-        res = np.zeros(shape=condition.shape + np.shape(first_res))
-
-        for i, c in enumerate(condition):
-            if i == 0:
-                res[i] = first_res
-            elif c:
-                res[i] = self.wfn.jastrow_parameters_numerical_d2(position[i])
-            else:
-                res[i] = res[i-1]
-        return res
-
     def profiling_simple_random_walk(self, steps, r_initial, decorr_period):
         walker = self.simple_random_walker(r_initial, decorr_period)
         for _ in range(steps):
             next(walker)
+
+
+# @nb.jit(nopython=True, nogil=True, parallel=False)
+def vmc_observable(condition, position, observable):
+    """VMC observable.
+    :param observable: observable quantity
+    :param condition: accept/reject conditions
+    :param position: random walk positions
+    :return:
+    """
+    first_res = observable(position[0])
+    res = np.empty(shape=condition.shape + np.shape(first_res))
+    res[0] = first_res
+
+    for i in range(1, condition.shape[0]):
+        if condition[i]:
+            res[i] = observable(position[i])
+        else:
+            res[i] = res[i-1]
+    return res

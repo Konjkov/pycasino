@@ -7,7 +7,7 @@ from cusp import CuspFactory, TestCuspFactory
 from slater import Slater
 from jastrow import Jastrow
 from backflow import Backflow
-from markovchain import MarkovChain
+from markovchain import MarkovChain, vmc_observable
 from wfn import Wfn
 
 os.environ["OMP_NUM_THREADS"] = "1"  # openmp
@@ -253,8 +253,8 @@ class Casino:
         elif self.config.input.runtype == 'vmc_dmc':
             self.optimize_vmc_step(10000)
             # FIXME: decorr_period for dmc?
-            cond, position = self.markovchain.vmc_random_walk(self.r_e, self.config.input.vmc_nstep, 1)
-            energy = self.markovchain.local_energy(cond, position) + self.markovchain.wfn.nuclear_repulsion
+            condition, position = self.markovchain.vmc_random_walk(self.r_e, self.config.input.vmc_nstep, 1)
+            energy = vmc_observable(condition, position, self.markovchain.wfn.energy) + self.markovchain.wfn.nuclear_repulsion
             logger.info('VMC energy %.5f', energy.mean())
             self.r_e = position[-self.config.input.vmc_nconfig_write:]
 
@@ -311,7 +311,7 @@ class Casino:
             https://numba.readthedocs.io/en/stable/extending/high-level.html#implementing-mutable-structures
         """
         condition, position = self.markovchain.vmc_random_walk(self.r_e, steps, decorr_period)
-        return self.markovchain.local_energy(condition, position) + self.markovchain.wfn.nuclear_repulsion
+        return vmc_observable(condition, position, self.markovchain.wfn.energy) + self.markovchain.wfn.nuclear_repulsion
 
     def vmc_energy_accumulation(self):
         """VMC energy accumulation"""
@@ -431,7 +431,7 @@ class Casino:
 
         def fun(x, *args, **kwargs):
             self.markovchain.wfn.set_parameters(x, opt_jastrow, opt_backflow)
-            energy = self.markovchain.local_energy(condition, position)
+            energy = vmc_observable(condition, position, self.markovchain.wfn.energy)
             return energy - energy.mean()
 
         return least_squares(
@@ -454,17 +454,16 @@ class Casino:
 
         def fun(x, *args):
             self.markovchain.wfn.set_parameters(x, opt_jastrow, opt_backflow)
-            energy = self.markovchain.local_energy(condition, position)
-            mean_energy = energy.mean()
-            energy_gradient = self.markovchain.jastrow_gradient(condition, position)
+            energy = vmc_observable(condition, position, self.markovchain.wfn.energy)
+            energy_gradient = vmc_observable(condition, position, self.markovchain.wfn.jastrow_parameters_numerical_d1)
             mean_energy_gradient = jastrow_parameters_gradient(energy, energy_gradient)
-            return mean_energy, mean_energy_gradient
+            return energy.mean(), mean_energy_gradient
 
         def hess(x, *args):
             self.markovchain.wfn.jastrow.set_parameters(x, opt_jastrow, opt_backflow)
-            energy = self.markovchain.local_energy(condition, position)
-            energy_gradient = self.markovchain.jastrow_gradient(condition, position)
-            energy_hessian = self.markovchain.jastrow_hessian(condition, position)
+            energy = vmc_observable(condition, position, self.markovchain.wfn.energy)
+            energy_gradient = vmc_observable(condition, position, self.markovchain.wfn.jastrow_parameters_numerical_d1)
+            energy_hessian = vmc_observable(condition, position, self.markovchain.wfn.jastrow_parameters_numerical_d2)
             mean_energy_hessian = jastrow_parameters_hessian(energy, energy_gradient, energy_hessian)
             logger.info('hessian = %s', mean_energy_hessian)
             return mean_energy_hessian
