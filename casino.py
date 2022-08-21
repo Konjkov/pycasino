@@ -133,12 +133,14 @@ class Casino:
 
     def __reduce__(self):
         """to fix TypeError: cannot pickle '_io.TextIOWrapper' object"""
+        step = self.markovchain.step
         parameters = self.markovchain.wfn.get_parameters(self.config.jastrow is not None, self.config.backflow is not None)
-        return self.__class__, (self.config_path, ), {'r_e': self.r_e, 'parameters': parameters}
+        return self.__class__, (self.config_path, ), {'r_e': self.r_e, 'step': step, 'parameters': parameters}
 
     def __setstate__(self, state):
         """set state"""
         self.r_e = state['r_e']
+        self.markovchain.step = state['step']
         self.markovchain.wfn.set_parameters(state['parameters'], self.config.jastrow is not None, self.config.backflow is not None)
 
     def parallel_execution(self, function, *args):

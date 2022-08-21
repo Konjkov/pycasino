@@ -21,7 +21,7 @@ spec = [
 ]
 
 
-@nb.jit(nopython=True, nogil=True, parallel=False)
+@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
 def sum_typed_list(x):
     """Mixed estimator of energy
     Для проверки утечек памяти
@@ -311,7 +311,7 @@ class MarkovChain:
             next(walker)
 
 
-# @nb.jit(nopython=True, nogil=True, parallel=False)
+# @nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
 def vmc_observable(condition, position, observable):
     """VMC observable.
     :param observable: observable quantity
