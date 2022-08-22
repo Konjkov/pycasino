@@ -73,17 +73,17 @@ class Jastrow:
         self.u_parameters = u_parameters
         self.u_parameters_optimizable = u_parameters_optimizable
         # spin dep (0->u=d; 1->u/=d)
-        self.chi_labels = nb.typed.List(chi_labels)
+        self.chi_labels = chi_labels
         self.chi_cutoff = chi_cutoff['value']
-        self.chi_mask = nb.typed.List(chi_mask)
-        self.chi_parameters = nb.typed.List(chi_parameters)
-        self.chi_parameters_optimizable = nb.typed.List(chi_parameters_optimizable)
+        self.chi_mask = chi_mask
+        self.chi_parameters = chi_parameters
+        self.chi_parameters_optimizable = chi_parameters_optimizable
         # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
-        self.f_labels = nb.typed.List(f_labels)
+        self.f_labels = f_labels
         self.f_cutoff = f_cutoff['value']
-        self.f_mask = nb.typed.List(f_mask)
-        self.f_parameters = nb.typed.List(f_parameters)
-        self.f_parameters_optimizable = nb.typed.List(f_parameters_optimizable)
+        self.f_mask = f_mask
+        self.f_parameters = f_parameters
+        self.f_parameters_optimizable = f_parameters_optimizable
 
         self.max_ee_order = max((
             self.u_parameters.shape[0],
@@ -93,10 +93,10 @@ class Jastrow:
             max([p.shape[0] for p in self.chi_parameters]) if self.chi_parameters else 0,
             max([p.shape[0] for p in self.f_parameters]) if self.f_parameters else 0,
         ))
+        self.u_cusp_const = u_cusp_const
         self.chi_cusp = chi_cusp
         self.no_dup_u_term = no_dup_u_term
         self.no_dup_chi_term = no_dup_chi_term
-        self.u_cusp_const = u_cusp_const
         self.fix_optimizable()
 
     def fix_optimizable(self):

@@ -80,20 +80,23 @@ class Backflow:
         self.eta_parameters = eta_parameters
         self.eta_parameters_optimizable = eta_parameters_optimizable
         # spin dep (0->u=d; 1->u/=d)
-        self.mu_labels = nb.typed.List(mu_labels)
+        self.mu_cusp = mu_cusp
+        self.mu_labels = mu_labels
         self.mu_cutoff = mu_cutoff
-        self.mu_mask = nb.typed.List(mu_mask)
-        self.mu_parameters = nb.typed.List(mu_parameters)
-        self.mu_parameters_optimizable = nb.typed.List(mu_parameters_optimizable)
+        self.mu_mask = mu_mask
+        self.mu_parameters = mu_parameters
+        self.mu_parameters_optimizable = mu_parameters_optimizable
         # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
-        self.phi_labels = nb.typed.List(phi_labels)
+        self.phi_irrotational = phi_irrotational
+        self.phi_cusp = phi_cusp
+        self.phi_labels = phi_labels
         self.phi_cutoff = phi_cutoff
-        self.phi_mask = nb.typed.List(phi_mask)
-        self.theta_mask = nb.typed.List(theta_mask)
-        self.phi_parameters = nb.typed.List(phi_parameters)
-        self.theta_parameters = nb.typed.List(theta_parameters)
-        self.phi_parameters_optimizable = nb.typed.List(phi_parameters_optimizable)
-        self.theta_parameters_optimizable = nb.typed.List(theta_parameters_optimizable)
+        self.phi_mask = phi_mask
+        self.theta_mask = theta_mask
+        self.phi_parameters = phi_parameters
+        self.theta_parameters = theta_parameters
+        self.phi_parameters_optimizable = phi_parameters_optimizable
+        self.theta_parameters_optimizable = theta_parameters_optimizable
 
         self.max_ee_order = max((
             self.eta_parameters.shape[0],
@@ -104,9 +107,6 @@ class Backflow:
             max([p.shape[0] for p in self.phi_parameters]) if self.phi_parameters else 0,
             2
         ))
-        self.mu_cusp = mu_cusp
-        self.phi_cusp = phi_cusp
-        self.phi_irrotational = phi_irrotational
         self.ae_cutoff = ae_cutoff
         self.fix_optimizable()
 
