@@ -729,8 +729,6 @@ class Backflow:
 if __name__ == '__main__':
     """Read Backflow terms
     """
-    debug = False
-
     for phi_term in (
         '21', '22', '23', '24', '25',
         '31', '32', '33', '34', '35',

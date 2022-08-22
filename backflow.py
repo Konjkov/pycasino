@@ -74,34 +74,27 @@ class Backflow:
         self.neu = neu
         self.ned = ned
         self.trunc = trunc
-        self.eta_mask = eta_mask
-        self.mu_mask = nb.typed.List.empty_list(mu_mask_type)
-        [self.mu_mask.append(m) for m in mu_mask]
-        self.phi_mask = nb.typed.List.empty_list(phi_mask_type)
-        [self.phi_mask.append(m) for m in phi_mask]
-        self.theta_mask = nb.typed.List.empty_list(theta_mask_type)
-        [self.theta_mask.append(m) for m in theta_mask]
-        self.eta_parameters = eta_parameters
-        self.mu_parameters = nb.typed.List.empty_list(mu_parameters_type)
-        [self.mu_parameters.append(p) for p in mu_parameters]
-        self.phi_parameters = nb.typed.List.empty_list(phi_parameters_type)
-        [self.phi_parameters.append(p) for p in phi_parameters]
-        self.theta_parameters = nb.typed.List.empty_list(theta_parameters_type)
-        [self.theta_parameters.append(p) for p in theta_parameters]
-        self.eta_parameters_optimizable = eta_parameters_optimizable
-        self.mu_parameters_optimizable = nb.typed.List.empty_list(mu_parameters_optimizable_type)
-        [self.mu_parameters_optimizable.append(po) for po in mu_parameters_optimizable]
-        self.phi_parameters_optimizable = nb.typed.List.empty_list(phi_parameters_optimizable_type)
-        [self.phi_parameters_optimizable.append(po) for po in phi_parameters_optimizable]
-        self.theta_parameters_optimizable = nb.typed.List.empty_list(theta_parameters_optimizable_type)
-        [self.theta_parameters_optimizable.append(po) for po in theta_parameters_optimizable]
+        # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
         self.eta_cutoff = eta_cutoff
+        self.eta_mask = eta_mask
+        self.eta_parameters = eta_parameters
+        self.eta_parameters_optimizable = eta_parameters_optimizable
+        # spin dep (0->u=d; 1->u/=d)
+        self.mu_labels = nb.typed.List(mu_labels)
         self.mu_cutoff = mu_cutoff
+        self.mu_mask = nb.typed.List(mu_mask)
+        self.mu_parameters = nb.typed.List(mu_parameters)
+        self.mu_parameters_optimizable = nb.typed.List(mu_parameters_optimizable)
+        # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
+        self.phi_labels = nb.typed.List(phi_labels)
         self.phi_cutoff = phi_cutoff
-        self.mu_labels = nb.typed.List.empty_list(labels_type)
-        [self.mu_labels.append(p) for p in mu_labels]
-        self.phi_labels = nb.typed.List.empty_list(labels_type)
-        [self.phi_labels.append(p) for p in phi_labels]
+        self.phi_mask = nb.typed.List(phi_mask)
+        self.theta_mask = nb.typed.List(theta_mask)
+        self.phi_parameters = nb.typed.List(phi_parameters)
+        self.theta_parameters = nb.typed.List(theta_parameters)
+        self.phi_parameters_optimizable = nb.typed.List(phi_parameters_optimizable)
+        self.theta_parameters_optimizable = nb.typed.List(theta_parameters_optimizable)
+
         self.max_ee_order = max((
             self.eta_parameters.shape[0],
             max([p.shape[2] for p in self.phi_parameters]) if self.phi_parameters else 0,

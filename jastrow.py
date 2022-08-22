@@ -67,31 +67,24 @@ class Jastrow:
         self.neu = neu
         self.ned = ned
         self.trunc = trunc
-        self.u_mask = u_mask
-        self.chi_mask = nb.typed.List.empty_list(chi_mask_type)
-        [self.chi_mask.append(m) for m in chi_mask]
-        self.f_mask = nb.typed.List.empty_list(f_mask_type)
-        [self.f_mask.append(m) for m in f_mask]
-        # last index (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
-        self.u_parameters = u_parameters
-        # last index (0->u=d; 1->u/=d)
-        self.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)
-        [self.chi_parameters.append(p) for p in chi_parameters]
-        # last index (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
-        self.f_parameters = nb.typed.List.empty_list(f_parameters_type)
-        [self.f_parameters.append(p) for p in f_parameters]
-        self.u_parameters_optimizable = u_parameters_optimizable
-        self.chi_parameters_optimizable = nb.typed.List.empty_list(chi_parameters_optimizable_type)
-        [self.chi_parameters_optimizable.append(po) for po in chi_parameters_optimizable]
-        self.f_parameters_optimizable = nb.typed.List.empty_list(f_parameters_optimizable_type)
-        [self.f_parameters_optimizable.append(po) for po in f_parameters_optimizable]
+        # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
         self.u_cutoff = u_cutoff
-        self.chi_cutoff = chi_cutoff
-        self.f_cutoff = f_cutoff
-        self.chi_labels = nb.typed.List.empty_list(labels_type)
-        [self.chi_labels.append(p) for p in chi_labels]
-        self.f_labels = nb.typed.List.empty_list(labels_type)
-        [self.f_labels.append(p) for p in f_labels]
+        self.u_mask = u_mask
+        self.u_parameters = u_parameters
+        self.u_parameters_optimizable = u_parameters_optimizable
+        # spin dep (0->u=d; 1->u/=d)
+        self.chi_labels = nb.typed.List(chi_labels)
+        self.chi_cutoff = chi_cutoff['value']
+        self.chi_mask = nb.typed.List(chi_mask)
+        self.chi_parameters = nb.typed.List(chi_parameters)
+        self.chi_parameters_optimizable = nb.typed.List(chi_parameters_optimizable)
+        # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
+        self.f_labels = nb.typed.List(f_labels)
+        self.f_cutoff = f_cutoff['value']
+        self.f_mask = nb.typed.List(f_mask)
+        self.f_parameters = nb.typed.List(f_parameters)
+        self.f_parameters_optimizable = nb.typed.List(f_parameters_optimizable)
+
         self.max_ee_order = max((
             self.u_parameters.shape[0],
             max([p.shape[2] for p in self.f_parameters]) if self.f_parameters else 0,
