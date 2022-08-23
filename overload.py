@@ -12,7 +12,7 @@ def random_step(dr, ne):
 def subtract_outer(x, y):
     """Outer subtract two 1-D array."""
 
-    res = np.empty((x.shape[0], y.shape[0], 3))
+    res = np.empty(shape=(x.shape[0], y.shape[0], 3))
     for i in range(x.shape[0]):
         for j in range(y.shape[0]):
             res[i, j] = x[i] - y[j]

@@ -52,7 +52,11 @@ class Wfn:
         self.jastrow = jastrow
         self.backflow = backflow
 
-    def relative_coordinates(self, r_e):
+    def _relative_coordinates(self, r_e):
+        """Get relative electron coordinates
+        :param r_e: electron positions
+        :return: e-e vectors - array(nelec, nelec, 3), e-n vectors - array(natom, nelec, 3)
+        """
         e_vectors = subtract_outer(r_e, r_e)
         n_vectors = -subtract_outer(self.atom_positions, r_e)
         return e_vectors, n_vectors
@@ -76,13 +80,13 @@ class Wfn:
                 res += 1 / np.linalg.norm(e_vectors[i, j])
         return res
 
-    def value(self, e_vectors, n_vectors) -> float:
+    def value(self, r_e) -> float:
         """Value of wave function.
-        :param e_vectors: e-e vectors - array(nelec, nelec, 3)
-        :param n_vectors: e-n vectors - array(nelec, natom, 3)
+        :param r_e: electron positions
         :return:
         """
         res = 1
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
         if self.jastrow is not None:
             res *= np.exp(self.jastrow.value(e_vectors, n_vectors))
         if self.backflow is not None:
@@ -95,8 +99,7 @@ class Wfn:
         drift velocity = 1/2 * 'drift or quantum force'
         where D is diffusion constant = 1/2
         """
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = -subtract_outer(self.atom_positions, r_e)
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
 
         if self.backflow is not None:
             b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
@@ -136,8 +139,7 @@ class Wfn:
         """
         with_F_and_T = True
 
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = -subtract_outer(self.atom_positions, r_e)
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
 
         res = self.coulomb(e_vectors, n_vectors)
 
@@ -258,12 +260,10 @@ class Wfn:
 
     def jastrow_parameters_numerical_d1(self, r_e):
         """"""
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = -subtract_outer(self.atom_positions, r_e)
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
         return self.jastrow.parameters_numerical_d1(e_vectors, n_vectors)
 
     def jastrow_parameters_numerical_d2(self, r_e):
         """"""
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = -subtract_outer(self.atom_positions, r_e)
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
         return self.jastrow.parameters_numerical_d2(e_vectors, n_vectors)

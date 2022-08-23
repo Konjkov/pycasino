@@ -129,7 +129,7 @@ class Casino:
         else:
             # wrong method
             step = 0
-        self.markovchain = MarkovChain(self.neu, self.ned, step, self.config.wfn.atom_positions, self.config.wfn.atom_charges, wfn)
+        self.markovchain = MarkovChain(step, wfn)
 
     def __reduce__(self):
         """to fix TypeError: cannot pickle '_io.TextIOWrapper' object"""
@@ -258,7 +258,7 @@ class Casino:
             condition, position = self.markovchain.vmc_random_walk(self.r_e, self.config.input.vmc_nstep, 1)
             energy = vmc_observable(condition, position, self.markovchain.wfn.energy) + self.markovchain.wfn.nuclear_repulsion
             logger.info('VMC energy %.5f', energy.mean())
-            self.r_e = position[-self.config.input.vmc_nconfig_write:]
+            self.r_e_list = [position[-i] for i in range(self.config.input.vmc_nconfig_write)]
 
             # FIXME: local variables?
             self.markovchain.step = self.config.input.dtdmc
@@ -313,6 +313,7 @@ class Casino:
             https://numba.readthedocs.io/en/stable/extending/high-level.html#implementing-mutable-structures
         """
         condition, position = self.markovchain.vmc_random_walk(self.r_e, steps, decorr_period)
+        self.r_e = position[-1]
         return vmc_observable(condition, position, self.markovchain.wfn.energy) + self.markovchain.wfn.nuclear_repulsion
 
     def vmc_energy_accumulation(self):
@@ -366,7 +367,7 @@ class Casino:
 
         for i in range(nblock):
             block_start = default_timer()
-            energy = self.markovchain.dmc_random_walk(self.r_e, steps // nblock, self.config.input.dmc_target_weight)
+            energy, self.r_e_list = self.markovchain.dmc_random_walk(self.r_e_list, steps // nblock, self.config.input.dmc_target_weight)
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
             block_stop = default_timer()
@@ -395,7 +396,7 @@ class Casino:
 
         for i in range(nblock):
             block_start = default_timer()
-            energy = self.markovchain.dmc_random_walk(self.r_e, steps // nblock, self.config.input.dmc_target_weight)
+            energy, self.r_e_list = self.markovchain.dmc_random_walk(self.r_e_list, steps // nblock, self.config.input.dmc_target_weight)
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
             block_stop = default_timer()

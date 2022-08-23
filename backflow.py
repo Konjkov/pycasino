@@ -166,7 +166,7 @@ class Backflow:
 
     def en_powers(self, n_vectors):
         """Powers of e-n distances
-        :param n_vectors: e-n vectors
+        :param n_vectors: e-n vectors - array(natom, nelec, 3)
         :return:
         """
         res = np.ones(shape=(n_vectors.shape[0], n_vectors.shape[1], self.max_en_order))

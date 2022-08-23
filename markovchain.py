@@ -12,44 +12,21 @@ import numpy as np
 import numba as nb
 
 spec = [
-    ('neu', nb.int64),
-    ('ned', nb.int64),
     ('step', nb.float64),
-    ('atom_positions', nb.float64[:, :]),
-    ('atom_charges', nb.float64[:]),
     ('wfn', Wfn.class_type.instance_type),
 ]
-
-
-@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
-def sum_typed_list(x):
-    """Mixed estimator of energy
-    Для проверки утечек памяти
-    """
-    sum_e = 0.0
-    for e in x:
-        sum_e += e
-    return sum_e
 
 
 @nb.experimental.jitclass(spec)
 class MarkovChain:
 
-    def __init__(self, neu, ned, step, atom_positions, atom_charges, wfn):
+    def __init__(self, step, wfn):
         """Markov chain Monte Carlo.
-        :param neu: number of up electrons
-        :param ned: number of down electrons
         :param step: time step
-        :param atom_positions: atomic positions
-        :param atom_charges: atomic charges
         :param wfn: instance of Wfn class
         :return:
         """
-        self.neu = neu
-        self.ned = ned
         self.step = step
-        self.atom_positions = atom_positions
-        self.atom_charges = atom_charges
         self.wfn = wfn
 
     def limiting_factor(self, v, a=1):
@@ -74,15 +51,13 @@ class MarkovChain:
         """
         # FIXME: yield statement yields leaky memory
         #  https://github.com/numba/numba/issues/6993
-        ne = self.neu + self.ned
-        e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
-        probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
+        ne = self.wfn.neu + self.wfn.ned
+        probability_density = self.wfn.value(r_e) ** 2
         while True:
             cond = False
             for _ in range(decorr_period):
                 next_state = r_e + self.step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-                e_vectors, n_vectors = self.wfn.relative_coordinates(next_state)
-                next_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
+                next_probability_density = self.wfn.value(next_state) ** 2
                 partial_cond = next_probability_density / probability_density > np.random.random()
                 if partial_cond:
                     r_e, probability_density = next_state, next_probability_density
@@ -95,16 +70,14 @@ class MarkovChain:
         :param decorr_period: decorrelation period
         :return: is step accepted, next step position
         """
-        ne = self.neu + self.ned
-        e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
-        probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
+        ne = self.wfn.neu + self.wfn.ned
+        probability_density = self.wfn.value(r_e) ** 2
         while True:
             cond = False
             for _ in range(decorr_period):
                 next_r_e = np.copy(r_e)
                 next_r_e[np.random.randint(ne)] += self.step * np.random.uniform(-1, 1, 3)
-                e_vectors, n_vectors = self.wfn.relative_coordinates(next_r_e)
-                next_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
+                next_probability_density = self.wfn.value(next_r_e) ** 2
                 partial_cond = next_probability_density / probability_density > np.random.random()
                 if partial_cond:
                     r_e, p = next_r_e, next_probability_density
@@ -120,17 +93,15 @@ class MarkovChain:
         :param decorr_period: decorrelation period
         :return: is step accepted, next step position
         """
-        ne = self.neu + self.ned
-        e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
-        probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
+        ne = self.wfn.neu + self.wfn.ned
+        probability_density = self.wfn.value(r_e) ** 2
         while True:
             cond = False
             for _ in range(decorr_period):
                 v_forth = self.drift_velocity(r_e)
                 move = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth
                 next_r_e = r_e + move.reshape((ne, 3))
-                e_vectors, n_vectors = self.wfn.relative_coordinates(next_r_e)
-                next_probability_density = self.wfn.value(e_vectors, n_vectors) ** 2
+                next_probability_density = self.wfn.value(next_r_e) ** 2
                 green_forth = np.exp(-np.sum((next_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
                 green_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step * self.drift_velocity(next_r_e)) ** 2) / 2 / self.step)
                 partial_cond = (green_back * next_probability_density) / (green_forth * probability_density) > np.random.random()
@@ -195,16 +166,15 @@ class MarkovChain:
         :param target_weight: target weight of walkers
         :return: best estimate of energy, next position
         """
-        ne = self.neu + self.ned
+        ne = self.wfn.neu + self.wfn.ned
         # TODO: change to numpy.array
-        r_e_list = nb.typed.List()
-        energy_list = nb.typed.List()
-        velocity_list = nb.typed.List()
-        wfn_value_list = nb.typed.List()
-        branching_energy_list = nb.typed.List()
+        r_e_list = []
+        energy_list = []
+        velocity_list = []
+        wfn_value_list = []
+        branching_energy_list = []
         for r_e in positions:
-            e_vectors, n_vectors = self.wfn.relative_coordinates(r_e)
-            wfn_value_list.append(self.wfn.value(e_vectors, n_vectors))
+            wfn_value_list.append(self.wfn.value(r_e))
             r_e_list.append(r_e)
             energy_list.append(self.wfn.energy(r_e))
             branching_energy_list.append(self.wfn.energy(r_e))
@@ -212,19 +182,18 @@ class MarkovChain:
             limiting_factor = self.limiting_factor(velocity)
             velocity_list.append(limiting_factor * velocity)
         step_eff = self.step
-        best_estimate_energy = sum_typed_list(energy_list) / len(energy_list)
+        best_estimate_energy = sum(energy_list) / len(energy_list)
         energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) / step_eff
         while True:
             sum_acceptance_probability = 0
-            next_r_e_list = nb.typed.List()
-            next_energy_list = nb.typed.List()
-            next_velocity_list = nb.typed.List()
-            next_wfn_value_list = nb.typed.List()
-            next_branching_energy_list = nb.typed.List()
+            next_r_e_list = []
+            next_energy_list = []
+            next_velocity_list = []
+            next_wfn_value_list = []
+            next_branching_energy_list = []
             for r_e, wfn_value, velocity, energy, branching_energy in zip(r_e_list, wfn_value_list, velocity_list, energy_list, branching_energy_list):
                 next_r_e = r_e + (np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * velocity).reshape((ne, 3))
-                e_vectors, n_vectors = self.wfn.relative_coordinates(next_r_e)
-                next_wfn_value = self.wfn.value(e_vectors, n_vectors)
+                next_wfn_value = self.wfn.value(next_r_e)
                 # prevent crossing nodal surface
                 cond = np.sign(wfn_value) == np.sign(next_wfn_value)
                 next_velocity = self.wfn.drift_velocity(next_r_e)
@@ -265,7 +234,7 @@ class MarkovChain:
             wfn_value_list = next_wfn_value_list
             branching_energy_list = next_branching_energy_list
             step_eff = sum_acceptance_probability / len(energy_list) * self.step
-            best_estimate_energy = sum_typed_list(energy_list) / len(energy_list)
+            best_estimate_energy = sum(energy_list) / len(energy_list)
             energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) * self.step / step_eff
             yield best_estimate_energy, r_e_list
 
@@ -283,13 +252,11 @@ class MarkovChain:
         walker = self.walker(r_e, decorr_period)
 
         for i in range(steps):
-            cond, r_e = next(walker)
-            condition[i] = cond
-            position[i] = r_e
+            condition[i], position[i] = next(walker)
 
         return condition, position
 
-    def dmc_random_walk(self, r_e, steps, target_weight):
+    def dmc_random_walk(self, r_e_list, steps, target_weight):
         """DMC
         :param r_e: initial electron configuration
         :param steps: number of steps to walk
@@ -297,13 +264,12 @@ class MarkovChain:
         :return:
         """
         energy = np.empty(shape=(steps, ))
-        walker = self.dmc_random_walker(r_e, target_weight)
+        walker = self.dmc_random_walker(r_e_list, target_weight)
 
         for i in range(steps):
-            energy_t, r_e = next(walker)
-            energy[i] = energy_t
+            energy[i], r_e_list = next(walker)
 
-        return energy
+        return energy, r_e_list
 
     def profiling_simple_random_walk(self, steps, r_initial, decorr_period):
         walker = self.simple_random_walker(r_initial, decorr_period)
