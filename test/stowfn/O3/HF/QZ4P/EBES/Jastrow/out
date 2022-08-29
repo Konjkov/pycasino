@@ -1,7 +1,7 @@
-CASINO v2.13.895 [Mike Towler] (21 April 2021)
+CASINO v2.13.991 [Mike Towler] (2 July 2022)
 Running on vladimir-Kubuntu [linuxpc-gcc-parallel.openblas]
 Binary compiled in opt mode
-Job started: Вс 18 июл 2021 22:56:03 +07
+Job started: Вт 23 авг 2022 11:37:58 +07
  ------------------------------------------------------------------------------
 
                    #####
@@ -13,7 +13,7 @@ Job started: Вс 18 июл 2021 22:56:03 +07
                    #####   ##  ##   ####   ##  ##   #   ####
 
                               Quantum Monte Carlo
-                 CASINO v2.13.895 [Mike Towler] (21 April 2021)
+                CASINO v2.13.944 [Mike Towler] (30 October 2021)
 
     Main Authors : R.J. Needs, M.D. Towler, N.D. Drummond, and P. Lopez Rios
 
@@ -27,9 +27,9 @@ Job started: Вс 18 июл 2021 22:56:03 +07
                       Current contact: mdt26 at cantab.net
 
  ------------------------------------------------------------------------------
- Started 2021/07/18 22:56:04.191
+ Started 2022/08/23 11:37:59.349
 
- Sequential run: not using MPI.
+ Running in parallel using 8 MPI processes.
 
  General input parameters
  ========================
@@ -53,7 +53,7 @@ Job started: Вс 18 июл 2021 22:56:03 +07
  SPARSE                                   :  F
  DIPOLE_MOMENT                            :  F
  CHECKPOINT (checkpointing level)         :  1
- CHECKPOINT_NCPU (chkpnt group size)      :  1
+ CHECKPOINT_NCPU (chkpnt group size)      :  8
  CON_LOC (Dir to read/write config.*)     :  ./
  RELATIVISTIC                             :  F
 
@@ -101,7 +101,7 @@ Job started: Вс 18 июл 2021 22:56:03 +07
  Generator                                 :  RANLUX
  RANLUX luxury level                       :  3
  p value                                   :  223
- Value of random seed                      :  48037202
+ Value of random seed on MPI process 0     :  7522827
 
  Initialized with seed derived from timer.
 
@@ -399,7 +399,7 @@ Job started: Вс 18 июл 2021 22:56:03 +07
 
  Setup complete.
 
- Time taken in setup    : : :        0.0300
+ Time taken in setup    : : :        0.0400
 
  ====================================
  PERFORMING A SINGLE VMC CALCULATION.
@@ -418,7 +418,7 @@ Job started: Вс 18 июл 2021 22:56:03 +07
 
  Running VMC equilibration (5000 moves).
   Performing time-step optimization.
-  Optimized DTVMC:  9.2178E-02
+  Optimized DTVMC:  9.0791E-02
  Done. [total CPU time: 1s]
 
  Kinetic energy check performed.
@@ -431,67 +431,67 @@ Job started: Вс 18 июл 2021 22:56:03 +07
  =========================================================================
  In block : 1
 
- Acceptance ratio <level 1>        (%)  =  51.8366
- Acceptance ratio <levels 1-2>     (%)  =  49.6730
- Diffusion constant           (Bohr^2)  = 1.1163E-01
- Correlation time              (steps)  = 7.9070E+00 +- 2.4753E-02
- Efficiency               (au^-2 s^-1)  = 1.3122E+02
- Number of VMC steps                    = 10000000
+ Acceptance ratio <level 1>        (%)  =  52.0490
+ Acceptance ratio <levels 1-2>     (%)  =  49.8911
+ Diffusion constant           (Bohr^2)  = 1.3816E-02
+ Correlation time              (steps)  = 7.7718E+00 +- 2.3828E-02
+ Efficiency               (au^-2 s^-1)  = 4.4781E+02
+ No. of VMC steps per MPI process       = 1250000
 
   Block average energies (au)
 
-  Total energy                       (au) =        -225.226327834242
-  Standard error                        +/-           0.000522586082
+  Total energy                       (au) =        -225.227742233898
+  Standard error                        +/-           0.000521657510
 
-  Kinetic energy KEI (used in Total) (au) =         227.074334214337
-  Standard error                        +/-           0.049349233352
+  Kinetic energy KEI (used in Total) (au) =         225.020439936599
+  Standard error                        +/-           0.047420571251
 
-  Kinetic energy TI                  (au) =         226.295299115721
-  Standard error                        +/-           0.056691123029
+  Kinetic energy TI                  (au) =         225.298510555530
+  Standard error                        +/-           0.050687022243
 
-  Kinetic energy FISQ                (au) =         225.516264016986
-  Standard error                        +/-           0.102062710505
+  Kinetic energy FISQ                (au) =         225.576581174477
+  Standard error                        +/-           0.089664322015
 
-  Potential energy                   (au) =        -521.327662071180
-  Standard error                        +/-           0.049369222480
+  Potential energy                   (au) =        -519.275182193029
+  Standard error                        +/-           0.047439399218
 
-  e-e interaction                    (au) =         150.989623017141
-  Standard error                        +/-           0.003716342193
+  e-e interaction                    (au) =         150.966470458413
+  Standard error                        +/-           0.003725919689
 
-  e-n interaction                    (au) =        -672.317285088328
-  Standard error                        +/-           0.050398124615
+  e-n interaction                    (au) =        -670.241652651455
+  Standard error                        +/-           0.048502765925
 
   Constant energy contributions      (au) =          69.027000022559
 
-  Variance of local energy           (au) =           2.730962132514
-  Standard error                        +/-           0.005017046105
+  Variance of local energy           (au) =           2.718666732315
+  Standard error                        +/-           0.002926114993
 
-  Maximum distance from origin       (au) =          12.894401031085
+  Maximum distance from origin       (au) =          12.812484230720
 
 
- Time taken in block    : : :     3529.2200
+ Time taken in block    : : :     1056.8900
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
 
- -225.226327834242 +/- 0.000522586082      No correction
- -225.226327834242 +/- 0.001469481602      Correlation time method
- -225.226327834242 +/- 0.001561187924      On-the-fly reblocking method
+ -225.227742233898 +/- 0.000521657510      No correction
+ -225.227742233898 +/- 0.001454276012      Correlation time method
+ -225.227742233898 +/- 0.001563252462      On-the-fly reblocking method
 
-  Sample variance of E_L (au^2/sim.cell) : 2.730962132514
+  Sample variance of E_L (au^2/sim.cell) : 2.718666732315
 
  =========================================================================
 
 
- Total CASINO CPU time  : : :     3529.8501
- Total CASINO real time : : :     3530.1653
+ Total CASINO CPU time  : : :     1057.9801
+ Total CASINO real time : : :     1068.4780
 
 
  Subroutine timers deactivated (use TIMING_INFO input keyword)
 
  =========================================================================
- Ends 2021/07/18 23:54:54.355
+ Ends 2022/08/23 11:55:47.824
 
-Job finished: Вс 18 июл 2021 23:54:54 +07
+Job finished: Вт 23 авг 2022 11:55:47 +07

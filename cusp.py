@@ -22,7 +22,6 @@ logger = logging.getLogger('cusp')
 cusp_spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
-    ('norm', nb.float64),
     ('rc', nb.float64[:, :]),
     ('shift', nb.float64[:, :]),
     ('orbital_sign', nb.int64[:, :]),
@@ -79,7 +78,6 @@ class Cusp:
         self.shift = shift
         self.orbital_sign = orbital_sign
         self.alpha = alpha
-        self.norm = np.exp(np.math.lgamma(self.neu + 1) / self.neu / 2)
 
     def wfn(self, n_vectors: np.ndarray):
         """Cusp correction for s-part of orbitals."""
@@ -112,7 +110,7 @@ class Cusp:
                             self.alpha[4, atom, i] * r ** 4
                         ) + self.shift[atom, i]
 
-        return self.norm * orbital
+        return orbital
 
     def gradient(self, n_vectors: np.ndarray):
         """Cusp part of gradient"""
@@ -155,7 +153,7 @@ class Cusp:
                             self.alpha[4, atom, i] * r ** 4
                         ) * n_vectors[atom, j] / r + self.shift[atom, i]
 
-        return self.norm * gradient
+        return gradient
 
     def laplacian(self, n_vectors: np.ndarray):
         """Cusp part of laplacian"""
@@ -202,7 +200,7 @@ class Cusp:
                             self.alpha[4, atom, i] * r ** 4
                         ) / r + self.shift[atom, i]
 
-        return self.norm * laplacian
+        return laplacian
 
     def hessian(self, n_vectors: np.ndarray):
         """Cusp part of hessian"""
@@ -213,6 +211,7 @@ class Cusp:
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.rc[atom, i]:
+                        # FIXME: not implemented
                         pass
 
         for i in range(self.ned):
@@ -221,9 +220,10 @@ class Cusp:
                     x, y, z = n_vectors[atom, self.neu + j]
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.rc[atom, i]:
+                        # FIXME: not implemented
                         pass
 
-        return self.norm * hessian
+        return hessian
 
 
 class CuspFactory:
@@ -243,7 +243,7 @@ class CuspFactory:
         self.exponents = exponents
         self.atom_positions = atom_positions
         self.atom_charges = atom_charges
-        self.norm = np.exp(np.math.lgamma(self.neu + 1) / self.neu / 2)
+        self.norm = np.exp((np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
         self.cusp_threshold = 1e-7  # FIXME: take from config
         self.phi_0, _, _ = self.phi(np.zeros(shape=(self.atom_positions.shape[0], self.neu + self.ned)))
         self.orb_mask = np.abs(self.phi_0) > self.cusp_threshold
@@ -423,7 +423,8 @@ class CuspFactory:
 
                 def callback(x, *args):
                     """"""
-                    logger.info('phi_0 = %.5f', x[0])
+                    pass
+                    # logger.info('phi_0 = %.5f', x[0])
 
                 def f(x):
                     phi_tilde_0[atom, orb], = x

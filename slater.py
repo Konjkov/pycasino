@@ -35,6 +35,7 @@ slater_spec = [
     ('mo_down', nb.float64[:, :, :]),
     ('coeff', nb.float64[:]),
     ('cusp', nb.optional(Cusp.class_type.instance_type)),
+    ('norm', nb.float64),
 ]
 
 
@@ -75,6 +76,7 @@ class Slater:
         self.mo_down = mo_down
         self.coeff = coeff
         self.cusp = cusp
+        self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
 
     def AO_wfn(self, n_vectors: np.ndarray) -> np.ndarray:
         """
@@ -103,7 +105,7 @@ class Slater:
                     for m in range(2 * l + 1):
                         orbital[i, ao+m] = angular_1[l*l+m] * radial_1
                     ao += 2*l+1
-        return orbital
+        return self.norm * orbital
 
     def AO_gradient(self, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient matrix.
@@ -142,7 +144,7 @@ class Slater:
                         orbital[i, 1, ao+m] = y * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 1] * radial_2
                         orbital[i, 2, ao+m] = z * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 2] * radial_2
                     ao += 2*l+1
-        return orbital.reshape(((self.neu + self.ned) * 3, self.nbasis_functions))
+        return self.norm * orbital.reshape(((self.neu + self.ned) * 3, self.nbasis_functions))
 
     def AO_laplacian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Laplacian matrix.
@@ -174,7 +176,7 @@ class Slater:
                     for m in range(2 * l + 1):
                         orbital[i, ao+m] = angular_1[l*l+m] * radial_1
                     ao += 2*l+1
-        return orbital
+        return self.norm * orbital
 
     def AO_hessian(self, n_vectors: np.ndarray) -> np.ndarray:
         """hessian matrix.
@@ -225,7 +227,7 @@ class Slater:
                         orbital[5, i, ao+m] = z*z * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * z * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 5] * radial_3
                     ao += 2*l+1
 
-        return orbital
+        return self.norm * orbital
 
     def value(self, n_vectors: np.ndarray) -> float:
         """Multideterminant wave function value.

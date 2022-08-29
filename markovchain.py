@@ -158,24 +158,21 @@ class MarkovChain:
                 pass
             yield cond, r_e
 
-    def dmc_random_walker(self, positions, target_weight):
+    def dmc_random_walker(self, r_e_list, target_weight):
         """Collection of walkers representing the instantaneous wfn.
         C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
-        :param steps: number of steps to walk
-        :param positions: initial positions of walkers
+        :param r_e_list: initial positions of walkers
         :param target_weight: target weight of walkers
         :return: best estimate of energy, next position
         """
         ne = self.wfn.neu + self.wfn.ned
         # TODO: change to numpy.array
-        r_e_list = []
         energy_list = []
         velocity_list = []
         wfn_value_list = []
         branching_energy_list = []
-        for r_e in positions:
+        for r_e in r_e_list:
             wfn_value_list.append(self.wfn.value(r_e))
-            r_e_list.append(r_e)
             energy_list.append(self.wfn.energy(r_e))
             branching_energy_list.append(self.wfn.energy(r_e))
             velocity = self.wfn.drift_velocity(r_e)
@@ -258,7 +255,7 @@ class MarkovChain:
 
     def dmc_random_walk(self, r_e_list, steps, target_weight):
         """DMC
-        :param r_e: initial electron configuration
+        :param r_e_list: initial electron configuration
         :param steps: number of steps to walk
         :param target_weight: target weight
         :return:

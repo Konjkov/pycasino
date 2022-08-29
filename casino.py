@@ -255,11 +255,20 @@ class Casino:
         elif self.config.input.runtype == 'vmc_dmc':
             self.optimize_vmc_step(10000)
             # FIXME: decorr_period for dmc?
+            block_start = default_timer()
             condition, position = self.markovchain.vmc_random_walk(self.r_e, self.config.input.vmc_nstep, 1)
             energy = vmc_observable(condition, position, self.markovchain.wfn.energy) + self.markovchain.wfn.nuclear_repulsion
-            logger.info('VMC energy %.5f', energy.mean())
+            block_stop = default_timer()
+            logger.info(
+                f' =========================================================================\n'
+                f' In block : {1}\n'
+                f'  Number of VMC steps           = {self.config.input.vmc_nstep}\n\n'
+                f'  Block average energies (au)\n\n'
+                f'  Total energy                       (au) =       {energy.mean():18.12f}\n'
+                f'  Standard error                        +/-       {energy.std():18.12f}\n\n'
+                f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
+            )
             self.r_e_list = [position[-i] for i in range(self.config.input.vmc_nconfig_write)]
-
             # FIXME: local variables?
             self.markovchain.step = self.config.input.dtdmc
             self.dmc_energy_equilibration()
