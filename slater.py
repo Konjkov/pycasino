@@ -44,7 +44,7 @@ class Slater:
 
     def __init__(
         self, neu, ned,
-        nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders, primitives, coefficients, exponents, mo_up, mo_down, coeff, cusp
+        nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders, primitives, coefficients, exponents, mo_up, mo_down, up, down, coeff, cusp
     ):
         """
         Slater
@@ -72,8 +72,11 @@ class Slater:
         self.primitives = primitives
         self.coefficients = coefficients
         self.exponents = exponents
-        self.mo_up = mo_up
-        self.mo_down = mo_down
+        self.mo_up = np.zeros(shape=(up.shape[0], neu, mo_up.shape[1]))
+        self.mo_down = np.zeros(shape=(up.shape[0], ned, mo_down.shape[1]))
+        for i in range(up.shape[0]):
+            self.mo_up[i] = mo_up[up[i]]
+            self.mo_down[i] = mo_down[down[i]]
         self.coeff = coeff
         self.cusp = cusp
         self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)

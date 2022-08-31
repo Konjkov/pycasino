@@ -29,24 +29,23 @@ class CasinoConfig:
             self.wfn = Gwfn()
         elif self.input.atom_basis_type == 'slater-type':
             self.wfn = Stowfn()
-        self.wfn.read(base_path)
+        self.mdet = Mdet(self.input.neu, self.input.ned)
         if getattr(self.input, 'use_gjastrow', False):
             self.jastrow = Gjastrow()
         elif getattr(self.input, 'use_jastrow', False):
             self.jastrow = Jastrow()
         else:
             self.jastrow = None
-        self.mdet = Mdet(base_path, self.input.neu, self.input.ned, self.wfn.mo_up, self.wfn.mo_down)
         if getattr(self.input, 'backflow', False):
             self.backflow = Backflow()
         else:
             self.backflow = None
 
     def read(self, base_path):
-        # if self.wfn:
-        #     self.wfn.read(base_path)
-        # if self.mdet:
-        #     self.mdet.read(base_path)
+        if self.wfn:
+            self.wfn.read(base_path)
+        if self.mdet:
+            self.mdet.read(base_path)
         if self.jastrow:
             self.jastrow.read(base_path)
         if self.backflow:
@@ -58,8 +57,8 @@ class CasinoConfig:
 
         # if self.wfn:
         #     self.wfn.write()
-        # if self.mdet:
-        #     self.mdet.write()
+        if self.mdet:
+            self.mdet.write()
         if self.jastrow:
             correlation += self.jastrow.write()
         if self.backflow:

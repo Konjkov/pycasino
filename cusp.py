@@ -229,12 +229,13 @@ class Cusp:
 class CuspFactory:
 
     def __init__(
-            self, neu, ned, mo_up, mo_down, nbasis_functions, first_shells, shell_moments,
+            self, neu, ned, mo_up, mo_down, up, down, nbasis_functions, first_shells, shell_moments,
             primitives, coefficients, exponents, atom_positions, atom_charges
     ):
         self.neu = neu
         self.ned = ned
-        self.mo = np.concatenate((mo_up, mo_down), axis=1)
+        # FIXME: cusp-condition для возбужденных орбиталей в CASSCF
+        self.mo = np.concatenate((mo_up[up[0]], mo_down[down[0]]))
         self.nbasis_functions = nbasis_functions
         self.first_shells = first_shells
         self.shell_moments = shell_moments
@@ -252,10 +253,10 @@ class CuspFactory:
         self.orbital_sign = self.phi_sign()
 
     def phi(self, rc):
-        """Wfn of single electron of s-orbitals an each atom"""
-        orbital = np.zeros((self.atom_positions.shape[0], self.neu + self.ned, self.mo[0].shape[1]))
-        orbital_derivative = np.zeros((self.atom_positions.shape[0], self.neu + self.ned, self.mo[0].shape[1]))
-        orbital_second_derivative = np.zeros((self.atom_positions.shape[0], self.neu + self.ned, self.mo[0].shape[1]))
+        """Wfn of single electron of s-orbitals on each atom"""
+        orbital = np.zeros((self.atom_positions.shape[0], self.neu + self.ned, self.mo.shape[1]))
+        orbital_derivative = np.zeros((self.atom_positions.shape[0], self.neu + self.ned, self.mo.shape[1]))
+        orbital_second_derivative = np.zeros((self.atom_positions.shape[0], self.neu + self.ned, self.mo.shape[1]))
         for orb in range(self.neu + self.ned):
             p = ao = 0
             for atom in range(self.atom_positions.shape[0]):
@@ -276,14 +277,14 @@ class CuspFactory:
                     ao += 2 * l + 1
                     p += self.primitives[nshell]
         return (
-            np.sum(orbital * self.mo[0], axis=2) / self.norm,
-            np.sum(orbital_derivative * self.mo[0], axis=2) / self.norm,
-            np.sum(orbital_second_derivative * self.mo[0], axis=2) / self.norm
+            np.sum(orbital * self.mo, axis=2) / self.norm,
+            np.sum(orbital_derivative * self.mo, axis=2) / self.norm,
+            np.sum(orbital_second_derivative * self.mo, axis=2) / self.norm
         )
 
     def eta_data(self):
         """Contribution from Gaussians on other nuclei"""
-        orbital = np.zeros(shape=(self.atom_positions.shape[0], self.neu + self.ned, self.mo[0].shape[1]))
+        orbital = np.zeros(shape=(self.atom_positions.shape[0], self.neu + self.ned, self.mo.shape[1]))
         for atom in range(self.atom_positions.shape[0]):
             for orb in range(self.neu + self.ned):
                 p = ao = 0
@@ -301,7 +302,7 @@ class CuspFactory:
                                 orbital[atom, orb, ao+m] += angular[l*l+m] * radial
                         ao += 2 * l + 1
                         p += self.primitives[nshell]
-        return np.sum(orbital * self.mo[0], axis=2) / self.norm
+        return np.sum(orbital * self.mo, axis=2) / self.norm
 
     def rc_initial(self):
         """Initial rc"""
@@ -787,7 +788,7 @@ if __name__ == '__main__':
     config.read(path)
 
     cusp = CuspFactory(
-        config.input.neu, config.input.ned, config.mdet.mo_up, config.mdet.mo_down, config.wfn.nbasis_functions,
+        config.input.neu, config.input.ned, self.config.wfn.mo_up, self.config.wfn.mo_down, config.mdet.up, config.mdet.down, config.wfn.nbasis_functions,
         config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
         config.wfn.coefficients, config.wfn.exponents, config.wfn.atom_positions, config.wfn.atom_charges
     ).create(debug=False)
