@@ -150,8 +150,8 @@ if __name__ == '__main__':
     for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
         path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
         logger.info('%s:', mol)
-        profileler = Profiler(path)
-        profileler.slater_profiling()
-        profileler.jastrow_profiling()
-        profileler.backflow_profiling()
-        # profileler.markovchain_profiling()
+        profiler = Profiler(path)
+        profiler.slater_profiling()
+        profiler.jastrow_profiling()
+        profiler.backflow_profiling()
+        # profiler.markovchain_profiling()

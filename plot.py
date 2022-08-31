@@ -269,7 +269,7 @@ if __name__ == '__main__':
     # path = 'test/stowfn/O3/HF/QZ4P/Backflow/'
 
     term = 'eta'
-    backflow_plot = BackflowPlot(np.zeros(shape=(1,)))
+    backflow_plot = BackflowPlot()
     backflow_plot.read(os.path.join(path, 'correlation.data'))
     backflow_plot.plot(term)
     term = 'mu'

@@ -235,8 +235,6 @@ class MarkovChain:
             energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) * self.step / step_eff
             yield best_estimate_energy, r_e_list
 
-    walker = simple_random_walker
-
     def vmc_random_walk(self, r_e, steps, decorr_period):
         """Metropolis-Hastings random walk.
         :param r_e: initial electron configuration
@@ -246,7 +244,7 @@ class MarkovChain:
         """
         condition = np.empty(shape=(steps, ), dtype=nb.boolean)
         position = np.empty(shape=(steps, ) + r_e.shape)
-        walker = self.walker(r_e, decorr_period)
+        walker = self.simple_random_walker(r_e, decorr_period)
 
         for i in range(steps):
             condition[i], position[i] = next(walker)
