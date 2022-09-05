@@ -43,8 +43,9 @@ slater_spec = [
 class Slater:
 
     def __init__(
-        self, neu, ned,
-        nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders, primitives, coefficients, exponents, mo_up, mo_down, up, down, coeff, cusp
+            self, neu, ned,
+            nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders, primitives, coefficients, exponents,
+            mo_up, mo_down, permutation_up, permutation_down, coeff, cusp
     ):
         """
         Slater
@@ -72,11 +73,11 @@ class Slater:
         self.primitives = primitives
         self.coefficients = coefficients
         self.exponents = exponents
-        self.mo_up = np.zeros(shape=(up.shape[0], neu, mo_up.shape[1]))
-        self.mo_down = np.zeros(shape=(up.shape[0], ned, mo_down.shape[1]))
-        for i in range(up.shape[0]):
-            self.mo_up[i] = mo_up[up[i]]
-            self.mo_down[i] = mo_down[down[i]]
+        self.mo_up = np.zeros(shape=(permutation_up.shape[0], neu, mo_up.shape[1]))
+        self.mo_down = np.zeros(shape=(permutation_down.shape[0], ned, mo_down.shape[1]))
+        for i in range(permutation_up.shape[0]):
+            self.mo_up[i] = mo_up[permutation_up[i]]
+            self.mo_down[i] = mo_down[permutation_down[i]]
         self.coeff = coeff
         self.cusp = cusp
         self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
@@ -340,7 +341,7 @@ class Slater:
 
         return lap / val
 
-    def hessian(self, n_vectors: np.ndarray):
+    def hessian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Hessian.
         d²ln(det(A))/dxdy = (
             tr(A^-1 * d²A/dxdy) +
@@ -473,7 +474,7 @@ class Slater:
 
         return res / delta / delta / val
 
-    def numerical_hessian(self, n_vectors: np.ndarray):
+    def numerical_hessian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Numerical hessian with respect to e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
@@ -512,28 +513,28 @@ class Slater:
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / delta / 4 / val
 
-    def profile_value(self, dr, steps, atom_positions, r_initial):
+    def profile_value(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
             r_e = r_initial + random_step(dr, self.neu + self.ned)
             n_vectors = subtract_outer(atom_positions, r_e)
             self.value(n_vectors)
 
-    def profile_gradient(self, dr, steps, atom_positions, r_initial):
+    def profile_gradient(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
             r_e = r_initial + random_step(dr, self.neu + self.ned)
             n_vectors = subtract_outer(atom_positions, r_e)
             self.gradient(n_vectors)
 
-    def profile_laplacian(self, dr, steps, atom_positions, r_initial):
+    def profile_laplacian(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
             r_e = r_initial + random_step(dr, self.neu + self.ned)
             n_vectors = subtract_outer(atom_positions, r_e)
             self.laplacian(n_vectors)
 
-    def profile_hessian(self, dr, steps, atom_positions, r_initial):
+    def profile_hessian(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
             r_e = r_initial + random_step(dr, self.neu + self.ned)

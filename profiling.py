@@ -1,16 +1,7 @@
 #!/usr/bin/env python3
 
-import os
 from timeit import default_timer
-
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
-
 from numba.core.runtime import rtsys
-
 from logger import logging
 from casino import Casino
 
@@ -163,3 +154,20 @@ if __name__ == '__main__':
         profiler.jastrow_profiling()
         profiler.backflow_profiling()
         # profiler.markovchain_profiling()
+    """
+    HF:
+     slater value           58.0
+     slater laplacian      114.2
+     slater gradient       156.0
+     slater hessian        464.3
+    MP2-CASSCF(2.4):
+     slater value          119.4
+     slater laplacian      272.5
+     slater gradient       359.6
+     slater hessian       1197.0
+    """
+    for method in ('HF', 'MP2-CASSCF(2.4)'):
+        path = f'test/gwfn/Be/{method}/cc-pVQZ/CBCS/Jastrow/'
+        logger.info('%s:', method)
+        profiler = Profiler(path)
+        profiler.slater_profiling()

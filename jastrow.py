@@ -130,7 +130,7 @@ class Jastrow:
                 if self.ned == 1:
                     f_parameters_optimizable[:, :, :, 2] = False
 
-    def ee_powers(self, e_vectors):
+    def ee_powers(self, e_vectors) -> np.ndarray:
         """Powers of e-e distances
         :param e_vectors: e-e vectors - array(nelec, nelec, 3)
         :return: powers of e-e distances - array(nelec, nelec, max_ee_order)
@@ -143,7 +143,7 @@ class Jastrow:
                     res[i, j, k] = res[j, i, k] = r_ee ** k
         return res
 
-    def en_powers(self, n_vectors):
+    def en_powers(self, n_vectors) -> np.ndarray:
         """Powers of e-n distances
         :param n_vectors: e-n vectors - array(natom, nelec, 3)
         :return: powers of e-n distances - array(natom, nelec, max_en_order)
@@ -234,7 +234,7 @@ class Jastrow:
                             res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
         return res
 
-    def u_term_gradient(self, e_powers, e_vectors):
+    def u_term_gradient(self, e_powers, e_vectors) -> np.ndarray:
         """Jastrow u-term gradient with respect to a e-coordinates
         :param e_powers: powers of e-e distances
         :param e_vectors: e-e vectors
@@ -270,7 +270,7 @@ class Jastrow:
                     res[j, :] -= gradient
         return res.ravel()
 
-    def chi_term_gradient(self, n_powers, n_vectors):
+    def chi_term_gradient(self, n_powers, n_vectors) -> np.ndarray:
         """Jastrow chi-term gradient with respect to a e-coordinates
         :param n_powers: powers of e-n distances
         :param n_vectors: e-n vectors
@@ -299,7 +299,7 @@ class Jastrow:
                         res[j, :] += r_vec/r * (r-L) ** C * (C/(r-L) * poly + poly_diff)
         return res.ravel()
 
-    def f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
+    def f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
         """Jastrow f-term gradient with respect to a e-coordinates
         :param e_powers: powers of e-e distances
         :param n_powers: powers of e-n distances
@@ -502,7 +502,7 @@ class Jastrow:
             self.f_term(e_powers, n_powers)
         )
 
-    def gradient(self, e_vectors, n_vectors):
+    def gradient(self, e_vectors, n_vectors) -> np.ndarray:
         """Gradient with respect to e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
@@ -532,7 +532,7 @@ class Jastrow:
             self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
         )
 
-    def numerical_gradient(self, e_vectors, n_vectors):
+    def numerical_gradient(self, e_vectors, n_vectors) -> np.ndarray:
         """Numerical gradient with respect to a e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
@@ -1220,7 +1220,7 @@ class Jastrow:
         res[b[2]:b[3], b[2]:b[3]] = f_term
         return res
 
-    def profile_value(self, dr, steps, atom_positions, r_initial):
+    def profile_value(self, dr, steps, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
             r_e = r_initial + random_step(dr, self.neu + self.ned)
@@ -1228,7 +1228,7 @@ class Jastrow:
             n_vectors = subtract_outer(atom_positions, r_e)
             self.value(e_vectors, n_vectors)
 
-    def profile_gradient(self, dr, steps, atom_positions, r_initial):
+    def profile_gradient(self, dr, steps, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
             r_e = r_initial + random_step(dr, self.neu + self.ned)
@@ -1236,7 +1236,7 @@ class Jastrow:
             n_vectors = subtract_outer(atom_positions, r_e)
             self.gradient(e_vectors, n_vectors)
 
-    def profile_laplacian(self, dr, steps, atom_positions, r_initial):
+    def profile_laplacian(self, dr, steps, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
             r_e = r_initial + random_step(dr, self.neu + self.ned)

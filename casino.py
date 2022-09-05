@@ -81,7 +81,8 @@ class Casino:
 
         if self.config.input.cusp_correction:
             cusp = CuspFactory(
-                self.config.input.neu, self.config.input.ned, self.config.wfn.mo_up, self.config.wfn.mo_down, self.config.mdet.up, self.config.mdet.down,
+                self.config.input.neu, self.config.input.ned, self.config.wfn.mo_up, self.config.wfn.mo_down,
+                self.config.mdet.permutation_up, self.config.mdet.permutation_down,
                 self.config.wfn.nbasis_functions, self.config.wfn.first_shells, self.config.wfn.shell_moments, self.config.wfn.primitives,
                 self.config.wfn.coefficients, self.config.wfn.exponents, self.config.wfn.atom_positions, self.config.wfn.atom_charges
             ).create()
@@ -93,7 +94,7 @@ class Casino:
             self.config.input.neu, self.config.input.ned,
             self.config.wfn.nbasis_functions, self.config.wfn.first_shells, self.config.wfn.orbital_types, self.config.wfn.shell_moments,
             self.config.wfn.slater_orders, self.config.wfn.primitives, self.config.wfn.coefficients, self.config.wfn.exponents,
-            self.config.wfn.mo_up, self.config.wfn.mo_down, self.config.mdet.up, self.config.mdet.down, self.config.mdet.coeff, cusp
+            self.config.wfn.mo_up, self.config.wfn.mo_down, self.config.mdet.permutation_up, self.config.mdet.permutation_down, self.config.mdet.coeff, cusp
         )
         jastrow = self.config.jastrow and Jastrow(
             self.config.input.neu, self.config.input.ned,
@@ -503,6 +504,7 @@ if __name__ == '__main__':
 
     # path = 'test/gwfn/He/HF/cc-pVQZ/CBCS/Jastrow/'
     # path = 'test/gwfn/Be/HF/cc-pVQZ/CBCS/Jastrow/'
+    # path = 'test/gwfn/Be/MP2-CASSCF(2.4)/cc-pVQZ/CBCS/Jastrow/'
     # path = 'test/gwfn/N/HF/cc-pVQZ/CBCS/Jastrow/'
     # path = 'test/gwfn/Ne/HF/cc-pVQZ/CBCS/Jastrow/'
     # path = 'test/gwfn/Ar/HF/cc-pVQZ/CBCS/Jastrow/'
