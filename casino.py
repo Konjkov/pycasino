@@ -499,9 +499,6 @@ if __name__ == '__main__':
     # path = 'test/gwfn/Kr/HF/cc-pVQZ/CBCS/Slater/'
     # path = 'test/gwfn/O3/HF/cc-pVQZ/CBCS/Slater/'
 
-    # path = 'test/gwfn/Be/HF/ano-pVDZ/CBCS/Slater/'
-    # path = 'test/gwfn/Ne/HF/ano-pVDZ/CBCS/Slater/'
-
     # path = 'test/gwfn/He/HF/cc-pVQZ/CBCS/Jastrow/'
     # path = 'test/gwfn/Be/HF/cc-pVQZ/CBCS/Jastrow/'
     # path = 'test/gwfn/Be/MP2-CASSCF(2.4)/cc-pVQZ/CBCS/Jastrow/'

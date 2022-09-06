@@ -47,7 +47,7 @@ class Wfn:
         self.ned = ned
         self.atom_positions = atom_positions
         self.atom_charges = atom_charges
-        self.nuclear_repulsion = self._nuclear_repulsion()
+        self.nuclear_repulsion = self.get_nuclear_repulsion()
         self.slater = slater
         self.jastrow = jastrow
         self.backflow = backflow
@@ -61,7 +61,7 @@ class Wfn:
         n_vectors = -subtract_outer(self.atom_positions, r_e)
         return e_vectors, n_vectors
 
-    def _nuclear_repulsion(self) -> float:
+    def get_nuclear_repulsion(self) -> float:
         """Value of n-n repulsion."""
         res = 0.0
         for i in range(self.atom_positions.shape[0] - 1):

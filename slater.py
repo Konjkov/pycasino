@@ -238,11 +238,13 @@ class Slater:
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         ao = self.AO_wfn(n_vectors)
+        if self.cusp is not None:
+            cusp_wfn = self.cusp.wfn(n_vectors)
 
         val = 0.0
         for i in range(self.coeff.shape[0]):
             if self.cusp is not None:
-                cusp_wfn = self.cusp.wfn(n_vectors)
+                # FIXME: cusp-condition для возбужденных орбиталей в CASSCF
                 wfn_u = np.where(cusp_wfn[:self.neu, :self.neu], cusp_wfn[:self.neu, :self.neu], self.mo_up[i] @ ao[:self.neu].T)
                 wfn_d = np.where(cusp_wfn[self.neu:, self.neu:], cusp_wfn[self.neu:, self.neu:], self.mo_down[i] @ ao[self.neu:].T)
             else:
@@ -272,13 +274,14 @@ class Slater:
         for i in range(self.coeff.shape[0]):
 
             if self.cusp is not None:
+                # FIXME: cusp-condition для возбужденных орбиталей в CASSCF
                 wfn_u = np.where(cusp_wfn[:self.neu, :self.neu], cusp_wfn[:self.neu, :self.neu], self.mo_up[i] @ ao[:self.neu].T)
                 grad_u = np.where(cusp_gradient[:self.neu, :self.neu], cusp_gradient[:self.neu, :self.neu], (self.mo_up[i] @ gradient[:self.neu * 3].T).reshape((self.neu, self.neu, 3)))
             else:
                 wfn_u = self.mo_up[i] @ ao[:self.neu].T
                 grad_u = (self.mo_up[i] @ gradient[:self.neu * 3].T).reshape((self.neu, self.neu, 3))
-            inv_wfn_u = np.linalg.inv(wfn_u)
-            res_u = (inv_wfn_u * grad_u.T).T.sum(axis=0)
+
+            res_u = (np.linalg.inv(wfn_u) * grad_u.T).T.sum(axis=0)
 
             if self.cusp is not None:
                 wfn_d = np.where(cusp_wfn[self.neu:, self.neu:], cusp_wfn[self.neu:, self.neu:], self.mo_down[i] @ ao[self.neu:].T)
@@ -286,8 +289,8 @@ class Slater:
             else:
                 wfn_d = self.mo_down[i] @ ao[self.neu:].T
                 grad_d = (self.mo_down[i] @ gradient[self.neu * 3:].T).reshape((self.ned, self.ned, 3))
-            inv_wfn_d = np.linalg.inv(wfn_d)
-            res_d = (inv_wfn_d * grad_d.T).T.sum(axis=0)
+
+            res_d = (np.linalg.inv(wfn_d) * grad_d.T).T.sum(axis=0)
 
             c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
             val += c
@@ -318,13 +321,14 @@ class Slater:
         for i in range(self.coeff.shape[0]):
 
             if self.cusp is not None:
+                # FIXME: cusp-condition для возбужденных орбиталей в CASSCF
                 wfn_u = np.where(cusp_wfn[:self.neu, :self.neu], cusp_wfn[:self.neu, :self.neu], self.mo_up[i] @ ao[:self.neu].T)
                 lap_u = np.where(cusp_laplacian[:self.neu, :self.neu], cusp_laplacian[:self.neu, :self.neu], self.mo_up[i] @ ao_laplacian[:self.neu].T)
             else:
                 wfn_u = self.mo_up[i] @ ao[:self.neu].T
                 lap_u = self.mo_up[i] @ ao_laplacian[:self.neu].T
-            inv_wfn_u = np.linalg.inv(wfn_u)
-            res_u = np.sum(inv_wfn_u * lap_u.T)
+
+            res_u = np.sum(np.linalg.inv(wfn_u) * lap_u.T)
 
             if self.cusp is not None:
                 wfn_d = np.where(cusp_wfn[self.neu:, self.neu:], cusp_wfn[self.neu:, self.neu:], self.mo_down[i] @ ao[self.neu:].T)
@@ -332,8 +336,8 @@ class Slater:
             else:
                 wfn_d = self.mo_down[i] @ ao[self.neu:].T
                 lap_d = self.mo_down[i] @ ao_laplacian[self.neu:].T
-            inv_wfn_d = np.linalg.inv(wfn_d)
-            res_d = np.sum(inv_wfn_d * lap_d.T)
+
+            res_d = np.sum(np.linalg.inv(wfn_d) * lap_d.T)
 
             c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
             val += c
@@ -387,6 +391,7 @@ class Slater:
             res_grad_u[:, 1] = np.diag(dy)
             res_grad_u[:, 2] = np.diag(dz)
 
+            # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
             res_u[:, 0, :, 0] = np.eye(self.neu) * (inv_wfn_u @ hess_xx) - dx.T * dx
             res_u[:, 0, :, 1] = np.eye(self.neu) * (inv_wfn_u @ hess_xy) - dx.T * dy
             res_u[:, 1, :, 0] = np.eye(self.neu) * (inv_wfn_u @ hess_xy) - dy.T * dx
@@ -419,6 +424,7 @@ class Slater:
             res_grad_d[:, 1] = np.diag(dy)
             res_grad_d[:, 2] = np.diag(dz)
 
+            # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
             res_d[:, 0, :, 0] = np.eye(self.ned) * (inv_wfn_d @ hess_xx) - dx.T * dx
             res_d[:, 0, :, 1] = np.eye(self.ned) * (inv_wfn_d @ hess_xy) - dx.T * dy
             res_d[:, 1, :, 0] = np.eye(self.ned) * (inv_wfn_d @ hess_xy) - dy.T * dx
@@ -432,6 +438,7 @@ class Slater:
             c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
             val += c
             res_grad = np.concatenate((res_grad_u.ravel(), res_grad_d.ravel()))
+            # tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy)
             hass += c * np.outer(res_grad, res_grad).reshape((self.neu + self.ned), 3, (self.neu + self.ned), 3)
             hass[:self.neu, :, :self.neu, :] += c * res_u
             hass[self.neu:, :, self.neu:, :] += c * res_d
