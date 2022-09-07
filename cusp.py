@@ -114,7 +114,7 @@ class Cusp:
                             self.alpha[4, atom, i] * r ** 4
                         ) + self.shift[atom, i]
 
-        return value
+        return value[:self.orbitals_up, :self.neu], value[self.orbitals_up:, self.neu:]
 
     def gradient(self, n_vectors: np.ndarray):
         """Cusp part of gradient"""
@@ -157,7 +157,7 @@ class Cusp:
                             self.alpha[4, atom, i] * r ** 4
                         ) * n_vectors[atom, j] / r + self.shift[atom, i]
 
-        return gradient
+        return gradient[:self.orbitals_up, :self.neu], gradient[self.orbitals_up:, self.neu:]
 
     def laplacian(self, n_vectors: np.ndarray):
         """Cusp part of laplacian"""
@@ -204,7 +204,7 @@ class Cusp:
                             self.alpha[4, atom, i] * r ** 4
                         ) / r + self.shift[atom, i]
 
-        return laplacian
+        return laplacian[:self.orbitals_up, :self.neu], laplacian[self.orbitals_up:, self.neu:]
 
     def hessian(self, n_vectors: np.ndarray):
         """Cusp part of hessian"""
@@ -238,7 +238,8 @@ class Cusp:
                             self.alpha[3, atom, i] * r ** 3 +
                             self.alpha[4, atom, i] * r ** 4
                         ) + self.shift[atom, i]
-        return hessian
+
+        return hessian[:self.orbitals_up, :self.neu], hessian[self.orbitals_up:, self.neu:]
 
 
 class CuspFactory:
