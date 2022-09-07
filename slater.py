@@ -248,7 +248,6 @@ class Slater:
         val = 0.0
         for i in range(self.coeff.shape[0]):
             if self.cusp is not None:
-                # FIXME: cusp-condition для возбужденных орбиталей в CASSCF
                 wfn_u = np.where(cusp_wfn_u[self.permutation_up[i]], cusp_wfn_u[self.permutation_up[i]], self.mo_up[i] @ ao[:self.neu].T)
                 wfn_d = np.where(cusp_wfn_d[self.permutation_down[i]], cusp_wfn_d[self.permutation_down[i]], self.mo_down[i] @ ao[self.neu:].T)
             else:
@@ -278,7 +277,6 @@ class Slater:
         for i in range(self.coeff.shape[0]):
 
             if self.cusp is not None:
-                # FIXME: cusp-condition для возбужденных орбиталей в CASSCF
                 wfn_u = np.where(cusp_wfn_u[self.permutation_up[i]], cusp_wfn_u[self.permutation_up[i]], self.mo_up[i] @ ao[:self.neu].T)
                 grad_u = np.where(cusp_gradient_u[self.permutation_up[i]], cusp_gradient_u[self.permutation_up[i]], (self.mo_up[i] @ gradient[:self.neu * 3].T).reshape((self.neu, self.neu, 3)))
             else:
@@ -325,7 +323,6 @@ class Slater:
         for i in range(self.coeff.shape[0]):
 
             if self.cusp is not None:
-                # FIXME: cusp-condition для возбужденных орбиталей в CASSCF
                 wfn_u = np.where(cusp_wfn_u[self.permutation_up[i]], cusp_wfn_u[self.permutation_up[i]], self.mo_up[i] @ ao[:self.neu].T)
                 lap_u = np.where(cusp_laplacian_u[self.permutation_up[i]], cusp_laplacian_u[self.permutation_up[i]], self.mo_up[i] @ ao_laplacian[:self.neu].T)
             else:
@@ -366,7 +363,6 @@ class Slater:
         hessian = self.AO_hessian(n_vectors)
         if self.cusp is not None:
             cusp_wfn_u, cusp_wfn_d = self.cusp.wfn(n_vectors)
-            cusp_gradient_u, cusp_gradient_d = self.cusp.gradient(n_vectors)
             cusp_hessian_u, cusp_hessian_d = self.cusp.hessian(n_vectors)
 
         val = 0
