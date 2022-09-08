@@ -16,6 +16,36 @@ class Profiler(Casino):
         self.dr = 3.0  # AU
         self.steps, self.atom_positions = self.config.input.vmc_nstep, self.config.wfn.atom_positions
 
+    def cusp_profiling(self):
+
+        start = default_timer()
+        self.markovchain.wfn.slater.cusp.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
+        end = default_timer()
+        logger.info(' cusp value       %8.1f', end - start)
+        # stats = rtsys.get_allocation_stats()
+        # logger.info(f'{stats} total: {stats[0] - stats[1]}')
+
+        start = default_timer()
+        self.markovchain.wfn.slater.cusp.profile_laplacian(self.dr, self.steps, self.atom_positions, self.r_e)
+        end = default_timer()
+        logger.info(' cusp laplacian   %8.1f', end - start)
+        # stats = rtsys.get_allocation_stats()
+        # logger.info(f'{stats} total: {stats[0] - stats[1]}')
+
+        start = default_timer()
+        self.markovchain.wfn.slater.cusp.profile_gradient(self.dr, self.steps, self.atom_positions, self.r_e)
+        end = default_timer()
+        logger.info(' cusp gradient    %8.1f', end - start)
+        # stats = rtsys.get_allocation_stats()
+        # logger.info(f'{stats} total: {stats[0] - stats[1]}')
+
+        start = default_timer()
+        self.markovchain.wfn.slater.cusp.profile_hessian(self.dr, self.steps, self.atom_positions, self.r_e)
+        end = default_timer()
+        logger.info(' cusp hessian     %8.1f', end - start)
+        # stats = rtsys.get_allocation_stats()
+        # logger.info(f'{stats} total: {stats[0] - stats[1]}')
+
     def slater_profiling(self):
 
         start = default_timer()
@@ -145,7 +175,6 @@ if __name__ == '__main__':
      jastrow laplacian    5946.7
      jastrow gradient     6377.9
     """
-
     for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
         path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
         logger.info('%s:', mol)
@@ -154,6 +183,45 @@ if __name__ == '__main__':
         profiler.jastrow_profiling()
         profiler.backflow_profiling()
         # profiler.markovchain_profiling()
+
+    """
+    He:
+     cusp value            9.8
+     cusp laplacian        9.4
+     cusp gradient         9.4
+     cusp hessian         12.4
+    Be:
+     cusp value           10.2
+     cusp laplacian       10.4
+     cusp gradient        10.8
+     cusp hessian         11.3
+    Ne:
+     cusp value           21.1
+     cusp laplacian       19.8
+     cusp gradient        20.9
+     cusp hessian         21.4
+    Ar:
+     cusp value           36.3
+     cusp laplacian       39.3
+     cusp gradient        38.7
+     cusp hessian         39.9
+    Kr:
+     cusp value           85.6
+     cusp laplacian       87.6
+     cusp gradient        92.8
+     cusp hessian        108.9
+    O3:
+     cusp value          110.1
+     cusp laplacian      102.7
+     cusp gradient       109.4
+     cusp hessian        115.4
+    """
+    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
+        path = f'test/gwfn/{mol}/HF/cc-pVQZ/CBCS/Jastrow/'
+        logger.info('%s:', mol)
+        profiler = Profiler(path)
+        profiler.cusp_profiling()
+
     """
     HF:
      slater value           58.0

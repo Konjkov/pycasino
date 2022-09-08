@@ -9,6 +9,8 @@ print(simplify(diff(cusp, r)))
 
 print(simplify(diff(r**2 * diff(cusp, r), r)/r**2))
 
+print(simplify(diff(diff(cusp, r), r)))
+
 gauss = exp(-alpha * r**2)
 
 print(simplify(diff(gauss, r)))
