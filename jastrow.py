@@ -533,7 +533,7 @@ class Jastrow:
         )
 
     def numerical_gradient(self, e_vectors, n_vectors) -> np.ndarray:
-        """Numerical gradient with respect to a e-coordinates
+        """Numerical gradient with respect to an e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
@@ -559,7 +559,7 @@ class Jastrow:
         return res.ravel() / delta / 2
 
     def numerical_laplacian(self, e_vectors, n_vectors) -> float:
-        """Numerical laplacian with respect to a e-coordinates
+        """Numerical laplacian with respect to an e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
