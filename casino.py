@@ -508,6 +508,9 @@ if __name__ == '__main__':
     # path = 'test/gwfn/Kr/HF/cc-pVQZ/CBCS/Jastrow/'
     # path = 'test/gwfn/O3/HF/cc-pVQZ/CBCS/Jastrow/'
 
+    # path = 'test/gwfn/He/HF/cc-pVQZ/CBCS/Backflow/'
+    # path = 'test/gwfn/Be/HF/cc-pVQZ/CBCS/Backflow/'
+
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Slater/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Slater/'
     # path = 'test/stowfn/N/HF/QZ4P/CBCS/Slater/'

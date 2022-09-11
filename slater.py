@@ -355,77 +355,85 @@ class Slater:
         ao_hessian = self.ao_hessian(n_vectors)
         if self.cusp is not None:
             cusp_value_u, cusp_value_d = self.cusp.value(n_vectors)
+            cusp_gradient_u, cusp_gradient_d = self.cusp.gradient(n_vectors)
             cusp_hessian_u, cusp_hessian_d = self.cusp.hessian(n_vectors)
 
         val = 0
         hass = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
 
-            wfn_u = self.mo_up[i] @ ao_value[:self.neu].T
-            inv_wfn_u = np.linalg.inv(wfn_u)
-            grad_u = self.mo_up[i] @ ao_gradient[:self.neu * 3].T
-            hess_xx = self.mo_up[i] @ ao_hessian[0, :self.neu].T
-            hess_xy = self.mo_up[i] @ ao_hessian[1, :self.neu].T
-            hess_yy = self.mo_up[i] @ ao_hessian[2, :self.neu].T
-            hess_xz = self.mo_up[i] @ ao_hessian[3, :self.neu].T
-            hess_yz = self.mo_up[i] @ ao_hessian[4, :self.neu].T
-            hess_zz = self.mo_up[i] @ ao_hessian[5, :self.neu].T
+            if self.cusp is not None:
+                wfn_u = np.where(cusp_value_u[self.permutation_up[i]], cusp_value_u[self.permutation_up[i]], self.mo_up[i] @ ao_value[:self.neu].T)
+                wfn_d = np.where(cusp_value_d[self.permutation_down[i]], cusp_value_d[self.permutation_down[i]], self.mo_down[i] @ ao_value[self.neu:].T)
+                # grad_u = np.where(cusp_gradient_u[self.permutation_up[i]], cusp_gradient_u[self.permutation_up[i]], (self.mo_up[i] @ ao_gradient[:self.neu * 3].T).reshape((self.neu, self.neu, 3)))
+                # grad_d = np.where(cusp_gradient_d[self.permutation_down[i]], cusp_gradient_d[self.permutation_down[i]], (self.mo_down[i] @ ao_gradient[self.neu * 3:].T).reshape((self.ned, self.ned, 3)))
+            else:
+                wfn_u = self.mo_up[i] @ ao_value[:self.neu].T
+                wfn_d = self.mo_down[i] @ ao_value[self.neu:].T
 
-            res_grad_u = np.zeros((self.neu, 3))
-            res_u = np.zeros((self.neu, 3, self.neu, 3))
+            grad_u = self.mo_up[i] @ ao_gradient[:self.neu * 3].T
+            grad_d = self.mo_down[i] @ ao_gradient[self.neu * 3:].T
+
+            hess_xx_u = self.mo_up[i] @ ao_hessian[0, :self.neu].T
+            hess_xy_u = self.mo_up[i] @ ao_hessian[1, :self.neu].T
+            hess_yy_u = self.mo_up[i] @ ao_hessian[2, :self.neu].T
+            hess_xz_u = self.mo_up[i] @ ao_hessian[3, :self.neu].T
+            hess_yz_u = self.mo_up[i] @ ao_hessian[4, :self.neu].T
+            hess_zz_u = self.mo_up[i] @ ao_hessian[5, :self.neu].T
+
+            hess_xx_d = self.mo_down[i] @ ao_hessian[0, self.neu:].T
+            hess_xy_d = self.mo_down[i] @ ao_hessian[1, self.neu:].T
+            hess_yy_d = self.mo_down[i] @ ao_hessian[2, self.neu:].T
+            hess_xz_d = self.mo_down[i] @ ao_hessian[3, self.neu:].T
+            hess_yz_d = self.mo_down[i] @ ao_hessian[4, self.neu:].T
+            hess_zz_d = self.mo_down[i] @ ao_hessian[5, self.neu:].T
+
+            inv_wfn_u = np.linalg.inv(wfn_u)
+            inv_wfn_d = np.linalg.inv(wfn_d)
 
             temp = (inv_wfn_u @ grad_u).reshape((self.neu, self.neu, 3))
             dx = temp[:, :, 0]
             dy = temp[:, :, 1]
             dz = temp[:, :, 2]
 
+            res_grad_u = np.zeros((self.neu, 3))
             res_grad_u[:, 0] = np.diag(dx)
             res_grad_u[:, 1] = np.diag(dy)
             res_grad_u[:, 2] = np.diag(dz)
 
             # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
-            res_u[:, 0, :, 0] = np.eye(self.neu) * (inv_wfn_u @ hess_xx) - dx.T * dx
-            res_u[:, 0, :, 1] = np.eye(self.neu) * (inv_wfn_u @ hess_xy) - dx.T * dy
-            res_u[:, 1, :, 0] = np.eye(self.neu) * (inv_wfn_u @ hess_xy) - dy.T * dx
-            res_u[:, 1, :, 1] = np.eye(self.neu) * (inv_wfn_u @ hess_yy) - dy.T * dy
-            res_u[:, 0, :, 2] = np.eye(self.neu) * (inv_wfn_u @ hess_xz) - dx.T * dz
-            res_u[:, 2, :, 0] = np.eye(self.neu) * (inv_wfn_u @ hess_xz) - dz.T * dx
-            res_u[:, 1, :, 2] = np.eye(self.neu) * (inv_wfn_u @ hess_yz) - dy.T * dz
-            res_u[:, 2, :, 1] = np.eye(self.neu) * (inv_wfn_u @ hess_yz) - dz.T * dy
-            res_u[:, 2, :, 2] = np.eye(self.neu) * (inv_wfn_u @ hess_zz) - dz.T * dz
-
-            wfn_d = self.mo_down[i] @ ao_value[self.neu:].T
-            inv_wfn_d = np.linalg.inv(wfn_d)
-            grad_d = self.mo_down[i] @ ao_gradient[self.neu * 3:].T
-            hess_xx = self.mo_down[i] @ ao_hessian[0, self.neu:].T
-            hess_xy = self.mo_down[i] @ ao_hessian[1, self.neu:].T
-            hess_yy = self.mo_down[i] @ ao_hessian[2, self.neu:].T
-            hess_xz = self.mo_down[i] @ ao_hessian[3, self.neu:].T
-            hess_yz = self.mo_down[i] @ ao_hessian[4, self.neu:].T
-            hess_zz = self.mo_down[i] @ ao_hessian[5, self.neu:].T
-
-            res_grad_d = np.zeros((self.ned, 3))
-            res_d = np.zeros((self.ned, 3, self.ned, 3))
+            res_u = np.zeros((self.neu, 3, self.neu, 3))
+            res_u[:, 0, :, 0] = np.eye(self.neu) * (inv_wfn_u @ hess_xx_u) - dx.T * dx
+            res_u[:, 0, :, 1] = np.eye(self.neu) * (inv_wfn_u @ hess_xy_u) - dx.T * dy
+            res_u[:, 1, :, 0] = np.eye(self.neu) * (inv_wfn_u @ hess_xy_u) - dy.T * dx
+            res_u[:, 1, :, 1] = np.eye(self.neu) * (inv_wfn_u @ hess_yy_u) - dy.T * dy
+            res_u[:, 0, :, 2] = np.eye(self.neu) * (inv_wfn_u @ hess_xz_u) - dx.T * dz
+            res_u[:, 2, :, 0] = np.eye(self.neu) * (inv_wfn_u @ hess_xz_u) - dz.T * dx
+            res_u[:, 1, :, 2] = np.eye(self.neu) * (inv_wfn_u @ hess_yz_u) - dy.T * dz
+            res_u[:, 2, :, 1] = np.eye(self.neu) * (inv_wfn_u @ hess_yz_u) - dz.T * dy
+            res_u[:, 2, :, 2] = np.eye(self.neu) * (inv_wfn_u @ hess_zz_u) - dz.T * dz
 
             temp = (inv_wfn_d @ grad_d).reshape((self.ned, self.ned, 3))
             dx = temp[:, :, 0]
             dy = temp[:, :, 1]
             dz = temp[:, :, 2]
 
+            res_grad_d = np.zeros((self.ned, 3))
             res_grad_d[:, 0] = np.diag(dx)
             res_grad_d[:, 1] = np.diag(dy)
             res_grad_d[:, 2] = np.diag(dz)
 
             # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
-            res_d[:, 0, :, 0] = np.eye(self.ned) * (inv_wfn_d @ hess_xx) - dx.T * dx
-            res_d[:, 0, :, 1] = np.eye(self.ned) * (inv_wfn_d @ hess_xy) - dx.T * dy
-            res_d[:, 1, :, 0] = np.eye(self.ned) * (inv_wfn_d @ hess_xy) - dy.T * dx
-            res_d[:, 1, :, 1] = np.eye(self.ned) * (inv_wfn_d @ hess_yy) - dy.T * dy
-            res_d[:, 0, :, 2] = np.eye(self.ned) * (inv_wfn_d @ hess_xz) - dx.T * dz
-            res_d[:, 2, :, 0] = np.eye(self.ned) * (inv_wfn_d @ hess_xz) - dz.T * dx
-            res_d[:, 1, :, 2] = np.eye(self.ned) * (inv_wfn_d @ hess_yz) - dy.T * dz
-            res_d[:, 2, :, 1] = np.eye(self.ned) * (inv_wfn_d @ hess_yz) - dz.T * dy
-            res_d[:, 2, :, 2] = np.eye(self.ned) * (inv_wfn_d @ hess_zz) - dz.T * dz
+            res_d = np.zeros((self.ned, 3, self.ned, 3))
+            res_d[:, 0, :, 0] = np.eye(self.ned) * (inv_wfn_d @ hess_xx_d) - dx.T * dx
+            res_d[:, 0, :, 1] = np.eye(self.ned) * (inv_wfn_d @ hess_xy_d) - dx.T * dy
+            res_d[:, 1, :, 0] = np.eye(self.ned) * (inv_wfn_d @ hess_xy_d) - dy.T * dx
+            res_d[:, 1, :, 1] = np.eye(self.ned) * (inv_wfn_d @ hess_yy_d) - dy.T * dy
+            res_d[:, 0, :, 2] = np.eye(self.ned) * (inv_wfn_d @ hess_xz_d) - dx.T * dz
+            res_d[:, 2, :, 0] = np.eye(self.ned) * (inv_wfn_d @ hess_xz_d) - dz.T * dx
+            res_d[:, 1, :, 2] = np.eye(self.ned) * (inv_wfn_d @ hess_yz_d) - dy.T * dz
+            res_d[:, 2, :, 1] = np.eye(self.ned) * (inv_wfn_d @ hess_yz_d) - dz.T * dy
+            res_d[:, 2, :, 2] = np.eye(self.ned) * (inv_wfn_d @ hess_zz_d) - dz.T * dz
 
             c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
             val += c
