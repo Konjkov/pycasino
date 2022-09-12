@@ -219,7 +219,7 @@ class Cusp:
         d²f(r)/dxixj = f``(r) * xi xj / r² + f`(r)(δij / r - xi xj / r**3) =
         (f``(r) / r² - f`(r) / r**3) xi xj + f`(r) * δij / r
         """
-        hessian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, 3, self.neu + self.ned, 3))
+        hessian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3, 3))
         for i in range(self.orbitals_up):
             for j in range(self.neu):
                 for atom in range(n_vectors.shape[0]):
@@ -243,7 +243,7 @@ class Cusp:
                                 4 * self.alpha[4, atom, i] * r ** 3
                             ) ** 2
                         )
-                        hessian[i, :, j, :] = self.orbital_sign[atom, i] * (
+                        hessian[i, j, :, :] = self.orbital_sign[atom, i] * (
                             diff_2 * np.outer(n_vectors[atom, j], n_vectors[atom, j]) / r ** 2 +
                             diff_1 * (np.eye(3) / r - np.outer(n_vectors[atom, j], n_vectors[atom, j]) / r ** 3)
                         ) * np.exp(
@@ -277,7 +277,7 @@ class Cusp:
                                 4 * self.alpha[4, atom, i] * r ** 3
                             ) ** 2
                         )
-                        hessian[i, :, j, :] = self.orbital_sign[atom, i] * (
+                        hessian[i, j, :, :] = self.orbital_sign[atom, i] * (
                             diff_2 * np.outer(n_vectors[atom, j], n_vectors[atom, j]) / r ** 2 +
                             diff_1 * (np.eye(3) / r - np.outer(n_vectors[atom, j], n_vectors[atom, j]) / r ** 3)
                         ) * np.exp(
