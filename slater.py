@@ -152,7 +152,7 @@ class Slater:
                         orbital[i, 1, ao+m] = y * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 1] * radial_2
                         orbital[i, 2, ao+m] = z * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 2] * radial_2
                     ao += 2*l+1
-        return self.norm * orbital.reshape(((self.neu + self.ned) * 3, self.nbasis_functions))
+        return self.norm * orbital.reshape((self.neu + self.ned) * 3, self.nbasis_functions)
 
     def ao_laplacian(self, n_vectors: np.ndarray) -> np.ndarray:
         """AO Laplacian.
@@ -384,49 +384,47 @@ class Slater:
             inv_wfn_u = np.linalg.inv(wfn_u)
             inv_wfn_d = np.linalg.inv(wfn_d)
 
-            temp_u = (inv_wfn_u @ grad_u).reshape((self.neu, self.neu, 3))
-            dx = temp_u[:, :, 0]
-            dy = temp_u[:, :, 1]
-            dz = temp_u[:, :, 2]
+            temp_grad_u = (inv_wfn_u @ grad_u).reshape(self.neu, self.neu, 3)
+            dx = temp_grad_u[:, :, 0]
+            dy = temp_grad_u[:, :, 1]
+            dz = temp_grad_u[:, :, 2]
 
-            res_grad_u = np.zeros((self.neu, 3))
-            res_grad_u[:, 0] = np.diag(dx)
-            res_grad_u[:, 1] = np.diag(dy)
-            res_grad_u[:, 2] = np.diag(dz)
+            temp_hess_u = (inv_wfn_u * hess_u.T).T.sum(axis=0)
 
             # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
             res_u = np.zeros((self.neu, 3, self.neu, 3))
-            res_u[:, 0, :, 0] = np.diag((inv_wfn_u * hess_u[:, :, 0, 0].T).sum(axis=1)) - dx.T * dx
-            res_u[:, 0, :, 1] = np.diag((inv_wfn_u * hess_u[:, :, 0, 1].T).sum(axis=1)) - dx.T * dy
-            res_u[:, 0, :, 2] = np.diag((inv_wfn_u * hess_u[:, :, 0, 2].T).sum(axis=1)) - dx.T * dz
-            res_u[:, 1, :, 0] = np.diag((inv_wfn_u * hess_u[:, :, 1, 0].T).sum(axis=1)) - dy.T * dx
-            res_u[:, 1, :, 1] = np.diag((inv_wfn_u * hess_u[:, :, 1, 1].T).sum(axis=1)) - dy.T * dy
-            res_u[:, 1, :, 2] = np.diag((inv_wfn_u * hess_u[:, :, 1, 2].T).sum(axis=1)) - dy.T * dz
-            res_u[:, 2, :, 0] = np.diag((inv_wfn_u * hess_u[:, :, 2, 0].T).sum(axis=1)) - dz.T * dx
-            res_u[:, 2, :, 1] = np.diag((inv_wfn_u * hess_u[:, :, 2, 1].T).sum(axis=1)) - dz.T * dy
-            res_u[:, 2, :, 2] = np.diag((inv_wfn_u * hess_u[:, :, 2, 2].T).sum(axis=1)) - dz.T * dz
+            res_u[:, 0, :, 0] = np.diag(temp_hess_u[:, 0, 0]) - dx.T * dx
+            res_u[:, 0, :, 1] = np.diag(temp_hess_u[:, 0, 1]) - dx.T * dy
+            res_u[:, 0, :, 2] = np.diag(temp_hess_u[:, 0, 2]) - dx.T * dz
+            res_u[:, 1, :, 0] = np.diag(temp_hess_u[:, 1, 0]) - dy.T * dx
+            res_u[:, 1, :, 1] = np.diag(temp_hess_u[:, 1, 1]) - dy.T * dy
+            res_u[:, 1, :, 2] = np.diag(temp_hess_u[:, 1, 2]) - dy.T * dz
+            res_u[:, 2, :, 0] = np.diag(temp_hess_u[:, 2, 0]) - dz.T * dx
+            res_u[:, 2, :, 1] = np.diag(temp_hess_u[:, 2, 1]) - dz.T * dy
+            res_u[:, 2, :, 2] = np.diag(temp_hess_u[:, 2, 2]) - dz.T * dz
 
-            temp_d = (inv_wfn_d @ grad_d).reshape((self.ned, self.ned, 3))
-            dx = temp_d[:, :, 0]
-            dy = temp_d[:, :, 1]
-            dz = temp_d[:, :, 2]
+            temp_grad_d = (inv_wfn_d @ grad_d).reshape(self.ned, self.ned, 3)
+            dx = temp_grad_d[:, :, 0]
+            dy = temp_grad_d[:, :, 1]
+            dz = temp_grad_d[:, :, 2]
 
-            res_grad_d = np.zeros((self.ned, 3))
-            res_grad_d[:, 0] = np.diag(dx)
-            res_grad_d[:, 1] = np.diag(dy)
-            res_grad_d[:, 2] = np.diag(dz)
+            temp_hess_d = (inv_wfn_d * hess_d.T).T.sum(axis=0)
 
             # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
             res_d = np.zeros((self.ned, 3, self.ned, 3))
-            res_d[:, 0, :, 0] = np.diag((inv_wfn_d * hess_d[:, :, 0, 0].T).sum(axis=1)) - dx.T * dx
-            res_d[:, 0, :, 1] = np.diag((inv_wfn_d * hess_d[:, :, 0, 1].T).sum(axis=1)) - dx.T * dy
-            res_d[:, 0, :, 2] = np.diag((inv_wfn_d * hess_d[:, :, 0, 2].T).sum(axis=1)) - dx.T * dz
-            res_d[:, 1, :, 0] = np.diag((inv_wfn_d * hess_d[:, :, 1, 0].T).sum(axis=1)) - dy.T * dx
-            res_d[:, 1, :, 1] = np.diag((inv_wfn_d * hess_d[:, :, 1, 1].T).sum(axis=1)) - dy.T * dy
-            res_d[:, 1, :, 2] = np.diag((inv_wfn_d * hess_d[:, :, 1, 2].T).sum(axis=1)) - dy.T * dz
-            res_d[:, 2, :, 0] = np.diag((inv_wfn_d * hess_d[:, :, 2, 0].T).sum(axis=1)) - dz.T * dx
-            res_d[:, 2, :, 1] = np.diag((inv_wfn_d * hess_d[:, :, 2, 1].T).sum(axis=1)) - dz.T * dy
-            res_d[:, 2, :, 2] = np.diag((inv_wfn_d * hess_d[:, :, 2, 2].T).sum(axis=1)) - dz.T * dz
+            # FIXME: res_d[:, ::(n + 1)] = temp_hess_d - https://stackoverflow.com/questions/67241824/3d-tensor-of-diagonal-matrices
+            res_d[:, 0, :, 0] = np.diag(temp_hess_d[:, 0, 0]) - dx.T * dx
+            res_d[:, 0, :, 1] = np.diag(temp_hess_d[:, 0, 1]) - dx.T * dy
+            res_d[:, 0, :, 2] = np.diag(temp_hess_d[:, 0, 2]) - dx.T * dz
+            res_d[:, 1, :, 0] = np.diag(temp_hess_d[:, 1, 0]) - dy.T * dx
+            res_d[:, 1, :, 1] = np.diag(temp_hess_d[:, 1, 1]) - dy.T * dy
+            res_d[:, 1, :, 2] = np.diag(temp_hess_d[:, 1, 2]) - dy.T * dz
+            res_d[:, 2, :, 0] = np.diag(temp_hess_d[:, 2, 0]) - dz.T * dx
+            res_d[:, 2, :, 1] = np.diag(temp_hess_d[:, 2, 1]) - dz.T * dy
+            res_d[:, 2, :, 2] = np.diag(temp_hess_d[:, 2, 2]) - dz.T * dz
+
+            res_grad_u = (np.linalg.inv(wfn_u) * grad_u.reshape(self.neu, self.neu, 3).T).T.sum(axis=0)
+            res_grad_d = (np.linalg.inv(wfn_d) * grad_d.reshape(self.ned, self.ned, 3).T).T.sum(axis=0)
 
             c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
             val += c

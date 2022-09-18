@@ -123,48 +123,48 @@ class Profiler(Casino):
 if __name__ == '__main__':
     """
     He:
-     slater value           29.3
-     slater laplacian       54.6
-     slater gradient        75.5
-     slater hessian        252.4
-     jastrow value          28.1
-     jastrow laplacian      36.4
-     jastrow gradient       44.7
-     backflow value         42.3
-     backflow gradient     116.5
-     backflow laplacian    147.5
+     slater value           31.6
+     slater laplacian       58.0
+     slater gradient        78.3
+     slater hessian        241.1
+     jastrow value          26.7
+     jastrow laplacian      33.5
+     jastrow gradient       41.2
+     backflow value         40.7
+     backflow gradient     107.4
+     backflow laplacian    129.2
     Be:
-     slater value           49.6
-     slater laplacian       99.6
-     slater gradient       121.8
-     slater hessian        336.0
-     jastrow value          63.6
-     jastrow laplacian     103.6
-     jastrow gradient      116.9
-     backflow value        109.5
-     backflow gradient     500.4
-     backflow laplacian    595.4
+     slater value           46.4
+     slater laplacian       92.2
+     slater gradient       120.4
+     slater hessian        305.4
+     jastrow value          59.9
+     jastrow laplacian      89.2
+     jastrow gradient      106.1
+     backflow value        101.3
+     backflow gradient     439.3
+     backflow laplacian    545.4
     Ne:
-     slater value          105.9
-     slater laplacian      221.1
-     slater gradient       275.2
-     slater hessian        727.2
-     jastrow value         302.6
-     jastrow laplacian     599.1
-     jastrow gradient      668.7
-     backflow value        458.5
-     backflow gradient    2017.4
-     backflow laplacian   2448.1
+     slater value          111.7
+     slater laplacian      217.7
+     slater gradient       280.5
+     slater hessian        752.1
+     jastrow value         284.2
+     jastrow laplacian     496.6
+     jastrow gradient      563.9
+     backflow value        389.7
+     backflow gradient    1525.8
+     backflow laplacian   1840.7
     Ar:
-     slater value          238.4
-     slater laplacian      514.4
-     slater gradient       644.3
-     slater hessian       1677.0
-     jastrow value         958.2
-     jastrow laplacian    1910.5
-     jastrow gradient     2109.0
-     backflow value       1698.0
-     backflow gradient    9133.1
+     slater value          229.1
+     slater laplacian      465.2
+     slater gradient       579.8
+     slater hessian       1507.7
+     jastrow value         857.8
+     jastrow laplacian    1560.6
+     jastrow gradient     1767.0
+     backflow value       1409.5
+     backflow gradient    7217.1
      backflow laplacian  11405.6
     Kr:
      slater value          695.6
