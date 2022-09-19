@@ -368,23 +368,22 @@ class Slater:
             if self.cusp is not None:
                 wfn_u = np.where(cusp_value_u[self.permutation_up[i]], cusp_value_u[self.permutation_up[i]], self.mo_up[i] @ ao_value[:self.neu].T)
                 wfn_d = np.where(cusp_value_d[self.permutation_down[i]], cusp_value_d[self.permutation_down[i]], self.mo_down[i] @ ao_value[self.neu:].T)
-                # grad_u = np.where(cusp_gradient_u[self.permutation_up[i]], cusp_gradient_u[self.permutation_up[i]], (self.mo_up[i] @ ao_gradient[:self.neu * 3].T).reshape(self.neu, self.neu, 3))
-                # grad_d = np.where(cusp_gradient_d[self.permutation_down[i]], cusp_gradient_d[self.permutation_down[i]], (self.mo_down[i] @ ao_gradient[self.neu * 3:].T).reshape(self.ned, self.ned, 3))
+                grad_u = np.where(cusp_gradient_u[self.permutation_up[i]], cusp_gradient_u[self.permutation_up[i]], (self.mo_up[i] @ ao_gradient[:self.neu * 3].T).reshape(self.neu, self.neu, 3))
+                grad_d = np.where(cusp_gradient_d[self.permutation_down[i]], cusp_gradient_d[self.permutation_down[i]], (self.mo_down[i] @ ao_gradient[self.neu * 3:].T).reshape(self.ned, self.ned, 3))
                 hess_u = np.where(cusp_hessian_u[self.permutation_up[i]], cusp_hessian_u[self.permutation_up[i]], (self.mo_up[i] @ ao_hessian[:self.neu * 9].T).reshape(self.neu, self.neu, 3, 3))
                 hess_d = np.where(cusp_hessian_d[self.permutation_down[i]], cusp_hessian_d[self.permutation_down[i]], (self.mo_down[i] @ ao_hessian[self.neu * 9:].T).reshape(self.neu, self.neu, 3, 3))
             else:
                 wfn_u = self.mo_up[i] @ ao_value[:self.neu].T
                 wfn_d = self.mo_down[i] @ ao_value[self.neu:].T
+                grad_u = (self.mo_up[i] @ ao_gradient[:self.neu * 3].T).reshape(self.neu, self.neu, 3)
+                grad_d = (self.mo_down[i] @ ao_gradient[self.neu * 3:].T).reshape(self.neu, self.neu, 3)
                 hess_u = (self.mo_up[i] @ ao_hessian[:self.neu * 9].T).reshape(self.neu, self.neu, 3, 3)
                 hess_d = (self.mo_down[i] @ ao_hessian[self.neu * 9:].T).reshape(self.ned, self.ned, 3, 3)
-
-            grad_u = self.mo_up[i] @ ao_gradient[:self.neu * 3].T
-            grad_d = self.mo_down[i] @ ao_gradient[self.neu * 3:].T
 
             inv_wfn_u = np.linalg.inv(wfn_u)
             inv_wfn_d = np.linalg.inv(wfn_d)
 
-            temp_grad_u = (inv_wfn_u @ grad_u).reshape(self.neu, self.neu, 3)
+            temp_grad_u = (inv_wfn_u @ grad_u.reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
             dx = temp_grad_u[:, :, 0]
             dy = temp_grad_u[:, :, 1]
             dz = temp_grad_u[:, :, 2]
@@ -403,7 +402,7 @@ class Slater:
             res_u[:, 2, :, 1] = np.diag(temp_hess_u[:, 2, 1]) - dz.T * dy
             res_u[:, 2, :, 2] = np.diag(temp_hess_u[:, 2, 2]) - dz.T * dz
 
-            temp_grad_d = (inv_wfn_d @ grad_d).reshape(self.ned, self.ned, 3)
+            temp_grad_d = (inv_wfn_d @ grad_d.reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
             dx = temp_grad_d[:, :, 0]
             dy = temp_grad_d[:, :, 1]
             dz = temp_grad_d[:, :, 2]
