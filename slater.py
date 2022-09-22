@@ -13,7 +13,7 @@ import numba as nb
 
 from logger import logging
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
-from cusp import Cusp, CuspFactory
+from cusp import Cusp
 from harmonics import angular_part, gradient_angular_part, hessian_angular_part
 from overload import subtract_outer, random_step
 
@@ -371,12 +371,12 @@ class Slater:
                 grad_u = np.where(cusp_gradient_u[self.permutation_up[i]], cusp_gradient_u[self.permutation_up[i]], (self.mo_up[i] @ ao_gradient[:self.neu * 3].T).reshape(self.neu, self.neu, 3))
                 grad_d = np.where(cusp_gradient_d[self.permutation_down[i]], cusp_gradient_d[self.permutation_down[i]], (self.mo_down[i] @ ao_gradient[self.neu * 3:].T).reshape(self.ned, self.ned, 3))
                 hess_u = np.where(cusp_hessian_u[self.permutation_up[i]], cusp_hessian_u[self.permutation_up[i]], (self.mo_up[i] @ ao_hessian[:self.neu * 9].T).reshape(self.neu, self.neu, 3, 3))
-                hess_d = np.where(cusp_hessian_d[self.permutation_down[i]], cusp_hessian_d[self.permutation_down[i]], (self.mo_down[i] @ ao_hessian[self.neu * 9:].T).reshape(self.neu, self.neu, 3, 3))
+                hess_d = np.where(cusp_hessian_d[self.permutation_down[i]], cusp_hessian_d[self.permutation_down[i]], (self.mo_down[i] @ ao_hessian[self.neu * 9:].T).reshape(self.ned, self.ned, 3, 3))
             else:
                 wfn_u = self.mo_up[i] @ ao_value[:self.neu].T
                 wfn_d = self.mo_down[i] @ ao_value[self.neu:].T
                 grad_u = (self.mo_up[i] @ ao_gradient[:self.neu * 3].T).reshape(self.neu, self.neu, 3)
-                grad_d = (self.mo_down[i] @ ao_gradient[self.neu * 3:].T).reshape(self.neu, self.neu, 3)
+                grad_d = (self.mo_down[i] @ ao_gradient[self.neu * 3:].T).reshape(self.ned, self.ned, 3)
                 hess_u = (self.mo_up[i] @ ao_hessian[:self.neu * 9].T).reshape(self.neu, self.neu, 3, 3)
                 hess_d = (self.mo_down[i] @ ao_hessian[self.neu * 9:].T).reshape(self.ned, self.ned, 3, 3)
 

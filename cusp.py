@@ -226,7 +226,6 @@ class Cusp:
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.rc[atom, i]:
-                        # FIXME: not implemented
                         diff_1 = (
                             self.alpha[1, atom, i] +
                             2 * self.alpha[2, atom, i] * r +
@@ -260,7 +259,6 @@ class Cusp:
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.rc[atom, i]:
-                        # FIXME: not implemented
                         diff_1 = (
                             self.alpha[1, atom, i] +
                             2 * self.alpha[2, atom, i] * r +
