@@ -83,10 +83,16 @@ class Casino:
             cusp = CuspFactory(
                 self.config.input.neu, self.config.input.ned, self.config.wfn.mo_up, self.config.wfn.mo_down,
                 self.config.mdet.permutation_up, self.config.mdet.permutation_down,
-                self.config.wfn.nbasis_functions, self.config.wfn.first_shells, self.config.wfn.shell_moments, self.config.wfn.primitives,
-                self.config.wfn.coefficients, self.config.wfn.exponents, self.config.wfn.atom_positions, self.config.wfn.atom_charges
+                self.config.wfn.first_shells, self.config.wfn.shell_moments, self.config.wfn.primitives,
+                self.config.wfn.coefficients, self.config.wfn.exponents,
+                self.config.wfn.atom_positions, self.config.wfn.atom_charges
             ).create()
-            # cusp = TestCuspFactory(self.config.input.neu, self.config.input.ned).create()
+            # cusp = TestCuspFactory(
+            #     self.config.input.neu, self.config.input.ned, self.config.wfn.mo_up, self.config.wfn.mo_down,
+            #     self.config.mdet.permutation_up, self.config.mdet.permutation_down,
+            #     self.config.wfn.first_shells, self.config.wfn.shell_moments, self.config.wfn.primitives,
+            #     self.config.wfn.coefficients, self.config.wfn.exponents
+            # ).create()
         else:
             cusp = None
 
