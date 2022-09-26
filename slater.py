@@ -33,8 +33,8 @@ slater_spec = [
     ('exponents', nb.float64[:]),
     ('permutation_up', nb.int64[:, :]),
     ('permutation_down', nb.int64[:, :]),
-    ('mo_up', nb.float64[:, :, :]),
-    ('mo_down', nb.float64[:, :, :]),
+    ('mo_up', nb.float64[:, :]),
+    ('mo_down', nb.float64[:, :]),
     ('coeff', nb.float64[:]),
     ('cusp', nb.optional(Cusp.class_type.instance_type)),
     ('norm', nb.float64),
@@ -77,11 +77,8 @@ class Slater:
         self.exponents = exponents
         self.permutation_up = permutation_up
         self.permutation_down = permutation_down
-        self.mo_up = np.zeros(shape=(permutation_up.shape[0], neu, mo_up.shape[1]))
-        self.mo_down = np.zeros(shape=(permutation_down.shape[0], ned, mo_down.shape[1]))
-        for i in range(permutation_up.shape[0]):
-            self.mo_up[i] = mo_up[permutation_up[i]]
-            self.mo_down[i] = mo_down[permutation_down[i]]
+        self.mo_up = mo_up
+        self.mo_down = mo_down
         self.coeff = coeff
         self.cusp = cusp
         self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
@@ -252,18 +249,16 @@ class Slater:
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         ao_value = self.ao_value(n_vectors)
+        wfn_u = self.mo_up @ ao_value[:self.neu].T
+        wfn_d = self.mo_down @ ao_value[self.neu:].T
         if self.cusp is not None:
             cusp_value_u, cusp_value_d = self.cusp.value(n_vectors)
+            wfn_u += cusp_value_u
+            wfn_d += cusp_value_d
 
         val = 0.0
         for i in range(self.coeff.shape[0]):
-            if self.cusp is not None:
-                wfn_u = self.mo_up[i] @ ao_value[:self.neu].T + cusp_value_u[self.permutation_up[i]]
-                wfn_d = self.mo_down[i] @ ao_value[self.neu:].T + cusp_value_d[self.permutation_down[i]]
-            else:
-                wfn_u = self.mo_up[i] @ ao_value[:self.neu].T
-                wfn_d = self.mo_down[i] @ ao_value[self.neu:].T
-            val += self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
+            val += self.coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
         return val
 
     def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
@@ -278,29 +273,28 @@ class Slater:
         """
         ao_value = self.ao_value(n_vectors)
         ao_gradient = self.ao_gradient(n_vectors)
+        wfn_u = self.mo_up @ ao_value[:self.neu].T
+        wfn_d = self.mo_down @ ao_value[self.neu:].T
         if self.cusp is not None:
             cusp_value_u, cusp_value_d = self.cusp.value(n_vectors)
             cusp_gradient_u, cusp_gradient_d = self.cusp.gradient(n_vectors)
+            wfn_u += cusp_value_u
+            wfn_d += cusp_value_d
 
         val = 0.0
         grad = np.zeros(shape=(self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
 
+            grad_u = (self.mo_up[self.permutation_up[i]] @ ao_gradient[:self.neu * 3].T).reshape(self.neu, self.neu, 3)
+            grad_d = (self.mo_down[self.permutation_down[i]] @ ao_gradient[self.neu * 3:].T).reshape(self.ned, self.ned, 3)
             if self.cusp is not None:
-                wfn_u = self.mo_up[i] @ ao_value[:self.neu].T + cusp_value_u[self.permutation_up[i]]
-                wfn_d = self.mo_down[i] @ ao_value[self.neu:].T + cusp_value_d[self.permutation_down[i]]
-                grad_u = (self.mo_up[i] @ ao_gradient[:self.neu * 3].T).reshape(self.neu, self.neu, 3) + cusp_gradient_u[self.permutation_up[i]]
-                grad_d = (self.mo_down[i] @ ao_gradient[self.neu * 3:].T).reshape(self.ned, self.ned, 3) + cusp_gradient_d[self.permutation_down[i]]
-            else:
-                wfn_u = self.mo_up[i] @ ao_value[:self.neu].T
-                wfn_d = self.mo_down[i] @ ao_value[self.neu:].T
-                grad_u = (self.mo_up[i] @ ao_gradient[:self.neu * 3].T).reshape(self.neu, self.neu, 3)
-                grad_d = (self.mo_down[i] @ ao_gradient[self.neu * 3:].T).reshape(self.ned, self.ned, 3)
+                grad_u += cusp_gradient_u[self.permutation_up[i]]
+                grad_d += cusp_gradient_d[self.permutation_down[i]]
 
-            res_u = (np.linalg.inv(wfn_u) * grad_u.T).T.sum(axis=0)
-            res_d = (np.linalg.inv(wfn_d) * grad_d.T).T.sum(axis=0)
+            res_u = (np.linalg.inv(wfn_u[self.permutation_up[i]]) * grad_u.T).T.sum(axis=0)
+            res_d = (np.linalg.inv(wfn_d[self.permutation_down[i]]) * grad_d.T).T.sum(axis=0)
 
-            c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
+            c = self.coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             grad += c * np.concatenate((res_u, res_d))
 
@@ -321,28 +315,23 @@ class Slater:
         """
         ao_value = self.ao_value(n_vectors)
         ao_laplacian = self.ao_laplacian(n_vectors)
+        wfn_u = self.mo_up @ ao_value[:self.neu].T
+        wfn_d = self.mo_down @ ao_value[self.neu:].T
+        lap_u = self.mo_up @ ao_laplacian[:self.neu].T
+        lap_d = self.mo_down @ ao_laplacian[self.neu:].T
         if self.cusp is not None:
             cusp_value_u, cusp_value_d = self.cusp.value(n_vectors)
             cusp_laplacian_u, cusp_laplacian_d = self.cusp.laplacian(n_vectors)
+            wfn_u += cusp_value_u
+            wfn_d += cusp_value_d
+            lap_u += cusp_laplacian_u
+            lap_d += cusp_laplacian_d
 
         val = lap = 0
         for i in range(self.coeff.shape[0]):
-
-            if self.cusp is not None:
-                wfn_u = self.mo_up[i] @ ao_value[:self.neu].T + cusp_value_u[self.permutation_up[i]]
-                wfn_d = self.mo_down[i] @ ao_value[self.neu:].T + cusp_value_d[self.permutation_down[i]]
-                lap_u = self.mo_up[i] @ ao_laplacian[:self.neu].T + cusp_laplacian_u[self.permutation_up[i]]
-                lap_d = self.mo_down[i] @ ao_laplacian[self.neu:].T + cusp_laplacian_d[self.permutation_down[i]]
-            else:
-                wfn_u = self.mo_up[i] @ ao_value[:self.neu].T
-                wfn_d = self.mo_down[i] @ ao_value[self.neu:].T
-                lap_u = self.mo_up[i] @ ao_laplacian[:self.neu].T
-                lap_d = self.mo_down[i] @ ao_laplacian[self.neu:].T
-
-            res_u = np.sum(np.linalg.inv(wfn_u) * lap_u.T)
-            res_d = np.sum(np.linalg.inv(wfn_d) * lap_d.T)
-
-            c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
+            res_u = np.sum(np.linalg.inv(wfn_u[self.permutation_up[i]]) * lap_u[self.permutation_up[i]].T)
+            res_d = np.sum(np.linalg.inv(wfn_d[self.permutation_down[i]]) * lap_d[self.permutation_down[i]].T)
+            c = self.coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             lap += c * (res_u + res_d)
 
@@ -363,32 +352,31 @@ class Slater:
         ao_value = self.ao_value(n_vectors)
         ao_gradient = self.ao_gradient(n_vectors)
         ao_hessian = self.ao_hessian(n_vectors)
+        wfn_u = self.mo_up @ ao_value[:self.neu].T
+        wfn_d = self.mo_down @ ao_value[self.neu:].T
         if self.cusp is not None:
             cusp_value_u, cusp_value_d = self.cusp.value(n_vectors)
             cusp_gradient_u, cusp_gradient_d = self.cusp.gradient(n_vectors)
             cusp_hessian_u, cusp_hessian_d = self.cusp.hessian(n_vectors)
+            wfn_u += cusp_value_u
+            wfn_d += cusp_value_d
 
         val = 0
         hass = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
 
+            grad_u = (self.mo_up[self.permutation_up[i]] @ ao_gradient[:self.neu * 3].T).reshape(self.neu, self.neu, 3)
+            grad_d = (self.mo_down[self.permutation_down[i]] @ ao_gradient[self.neu * 3:].T).reshape(self.ned, self.ned, 3)
+            hess_u = (self.mo_up[self.permutation_up[i]] @ ao_hessian[:self.neu * 9].T).reshape(self.neu, self.neu, 3, 3)
+            hess_d = (self.mo_down[self.permutation_down[i]] @ ao_hessian[self.neu * 9:].T).reshape(self.ned, self.ned, 3, 3)
             if self.cusp is not None:
-                wfn_u = self.mo_up[i] @ ao_value[:self.neu].T + cusp_value_u[self.permutation_up[i]]
-                wfn_d = self.mo_down[i] @ ao_value[self.neu:].T + cusp_value_d[self.permutation_down[i]]
-                grad_u = (self.mo_up[i] @ ao_gradient[:self.neu * 3].T).reshape(self.neu, self.neu, 3) + cusp_gradient_u[self.permutation_up[i]]
-                grad_d = (self.mo_down[i] @ ao_gradient[self.neu * 3:].T).reshape(self.ned, self.ned, 3) + cusp_gradient_d[self.permutation_down[i]]
-                hess_u = (self.mo_up[i] @ ao_hessian[:self.neu * 9].T).reshape(self.neu, self.neu, 3, 3) + cusp_hessian_u[self.permutation_up[i]]
-                hess_d = (self.mo_down[i] @ ao_hessian[self.neu * 9:].T).reshape(self.ned, self.ned, 3, 3) + cusp_hessian_d[self.permutation_down[i]]
-            else:
-                wfn_u = self.mo_up[i] @ ao_value[:self.neu].T
-                wfn_d = self.mo_down[i] @ ao_value[self.neu:].T
-                grad_u = (self.mo_up[i] @ ao_gradient[:self.neu * 3].T).reshape(self.neu, self.neu, 3)
-                grad_d = (self.mo_down[i] @ ao_gradient[self.neu * 3:].T).reshape(self.ned, self.ned, 3)
-                hess_u = (self.mo_up[i] @ ao_hessian[:self.neu * 9].T).reshape(self.neu, self.neu, 3, 3)
-                hess_d = (self.mo_down[i] @ ao_hessian[self.neu * 9:].T).reshape(self.ned, self.ned, 3, 3)
+                grad_u += cusp_gradient_u[self.permutation_up[i]]
+                grad_d += cusp_gradient_d[self.permutation_down[i]]
+                hess_u += cusp_hessian_u[self.permutation_up[i]]
+                hess_d += cusp_hessian_d[self.permutation_down[i]]
 
-            inv_wfn_u = np.linalg.inv(wfn_u)
-            inv_wfn_d = np.linalg.inv(wfn_d)
+            inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
+            inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
 
             temp_grad_u = (inv_wfn_u @ grad_u.reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
             dx = temp_grad_u[:, :, 0]
@@ -429,10 +417,10 @@ class Slater:
             res_d[:, 2, :, 1] = np.diag(temp_hess_d[:, 2, 1]) - dz.T * dy
             res_d[:, 2, :, 2] = np.diag(temp_hess_d[:, 2, 2]) - dz.T * dz
 
-            res_grad_u = (np.linalg.inv(wfn_u) * grad_u.reshape(self.neu, self.neu, 3).T).T.sum(axis=0)
-            res_grad_d = (np.linalg.inv(wfn_d) * grad_d.reshape(self.ned, self.ned, 3).T).T.sum(axis=0)
+            res_grad_u = (np.linalg.inv(wfn_u[self.permutation_up[i]]) * grad_u.reshape(self.neu, self.neu, 3).T).T.sum(axis=0)
+            res_grad_d = (np.linalg.inv(wfn_d[self.permutation_down[i]]) * grad_d.reshape(self.ned, self.ned, 3).T).T.sum(axis=0)
 
-            c = self.coeff[i] * np.linalg.det(wfn_u) * np.linalg.det(wfn_d)
+            c = self.coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             res_grad = np.concatenate((res_grad_u.ravel(), res_grad_d.ravel()))
             # tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy)
