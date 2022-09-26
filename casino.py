@@ -516,8 +516,10 @@ if __name__ == '__main__':
 
     # path = 'test/gwfn/He/HF/cc-pVQZ/CBCS/Backflow/'
     # path = 'test/gwfn/Be/HF/cc-pVQZ/CBCS/Backflow/'
+    # path = 'test/gwfn/Be/MP2-CASSCF(2.4)/cc-pVQZ/CBCS/Backflow/'
     # path = 'test/gwfn/N/HF/cc-pVQZ/CBCS/Backflow/'
     # path = 'test/gwfn/Ne/HF/cc-pVQZ/CBCS/Backflow/'
+    # path = 'test/gwfn/Ar/HF/cc-pVQZ/CBCS/Backflow/'
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Slater/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Slater/'
