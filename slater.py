@@ -191,7 +191,7 @@ class Slater:
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :return: AO hessian - array(6, nelec, nbasis_functions)
         """
-        orbital = np.zeros(shape=(self.neu + self.ned, 9, self.nbasis_functions))
+        orbital = np.zeros(shape=(self.neu + self.ned, 3, 3, self.nbasis_functions))
 
         for i in range(self.neu + self.ned):
             p = ao = 0
@@ -227,15 +227,22 @@ class Slater:
                             radial_3 += exponent
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
-                        orbital[i, 0, ao+m] = x*x * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * x * angular_2[l*l+m, 0]) * radial_2 + angular_3[l*l+m, 0] * radial_3
-                        orbital[i, 1, ao+m] = x*y * angular_1[l*l+m] * radial_1 + (y * angular_2[l*l+m, 0] + x * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 1] * radial_3
-                        orbital[i, 2, ao+m] = x*z * angular_1[l*l+m] * radial_1 + (z * angular_2[l*l+m, 0] + x * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 3] * radial_3
-                        orbital[i, 3, ao+m] = orbital[i, 1, ao+m]
-                        orbital[i, 4, ao+m] = y*y * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * y * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 2] * radial_3
-                        orbital[i, 5, ao+m] = y*z * angular_1[l*l+m] * radial_1 + (z * angular_2[l*l+m, 1] + y * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 4] * radial_3
-                        orbital[i, 6, ao+m] = orbital[i, 2, ao+m]
-                        orbital[i, 7, ao+m] = orbital[i, 5, ao+m]
-                        orbital[i, 8, ao+m] = z*z * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * z * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 5] * radial_3
+                        # orbital[i, :, :, ao+m] = (
+                        #     np.outer(n_vectors[atom, i], n_vectors[atom, i]) * angular_1[l*l+m] * radial_1 +
+                        #     np.eye(3) * angular_1[l*l+m] * radial_2 +
+                        #     (np.outer(n_vectors[atom, i], angular_2[l*l+m, :]) + np.outer(angular_2[l*l+m, :], n_vectors[atom, i])) * radial_2 +
+                        #     # convert angular_3[l * l + m, :] to symmetric matrix
+                        #     angular_3[l * l + m, :, :] * radial_3
+                        # )
+                        orbital[i, 0, 0, ao+m] = x*x * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * x * angular_2[l*l+m, 0]) * radial_2 + angular_3[l*l+m, 0] * radial_3
+                        orbital[i, 0, 1, ao+m] = x*y * angular_1[l*l+m] * radial_1 + (y * angular_2[l*l+m, 0] + x * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 1] * radial_3
+                        orbital[i, 0, 2, ao+m] = x*z * angular_1[l*l+m] * radial_1 + (z * angular_2[l*l+m, 0] + x * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 3] * radial_3
+                        orbital[i, 1, 0, ao+m] = orbital[i, 0, 1, ao+m]
+                        orbital[i, 1, 1, ao+m] = y*y * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * y * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 2] * radial_3
+                        orbital[i, 1, 2, ao+m] = y*z * angular_1[l*l+m] * radial_1 + (z * angular_2[l*l+m, 1] + y * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 4] * radial_3
+                        orbital[i, 2, 0, ao+m] = orbital[i, 0, 2, ao+m]
+                        orbital[i, 2, 1, ao+m] = orbital[i, 1, 2, ao+m]
+                        orbital[i, 2, 2, ao+m] = z*z * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * z * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 5] * radial_3
                     ao += 2*l+1
 
         return self.norm * orbital.reshape((self.neu + self.ned) * 9, self.nbasis_functions)

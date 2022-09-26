@@ -96,8 +96,8 @@ class Cusp:
         self.orbital_sign = orbital_sign
         self.alpha = alpha
         # evaluate s-part of Gaussian orbitals
-        self.norm = np.exp((np.math.lgamma(neu + 1) + np.math.lgamma(ned + 1)) / (neu + ned) / 2)
         self.mo = mo
+        self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
         self.first_shells = first_shells
         self.shell_moments = shell_moments
         self.primitives = primitives
@@ -132,7 +132,7 @@ class Cusp:
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
 
-                    value[i, j] -= s_part / self.norm
+                    value[i, j] -= s_part * self.norm
 
         for i in range(self.orbitals_up, self.orbitals_up + self.orbitals_down):
             for j in range(self.neu, self.neu + self.ned):
@@ -158,7 +158,7 @@ class Cusp:
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
 
-                    value[i, j] -= s_part / self.norm
+                    value[i, j] -= s_part * self.norm
 
         return value[:self.orbitals_up, :self.neu], value[self.orbitals_up:, self.neu:]
 
@@ -198,7 +198,7 @@ class Cusp:
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
 
-                    gradient[i, j] -= n_vectors[atom, j] * s_part / self.norm
+                    gradient[i, j] -= n_vectors[atom, j] * s_part * self.norm
 
         for i in range(self.orbitals_up, self.orbitals_up + self.orbitals_down):
             for j in range(self.neu, self.neu + self.ned):
@@ -231,7 +231,7 @@ class Cusp:
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
 
-                    gradient[i, j] -= n_vectors[atom, j] * s_part / self.norm
+                    gradient[i, j] -= n_vectors[atom, j] * s_part * self.norm
 
         return gradient[:self.orbitals_up, :self.neu], gradient[self.orbitals_up:, self.neu:]
 
@@ -273,7 +273,7 @@ class Cusp:
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
 
-                    laplacian[i, j] -= s_part / self.norm
+                    laplacian[i, j] -= s_part * self.norm
 
         for i in range(self.orbitals_up, self.orbitals_up + self.orbitals_down):
             for j in range(self.neu, self.neu + self.ned):
@@ -308,7 +308,7 @@ class Cusp:
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
 
-                    laplacian[i, j] -= s_part / self.norm
+                    laplacian[i, j] -= s_part * self.norm
 
         return laplacian[:self.orbitals_up, :self.neu], laplacian[self.orbitals_up:, self.neu:]
 
@@ -364,7 +364,7 @@ class Cusp:
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
 
-                    hessian[i, j] -= s_part / self.norm
+                    hessian[i, j] -= s_part * self.norm
 
         for i in range(self.orbitals_up, self.orbitals_up + self.orbitals_down):
             for j in range(self.neu, self.neu + self.ned):
@@ -412,7 +412,7 @@ class Cusp:
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
 
-                    hessian[i, j] -= s_part / self.norm
+                    hessian[i, j] -= s_part * self.norm
 
         return hessian[:self.orbitals_up, :self.neu], hessian[self.orbitals_up:, self.neu:]
 
@@ -455,7 +455,7 @@ class CuspFactory:
         self.ned = ned
         self.orbitals_up = np.max(permutation_up) + 1
         self.orbitals_down = np.max(permutation_down) + 1
-        self.norm = np.exp((np.math.lgamma(neu + 1) + np.math.lgamma(ned + 1)) / (neu + ned) / 2)
+        self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
         self.mo = np.concatenate((mo_up[:self.orbitals_up], mo_down[:self.orbitals_down]))
         self.first_shells = first_shells
         self.shell_moments = shell_moments
@@ -496,9 +496,9 @@ class CuspFactory:
                     ao += 2 * l + 1
                     p += self.primitives[nshell]
         return (
-            np.sum(orbital * self.mo, axis=2) / self.norm,
-            np.sum(orbital_derivative * self.mo, axis=2) / self.norm,
-            np.sum(orbital_second_derivative * self.mo, axis=2) / self.norm
+            np.sum(orbital * self.mo, axis=2) * self.norm,
+            np.sum(orbital_derivative * self.mo, axis=2) * self.norm,
+            np.sum(orbital_second_derivative * self.mo, axis=2) * self.norm
         )
 
     def eta_data(self):
@@ -521,7 +521,7 @@ class CuspFactory:
                                 orbital[atom, orb, ao+m] += angular[l*l+m] * radial
                         ao += 2 * l + 1
                         p += self.primitives[nshell]
-        return np.sum(orbital * self.mo, axis=2) / self.norm
+        return np.sum(orbital * self.mo, axis=2) * self.norm
 
     def rc_initial(self):
         """Initial rc"""
