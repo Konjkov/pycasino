@@ -110,7 +110,15 @@ class Slater:
                     for m in range(2 * l + 1):
                         orbital[i, ao+m] = angular_1[l*l+m] * radial_1
                     ao += 2*l+1
-        return self.norm * orbital
+
+        ao_value = self.norm * orbital
+        wfn_u = self.mo_up @ ao_value[:self.neu].T
+        wfn_d = self.mo_down @ ao_value[self.neu:].T
+        if self.cusp is not None:
+            cusp_value_u, cusp_value_d = self.cusp.value(n_vectors)
+            wfn_u += cusp_value_u
+            wfn_d += cusp_value_d
+        return wfn_u, wfn_d
 
     def ao_gradient(self, n_vectors: np.ndarray) -> np.ndarray:
         """AO gradient.
@@ -149,7 +157,15 @@ class Slater:
                         orbital[i, 1, ao+m] = y * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 1] * radial_2
                         orbital[i, 2, ao+m] = z * angular_1[l*l+m] * radial_1 + angular_2[l*l+m, 2] * radial_2
                     ao += 2*l+1
-        return self.norm * orbital.reshape((self.neu + self.ned) * 3, self.nbasis_functions)
+
+        ao_gradient = self.norm * orbital.reshape((self.neu + self.ned) * 3, self.nbasis_functions)
+        grad_u = (self.mo_up @ ao_gradient[:self.neu * 3].T).reshape(self.mo_up.shape[0], self.neu, 3)
+        grad_d = (self.mo_down @ ao_gradient[self.neu * 3:].T).reshape(self.mo_down.shape[0], self.ned, 3)
+        if self.cusp is not None:
+            cusp_gradient_u, cusp_gradient_d = self.cusp.gradient(n_vectors)
+            grad_u += cusp_gradient_u
+            grad_d += cusp_gradient_d
+        return grad_u, grad_d
 
     def ao_laplacian(self, n_vectors: np.ndarray) -> np.ndarray:
         """AO Laplacian.
@@ -181,7 +197,15 @@ class Slater:
                     for m in range(2 * l + 1):
                         orbital[i, ao+m] = angular_1[l*l+m] * radial_1
                     ao += 2*l+1
-        return self.norm * orbital
+
+        ao_laplacian = self.norm * orbital
+        lap_u = self.mo_up @ ao_laplacian[:self.neu].T
+        lap_d = self.mo_down @ ao_laplacian[self.neu:].T
+        if self.cusp is not None:
+            cusp_laplacian_u, cusp_laplacian_d = self.cusp.laplacian(n_vectors)
+            lap_u += cusp_laplacian_u
+            lap_d += cusp_laplacian_d
+        return lap_u, lap_d
 
     def ao_hessian(self, n_vectors: np.ndarray) -> np.ndarray:
         """AO hessian.
@@ -242,20 +266,20 @@ class Slater:
                         orbital[i, 2, 2, ao+m] = z*z * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * z * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 5] * radial_3
                     ao += 2*l+1
 
-        return self.norm * orbital.reshape((self.neu + self.ned) * 9, self.nbasis_functions)
+        ao_hessian = self.norm * orbital.reshape((self.neu + self.ned) * 9, self.nbasis_functions)
+        hess_u = (self.mo_up @ ao_hessian[:self.neu * 9].T).reshape(self.mo_up.shape[0], self.neu, 3, 3)
+        hess_d = (self.mo_down @ ao_hessian[self.neu * 9:].T).reshape(self.mo_down.shape[0], self.ned, 3, 3)
+        if self.cusp is not None:
+            cusp_hessian_u, cusp_hessian_d = self.cusp.hessian(n_vectors)
+            hess_u += cusp_hessian_u
+            hess_d += cusp_hessian_d
+        return hess_u, hess_d
 
     def value(self, n_vectors: np.ndarray) -> float:
         """Multideterminant wave function value.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        ao_value = self.ao_value(n_vectors)
-        wfn_u = self.mo_up @ ao_value[:self.neu].T
-        wfn_d = self.mo_down @ ao_value[self.neu:].T
-        if self.cusp is not None:
-            cusp_value_u, cusp_value_d = self.cusp.value(n_vectors)
-            wfn_u += cusp_value_u
-            wfn_d += cusp_value_d
-
+        wfn_u, wfn_d = self.ao_value(n_vectors)
         val = 0.0
         for i in range(self.coeff.shape[0]):
             val += self.coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
@@ -271,20 +295,8 @@ class Slater:
         C. Filippi, R. Assaraf, S. Moroni
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        ao_value = self.ao_value(n_vectors)
-        ao_gradient = self.ao_gradient(n_vectors)
-        wfn_u = self.mo_up @ ao_value[:self.neu].T
-        wfn_d = self.mo_down @ ao_value[self.neu:].T
-        grad_u = (self.mo_up @ ao_gradient[:self.neu * 3].T).reshape(self.mo_up.shape[0], self.neu, 3)
-        grad_d = (self.mo_down @ ao_gradient[self.neu * 3:].T).reshape(self.mo_down.shape[0], self.ned, 3)
-        if self.cusp is not None:
-            cusp_value_u, cusp_value_d = self.cusp.value(n_vectors)
-            cusp_gradient_u, cusp_gradient_d = self.cusp.gradient(n_vectors)
-            wfn_u += cusp_value_u
-            wfn_d += cusp_value_d
-            grad_u += cusp_gradient_u
-            grad_d += cusp_gradient_d
-
+        wfn_u, wfn_d = self.ao_value(n_vectors)
+        grad_u, grad_d = self.ao_gradient(n_vectors)
         val = 0.0
         grad = np.zeros(shape=(self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
@@ -309,20 +321,8 @@ class Slater:
         C. Filippi, R. Assaraf, S. Moroni
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        ao_value = self.ao_value(n_vectors)
-        ao_laplacian = self.ao_laplacian(n_vectors)
-        wfn_u = self.mo_up @ ao_value[:self.neu].T
-        wfn_d = self.mo_down @ ao_value[self.neu:].T
-        lap_u = self.mo_up @ ao_laplacian[:self.neu].T
-        lap_d = self.mo_down @ ao_laplacian[self.neu:].T
-        if self.cusp is not None:
-            cusp_value_u, cusp_value_d = self.cusp.value(n_vectors)
-            cusp_laplacian_u, cusp_laplacian_d = self.cusp.laplacian(n_vectors)
-            wfn_u += cusp_value_u
-            wfn_d += cusp_value_d
-            lap_u += cusp_laplacian_u
-            lap_d += cusp_laplacian_d
-
+        wfn_u, wfn_d = self.ao_value(n_vectors)
+        lap_u, lap_d = self.ao_laplacian(n_vectors)
         val = lap = 0
         for i in range(self.coeff.shape[0]):
             res_u = np.sum(np.linalg.inv(wfn_u[self.permutation_up[i]]) * lap_u[self.permutation_up[i]].T)
@@ -345,26 +345,9 @@ class Slater:
         in other case a sum of last two terms is zero.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        ao_value = self.ao_value(n_vectors)
-        ao_gradient = self.ao_gradient(n_vectors)
-        ao_hessian = self.ao_hessian(n_vectors)
-        wfn_u = self.mo_up @ ao_value[:self.neu].T
-        wfn_d = self.mo_down @ ao_value[self.neu:].T
-        grad_u = (self.mo_up @ ao_gradient[:self.neu * 3].T).reshape(self.mo_up.shape[0], self.neu, 3)
-        grad_d = (self.mo_down @ ao_gradient[self.neu * 3:].T).reshape(self.mo_down.shape[0], self.ned, 3)
-        hess_u = (self.mo_up @ ao_hessian[:self.neu * 9].T).reshape(self.mo_up.shape[0], self.neu, 3, 3)
-        hess_d = (self.mo_down @ ao_hessian[self.neu * 9:].T).reshape(self.mo_down.shape[0], self.ned, 3, 3)
-        if self.cusp is not None:
-            cusp_value_u, cusp_value_d = self.cusp.value(n_vectors)
-            cusp_gradient_u, cusp_gradient_d = self.cusp.gradient(n_vectors)
-            cusp_hessian_u, cusp_hessian_d = self.cusp.hessian(n_vectors)
-            wfn_u += cusp_value_u
-            wfn_d += cusp_value_d
-            grad_u += cusp_gradient_u
-            grad_d += cusp_gradient_d
-            hess_u += cusp_hessian_u
-            hess_d += cusp_hessian_d
-
+        wfn_u, wfn_d = self.ao_value(n_vectors)
+        grad_u, grad_d = self.ao_gradient(n_vectors)
+        hess_u, hess_d = self.ao_hessian(n_vectors)
         val = 0
         hass = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
