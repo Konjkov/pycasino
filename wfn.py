@@ -259,11 +259,17 @@ class Wfn:
         return res / delta / delta / val
 
     def jastrow_parameters_numerical_d1(self, r_e):
-        """"""
+        """
+        :param r_e: electron coordinates - array(nelec, 3)
+        :return:
+        """
         e_vectors, n_vectors = self._relative_coordinates(r_e)
         return self.jastrow.parameters_numerical_d1(e_vectors, n_vectors)
 
     def jastrow_parameters_numerical_d2(self, r_e):
-        """"""
+        """
+        :param r_e: electron coordinates - array(nelec, 3)
+        :return:
+        """
         e_vectors, n_vectors = self._relative_coordinates(r_e)
         return self.jastrow.parameters_numerical_d2(e_vectors, n_vectors)
