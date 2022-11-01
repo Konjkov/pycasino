@@ -175,14 +175,14 @@ if __name__ == '__main__':
      jastrow laplacian    5946.7
      jastrow gradient     6377.9
     """
-    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
+    for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
         path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
         logger.info('%s:', mol)
         profiler = Profiler(path)
         profiler.slater_profiling()
         profiler.jastrow_profiling()
         profiler.backflow_profiling()
-        # profiler.markovchain_profiling()
+        # profiler.markovchain_profiling()/
 
     """
     He:
@@ -216,7 +216,7 @@ if __name__ == '__main__':
      cusp gradient       109.4
      cusp hessian        115.4
     """
-    for mol in ('He', 'Be', 'Ne', 'Ar', 'Kr', 'O3'):
+    for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
         path = f'test/gwfn/{mol}/HF/cc-pVQZ/CBCS/Jastrow/'
         logger.info('%s:', mol)
         profiler = Profiler(path)
