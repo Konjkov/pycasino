@@ -349,7 +349,7 @@ class Slater:
         grad_u, grad_d = self.ao_gradient(n_vectors)
         hess_u, hess_d = self.ao_hessian(n_vectors)
         val = 0
-        hass = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
+        hess = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
 
             inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
@@ -360,7 +360,7 @@ class Slater:
             dy = temp_grad_u[:, :, 1]
             dz = temp_grad_u[:, :, 2]
 
-            temp_hess_u = (inv_wfn_u * hess_u[self.permutation_down[i]].T).T.sum(axis=0)
+            temp_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
 
             # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
             res_u = np.zeros((self.neu, 3, self.neu, 3))
@@ -379,7 +379,7 @@ class Slater:
             dy = temp_grad_d[:, :, 1]
             dz = temp_grad_d[:, :, 2]
 
-            temp_hess_d = (inv_wfn_d * hess_d[self.permutation_up[i]].T).T.sum(axis=0)
+            temp_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
 
             # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
             res_d = np.zeros((self.ned, 3, self.ned, 3))
@@ -401,11 +401,11 @@ class Slater:
             val += c
             res_grad = np.concatenate((res_grad_u.ravel(), res_grad_d.ravel()))
             # tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy)
-            hass += c * np.outer(res_grad, res_grad).reshape((self.neu + self.ned), 3, (self.neu + self.ned), 3)
-            hass[:self.neu, :, :self.neu, :] += c * res_u
-            hass[self.neu:, :, self.neu:, :] += c * res_d
+            hess += c * np.outer(res_grad, res_grad).reshape((self.neu + self.ned), 3, (self.neu + self.ned), 3)
+            hess[:self.neu, :, :self.neu, :] += c * res_u
+            hess[self.neu:, :, self.neu:, :] += c * res_d
 
-        return hass.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / val
+        return hess.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / val
 
     def numerical_gradient(self, n_vectors: np.ndarray) -> float:
         """Numerical gradient with respect to e-coordinates
