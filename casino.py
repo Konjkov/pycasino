@@ -444,9 +444,6 @@ class Casino:
         https://github.com/scipy/scipy/issues/10634
         """
         condition, position = self.markovchain.vmc_random_walk(self.r_e, steps, decorr_period)
-        # huber loss cause difficulties in optimization process.
-        # energy = self.markovchain.local_energy(condition, position)
-        # f_scale = 5 * energy.std()
 
         def fun(x, *args, **kwargs):
             self.markovchain.wfn.set_parameters(x, opt_jastrow, opt_backflow)
@@ -520,6 +517,8 @@ if __name__ == '__main__':
     # path = 'test/gwfn/N/HF/cc-pVQZ/CBCS/Backflow/'
     # path = 'test/gwfn/Ne/HF/cc-pVQZ/CBCS/Backflow/'
     # path = 'test/gwfn/Ar/HF/cc-pVQZ/CBCS/Backflow/'
+    # path = 'test/gwfn/Kr/HF/cc-pVQZ/CBCS/Backflow/'
+    # path = 'test/gwfn/O3/HF/cc-pVQZ/CBCS/Backflow/'
 
     # path = 'test/stowfn/He/HF/QZ4P/CBCS/Slater/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Slater/'
