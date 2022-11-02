@@ -122,7 +122,7 @@ class Cusp:
                             self.alpha[3, atom, i] * r ** 3 +
                             self.alpha[4, atom, i] * r ** 4
                         ) + self.shift[atom, i]
-                    # FIXME: если вклад s-орбитали < cusp_threshold = 1e-7
+                    # FIXME: if s-орбитали contribution < cusp_threshold = 1e-7
                     s_part = 0.0
                     for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
                         l = self.shell_moments[nshell]

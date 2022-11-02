@@ -12,7 +12,7 @@ import numba as nb
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
 def angular_part(x, y, z):
-    """Angular part of gaussian WFN.
+    """Angular part of WFN.
     :return:
     """
     x2 = x**2
@@ -50,7 +50,7 @@ def angular_part(x, y, z):
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
 def gradient_angular_part(x, y, z):
-    """Angular part of gaussian WFN gradient.
+    """Angular part of WFN gradient.
     order: dx, dy, dz
     :return:
     """
@@ -88,7 +88,7 @@ def gradient_angular_part(x, y, z):
 
 @nb.jit(nopython=True, nogil=True, parallel=False)
 def hessian_angular_part(x, y, z):
-    """Angular part of gaussian WFN hessian.
+    """Angular part of WFN hessian.
     order: dxdx, dxdy, dydy, dxdz, dydz, dzdz
     :return:
     """

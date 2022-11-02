@@ -663,10 +663,12 @@ class Backflow:
         mu_term = self.mu_term(n_vectors, n_powers)
         phi_term = self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
 
+        ae_value = eta_term + mu_term[1] + phi_term[1]
+
         return (
-            (eta_term + mu_term[1] + phi_term[1]) * self.ae_multiplier(n_vectors, n_powers) +
+            ae_value * self.ae_multiplier(n_vectors, n_powers) +
             mu_term[0] + phi_term[0]
-        )
+        ) + n_vectors
 
     def gradient(self, e_vectors, n_vectors):
         """Gradient with respect to e-coordinates
@@ -685,14 +687,28 @@ class Backflow:
         mu_term_gradient = self.mu_term_gradient(n_powers, n_vectors)
         phi_term_gradient = self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
 
-        return (
-            self.ae_multiplier_gradient(n_vectors, n_powers) * (eta_term + mu_term[1] + phi_term[1]).reshape((-1, 1)) +
-            (eta_term_gradient + mu_term_gradient[1] + phi_term_gradient[1]) * self.ae_multiplier(n_vectors, n_powers).reshape((-1, 1)) +
+        ae_value = eta_term + mu_term[1] + phi_term[1]
+        ae_gradient = eta_term_gradient + mu_term_gradient[1] + phi_term_gradient[1]
+
+        ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
+        ae_multiplier_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
+
+        value = (
+            ae_multiplier_gradient * ae_value.reshape((-1, 1)) +
+            ae_gradient * ae_multiplier.reshape((-1, 1)) +
             mu_term_gradient[0] + phi_term_gradient[0]
-        )
+        ) + np.eye((self.neu + self.ned) * 3)
+
+        gradient = (
+            ae_multiplier_gradient * ae_value.reshape((-1, 1)) +
+            ae_gradient * ae_multiplier.reshape((-1, 1)) +
+            mu_term_gradient[0] + phi_term_gradient[0]
+        ) + np.eye((self.neu + self.ned) * 3)
+
+        return gradient, value
 
     def laplacian(self, e_vectors, n_vectors):
-        """Laplacian with respect to e-coordinates
+        """Backflow laplacian, gradient, value
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
@@ -712,18 +728,33 @@ class Backflow:
         mu_term_laplacian = self.mu_term_laplacian(n_powers, n_vectors)
         phi_term_laplacian = self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
 
-        a = self.ae_multiplier_laplacian(n_vectors, n_powers) * (eta_term + mu_term[1] + phi_term[1]).ravel()
-        b = np.zeros(((self.neu + self.ned) * 3))
-        term_gradient = eta_term_gradient + mu_term_gradient[1] + phi_term_gradient[1]
-        cutoff_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
-        for i in range((self.neu + self.ned) * 3):
-            b[i] = np.sum(term_gradient[i] * cutoff_gradient[i])
-        c = (eta_term_laplacian + mu_term_laplacian[1] + phi_term_laplacian[1]) * self.ae_multiplier(n_vectors, n_powers).ravel()
+        ae_value = eta_term + mu_term[1] + phi_term[1]
+        ae_gradient = eta_term_gradient + mu_term_gradient[1] + phi_term_gradient[1]
+        ae_laplacian = eta_term_laplacian + mu_term_laplacian[1] + phi_term_laplacian[1]
 
-        return (
-            a + 2 * b + c +
+        ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
+        ae_multiplier_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
+        ae_multiplier_laplacian = self.ae_multiplier_laplacian(n_vectors, n_powers)
+
+        value = (
+            ae_value * ae_multiplier +
+            mu_term[0] + phi_term[0]
+        ) + n_vectors
+
+        gradient = (
+            ae_multiplier_gradient * ae_value.reshape((-1, 1)) +
+            ae_gradient * ae_multiplier.reshape((-1, 1)) +
+            mu_term_gradient[0] + phi_term_gradient[0]
+        ) + np.eye((self.neu + self.ned) * 3)
+
+        laplacian = (
+            ae_multiplier_laplacian * ae_value.ravel() +
+            2 * (ae_gradient * ae_multiplier_gradient).sum(axis=1) +
+            ae_laplacian * ae_multiplier.ravel() +
             mu_term_laplacian[0] + phi_term_laplacian[0]
         )
+
+        return laplacian, gradient, value
 
     def numerical_gradient(self, e_vectors, n_vectors):
         """Numerical gradient with respect to a e-coordinates
@@ -928,7 +959,7 @@ class Backflow:
 
         if self.mu_cutoff.any():
             for i, (mu_parameters, mu_parameters_optimizable, mu_mask) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_mask)):
-                # Sequence types is a pointer, but numeric types is not.
+                # Sequence type is a pointer, but numeric type is not.
                 self.mu_cutoff[i] = parameters[n]
                 n += 1
                 for j1 in range(mu_parameters.shape[0]):
@@ -940,7 +971,7 @@ class Backflow:
 
         if self.phi_cutoff.any():
             for i, (phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable, phi_mask, theta_mask) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable, self.phi_mask, self.theta_mask)):
-                # Sequence types is a pointer, but numeric types is not.
+                # Sequence type is a pointer, but numeric type is not.
                 self.phi_cutoff[i] = parameters[n]
                 n += 1
                 for j1 in range(phi_parameters.shape[0]):

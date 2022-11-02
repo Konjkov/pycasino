@@ -90,7 +90,7 @@ class Wfn:
         if self.jastrow is not None:
             res *= np.exp(self.jastrow.value(e_vectors, n_vectors))
         if self.backflow is not None:
-            n_vectors += self.backflow.value(e_vectors, n_vectors)
+            n_vectors = self.backflow.value(e_vectors, n_vectors)
         res *= self.slater.value(n_vectors)
         return res
 
@@ -102,8 +102,7 @@ class Wfn:
         e_vectors, n_vectors = self._relative_coordinates(r_e)
 
         if self.backflow is not None:
-            b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
-            b_g = self.backflow.gradient(e_vectors, n_vectors) + np.eye((self.neu + self.ned) * 3)
+            b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
             s_g = self.slater.gradient(b_v)
             s_g = s_g @ b_g
             if self.jastrow is not None:
@@ -144,9 +143,7 @@ class Wfn:
         res = self.coulomb(e_vectors, n_vectors)
 
         if self.backflow is not None:
-            b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
-            b_g = self.backflow.gradient(e_vectors, n_vectors) + np.eye((self.neu + self.ned) * 3)
-            b_l = self.backflow.laplacian(e_vectors, n_vectors)
+            b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
             s_g = self.slater.gradient(b_v)
             s_h = self.slater.hessian(b_v)
             s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
