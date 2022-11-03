@@ -537,6 +537,7 @@ class CuspFactory:
         shift variable chosen so that (phi−shift) is of one sign within rc.
         eta is a contribution from Gaussians on other nuclei.
         """
+        np.seterr(divide='ignore', invalid='ignore')
         alpha = np.zeros(shape=(5, self.atom_positions.shape[0], self.mo.shape[0]))
         phi_rc, phi_diff_rc, phi_diff_2_rc = self.phi(rc)
         R = phi_tilde_0 - shift
@@ -551,6 +552,7 @@ class CuspFactory:
         alpha[2] = 6*X1/rc**2 - 3*X2/rc + X3/2 - 3*X4/rc - 6*X5/rc**2 - X2**2/2
         alpha[3] = -8*X1/rc**3 + 5*X2/rc**2 - X3/rc + 3*X4/rc**2 + 8*X5/rc**3 + X2**2/rc
         alpha[4] = 3*X1/rc**4 - 2*X2/rc**3 + X3/2/rc**2 - X4/rc**3 - 3*X5/rc**4 - X2**2/2/rc**2
+        np.seterr(divide='warn', invalid='warn')
         # remove NaN from orbitals without s-part
         return np.nan_to_num(alpha, posinf=0, neginf=0)
 
@@ -574,15 +576,18 @@ class CuspFactory:
         p_diff_1 = alpha[1] + 2 * alpha[2] * r + 3 * alpha[3] * r ** 2 + 4 * alpha[4] * r ** 3
         p_diff_2 = 2 * alpha[2] + 2 * 3 * alpha[3] * r + 3 * 4 * alpha[4] * r ** 2
         R = self.orbital_sign * np.exp(p)
+        np.seterr(divide='ignore', invalid='ignore')
         z_eff = self.atom_charges[:, np.newaxis] * (1 + eta / (R + shift))  # (16)
         # np.where is not lazy
         # https://pretagteam.com/question/numpy-where-function-can-not-avoid-evaluate-sqrtnegative
-        return np.where(
+        energy = np.where(
             r == 0,
             # apply L'Hôpital's rule to find energy limit at r=0 in (15)
             -0.5 * R / (R + shift) * (3 * p_diff_2 + p_diff_1 ** 2),
             -0.5 * R / (R + shift) * (2 * p_diff_1 / r + p_diff_2 + p_diff_1 ** 2) - z_eff / r
         )  # (15)
+        np.seterr(divide='warn', invalid='warn')
+        return energy
 
     def ideal_energy(self, r, beta0):
         """Ideal energy.
@@ -653,7 +658,7 @@ class CuspFactory:
                     alpha = self.alpha_data(rc, eta, phi_tilde_0, shift)
                     return self.energy_diff_max(rc, eta, shift, alpha)[atom, orb]
 
-                options = dict(disp=True)
+                options = dict(disp=False)
                 res = minimize(f, [phi_tilde_0[atom, orb]], method='Powell', options=options, callback=callback)
                 phi_tilde_0[atom, orb], = res.x
         return phi_tilde_0
@@ -1052,5 +1057,5 @@ if __name__ == '__main__':
             np.allclose(cusp.orbital_sign,  cusp_test.orbital_sign),
             np.allclose(cusp.shift, cusp_test.shift),
             np.allclose(cusp.rc, cusp_test.rc),
-            np.allclose(cusp.alpha, cusp_test.alpha, atol=0.00001),
+            np.allclose(cusp.alpha, cusp_test.alpha, atol=0.001),
         )
