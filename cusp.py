@@ -456,6 +456,7 @@ class CuspFactory:
         self.orbitals_up = np.max(permutation_up) + 1
         self.orbitals_down = np.max(permutation_down) + 1
         self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
+        self.casino_norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.neu + 1)) / (self.neu + self.neu) / 2)
         self.mo = np.concatenate((mo_up[:self.orbitals_up], mo_down[:self.orbitals_down]))
         self.first_shells = first_shells
         self.shell_moments = shell_moments
@@ -550,7 +551,8 @@ class CuspFactory:
         alpha[2] = 6*X1/rc**2 - 3*X2/rc + X3/2 - 3*X4/rc - 6*X5/rc**2 - X2**2/2
         alpha[3] = -8*X1/rc**3 + 5*X2/rc**2 - X3/rc + 3*X4/rc**2 + 8*X5/rc**3 + X2**2/rc
         alpha[4] = 3*X1/rc**4 - 2*X2/rc**3 + X3/2/rc**2 - X4/rc**3 - 3*X5/rc**4 - X2**2/2/rc**2
-        return alpha
+        # remove NaN from orbitals without s-part
+        return np.nan_to_num(alpha, posinf=0, neginf=0)
 
     def phi_energy(self, r, eta, shift):
         """Effective one-electron local energy for gaussian s-part orbital.
@@ -739,7 +741,7 @@ class CuspFactory:
         # atoms, MO - cusp correction radius
         if casino_rc:
             # atoms, MO - Value of uncorrected orbital at nucleus
-            wfn_0 = np.concatenate((wfn_0_up, wfn_0_down), axis=1)
+            wfn_0 = np.concatenate((wfn_0_up, wfn_0_down), axis=1) * (self.norm / self.casino_norm)
             eta = wfn_0 - self.phi_0
             rc = np.concatenate((rc_up, rc_down), axis=1)
         else:
@@ -748,7 +750,7 @@ class CuspFactory:
             # rc = self.optimize_rc(rc, eta, shift)
         # atoms, MO - Value of corrected orbital at nucleus
         if casino_phi_tilde_0:
-            phi_tilde_0 = np.concatenate((phi_tilde_0_up, phi_tilde_0_down), axis=1)
+            phi_tilde_0 = np.concatenate((phi_tilde_0_up, phi_tilde_0_down), axis=1) * (self.norm / self.casino_norm)
         else:
             phi_tilde_0 = self.optimize_phi_tilde_0(rc, eta, np.copy(self.phi_0), shift)
 
@@ -769,6 +771,8 @@ class TestCuspFactory:
         self.ned = ned
         self.orbitals_up = np.max(permutation_up) + 1
         self.orbitals_down = np.max(permutation_down) + 1
+        self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
+        self.casino_norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.neu + 1)) / (self.neu + self.neu) / 2)
         self.mo = np.concatenate((mo_up[:self.orbitals_up], mo_down[:self.orbitals_down]))
         self.first_shells = first_shells
         self.shell_moments = shell_moments
@@ -1007,6 +1011,8 @@ class TestCuspFactory:
         # atoms, MO, alpha index
         alpha = np.concatenate((alpha_up, alpha_down), axis=1)
         alpha = np.moveaxis(alpha, -1, 0)
+        # because different normalization
+        alpha[0] += np.where(alpha[0], np.log(self.norm / self.casino_norm), 0)
         return Cusp(
             self.neu, self.ned, self.neu, self.ned, rc, shift, orbital_sign, alpha,
             self.mo, self.first_shells, self.shell_moments, self.primitives, self.coefficients, self.exponents
@@ -1032,7 +1038,7 @@ if __name__ == '__main__':
             config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
             config.wfn.coefficients, config.wfn.exponents,
             config.wfn.atom_positions, config.wfn.atom_charges
-        ).create(casino_rc=True, casino_phi_tilde_0=True)
+        ).create(casino_rc=True, casino_phi_tilde_0=False)
 
         cusp_test = TestCuspFactory(
             config.input.neu, config.input.ned, config.wfn.mo_up, config.wfn.mo_down,
@@ -1046,5 +1052,5 @@ if __name__ == '__main__':
             np.allclose(cusp.orbital_sign,  cusp_test.orbital_sign),
             np.allclose(cusp.shift, cusp_test.shift),
             np.allclose(cusp.rc, cusp_test.rc),
-            np.allclose(cusp.alpha, cusp_test.alpha),
+            np.allclose(cusp.alpha, cusp_test.alpha, atol=0.00001),
         )
