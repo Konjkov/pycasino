@@ -1041,7 +1041,10 @@ if __name__ == '__main__':
             config.wfn.coefficients, config.wfn.exponents
         ).create()
 
-        print(cusp.orbital_sign - cusp_test.orbital_sign)
-        print(cusp.shift - cusp_test.shift)
-        print(cusp.rc - cusp_test.rc)
-        print(cusp.alpha)
+        print(
+            f'{mol}:',
+            np.allclose(cusp.orbital_sign,  cusp_test.orbital_sign),
+            np.allclose(cusp.shift, cusp_test.shift),
+            np.allclose(cusp.rc, cusp_test.rc),
+            np.allclose(cusp.alpha, cusp_test.alpha),
+        )
