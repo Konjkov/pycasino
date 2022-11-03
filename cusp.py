@@ -656,9 +656,10 @@ class CuspFactory:
                 phi_tilde_0[atom, orb], = res.x
         return phi_tilde_0
 
-    def create(self, debug=False):
+    def create(self, casino_rc=False, casino_phi_tilde_0=False):
         """Set phi_0
-        :param debug:
+        :param casino_rc: get rc from CASINO
+        :param casino_phi_tilde_0: get phi_tilde_0 from CASINO
         :return:
         """
         # He atom
@@ -736,7 +737,7 @@ class CuspFactory:
         # atoms, MO - shift chosen so that phi − shift is of one sign within rc
         shift = np.zeros((self.atom_positions.shape[0], self.mo.shape[0]))
         # atoms, MO - cusp correction radius
-        if debug:
+        if casino_rc:
             # atoms, MO - Value of uncorrected orbital at nucleus
             wfn_0 = np.concatenate((wfn_0_up, wfn_0_down), axis=1)
             eta = wfn_0 - self.phi_0
@@ -746,7 +747,7 @@ class CuspFactory:
             rc = self.rc_initial()
             # rc = self.optimize_rc(rc, eta, shift)
         # atoms, MO - Value of corrected orbital at nucleus
-        if debug:
+        if casino_phi_tilde_0:
             phi_tilde_0 = np.concatenate((phi_tilde_0_up, phi_tilde_0_down), axis=1)
         else:
             phi_tilde_0 = self.optimize_phi_tilde_0(rc, eta, np.copy(self.phi_0), shift)
@@ -1019,32 +1020,28 @@ if __name__ == '__main__':
     """
     """
 
-    # path = 'test/gwfn/He/HF/cc-pVQZ/CBCS/Slater/'
-    # path = 'test/gwfn/Be/HF/cc-pVQZ/CBCS/Slater/'
-    # path = 'test/gwfn/N/HF/cc-pVQZ/CBCS/Slater/'
-    # path = 'test/gwfn/Ne/HF/cc-pVQZ/CBCS/Slater/'
-    # path = 'test/gwfn/Ar/HF/cc-pVQZ/CBCS/Slater/'
-    # path = 'test/gwfn/Kr/HF/cc-pVQZ/CBCS/Slater/'
-    # path = 'test/gwfn/O3/HF/cc-pVQZ/CBCS/Slater/'
+    for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
+        path = f'test/gwfn/{mol}/HF/cc-pVQZ/CBCS/Slater/'
 
-    config = CasinoConfig(path)
-    config.read(path)
+        config = CasinoConfig(path)
+        config.read(path)
 
-    cusp = CuspFactory(
-        config.input.neu, config.input.ned, config.wfn.mo_up, config.wfn.mo_down,
-        config.mdet.permutation_up, config.mdet.permutation_down,
-        config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
-        config.wfn.coefficients, config.wfn.exponents,
-        config.wfn.atom_positions, config.wfn.atom_charges
-    ).create(debug=False)
+        cusp = CuspFactory(
+            config.input.neu, config.input.ned, config.wfn.mo_up, config.wfn.mo_down,
+            config.mdet.permutation_up, config.mdet.permutation_down,
+            config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
+            config.wfn.coefficients, config.wfn.exponents,
+            config.wfn.atom_positions, config.wfn.atom_charges
+        ).create(casino_rc=True, casino_phi_tilde_0=True)
 
-    cusp_test = TestCuspFactory(
-        config.input.neu, config.input.ned, config.wfn.mo_up, config.wfn.mo_down,
-        config.mdet.permutation_up, config.mdet.permutation_down,
-        config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
-        config.wfn.coefficients, config.wfn.exponents
-    ).create()
+        cusp_test = TestCuspFactory(
+            config.input.neu, config.input.ned, config.wfn.mo_up, config.wfn.mo_down,
+            config.mdet.permutation_up, config.mdet.permutation_down,
+            config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
+            config.wfn.coefficients, config.wfn.exponents
+        ).create()
 
-    print(np.moveaxis(cusp.alpha, 0, -1) / np.moveaxis(cusp_test.alpha, 0, -1))
-
-    # print(cusp.orbital_sign - cusp_test.orbital_sign)
+        print(cusp.orbital_sign - cusp_test.orbital_sign)
+        print(cusp.shift - cusp_test.shift)
+        print(cusp.rc - cusp_test.rc)
+        print(cusp.alpha)
