@@ -645,7 +645,7 @@ class CuspFactory:
                     phi_tilde_0[atom, orb] = 0.0
                     continue
 
-                if not (0 < r < self.atom_charges[atom]):
+                if r > 1 / self.atom_charges[atom]:
                     continue
 
                 def callback(x, *args):
