@@ -639,28 +639,17 @@ class CuspFactory:
         :return:
         """
         for atom in range(self.atom_positions.shape[0]):
-            for orb in range(self.mo.shape[0]):
-                r = rc[atom, orb]
-                if r == 0.0:
-                    phi_tilde_0[atom, orb] = 0.0
-                    continue
+            nonzero_index = np.nonzero(phi_tilde_0[atom])
+            nonzero_phi_tilde_0 = phi_tilde_0[atom][nonzero_index]
 
-                if r > 1 / self.atom_charges[atom]:
-                    continue
+            def f(x):
+                phi_tilde_0[atom][nonzero_index] = x
+                alpha = self.alpha_data(rc, eta, phi_tilde_0, shift)
+                return np.sum(self.energy_diff_max(rc, eta, shift, alpha)[atom][nonzero_index])
 
-                def callback(x, *args):
-                    """"""
-                    pass
-                    # logger.info('phi_0 = %.5f', x[0])
-
-                def f(x):
-                    phi_tilde_0[atom, orb], = x
-                    alpha = self.alpha_data(rc, eta, phi_tilde_0, shift)
-                    return self.energy_diff_max(rc, eta, shift, alpha)[atom, orb]
-
-                options = dict(disp=False)
-                res = minimize(f, [phi_tilde_0[atom, orb]], method='Powell', options=options, callback=callback)
-                phi_tilde_0[atom, orb], = res.x
+            options = dict(disp=False)
+            res = minimize(f, nonzero_phi_tilde_0, method='Powell', options=options)
+            phi_tilde_0[atom][nonzero_index] = res.x
         return phi_tilde_0
 
     def create(self, casino_rc=False, casino_phi_tilde_0=False):

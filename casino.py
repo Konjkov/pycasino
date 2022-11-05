@@ -102,7 +102,7 @@ class Casino:
             self.config.wfn.slater_orders, self.config.wfn.primitives, self.config.wfn.coefficients, self.config.wfn.exponents,
             self.config.wfn.mo_up, self.config.wfn.mo_down, self.config.mdet.permutation_up, self.config.mdet.permutation_down, self.config.mdet.coeff, cusp
         )
-        jastrow = self.config.jastrow and Jastrow(
+        jastrow = (self.config.jastrow or None) and Jastrow(
             self.config.input.neu, self.config.input.ned,
             self.config.jastrow.trunc, self.config.jastrow.u_parameters, self.config.jastrow.u_parameters_optimizable, self.config.jastrow.u_mask,
             self.config.jastrow.u_cutoff, self.config.jastrow.u_cusp_const,
@@ -112,7 +112,7 @@ class Casino:
             self.config.jastrow.f_labels,
             self.config.jastrow.no_dup_u_term, self.config.jastrow.no_dup_chi_term
         )
-        backflow = self.config.backflow and Backflow(
+        backflow = (self.config.backflow or None) and Backflow(
             self.config.input.neu, self.config.input.ned,
             self.config.backflow.trunc, self.config.backflow.eta_parameters, self.config.backflow.eta_parameters_optimizable, self.config.backflow.eta_mask,
             self.config.backflow.eta_cutoff,
@@ -275,11 +275,11 @@ class Casino:
                 f'  Standard error                        +/-       {energy.std():18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
-            self.r_e_list = [position[-i] for i in range(self.config.input.vmc_nconfig_write)]
+            r_e_list = [position[-i] for i in range(self.config.input.vmc_nconfig_write)]
             # FIXME: local variables?
             self.markovchain.step = self.config.input.dtdmc
-            self.dmc_energy_equilibration()
-            self.dmc_energy_accumulation()
+            r_e_list = self.dmc_energy_equilibration(r_e_list)
+            r_e_list = self.dmc_energy_accumulation(r_e_list)
 
     def equilibrate(self, steps):
         """
@@ -368,7 +368,7 @@ class Casino:
             f' Sample variance of E_L (au^2/sim.cell) : {energy_block_var.mean():.12f}\n\n'
         )
 
-    def dmc_energy_equilibration(self):
+    def dmc_energy_equilibration(self, r_e_list):
         """DMC energy equilibration"""
         logger.info(
             ' ===========================================\n'
@@ -383,7 +383,7 @@ class Casino:
 
         for i in range(nblock):
             block_start = default_timer()
-            energy, self.r_e_list = self.markovchain.dmc_random_walk(self.r_e_list, steps // nblock, self.config.input.dmc_target_weight)
+            energy, r_e_list = self.markovchain.dmc_random_walk(r_e_list, steps // nblock, self.config.input.dmc_target_weight)
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
             block_stop = default_timer()
@@ -396,8 +396,9 @@ class Casino:
                 f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
+        return r_e_list
 
-    def dmc_energy_accumulation(self):
+    def dmc_energy_accumulation(self, r_e_list):
         """DMC energy accumulation"""
         logger.info(
             ' =====================================================\n'
@@ -412,7 +413,7 @@ class Casino:
 
         for i in range(nblock):
             block_start = default_timer()
-            energy, self.r_e_list = self.markovchain.dmc_random_walk(self.r_e_list, steps // nblock, self.config.input.dmc_target_weight)
+            energy, r_e_list = self.markovchain.dmc_random_walk(r_e_list, steps // nblock, self.config.input.dmc_target_weight)
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
             block_stop = default_timer()
@@ -425,6 +426,7 @@ class Casino:
                 f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
+        return r_e_list
 
     def normal_test(self, energy):
         """Test whether energy distribution differs from a normal one."""

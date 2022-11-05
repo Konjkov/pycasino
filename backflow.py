@@ -697,7 +697,7 @@ class Backflow:
             ae_multiplier_gradient * ae_value.reshape((-1, 1)) +
             ae_gradient * ae_multiplier.reshape((-1, 1)) +
             mu_term_gradient[0] + phi_term_gradient[0]
-        ) + np.eye((self.neu + self.ned) * 3)
+        ) + n_vectors
 
         gradient = (
             ae_multiplier_gradient * ae_value.reshape((-1, 1)) +
