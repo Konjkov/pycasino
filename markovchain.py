@@ -11,22 +11,136 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
 import numpy as np
 import numba as nb
 
-spec = [
-    ('step', nb.float64),
+vmc_spec = [
+    ('r_e', nb.float64[:, :]),
+    ('cond', nb.boolean),
+    ('step_size', nb.float64),
+    ('wfn', Wfn.class_type.instance_type),
+    ('probability_density', nb.float64),
+]
+
+
+@nb.experimental.jitclass(vmc_spec)
+class VMCMarkovChain:
+
+    def __init__(self, r_e, step_size, wfn):
+        """Markov chain Monte Carlo.
+        :param r_e: initial position
+        :param step_size: time step size
+        :param wfn: instance of Wfn class
+        :return:
+        """
+        self.r_e = r_e
+        self.cond = False
+        self.step_size = step_size
+        self.wfn = wfn
+        self.probability_density = self.wfn.value(self.r_e) ** 2
+
+    def simple_random_step(self):
+        """Simple random walker with random N-dim square proposal density in
+        configuration-by-configuration sampling (CBCS).
+        """
+        ne = self.wfn.neu + self.wfn.ned
+
+        next_state = self.r_e + self.step_size * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
+        next_probability_density = self.wfn.value(next_state) ** 2
+        self.cond = next_probability_density / self.probability_density > np.random.random()
+        if self.cond:
+            self.r_e, self.probability_density = next_state, next_probability_density
+
+    def gibbs_random_step(self):
+        """Simple random walker with electron-by-electron sampling (EBES)
+        """
+        ne = self.wfn.neu + self.wfn.ned
+
+        next_r_e = np.copy(self.r_e)
+        next_r_e[np.random.randint(ne)] += self.step_size * np.random.uniform(-1, 1, 3)
+        next_probability_density = self.wfn.value(next_r_e) ** 2
+        self.cond = next_probability_density / self.probability_density > np.random.random()
+        if self.cond:
+            self.r_e, self.probability_density = next_r_e, next_probability_density
+
+    def biased_random_step(self):
+        """Biased random walker with diffusion-drift proposed step
+        diffusion step s proportional to sqrt(2*D*dt)
+        drift step is proportional to D*F*dt
+        where D is diffusion constant = 1/2
+        """
+        ne = self.wfn.neu + self.wfn.ned
+
+        v_forth = self.wfn.drift_velocity(self.r_e)
+        move = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step_size * v_forth
+        next_r_e = self.r_e + move.reshape((ne, 3))
+        next_probability_density = self.wfn.value(next_r_e) ** 2
+        green_forth = np.exp(-np.sum((next_r_e.ravel() - self.r_e.ravel() - self.step_size * v_forth) ** 2) / 2 / self.step_size)
+        green_back = np.exp(-np.sum((self.r_e.ravel() - next_r_e.ravel() - self.step_size * self.drift_velocity(next_r_e)) ** 2) / 2 / self.step_size)
+        self.cond = (green_back * next_probability_density) / (green_forth * self.probability_density) > np.random.random()
+        if self.cond:
+            self.r_e, self.probability_density = next_r_e, next_probability_density
+
+    def bbk_random_step(self):
+        """Brünger–Brooks–Karplus (13 B. Brünger, C. L. Brooks, and M. Karplus, Chem. Phys. Lett. 105, 495 1984).
+        :return: is step accepted, next step position
+        """
+        raise NotImplementedError
+
+    def force_interpolation_random_step(self):
+        """M. P. Allen and D. J. Tildesley, Computer Simulation of Liquids Oxford University Press, Oxford, 1989 and references in Sec. 9.3.
+        :return: is step accepted, next step position
+        """
+        raise NotImplementedError
+
+    def splitting_random_step(self):
+        """J. A. Izaguirre, D. P. Catarello, J. M. Wozniak, and R. D. Skeel, J. Chem. Phys. 114, 2090 2001.
+        :return: is step accepted, next step position
+        """
+        raise NotImplementedError
+
+    def ricci_ciccottid_random_step(self):
+        """A. Ricci and G. Ciccotti, Mol. Phys. 101, 1927 2003.
+        :return: is step accepted, next step position
+        """
+        raise NotImplementedError
+
+    def vmc_random_walk(self, steps, decorr_period):
+        """Metropolis-Hastings random walk.
+        :param r_e: initial electron configuration
+        :param step_size: time step size
+        :param steps: number of steps to walk
+        :param decorr_period: number of steps to walk
+        :param wfn: instance of Wfn class
+        :return:
+        """
+        condition = np.empty(shape=(steps, ), dtype=np.bool_)
+        position = np.empty(shape=(steps, ) + self.r_e.shape)
+
+        for i in range(steps):
+            for _ in range(decorr_period):
+                self.simple_random_step()
+            condition[i], position[i] = self.cond, self.r_e
+
+        return condition, position
+
+
+dmc_spec = [
+    ('r_e_list', nb.float64[:, :, :]),
+    ('step_size', nb.float64),
     ('wfn', Wfn.class_type.instance_type),
 ]
 
 
-@nb.experimental.jitclass(spec)
-class MarkovChain:
+@nb.experimental.jitclass(dmc_spec)
+class DMCMarkovChain:
 
-    def __init__(self, step, wfn):
+    def __init__(self, r_e_list, step_size, wfn):
         """Markov chain Monte Carlo.
-        :param step: time step
+        :param r_e_list: initial positions of walkers
+        :param step_size: time step size
         :param wfn: instance of Wfn class
         :return:
         """
-        self.step = step
+        self.r_e_list = r_e_list
+        self.step_size = step_size
         self.wfn = wfn
 
     def limiting_factor(self, v, a=1):
@@ -40,123 +154,7 @@ class MarkovChain:
         :return:
         """
         square_mod_v = np.sum(v**2)
-        return (np.sqrt(1 + 2 * a * square_mod_v * self.step) - 1) / (a * square_mod_v * self.step)
-
-    def simple_random_walker(self, r_e, decorr_period):
-        """Simple random walker with random N-dim square proposal density in
-        configuration-by-configuration sampling (CBCS).
-        :param steps: number of steps to walk
-        :param decorr_period: decorrelation period
-        :return: is step accepted, next electron`s position
-        """
-        # FIXME: yield statement yields leaky memory
-        #  https://github.com/numba/numba/issues/6993
-        ne = self.wfn.neu + self.wfn.ned
-        probability_density = self.wfn.value(r_e) ** 2
-        while True:
-            cond = False
-            for _ in range(decorr_period):
-                next_state = r_e + self.step * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-                next_probability_density = self.wfn.value(next_state) ** 2
-                partial_cond = next_probability_density / probability_density > np.random.random()
-                if partial_cond:
-                    r_e, probability_density = next_state, next_probability_density
-                    cond = True
-            yield cond, r_e
-
-    def gibbs_random_walker(self, r_e, decorr_period):
-        """Simple random walker with electron-by-electron sampling (EBES)
-        :param r_e: initial position
-        :param decorr_period: decorrelation period
-        :return: is step accepted, next step position
-        """
-        ne = self.wfn.neu + self.wfn.ned
-        probability_density = self.wfn.value(r_e) ** 2
-        while True:
-            cond = False
-            for _ in range(decorr_period):
-                next_r_e = np.copy(r_e)
-                next_r_e[np.random.randint(ne)] += self.step * np.random.uniform(-1, 1, 3)
-                next_probability_density = self.wfn.value(next_r_e) ** 2
-                partial_cond = next_probability_density / probability_density > np.random.random()
-                if partial_cond:
-                    r_e, p = next_r_e, next_probability_density
-                    cond = True
-            yield cond, r_e
-
-    def biased_random_walker(self, r_e, decorr_period):
-        """Biased random walker with diffusion-drift proposed step
-        diffusion step s proportional to sqrt(2*D*dt)
-        drift step is proportional to D*F*dt
-        where D is diffusion constant = 1/2
-        :param r_e: initial position
-        :param decorr_period: decorrelation period
-        :return: is step accepted, next step position
-        """
-        ne = self.wfn.neu + self.wfn.ned
-        probability_density = self.wfn.value(r_e) ** 2
-        while True:
-            cond = False
-            for _ in range(decorr_period):
-                v_forth = self.drift_velocity(r_e)
-                move = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * v_forth
-                next_r_e = r_e + move.reshape((ne, 3))
-                next_probability_density = self.wfn.value(next_r_e) ** 2
-                green_forth = np.exp(-np.sum((next_r_e.ravel() - r_e.ravel() - self.step * v_forth) ** 2) / 2 / self.step)
-                green_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step * self.drift_velocity(next_r_e)) ** 2) / 2 / self.step)
-                partial_cond = (green_back * next_probability_density) / (green_forth * probability_density) > np.random.random()
-                if partial_cond:
-                    r_e, probability_density = next_r_e, next_probability_density
-                    cond = True
-            yield cond, r_e
-
-    def bbk_random_walker(self, r_e, decorr_period):
-        """Brünger–Brooks–Karplus (13 B. Brünger, C. L. Brooks, and M. Karplus, Chem. Phys. Lett. 105, 495 1984).
-        :param r_e: initial position
-        :param decorr_period: decorrelation period
-        :return: is step accepted, next step position
-        """
-        while True:
-            cond = False
-            for _ in range(decorr_period):
-                pass
-            yield cond, r_e
-
-    def force_interpolation_random_walker(self, r_e, decorr_period):
-        """M. P. Allen and D. J. Tildesley, Computer Simulation of Liquids Oxford University Press, Oxford, 1989 and references in Sec. 9.3.
-        :param r_e: initial position
-        :param decorr_period: decorrelation period
-        :return: is step accepted, next step position
-        """
-        while True:
-            cond = False
-            for _ in range(decorr_period):
-                pass
-            yield cond, r_e
-
-    def splitting_random_walker(self, r_e, decorr_period):
-        """J. A. Izaguirre, D. P. Catarello, J. M. Wozniak, and R. D. Skeel, J. Chem. Phys. 114, 2090 2001.
-        :param r_e: initial position
-        :param decorr_period: decorrelation period
-        :return: is step accepted, next step position
-        """
-        while True:
-            cond = False
-            for _ in range(decorr_period):
-                pass
-            yield cond, r_e
-
-    def ricci_ciccottid_random_walker(self, r_e, decorr_period):
-        """A. Ricci and G. Ciccotti, Mol. Phys. 101, 1927 2003.
-        :param r_e: initial position
-        :param decorr_period: decorrelation period
-        :return: is step accepted, next step position
-        """
-        while True:
-            cond = False
-            for _ in range(decorr_period):
-                pass
-            yield cond, r_e
+        return (np.sqrt(1 + 2 * a * square_mod_v * self.step_size) - 1) / (a * square_mod_v * self.step_size)
 
     def dmc_random_walker(self, r_e_list, target_weight):
         """Collection of walkers representing the instantaneous wfn.
@@ -178,7 +176,7 @@ class MarkovChain:
             velocity = self.wfn.drift_velocity(r_e)
             limiting_factor = self.limiting_factor(velocity)
             velocity_list.append(limiting_factor * velocity)
-        step_eff = self.step
+        step_eff = self.step_size
         best_estimate_energy = sum(energy_list) / len(energy_list)
         energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) / step_eff
         while True:
@@ -189,7 +187,7 @@ class MarkovChain:
             next_wfn_value_list = []
             next_branching_energy_list = []
             for r_e, wfn_value, velocity, energy, branching_energy in zip(r_e_list, wfn_value_list, velocity_list, energy_list, branching_energy_list):
-                next_r_e = r_e + (np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step * velocity).reshape((ne, 3))
+                next_r_e = r_e + (np.sqrt(self.step_size) * np.random.normal(0, 1, ne * 3) + self.step_size * velocity).reshape((ne, 3))
                 next_wfn_value = self.wfn.value(next_r_e)
                 # prevent crossing nodal surface
                 cond = np.sign(wfn_value) == np.sign(next_wfn_value)
@@ -201,8 +199,8 @@ class MarkovChain:
                 p = 0
                 if cond:
                     # Green`s functions
-                    green_forth = np.exp(-np.sum((next_r_e.ravel() - r_e.ravel() - self.step * velocity) ** 2) / 2 / self.step)
-                    green_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step * next_velocity) ** 2) / 2 / self.step)
+                    green_forth = np.exp(-np.sum((next_r_e.ravel() - r_e.ravel() - self.step_size * velocity) ** 2) / 2 / self.step_size)
+                    green_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
                     # condition
                     p = min(1, (green_back * next_wfn_value ** 2) / (green_forth * wfn_value ** 2))
                     cond = p >= np.random.random()
@@ -230,26 +228,10 @@ class MarkovChain:
             velocity_list = next_velocity_list
             wfn_value_list = next_wfn_value_list
             branching_energy_list = next_branching_energy_list
-            step_eff = sum_acceptance_probability / len(energy_list) * self.step
+            step_eff = sum_acceptance_probability / len(energy_list) * self.step_size
             best_estimate_energy = sum(energy_list) / len(energy_list)
-            energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) * self.step / step_eff
+            energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) * self.step_size / step_eff
             yield best_estimate_energy, r_e_list
-
-    def vmc_random_walk(self, r_e, steps, decorr_period):
-        """Metropolis-Hastings random walk.
-        :param r_e: initial electron configuration
-        :param steps: number of steps to walk
-        :param decorr_period: number of steps to walk
-        :return:
-        """
-        condition = np.empty(shape=(steps, ), dtype=nb.boolean)
-        position = np.empty(shape=(steps, ) + r_e.shape)
-        walker = self.simple_random_walker(r_e, decorr_period)
-
-        for i in range(steps):
-            condition[i], position[i] = next(walker)
-
-        return condition, position
 
     def dmc_random_walk(self, r_e_list, steps, target_weight):
         """DMC
@@ -258,18 +240,13 @@ class MarkovChain:
         :param target_weight: target weight
         :return:
         """
-        energy = np.empty(shape=(steps, ))
+        energy = np.empty(shape=(steps,))
         walker = self.dmc_random_walker(r_e_list, target_weight)
 
         for i in range(steps):
             energy[i], r_e_list = next(walker)
 
         return energy, r_e_list
-
-    def profiling_simple_random_walk(self, steps, r_initial, decorr_period):
-        walker = self.simple_random_walker(r_initial, decorr_period)
-        for _ in range(steps):
-            next(walker)
 
 
 # @nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
