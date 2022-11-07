@@ -132,14 +132,14 @@ dmc_spec = [
 @nb.experimental.jitclass(dmc_spec)
 class DMCMarkovChain:
 
-    def __init__(self, r_e_list, step_size, wfn):
+    def __init__(self, step_size, wfn):
         """Markov chain Monte Carlo.
         :param r_e_list: initial positions of walkers
         :param step_size: time step size
         :param wfn: instance of Wfn class
         :return:
         """
-        self.r_e_list = r_e_list
+        # self.r_e_list = r_e_list
         self.step_size = step_size
         self.wfn = wfn
 
@@ -206,9 +206,9 @@ class DMCMarkovChain:
                     cond = p >= np.random.random()
                 # branching
                 if cond:
-                    weight = np.exp(-self.step * (next_branching_energy + branching_energy - 2 * energy_t) / 2)
+                    weight = np.exp(-self.step_size * (next_branching_energy + branching_energy - 2 * energy_t) / 2)
                 else:
-                    weight = np.exp(-self.step * (branching_energy - energy_t))
+                    weight = np.exp(-self.step_size * (branching_energy - energy_t))
                 for _ in range(int(weight + np.random.uniform(0, 1))):
                     sum_acceptance_probability += p
                     if cond:

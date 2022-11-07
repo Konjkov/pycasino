@@ -272,7 +272,7 @@ class Casino:
             r_e_list = [position[-i] for i in range(self.config.input.vmc_nconfig_write)]
             # FIXME: local variables?
             self.step_size = self.config.input.dtdmc
-            self.dmc_markovchain = DMCMarkovChain(r_e_list, self.step_size, self.wfn)
+            self.dmc_markovchain = DMCMarkovChain(self.step_size, self.wfn)
             r_e_list = self.dmc_energy_equilibration(r_e_list)
             r_e_list = self.dmc_energy_accumulation(r_e_list)
 
@@ -281,7 +281,7 @@ class Casino:
         :param steps: burn-in period
         :return:
         """
-        condition, position = self.vmc_markovchain.vmc_random_walk(self.config.input.vmc_nstep, 1)
+        condition, position = self.vmc_markovchain.vmc_random_walk(steps, 1)
         self.r_e = position[-1]
         logger.info(
             f'Running VMC equilibration ({steps} moves).'
@@ -299,7 +299,7 @@ class Casino:
             self.vmc_markovchain.step_size = tau[0]
             logger.debug('dr * electrons = %.5f', tau[0] * (self.neu + self.ned))
             if tau[0] > 0:
-                condition, position = self.vmc_markovchain.vmc_random_walk(self.config.input.vmc_nstep, 1)
+                condition, position = self.vmc_markovchain.vmc_random_walk(steps, 1)
                 self.r_e = position[-1]
                 acc_ration = condition.mean()
             else:
@@ -408,7 +408,6 @@ class Casino:
 
         for i in range(nblock):
             block_start = default_timer()
-            self.dmc_markovchain = DMCMarkovChain(self.step_size, self.wfn)
             energy, r_e_list = self.dmc_markovchain.dmc_random_walk(r_e_list, steps // nblock, self.config.input.dmc_target_weight)
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
@@ -518,7 +517,7 @@ if __name__ == '__main__':
     # path = 'test/gwfn/Kr/HF/cc-pVQZ/CBCS/Backflow/'
     # path = 'test/gwfn/O3/HF/cc-pVQZ/CBCS/Backflow/'
 
-    path = 'test/stowfn/He/HF/QZ4P/CBCS/Slater/'
+    # path = 'test/stowfn/He/HF/QZ4P/CBCS/Slater/'
     # path = 'test/stowfn/Be/HF/QZ4P/CBCS/Slater/'
     # path = 'test/stowfn/N/HF/QZ4P/CBCS/Slater/'
     # path = 'test/stowfn/Ne/HF/QZ4P/CBCS/Slater/'
@@ -561,4 +560,4 @@ if __name__ == '__main__':
     # path = 'test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_dmc/'
     # path = 'test/stowfn/O3/HF/QZ4P/CBCS/Jastrow_dmc/'
 
-    Casino(path).run()
+    # Casino(path).run()
