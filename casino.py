@@ -417,6 +417,11 @@ class Casino:
                 f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
+        logger.info(
+            f'Mixed estimators of the energies at the end of the run\n'
+            f'------------------------------------------------------\n'
+            f'Total energy                 =       {energy_block_mean.mean():.12f} +/-  {energy_block_sem.mean() / np.sqrt(nblock):.12f}\n'
+        )
 
     def normal_test(self, energy):
         """Test whether energy distribution differs from a normal one."""

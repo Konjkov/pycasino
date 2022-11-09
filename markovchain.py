@@ -179,82 +179,78 @@ class DMCMarkovChain:
         to limit the magnitude of both quantities.
         :param v: drift velocity
         :param a: strength of the limiting
-        :return:
+        :return: limiting_factor
         """
         square_mod_v = np.sum(v**2)
         return (np.sqrt(1 + 2 * a * square_mod_v * self.step_size) - 1) / (a * square_mod_v * self.step_size)
 
-    def dmc_random_walker(self):
+    def dmc_random_step(self):
         """Collection of walkers representing the instantaneous wfn.
         C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
-        :return: best estimate of energy, next position
         """
         ne = self.wfn.neu + self.wfn.ned
-        while True:
-            sum_acceptance_probability = 0
-            next_r_e_list = nb.typed.List.empty_list(r_e_type)
-            next_wfn_value_list = nb.typed.List.empty_list(wfn_value_type)
-            next_velocity_list = nb.typed.List.empty_list(velocity_type)
-            next_energy_list = nb.typed.List.empty_list(energy_type)
-            next_branching_energy_list = nb.typed.List.empty_list(energy_type)
-            for r_e, wfn_value, velocity, energy, branching_energy in zip(self.r_e_list, self.wfn_value_list, self.velocity_list, self.energy_list, self.branching_energy_list):
-                next_r_e = r_e + (np.sqrt(self.step_size) * np.random.normal(0, 1, ne * 3) + self.step_size * velocity).reshape((ne, 3))
-                next_wfn_value = self.wfn.value(next_r_e)
-                # prevent crossing nodal surface
-                cond = np.sign(wfn_value) == np.sign(next_wfn_value)
-                next_velocity = self.wfn.drift_velocity(next_r_e)
-                next_energy = self.wfn.energy(next_r_e)
-                limiting_factor = self.limiting_factor(next_velocity)
-                next_velocity *= limiting_factor
-                next_branching_energy = self.best_estimate_energy - (self.best_estimate_energy - next_energy) * limiting_factor
-                p = 0
+        sum_acceptance_probability = 0
+        next_r_e_list = nb.typed.List.empty_list(r_e_type)
+        next_wfn_value_list = nb.typed.List.empty_list(wfn_value_type)
+        next_velocity_list = nb.typed.List.empty_list(velocity_type)
+        next_energy_list = nb.typed.List.empty_list(energy_type)
+        next_branching_energy_list = nb.typed.List.empty_list(energy_type)
+        for r_e, wfn_value, velocity, energy, branching_energy in zip(self.r_e_list, self.wfn_value_list, self.velocity_list, self.energy_list, self.branching_energy_list):
+            next_r_e = r_e + (np.sqrt(self.step_size) * np.random.normal(0, 1, ne * 3) + self.step_size * velocity).reshape((ne, 3))
+            next_wfn_value = self.wfn.value(next_r_e)
+            # prevent crossing nodal surface
+            cond = np.sign(wfn_value) == np.sign(next_wfn_value)
+            next_velocity = self.wfn.drift_velocity(next_r_e)
+            next_energy = self.wfn.energy(next_r_e)
+            limiting_factor = self.limiting_factor(next_velocity)
+            next_velocity *= limiting_factor
+            next_branching_energy = self.best_estimate_energy - (self.best_estimate_energy - next_energy) * limiting_factor
+            p = 0
+            if cond:
+                # Green`s functions
+                green_forth = np.exp(-np.sum((next_r_e.ravel() - r_e.ravel() - self.step_size * velocity) ** 2) / 2 / self.step_size)
+                green_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
+                # condition
+                p = min(1, (green_back * next_wfn_value ** 2) / (green_forth * wfn_value ** 2))
+                cond = p >= np.random.random()
+            # branching
+            if cond:
+                weight = np.exp(-self.step_size * (next_branching_energy + branching_energy - 2 * self.energy_t) / 2)
+            else:
+                weight = np.exp(-self.step_size * (branching_energy - self.energy_t))
+            for _ in range(int(weight + np.random.uniform(0, 1))):
+                sum_acceptance_probability += p
                 if cond:
-                    # Green`s functions
-                    green_forth = np.exp(-np.sum((next_r_e.ravel() - r_e.ravel() - self.step_size * velocity) ** 2) / 2 / self.step_size)
-                    green_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
-                    # condition
-                    p = min(1, (green_back * next_wfn_value ** 2) / (green_forth * wfn_value ** 2))
-                    cond = p >= np.random.random()
-                # branching
-                if cond:
-                    weight = np.exp(-self.step_size * (next_branching_energy + branching_energy - 2 * self.energy_t) / 2)
+                    next_r_e_list.append(next_r_e)
+                    next_energy_list.append(next_energy)
+                    next_velocity_list.append(next_velocity)
+                    next_wfn_value_list.append(next_wfn_value)
+                    next_branching_energy_list.append(next_branching_energy)
                 else:
-                    weight = np.exp(-self.step_size * (branching_energy - self.energy_t))
-                for _ in range(int(weight + np.random.uniform(0, 1))):
-                    sum_acceptance_probability += p
-                    if cond:
-                        next_r_e_list.append(next_r_e)
-                        next_energy_list.append(next_energy)
-                        next_velocity_list.append(next_velocity)
-                        next_wfn_value_list.append(next_wfn_value)
-                        next_branching_energy_list.append(next_branching_energy)
-                    else:
-                        next_r_e_list.append(r_e)
-                        next_energy_list.append(energy)
-                        next_velocity_list.append(velocity)
-                        next_wfn_value_list.append(wfn_value)
-                        next_branching_energy_list.append(branching_energy)
-            self.r_e_list = next_r_e_list
-            self.energy_list = next_energy_list
-            self.velocity_list = next_velocity_list
-            self.wfn_value_list = next_wfn_value_list
-            self.branching_energy_list = next_branching_energy_list
-            step_eff = sum_acceptance_probability / len(self.energy_list) * self.step_size
-            self.best_estimate_energy = sum(self.energy_list) / len(self.energy_list)
-            self.energy_t = self.best_estimate_energy - np.log(len(self.energy_list) / self.target_weight) * self.step_size / step_eff
-            yield self.best_estimate_energy
+                    next_r_e_list.append(r_e)
+                    next_energy_list.append(energy)
+                    next_velocity_list.append(velocity)
+                    next_wfn_value_list.append(wfn_value)
+                    next_branching_energy_list.append(branching_energy)
+        self.r_e_list = next_r_e_list
+        self.energy_list = next_energy_list
+        self.velocity_list = next_velocity_list
+        self.wfn_value_list = next_wfn_value_list
+        self.branching_energy_list = next_branching_energy_list
+        step_eff = sum_acceptance_probability / len(self.energy_list) * self.step_size
+        self.best_estimate_energy = sum(self.energy_list) / len(self.energy_list)
+        self.energy_t = self.best_estimate_energy - np.log(len(self.energy_list) / self.target_weight) * self.step_size / step_eff
 
     def dmc_random_walk(self, steps):
         """DMC
         :param steps: number of steps to walk
-        :param target_weight: target weight
         :return:
         """
         energy = np.empty(shape=(steps,))
-        walker = self.dmc_random_walker()
 
         for i in range(steps):
-            energy[i] = next(walker)
+            self.dmc_random_step()
+            energy[i] = self.best_estimate_energy
 
         return energy
 
