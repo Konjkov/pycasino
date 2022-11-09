@@ -122,13 +122,20 @@ class VMCMarkovChain:
         return condition, position
 
 
-wfn_type = nb.types.float64
+wfn_value_type = nb.types.float64
 energy_type = nb.types.float64
 r_e_type = nb.types.float64[:, :]
 velocity_type = nb.types.float64[:]
 dmc_spec = [
-    ('r_e_list', nb.types.ListType(r_e_type)),
     ('step_size', nb.float64),
+    ('target_weight', nb.float64),
+    ('r_e_list', nb.types.ListType(r_e_type)),
+    ('wfn_value_list', nb.types.ListType(wfn_value_type)),
+    ('velocity_list', nb.types.ListType(velocity_type)),
+    ('energy_list', nb.types.ListType(energy_type)),
+    ('branching_energy_list', nb.types.ListType(energy_type)),
+    ('best_estimate_energy', energy_type),
+    ('energy_t', energy_type),
     ('wfn', Wfn.class_type.instance_type),
 ]
 
@@ -136,17 +143,33 @@ dmc_spec = [
 @nb.experimental.jitclass(dmc_spec)
 class DMCMarkovChain:
 
-    def __init__(self, r_e_list, step_size, wfn):
+    def __init__(self, r_e_list, step_size, target_weight, wfn):
         """Markov chain Monte Carlo.
         :param r_e_list: initial positions of walkers
         :param step_size: time step size
+        :param target_weight: target weight of walkers
         :param wfn: instance of Wfn class
         :return:
         """
-        self.r_e_list = nb.typed.List.empty_list(r_e_type)
-        [self.r_e_list.append(r_e) for r_e in r_e_list]
-        self.step_size = step_size
         self.wfn = wfn
+        self.step_size = step_size
+        self.target_weight = target_weight
+        self.r_e_list = nb.typed.List.empty_list(r_e_type)
+        self.wfn_value_list = nb.typed.List.empty_list(wfn_value_type)
+        self.velocity_list = nb.typed.List.empty_list(velocity_type)
+        self.energy_list = nb.typed.List.empty_list(energy_type)
+        self.branching_energy_list = nb.typed.List.empty_list(energy_type)
+        for r_e in r_e_list:
+            self.r_e_list.append(r_e)
+            self.wfn_value_list.append(self.wfn.value(r_e))
+            velocity = self.wfn.drift_velocity(r_e)
+            limiting_factor = self.limiting_factor(velocity)
+            self.velocity_list.append(limiting_factor * velocity)
+            self.energy_list.append(self.wfn.energy(r_e))
+            self.branching_energy_list.append(self.wfn.energy(r_e))
+        step_eff = self.step_size  # first guess
+        self.best_estimate_energy = sum(self.energy_list) / len(self.energy_list)
+        self.energy_t = self.best_estimate_energy - np.log(len(self.energy_list) / self.target_weight) / step_eff
 
     def limiting_factor(self, v, a=1):
         """A significant source of error in DMC calculations comes from sampling electronic
@@ -161,35 +184,20 @@ class DMCMarkovChain:
         square_mod_v = np.sum(v**2)
         return (np.sqrt(1 + 2 * a * square_mod_v * self.step_size) - 1) / (a * square_mod_v * self.step_size)
 
-    def dmc_random_walker(self, target_weight):
+    def dmc_random_walker(self):
         """Collection of walkers representing the instantaneous wfn.
         C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
-        :param target_weight: target weight of walkers
         :return: best estimate of energy, next position
         """
         ne = self.wfn.neu + self.wfn.ned
-        energy_list = []
-        velocity_list = []
-        wfn_value_list = []
-        branching_energy_list = []
-        for r_e in self.r_e_list:
-            wfn_value_list.append(self.wfn.value(r_e))
-            energy_list.append(self.wfn.energy(r_e))
-            branching_energy_list.append(self.wfn.energy(r_e))
-            velocity = self.wfn.drift_velocity(r_e)
-            limiting_factor = self.limiting_factor(velocity)
-            velocity_list.append(limiting_factor * velocity)
-        step_eff = self.step_size
-        best_estimate_energy = sum(energy_list) / len(energy_list)
-        energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) / step_eff
         while True:
             sum_acceptance_probability = 0
             next_r_e_list = nb.typed.List.empty_list(r_e_type)
-            next_energy_list = []
-            next_velocity_list = []
-            next_wfn_value_list = []
-            next_branching_energy_list = []
-            for r_e, wfn_value, velocity, energy, branching_energy in zip(self.r_e_list, wfn_value_list, velocity_list, energy_list, branching_energy_list):
+            next_wfn_value_list = nb.typed.List.empty_list(wfn_value_type)
+            next_velocity_list = nb.typed.List.empty_list(velocity_type)
+            next_energy_list = nb.typed.List.empty_list(energy_type)
+            next_branching_energy_list = nb.typed.List.empty_list(energy_type)
+            for r_e, wfn_value, velocity, energy, branching_energy in zip(self.r_e_list, self.wfn_value_list, self.velocity_list, self.energy_list, self.branching_energy_list):
                 next_r_e = r_e + (np.sqrt(self.step_size) * np.random.normal(0, 1, ne * 3) + self.step_size * velocity).reshape((ne, 3))
                 next_wfn_value = self.wfn.value(next_r_e)
                 # prevent crossing nodal surface
@@ -198,7 +206,7 @@ class DMCMarkovChain:
                 next_energy = self.wfn.energy(next_r_e)
                 limiting_factor = self.limiting_factor(next_velocity)
                 next_velocity *= limiting_factor
-                next_branching_energy = best_estimate_energy - (best_estimate_energy - next_energy) * limiting_factor
+                next_branching_energy = self.best_estimate_energy - (self.best_estimate_energy - next_energy) * limiting_factor
                 p = 0
                 if cond:
                     # Green`s functions
@@ -209,9 +217,9 @@ class DMCMarkovChain:
                     cond = p >= np.random.random()
                 # branching
                 if cond:
-                    weight = np.exp(-self.step_size * (next_branching_energy + branching_energy - 2 * energy_t) / 2)
+                    weight = np.exp(-self.step_size * (next_branching_energy + branching_energy - 2 * self.energy_t) / 2)
                 else:
-                    weight = np.exp(-self.step_size * (branching_energy - energy_t))
+                    weight = np.exp(-self.step_size * (branching_energy - self.energy_t))
                 for _ in range(int(weight + np.random.uniform(0, 1))):
                     sum_acceptance_probability += p
                     if cond:
@@ -227,23 +235,23 @@ class DMCMarkovChain:
                         next_wfn_value_list.append(wfn_value)
                         next_branching_energy_list.append(branching_energy)
             self.r_e_list = next_r_e_list
-            energy_list = next_energy_list
-            velocity_list = next_velocity_list
-            wfn_value_list = next_wfn_value_list
-            branching_energy_list = next_branching_energy_list
-            step_eff = sum_acceptance_probability / len(energy_list) * self.step_size
-            best_estimate_energy = sum(energy_list) / len(energy_list)
-            energy_t = best_estimate_energy - np.log(len(energy_list) / target_weight) * self.step_size / step_eff
-            yield best_estimate_energy
+            self.energy_list = next_energy_list
+            self.velocity_list = next_velocity_list
+            self.wfn_value_list = next_wfn_value_list
+            self.branching_energy_list = next_branching_energy_list
+            step_eff = sum_acceptance_probability / len(self.energy_list) * self.step_size
+            self.best_estimate_energy = sum(self.energy_list) / len(self.energy_list)
+            self.energy_t = self.best_estimate_energy - np.log(len(self.energy_list) / self.target_weight) * self.step_size / step_eff
+            yield self.best_estimate_energy
 
-    def dmc_random_walk(self, steps, target_weight):
+    def dmc_random_walk(self, steps):
         """DMC
         :param steps: number of steps to walk
         :param target_weight: target weight
         :return:
         """
         energy = np.empty(shape=(steps,))
-        walker = self.dmc_random_walker(target_weight)
+        walker = self.dmc_random_walker()
 
         for i in range(steps):
             energy[i] = next(walker)

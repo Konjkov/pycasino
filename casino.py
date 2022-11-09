@@ -269,7 +269,7 @@ class Casino:
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
             r_e_list = position[-self.config.input.vmc_nconfig_write:]
-            self.dmc_markovchain = DMCMarkovChain(r_e_list, self.config.input.dtdmc, self.wfn)
+            self.dmc_markovchain = DMCMarkovChain(r_e_list, self.config.input.dtdmc, self.config.input.dmc_target_weight, self.wfn)
             self.dmc_energy_equilibration()
             self.dmc_energy_accumulation()
 
@@ -375,7 +375,7 @@ class Casino:
 
         for i in range(nblock):
             block_start = default_timer()
-            energy = self.dmc_markovchain.dmc_random_walk(steps // nblock, self.config.input.dmc_target_weight)
+            energy = self.dmc_markovchain.dmc_random_walk(steps // nblock)
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
             block_stop = default_timer()
@@ -404,7 +404,7 @@ class Casino:
 
         for i in range(nblock):
             block_start = default_timer()
-            energy = self.dmc_markovchain.dmc_random_walk(steps // nblock, self.config.input.dmc_target_weight)
+            energy = self.dmc_markovchain.dmc_random_walk(steps // nblock)
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
             block_stop = default_timer()
