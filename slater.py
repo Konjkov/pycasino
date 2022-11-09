@@ -50,7 +50,7 @@ class Slater:
             mo_up, mo_down, permutation_up, permutation_down, coeff, cusp
     ):
         """
-        Slater
+        Slater multideterminant wavefunction.
         :param neu: number of up electrons
         :param ned: number of down electrons
         :param nbasis_functions:

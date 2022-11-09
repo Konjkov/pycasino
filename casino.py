@@ -17,7 +17,6 @@ os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # accelerate
 os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
 
 import numpy as np
-import numba as nb
 from scipy.optimize import least_squares, minimize, root, Bounds
 import matplotlib.pyplot as plt
 
@@ -136,7 +135,7 @@ class Casino:
     def __reduce__(self):
         """to fix TypeError: cannot pickle '_io.TextIOWrapper' object"""
         parameters = self.wfn.get_parameters(self.config.jastrow is not None, self.config.backflow is not None)
-        return self.__class__, (self.config_path, ), {'r_e': self.r_e, 'step_size': self.step_size, 'parameters': parameters}
+        return self.__class__, (self.config_path, ), {'r_e': self.vmc_markovchain.r_e, 'step_size': self.vmc_markovchain.step_size, 'parameters': parameters}
 
     def __setstate__(self, state):
         """set state"""
@@ -269,12 +268,10 @@ class Casino:
                 f'  Standard error                        +/-       {energy.std():18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
-            r_e_list = [position[-i] for i in range(self.config.input.vmc_nconfig_write)]
-            # FIXME: local variables?
-            self.step_size = self.config.input.dtdmc
-            self.dmc_markovchain = DMCMarkovChain(self.step_size, self.wfn)
-            r_e_list = self.dmc_energy_equilibration(r_e_list)
-            r_e_list = self.dmc_energy_accumulation(r_e_list)
+            r_e_list = position[-self.config.input.vmc_nconfig_write:]
+            self.dmc_markovchain = DMCMarkovChain(r_e_list, self.config.input.dtdmc, self.wfn)
+            self.dmc_energy_equilibration()
+            self.dmc_energy_accumulation()
 
     def equilibrate(self, steps):
         """
@@ -363,7 +360,7 @@ class Casino:
             f' Sample variance of E_L (au^2/sim.cell) : {energy_block_var.mean():.12f}\n\n'
         )
 
-    def dmc_energy_equilibration(self, r_e_list):
+    def dmc_energy_equilibration(self):
         """DMC energy equilibration"""
         logger.info(
             ' ===========================================\n'
@@ -378,7 +375,7 @@ class Casino:
 
         for i in range(nblock):
             block_start = default_timer()
-            energy, r_e_list = self.dmc_markovchain.dmc_random_walk(r_e_list, steps // nblock, self.config.input.dmc_target_weight)
+            energy = self.dmc_markovchain.dmc_random_walk(steps // nblock, self.config.input.dmc_target_weight)
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
             block_stop = default_timer()
@@ -391,9 +388,8 @@ class Casino:
                 f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
-        return r_e_list
 
-    def dmc_energy_accumulation(self, r_e_list):
+    def dmc_energy_accumulation(self):
         """DMC energy accumulation"""
         logger.info(
             ' =====================================================\n'
@@ -408,7 +404,7 @@ class Casino:
 
         for i in range(nblock):
             block_start = default_timer()
-            energy, r_e_list = self.dmc_markovchain.dmc_random_walk(r_e_list, steps // nblock, self.config.input.dmc_target_weight)
+            energy = self.dmc_markovchain.dmc_random_walk(steps // nblock, self.config.input.dmc_target_weight)
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
             block_stop = default_timer()
@@ -421,7 +417,6 @@ class Casino:
                 f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
-        return r_e_list
 
     def normal_test(self, energy):
         """Test whether energy distribution differs from a normal one."""

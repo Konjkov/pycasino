@@ -95,7 +95,7 @@ class Cusp:
         self.shift = shift
         self.orbital_sign = orbital_sign
         self.alpha = alpha
-        # evaluate s-part of Gaussian orbitals
+        # evaluate s-part of Gaussian orbital
         self.mo = mo
         self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
         self.first_shells = first_shells
