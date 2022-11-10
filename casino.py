@@ -139,6 +139,7 @@ class Casino:
         natoms = atom_positions.shape[0]
         r_e = np.zeros((ne, 3))
         for i in range(ne):
+            # electrons randomly centered on atoms
             r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
         return r_e + np.random.uniform(-1, 1, ne * 3).reshape(ne, 3)
 
@@ -175,7 +176,7 @@ class Casino:
                         self.config.input.opt_backflow
                     )
                     self.wfn.set_parameters(res.x, self.config.input.opt_jastrow, self.config.input.opt_backflow)
-                    logger.info(res.x / self.wfn.get_parameters_scale(self.config.input.opt_jastrow, self.config.input.opt_backflow))
+                    self.logger.info(res.x / self.wfn.get_parameters_scale(self.config.input.opt_jastrow, self.config.input.opt_backflow))
                     self.config.jastrow.u_cutoff = self.wfn.jastrow.u_cutoff
                     self.config.write('.', i + 1)
                     self.optimize_vmc_step(10000)
@@ -436,7 +437,7 @@ class Casino:
             energy_gradient = vmc_observable(condition, position, self.wfn.jastrow_parameters_numerical_d1)
             energy_hessian = vmc_observable(condition, position, self.wfn.jastrow_parameters_numerical_d2)
             mean_energy_hessian = jastrow_parameters_hessian(energy, energy_gradient, energy_hessian)
-            logger.info('hessian = %s', mean_energy_hessian)
+            self.logger.info('hessian = %s', mean_energy_hessian)
             return mean_energy_hessian
 
         parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
