@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-from concurrent.futures import ProcessPoolExecutor
 from timeit import default_timer
 from cusp import CuspFactory
 from slater import Slater
@@ -9,6 +8,7 @@ from jastrow import Jastrow
 from backflow import Backflow
 from markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
 from wfn import Wfn
+from mpi4py import MPI
 
 os.environ["OMP_NUM_THREADS"] = "1"  # openmp
 os.environ["OPENBLAS_NUM_THREADS"] = "1"  # openblas
@@ -22,12 +22,9 @@ import matplotlib.pyplot as plt
 
 from readers.casino import CasinoConfig
 from sem import correlated_sem
-from psutil import cpu_count
 from logger import logging
 
 np.random.seed(31415926)
-
-logger = logging.getLogger('vmc')
 
 
 def jastrow_parameters_gradient(energy, energy_gradient):
@@ -70,13 +67,16 @@ class Casino:
         """Casino workflow.
         :param config_path: path to config file
         """
+        self.comm = MPI.COMM_WORLD
         self.config_path = config_path
         self.config = CasinoConfig(self.config_path)
         self.config.read(self.config_path)
-        self.num_proc = cpu_count(logical=False)
         self.neu, self.ned = self.config.input.neu, self.config.input.ned
-        self.r_e = self.initial_position(self.neu + self.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges)
-        self.r_e += np.random.uniform(-1, 1, (self.neu + self.ned) * 3).reshape((self.neu + self.ned, 3))
+
+        if self.comm.rank == 0:
+            self.logger = logging.getLogger('vmc')
+        else:
+            self.logger = logging.getLogger('dummy')
 
         if self.config.input.cusp_correction:
             cusp = CuspFactory(
@@ -122,69 +122,25 @@ class Casino:
 
         if self.config.input.vmc_method == 1:
             # EBES
-            self.step_size = 1 / np.log(self.neu + self.ned)
+            step_size = 1 / np.log(self.neu + self.ned)
         elif self.config.input.vmc_method == 3:
             # CBCS
-            self.step_size = 1 / (self.neu + self.ned)
+            step_size = 1 / (self.neu + self.ned)
         else:
             # wrong method
-            self.step_size = 0
+            step_size = 0
 
-        self.vmc_markovchain = VMCMarkovChain(self.r_e, self.step_size, self.wfn)
+        r_e = self.initial_position(self.config.wfn.atom_positions, self.config.wfn.atom_charges)
+        self.vmc_markovchain = VMCMarkovChain(r_e, step_size, self.wfn)
 
-    def __reduce__(self):
-        """to fix TypeError: cannot pickle '_io.TextIOWrapper' object"""
-        parameters = self.wfn.get_parameters(self.config.jastrow is not None, self.config.backflow is not None)
-        return self.__class__, (self.config_path, ), {'r_e': self.vmc_markovchain.r_e, 'step_size': self.vmc_markovchain.step_size, 'parameters': parameters}
-
-    def __setstate__(self, state):
-        """set state"""
-        self.r_e = state['r_e']
-        self.step_size = state['step_size']
-        self.wfn.set_parameters(state['parameters'], self.config.jastrow is not None, self.config.backflow is not None)
-
-    def parallel_execution(self, function, *args):
-        """Parallel execution of methods
-        https://github.com/numba/numba/issues/1846
-
-        Sharing big NumPy arrays across python processes
-        https://luis-sena.medium.com/sharing-big-numpy-arrays-across-python-processes-abf0dc2a0ab2
-
-        :param function: callable objects
-        :param args: arguments
-        :return:
-        """
-        if self.num_proc == 1:
-            return [function(*args)]
-        else:
-            # FIXME: if not cached numba compiled it everytime
-            with ProcessPoolExecutor(max_workers=self.num_proc) as executor:
-                futures = [executor.submit(function, *args) for _ in range(self.num_proc)]
-                # to get task results in order they were submitted
-                return [res.result() for res in futures]
-
-    def parallel_execution_map(self, function, *args):
-        """Parallel execution of methods
-        https://github.com/numba/numba/issues/1846
-
-        Sharing big NumPy arrays across python processes
-        https://luis-sena.medium.com/sharing-big-numpy-arrays-across-python-processes-abf0dc2a0ab2
-
-        :param function: callable objects
-        :param args: arguments iterables
-        :return:
-        """
-        # FIXME: if not cached numba compiled it everytime
-        with ProcessPoolExecutor(max_workers=self.num_proc) as executor:
-            return list(executor.map(function, *args))
-
-    def initial_position(self, ne, atom_positions, atom_charges):
+    def initial_position(self, atom_positions, atom_charges):
         """Initial positions of electrons."""
+        ne = self.neu + self.ned
         natoms = atom_positions.shape[0]
         r_e = np.zeros((ne, 3))
         for i in range(ne):
             r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
-        return r_e
+        return r_e + np.random.uniform(-1, 1, ne * 3).reshape(ne, 3)
 
     def run(self):
         """Run Casino workflow.
@@ -192,7 +148,7 @@ class Casino:
         self.equilibrate(self.config.input.vmc_equil_nstep)
         if self.config.input.runtype == 'vmc':
             start = default_timer()
-            logger.info(
+            self.logger.info(
                 ' ====================================\n'
                 ' PERFORMING A SINGLE VMC CALCULATION.\n'
                 ' ====================================\n\n'
@@ -201,7 +157,7 @@ class Casino:
             self.optimize_vmc_step(10000)
             self.vmc_energy_accumulation()
             stop = default_timer()
-            logger.info(
+            self.logger.info(
                 f' =========================================================================\n\n'
                 f' Total PyCasino real time : : :    {stop - start:.4f}'
             )
@@ -225,7 +181,7 @@ class Casino:
                     self.optimize_vmc_step(10000)
                     self.vmc_energy_accumulation()
                 stop = default_timer()
-                logger.info(
+                self.logger.info(
                     f' =========================================================================\n\n'
                     f' Total PyCasino real time : : :    {stop - start:.4f}'
                 )
@@ -242,13 +198,13 @@ class Casino:
                         self.config.input.opt_backflow
                     )
                     self.wfn.set_parameters(res.x, self.config.input.opt_jastrow, self.config.input.opt_backflow)
-                    logger.info(res.x / self.wfn.get_parameters_scale(self.config.input.opt_jastrow, self.config.input.opt_backflow))
+                    self.logger.info(res.x / self.wfn.get_parameters_scale(self.config.input.opt_jastrow, self.config.input.opt_backflow))
                     self.config.jastrow.u_cutoff = self.wfn.jastrow.u_cutoff
                     self.config.write('.', i + 1)
                     self.optimize_vmc_step(10000)
                     self.vmc_energy_accumulation()
                 stop = default_timer()
-                logger.info(
+                self.logger.info(
                     f' =========================================================================\n\n'
                     f' Total PyCasino real time : : :    {stop - start:.4f}'
                 )
@@ -259,7 +215,7 @@ class Casino:
             condition, position = self.vmc_markovchain.vmc_random_walk(self.config.input.vmc_nstep, 1)
             energy = vmc_observable(condition, position, self.wfn.energy) + self.wfn.nuclear_repulsion
             block_stop = default_timer()
-            logger.info(
+            self.logger.info(
                 f' =========================================================================\n'
                 f' In block : {1}\n'
                 f'  Number of VMC steps           = {self.config.input.vmc_nstep}\n\n'
@@ -279,25 +235,23 @@ class Casino:
         :return:
         """
         condition, position = self.vmc_markovchain.vmc_random_walk(steps, 1)
-        self.r_e = position[-1]
-        logger.info(
+        self.logger.info(
             f'Running VMC equilibration ({steps} moves).'
         )
-        logger.debug('dr * electrons = 1.00000, acc_ration = %.5f', condition.mean())
+        self.logger.debug('dr * electrons = 1.00000, acc_ration = %.5f', condition.mean())
 
     def optimize_vmc_step(self, steps, acceptance_rate=0.5):
         """Optimize vmc step size."""
 
         def callback(tau, acc_ration):
             """dr = sqrt(3*dtvmc)"""
-            logger.debug('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (self.neu + self.ned), acc_ration[0] + acceptance_rate)
+            self.logger.debug('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (self.neu + self.ned), acc_ration[0] + acceptance_rate)
 
         def f(tau):
             self.vmc_markovchain.step_size = tau[0]
-            logger.debug('dr * electrons = %.5f', tau[0] * (self.neu + self.ned))
+            self.logger.debug('dr * electrons = %.5f', tau[0] * (self.neu + self.ned))
             if tau[0] > 0:
-                condition, position = self.vmc_markovchain.vmc_random_walk(steps, 1)
-                self.r_e = position[-1]
+                condition, _ = self.vmc_markovchain.vmc_random_walk(steps, 1)
                 acc_ration = condition.mean()
             else:
                 acc_ration = 1
@@ -305,7 +259,7 @@ class Casino:
 
         options = dict(jac_options=dict(alpha=1))
         res = root(f, [self.vmc_markovchain.step_size], method='diagbroyden', tol=1/np.sqrt(steps), callback=callback, options=options)
-        self.vmc_markovchain.step_size = np.abs(res.x[0])
+        self.vmc_markovchain.step_size = np.mean(self.comm.allgather(np.abs(res.x[0])))
 
     def get_decorr_period(self):
         """Decorr period"""
@@ -321,7 +275,6 @@ class Casino:
             https://numba.readthedocs.io/en/stable/extending/high-level.html#implementing-mutable-structures
         """
         condition, position = self.vmc_markovchain.vmc_random_walk(steps, decorr_period)
-        self.r_e = position[-1]
         return vmc_observable(condition, position, self.wfn.energy) + self.wfn.nuclear_repulsion
 
     def vmc_energy_accumulation(self):
@@ -330,39 +283,44 @@ class Casino:
         nblock = self.config.input.vmc_nblock
 
         decorr_period = self.get_decorr_period()
-        energy_block_mean = np.zeros(shape=(nblock, self.num_proc))
-        energy_block_sem = np.zeros(shape=(nblock, self.num_proc))
-        energy_block_var = np.zeros(shape=(nblock, self.num_proc))
-        logger.info(
+        energy_block_mean = np.zeros(shape=(nblock,))
+        energy_block_sem = np.zeros(shape=(nblock,))
+        energy_block_var = np.zeros(shape=(nblock,))
+        self.logger.info(
             f'Starting VMC.'
         )
         for i in range(nblock):
             block_start = default_timer()
-            for j, energy in enumerate(self.parallel_execution(self.vmc_energy, steps // nblock // self.num_proc, decorr_period)):
-                energy_block_mean[i, j] = energy.mean()
-                energy_block_sem[i, j] = correlated_sem(energy)
-                energy_block_var[i, j] = energy.var()
+            block_energy = np.zeros(shape=(steps // nblock,))
+            energy = self.vmc_energy(steps // nblock // self.comm.size, decorr_period)
+            self.comm.Gather([energy, MPI.DOUBLE], [block_energy, MPI.DOUBLE], root=0)
+            if self.comm.rank == 0:
+                energy_block_mean[i] = block_energy.mean()
+                energy_block_var[i] = block_energy.var()
+                energy_block_sem[i] = np.mean([
+                    correlated_sem(block_energy.reshape(self.comm.size, steps // nblock // self.comm.size)[j]) for j in range(self.comm.size)
+                ]) / np.sqrt(self.comm.size)
             block_stop = default_timer()
-            logger.info(
+            self.logger.info(
                 f' =========================================================================\n'
                 f' In block : {i + 1}\n'
                 f'  Number of VMC steps           = {steps // nblock}\n\n'
                 f'  Block average energies (au)\n\n'
-                f'  Total energy                       (au) =       {energy_block_mean[i].mean():18.12f}\n'
-                f'  Standard error                        +/-       {energy_block_sem[i].mean() / np.sqrt(self.num_proc):18.12f}\n\n'
+                f'  Total energy                       (au) =       {energy_block_mean[i]:18.12f}\n'
+                f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
-        logger.info(
+        self.logger.info(
             f' =========================================================================\n'
             f' FINAL RESULT:\n\n'
             f'  VMC energy (au)    Standard error      Correction for serial correlation\n'
-            f' {energy_block_mean.mean():.12f} +/- {energy_block_sem.mean() / np.sqrt(nblock * self.num_proc):.12f}      On-the-fly reblocking method\n\n'
+            f' {energy_block_mean.mean():.12f} +/- {energy_block_sem.mean() / np.sqrt(nblock):.12f}      On-the-fly reblocking method\n\n'
             f' Sample variance of E_L (au^2/sim.cell) : {energy_block_var.mean():.12f}\n\n'
         )
 
     def dmc_energy_equilibration(self):
         """DMC energy equilibration"""
-        logger.info(
+        self.logger.info(
             ' ===========================================\n'
             ' PERFORMING A DMC EQUILIBRATION CALCULATION.\n'
             ' ===========================================\n\n'
@@ -379,7 +337,7 @@ class Casino:
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
             block_stop = default_timer()
-            logger.info(
+            self.logger.info(
                 f' =========================================================================\n'
                 f' In block : {i + 1}\n'
                 f'  Number of DMC steps           = {steps // nblock}\n\n'
@@ -391,7 +349,7 @@ class Casino:
 
     def dmc_energy_accumulation(self):
         """DMC energy accumulation"""
-        logger.info(
+        self.logger.info(
             ' =====================================================\n'
             ' PERFORMING A DMC STATISTICS-ACCUMULATION CALCULATION.\n'
             ' =====================================================\n\n'
@@ -408,7 +366,7 @@ class Casino:
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
             block_stop = default_timer()
-            logger.info(
+            self.logger.info(
                 f' =========================================================================\n'
                 f' In block : {i + 1}\n'
                 f'  Number of DMC steps           = {steps // nblock}\n\n'
@@ -417,7 +375,7 @@ class Casino:
                 f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
-        logger.info(
+        self.logger.info(
             f'Mixed estimators of the energies at the end of the run\n'
             f'------------------------------------------------------\n'
             f'Total energy                 =       {energy_block_mean.mean():.12f} +/-  {energy_block_sem.mean() / np.sqrt(nblock):.12f}\n'
@@ -426,7 +384,7 @@ class Casino:
     def normal_test(self, energy):
         """Test whether energy distribution differs from a normal one."""
         from scipy import stats
-        logger.info(f'skew = {stats.skewtest(energy)}, kurtosis = {stats.kurtosistest(energy)}')
+        self.logger.info(f'skew = {stats.skewtest(energy)}, kurtosis = {stats.kurtosistest(energy)}')
         plt.hist(
             energy,
             bins='auto',
