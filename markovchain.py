@@ -80,25 +80,21 @@ class VMCMarkovChain:
 
     def bbk_random_step(self):
         """Brünger–Brooks–Karplus (13 B. Brünger, C. L. Brooks, and M. Karplus, Chem. Phys. Lett. 105, 495 1984).
-        :return: is step accepted, next step position
         """
         raise NotImplementedError
 
     def force_interpolation_random_step(self):
         """M. P. Allen and D. J. Tildesley, Computer Simulation of Liquids Oxford University Press, Oxford, 1989 and references in Sec. 9.3.
-        :return: is step accepted, next step position
         """
         raise NotImplementedError
 
     def splitting_random_step(self):
         """J. A. Izaguirre, D. P. Catarello, J. M. Wozniak, and R. D. Skeel, J. Chem. Phys. 114, 2090 2001.
-        :return: is step accepted, next step position
         """
         raise NotImplementedError
 
-    def ricci_ciccottid_random_step(self):
+    def ricci_ciccotti_random_step(self):
         """A. Ricci and G. Ciccotti, Mol. Phys. 101, 1927 2003.
-        :return: is step accepted, next step position
         """
         raise NotImplementedError
 
