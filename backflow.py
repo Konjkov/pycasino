@@ -683,9 +683,8 @@ class Backflow:
         ae_multiplier_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
 
         value = (
-            ae_multiplier_gradient * ae_value.reshape((-1, 1)) +
-            ae_gradient * ae_multiplier.reshape((-1, 1)) +
-            mu_term_gradient[0] + phi_term_gradient[0]
+            ae_value * ae_multiplier +
+            mu_term[0] + phi_term[0]
         ) + n_vectors
 
         gradient = (
