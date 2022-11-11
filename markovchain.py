@@ -1,15 +1,7 @@
-
-import os
-from wfn import Wfn
-
-os.environ["OMP_NUM_THREADS"] = "1"  # openmp
-os.environ["OPENBLAS_NUM_THREADS"] = "1"  # openblas
-os.environ["MKL_NUM_THREADS"] = "1"  # mkl
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # accelerate
-os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
-
-import numpy as np
+from numpy_config import np
 import numba as nb
+
+from wfn import Wfn
 
 vmc_spec = [
     ('r_e', nb.float64[:, :]),
@@ -98,13 +90,10 @@ class VMCMarkovChain:
         """
         raise NotImplementedError
 
-    def vmc_random_walk(self, steps, decorr_period):
+    def random_walk(self, steps, decorr_period):
         """Metropolis-Hastings random walk.
-        :param r_e: initial electron configuration
-        :param step_size: time step size
         :param steps: number of steps to walk
         :param decorr_period: number of steps to walk
-        :param wfn: instance of Wfn class
         :return:
         """
         condition = np.empty(shape=(steps, ), dtype=np.bool_)
@@ -180,7 +169,7 @@ class DMCMarkovChain:
         square_mod_v = np.sum(v**2)
         return (np.sqrt(1 + 2 * a * square_mod_v * self.step_size) - 1) / (a * square_mod_v * self.step_size)
 
-    def dmc_random_step(self):
+    def unr_random_step(self):
         """Collection of walkers representing the instantaneous wfn.
         C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
         """
@@ -237,15 +226,15 @@ class DMCMarkovChain:
         self.best_estimate_energy = sum(self.energy_list) / len(self.energy_list)
         self.energy_t = self.best_estimate_energy - np.log(len(self.energy_list) / self.target_weight) * self.step_size / step_eff
 
-    def dmc_random_walk(self, steps):
-        """DMC
+    def random_walk(self, steps):
+        """DMC random walk.
         :param steps: number of steps to walk
-        :return:
+        :return: energy
         """
         energy = np.empty(shape=(steps,))
 
         for i in range(steps):
-            self.dmc_random_step()
+            self.unr_random_step()
             energy[i] = self.best_estimate_energy
 
         return energy

@@ -1,25 +1,17 @@
 #!/usr/bin/env python3
 
-import os
 from timeit import default_timer
+from numpy_config import np
+from mpi4py import MPI
+from scipy.optimize import least_squares, minimize, root, Bounds
+import matplotlib.pyplot as plt
+
 from cusp import CuspFactory
 from slater import Slater
 from jastrow import Jastrow
 from backflow import Backflow
 from markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
 from wfn import Wfn
-from mpi4py import MPI
-
-os.environ["OMP_NUM_THREADS"] = "1"  # openmp
-os.environ["OPENBLAS_NUM_THREADS"] = "1"  # openblas
-os.environ["MKL_NUM_THREADS"] = "1"  # mkl
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # accelerate
-os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
-
-import numpy as np
-from scipy.optimize import least_squares, minimize, root, Bounds
-import matplotlib.pyplot as plt
-
 from readers.casino import CasinoConfig
 from sem import correlated_sem
 from logger import logging
@@ -67,13 +59,13 @@ class Casino:
         """Casino workflow.
         :param config_path: path to config file
         """
-        self.comm = MPI.COMM_WORLD
+        self.mpi_comm = MPI.COMM_WORLD
         self.config_path = config_path
         self.config = CasinoConfig(self.config_path)
         self.config.read(self.config_path)
         self.neu, self.ned = self.config.input.neu, self.config.input.ned
 
-        if self.comm.rank == 0:
+        if self.mpi_comm.rank == 0:
             self.logger = logging.getLogger('vmc')
         else:
             self.logger = logging.getLogger('dummy')
@@ -95,27 +87,36 @@ class Casino:
             self.config.wfn.slater_orders, self.config.wfn.primitives, self.config.wfn.coefficients, self.config.wfn.exponents,
             self.config.wfn.mo_up, self.config.wfn.mo_down, self.config.mdet.permutation_up, self.config.mdet.permutation_down, self.config.mdet.coeff, cusp
         )
-        jastrow = (self.config.jastrow or None) and Jastrow(
-            self.config.input.neu, self.config.input.ned,
-            self.config.jastrow.trunc, self.config.jastrow.u_parameters, self.config.jastrow.u_parameters_optimizable, self.config.jastrow.u_mask,
-            self.config.jastrow.u_cutoff, self.config.jastrow.u_cusp_const,
-            self.config.jastrow.chi_parameters, self.config.jastrow.chi_parameters_optimizable, self.config.jastrow.chi_mask, self.config.jastrow.chi_cutoff,
-            self.config.jastrow.chi_labels, self.config.jastrow.chi_cusp,
-            self.config.jastrow.f_parameters, self.config.jastrow.f_parameters_optimizable, self.config.jastrow.f_mask, self.config.jastrow.f_cutoff,
-            self.config.jastrow.f_labels,
-            self.config.jastrow.no_dup_u_term, self.config.jastrow.no_dup_chi_term
-        )
-        backflow = (self.config.backflow or None) and Backflow(
-            self.config.input.neu, self.config.input.ned,
-            self.config.backflow.trunc, self.config.backflow.eta_parameters, self.config.backflow.eta_parameters_optimizable, self.config.backflow.eta_mask,
-            self.config.backflow.eta_cutoff,
-            self.config.backflow.mu_parameters, self.config.backflow.mu_parameters_optimizable, self.config.backflow.mu_mask, self.config.backflow.mu_cutoff,
-            self.config.backflow.mu_cusp, self.config.backflow.mu_labels,
-            self.config.backflow.phi_parameters, self.config.backflow.phi_parameters_optimizable, self.config.backflow.phi_mask,
-            self.config.backflow.theta_parameters, self.config.backflow.theta_parameters_optimizable, self.config.backflow.theta_mask,
-            self.config.backflow.phi_cutoff, self.config.backflow.phi_cusp, self.config.backflow.phi_labels, self.config.backflow.phi_irrotational,
-            self.config.backflow.ae_cutoff
-        )
+
+        if self.config.jastrow:
+            jastrow = Jastrow(
+                self.config.input.neu, self.config.input.ned,
+                self.config.jastrow.trunc, self.config.jastrow.u_parameters, self.config.jastrow.u_parameters_optimizable, self.config.jastrow.u_mask,
+                self.config.jastrow.u_cutoff, self.config.jastrow.u_cusp_const,
+                self.config.jastrow.chi_parameters, self.config.jastrow.chi_parameters_optimizable, self.config.jastrow.chi_mask, self.config.jastrow.chi_cutoff,
+                self.config.jastrow.chi_labels, self.config.jastrow.chi_cusp,
+                self.config.jastrow.f_parameters, self.config.jastrow.f_parameters_optimizable, self.config.jastrow.f_mask, self.config.jastrow.f_cutoff,
+                self.config.jastrow.f_labels,
+                self.config.jastrow.no_dup_u_term, self.config.jastrow.no_dup_chi_term
+            )
+        else:
+            jastrow = None
+
+        if self.config.backflow:
+            backflow = Backflow(
+                self.config.input.neu, self.config.input.ned,
+                self.config.backflow.trunc, self.config.backflow.eta_parameters, self.config.backflow.eta_parameters_optimizable, self.config.backflow.eta_mask,
+                self.config.backflow.eta_cutoff,
+                self.config.backflow.mu_parameters, self.config.backflow.mu_parameters_optimizable, self.config.backflow.mu_mask, self.config.backflow.mu_cutoff,
+                self.config.backflow.mu_cusp, self.config.backflow.mu_labels,
+                self.config.backflow.phi_parameters, self.config.backflow.phi_parameters_optimizable, self.config.backflow.phi_mask,
+                self.config.backflow.theta_parameters, self.config.backflow.theta_parameters_optimizable, self.config.backflow.theta_mask,
+                self.config.backflow.phi_cutoff, self.config.backflow.phi_cusp, self.config.backflow.phi_labels, self.config.backflow.phi_irrotational,
+                self.config.backflow.ae_cutoff
+            )
+        else:
+            backflow = None
+
         self.wfn = Wfn(
             self.config.input.neu, self.config.input.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges, slater, jastrow, backflow
         )
@@ -131,6 +132,7 @@ class Casino:
             step_size = 0
 
         r_e = self.initial_position(self.config.wfn.atom_positions, self.config.wfn.atom_charges)
+
         self.vmc_markovchain = VMCMarkovChain(r_e, step_size, self.wfn)
 
     def initial_position(self, atom_positions, atom_charges):
@@ -213,7 +215,7 @@ class Casino:
             self.optimize_vmc_step(10000)
             # FIXME: decorr_period for dmc?
             block_start = default_timer()
-            condition, position = self.vmc_markovchain.vmc_random_walk(self.config.input.vmc_nstep, 1)
+            condition, position = self.vmc_markovchain.random_walk(self.config.input.vmc_nstep, 1)
             energy = vmc_observable(condition, position, self.wfn.energy) + self.wfn.nuclear_repulsion
             block_stop = default_timer()
             self.logger.info(
@@ -235,7 +237,7 @@ class Casino:
         :param steps: burn-in period
         :return:
         """
-        condition, position = self.vmc_markovchain.vmc_random_walk(steps, 1)
+        condition, _ = self.vmc_markovchain.random_walk(steps, 1)
         self.logger.info(
             f'Running VMC equilibration ({steps} moves).'
         )
@@ -252,7 +254,7 @@ class Casino:
             self.vmc_markovchain.step_size = tau[0]
             self.logger.debug('dr * electrons = %.5f', tau[0] * (self.neu + self.ned))
             if tau[0] > 0:
-                condition, _ = self.vmc_markovchain.vmc_random_walk(steps, 1)
+                condition, _ = self.vmc_markovchain.random_walk(steps, 1)
                 acc_ration = condition.mean()
             else:
                 acc_ration = 1
@@ -260,7 +262,7 @@ class Casino:
 
         options = dict(jac_options=dict(alpha=1))
         res = root(f, [self.vmc_markovchain.step_size], method='diagbroyden', tol=1/np.sqrt(steps), callback=callback, options=options)
-        self.vmc_markovchain.step_size = np.mean(self.comm.allgather(np.abs(res.x[0])))
+        self.vmc_markovchain.step_size = np.mean(self.mpi_comm.allgather(np.abs(res.x[0])))
 
     def get_decorr_period(self):
         """Decorr period"""
@@ -268,15 +270,6 @@ class Casino:
             return 3
         else:
             return self.config.input.vmc_decorr_period
-
-    def vmc_energy(self, steps, decorr_period):
-        """wrapper for VMC energy
-            https://github.com/numba/numba/issues/4830
-            https://github.com/numba/numba/issues/6522  - use structrefs instead of jitclasses
-            https://numba.readthedocs.io/en/stable/extending/high-level.html#implementing-mutable-structures
-        """
-        condition, position = self.vmc_markovchain.vmc_random_walk(steps, decorr_period)
-        return vmc_observable(condition, position, self.wfn.energy) + self.wfn.nuclear_repulsion
 
     def vmc_energy_accumulation(self):
         """VMC energy accumulation"""
@@ -293,14 +286,15 @@ class Casino:
         for i in range(nblock):
             block_start = default_timer()
             block_energy = np.zeros(shape=(steps // nblock,))
-            energy = self.vmc_energy(steps // nblock // self.comm.size, decorr_period)
-            self.comm.Gather([energy, MPI.DOUBLE], [block_energy, MPI.DOUBLE], root=0)
-            if self.comm.rank == 0:
+            condition, position = self.vmc_markovchain.random_walk(steps // nblock // self.mpi_comm.size, decorr_period)
+            energy = vmc_observable(condition, position, self.wfn.energy) + self.wfn.nuclear_repulsion
+            self.mpi_comm.Gather(energy, block_energy, root=0)
+            if self.mpi_comm.rank == 0:
                 energy_block_mean[i] = block_energy.mean()
                 energy_block_var[i] = block_energy.var()
                 energy_block_sem[i] = np.mean([
-                    correlated_sem(block_energy.reshape(self.comm.size, steps // nblock // self.comm.size)[j]) for j in range(self.comm.size)
-                ]) / np.sqrt(self.comm.size)
+                    correlated_sem(block_energy.reshape(self.mpi_comm.size, steps // nblock // self.mpi_comm.size)[j]) for j in range(self.mpi_comm.size)
+                ]) / np.sqrt(self.mpi_comm.size)
             block_stop = default_timer()
             self.logger.info(
                 f' =========================================================================\n'
@@ -334,7 +328,7 @@ class Casino:
 
         for i in range(nblock):
             block_start = default_timer()
-            energy = self.dmc_markovchain.dmc_random_walk(steps // nblock)
+            energy = self.dmc_markovchain.random_walk(steps // nblock)
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
             block_stop = default_timer()
@@ -363,7 +357,7 @@ class Casino:
 
         for i in range(nblock):
             block_start = default_timer()
-            energy = self.dmc_markovchain.dmc_random_walk(steps // nblock)
+            energy = self.dmc_markovchain.random_walk(steps // nblock)
             energy_block_mean[i] = energy.mean()
             energy_block_sem[i] = correlated_sem(energy)
             block_stop = default_timer()
@@ -399,7 +393,7 @@ class Casino:
         """Minimise vmc variance by jastrow parameters optimization.
         https://github.com/scipy/scipy/issues/10634
         """
-        condition, position = self.vmc_markovchain.vmc_random_walk(steps, decorr_period)
+        condition, position = self.vmc_markovchain.random_walk(steps, decorr_period)
 
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
@@ -422,7 +416,7 @@ class Casino:
         SciPy, оптимизация с условиями - https://habr.com/ru/company/ods/blog/448054/
         """
         bounds = Bounds(*self.wfn.jastrow.get_bounds(), keep_feasible=True)
-        condition, position = self.vmc_markovchain.vmc_random_walk(steps, decorr_period)
+        condition, position = self.vmc_markovchain.random_walk(steps, decorr_period)
 
         def fun(x, *args):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)

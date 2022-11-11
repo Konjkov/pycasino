@@ -1,24 +1,14 @@
 #!/usr/bin/env python3
 
-import os
-
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
-
-import numpy as np
+from numpy_config import np
 import numba as nb
-from scipy.optimize import minimize, root
+from scipy.optimize import minimize
 from numpy.polynomial.polynomial import polyval
 
 from harmonics import angular_part
 from readers.casino import CasinoConfig
-from logger import logging
 from overload import subtract_outer, random_step
 
-logger = logging.getLogger('cusp')
 
 cusp_spec = [
     ('neu', nb.int64),
@@ -29,7 +19,6 @@ cusp_spec = [
     ('shift', nb.float64[:, :]),
     ('orbital_sign', nb.int64[:, :]),
     ('alpha', nb.float64[:, :, :]),
-
     ('norm', nb.float64),
     ('mo', nb.float64[:, :]),
     ('first_shells', nb.int64[:]),

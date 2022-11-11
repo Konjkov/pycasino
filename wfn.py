@@ -1,21 +1,10 @@
-import os
+from numpy_config import np
+import numba as nb
+
 from slater import Slater
 from jastrow import Jastrow
 from backflow import Backflow
-
-os.environ["OMP_NUM_THREADS"] = "1"  # openmp
-os.environ["OPENBLAS_NUM_THREADS"] = "1"  # openblas
-os.environ["MKL_NUM_THREADS"] = "1"  # mkl
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # accelerate
-os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
-
-import numpy as np
-import numba as nb
-
 from overload import subtract_outer
-from logger import logging
-
-logger = logging.getLogger('vmc')
 
 spec = [
     ('neu', nb.int64),

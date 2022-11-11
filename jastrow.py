@@ -1,22 +1,10 @@
-import os
-
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
-
-import numpy as np
+from numpy_config import np
 import numba as nb
+
 from readers.numerical import rref
 from readers.jastrow import construct_a_matrix
 from overload import subtract_outer, random_step
 
-from numpy.polynomial.polynomial import polyval, polyval3d
-
-from logger import logging
-
-logger = logging.getLogger('vmc')
 
 labels_type = nb.int64[:]
 u_mask_type = nb.boolean[:, :]
@@ -200,6 +188,7 @@ class Jastrow:
                     if r < L:
                         chi_set = int(j >= self.neu) % parameters.shape[1]
                         # FIXME: maybe in next numba
+                        # from numpy.polynomial.polynomial import polyval, polyval3d
                         # res += polyval(r, parameters[:, chi_set]) * (r - L) ** C
                         poly = 0.0
                         for k in range(parameters.shape[0]):

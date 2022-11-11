@@ -1,20 +1,9 @@
-import os
-
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
-
-import numpy as np
+from numpy_config import np
 import numba as nb
+
 from readers.numerical import rref
 from readers.backflow import construct_c_matrix
 from overload import subtract_outer, random_step
-
-from logger import logging
-
-logger = logging.getLogger('vmc')
 
 
 labels_type = nb.int64[:]
