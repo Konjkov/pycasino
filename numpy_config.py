@@ -5,3 +5,5 @@ os.environ["MKL_NUM_THREADS"] = "1"  # mkl
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # accelerate
 os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
 import numpy as np
+
+np.random.seed(31415926)

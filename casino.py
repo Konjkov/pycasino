@@ -16,8 +16,6 @@ from readers.casino import CasinoConfig
 from sem import correlated_sem
 from logger import logging
 
-np.random.seed(31415926)
-
 
 def jastrow_parameters_gradient(energy, energy_gradient):
     """

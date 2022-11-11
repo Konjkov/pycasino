@@ -14,33 +14,34 @@ class Profiler(Casino):
     def __init__(self, config_path):
         super().__init__(config_path)
         self.dr = 3.0  # AU
+        self.r_e = self.initial_position(self.config.wfn.atom_positions, self.config.wfn.atom_charges)
         self.steps, self.atom_positions = self.config.input.vmc_nstep, self.config.wfn.atom_positions
 
     def cusp_profiling(self):
 
         start = default_timer()
-        self.markovchain.wfn.slater.cusp.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
+        self.vmc_markovchain.wfn.slater.cusp.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' cusp value       %8.1f', end - start)
         # stats = rtsys.get_allocation_stats()
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
         start = default_timer()
-        self.markovchain.wfn.slater.cusp.profile_laplacian(self.dr, self.steps, self.atom_positions, self.r_e)
+        self.vmc_markovchain.wfn.slater.cusp.profile_laplacian(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' cusp laplacian   %8.1f', end - start)
         # stats = rtsys.get_allocation_stats()
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
         start = default_timer()
-        self.markovchain.wfn.slater.cusp.profile_gradient(self.dr, self.steps, self.atom_positions, self.r_e)
+        self.vmc_markovchain.wfn.slater.cusp.profile_gradient(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' cusp gradient    %8.1f', end - start)
         # stats = rtsys.get_allocation_stats()
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
         start = default_timer()
-        self.markovchain.wfn.slater.cusp.profile_hessian(self.dr, self.steps, self.atom_positions, self.r_e)
+        self.vmc_markovchain.wfn.slater.cusp.profile_hessian(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' cusp hessian     %8.1f', end - start)
         # stats = rtsys.get_allocation_stats()
@@ -49,28 +50,28 @@ class Profiler(Casino):
     def slater_profiling(self):
 
         start = default_timer()
-        self.markovchain.wfn.slater.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
+        self.vmc_markovchain.wfn.slater.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' slater value       %8.1f', end - start)
         # stats = rtsys.get_allocation_stats()
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
         start = default_timer()
-        self.markovchain.wfn.slater.profile_laplacian(self.dr, self.steps, self.atom_positions, self.r_e)
+        self.vmc_markovchain.wfn.slater.profile_laplacian(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' slater laplacian   %8.1f', end - start)
         # stats = rtsys.get_allocation_stats()
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
         start = default_timer()
-        self.markovchain.wfn.slater.profile_gradient(self.dr, self.steps, self.atom_positions, self.r_e)
+        self.vmc_markovchain.wfn.slater.profile_gradient(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' slater gradient    %8.1f', end - start)
         # stats = rtsys.get_allocation_stats()
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
         start = default_timer()
-        self.markovchain.wfn.slater.profile_hessian(self.dr, self.steps, self.atom_positions, self.r_e)
+        self.vmc_markovchain.wfn.slater.profile_hessian(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' slater hessian     %8.1f', end - start)
         # stats = rtsys.get_allocation_stats()
@@ -79,41 +80,41 @@ class Profiler(Casino):
     def jastrow_profiling(self):
 
         start = default_timer()
-        self.markovchain.wfn.jastrow.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
+        self.vmc_markovchain.wfn.jastrow.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' jastrow value      %8.1f', end - start)
 
         start = default_timer()
-        self.markovchain.wfn.jastrow.profile_laplacian(self.dr, self.steps, self.atom_positions, self.r_e)
+        self.vmc_markovchain.wfn.jastrow.profile_laplacian(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' jastrow laplacian  %8.1f', end - start)
 
         start = default_timer()
-        self.markovchain.wfn.jastrow.profile_gradient(self.dr, self.steps, self.atom_positions, self.r_e)
+        self.vmc_markovchain.wfn.jastrow.profile_gradient(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' jastrow gradient   %8.1f', end - start)
 
     def backflow_profiling(self):
 
         start = default_timer()
-        self.markovchain.wfn.backflow.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
+        self.vmc_markovchain.wfn.backflow.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' backflow value     %8.1f', end - start)
 
         start = default_timer()
-        self.markovchain.wfn.backflow.profile_gradient(self.dr, self.steps, self.atom_positions, self.r_e)
+        self.vmc_markovchain.wfn.backflow.profile_gradient(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' backflow gradient  %8.1f', end - start)
 
         start = default_timer()
-        self.markovchain.wfn.backflow.profile_laplacian(self.dr, self.steps, self.atom_positions, self.r_e)
+        self.vmc_markovchain.wfn.backflow.profile_laplacian(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
         logger.info(' backflow laplacian %8.1f', end - start)
 
     def markovchain_profiling(self):
 
         start = default_timer()
-        self.markovchain.profiling_simple_random_walk(self.config.input.vmc_nstep, self.r_e, 1)
+        self.vmc_markovchain.profiling_simple_random_walk(self.config.input.vmc_nstep, self.r_e, 1)
         end = default_timer()
         logger.info(' markovchain value  %8.1f', end - start)
         stats = rtsys.get_allocation_stats()

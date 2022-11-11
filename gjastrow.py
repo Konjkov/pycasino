@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import numpy as np
+from numpy_config import np
 import numba as nb
 
 import matplotlib.pyplot as plt
