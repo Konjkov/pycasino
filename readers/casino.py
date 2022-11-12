@@ -24,7 +24,8 @@ class CasinoConfig:
 
     def __init__(self, base_path):
         self.input = Input()
-        self.input.read(base_path)
+        self.base_path = base_path
+        self.input.read(self.base_path)
         if self.input.atom_basis_type == 'gaussian':
             self.wfn = Gwfn()
         elif self.input.atom_basis_type == 'slater-type':
@@ -41,15 +42,15 @@ class CasinoConfig:
         else:
             self.backflow = None
 
-    def read(self, base_path):
+    def read(self):
         if self.wfn:
-            self.wfn.read(base_path)
+            self.wfn.read(self.base_path)
         if self.mdet:
-            self.mdet.read(base_path)
+            self.mdet.read(self.base_path)
         if self.jastrow:
-            self.jastrow.read(base_path)
+            self.jastrow.read(self.base_path)
         if self.backflow:
-            self.backflow.read(base_path)
+            self.backflow.read(self.base_path)
 
     def write(self, base_path, version):
         title = 'no title given'

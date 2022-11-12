@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# path='test/gwfn/He/HF/cc-pVQZ/CBCS/Slater/'
+# path='test/gwfn/Be/HF/cc-pVQZ/CBCS/Slater/'
+# path='test/gwfn/Be/MP2-CASSCF(2.4)/cc-pVQZ/CBCS/Slater/'
+# path='test/gwfn/N/HF/cc-pVQZ/CBCS/Slater/'
+# path='test/gwfn/Ne/HF/cc-pVQZ/CBCS/Slater/'
+# path='test/gwfn/Ar/HF/cc-pVQZ/CBCS/Slater/'
+# path='test/gwfn/Kr/HF/cc-pVQZ/CBCS/Slater/'
+# path='test/gwfn/O3/HF/cc-pVQZ/CBCS/Slater/'
+
+# path='test/gwfn/He/HF/cc-pVQZ/CBCS/Jastrow/'
+# path='test/gwfn/Be/HF/cc-pVQZ/CBCS/Jastrow/'
+# path=test/gwfn/Be/MP2-CASSCF(2.4)/cc-pVQZ/CBCS/Jastrow/'
+# path= 'test/gwfn/N/HF/cc-pVQZ/CBCS/Jastrow/'
+# path='test/gwfn/Ne/HF/cc-pVQZ/CBCS/Jastrow/'
+# path='test/gwfn/Ar/HF/cc-pVQZ/CBCS/Jastrow/'
+# path='test/gwfn/Kr/HF/cc-pVQZ/CBCS/Jastrow/'
+# path='test/gwfn/O3/HF/cc-pVQZ/CBCS/Jastrow/'
+
+# path='test/gwfn/He/HF/cc-pVQZ/CBCS/Backflow/'
+# path='test/gwfn/Be/HF/cc-pVQZ/CBCS/Backflow/'
+# path='test/gwfn/Be/MP2-CASSCF(2.4)/cc-pVQZ/CBCS/Backflow/'
+# path='test/gwfn/N/HF/cc-pVQZ/CBCS/Backflow/'
+# path='test/gwfn/Ne/HF/cc-pVQZ/CBCS/Backflow/'
+# path='test/gwfn/Ar/HF/cc-pVQZ/CBCS/Backflow/'
+# path='test/gwfn/Kr/HF/cc-pVQZ/CBCS/Backflow/'
+# path='test/gwfn/O3/HF/cc-pVQZ/CBCS/Backflow/'
+
+# path='test/stowfn/He/HF/QZ4P/CBCS/Slater/'
+# path='test/stowfn/Be/HF/QZ4P/CBCS/Slater/'
+# path='test/stowfn/N/HF/QZ4P/CBCS/Slater/'
+# path='test/stowfn/Ne/HF/QZ4P/CBCS/Slater/'
+# path='test/stowfn/Ar/HF/QZ4P/CBCS/Slater/'
+# path='test/stowfn/Kr/HF/QZ4P/CBCS/Slater/'
+# path='test/stowfn/O3/HF/QZ4P/CBCS/Slater/'
+
+path='test/stowfn/He/HF/QZ4P/CBCS/Jastrow_varmin/'
+# path='test/stowfn/Be/HF/QZ4P/CBCS/Jastrow_varmin/'
+# path='test/stowfn/N/HF/QZ4P/CBCS/Jastrow_varmin/'
+# path='test/stowfn/Ne/HF/QZ4P/CBCS/Jastrow_varmin/'
+# path='test/stowfn/Ar/HF/QZ4P/CBCS/Jastrow_varmin/'
+# path='test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_varmin/'
+# path='test/stowfn/O3/HF/QZ4P/CBCS/Jastrow_varmin/'
+
+# path='test/stowfn/He/HF/QZ4P/CBCS/Backflow_varmin/'
+# path='test/stowfn/Be/HF/QZ4P/CBCS/Backflow_varmin/'
+
+# path='test/stowfn/He/HF/QZ4P/CBCS/Jastrow/'
+# path='test/stowfn/Be/HF/QZ4P/CBCS/Jastrow/'
+# path='test/stowfn/N/HF/QZ4P/CBCS/Jastrow/'
+# path='test/stowfn/Ne/HF/QZ4P/CBCS/Jastrow/'
+# path='test/stowfn/Ar/HF/QZ4P/CBCS/Jastrow/'
+# path='test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow/'
+# path='test/stowfn/O3/HF/QZ4P/CBCS/Jastrow/'
+
+# path='test/stowfn/He/HF/QZ4P/CBCS/Backflow/'
+# path='test/stowfn/Be/HF/QZ4P/CBCS/Backflow/'
+# path='test/stowfn/N/HF/QZ4P/CBCS/Backflow/'
+# path='test/stowfn/Ne/HF/QZ4P/CBCS/Backflow/'
+# path='test/stowfn/Ar/HF/QZ4P/CBCS/Backflow/'
+# path='test/stowfn/Kr/HF/QZ4P/CBCS/Backflow/'
+# path='test/stowfn/O3/HF/QZ4P/CBCS/Backflow/'
+
+# path='test/stowfn/He/HF/QZ4P/CBCS/Jastrow_dmc/'
+# path='test/stowfn/Be/HF/QZ4P/CBCS/Jastrow_dmc/'
+# path='test/stowfn/N/HF/QZ4P/CBCS/Jastrow_dmc/'
+# path='test/stowfn/Ne/HF/QZ4P/CBCS/Jastrow_dmc/'
+# path='test/stowfn/Ar/HF/QZ4P/CBCS/Jastrow_dmc/'
+# path='test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_dmc/'
+# path='test/stowfn/O3/HF/QZ4P/CBCS/Jastrow_dmc/'
+
+mpiexec -n 4 python casino.py $path
+
+# ./casino.py $path

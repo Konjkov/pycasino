@@ -146,10 +146,10 @@ if __name__ == '__main__':
 
     rank = [2, 0]
 
-    path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/casl/8__1/'
+    config_path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/casl/8__1/'
 
-    casino = CasinoConfig(path)
-    casino.read(path)
+    casino = CasinoConfig(config_path)
+    casino.read()
     gjastrow = Gjastrow(
         casino.jastrow.e_rank, casino.jastrow.n_rank,
         casino.jastrow.ee_basis_type, casino.jastrow.en_basis_type,
