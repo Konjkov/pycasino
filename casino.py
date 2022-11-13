@@ -166,13 +166,12 @@ class Casino:
                 self.optimize_vmc_step(10000)
                 self.vmc_energy_accumulation()
                 for i in range(self.config.input.opt_cycles):
-                    parameters = self.vmc_variance_minimization(
+                    self.vmc_variance_minimization(
                         self.config.input.vmc_nconfig_write,
                         self.config.input.vmc_decorr_period,
                         self.config.input.opt_jastrow,
                         self.config.input.opt_backflow
                     )
-                    self.logger.info(parameters / self.wfn.get_parameters_scale(self.config.input.opt_jastrow, self.config.input.opt_backflow))
                     self.config.jastrow.u_cutoff = self.wfn.jastrow.u_cutoff
                     if self.mpi_comm.rank == 0:
                         self.config.write('.', i + 1)
@@ -189,13 +188,12 @@ class Casino:
                 self.optimize_vmc_step(10000)
                 self.vmc_energy_accumulation()
                 for i in range(self.config.input.opt_cycles):
-                    parameters = self.vmc_energy_minimization(
+                    self.vmc_energy_minimization(
                         self.config.input.vmc_nconfig_write,
                         self.config.input.vmc_decorr_period,
                         self.config.input.opt_jastrow,
                         self.config.input.opt_backflow
                     )
-                    self.logger.info(parameters / self.wfn.get_parameters_scale(self.config.input.opt_jastrow, self.config.input.opt_backflow))
                     self.config.jastrow.u_cutoff = self.wfn.jastrow.u_cutoff
                     if self.mpi_comm.rank == 0:
                         self.config.write('.', i + 1)
@@ -384,9 +382,17 @@ class Casino:
         plt.savefig('hist.png')
         plt.clf()
 
-    def vmc_variance_minimization(self, steps, decorr_period, opt_jastrow, opt_backflow):
+    def vmc_variance_minimization(self, steps, decorr_period, opt_jastrow, opt_backflow, verbose=2):
         """Minimise vmc variance by jastrow parameters optimization.
         https://github.com/scipy/scipy/issues/10634
+        :param steps:
+        :param decorr_period:
+        :param opt_jastrow:
+        :param opt_backflow:
+        :param verbose:
+            0 : work silently.
+            1 : display a termination report.
+            2 : display progress during iterations.
         """
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
 
@@ -396,14 +402,16 @@ class Casino:
             self.mpi_comm.Allreduce(MPI.IN_PLACE, energy)
             return energy - energy.mean()
 
-        parameters = least_squares(
+        res = least_squares(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), jac='2-point', method='trf',
-            max_nfev=7, x_scale=self.wfn.get_parameters_scale(opt_jastrow, opt_backflow), loss='linear',
-            f_scale=1, tr_solver='lsmr', tr_options=dict(regularize=False), verbose=0 if self.mpi_comm.rank else 2
-        ).x
+            ftol=1/np.sqrt(steps), x_scale=self.wfn.get_parameters_scale(opt_jastrow, opt_backflow),
+            loss='linear', tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
+        )
+        self.logger.info(f'{res.message}\n')
+        parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        return parameters
+        self.logger.info(parameters / self.wfn.get_parameters_scale(opt_jastrow, opt_backflow))
 
     def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
         """Minimise vmc energy by jastrow parameters optimization.
@@ -423,7 +431,7 @@ class Casino:
             energy_gradient = vmc_observable(condition, position, self.wfn.jastrow_parameters_numerical_d1)
             mean_energy_gradient = jastrow_parameters_gradient(energy, energy_gradient)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
-            return np.sum(self.mpi_comm.allgather(energy.mean())), mean_energy_gradient
+            return self.mpi_comm.allreduce(energy.mean()), mean_energy_gradient
 
         def hess(x, *args):
             self.wfn.jastrow.set_parameters(x, opt_jastrow, opt_backflow)
@@ -435,17 +443,18 @@ class Casino:
             self.logger.info('hessian = %s', mean_energy_hessian)
             return mean_energy_hessian
 
-        parameters = minimize(
+        res = minimize(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), method='TNC',
             jac=True, bounds=bounds, options=dict(disp=True, maxfun=10)
-        ).x
-        # parameters = minimize(
+        )
+        # res = minimize(
         #     fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), method='trust-ncg',
         #     jac=True, hess=hess, options=dict(disp=True)
-        # ).x
+        # )
+        parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        return parameters
+        # self.logger.info(parameters / self.wfn.get_parameters_scale(opt_jastrow, opt_backflow))
 
 
 if __name__ == '__main__':

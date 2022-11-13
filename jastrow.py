@@ -586,8 +586,8 @@ class Jastrow:
             for j1 in range(self.u_parameters.shape[0]):
                 for j2 in range(self.u_parameters.shape[1]):
                     if self.u_mask[j1, j2] and self.u_parameters_optimizable[j1, j2]:
-                        lower_bonds.append(-1 / self.u_cutoff ** j1)
-                        upper_bonds.append(1 / self.u_cutoff ** j1)
+                        lower_bonds.append(-np.inf)
+                        upper_bonds.append(np.inf)
 
         if self.chi_cutoff.any():
             for i, (chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff)):
@@ -596,8 +596,8 @@ class Jastrow:
                 for j1 in range(chi_parameters.shape[0]):
                     for j2 in range(chi_parameters.shape[1]):
                         if chi_mask[j1, j2] and chi_parameters_optimizable[j1, j2]:
-                            lower_bonds.append(-1 / chi_cutoff ** j1)
-                            upper_bonds.append(1 / chi_cutoff ** j1)
+                            lower_bonds.append(-np.inf)
+                            upper_bonds.append(np.inf)
 
         if self.f_cutoff.any():
             for i, (f_parameters, f_parameters_optimizable, f_mask, f_cutoff) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff)):
@@ -608,8 +608,8 @@ class Jastrow:
                         for j3 in range(f_parameters.shape[2]):
                             for j4 in range(f_parameters.shape[3]):
                                 if f_mask[j1, j2, j3, j4] and f_parameters_optimizable[j1, j2, j3, j4]:
-                                    lower_bonds.append(-1 / f_cutoff ** (j1 + j2 + j3))
-                                    upper_bonds.append(1 / f_cutoff ** (j1 + j2 + j3))
+                                    lower_bonds.append(-np.inf)
+                                    upper_bonds.append(np.inf)
 
         return np.array(lower_bonds), np.array(upper_bonds)
 
@@ -713,7 +713,7 @@ class Jastrow:
             for j1 in range(self.u_parameters.shape[0]):
                 for j2 in range(self.u_parameters.shape[1]):
                     if self.u_mask[j1, j2] and self.u_parameters_optimizable[j1, j2]:
-                        res.append(1 / self.u_cutoff ** j1)
+                        res.append(np.math.gamma(j1 + self.trunc + 1) / self.u_cutoff ** (j1 + self.trunc))
 
         if self.chi_cutoff.any():
             for i, (chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff)):
@@ -721,7 +721,7 @@ class Jastrow:
                 for j1 in range(chi_parameters.shape[0]):
                     for j2 in range(chi_parameters.shape[1]):
                         if chi_mask[j1, j2] and chi_parameters_optimizable[j1, j2]:
-                            res.append(1 / chi_cutoff ** j1)
+                            res.append(np.math.gamma(j1 + self.trunc + 1) / chi_cutoff ** (j1 + self.trunc))
 
         if self.f_cutoff.any():
             for i, (f_parameters, f_parameters_optimizable, f_mask, f_cutoff) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff)):
@@ -731,7 +731,7 @@ class Jastrow:
                         for j3 in range(f_parameters.shape[2]):
                             for j4 in range(f_parameters.shape[3]):
                                 if f_mask[j1, j2, j3, j4] and f_parameters_optimizable[j1, j2, j3, j4]:
-                                    res.append(1 / f_cutoff ** (j1 + j2 + j3))
+                                    res.append(np.math.gamma(j1 + self.trunc + 1) * np.math.gamma(j2 + self.trunc + 1) * np.math.gamma(j3 + 1) / f_cutoff ** (j1 + j2 + j3 + 2 * self.trunc))
 
         return np.array(res)
 
