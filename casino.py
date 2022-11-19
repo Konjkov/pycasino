@@ -3,7 +3,7 @@ import argparse
 from timeit import default_timer
 from numpy_config import np
 from mpi4py import MPI
-from scipy.optimize import least_squares, minimize, root, Bounds
+from scipy.optimize import least_squares, minimize, root, Bounds, curve_fit
 import matplotlib.pyplot as plt
 
 from cusp import CuspFactory
@@ -116,19 +116,11 @@ class Casino:
             self.config.input.neu, self.config.input.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges, slater, jastrow, backflow
         )
 
-        if self.config.input.vmc_method == 1:
-            # EBES
-            step_size = 1 / np.log(self.neu + self.ned)
-        elif self.config.input.vmc_method == 3:
-            # CBCS
-            step_size = 1 / (self.neu + self.ned)
-        else:
-            # wrong method
-            step_size = 0
-
-        r_e = self.initial_position(self.config.wfn.atom_positions, self.config.wfn.atom_charges)
-
-        self.vmc_markovchain = VMCMarkovChain(r_e, step_size, self.wfn)
+        self.vmc_markovchain = VMCMarkovChain(
+            self.initial_position(self.config.wfn.atom_positions, self.config.wfn.atom_charges),
+            self.initial_step_size(),
+            self.wfn
+        )
 
     def initial_position(self, atom_positions, atom_charges):
         """Initial positions of electrons."""
@@ -139,6 +131,17 @@ class Casino:
             # electrons randomly centered on atoms
             r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
         return r_e + np.random.uniform(-1, 1, ne * 3).reshape(ne, 3)
+
+    def initial_step_size(self):
+        if self.config.input.vmc_method == 1:
+            # EBES
+            return 1 / np.log(self.neu + self.ned)
+        elif self.config.input.vmc_method == 3:
+            # CBCS
+            return 1 / (self.neu + self.ned)
+        else:
+            # wrong method
+            return 0
 
     def run(self):
         """Run Casino workflow.
@@ -151,8 +154,7 @@ class Casino:
                 ' PERFORMING A SINGLE VMC CALCULATION.\n'
                 ' ====================================\n\n'
             )
-            # FIXME: in EBEC nstep = vmc_nstep * (neu + ned)
-            self.optimize_vmc_step(10000)
+            self.optimize_vmc_step(1000)
             self.vmc_energy_accumulation()
             stop = default_timer()
             self.logger.info(
@@ -163,7 +165,7 @@ class Casino:
             if self.config.input.opt_method == 'varmin':
                 start = default_timer()
                 self.config.write('.', 0)
-                self.optimize_vmc_step(10000)
+                self.optimize_vmc_step(1000)
                 self.vmc_energy_accumulation()
                 for i in range(self.config.input.opt_cycles):
                     self.vmc_variance_minimization(
@@ -175,7 +177,7 @@ class Casino:
                     self.config.jastrow.u_cutoff = self.wfn.jastrow.u_cutoff
                     if self.mpi_comm.rank == 0:
                         self.config.write('.', i + 1)
-                    self.optimize_vmc_step(10000)
+                    self.optimize_vmc_step(1000)
                     self.vmc_energy_accumulation()
                 stop = default_timer()
                 self.logger.info(
@@ -185,7 +187,7 @@ class Casino:
             elif self.config.input.opt_method == 'emin':
                 start = default_timer()
                 self.config.write('.', 0)
-                self.optimize_vmc_step(10000)
+                self.optimize_vmc_step(1000)
                 self.vmc_energy_accumulation()
                 for i in range(self.config.input.opt_cycles):
                     self.vmc_energy_minimization(
@@ -197,7 +199,7 @@ class Casino:
                     self.config.jastrow.u_cutoff = self.wfn.jastrow.u_cutoff
                     if self.mpi_comm.rank == 0:
                         self.config.write('.', i + 1)
-                    self.optimize_vmc_step(10000)
+                    self.optimize_vmc_step(1000)
                     self.vmc_energy_accumulation()
                 stop = default_timer()
                 self.logger.info(
@@ -205,7 +207,7 @@ class Casino:
                     f' Total PyCasino real time : : :    {stop - start:.4f}'
                 )
         elif self.config.input.runtype == 'vmc_dmc':
-            self.optimize_vmc_step(10000)
+            self.optimize_vmc_step(1000)
             # FIXME: decorr_period for dmc?
             block_start = default_timer()
             condition, position = self.vmc_markovchain.random_walk(self.config.input.vmc_nstep, 1)
@@ -236,26 +238,45 @@ class Casino:
         )
         self.logger.debug('dr * electrons = 1.00000, acc_ration = %.5f', condition.mean())
 
-    def optimize_vmc_step(self, steps, acceptance_rate=0.5):
+    def vmc_step_graph(self, steps):
+        """Acceptance probability vs step size data to plot graph."""
+        n = 5
+        step_size = self.initial_step_size()
+        for x in range(4 * n):
+            self.vmc_markovchain.step_size = step_size * (x + 1) / n
+            condition, _ = self.vmc_markovchain.random_walk(1000000, 1)
+            acc_ration = condition.mean()
+            self.logger.info('dr * electrons = %.5f, acc_ration = %.5f', self.vmc_markovchain.step_size * (self.neu + self.ned), acc_ration)
+
+    def optimize_vmc_step(self, steps):
         """Optimize vmc step size."""
+        xdata = np.linspace(0, 2, 11)
+        ydata = np.ones_like(xdata)
+        initial_step_size = self.initial_step_size()
+        for i in range(1, xdata.size):
+            self.vmc_markovchain.step_size = initial_step_size * xdata[i]
+            condition, position = self.vmc_markovchain.random_walk(steps, 1)
+            acc_rate = condition.mean()
+            if acc_rate == 0:
+                print(self.vmc_markovchain.wfn.value(position[0]))
+            ydata[i] = self.mpi_comm.allreduce(acc_rate) / self.mpi_comm.size
 
-        def callback(tau, acc_ration):
-            """dr = sqrt(3*dtvmc)"""
-            self.logger.debug('dr * electrons = %.5f, acc_ration = %.5f', tau[0] * (self.neu + self.ned), acc_ration[0] + acceptance_rate)
+        def f(ts, a, ts0):
+            """Dependence of the acceptance probability on the step size in the case of CBCS looks like:
+            p(ts) = (exp(a/ts0) - 1)/(exp(a/ts0) + exp(ts/ts0) - 2)
+            :param ts: step_size
+            :param a: step_size for 50% acceptance probability
+            :param ts0: scale factor
+            :return: acceptance probability
+            """
+            return (np.exp(a/ts0) - 1) / (np.exp(a/ts0) + np.exp(ts/ts0) - 2)
 
-        def f(tau):
-            self.vmc_markovchain.step_size = tau[0]
-            self.logger.debug('dr * electrons = %.5f', tau[0] * (self.neu + self.ned))
-            if tau[0] > 0:
-                condition, _ = self.vmc_markovchain.random_walk(steps, 1)
-                acc_ration = condition.mean()
-            else:
-                acc_ration = 1
-            return acc_ration - acceptance_rate
+        step_size = None
+        if self.mpi_comm.rank == 0:
+            popt, pcov = curve_fit(f, xdata, ydata)
+            step_size = initial_step_size * popt[0]
 
-        options = dict(jac_options=dict(alpha=1))
-        res = root(f, [self.vmc_markovchain.step_size], method='diagbroyden', tol=1/np.sqrt(steps), callback=callback, options=options)
-        self.vmc_markovchain.step_size = np.mean(self.mpi_comm.allgather(np.abs(res.x[0])))
+        self.vmc_markovchain.step_size = self.mpi_comm.bcast(step_size)
 
     def get_decorr_period(self):
         """Decorr period"""
@@ -394,24 +415,25 @@ class Casino:
             1 : display a termination report.
             2 : display progress during iterations.
         """
+        scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
 
         def fun(x, *args, **kwargs):
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
             energy = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, energy)
             return energy - energy.mean()
 
         res = least_squares(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), jac='2-point', method='trf',
-            ftol=1/np.sqrt(steps), x_scale=self.wfn.get_parameters_scale(opt_jastrow, opt_backflow),
-            loss='linear', tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
+            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, jac='2-point',
+            method='trf', ftol=1/np.sqrt(steps), x_scale='jac', loss='linear',
+            tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
         )
         self.logger.info(f'{res.message}\n')
-        parameters = res.x
+        parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        self.logger.info(parameters / self.wfn.get_parameters_scale(opt_jastrow, opt_backflow))
+        self.logger.info(parameters / scale)
 
     def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
         """Minimise vmc energy by jastrow parameters optimization.

@@ -96,6 +96,7 @@ class VMCMarkovChain:
         :param decorr_period: number of steps to walk
         :return:
         """
+        self.probability_density = self.wfn.value(self.r_e) ** 2
         condition = np.empty(shape=(steps, ), dtype=np.bool_)
         position = np.empty(shape=(steps, ) + self.r_e.shape)
 

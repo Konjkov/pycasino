@@ -30,5 +30,8 @@ def correlated_sem(energy):
         try:
             return reblock_data[opt[0]].std_err
         except TypeError:
-            print(opt)
-            return reblock_data[int(opt[0])].std_err
+            print(opt, energy.mean(), energy.var())
+            try:
+                return reblock_data[int(opt[0])].std_err
+            except ValueError:
+                return 0
