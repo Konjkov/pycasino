@@ -420,20 +420,21 @@ class Casino:
 
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
-            energy = vmc_observable(condition, position, self.wfn.energy)
+            energy = vmc_observable(condition, position, self.wfn.energy) / np.sqrt(steps // self.mpi_comm.size - 1)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, energy)
             return energy - energy.mean()
 
         res = least_squares(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, jac='2-point',
-            method='trf', ftol=1/np.sqrt(steps), x_scale='jac', loss='linear',
+            method='trf', ftol=1/np.sqrt(steps-1), x_scale='jac', loss='linear',
             tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
         )
-        self.logger.info(f'{res.message}\n')
         parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        self.logger.info(parameters / scale)
+        self.logger.info(f'{res.message}\n')
+        self.logger.info('gradient norm:')
+        self.logger.info(np.linalg.norm(res.jac, axis=0))
 
     def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
         """Minimise vmc energy by jastrow parameters optimization.
