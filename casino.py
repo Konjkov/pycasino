@@ -118,7 +118,7 @@ class Casino:
 
         self.vmc_markovchain = VMCMarkovChain(
             self.initial_position(self.config.wfn.atom_positions, self.config.wfn.atom_charges),
-            self.initial_step_size(),
+            self.approximate_step_size,
             self.wfn
         )
 
@@ -132,7 +132,9 @@ class Casino:
             r_e[i] = atom_positions[np.random.choice(natoms, p=atom_charges / atom_charges.sum())]
         return r_e + np.random.uniform(-1, 1, ne * 3).reshape(ne, 3)
 
-    def initial_step_size(self):
+    @property
+    def approximate_step_size(self):
+        """Approximation to VMC step size."""
         if self.config.input.vmc_method == 1:
             # EBES
             return 1 / np.log(self.neu + self.ned)
@@ -236,33 +238,32 @@ class Casino:
         self.logger.info(
             f'Running VMC equilibration ({steps} moves).'
         )
-        self.logger.debug('dr * electrons = 1.00000, acc_ration = %.5f', condition.mean())
 
-    def vmc_step_graph(self, steps):
-        """Acceptance probability vs step size data to plot graph."""
+    def vmc_step_graph(self):
+        """Acceptance probability vs step size to plot graph."""
         n = 5
-        step_size = self.initial_step_size()
+        step_size = self.approximate_step_size
         for x in range(4 * n):
             self.vmc_markovchain.step_size = step_size * (x + 1) / n
             condition, _ = self.vmc_markovchain.random_walk(1000000, 1)
             acc_ration = condition.mean()
-            self.logger.info('dr * electrons = %.5f, acc_ration = %.5f', self.vmc_markovchain.step_size * (self.neu + self.ned), acc_ration)
+            self.logger.info(
+                'step_size * electrons = %.5f, acc_ration = %.5f', self.vmc_markovchain.step_size * (self.neu + self.ned), acc_ration
+            )
 
     def optimize_vmc_step(self, steps):
         """Optimize vmc step size."""
         xdata = np.linspace(0, 2, 11)
         ydata = np.ones_like(xdata)
-        initial_step_size = self.initial_step_size()
+        approximate_step_size = self.approximate_step_size
         for i in range(1, xdata.size):
-            self.vmc_markovchain.step_size = initial_step_size * xdata[i]
+            self.vmc_markovchain.step_size = approximate_step_size * xdata[i]
             condition, position = self.vmc_markovchain.random_walk(steps, 1)
             acc_rate = condition.mean()
-            if acc_rate == 0:
-                print(self.vmc_markovchain.wfn.value(position[0]))
             ydata[i] = self.mpi_comm.allreduce(acc_rate) / self.mpi_comm.size
 
         def f(ts, a, ts0):
-            """Dependence of the acceptance probability on the step size in the case of CBCS looks like:
+            """Dependence of the acceptance probability on the step size in CBCS case looks like:
             p(ts) = (exp(a/ts0) - 1)/(exp(a/ts0) + exp(ts/ts0) - 2)
             :param ts: step_size
             :param a: step_size for 50% acceptance probability
@@ -274,11 +275,17 @@ class Casino:
         step_size = None
         if self.mpi_comm.rank == 0:
             popt, pcov = curve_fit(f, xdata, ydata)
-            step_size = initial_step_size * popt[0]
+            step_size = approximate_step_size * popt[0]
 
-        self.vmc_markovchain.step_size = self.mpi_comm.bcast(step_size)
+        step_size = self.mpi_comm.bcast(step_size)
+        self.logger.info(
+            f'Performing time-step optimization.\n'
+            f'Optimized step size: {step_size:.5f}\n'
+        )
+        self.vmc_markovchain.step_size = step_size
 
-    def get_decorr_period(self):
+    @property
+    def decorr_period(self):
         """Decorr period"""
         if self.config.input.vmc_decorr_period == 0:
             return 3
@@ -290,7 +297,7 @@ class Casino:
         steps = self.config.input.vmc_nstep
         nblock = self.config.input.vmc_nblock
 
-        decorr_period = self.get_decorr_period()
+        decorr_period = self.decorr_period
         energy_block_mean = np.zeros(shape=(nblock,))
         energy_block_sem = np.zeros(shape=(nblock,))
         energy_block_var = np.zeros(shape=(nblock,))
@@ -415,13 +422,15 @@ class Casino:
             1 : display a termination report.
             2 : display progress during iterations.
         """
+        steps = steps // self.mpi_comm.size * self.mpi_comm.size
         scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
 
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
-            energy = vmc_observable(condition, position, self.wfn.energy) / np.sqrt(steps // self.mpi_comm.size - 1)
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, energy)
+            energy = np.empty(shape=(steps,))
+            energy_part = vmc_observable(condition, position, self.wfn.energy) / np.sqrt(steps)
+            self.mpi_comm.Allgather(energy_part, energy)
             return energy - energy.mean()
 
         res = least_squares(
