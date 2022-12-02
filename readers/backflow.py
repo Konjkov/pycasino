@@ -285,6 +285,7 @@ class Backflow:
         self.eta_cutoff_optimizable = np.zeros(0)
         self.mu_cutoff = np.zeros(0)
         self.mu_cutoff_optimizable = np.zeros(0)
+        # self.mu_cutoff = np.zeros(shape=0, dtype=[('value', float), ('optimizable', bool)])
         self.phi_cutoff = np.zeros(0)
         self.phi_cutoff_optimizable = np.zeros(0)
         self.mu_labels = nb.typed.List.empty_list(labels_type)

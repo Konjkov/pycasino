@@ -31,8 +31,11 @@ spec = [
     ('chi_parameters_optimizable', nb.types.ListType(chi_parameters_optimizable_type)),
     ('f_parameters_optimizable', nb.types.ListType(f_parameters_optimizable_type)),
     ('u_cutoff', nb.float64),
+    ('u_cutoff_optimizable', nb.boolean),
     ('chi_cutoff', nb.float64[:]),
+    ('chi_cutoff_optimizable', nb.boolean[:]),
     ('f_cutoff', nb.float64[:]),
+    ('f_cutoff_optimizable', nb.boolean[:]),
     ('chi_labels', nb.types.ListType(labels_type)),
     ('f_labels', nb.types.ListType(labels_type)),
     ('max_ee_order', nb.int64),
@@ -56,19 +59,22 @@ class Jastrow:
         self.ned = ned
         self.trunc = trunc
         # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
-        self.u_cutoff = u_cutoff
+        self.u_cutoff = u_cutoff[0]['value']
+        self.u_cutoff_optimizable = u_cutoff[0]['optimizable']
         self.u_mask = u_mask
         self.u_parameters = u_parameters
         self.u_parameters_optimizable = u_parameters_optimizable
         # spin dep (0->u=d; 1->u/=d)
         self.chi_labels = chi_labels
         self.chi_cutoff = chi_cutoff['value']
+        self.chi_cutoff_optimizable = chi_cutoff['optimizable']
         self.chi_mask = chi_mask
         self.chi_parameters = chi_parameters
         self.chi_parameters_optimizable = chi_parameters_optimizable
         # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
         self.f_labels = f_labels
         self.f_cutoff = f_cutoff['value']
+        self.f_cutoff_optimizable = f_cutoff['optimizable']
         self.f_mask = f_mask
         self.f_parameters = f_parameters
         self.f_parameters_optimizable = f_parameters_optimizable
@@ -581,8 +587,9 @@ class Jastrow:
         upper_bonds = []
 
         if self.u_cutoff:
-            lower_bonds.append(1)
-            upper_bonds.append(10)
+            if self.u_cutoff_optimizable:
+                lower_bonds.append(1)
+                upper_bonds.append(10)
             for j1 in range(self.u_parameters.shape[0]):
                 for j2 in range(self.u_parameters.shape[1]):
                     if self.u_mask[j1, j2] and self.u_parameters_optimizable[j1, j2]:
@@ -590,9 +597,10 @@ class Jastrow:
                         upper_bonds.append(np.inf)
 
         if self.chi_cutoff.any():
-            for i, (chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff)):
-                lower_bonds.append(1)
-                upper_bonds.append(10)
+            for i, (chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff, chi_cutoff_optimizable) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff, self.chi_cutoff_optimizable)):
+                if chi_cutoff_optimizable:
+                    lower_bonds.append(1)
+                    upper_bonds.append(10)
                 for j1 in range(chi_parameters.shape[0]):
                     for j2 in range(chi_parameters.shape[1]):
                         if chi_mask[j1, j2] and chi_parameters_optimizable[j1, j2]:
@@ -600,9 +608,10 @@ class Jastrow:
                             upper_bonds.append(np.inf)
 
         if self.f_cutoff.any():
-            for i, (f_parameters, f_parameters_optimizable, f_mask, f_cutoff) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff)):
-                lower_bonds.append(1)
-                upper_bonds.append(10)
+            for i, (f_parameters, f_parameters_optimizable, f_mask, f_cutoff, f_cutoff_optimizable) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff, self.f_cutoff_optimizable)):
+                if f_cutoff_optimizable:
+                    lower_bonds.append(1)
+                    upper_bonds.append(10)
                 for j1 in range(f_parameters.shape[0]):
                     for j2 in range(f_parameters.shape[1]):
                         for j3 in range(f_parameters.shape[2]):
@@ -710,23 +719,26 @@ class Jastrow:
         res = []
         scale = 1.5  # AU
         if self.u_cutoff:
-            res.append(scale)
+            if self.u_cutoff_optimizable:
+                res.append(scale)
             for j1 in range(self.u_parameters.shape[0]):
                 for j2 in range(self.u_parameters.shape[1]):
                     if self.u_mask[j1, j2] and self.u_parameters_optimizable[j1, j2]:
                         res.append(1 / scale ** (j1 + self.trunc))
 
         if self.chi_cutoff.any():
-            for i, (chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff)):
-                res.append(scale)
+            for i, (chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff, chi_cutoff_optimizable) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff, self.chi_cutoff_optimizable)):
+                if chi_cutoff_optimizable:
+                    res.append(scale)
                 for j1 in range(chi_parameters.shape[0]):
                     for j2 in range(chi_parameters.shape[1]):
                         if chi_mask[j1, j2] and chi_parameters_optimizable[j1, j2]:
                             res.append(1 / scale ** (j1 + self.trunc))
 
         if self.f_cutoff.any():
-            for i, (f_parameters, f_parameters_optimizable, f_mask, f_cutoff) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff)):
-                res.append(scale)
+            for i, (f_parameters, f_parameters_optimizable, f_mask, f_cutoff, f_cutoff_optimizable) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff, self.f_cutoff_optimizable)):
+                if f_cutoff_optimizable:
+                    res.append(scale)
                 for j1 in range(f_parameters.shape[0]):
                     for j2 in range(f_parameters.shape[1]):
                         for j3 in range(f_parameters.shape[2]):
@@ -743,25 +755,25 @@ class Jastrow:
         for every f-set: f-cutoff, f-linear parameters.
         :return:
         """
-        res = np.zeros(0)
+        res = []
         if self.u_cutoff:
-            res = np.concatenate((
-                res, np.array((self.u_cutoff, )), self.u_parameters.ravel()[(self.u_mask & self.u_parameters_optimizable).ravel()]
-            ))
+            if self.u_cutoff_optimizable:
+                res.append(self.u_cutoff)
+            res += list(self.u_parameters.ravel()[(self.u_mask & self.u_parameters_optimizable).ravel()])
 
         if self.chi_cutoff.any():
-            for chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff):
-                res = np.concatenate((
-                    res, np.array((chi_cutoff, )), chi_parameters.ravel()[(chi_mask & chi_parameters_optimizable).ravel()]
-                ))
+            for chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff, self.chi_cutoff_optimizable):
+                if chi_cutoff_optimizable:
+                    res.append(chi_cutoff)
+                res += list(chi_parameters.ravel()[(chi_mask & chi_parameters_optimizable).ravel()])
 
         if self.f_cutoff.any():
-            for f_parameters, f_parameters_optimizable, f_mask, f_cutoff in zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff):
-                res = np.concatenate((
-                    res, np.array((f_cutoff, )), f_parameters.ravel()[(f_mask & f_parameters_optimizable).ravel()]
-                ))
+            for f_parameters, f_parameters_optimizable, f_mask, f_cutoff, f_cutoff_optimizable in zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff, self.f_cutoff_optimizable):
+                if f_cutoff_optimizable:
+                    res.append(f_cutoff)
+                res += list(f_parameters.ravel()[(f_mask & f_parameters_optimizable).ravel()])
 
-        return res
+        return np.array(res)
 
     def set_parameters(self, parameters):
         """Set parameters in the following order:
@@ -773,8 +785,9 @@ class Jastrow:
         """
         n = 0
         if self.u_cutoff:
-            self.u_cutoff = parameters[n]
-            n += 1
+            if self.u_cutoff_optimizable:
+                self.u_cutoff = parameters[n]
+                n += 1
             for j1 in range(self.u_parameters.shape[0]):
                 for j2 in range(self.u_parameters.shape[1]):
                     if self.u_mask[j1, j2] and self.u_parameters_optimizable[j1, j2]:
@@ -783,10 +796,11 @@ class Jastrow:
             self.fix_u_parameters()
 
         if self.chi_cutoff.any():
-            for i, (chi_parameters, chi_parameters_optimizable, chi_mask) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask)):
+            for i, (chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff_optimizable) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff_optimizable)):
                 # Sequence types is a pointer, but numeric types is not.
-                self.chi_cutoff[i] = parameters[n]
-                n += 1
+                if chi_cutoff_optimizable:
+                    self.chi_cutoff[i] = parameters[n]
+                    n += 1
                 for j1 in range(chi_parameters.shape[0]):
                     for j2 in range(chi_parameters.shape[1]):
                         if chi_mask[j1, j2] and chi_parameters_optimizable[j1, j2]:
@@ -795,10 +809,11 @@ class Jastrow:
             self.fix_chi_parameters()
 
         if self.f_cutoff.any():
-            for i, (f_parameters, f_parameters_optimizable, f_mask) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask)):
+            for i, (f_parameters, f_parameters_optimizable, f_mask, f_cutoff_optimizable) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff_optimizable)):
                 # Sequence types is a pointer, but numeric types is not.
-                self.f_cutoff[i] = parameters[n]
-                n += 1
+                if f_cutoff_optimizable:
+                    self.f_cutoff[i] = parameters[n]
+                    n += 1
                 for j1 in range(f_parameters.shape[0]):
                     for j2 in range(f_parameters.shape[1]):
                         for j3 in range(f_parameters.shape[2]):

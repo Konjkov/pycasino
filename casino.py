@@ -176,7 +176,7 @@ class Casino:
                         self.config.input.opt_jastrow,
                         self.config.input.opt_backflow
                     )
-                    self.config.jastrow.u_cutoff = self.wfn.jastrow.u_cutoff
+                    self.config.jastrow.u_cutoff[0]['value'] = self.wfn.jastrow.u_cutoff
                     if self.mpi_comm.rank == 0:
                         self.config.write('.', i + 1)
                     self.optimize_vmc_step(1000)
@@ -198,7 +198,7 @@ class Casino:
                         self.config.input.opt_jastrow,
                         self.config.input.opt_backflow
                     )
-                    self.config.jastrow.u_cutoff = self.wfn.jastrow.u_cutoff
+                    self.config.jastrow.u_cutoff[0]['value'] = self.wfn.jastrow.u_cutoff
                     if self.mpi_comm.rank == 0:
                         self.config.write('.', i + 1)
                     self.optimize_vmc_step(1000)

@@ -38,8 +38,11 @@ spec = [
     ('phi_parameters_optimizable', nb.types.ListType(phi_parameters_optimizable_type)),
     ('theta_parameters_optimizable', nb.types.ListType(theta_parameters_optimizable_type)),
     ('eta_cutoff', nb.float64[:]),
+    ('eta_cutoff_optimizable', nb.boolean[:]),
     ('mu_cutoff', nb.float64[:]),
+    ('mu_cutoff_optimizable', nb.boolean[:]),
     ('phi_cutoff', nb.float64[:]),
+    ('phi_cutoff_optimizable', nb.boolean[:]),
     ('mu_labels', nb.types.ListType(labels_type)),
     ('phi_labels', nb.types.ListType(labels_type)),
     ('max_ee_order', nb.int64),
@@ -65,6 +68,7 @@ class Backflow:
         self.trunc = trunc
         # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
         self.eta_cutoff = eta_cutoff
+        # self.eta_cutoff_optimizable = None
         self.eta_mask = eta_mask
         self.eta_parameters = eta_parameters
         self.eta_parameters_optimizable = eta_parameters_optimizable
@@ -72,6 +76,7 @@ class Backflow:
         self.mu_cusp = mu_cusp
         self.mu_labels = mu_labels
         self.mu_cutoff = mu_cutoff
+        # self.mu_cutoff_optimizable = None
         self.mu_mask = mu_mask
         self.mu_parameters = mu_parameters
         self.mu_parameters_optimizable = mu_parameters_optimizable
@@ -80,6 +85,7 @@ class Backflow:
         self.phi_cusp = phi_cusp
         self.phi_labels = phi_labels
         self.phi_cutoff = phi_cutoff
+        # self.phi_cutoff_optimizable = None
         self.phi_mask = phi_mask
         self.theta_mask = theta_mask
         self.phi_parameters = phi_parameters
@@ -863,7 +869,7 @@ class Backflow:
         """
         res = []
         scale = 0.5
-        if self.eta_cutoff:
+        if self.eta_cutoff.any():
             for eta_cutoff in self.eta_cutoff:
                 res.append(eta_cutoff)
             for j1 in range(self.eta_parameters.shape[0]):
@@ -906,25 +912,22 @@ class Backflow:
         for every phi/theta-set: phi-cutoff, phi-linear parameters, theta-linear parameters.
         :return:
         """
-        res = np.zeros(0)
-        if self.eta_cutoff:
-            res = np.concatenate((
-                res, self.eta_cutoff, self.eta_parameters.ravel()[(self.eta_mask & self.eta_parameters_optimizable).ravel()]
-            ))
-
+        res = []
+        if self.eta_cutoff.any():
+            for eta_cutoff in self.eta_cutoff:
+                res.append(eta_cutoff)
+            res += list(self.eta_parameters.ravel()[(self.eta_mask & self.eta_parameters_optimizable).ravel()])
         if self.mu_cutoff.any():
             for mu_parameters, mu_parameters_optimizable, mu_mask, mu_cutoff in zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_mask, self.mu_cutoff):
-                res = np.concatenate((
-                    res, np.array((mu_cutoff, )), mu_parameters.ravel()[(mu_mask & mu_parameters_optimizable).ravel()]
-                ))
-
+                res.append(mu_cutoff)
+                res += list(mu_parameters.ravel()[(mu_mask & mu_parameters_optimizable).ravel()])
         if self.phi_cutoff.any():
             for phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable, phi_mask, theta_mask, phi_cutoff in zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable, self.phi_mask, self.theta_mask, self.phi_cutoff):
-                res = np.concatenate((
-                    res, np.array((phi_cutoff, )), phi_parameters.ravel()[(phi_mask & phi_parameters_optimizable).ravel()], theta_parameters.ravel()[(theta_mask & theta_parameters_optimizable).ravel()]
-                ))
+                res.append(phi_cutoff)
+                res += list(phi_parameters.ravel()[(phi_mask & phi_parameters_optimizable).ravel()])
+                res += list(theta_parameters.ravel()[(theta_mask & theta_parameters_optimizable).ravel()])
 
-        return res
+        return np.array(res)
 
     def set_parameters(self, parameters):
         """Set parameters in the following order:
@@ -935,7 +938,7 @@ class Backflow:
         :return:
         """
         n = 0
-        if self.eta_cutoff:
+        if self.eta_cutoff.any():
             for j1 in range(self.eta_cutoff.shape[0]):
                 self.eta_cutoff[j1] = parameters[n]
                 n += 1

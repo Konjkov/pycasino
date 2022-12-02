@@ -188,8 +188,7 @@ class Jastrow:
         self.chi_parameters_optimizable = nb.typed.List.empty_list(chi_parameters_optimizable_type)  # u, d order
         self.f_parameters = nb.typed.List.empty_list(f_parameters_type)  # uu, ud, dd order
         self.f_parameters_optimizable = nb.typed.List.empty_list(f_parameters_optimizable_type)  # uu, ud, dd order
-        self.u_cutoff = 0
-        self.u_cutoff_optimizable = False
+        self.u_cutoff = np.zeros(shape=1, dtype=[('value', float), ('optimizable', bool)])
         self.chi_cutoff = np.zeros(shape=0, dtype=[('value', float), ('optimizable', bool)])
         self.f_cutoff = np.zeros(shape=0, dtype=[('value', float), ('optimizable', bool)])
         self.chi_cusp = np.zeros(0, bool)
@@ -238,7 +237,7 @@ class Jastrow:
                     elif line.startswith('Spin dep'):
                         u_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
-                        self.u_cutoff, self.u_cutoff_optimizable = self.read_parameter()
+                        self.u_cutoff[0] = self.read_parameter()
                     elif line.startswith('Parameter'):
                         self.u_parameters = np.zeros(shape=(u_order+1, u_spin_dep+1), dtype=float)
                         self.u_parameters_optimizable = np.zeros(shape=(u_order+1, u_spin_dep+1), dtype=bool)
@@ -251,7 +250,7 @@ class Jastrow:
                         except ValueError:
                             # set u_term[1] to zero
                             for i in range(u_spin_dep+1):
-                                self.u_parameters[0, i] = -self.u_cutoff / np.array([4, 2, 4])[i] / (-self.u_cutoff) ** self.trunc / self.trunc
+                                self.u_parameters[0, i] = -self.u_cutoff[0]['value'] / np.array([4, 2, 4])[i] / (-self.u_cutoff[0]['value']) ** self.trunc / self.trunc
                             self.u_parameters_optimizable = self.u_mask.copy()
                     elif line.startswith('END SET'):
                         pass
@@ -273,9 +272,7 @@ class Jastrow:
                     elif line.startswith('Spin dep'):
                         chi_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
-                        chi_cutoff, chi_cutoff_optimizable = self.read_parameter()
-                        self.chi_cutoff[set_number]['value'] = chi_cutoff
-                        self.chi_cutoff[set_number]['optimizable'] = chi_cutoff_optimizable
+                        self.chi_cutoff[set_number] = self.read_parameter()
                     elif line.startswith('Parameter'):
                         chi_parameters = np.zeros(shape=(chi_order+1, chi_spin_dep+1), dtype=float)
                         chi_parameters_optimizable = np.zeros(shape=(chi_order + 1, chi_spin_dep + 1), dtype=bool)
@@ -354,8 +351,8 @@ class Jastrow:
         u_set = u_set_template.format(
             u_order=self.u_parameters.shape[0] - 1,
             u_spin_dep=self.u_parameters.shape[1] - 1,
-            u_cutoff=self.u_cutoff,
-            u_cutoff_optimizable=int(self.u_cutoff_optimizable),
+            u_cutoff=self.u_cutoff[0]['value'],
+            u_cutoff_optimizable=int(self.u_cutoff[0]['optimizable']),
             u_parameters='\n  '.join(u_parameters_list),
         )
         chi_sets = ''
@@ -447,7 +444,7 @@ class Jastrow:
     def fix_u_parameters(self):
         """Fix u-term parameters"""
         C = self.trunc
-        L = self.u_cutoff
+        L = self.u_cutoff[0]['value']
         for i in range(3):
             self.u_cusp_const[i] = 1 / np.array([4, 2, 4])[i] / (-L) ** C + self.u_parameters[0, i % self.u_parameters.shape[1]] * C / L
 
