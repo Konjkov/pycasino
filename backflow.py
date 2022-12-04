@@ -67,16 +67,16 @@ class Backflow:
         self.ned = ned
         self.trunc = trunc
         # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
-        self.eta_cutoff = eta_cutoff
-        # self.eta_cutoff_optimizable = None
+        self.eta_cutoff = eta_cutoff['value']
+        self.eta_cutoff_optimizable = eta_cutoff['optimizable']
         self.eta_mask = eta_mask
         self.eta_parameters = eta_parameters
         self.eta_parameters_optimizable = eta_parameters_optimizable
         # spin dep (0->u=d; 1->u/=d)
         self.mu_cusp = mu_cusp
         self.mu_labels = mu_labels
-        self.mu_cutoff = mu_cutoff
-        # self.mu_cutoff_optimizable = None
+        self.mu_cutoff = mu_cutoff['value']
+        self.mu_cutoff_optimizable = mu_cutoff['optimizable']
         self.mu_mask = mu_mask
         self.mu_parameters = mu_parameters
         self.mu_parameters_optimizable = mu_parameters_optimizable
@@ -84,8 +84,8 @@ class Backflow:
         self.phi_irrotational = phi_irrotational
         self.phi_cusp = phi_cusp
         self.phi_labels = phi_labels
-        self.phi_cutoff = phi_cutoff
-        # self.phi_cutoff_optimizable = None
+        self.phi_cutoff = phi_cutoff['value']
+        self.phi_cutoff_optimizable = phi_cutoff['optimizable']
         self.phi_mask = phi_mask
         self.theta_mask = theta_mask
         self.phi_parameters = phi_parameters
@@ -859,6 +859,59 @@ class Backflow:
                                 p += 1
                             temp += 1
 
+    def get_bounds(self):
+        """Bonds constraints fluctuation of Backflow parameters
+        and thus increases robustness of the energy minimization procedure.
+        :return:
+        """
+        lower_bonds = []
+        upper_bonds = []
+
+        if self.eta_cutoff.any():
+            for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
+                if eta_cutoff_optimizable:
+                    lower_bonds.append(1)
+                    upper_bonds.append(10)
+            for j1 in range(self.eta_parameters.shape[0]):
+                for j2 in range(self.eta_parameters.shape[1]):
+                    if self.eta_mask[j1, j2] and self.eta_parameters_optimizable[j1, j2]:
+                        lower_bonds.append(-np.inf)
+                        upper_bonds.append(np.inf)
+
+        if self.mu_cutoff.any():
+            for i, (mu_parameters, mu_parameters_optimizable, mu_mask, mu_cutoff) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_mask, self.mu_cutoff)):
+                if self.mu_cutoff_optimizable:
+                    lower_bonds.append(1)
+                    upper_bonds.append(10)
+                for j1 in range(mu_parameters.shape[0]):
+                    for j2 in range(mu_parameters.shape[1]):
+                        if mu_mask[j1, j2] and mu_parameters_optimizable[j1, j2]:
+                            lower_bonds.append(-np.inf)
+                            upper_bonds.append(np.inf)
+
+        if self.phi_cutoff.any():
+            for i, (phi_parameters, phi_parameters_optimizable, theta_parameters_optimizable, phi_mask, theta_mask, phi_cutoff) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters_optimizable, self.phi_mask, self.theta_mask, self.phi_cutoff)):
+                if self.phi_cutoff_optimizable:
+                    lower_bonds.append(1)
+                    upper_bonds.append(10)
+                for j1 in range(phi_parameters.shape[0]):
+                    for j2 in range(phi_parameters.shape[1]):
+                        for j3 in range(phi_parameters.shape[2]):
+                            for j4 in range(phi_parameters.shape[3]):
+                                if phi_mask[j1, j2, j3, j4] and phi_parameters_optimizable[j1, j2, j3, j4]:
+                                    lower_bonds.append(-np.inf)
+                                    upper_bonds.append(np.inf)
+
+                for j1 in range(phi_parameters.shape[0]):
+                    for j2 in range(phi_parameters.shape[1]):
+                        for j3 in range(phi_parameters.shape[2]):
+                            for j4 in range(phi_parameters.shape[3]):
+                                if theta_mask[j1, j2, j3, j4] and theta_parameters_optimizable[j1, j2, j3, j4]:
+                                    lower_bonds.append(-np.inf)
+                                    upper_bonds.append(np.inf)
+
+        return np.array(lower_bonds), np.array(upper_bonds)
+
     def get_x_scale(self):
         """Characteristic scale of each variable. Setting x_scale is equivalent
         to reformulating the problem in scaled variables xs = x / x_scale.
@@ -870,8 +923,9 @@ class Backflow:
         res = []
         scale = 0.5
         if self.eta_cutoff.any():
-            for eta_cutoff in self.eta_cutoff:
-                res.append(eta_cutoff)
+            for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
+                if eta_cutoff_optimizable:
+                    res.append(eta_cutoff)
             for j1 in range(self.eta_parameters.shape[0]):
                 for j2 in range(self.eta_parameters.shape[1]):
                     if self.eta_mask[j1, j2] and self.eta_parameters_optimizable[j1, j2]:
@@ -880,7 +934,8 @@ class Backflow:
 
         if self.mu_cutoff.any():
             for i, (mu_parameters, mu_parameters_optimizable, mu_mask, mu_cutoff) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_mask, self.mu_cutoff)):
-                res.append(mu_cutoff)
+                if self.mu_cutoff_optimizable:
+                    res.append(mu_cutoff)
                 for j1 in range(mu_parameters.shape[0]):
                     for j2 in range(mu_parameters.shape[1]):
                         if mu_mask[j1, j2] and mu_parameters_optimizable[j1, j2]:
@@ -888,7 +943,8 @@ class Backflow:
 
         if self.phi_cutoff.any():
             for i, (phi_parameters, phi_parameters_optimizable, theta_parameters_optimizable, phi_mask, theta_mask, phi_cutoff) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters_optimizable, self.phi_mask, self.theta_mask, self.phi_cutoff)):
-                res.append(phi_cutoff)
+                if self.phi_cutoff_optimizable:
+                    res.append(phi_cutoff)
                 for j1 in range(phi_parameters.shape[0]):
                     for j2 in range(phi_parameters.shape[1]):
                         for j3 in range(phi_parameters.shape[2]):
@@ -914,16 +970,19 @@ class Backflow:
         """
         res = []
         if self.eta_cutoff.any():
-            for eta_cutoff in self.eta_cutoff:
-                res.append(eta_cutoff)
+            for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
+                if eta_cutoff_optimizable:
+                    res.append(eta_cutoff)
             res += list(self.eta_parameters.ravel()[(self.eta_mask & self.eta_parameters_optimizable).ravel()])
         if self.mu_cutoff.any():
             for mu_parameters, mu_parameters_optimizable, mu_mask, mu_cutoff in zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_mask, self.mu_cutoff):
-                res.append(mu_cutoff)
+                if self.mu_cutoff_optimizable:
+                    res.append(mu_cutoff)
                 res += list(mu_parameters.ravel()[(mu_mask & mu_parameters_optimizable).ravel()])
         if self.phi_cutoff.any():
             for phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable, phi_mask, theta_mask, phi_cutoff in zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable, self.phi_mask, self.theta_mask, self.phi_cutoff):
-                res.append(phi_cutoff)
+                if self.phi_cutoff_optimizable:
+                    res.append(phi_cutoff)
                 res += list(phi_parameters.ravel()[(phi_mask & phi_parameters_optimizable).ravel()])
                 res += list(theta_parameters.ravel()[(theta_mask & theta_parameters_optimizable).ravel()])
 
@@ -940,8 +999,9 @@ class Backflow:
         n = 0
         if self.eta_cutoff.any():
             for j1 in range(self.eta_cutoff.shape[0]):
-                self.eta_cutoff[j1] = parameters[n]
-                n += 1
+                if self.eta_cutoff_optimizable[j1]:
+                    self.eta_cutoff[j1] = parameters[n]
+                    n += 1
             for j1 in range(self.eta_parameters.shape[0]):
                 for j2 in range(self.eta_parameters.shape[1]):
                     if self.eta_mask[j1, j2] and self.eta_parameters_optimizable[j1, j2]:
@@ -951,9 +1011,9 @@ class Backflow:
 
         if self.mu_cutoff.any():
             for i, (mu_parameters, mu_parameters_optimizable, mu_mask) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_mask)):
-                # Sequence type is a pointer, but numeric type is not.
-                self.mu_cutoff[i] = parameters[n]
-                n += 1
+                if self.mu_cutoff_optimizable:
+                    self.mu_cutoff[i] = parameters[n]
+                    n += 1
                 for j1 in range(mu_parameters.shape[0]):
                     for j2 in range(mu_parameters.shape[1]):
                         if mu_mask[j1, j2] and mu_parameters_optimizable[j1, j2]:
@@ -963,9 +1023,9 @@ class Backflow:
 
         if self.phi_cutoff.any():
             for i, (phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable, phi_mask, theta_mask) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable, self.phi_mask, self.theta_mask)):
-                # Sequence type is a pointer, but numeric type is not.
-                self.phi_cutoff[i] = parameters[n]
-                n += 1
+                if self.phi_cutoff_optimizable:
+                    self.phi_cutoff[i] = parameters[n]
+                    n += 1
                 for j1 in range(phi_parameters.shape[0]):
                     for j2 in range(phi_parameters.shape[1]):
                         for j3 in range(phi_parameters.shape[2]):
@@ -981,7 +1041,6 @@ class Backflow:
                                 if theta_mask[j1, j2, j3, j4] and theta_parameters_optimizable[j1, j2, j3, j4]:
                                     theta_parameters[j1, j2, j3, j4] = parameters[n]
                                     n += 1
-
             self.fix_phi_parameters()
 
         return parameters[n:]

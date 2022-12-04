@@ -454,7 +454,8 @@ class Casino:
 
         SciPy, оптимизация с условиями - https://habr.com/ru/company/ods/blog/448054/
         """
-        bounds = Bounds(*self.wfn.jastrow.get_bounds(), keep_feasible=True)
+        steps = steps // self.mpi_comm.size * self.mpi_comm.size
+        bounds = Bounds(*self.wfn.get_bounds(), keep_feasible=True)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
 
         def fun(x, *args):
@@ -463,7 +464,7 @@ class Casino:
             energy_gradient = vmc_observable(condition, position, self.wfn.jastrow_parameters_numerical_d1)
             mean_energy_gradient = jastrow_parameters_gradient(energy, energy_gradient)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
-            return self.mpi_comm.allreduce(energy.mean()), mean_energy_gradient
+            return self.mpi_comm.allreduce(energy.mean()) / self.mpi_comm.size, mean_energy_gradient / self.mpi_comm.size
 
         def hess(x, *args):
             self.wfn.jastrow.set_parameters(x, opt_jastrow, opt_backflow)
@@ -477,7 +478,7 @@ class Casino:
 
         res = minimize(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), method='TNC',
-            jac=True, bounds=bounds, options=dict(disp=True, maxfun=10)
+            jac=True, bounds=bounds, options=dict(disp=self.mpi_comm.rank == 0, maxfun=10)
         )
         # res = minimize(
         #     fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), method='trust-ncg',
@@ -486,7 +487,7 @@ class Casino:
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        # self.logger.info(parameters / self.wfn.get_parameters_scale(opt_jastrow, opt_backflow))
+        self.logger.info(res.jac)
 
 
 if __name__ == '__main__':

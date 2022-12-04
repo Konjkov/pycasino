@@ -163,6 +163,19 @@ class Wfn:
                 res -= s_l / 2
         return res
 
+    def get_bounds(self, opt_jastrow=True, opt_backflow=True):
+        lower_bonds = np.zeros(0)
+        upper_bonds = np.zeros(0)
+        if self.jastrow is not None and opt_jastrow:
+            l, u = self.jastrow.get_bounds()
+            lower_bonds = np.concatenate((lower_bonds, l))
+            upper_bonds = np.concatenate((upper_bonds, u))
+        if self.backflow is not None and opt_backflow:
+            l, u = self.backflow.get_bounds()
+            lower_bonds = np.concatenate((lower_bonds, l))
+            upper_bonds = np.concatenate((upper_bonds, u))
+        return lower_bonds, upper_bonds
+
     def get_parameters(self, opt_jastrow=True, opt_backflow=True):
         """Get WFN parameters to be optimized"""
         res = np.zeros(0)

@@ -578,50 +578,6 @@ class Jastrow:
 
         return res / delta / delta
 
-    def get_bounds(self):
-        """Bonds constraints fluctuation of Jastrow parameters
-        and thus increases robustness of the energy minimization procedure.
-        :return:
-        """
-        lower_bonds = []
-        upper_bonds = []
-
-        if self.u_cutoff:
-            if self.u_cutoff_optimizable:
-                lower_bonds.append(1)
-                upper_bonds.append(10)
-            for j1 in range(self.u_parameters.shape[0]):
-                for j2 in range(self.u_parameters.shape[1]):
-                    if self.u_mask[j1, j2] and self.u_parameters_optimizable[j1, j2]:
-                        lower_bonds.append(-np.inf)
-                        upper_bonds.append(np.inf)
-
-        if self.chi_cutoff.any():
-            for i, (chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff, chi_cutoff_optimizable) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff, self.chi_cutoff_optimizable)):
-                if chi_cutoff_optimizable:
-                    lower_bonds.append(1)
-                    upper_bonds.append(10)
-                for j1 in range(chi_parameters.shape[0]):
-                    for j2 in range(chi_parameters.shape[1]):
-                        if chi_mask[j1, j2] and chi_parameters_optimizable[j1, j2]:
-                            lower_bonds.append(-np.inf)
-                            upper_bonds.append(np.inf)
-
-        if self.f_cutoff.any():
-            for i, (f_parameters, f_parameters_optimizable, f_mask, f_cutoff, f_cutoff_optimizable) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff, self.f_cutoff_optimizable)):
-                if f_cutoff_optimizable:
-                    lower_bonds.append(1)
-                    upper_bonds.append(10)
-                for j1 in range(f_parameters.shape[0]):
-                    for j2 in range(f_parameters.shape[1]):
-                        for j3 in range(f_parameters.shape[2]):
-                            for j4 in range(f_parameters.shape[3]):
-                                if f_mask[j1, j2, j3, j4] and f_parameters_optimizable[j1, j2, j3, j4]:
-                                    lower_bonds.append(-np.inf)
-                                    upper_bonds.append(np.inf)
-
-        return np.array(lower_bonds), np.array(upper_bonds)
-
     def fix_u_parameters(self):
         """Fix u-term parameters"""
         C = self.trunc
@@ -707,6 +663,50 @@ class Jastrow:
             if no_dup_chi_term:
                 print('should be equal to zero')
                 print(f_parameters[:, 0, 0, :])
+
+    def get_bounds(self):
+        """Bonds constraints fluctuation of Jastrow parameters
+        and thus increases robustness of the energy minimization procedure.
+        :return:
+        """
+        lower_bonds = []
+        upper_bonds = []
+
+        if self.u_cutoff:
+            if self.u_cutoff_optimizable:
+                lower_bonds.append(1)
+                upper_bonds.append(10)
+            for j1 in range(self.u_parameters.shape[0]):
+                for j2 in range(self.u_parameters.shape[1]):
+                    if self.u_mask[j1, j2] and self.u_parameters_optimizable[j1, j2]:
+                        lower_bonds.append(-np.inf)
+                        upper_bonds.append(np.inf)
+
+        if self.chi_cutoff.any():
+            for i, (chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff, chi_cutoff_optimizable) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff, self.chi_cutoff_optimizable)):
+                if chi_cutoff_optimizable:
+                    lower_bonds.append(1)
+                    upper_bonds.append(10)
+                for j1 in range(chi_parameters.shape[0]):
+                    for j2 in range(chi_parameters.shape[1]):
+                        if chi_mask[j1, j2] and chi_parameters_optimizable[j1, j2]:
+                            lower_bonds.append(-np.inf)
+                            upper_bonds.append(np.inf)
+
+        if self.f_cutoff.any():
+            for i, (f_parameters, f_parameters_optimizable, f_mask, f_cutoff, f_cutoff_optimizable) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff, self.f_cutoff_optimizable)):
+                if f_cutoff_optimizable:
+                    lower_bonds.append(1)
+                    upper_bonds.append(10)
+                for j1 in range(f_parameters.shape[0]):
+                    for j2 in range(f_parameters.shape[1]):
+                        for j3 in range(f_parameters.shape[2]):
+                            for j4 in range(f_parameters.shape[3]):
+                                if f_mask[j1, j2, j3, j4] and f_parameters_optimizable[j1, j2, j3, j4]:
+                                    lower_bonds.append(-np.inf)
+                                    upper_bonds.append(np.inf)
+
+        return np.array(lower_bonds), np.array(upper_bonds)
 
     def get_x_scale(self):
         """Characteristic scale of each variable. Setting x_scale is equivalent
