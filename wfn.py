@@ -209,61 +209,13 @@ class Wfn:
             ))
         return res
 
-    def slater_numerical_gradient(self, e_vectors, n_vectors):
-        """Numerical gradient with respect to e-coordinates
-        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        """
-        delta = 0.00001
-
-        val = self.slater.value(n_vectors + self.backflow.value(e_vectors, n_vectors))
-        res = np.zeros((self.neu + self.ned, 3))
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-                res[i, j] -= self.slater.value(n_vectors + self.backflow.value(e_vectors, n_vectors))
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
-                res[i, j] += self.slater.value(n_vectors + self.backflow.value(e_vectors, n_vectors))
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-
-        return res.ravel() / delta / 2 / val
-
-    def slater_numerical_laplacian(self, e_vectors, n_vectors):
-        """Numerical laplacian with respect to e-coordinates
-        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        """
-        delta = 0.00001
-
-        val = self.slater.value(n_vectors + self.backflow.value(e_vectors, n_vectors))
-        res = - 6 * (self.neu + self.ned) * self.slater.value(n_vectors + self.backflow.value(e_vectors, n_vectors))
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-                res += self.slater.value(n_vectors + self.backflow.value(e_vectors, n_vectors))
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
-                res += self.slater.value(n_vectors + self.backflow.value(e_vectors, n_vectors))
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-
-        return res / delta / delta / val
-
     def jastrow_parameters_numerical_d1(self, r_e):
         """
         :param r_e: electron coordinates - array(nelec, 3)
         :return:
         """
         e_vectors, n_vectors = self._relative_coordinates(r_e)
-        return self.jastrow.parameters_numerical_d1(e_vectors, n_vectors)
+        return self.jastrow.parameters_numerical_d1(e_vectors, n_vectors) * self.slater.value(n_vectors)
 
     def jastrow_parameters_numerical_d2(self, r_e):
         """
@@ -271,4 +223,55 @@ class Wfn:
         :return:
         """
         e_vectors, n_vectors = self._relative_coordinates(r_e)
-        return self.jastrow.parameters_numerical_d2(e_vectors, n_vectors)
+        return self.jastrow.parameters_numerical_d2(e_vectors, n_vectors) * self.slater.value(n_vectors)
+
+    def numerical_gradient(self, r_e):
+        """Numerical gradient with respect to e-coordinates
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        # https://scicomp.stackexchange.com/questions/14355/choosing-epsilons
+        delta = 0.00001  # (1/2**52)**(1/3)
+
+        val = self.value(r_e)
+        res = np.zeros((self.neu + self.ned, 3))
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        for i in range(self.neu + self.ned):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+                res[i, j] -= self.value(r_e)
+                e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
+                n_vectors[:, i, j] += 2 * delta
+                res[i, j] += self.value(r_e)
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+
+        return res.ravel() / delta / 2 / val
+
+    def numerical_laplacian(self, r_e):
+        """Numerical laplacian with respect to e-coordinates
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        delta = 0.00001
+
+        val = self.value(r_e)
+        res = - 6 * (self.neu + self.ned) * self.value(r_e)
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        for i in range(self.neu + self.ned):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+                res += self.value(r_e)
+                e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
+                n_vectors[:, i, j] += 2 * delta
+                res += self.value(r_e)
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+
+        return res / delta / delta / val

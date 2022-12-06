@@ -17,7 +17,7 @@ from sem import correlated_sem
 from logger import logging
 
 
-def jastrow_parameters_gradient(energy, energy_gradient):
+def energy_parameters_gradient(energy, energy_gradient):
     """
     :param energy:
     :param energy_gradient:
@@ -29,7 +29,7 @@ def jastrow_parameters_gradient(energy, energy_gradient):
     )
 
 
-def jastrow_parameters_hessian(energy, energy_gradient, energy_hessian):
+def energy_parameters_hessian(energy, energy_gradient, energy_hessian):
     """Lin, Zhang and Rappe (LZR) hessian from
     Optimization of quantum Monte Carlo wave functions by energy minimization.
     :param energy:
@@ -411,12 +411,12 @@ class Casino:
         plt.clf()
 
     def vmc_variance_minimization(self, steps, decorr_period, opt_jastrow, opt_backflow, verbose=2):
-        """Minimise vmc variance by jastrow parameters optimization.
+        """Minimize vmc variance.
         https://github.com/scipy/scipy/issues/10634
         :param steps:
         :param decorr_period:
-        :param opt_jastrow:
-        :param opt_backflow:
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
         :param verbose:
             0 : work silently.
             1 : display a termination report.
@@ -446,13 +446,18 @@ class Casino:
         self.logger.info(np.linalg.norm(res.jac, axis=0))
 
     def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
-        """Minimise vmc energy by jastrow parameters optimization.
-        Gradient only for : CG, BFGS, L-BFGS-B, TNC, SLSQP
+        """Minimize vmc energy.
+        Function only for: Nelder-Mead, Powell
+        Gradient only for: CG, BFGS, L-BFGS-B, TNC, SLSQP
         Gradient and Hessian is required for: Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact, trust-constr
         Constraints definition only for: COBYLA, SLSQP and trust-constr.
-        Bounds on variables for Nelder-Mead, L-BFGS-B, TNC, SLSQP, Powell, and trust-constr methods.
-
+        Bounds on variables for Nelder-Mead, Powell, L-BFGS-B, TNC, SLSQP,  and trust-constr methods.
         SciPy, оптимизация с условиями - https://habr.com/ru/company/ods/blog/448054/
+
+        :param steps:
+        :param decorr_period:
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         bounds = Bounds(*self.wfn.get_bounds(), keep_feasible=True)
@@ -462,27 +467,26 @@ class Casino:
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy = vmc_observable(condition, position, self.wfn.energy)
             energy_gradient = vmc_observable(condition, position, self.wfn.jastrow_parameters_numerical_d1)
-            mean_energy_gradient = jastrow_parameters_gradient(energy, energy_gradient)
+            mean_energy_gradient = energy_parameters_gradient(energy, energy_gradient)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
-            return self.mpi_comm.allreduce(energy.mean()) / self.mpi_comm.size, mean_energy_gradient / self.mpi_comm.size
+            return self.mpi_comm.allreduce(0.95 * energy.mean() + 0.05 * energy.var()) / self.mpi_comm.size, mean_energy_gradient / self.mpi_comm.size
 
         def hess(x, *args):
-            self.wfn.jastrow.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy = vmc_observable(condition, position, self.wfn.energy)
-            energy_gradient = vmc_observable(condition, position, self.wfn.jastrow_parameters_numerical_d1)
-            energy_hessian = vmc_observable(condition, position, self.wfn.jastrow_parameters_numerical_d2)
-            mean_energy_hessian = jastrow_parameters_hessian(energy, energy_gradient, energy_hessian)
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_hessian)
-            self.logger.info('hessian = %s', mean_energy_hessian)
-            return mean_energy_hessian
+            wfn_gradient = vmc_observable(condition, position, self.wfn.jastrow_parameters_numerical_d1)
+            wfn_hessian = vmc_observable(condition, position, self.wfn.jastrow_parameters_numerical_d2)
+            energy_hessian = energy_parameters_hessian(energy, wfn_gradient, wfn_hessian)
+            self.mpi_comm.Allreduce(MPI.IN_PLACE, energy_hessian)
+            return energy_hessian / self.mpi_comm.size
 
         res = minimize(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), method='TNC',
-            jac=True, bounds=bounds, options=dict(disp=self.mpi_comm.rank == 0, maxfun=10)
+            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), method='TNC', jac=True,
+            bounds=bounds, tol=1/np.sqrt(steps-1), options=dict(disp=self.mpi_comm.rank == 0)
         )
         # res = minimize(
         #     fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), method='trust-ncg',
-        #     jac=True, hess=hess, options=dict(disp=True)
+        #     jac=True, hess=hess, options=dict(disp=self.mpi_comm.rank == 0)
         # )
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
