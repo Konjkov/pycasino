@@ -8,6 +8,7 @@
 # path='test/gwfn/Ar/HF/cc-pVQZ/CBCS/Slater/'
 # path='test/gwfn/Kr/HF/cc-pVQZ/CBCS/Slater/'
 # path='test/gwfn/O3/HF/cc-pVQZ/CBCS/Slater/'
+# path='test/gwfn/B2H6/HF/cc-pVQZ/CBCS/Slater/'
 
 # path='test/gwfn/He/HF/cc-pVQZ/CBCS/Jastrow/'
 # path='test/gwfn/Be/HF/cc-pVQZ/CBCS/Jastrow/'
@@ -45,6 +46,9 @@
 
 # path='test/stowfn/He/HF/QZ4P/CBCS/Backflow_varmin/'
 # path='test/stowfn/Be/HF/QZ4P/CBCS/Backflow_varmin/'
+# path='test/stowfn/N/HF/QZ4P/CBCS/Backflow_varmin/'
+
+# path='test/stowfn/He/HF/QZ4P/CBCS/Jastrow_emin/'
 
 # path='test/stowfn/He/HF/QZ4P/CBCS/Jastrow/'
 # path='test/stowfn/Be/HF/QZ4P/CBCS/Jastrow/'
@@ -70,4 +74,5 @@
 # path='test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_dmc/'
 # path='test/stowfn/O3/HF/QZ4P/CBCS/Jastrow_dmc/'
 
+# python casino.py $path
 # mpiexec -n 4 python casino.py $path

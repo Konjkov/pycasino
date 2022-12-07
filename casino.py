@@ -170,7 +170,7 @@ class Casino:
                 self.optimize_vmc_step(1000)
                 self.vmc_energy_accumulation()
                 for i in range(self.config.input.opt_cycles):
-                    self.vmc_variance_minimization(
+                    self.vmc_reweighted_variance_minimization(
                         self.config.input.vmc_nconfig_write,
                         self.config.input.vmc_decorr_period,
                         self.config.input.opt_jastrow,
@@ -410,8 +410,8 @@ class Casino:
         plt.savefig('hist.png')
         plt.clf()
 
-    def vmc_variance_minimization(self, steps, decorr_period, opt_jastrow, opt_backflow, verbose=2):
-        """Minimize vmc variance.
+    def vmc_unreweighted_variance_minimization(self, steps, decorr_period, opt_jastrow, opt_backflow, verbose=2):
+        """Minimize vmc unreweighted variance.
         https://github.com/scipy/scipy/issues/10634
         :param steps:
         :param decorr_period:
@@ -429,9 +429,9 @@ class Casino:
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
             energy = np.empty(shape=(steps,))
-            energy_part = vmc_observable(condition, position, self.wfn.energy) / np.sqrt(steps)
+            energy_part = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allgather(energy_part, energy)
-            return energy - energy.mean()
+            return np.sqrt(2) * (energy - energy.mean()) / np.sqrt(steps - 1)
 
         res = least_squares(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, jac='2-point',
@@ -442,7 +442,50 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
         self.logger.info(f'{res.message}\n')
-        self.logger.info('gradient norm:')
+        self.logger.info('Jacobian matrix at the solution:')
+        self.logger.info(np.linalg.norm(res.jac, axis=0))
+
+    def vmc_reweighted_variance_minimization(self, steps, decorr_period, opt_jastrow, opt_backflow, verbose=2):
+        """Minimize vmc reweighted variance.
+        https://github.com/scipy/scipy/issues/10634
+        :param steps:
+        :param decorr_period:
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param verbose:
+            0 : work silently.
+            1 : display a termination report.
+            2 : display progress during iterations.
+        """
+        steps = steps // self.mpi_comm.size * self.mpi_comm.size
+        scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
+        condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
+        wfn_0 = np.empty(shape=(steps,))
+        wfn_0_part = vmc_observable(condition, position, self.wfn.value)
+        self.mpi_comm.Allgather(wfn_0_part, wfn_0)
+
+        def fun(x, *args, **kwargs):
+            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
+            wfn = np.empty(shape=(steps,))
+            energy = np.empty(shape=(steps,))
+            wfn_part = vmc_observable(condition, position, self.wfn.value)
+            energy_part = vmc_observable(condition, position, self.wfn.energy)
+            self.mpi_comm.Allgather(wfn_part, wfn)
+            self.mpi_comm.Allgather(energy_part, energy)
+            weights = (wfn / wfn_0)**2
+            ddof = (weights**2).sum() / weights.sum()  # Delta Degrees of Freedom
+            return np.sqrt(2) * (energy - np.average(energy, weights=weights)) * np.sqrt(weights / (weights.sum() - ddof))
+
+        res = least_squares(
+            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, jac='2-point',
+            method='trf', ftol=1/np.sqrt(steps-1), x_scale='jac', loss='linear',
+            tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
+        )
+        parameters = res.x * scale
+        self.mpi_comm.Bcast(parameters)
+        self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
+        self.logger.info(f'{res.message}\n')
+        self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(np.linalg.norm(res.jac, axis=0))
 
     def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
@@ -491,6 +534,7 @@ class Casino:
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
+        self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(res.jac)
 
 
