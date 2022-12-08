@@ -170,7 +170,7 @@ class Casino:
                 self.optimize_vmc_step(1000)
                 self.vmc_energy_accumulation()
                 for i in range(self.config.input.opt_cycles):
-                    self.vmc_reweighted_variance_minimization(
+                    self.vmc_unreweighted_variance_minimization(
                         self.config.input.vmc_nconfig_write,
                         self.config.input.vmc_decorr_period,
                         self.config.input.opt_jastrow,
@@ -494,7 +494,7 @@ class Casino:
         Gradient only for: CG, BFGS, L-BFGS-B, TNC, SLSQP
         Gradient and Hessian is required for: Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact, trust-constr
         Constraints definition only for: COBYLA, SLSQP and trust-constr.
-        Bounds on variables for Nelder-Mead, Powell, L-BFGS-B, TNC, SLSQP,  and trust-constr methods.
+        Bounds on variables for Nelder-Mead, Powell, L-BFGS-B, TNC, SLSQP, and trust-constr methods.
         SciPy, оптимизация с условиями - https://habr.com/ru/company/ods/blog/448054/
 
         :param steps:
@@ -534,8 +534,8 @@ class Casino:
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        self.logger.info('Jacobian matrix at the solution:')
-        self.logger.info(res.jac)
+        # self.logger.info('Jacobian matrix at the solution:')
+        # self.logger.info(res.jac)
 
 
 if __name__ == '__main__':
