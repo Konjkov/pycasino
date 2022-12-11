@@ -878,8 +878,8 @@ class Jastrow:
         res = np.zeros(shape=(size,))
 
         n = -1
-        for i, (chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff_optimizable) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff_optimizable)):
-            if chi_cutoff_optimizable:
+        for i, (chi_parameters, chi_parameters_optimizable, chi_mask) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask)):
+            if self.chi_cutoff_optimizable[i]:
                 n += 1
                 self.chi_cutoff[i] -= delta
                 self.fix_chi_parameters()
@@ -920,8 +920,8 @@ class Jastrow:
         res = np.zeros(shape=(size,))
 
         n = -1
-        for i, (f_parameters, f_parameters_optimizable, f_mask, f_cutoff_optimizable) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff_optimizable)):
-            if f_cutoff_optimizable:
+        for i, (f_parameters, f_parameters_optimizable, f_mask) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask)):
+            if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta
                 self.fix_f_parameters()

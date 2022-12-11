@@ -512,9 +512,7 @@ class Casino:
             wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
             mean_energy_gradient = energy_parameters_gradient(energy, wfn_gradient)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
-            if self.mpi_comm.rank == 0:
-                print('energy', energy.mean())
-            return self.mpi_comm.allreduce(0.95 * energy.mean() + 0.05 * energy.var()) / self.mpi_comm.size, mean_energy_gradient / self.mpi_comm.size
+            return self.mpi_comm.allreduce(energy.mean() + energy.std()) / self.mpi_comm.size, mean_energy_gradient / self.mpi_comm.size
 
         def hess(x, *args):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
