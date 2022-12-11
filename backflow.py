@@ -933,8 +933,8 @@ class Backflow:
                         res.append(1 / (self.eta_cutoff[j2 % self.eta_cutoff.shape[0]] * scale) ** j1)
 
         if self.mu_cutoff.any():
-            for i, (mu_parameters, mu_parameters_optimizable, mu_mask, mu_cutoff) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_mask, self.mu_cutoff)):
-                if self.mu_cutoff_optimizable:
+            for i, (mu_parameters, mu_parameters_optimizable, mu_mask, mu_cutoff, mu_cutoff_optimizable) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_mask, self.mu_cutoff, self.mu_cutoff_optimizable)):
+                if mu_cutoff_optimizable:
                     res.append(mu_cutoff)
                 for j1 in range(mu_parameters.shape[0]):
                     for j2 in range(mu_parameters.shape[1]):
@@ -942,8 +942,8 @@ class Backflow:
                             res.append(1 / (mu_cutoff * scale) ** j1)
 
         if self.phi_cutoff.any():
-            for i, (phi_parameters, phi_parameters_optimizable, theta_parameters_optimizable, phi_mask, theta_mask, phi_cutoff) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters_optimizable, self.phi_mask, self.theta_mask, self.phi_cutoff)):
-                if self.phi_cutoff_optimizable:
+            for i, (phi_parameters, phi_parameters_optimizable, theta_parameters_optimizable, phi_mask, theta_mask, phi_cutoff, phi_cutoff_optimizable) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters_optimizable, self.phi_mask, self.theta_mask, self.phi_cutoff, self.phi_cutoff_optimizable)):
+                if phi_cutoff_optimizable:
                     res.append(phi_cutoff)
                 for j1 in range(phi_parameters.shape[0]):
                     for j2 in range(phi_parameters.shape[1]):
@@ -975,13 +975,13 @@ class Backflow:
                     res.append(eta_cutoff)
             res += list(self.eta_parameters.ravel()[(self.eta_mask & self.eta_parameters_optimizable).ravel()])
         if self.mu_cutoff.any():
-            for mu_parameters, mu_parameters_optimizable, mu_mask, mu_cutoff in zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_mask, self.mu_cutoff):
-                if self.mu_cutoff_optimizable:
+            for mu_parameters, mu_parameters_optimizable, mu_mask, mu_cutoff, mu_cutoff_optimizable in zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_mask, self.mu_cutoff, self.mu_cutoff_optimizable):
+                if mu_cutoff_optimizable:
                     res.append(mu_cutoff)
                 res += list(mu_parameters.ravel()[(mu_mask & mu_parameters_optimizable).ravel()])
         if self.phi_cutoff.any():
-            for phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable, phi_mask, theta_mask, phi_cutoff in zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable, self.phi_mask, self.theta_mask, self.phi_cutoff):
-                if self.phi_cutoff_optimizable:
+            for phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable, phi_mask, theta_mask, phi_cutoff, phi_cutoff_optimizable in zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable, self.phi_mask, self.theta_mask, self.phi_cutoff, self.phi_cutoff_optimizable):
+                if phi_cutoff_optimizable:
                     res.append(phi_cutoff)
                 res += list(phi_parameters.ravel()[(phi_mask & phi_parameters_optimizable).ravel()])
                 res += list(theta_parameters.ravel()[(theta_mask & theta_parameters_optimizable).ravel()])
@@ -1010,8 +1010,8 @@ class Backflow:
             self.fix_eta_parameters()
 
         if self.mu_cutoff.any():
-            for i, (mu_parameters, mu_parameters_optimizable, mu_mask) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_mask)):
-                if self.mu_cutoff_optimizable:
+            for i, (mu_parameters, mu_parameters_optimizable, mu_mask, mu_cutoff_optimizable) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_mask, self.mu_cutoff_optimizable)):
+                if mu_cutoff_optimizable:
                     self.mu_cutoff[i] = parameters[n]
                     n += 1
                 for j1 in range(mu_parameters.shape[0]):
@@ -1022,8 +1022,8 @@ class Backflow:
             self.fix_mu_parameters()
 
         if self.phi_cutoff.any():
-            for i, (phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable, phi_mask, theta_mask) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable, self.phi_mask, self.theta_mask)):
-                if self.phi_cutoff_optimizable:
+            for i, (phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable, phi_mask, theta_mask, phi_cutoff_optimizable) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable, self.phi_mask, self.theta_mask, self.phi_cutoff_optimizable)):
+                if phi_cutoff_optimizable:
                     self.phi_cutoff[i] = parameters[n]
                     n += 1
                 for j1 in range(phi_parameters.shape[0]):
@@ -1044,6 +1044,98 @@ class Backflow:
             self.fix_phi_parameters()
 
         return parameters[n:]
+
+    def eta_term_numerical_d1(self, e_vectors, e_powers):
+        """Numerical first derivatives of logarithm wfn with respect to eta-term parameters
+        :param e_vectors: e-e vectors
+        :param e_powers: powers of e-e distances
+        """
+        if not self.eta_cutoff.any():
+            return np.zeros((0,))
+
+        delta = 0.00001
+        size = (self.eta_mask & self.eta_parameters_optimizable).sum() + self.eta_cutoff_optimizable.sum()
+        res = np.zeros(shape=(size, self.neu + self.ned, 3))
+
+        n = -1
+        for i in range(self.eta_cutoff.shape[0]):
+            if self.eta_cutoff_optimizable[i]:
+                n += 1
+                self.eta_cutoff -= delta
+                self.fix_eta_parameters()
+                res[n] -= self.eta_term(e_vectors, e_powers)
+                self.eta_cutoff += 2 * delta
+                self.fix_eta_parameters()
+                res[n] += self.eta_term(e_vectors, e_powers)
+                self.eta_cutoff -= delta
+
+        self.fix_eta_parameters()
+        return res / delta / 2
+
+    def mu_term_numerical_d1(self, n_vectors, n_powers):
+        """Numerical first derivatives of logarithm wfn with respect to mu-term parameters
+        :param n_vectors: e-n vectors
+        :param n_powers: powers of e-n distances
+        """
+        if not self.mu_cutoff.any():
+            return np.zeros((0,))
+
+        delta = 0.00001
+        size = sum([
+            (mu_mask & mu_parameters_optimizable).sum() + mu_cutoff_optimizable
+            for mu_parameters_optimizable, mu_mask, mu_cutoff_optimizable
+            in zip(self.mu_parameters_optimizable, self.mu_mask, self.mu_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size, self.neu + self.ned, 3))
+
+        for i, (mu_parameters, mu_parameters_optimizable, mu_mask, mu_cutoff_optimizable) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_mask, self.mu_cutoff_optimizable)):
+            if mu_cutoff_optimizable:
+                pass
+
+        return res / delta / 2
+
+    def phi_term_numerical_d1(self, e_powers, n_powers, e_vectors, n_vectors):
+        """Numerical first derivatives of logarithm wfn with respect to phi-term parameters
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :param e_powers: powers of e-e distances
+        :param n_powers: powers of e-n distances
+        """
+        if not self.phi_cutoff.any():
+            return np.zeros((0,))
+
+        delta = 0.00001
+        size = sum([
+            (phi_mask & phi_parameters_optimizable).sum() + phi_cutoff_optimizable
+            for phi_parameters_optimizable, phi_mask, phi_cutoff_optimizable
+            in zip(self.phi_parameters_optimizable, self.phi_mask, self.phi_cutoff_optimizable)
+        ])
+        size += sum([
+            (theta_mask & theta_parameters_optimizable).sum()
+            for theta_parameters_optimizable, theta_mask
+            in zip(self.theta_parameters_optimizable, self.theta_mask)
+        ])
+        res = np.zeros(shape=(size, self.neu + self.ned, 3))
+
+        for i, (phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable, phi_mask, theta_mask, phi_cutoff_optimizable) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable, self.phi_mask, self.theta_mask, self.phi_cutoff_optimizable)):
+            if phi_cutoff_optimizable:
+                pass
+
+        return res / delta / 2
+
+    def parameters_numerical_d1(self, e_vectors, n_vectors):
+        """Numerical first derivatives logarithm Backflow with respect to the parameters
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        """
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        return np.concatenate((
+            self.eta_term_numerical_d1(e_vectors, e_powers),
+            self.mu_term_numerical_d1(n_vectors, n_powers),
+            self.phi_term_numerical_d1(e_powers, n_powers, e_vectors, n_vectors),
+        ))
 
     def profile_value(self, dr, steps, atom_positions, r_initial):
         """auxiliary code"""

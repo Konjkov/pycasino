@@ -209,21 +209,95 @@ class Wfn:
             ))
         return res
 
-    def jastrow_parameters_numerical_d1(self, r_e):
-        """
+    def energy_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
+        """First-order derivatives of energy with respect to the parameters.
         :param r_e: electron coordinates - array(nelec, 3)
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
         :return:
         """
-        e_vectors, n_vectors = self._relative_coordinates(r_e)
-        return self.jastrow.parameters_numerical_d1(e_vectors, n_vectors) * self.slater.value(n_vectors)
+        delta = 0.00001  # (1/2**52)**(1/3)
+        parameters = self.get_parameters(opt_jastrow, opt_backflow)
+        res = np.zeros(shape=parameters.shape)
+        for i in range(parameters.size):
+            parameters[i] -= delta
+            self.set_parameters(parameters, opt_jastrow, opt_backflow)
+            res[i] -= self.energy(r_e)
+            parameters[i] += 2 * delta
+            self.set_parameters(parameters, opt_jastrow, opt_backflow)
+            res[i] += self.energy(r_e)
+            parameters[i] -= delta
 
-    def jastrow_parameters_numerical_d2(self, r_e):
-        """
+        self.set_parameters(parameters, opt_jastrow, opt_backflow)
+        return res / delta / 2
+
+    def energy_parameters_numerical_d2(self, r_e, opt_jastrow=True, opt_backflow=True):
+        """Second-order derivatives of energy with respect to the parameters.
         :param r_e: electron coordinates - array(nelec, 3)
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :return:
+        """
+        delta = 0.00001  # (1/2**52)**(1/3)
+        parameters = self.get_parameters(opt_jastrow, opt_backflow)
+        res = np.zeros(shape=(parameters.size, parameters.size))
+        for i in range(parameters.size):
+            for j in range(parameters.size):
+                if i >= j:
+                    continue
+                parameters[i] -= delta
+                parameters[j] -= delta
+                self.set_parameters(parameters, opt_jastrow, opt_backflow)
+                res[i, j] += self.energy(r_e)
+                parameters[i] += 2 * delta
+                self.set_parameters(parameters, opt_jastrow, opt_backflow)
+                res[i, j] -= self.energy(r_e)
+                parameters[j] += 2 * delta
+                self.set_parameters(parameters, opt_jastrow, opt_backflow)
+                res[i, j] += self.energy(r_e)
+                parameters[i] -= 2 * delta
+                self.set_parameters(parameters, opt_jastrow, opt_backflow)
+                res[i, j] -= self.energy(r_e)
+                parameters[i] += delta
+                parameters[j] -= delta
+                res[j, i] = res[i, j]
+
+        self.set_parameters(parameters, opt_jastrow, opt_backflow)
+        return res / delta / delta
+
+    def value_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
+        """First-order derivatives of the wave function with respect to the parameters divided by wfn.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :return:
+        """
+        res = np.zeros(0)
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        if self.jastrow is not None and opt_jastrow:
+            res = np.concatenate((
+                res, self.jastrow.parameters_numerical_d1(e_vectors, n_vectors)
+            ))
+        if self.backflow is not None and opt_backflow:
+            pass
+            # res = np.concatenate((
+            #     res, self.backflow.parameters_numerical_d1(e_vectors, n_vectors)
+            # ))
+        return res
+
+    def value_parameters_numerical_d2(self, r_e, opt_jastrow=True, opt_backflow=True):
+        """Second-order derivatives of the wave function with respect to the parameters.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
         :return:
         """
         e_vectors, n_vectors = self._relative_coordinates(r_e)
-        return self.jastrow.parameters_numerical_d2(e_vectors, n_vectors) * self.slater.value(n_vectors)
+        parameters_numerical_d1 = self.jastrow.parameters_numerical_d1(e_vectors, n_vectors)
+        return (
+            self.jastrow.parameters_numerical_d2(e_vectors, n_vectors) +
+            np.outer(parameters_numerical_d1, parameters_numerical_d1)
+        )
 
     def numerical_gradient(self, r_e):
         """Numerical gradient with respect to e-coordinates

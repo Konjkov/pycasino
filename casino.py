@@ -17,15 +17,15 @@ from sem import correlated_sem
 from logger import logging
 
 
-def energy_parameters_gradient(energy, energy_gradient):
+def energy_parameters_gradient(energy, wfn_gradient):
     """
     :param energy:
-    :param energy_gradient:
+    :param wfn_gradient:
     :return:
     """
     return 2 * (
-        np.average((energy_gradient * energy[:, np.newaxis]), axis=0) -
-        np.average(energy_gradient, axis=0) * np.average(energy)
+        np.mean(wfn_gradient * energy[:, np.newaxis], axis=0) -
+        np.mean(wfn_gradient, axis=0) * np.mean(energy)
     )
 
 
@@ -443,7 +443,7 @@ class Casino:
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
         self.logger.info(f'{res.message}\n')
         self.logger.info('Jacobian matrix at the solution:')
-        self.logger.info(np.linalg.norm(res.jac, axis=0))
+        self.logger.info(np.sum(res.jac, axis=0))
 
     def vmc_reweighted_variance_minimization(self, steps, decorr_period, opt_jastrow, opt_backflow, verbose=2):
         """Minimize vmc reweighted variance.
@@ -486,7 +486,7 @@ class Casino:
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
         self.logger.info(f'{res.message}\n')
         self.logger.info('Jacobian matrix at the solution:')
-        self.logger.info(np.linalg.norm(res.jac, axis=0))
+        self.logger.info(np.sum(res.jac, axis=0))
 
     def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
         """Minimize vmc energy.
@@ -509,16 +509,18 @@ class Casino:
         def fun(x, *args):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy = vmc_observable(condition, position, self.wfn.energy)
-            energy_gradient = vmc_observable(condition, position, self.wfn.jastrow_parameters_numerical_d1)
-            mean_energy_gradient = energy_parameters_gradient(energy, energy_gradient)
+            wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
+            mean_energy_gradient = energy_parameters_gradient(energy, wfn_gradient)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
+            if self.mpi_comm.rank == 0:
+                print('energy', energy.mean())
             return self.mpi_comm.allreduce(0.95 * energy.mean() + 0.05 * energy.var()) / self.mpi_comm.size, mean_energy_gradient / self.mpi_comm.size
 
         def hess(x, *args):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient = vmc_observable(condition, position, self.wfn.jastrow_parameters_numerical_d1)
-            wfn_hessian = vmc_observable(condition, position, self.wfn.jastrow_parameters_numerical_d2)
+            wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
+            wfn_hessian = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d2)
             energy_hessian = energy_parameters_hessian(energy, wfn_gradient, wfn_hessian)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, energy_hessian)
             return energy_hessian / self.mpi_comm.size
