@@ -664,7 +664,7 @@ class Jastrow:
                 print('should be equal to zero')
                 print(f_parameters[:, 0, 0, :])
 
-    def get_bounds(self):
+    def get_parameters_bounds(self):
         """Bonds constraints fluctuation of Jastrow parameters
         and thus increases robustness of the energy minimization procedure.
         :return:
@@ -708,7 +708,7 @@ class Jastrow:
 
         return np.array(lower_bonds), np.array(upper_bonds)
 
-    def get_x_scale(self):
+    def get_parameters_scale(self):
         """Characteristic scale of each variable. Setting x_scale is equivalent
         to reformulating the problem in scaled variables xs = x / x_scale.
         An alternative view is that the size of a trust region along j-th

@@ -248,7 +248,7 @@ class Jastrow:
                                     if self.u_mask[l, i]:
                                         self.u_parameters[l, i], self.u_parameters_optimizable[l, i] = self.read_parameter()
                         except ValueError:
-                            # set u_term[1] to zero
+                            # e-e cusp condition
                             for i in range(u_spin_dep+1):
                                 self.u_parameters[0, i] = -self.u_cutoff[0]['value'] / np.array([4, 2, 4])[i] / (-self.u_cutoff[0]['value']) ** self.trunc / self.trunc
                             self.u_parameters_optimizable = self.u_mask.copy()

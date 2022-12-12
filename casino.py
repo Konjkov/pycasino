@@ -192,7 +192,7 @@ class Casino:
                 self.optimize_vmc_step(1000)
                 self.vmc_energy_accumulation()
                 for i in range(self.config.input.opt_cycles):
-                    self.vmc_energy_minimization(
+                    self.vmc_reweighted_energy_minimization(
                         self.config.input.vmc_nconfig_write,
                         self.config.input.vmc_decorr_period,
                         self.config.input.opt_jastrow,
@@ -434,8 +434,8 @@ class Casino:
             return np.sqrt(2) * (energy - energy.mean()) / np.sqrt(steps - 1)
 
         res = least_squares(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, jac='2-point',
-            method='trf', ftol=1/np.sqrt(steps-1), x_scale='jac', loss='linear',
+            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale,
+            jac='2-point', method='trf', ftol=1/np.sqrt(steps-1), x_scale='jac',
             tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
         )
         parameters = res.x * scale
@@ -443,7 +443,7 @@ class Casino:
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
         self.logger.info(f'{res.message}\n')
         self.logger.info('Jacobian matrix at the solution:')
-        self.logger.info(np.sum(res.jac, axis=0))
+        self.logger.info(np.sum(res.jac, axis=0) * scale)
 
     def vmc_reweighted_variance_minimization(self, steps, decorr_period, opt_jastrow, opt_backflow, verbose=2):
         """Minimize vmc reweighted variance.
@@ -477,8 +477,8 @@ class Casino:
             return np.sqrt(2) * (energy - np.average(energy, weights=weights)) * np.sqrt(weights / (weights.sum() - ddof))
 
         res = least_squares(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, jac='2-point',
-            method='trf', ftol=1/np.sqrt(steps-1), x_scale='jac', loss='linear',
+            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale,
+            jac='2-point', method='trf', ftol=1/np.sqrt(steps-1), x_scale='jac',
             tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
         )
         parameters = res.x * scale
@@ -486,9 +486,9 @@ class Casino:
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
         self.logger.info(f'{res.message}\n')
         self.logger.info('Jacobian matrix at the solution:')
-        self.logger.info(np.sum(res.jac, axis=0))
+        self.logger.info(np.sum(res.jac, axis=0) * scale)
 
-    def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
+    def vmc_reweighted_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
         """Minimize vmc energy.
         Function only for: Nelder-Mead, Powell
         Gradient only for: CG, BFGS, L-BFGS-B, TNC, SLSQP
@@ -503,16 +503,27 @@ class Casino:
         :param opt_backflow: optimize backflow parameters
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        bounds = Bounds(*self.wfn.get_bounds(), keep_feasible=True)
+        bounds = Bounds(*self.wfn.get_parameters_bounds(), keep_feasible=True)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
+        wfn_0 = np.empty(shape=(steps,))
+        wfn_0_part = vmc_observable(condition, position, self.wfn.value)
+        self.mpi_comm.Allgather(wfn_0_part, wfn_0)
 
         def fun(x, *args):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
-            energy = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
-            mean_energy_gradient = energy_parameters_gradient(energy, wfn_gradient)
+            wfn = np.empty(shape=(steps,))
+            energy = np.empty(shape=(steps,))
+            wfn_part = vmc_observable(condition, position, self.wfn.value)
+            energy_part = vmc_observable(condition, position, self.wfn.energy)
+            wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
+            mean_energy_gradient = energy_parameters_gradient(energy_part, wfn_gradient_part)
+            self.mpi_comm.Allgather(wfn_part, wfn)
+            self.mpi_comm.Allgather(energy_part, energy)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
-            return self.mpi_comm.allreduce(energy.mean() + energy.std()) / self.mpi_comm.size, mean_energy_gradient / self.mpi_comm.size
+            weights = (wfn / wfn_0) ** 2
+            if self.mpi_comm.rank == 0:
+                print('energy', energy.mean())
+            return np.average(energy, weights=weights), mean_energy_gradient / self.mpi_comm.size
 
         def hess(x, *args):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
@@ -534,8 +545,8 @@ class Casino:
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        # self.logger.info('Jacobian matrix at the solution:')
-        # self.logger.info(res.jac)
+        self.logger.info('Jacobian matrix at the solution:')
+        self.logger.info(res.jac)
 
 
 if __name__ == '__main__':
