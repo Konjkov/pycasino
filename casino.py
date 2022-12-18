@@ -3,7 +3,7 @@ import argparse
 from timeit import default_timer
 from numpy_config import np
 from mpi4py import MPI
-from scipy.optimize import least_squares, minimize, root, Bounds, curve_fit
+from scipy.optimize import least_squares, minimize, Bounds, curve_fit
 import matplotlib.pyplot as plt
 
 from cusp import CuspFactory
@@ -18,7 +18,9 @@ from logger import logging
 
 
 def energy_parameters_gradient(energy, wfn_gradient):
-    """
+    """Gradient estimator from
+    Optimization of quantum Monte Carlo wave functions by energy minimization.
+    Julien Toulouse, C. J. Umrigar
     :param energy:
     :param wfn_gradient:
     :return:
@@ -29,26 +31,42 @@ def energy_parameters_gradient(energy, wfn_gradient):
     )
 
 
-def energy_parameters_hessian(energy, energy_gradient, energy_hessian):
-    """Lin, Zhang and Rappe (LZR) hessian from
+def energy_parameters_hessian(energy, wfn_gradient, wfn_hessian, energy_gradient, estimator='LZP'):
+    """Lin, Zhang and Rappe (LZR) hessian estimator
+    and Umrigar and Filippi from
     Optimization of quantum Monte Carlo wave functions by energy minimization.
+    Julien Toulouse, C. J. Umrigar (TU)
     :param energy:
+    :param wfn_gradient:
+    :param wfn_hessian:
     :param energy_gradient:
-    :param energy_hessian:
+    :param estimator: LZP or FU
     :return:
     """
-    t1 = np.einsum('ij,ik->ijk', energy_gradient, energy_gradient)
+    mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
+    outer_wfn_gradient = np.einsum('ij,ik->ijk', wfn_gradient, wfn_gradient)
     A = 2 * (
-        np.average(energy_hessian * energy[:, np.newaxis, np.newaxis], axis=0) -
-        np.average(energy_hessian, axis=0) * np.average(energy, axis=0) -
-        np.average(t1 * energy[..., np.newaxis, np.newaxis], axis=0) +
-        np.average(t1, axis=0) * np.average(energy)
+        np.mean(wfn_hessian * energy[:, np.newaxis, np.newaxis], axis=0) -
+        np.mean(wfn_hessian, axis=0) * np.mean(energy, axis=0) -
+        np.mean(outer_wfn_gradient * energy[..., np.newaxis, np.newaxis], axis=0) +
+        np.mean(outer_wfn_gradient, axis=0) * np.mean(energy)
     )
-    t2 = energy_gradient - np.average(energy_gradient, axis=0)
-    t3 = (energy - np.average(energy, axis=0))
-    B = 4 * np.average(np.einsum('ij,ik->ijk', t2, t2) * t3[..., np.newaxis, np.newaxis], axis=0)
-    C = 0.0
-    return A + B + C
+    t2 = wfn_gradient - mean_wfn_gradient
+    t3 = energy - np.mean(energy, axis=0)
+    B = 4 * np.mean(np.einsum('ij,ik->ijk', t2, t2) * t3[..., np.newaxis, np.newaxis], axis=0)
+    if estimator == 'LZP':
+        outer_wfn_energy_gradient = np.einsum('ij,ik->ijk', wfn_gradient, energy_gradient)
+        C = 2 * np.mean(outer_wfn_energy_gradient, axis=0)
+        return A + B + C
+    elif estimator == 'UF':
+        mean_energy_gradient = np.mean(energy_gradient, axis=0)
+        D = (
+            np.mean(np.einsum('ij,ik->ijk', energy_gradient, wfn_gradient), axis=0) +
+            np.mean(np.einsum('ij,ik->ijk', wfn_gradient, energy_gradient), axis=0) -
+            np.outer(mean_wfn_gradient, mean_energy_gradient) -
+            np.outer(mean_energy_gradient, mean_wfn_gradient)
+        )
+        return A + B + D
 
 
 class Casino:
@@ -192,7 +210,7 @@ class Casino:
                 self.optimize_vmc_step(1000)
                 self.vmc_energy_accumulation()
                 for i in range(self.config.input.opt_cycles):
-                    self.vmc_reweighted_energy_minimization(
+                    self.vmc_unreweighted_energy_minimization(
                         self.config.input.vmc_nconfig_write,
                         self.config.input.vmc_decorr_period,
                         self.config.input.opt_jastrow,
@@ -488,7 +506,7 @@ class Casino:
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(np.sum(res.jac, axis=0) * scale)
 
-    def vmc_reweighted_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
+    def vmc_unreweighted_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
         """Minimize vmc energy.
         Function only for: Nelder-Mead, Powell
         Gradient only for: CG, BFGS, L-BFGS-B, TNC, SLSQP
@@ -504,6 +522,60 @@ class Casino:
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         bounds = Bounds(*self.wfn.get_parameters_bounds(), keep_feasible=True)
+        condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
+
+        def fun(x, *args):
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            energy = np.empty(shape=(steps,))
+            energy_part = vmc_observable(condition, position, self.wfn.energy)
+            wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
+            mean_energy_gradient = energy_parameters_gradient(energy_part, wfn_gradient_part)
+            self.mpi_comm.Allgather(energy_part, energy)
+            self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
+            if self.mpi_comm.rank == 0:
+                print('energy', energy.mean(), np.median(energy), energy.std())
+            return np.median(energy), mean_energy_gradient / self.mpi_comm.size
+
+        def hess(x, *args):
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            energy = vmc_observable(condition, position, self.wfn.energy)
+            wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
+            wfn_hessian = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d2)
+            energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
+            mean_energy_hessian = energy_parameters_hessian(energy, wfn_gradient, wfn_hessian, energy_gradient, estimator='LZP')
+            self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_hessian)
+            return mean_energy_hessian / self.mpi_comm.size
+
+        # res = minimize(
+        #     fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), method='TNC', jac=True,
+        #     bounds=bounds, options=dict(disp=self.mpi_comm.rank == 0, ftol=1/np.sqrt(steps-1))
+        # )
+        res = minimize(
+            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), method='Newton-CG',
+            jac=True, hess=hess, options=dict(disp=self.mpi_comm.rank == 0, ftol=1/np.sqrt(steps-1))
+        )
+        parameters = res.x
+        self.mpi_comm.Bcast(parameters)
+        self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
+        self.logger.info('Jacobian matrix at the solution:')
+        self.logger.info(res.jac)
+
+    def vmc_reweighted_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
+        """Minimize vmc energy.
+        Function only for: Nelder-Mead, Powell
+        Gradient only for: CG, BFGS, L-BFGS-B, TNC, SLSQP
+        Gradient and Hessian is required for: Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact, trust-constr
+        Constraints definition only for: COBYLA, SLSQP and trust-constr.
+        Bounds on variables for Nelder-Mead, Powell, L-BFGS-B, TNC, SLSQP, and trust-constr methods.
+        SciPy, оптимизация с условиями - https://habr.com/ru/company/ods/blog/448054/
+
+        :param steps:
+        :param decorr_period:
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        """
+        steps = steps // self.mpi_comm.size * self.mpi_comm.size
+        # bounds = Bounds(*self.wfn.get_parameters_bounds(), keep_feasible=True)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
         wfn_0 = np.empty(shape=(steps,))
         wfn_0_part = vmc_observable(condition, position, self.wfn.value)
@@ -530,18 +602,19 @@ class Casino:
             energy = vmc_observable(condition, position, self.wfn.energy)
             wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
             wfn_hessian = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d2)
-            energy_hessian = energy_parameters_hessian(energy, wfn_gradient, wfn_hessian)
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, energy_hessian)
-            return energy_hessian / self.mpi_comm.size
+            energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
+            mean_energy_hessian = energy_parameters_hessian(energy, wfn_gradient, wfn_hessian, energy_gradient, estimator='LZP')
+            self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_hessian)
+            return mean_energy_hessian / self.mpi_comm.size
 
-        res = minimize(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), method='TNC', jac=True,
-            bounds=bounds, tol=1/np.sqrt(steps-1), options=dict(disp=self.mpi_comm.rank == 0)
-        )
         # res = minimize(
-        #     fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), method='trust-ncg',
-        #     jac=True, hess=hess, options=dict(disp=self.mpi_comm.rank == 0)
+        #     fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), method='TNC', jac=True,
+        #     bounds=bounds, tol=1/np.sqrt(steps-1), options=dict(disp=self.mpi_comm.rank == 0)
         # )
+        res = minimize(
+            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), method='Newton-CG',
+            jac=True, hess=hess, options=dict(disp=self.mpi_comm.rank == 0)
+        )
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)

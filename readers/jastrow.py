@@ -220,7 +220,9 @@ class Jastrow:
                 elif line.startswith('START F TERM'):
                     f_term = True
                 elif line.startswith('END U TERM'):
-                    self.fix_u_parameters()
+                    if self.u_parameters.any():
+                        # impose e-e cusp condition only if it's not initial Jastrow
+                        self.fix_u_parameters()
                     u_term = False
                 elif line.startswith('END CHI TERM'):
                     self.fix_chi_parameters()
@@ -248,9 +250,9 @@ class Jastrow:
                                     if self.u_mask[l, i]:
                                         self.u_parameters[l, i], self.u_parameters_optimizable[l, i] = self.read_parameter()
                         except ValueError:
-                            # e-e cusp condition
-                            for i in range(u_spin_dep+1):
-                                self.u_parameters[0, i] = -self.u_cutoff[0]['value'] / np.array([4, 2, 4])[i] / (-self.u_cutoff[0]['value']) ** self.trunc / self.trunc
+                            # e-e cusp condition for CASINO emin
+                            # for i in range(u_spin_dep+1):
+                            #     self.u_parameters[0, i] = -self.u_cutoff[0]['value'] / np.array([4, 2, 4])[i] / (-self.u_cutoff[0]['value']) ** self.trunc / self.trunc
                             self.u_parameters_optimizable = self.u_mask.copy()
                     elif line.startswith('END SET'):
                         pass
@@ -534,13 +536,13 @@ class Jastrow:
 if __name__ == '__main__':
     """Read Jastrow terms
     """
-    for f_term in (
+    for f_term_order in (
         '11', '12', '13', '14', '15',
         '21', '22', '23', '24', '25',
         '31', '32', '33', '34', '35',
         '41', '42', '43', '44', '45',
         '51', '52', '53', '54', '55',
     ):
-        print(f_term)
-        path = f'test/jastrow/3_1/{f_term}/correlation.out.1'
+        print(f_term_order)
+        path = f'test/jastrow/3_1/{f_term_order}/correlation.out.1'
         Jastrow().read(path)
