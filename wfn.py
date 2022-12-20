@@ -217,17 +217,16 @@ class Wfn:
         :return:
         """
         delta = 0.00001  # (1/2**52)**(1/3)
-        scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
         parameters = self.get_parameters(opt_jastrow, opt_backflow)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
-            parameters[i] -= delta * scale[i]
+            parameters[i] -= delta
             self.set_parameters(parameters, opt_jastrow, opt_backflow)
             res[i] -= self.value(r_e)
-            parameters[i] += 2 * delta * scale[i]
+            parameters[i] += 2 * delta
             self.set_parameters(parameters, opt_jastrow, opt_backflow)
             res[i] += self.value(r_e)
-            parameters[i] -= delta * scale[i]
+            parameters[i] -= delta
 
         self.set_parameters(parameters, opt_jastrow, opt_backflow)
         return res / delta / 2

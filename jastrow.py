@@ -975,7 +975,7 @@ class Jastrow:
                             res[n, m] += self.u_term(e_powers)
                             self.u_parameters[i1, j1] -= 2 * delta
                             self.fix_u_parameters()
-                            res[n, m] += self.u_term(e_powers)
+                            res[n, m] -= self.u_term(e_powers)
                             self.u_parameters[i1, j1] += delta
                             self.u_cutoff -= delta
                             res[m, n] = res[n, m]
@@ -1006,7 +1006,7 @@ class Jastrow:
                                     res[n, m] += self.u_term(e_powers)
                                     self.u_parameters[i1, j1] -= 2 * delta
                                     self.fix_u_parameters()
-                                    res[n, m] += self.u_term(e_powers)
+                                    res[n, m] -= self.u_term(e_powers)
                                     self.u_parameters[i1, j1] += delta
                                     self.u_parameters[i2, j2] -= delta
                                     res[m, n] = res[n, m]
@@ -1063,7 +1063,7 @@ class Jastrow:
                                 res[n, m] += self.chi_term(n_powers)
                                 chi_parameters[i1, j1] -= 2 * delta
                                 self.fix_chi_parameters()
-                                res[n, m] += self.chi_term(n_powers)
+                                res[n, m] -= self.chi_term(n_powers)
                                 chi_parameters[i1, j1] += delta
                                 self.chi_cutoff[i] -= delta
                                 res[m, n] = res[n, m]
@@ -1094,7 +1094,7 @@ class Jastrow:
                                         res[n, m] += self.chi_term(n_powers)
                                         chi_parameters[i1, j1] -= 2 * delta
                                         self.fix_chi_parameters()
-                                        res[n, m] += self.chi_term(n_powers)
+                                        res[n, m] -= self.chi_term(n_powers)
                                         chi_parameters[i1, j1] += delta
                                         chi_parameters[i2, j2] -= delta
                                         res[m, n] = res[n, m]
@@ -1159,19 +1159,27 @@ class Jastrow:
                                 if f_mask[j1, j2, j3, j4] and f_parameters_optimizable[j1, j2, j3, j4]:
                                     n += 1
                                     f_parameters[j1, j2, j3, j4] -= delta
+                                    if j1 != j2:
+                                        f_parameters[j2, j1, j3, j4] -= delta
                                     self.f_cutoff[i] -= delta
                                     self.fix_f_parameters()
                                     res[0, n] += self.f_term(e_powers, n_powers)
                                     f_parameters[j1, j2, j3, j4] += 2 * delta
+                                    if j1 != j2:
+                                        f_parameters[j2, j1, j3, j4] += 2 * delta
                                     self.fix_f_parameters()
                                     res[0, n] -= self.f_term(e_powers, n_powers)
                                     self.f_cutoff[i] += 2 * delta
                                     self.fix_f_parameters()
                                     res[0, n] += self.f_term(e_powers, n_powers)
                                     f_parameters[j1, j2, j3, j4] -= 2 * delta
+                                    if j1 != j2:
+                                        f_parameters[j2, j1, j3, j4] -= 2 * delta
                                     self.fix_f_parameters()
-                                    res[0, n] += self.f_term(e_powers, n_powers)
+                                    res[0, n] -= self.f_term(e_powers, n_powers)
                                     f_parameters[j1, j2, j3, j4] += delta
+                                    if j1 != j2:
+                                        f_parameters[j2, j1, j3, j4] += delta
                                     self.f_cutoff[i] -= delta
                                     res[n, 0] = res[0, n]
 
@@ -1199,19 +1207,31 @@ class Jastrow:
                                                         if i1 != j1:
                                                             f_parameters[j1, i1, k1, l1] -= delta
                                                         f_parameters[i2, j2, k2, l2] -= delta
+                                                        if i2 != j2:
+                                                            f_parameters[j2, i2, k2, l2] -= delta
                                                         self.fix_f_parameters()
                                                         res[n, m] += self.f_term(e_powers, n_powers)
                                                         f_parameters[i1, j1, k1, l1] += 2 * delta
+                                                        if i1 != j1:
+                                                            f_parameters[j1, i1, k1, l1] += 2 * delta
                                                         self.fix_f_parameters()
                                                         res[n, m] -= self.f_term(e_powers, n_powers)
                                                         f_parameters[i2, j2, k2, l2] += 2 * delta
+                                                        if i2 != j2:
+                                                            f_parameters[j2, i2, k2, l2] += 2 * delta
                                                         self.fix_f_parameters()
                                                         res[n, m] += self.f_term(e_powers, n_powers)
                                                         f_parameters[i1, j1, k1, l1] -= 2 * delta
+                                                        if i1 != j1:
+                                                            f_parameters[j1, i1, k1, l1] -= 2 * delta
                                                         self.fix_f_parameters()
-                                                        res[n, m] += self.f_term(e_powers, n_powers)
+                                                        res[n, m] -= self.f_term(e_powers, n_powers)
                                                         f_parameters[i1, j1, k1, l1] += delta
+                                                        if i1 != j1:
+                                                            f_parameters[j1, i1, k1, l1] += delta
                                                         f_parameters[i2, j2, k2, l2] -= delta
+                                                        if i2 != j2:
+                                                            f_parameters[j2, i2, k2, l2] -= delta
                                                         res[m, n] = res[n, m]
 
         self.fix_f_parameters()
