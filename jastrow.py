@@ -942,43 +942,44 @@ class Jastrow:
         size = (self.u_mask & self.u_parameters_optimizable).sum() + self.u_cutoff_optimizable
         res = -2 * self.u_term(e_powers) * np.eye(size)
 
-        n = -1
         if self.u_cutoff_optimizable:
-            n += 1
+            # derivatives of cutoff
+            self.u_cutoff -= 2 * delta
+            self.fix_u_parameters()
+            res[0, 0] += self.u_term(e_powers)
+            self.u_cutoff += 4 * delta
+            self.fix_u_parameters()
+            res[0, 0] += self.u_term(e_powers)
+            self.u_cutoff -= 2 * delta
+            n = 0
+            for i1 in range(self.u_parameters.shape[0]):
+                for j1 in range(self.u_parameters.shape[1]):
+                    if self.u_mask[i1, j1] and self.u_parameters_optimizable[i1, j1]:
+                        # derivatives of cutoff and linear parameters
+                        n += 1
+                        self.u_parameters[i1, j1] -= delta
+                        self.u_cutoff -= delta
+                        self.fix_u_parameters()
+                        res[n, 0] += self.u_term(e_powers)
+                        self.u_parameters[i1, j1] += 2 * delta
+                        self.fix_u_parameters()
+                        res[n, 0] -= self.u_term(e_powers)
+                        self.u_cutoff += 2 * delta
+                        self.fix_u_parameters()
+                        res[n, 0] += self.u_term(e_powers)
+                        self.u_parameters[i1, j1] -= 2 * delta
+                        self.fix_u_parameters()
+                        res[n, 0] -= self.u_term(e_powers)
+                        self.u_parameters[i1, j1] += delta
+                        self.u_cutoff -= delta
+                        res[0, n] = res[n, 0]
+
+        n = self.u_cutoff_optimizable - 1
         for i1 in range(self.u_parameters.shape[0]):
             for j1 in range(self.u_parameters.shape[1]):
                 if self.u_mask[i1, j1] and self.u_parameters_optimizable[i1, j1]:
                     n += 1
-                    m = -1
-                    if self.u_cutoff_optimizable:
-                        m += 1
-                        # derivatives of cutoff
-                        if n == m:
-                            self.u_cutoff -= 2 * delta
-                            self.fix_u_parameters()
-                            res[n, m] += self.u_term(e_powers)
-                            self.u_cutoff += 4 * delta
-                            self.fix_u_parameters()
-                            res[n, m] += self.u_term(e_powers)
-                            self.u_cutoff -= 2 * delta
-                        # derivatives of cutoff and linear parameters
-                        elif n > m:
-                            self.u_parameters[i1, j1] -= delta
-                            self.u_cutoff -= delta
-                            self.fix_u_parameters()
-                            res[n, m] += self.u_term(e_powers)
-                            self.u_parameters[i1, j1] += 2 * delta
-                            self.fix_u_parameters()
-                            res[n, m] -= self.u_term(e_powers)
-                            self.u_cutoff += 2 * delta
-                            self.fix_u_parameters()
-                            res[n, m] += self.u_term(e_powers)
-                            self.u_parameters[i1, j1] -= 2 * delta
-                            self.fix_u_parameters()
-                            res[n, m] -= self.u_term(e_powers)
-                            self.u_parameters[i1, j1] += delta
-                            self.u_cutoff -= delta
-                            res[m, n] = res[n, m]
+                    m = self.u_cutoff_optimizable - 1
                     for i2 in range(self.u_parameters.shape[0]):
                         for j2 in range(self.u_parameters.shape[1]):
                             if self.u_mask[i2, j2] and self.u_parameters_optimizable[i2, j2]:
@@ -1030,43 +1031,44 @@ class Jastrow:
         res = -2 * self.chi_term(n_powers) * np.eye(size)
 
         for i, (chi_parameters, chi_parameters_optimizable, chi_mask) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask)):
-            n = -1
             if self.chi_cutoff_optimizable[i]:
-                n += 1
+                # derivatives of cutoff
+                self.chi_cutoff[i] -= 2 * delta
+                self.fix_chi_parameters()
+                res[0, 0] += self.chi_term(n_powers)
+                self.chi_cutoff[i] += 4 * delta
+                self.fix_chi_parameters()
+                res[0, 0] += self.chi_term(n_powers)
+                self.chi_cutoff[i] -= 2 * delta
+                n = 0
+                for i1 in range(chi_parameters.shape[0]):
+                    for j1 in range(chi_parameters.shape[1]):
+                        if chi_mask[i1, j1] and chi_parameters_optimizable[i1, j1]:
+                            # derivatives of cutoff and linear parameters
+                            n += 1
+                            chi_parameters[i1, j1] -= delta
+                            self.chi_cutoff[i] -= delta
+                            self.fix_chi_parameters()
+                            res[n, 0] += self.chi_term(n_powers)
+                            chi_parameters[i1, j1] += 2 * delta
+                            self.fix_chi_parameters()
+                            res[n, 0] -= self.chi_term(n_powers)
+                            self.chi_cutoff[i] += 2 * delta
+                            self.fix_chi_parameters()
+                            res[n, 0] += self.chi_term(n_powers)
+                            chi_parameters[i1, j1] -= 2 * delta
+                            self.fix_chi_parameters()
+                            res[n, 0] -= self.chi_term(n_powers)
+                            chi_parameters[i1, j1] += delta
+                            self.chi_cutoff[i] -= delta
+                            res[0, n] = res[n, 0]
+
+            n = self.chi_cutoff_optimizable[i] - 1
             for i1 in range(chi_parameters.shape[0]):
                 for j1 in range(chi_parameters.shape[1]):
                     if chi_mask[i1, j1] and chi_parameters_optimizable[i1, j1]:
                         n += 1
-                        m = -1
-                        if self.chi_cutoff_optimizable[i]:
-                            m += 1
-                            # derivatives of cutoff
-                            if n == m:
-                                self.chi_cutoff[i] -= 2 * delta
-                                self.fix_chi_parameters()
-                                res[n, m] += self.chi_term(n_powers)
-                                self.chi_cutoff[i] += 4 * delta
-                                self.fix_chi_parameters()
-                                res[n, m] += self.chi_term(n_powers)
-                                self.chi_cutoff[i] -= 2 * delta
-                            # derivatives of cutoff and linear parameters
-                            elif n > m:
-                                chi_parameters[i1, j1] -= delta
-                                self.chi_cutoff[i] -= delta
-                                self.fix_chi_parameters()
-                                res[n, m] += self.chi_term(n_powers)
-                                chi_parameters[i1, j1] += 2 * delta
-                                self.fix_chi_parameters()
-                                res[n, m] -= self.chi_term(n_powers)
-                                self.chi_cutoff[i] += 2 * delta
-                                self.fix_chi_parameters()
-                                res[n, m] += self.chi_term(n_powers)
-                                chi_parameters[i1, j1] -= 2 * delta
-                                self.fix_chi_parameters()
-                                res[n, m] -= self.chi_term(n_powers)
-                                chi_parameters[i1, j1] += delta
-                                self.chi_cutoff[i] -= delta
-                                res[m, n] = res[n, m]
+                        m = self.chi_cutoff_optimizable[i] - 1
                         for i2 in range(chi_parameters.shape[0]):
                             for j2 in range(chi_parameters.shape[1]):
                                 if chi_mask[i2, j2] and chi_parameters_optimizable[i2, j2]:
@@ -1117,92 +1119,101 @@ class Jastrow:
         ])
         res = -2 * self.f_term(e_powers, n_powers) * np.eye(size)
 
-        n = -1
         for i, (f_parameters, f_parameters_optimizable, f_mask) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask)):
             if self.f_cutoff_optimizable[i]:
-                n += 1
                 self.f_cutoff[i] -= 2 * delta
                 self.fix_f_parameters()
-                res[n, n] += self.f_term(e_powers, n_powers)
+                res[0, 0] += self.f_term(e_powers, n_powers)
                 self.f_cutoff[i] += 4 * delta
                 self.fix_f_parameters()
-                res[n, n] += self.f_term(e_powers, n_powers)
+                res[0, 0] += self.f_term(e_powers, n_powers)
                 self.f_cutoff[i] -= 2 * delta
-
-            # diagonal terms of linear parameters
-            for j1 in range(f_parameters.shape[0]):
-                for j2 in range(f_parameters.shape[1]):
-                    for j3 in range(f_parameters.shape[2]):
-                        for j4 in range(f_parameters.shape[3]):
-                            if f_mask[j1, j2, j3, j4] and f_parameters_optimizable[j1, j2, j3, j4]:
-                                n += 1
-                                f_parameters[j1, j2, j3, j4] -= delta
-                                if j1 != j2:
-                                    f_parameters[j2, j1, j3, j4] -= delta
-                                self.fix_f_parameters()
-                                res[n] += self.f_term(e_powers, n_powers)
-                                f_parameters[j1, j2, j3, j4] += 2 * delta
-                                if j1 != j2:
-                                    f_parameters[j2, j1, j3, j4] += 2 * delta
-                                self.fix_f_parameters()
-                                res[n] += self.f_term(e_powers, n_powers)
-                                f_parameters[j1, j2, j3, j4] -= delta
-                                if j1 != j2:
-                                    f_parameters[j2, j1, j3, j4] -= delta
-            # partial derivatives on cutoff and linear parameters
-            if self.f_cutoff_optimizable[i]:
                 n = 0
                 for j1 in range(f_parameters.shape[0]):
                     for j2 in range(f_parameters.shape[1]):
                         for j3 in range(f_parameters.shape[2]):
                             for j4 in range(f_parameters.shape[3]):
                                 if f_mask[j1, j2, j3, j4] and f_parameters_optimizable[j1, j2, j3, j4]:
+                                    # derivatives on cutoff and linear parameters
                                     n += 1
                                     f_parameters[j1, j2, j3, j4] -= delta
                                     if j1 != j2:
                                         f_parameters[j2, j1, j3, j4] -= delta
                                     self.f_cutoff[i] -= delta
                                     self.fix_f_parameters()
-                                    res[0, n] += self.f_term(e_powers, n_powers)
+                                    res[n, 0] += self.f_term(e_powers, n_powers)
                                     f_parameters[j1, j2, j3, j4] += 2 * delta
                                     if j1 != j2:
                                         f_parameters[j2, j1, j3, j4] += 2 * delta
                                     self.fix_f_parameters()
-                                    res[0, n] -= self.f_term(e_powers, n_powers)
+                                    res[n, 0] -= self.f_term(e_powers, n_powers)
                                     self.f_cutoff[i] += 2 * delta
                                     self.fix_f_parameters()
-                                    res[0, n] += self.f_term(e_powers, n_powers)
+                                    res[n, 0] += self.f_term(e_powers, n_powers)
                                     f_parameters[j1, j2, j3, j4] -= 2 * delta
                                     if j1 != j2:
                                         f_parameters[j2, j1, j3, j4] -= 2 * delta
                                     self.fix_f_parameters()
-                                    res[0, n] -= self.f_term(e_powers, n_powers)
+                                    res[n, 0] -= self.f_term(e_powers, n_powers)
                                     f_parameters[j1, j2, j3, j4] += delta
                                     if j1 != j2:
                                         f_parameters[j2, j1, j3, j4] += delta
                                     self.f_cutoff[i] -= delta
-                                    res[n, 0] = res[0, n]
+                                    res[0, n] = res[n, 0]
 
-            # off-diagonal derivatives of linear parameters
-            n = -1
-            if self.f_cutoff_optimizable[i]:
-                n += 1
+            n = self.f_cutoff_optimizable[i] - 1
+            for j1 in range(f_parameters.shape[0]):
+                for j2 in range(f_parameters.shape[1]):
+                    for j3 in range(f_parameters.shape[2]):
+                        for j4 in range(f_parameters.shape[3]):
+                            if f_mask[j1, j2, j3, j4] and f_parameters_optimizable[j1, j2, j3, j4]:
+                                n += 1
+                                # diagonal terms of linear parameters
+                                f_parameters[j1, j2, j3, j4] -= delta
+                                if j1 != j2:
+                                    f_parameters[j2, j1, j3, j4] -= delta
+                                self.fix_f_parameters()
+                                res[n, n] += self.f_term(e_powers, n_powers)
+                                f_parameters[j1, j2, j3, j4] += 2 * delta
+                                if j1 != j2:
+                                    f_parameters[j2, j1, j3, j4] += 2 * delta
+                                self.fix_f_parameters()
+                                res[n, n] += self.f_term(e_powers, n_powers)
+                                f_parameters[j1, j2, j3, j4] -= delta
+                                if j1 != j2:
+                                    f_parameters[j2, j1, j3, j4] -= delta
+
+            n = self.f_cutoff_optimizable[i] - 1
             for i1 in range(f_parameters.shape[0]):
                 for j1 in range(f_parameters.shape[1]):
                     for k1 in range(f_parameters.shape[2]):
                         for l1 in range(f_parameters.shape[3]):
                             if f_mask[i1, j1, k1, l1] and f_parameters_optimizable[i1, j1, k1, l1]:
                                 n += 1
-                                m = -1
-                                if self.f_cutoff_optimizable[i]:
-                                    m += 1
+                                m = self.f_cutoff_optimizable[i] - 1
                                 for i2 in range(f_parameters.shape[0]):
                                     for j2 in range(f_parameters.shape[1]):
                                         for k2 in range(f_parameters.shape[2]):
                                             for l2 in range(f_parameters.shape[3]):
                                                 if f_mask[i2, j2, k2, l2] and f_parameters_optimizable[i2, j2, k2, l2]:
                                                     m += 1
-                                                    if n > m:
+                                                    # diagonal terms of linear parameters
+                                                    if n == m:
+                                                        f_parameters[i1, j1, k1, l1] -= 2 * delta
+                                                        if i1 != j1:
+                                                            f_parameters[j1, i1, k1, l1] -= 2 * delta
+                                                        self.fix_f_parameters()
+                                                        res[n, m] += self.f_term(e_powers, n_powers)
+                                                        f_parameters[i1, j1, k1, l1] += 4 * delta
+                                                        if i1 != j1:
+                                                            f_parameters[j1, i1, k1, l1] += 4 * delta
+                                                        self.fix_f_parameters()
+                                                        res[n, m] += self.f_term(e_powers, n_powers)
+                                                        f_parameters[i1, j1, k1, l1] -= 2 * delta
+                                                        if i1 != j1:
+                                                            f_parameters[j1, i1, k1, l1] -= 2 * delta
+                                                    # off-diagonal derivatives of linear parameters
+                                                    elif n > m:
                                                         f_parameters[i1, j1, k1, l1] -= delta
                                                         if i1 != j1:
                                                             f_parameters[j1, i1, k1, l1] -= delta
