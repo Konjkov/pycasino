@@ -201,7 +201,7 @@ class Wfn:
         res = np.zeros(0)
         if self.jastrow is not None and opt_jastrow:
             res = np.concatenate((
-                res, self.jastrow.get_parameters_scale()
+                res, np.concatenate(self.jastrow.get_parameters_scale())
             ))
         if self.backflow is not None and opt_backflow:
             res = np.concatenate((
@@ -216,17 +216,18 @@ class Wfn:
         :param opt_backflow: optimize backflow parameters
         :return:
         """
-        delta = 0.00001  # (1/2**52)**(1/3)
+        delta = 0.000001  # (1/2**52)**(1/3)
+        scale = self.get_parameters_scale()
         parameters = self.get_parameters(opt_jastrow, opt_backflow)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
-            parameters[i] -= delta
+            parameters[i] -= delta * scale[i]
             self.set_parameters(parameters, opt_jastrow, opt_backflow)
-            res[i] -= self.value(r_e)
-            parameters[i] += 2 * delta
+            res[i] -= self.value(r_e) / scale[i]
+            parameters[i] += 2 * delta * scale[i]
             self.set_parameters(parameters, opt_jastrow, opt_backflow)
-            res[i] += self.value(r_e)
-            parameters[i] -= delta
+            res[i] += self.value(r_e) / scale[i]
+            parameters[i] -= delta * scale[i]
 
         self.set_parameters(parameters, opt_jastrow, opt_backflow)
         return res / delta / 2
@@ -238,37 +239,41 @@ class Wfn:
         :param opt_backflow: optimize backflow parameters
         :return:
         """
-        delta = 0.00001  # (1/2**52)**(1/3)
+        delta = 0.000001  # (1/2**52)**(1/3)
+        scale = self.get_parameters_scale()
         parameters = self.get_parameters(opt_jastrow, opt_backflow)
-        val = self.value(r_e)
-        res = -2 * val * np.eye(parameters.size)
+        res = -2 * self.value(r_e) * np.eye(parameters.size)
+        for i in range(parameters.size):
+            res[i, i] /= scale[i] * scale[i]
 
         for i in range(parameters.size):
-            parameters[i] -= 2 * delta
-            res[i, i] += self.value(r_e)
-            parameters[i] += 4 * delta
-            res[i, i] += self.value(r_e)
-            parameters[i] -= 2 * delta
+            parameters[i] -= 2 * delta * scale[i]
+            self.set_parameters(parameters, opt_jastrow, opt_backflow)
+            res[i, i] += self.value(r_e) / scale[i] / scale[i]
+            parameters[i] += 4 * delta * scale[i]
+            self.set_parameters(parameters, opt_jastrow, opt_backflow)
+            res[i, i] += self.value(r_e) / scale[i] / scale[i]
+            parameters[i] -= 2 * delta * scale[i]
 
         for i in range(parameters.size):
             for j in range(parameters.size):
-                if i > j:
+                if i >= j:
                     continue
-                parameters[i] -= delta
-                parameters[j] -= delta
+                parameters[i] -= delta * scale[i]
+                parameters[j] -= delta * scale[j]
                 self.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] += self.value(r_e)
-                parameters[i] += 2 * delta
+                res[i, j] += self.value(r_e) / scale[i] / scale[j]
+                parameters[i] += 2 * delta * scale[i]
                 self.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] -= self.value(r_e)
-                parameters[j] += 2 * delta
+                res[i, j] -= self.value(r_e) / scale[i] / scale[j]
+                parameters[j] += 2 * delta * scale[j]
                 self.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] += self.value(r_e)
-                parameters[i] -= 2 * delta
+                res[i, j] += self.value(r_e) / scale[i] / scale[j]
+                parameters[i] -= 2 * delta * scale[i]
                 self.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] -= self.value(r_e)
-                parameters[i] += delta
-                parameters[j] -= delta
+                res[i, j] -= self.value(r_e) / scale[i] / scale[j]
+                parameters[i] += delta * scale[i]
+                parameters[j] -= delta * scale[j]
                 res[j, i] = res[i, j]
 
         self.set_parameters(parameters, opt_jastrow, opt_backflow)
@@ -281,17 +286,18 @@ class Wfn:
         :param opt_backflow: optimize backflow parameters
         :return:
         """
-        delta = 0.00001  # (1/2**52)**(1/3)
+        delta = 0.000001  # (1/2**52)**(1/3)
+        scale = self.get_parameters_scale()
         parameters = self.get_parameters(opt_jastrow, opt_backflow)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
-            parameters[i] -= delta
+            parameters[i] -= delta * scale[i]
             self.set_parameters(parameters, opt_jastrow, opt_backflow)
-            res[i] -= self.energy(r_e)
-            parameters[i] += 2 * delta
+            res[i] -= self.energy(r_e) / scale[i]
+            parameters[i] += 2 * delta * scale[i]
             self.set_parameters(parameters, opt_jastrow, opt_backflow)
-            res[i] += self.energy(r_e)
-            parameters[i] -= delta
+            res[i] += self.energy(r_e) / scale[i]
+            parameters[i] -= delta * scale[i]
 
         self.set_parameters(parameters, opt_jastrow, opt_backflow)
         return res / delta / 2
@@ -303,37 +309,41 @@ class Wfn:
         :param opt_backflow: optimize backflow parameters
         :return:
         """
-        delta = 0.00001  # (1/2**52)**(1/3)
+        delta = 0.000001  # (1/2**52)**(1/3)
+        scale = self.get_parameters_scale()
         parameters = self.get_parameters(opt_jastrow, opt_backflow)
-        val = self.energy(r_e)
-        res = -2 * val * np.eye(parameters.size)
+        res = -2 * self.energy(r_e) * np.eye(parameters.size)
+        for i in range(parameters.size):
+            res[i, i] /= scale[i] * scale[i]
 
         for i in range(parameters.size):
-            parameters[i] -= 2 * delta
-            res[i, i] += self.energy(r_e)
-            parameters[i] += 4 * delta
-            res[i, i] += self.energy(r_e)
-            parameters[i] -= 2 * delta
+            parameters[i] -= 2 * delta * scale[i]
+            self.set_parameters(parameters, opt_jastrow, opt_backflow)
+            res[i, i] += self.energy(r_e) / scale[i] / scale[i]
+            parameters[i] += 4 * delta * scale[i]
+            self.set_parameters(parameters, opt_jastrow, opt_backflow)
+            res[i, i] += self.energy(r_e) / scale[i] / scale[i]
+            parameters[i] -= 2 * delta * scale[i]
 
         for i in range(parameters.size):
             for j in range(parameters.size):
                 if i >= j:
                     continue
-                parameters[i] -= delta
-                parameters[j] -= delta
+                parameters[i] -= delta * scale[i]
+                parameters[j] -= delta * scale[j]
                 self.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] += self.energy(r_e)
-                parameters[i] += 2 * delta
+                res[i, j] += self.energy(r_e) / scale[i] / scale[j]
+                parameters[i] += 2 * delta * scale[i]
                 self.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] -= self.energy(r_e)
-                parameters[j] += 2 * delta
+                res[i, j] -= self.energy(r_e) / scale[i] / scale[j]
+                parameters[j] += 2 * delta * scale[j]
                 self.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] += self.energy(r_e)
-                parameters[i] -= 2 * delta
+                res[i, j] += self.energy(r_e) / scale[i] / scale[j]
+                parameters[i] -= 2 * delta * scale[i]
                 self.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] -= self.energy(r_e)
-                parameters[i] += delta
-                parameters[j] -= delta
+                res[i, j] -= self.energy(r_e) / scale[i] / scale[j]
+                parameters[i] += delta * scale[i]
+                parameters[j] -= delta * scale[j]
                 res[j, i] = res[i, j]
 
         self.set_parameters(parameters, opt_jastrow, opt_backflow)
