@@ -570,6 +570,31 @@ class Casino:
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(np.sum(res.jac, axis=0) * scale)
 
+    def check_parameters_derivatives(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
+        """Compare parameters derivatives"""
+        steps = steps // self.mpi_comm.size * self.mpi_comm.size
+        condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
+
+        energy_gradient_sampling = np.zeros(shape=(100, scale.size))
+        energy_numerical_gradient_sampling = np.zeros(shape=(100, scale.size))
+
+        for i in range(100):
+            condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
+            energy = vmc_observable(condition, position, self.wfn.energy)
+            wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            energy_gradient = energy_parameters_gradient(energy, wfn_gradient)
+            self.mpi_comm.Allreduce(MPI.IN_PLACE, energy_gradient)
+            energy_gradient_sampling[i] = energy_gradient
+            energy_numerical_gradient = self.energy_parameters_numerical_gradient(condition, position, opt_jastrow, opt_backflow)
+            self.mpi_comm.Allreduce(MPI.IN_PLACE, energy_numerical_gradient)
+            energy_numerical_gradient_sampling[i] = energy_numerical_gradient
+        if self.mpi_comm.rank == 0:
+            print(np.mean(energy_numerical_gradient_sampling, axis=0) / np.std(energy_numerical_gradient_sampling, axis=0))
+
+        for p in position:
+            t = self.wfn.value_parameters_numerical_d1(p) / self.wfn.value(p) / self.wfn.value_parameters_d1(p)
+            print(t)
+
     def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
         """Minimize vmc energy.
         Function only for: Nelder-Mead, Powell
@@ -588,19 +613,6 @@ class Casino:
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
-
-        energy_numerical_gradient = self.energy_parameters_numerical_gradient(condition, position, opt_jastrow, opt_backflow)
-        energy = vmc_observable(condition, position, self.wfn.energy)
-        wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-        energy_gradient = energy_parameters_gradient(energy, wfn_gradient)
-        self.mpi_comm.Allreduce(MPI.IN_PLACE, energy_gradient)
-        self.mpi_comm.Allreduce(MPI.IN_PLACE, energy_numerical_gradient)
-        if self.mpi_comm.rank == 0:
-            print(energy_numerical_gradient / energy_gradient)
-
-        # for p in position:
-        #     t = self.wfn.value_parameters_numerical_d1(p) / self.wfn.value(p) / self.wfn.value_parameters_d1(p)
-        #     print(t)
 
         def fun(x, *args):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
@@ -640,7 +652,7 @@ class Casino:
             if self.mpi_comm.rank == 0:
                 print('minimal hessian eigenvalue', eigvals.min())
             if eigvals.min() < 0:
-                mean_energy_hessian -= eigvals.min() * np.eye(x.size)
+                mean_energy_hessian -= eigvals.min()
             return mean_energy_hessian
 
         res = minimize(
