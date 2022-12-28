@@ -681,37 +681,36 @@ class Jastrow:
         The purpose of this method is to reformulate the optimization problem
         with dimensionless variables having only one dimensional parameter - scale.
         """
-        scale = 1.5  # AU
         scale_u = []
         if self.u_cutoff:
             if self.u_cutoff_optimizable:
-                scale_u.append(scale)
+                scale_u.append(1)
             for j1 in range(self.u_parameters.shape[0]):
                 for j2 in range(self.u_parameters.shape[1]):
                     if self.u_mask[j1, j2] and self.u_parameters_optimizable[j1, j2]:
-                        scale_u.append(1 / scale ** (j1 + self.trunc))
+                        scale_u.append(1 / self.u_cutoff ** (j1 + self.trunc))
 
         scale_chi = []
         if self.chi_cutoff.any():
-            for i, (chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff, chi_cutoff_optimizable) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff, self.chi_cutoff_optimizable)):
+            for chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff, self.chi_cutoff_optimizable):
                 if chi_cutoff_optimizable:
-                    scale_chi.append(scale)
+                    scale_chi.append(chi_cutoff)
                 for j1 in range(chi_parameters.shape[0]):
                     for j2 in range(chi_parameters.shape[1]):
                         if chi_mask[j1, j2] and chi_parameters_optimizable[j1, j2]:
-                            scale_chi.append(1 / scale ** (j1 + self.trunc))
+                            scale_chi.append(1 / chi_cutoff ** (j1 + self.trunc))
 
         scale_f = []
         if self.f_cutoff.any():
-            for i, (f_parameters, f_parameters_optimizable, f_mask, f_cutoff, f_cutoff_optimizable) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff, self.f_cutoff_optimizable)):
+            for f_parameters, f_parameters_optimizable, f_mask, f_cutoff, f_cutoff_optimizable in zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff, self.f_cutoff_optimizable):
                 if f_cutoff_optimizable:
-                    scale_f.append(scale)
+                    scale_f.append(f_cutoff)
                 for j1 in range(f_parameters.shape[0]):
                     for j2 in range(f_parameters.shape[1]):
                         for j3 in range(f_parameters.shape[2]):
                             for j4 in range(f_parameters.shape[3]):
                                 if f_mask[j1, j2, j3, j4] and f_parameters_optimizable[j1, j2, j3, j4]:
-                                    scale_f.append(1 / scale ** (j1 + j2 + j3 + 2 * self.trunc))
+                                    scale_f.append(1 / f_cutoff ** (j1 + j2 + j3 + 2 * self.trunc))
 
         return np.array(scale_u), np.array(scale_chi), np.array(scale_f)
 
@@ -764,8 +763,8 @@ class Jastrow:
 
         if self.chi_cutoff.any():
             for i, (chi_parameters, chi_parameters_optimizable, chi_mask, chi_cutoff_optimizable) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_mask, self.chi_cutoff_optimizable)):
-                # Sequence types is a pointer, but numeric types is not.
                 if chi_cutoff_optimizable:
+                    # Sequence type is a pointer, but numeric type is not.
                     self.chi_cutoff[i] = parameters[n]
                     n += 1
                 for j1 in range(chi_parameters.shape[0]):
@@ -777,8 +776,8 @@ class Jastrow:
 
         if self.f_cutoff.any():
             for i, (f_parameters, f_parameters_optimizable, f_mask, f_cutoff_optimizable) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_mask, self.f_cutoff_optimizable)):
-                # Sequence types is a pointer, but numeric types is not.
                 if f_cutoff_optimizable:
+                    # Sequence types is a pointer, but numeric types is not.
                     self.f_cutoff[i] = parameters[n]
                     n += 1
                 for j1 in range(f_parameters.shape[0]):
