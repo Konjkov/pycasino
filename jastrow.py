@@ -1176,28 +1176,6 @@ class Jastrow:
                                     res[m, n] = res[n, m]
 
             n = self.f_cutoff_optimizable[i] - 1
-            for j1 in range(f_parameters.shape[0]):
-                for j2 in range(f_parameters.shape[1]):
-                    for j3 in range(f_parameters.shape[2]):
-                        for j4 in range(f_parameters.shape[3]):
-                            if f_mask[j1, j2, j3, j4] and f_parameters_optimizable[j1, j2, j3, j4]:
-                                n += 1
-                                # diagonal terms of linear parameters
-                                f_parameters[j1, j2, j3, j4] -= delta * scale[n]
-                                if j1 != j2:
-                                    f_parameters[j2, j1, j3, j4] -= delta * scale[n]
-                                self.fix_f_parameters()
-                                res[n, n] += self.f_term(e_powers, n_powers) / scale[n] / scale[n]
-                                f_parameters[j1, j2, j3, j4] += 2 * delta * scale[n]
-                                if j1 != j2:
-                                    f_parameters[j2, j1, j3, j4] += 2 * delta * scale[n]
-                                self.fix_f_parameters()
-                                res[n, n] += self.f_term(e_powers, n_powers) / scale[n] / scale[n]
-                                f_parameters[j1, j2, j3, j4] -= delta * scale[n]
-                                if j1 != j2:
-                                    f_parameters[j2, j1, j3, j4] -= delta * scale[n]
-
-            n = self.f_cutoff_optimizable[i] - 1
             for i1 in range(f_parameters.shape[0]):
                 for j1 in range(f_parameters.shape[1]):
                     for k1 in range(f_parameters.shape[2]):

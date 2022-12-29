@@ -564,8 +564,6 @@ class Casino:
             eigvals = np.linalg.eigvalsh(mean_energy_hessian)
             if self.mpi_comm.rank == 0:
                 print('hessian eigenvalues min', eigvals.min(), 'max', eigvals.max())
-            if eigvals.min() < 0:
-                mean_energy_hessian -= eigvals.min() * np.eye(x.size)
             return mean_energy_hessian
 
         res = minimize(
