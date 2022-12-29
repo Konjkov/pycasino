@@ -414,71 +414,6 @@ class Casino:
             f'Total energy                 =       {energy_block_mean.mean():.12f} +/-  {energy_block_sem.mean() / np.sqrt(nblock):.12f}\n'
         )
 
-    def energy_parameters_numerical_gradient(self, condition, position, opt_jastrow, opt_backflow):
-        """Numerical gradient of local energy.
-        :return:
-        """
-        delta = 0.000001  # (1/2**52)**(1/3)
-        scale = self.wfn.get_parameters_scale()
-        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        res = np.zeros(shape=parameters.shape)
-        for i in range(parameters.size):
-            parameters[i] -= delta * scale[i]
-            self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-            res[i] -= vmc_observable(condition, position, self.wfn.energy).mean() / scale[i]
-            parameters[i] += 2 * delta * scale[i]
-            self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-            res[i] += vmc_observable(condition, position, self.wfn.energy).mean() / scale[i]
-            parameters[i] -= delta * scale[i]
-
-        self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        return res / delta / 2
-
-    def energy_parameters_numerical_hessian(self, condition, position, opt_jastrow, opt_backflow):
-        """Numerical hessian of local energy.
-        :return:
-        """
-        delta = 0.000001  # (1/2**52)**(1/3)
-        scale = self.wfn.get_parameters_scale()
-        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        energy = vmc_observable(condition, position, self.wfn.energy).mean()
-        res = -2 * energy * np.eye(parameters.size)
-        for i in range(parameters.size):
-            res[i, i] /= scale[i] * scale[i]
-
-        for i in range(parameters.size):
-            parameters[i] -= 2 * delta * scale[i]
-            self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-            res[i, i] += vmc_observable(condition, position, self.wfn.energy).mean() / scale[i] / scale[i]
-            parameters[i] += 4 * delta * scale[i]
-            self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-            res[i, i] += vmc_observable(condition, position, self.wfn.energy).mean() / scale[i] / scale[i]
-            parameters[i] -= 2 * delta * scale[i]
-
-        for i in range(parameters.size):
-            for j in range(parameters.size):
-                if i >= j:
-                    continue
-                parameters[i] -= delta * scale[i]
-                parameters[j] -= delta * scale[j]
-                self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] += vmc_observable(condition, position, self.wfn.energy).mean() / scale[i] / scale[j]
-                parameters[i] += 2 * delta * scale[i]
-                self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] -= vmc_observable(condition, position, self.wfn.energy).mean() / scale[i] / scale[j]
-                parameters[j] += 2 * delta * scale[j]
-                self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] += vmc_observable(condition, position, self.wfn.energy).mean() / scale[i] / scale[j]
-                parameters[i] -= 2 * delta * scale[i]
-                self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] -= vmc_observable(condition, position, self.wfn.energy).mean() / scale[i] / scale[j]
-                parameters[i] += delta * scale[i]
-                parameters[j] -= delta * scale[j]
-                res[j, i] = res[i, j]
-
-        self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        return res / delta / delta / 4
-
     def normal_test(self, energy):
         """Test whether energy distribution differs from a normal one."""
         from scipy import stats
@@ -570,26 +505,10 @@ class Casino:
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(np.sum(res.jac, axis=0) * scale)
 
-    def check_parameters_derivatives(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
+    def check_parameters_derivatives(self, steps, decorr_period):
         """Compare parameters derivatives"""
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
-
-        energy_gradient_sampling = np.zeros(shape=(100, scale.size))
-        energy_numerical_gradient_sampling = np.zeros(shape=(100, scale.size))
-
-        for i in range(100):
-            condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
-            energy = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            energy_gradient = energy_parameters_gradient(energy, wfn_gradient)
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, energy_gradient)
-            energy_gradient_sampling[i] = energy_gradient
-            energy_numerical_gradient = self.energy_parameters_numerical_gradient(condition, position, opt_jastrow, opt_backflow)
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, energy_numerical_gradient)
-            energy_numerical_gradient_sampling[i] = energy_numerical_gradient
-        if self.mpi_comm.rank == 0:
-            print(np.mean(energy_numerical_gradient_sampling, axis=0) / np.std(energy_numerical_gradient_sampling, axis=0))
 
         for p in position:
             t = self.wfn.value_parameters_numerical_d1(p) / self.wfn.value(p) / self.wfn.value_parameters_d1(p)
@@ -609,13 +528,12 @@ class Casino:
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         """
-        test = False
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
 
         def fun(x, *args):
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
             energy = np.empty(shape=(steps,))
             energy_part = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allgather(energy_part, energy)
@@ -624,45 +542,40 @@ class Casino:
             return energy.mean()
 
         def jac(x, *args):
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
-            if test:
-                mean_energy_gradient = self.energy_parameters_numerical_gradient(condition, position, opt_jastrow, opt_backflow)
-            else:
-                energy_part = vmc_observable(condition, position, self.wfn.energy)
-                wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-                mean_energy_gradient = energy_parameters_gradient(energy_part, wfn_gradient_part)
+            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
+            energy_part = vmc_observable(condition, position, self.wfn.energy)
+            wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            mean_energy_gradient = energy_parameters_gradient(energy_part, wfn_gradient_part)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
+            mean_energy_gradient = mean_energy_gradient / self.mpi_comm.size * scale
             if self.mpi_comm.rank == 0:
-                print('gradient', mean_energy_gradient / self.mpi_comm.size)
-            return mean_energy_gradient / self.mpi_comm.size
+                print('gradient values min', mean_energy_gradient.min(), 'max', mean_energy_gradient.max())
+            return mean_energy_gradient
 
         def hess(x, *args):
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
-            if test:
-                mean_energy_hessian = self.energy_parameters_numerical_hessian(condition, position, opt_jastrow, opt_backflow)
-            else:
-                energy = vmc_observable(condition, position, self.wfn.energy)
-                wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-                wfn_hessian = vmc_observable(condition, position, self.wfn.value_parameters_d2)
-                energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
-                mean_energy_hessian = energy_parameters_hessian(energy, wfn_gradient, wfn_hessian, energy_gradient, estimator='UF')
+            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
+            energy = vmc_observable(condition, position, self.wfn.energy)
+            wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            wfn_hessian = vmc_observable(condition, position, self.wfn.value_parameters_d2)
+            energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
+            mean_energy_hessian = energy_parameters_hessian(energy, wfn_gradient, wfn_hessian, energy_gradient, estimator='UF')
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_hessian)
-            mean_energy_hessian /= self.mpi_comm.size
+            mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size * np.outer(scale, scale)
             eigvals = np.linalg.eigvalsh(mean_energy_hessian)
             if self.mpi_comm.rank == 0:
-                print('minimal hessian eigenvalue', eigvals.min())
+                print('hessian eigenvalues min', eigvals.min(), 'max', eigvals.max())
             if eigvals.min() < 0:
-                mean_energy_hessian -= eigvals.min()
+                mean_energy_hessian -= eigvals.min() * np.eye(x.size)
             return mean_energy_hessian
 
         res = minimize(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), method='Newton-CG',
+            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, method='Newton-CG',
             jac=jac, hess=hess, options=dict(disp=self.mpi_comm.rank == 0)
         )
-        parameters = res.x
+        parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        self.logger.info('Jacobian matrix at the solution:')
+        self.logger.info('Jacobian at the solution:')
         self.logger.info(res.jac)
 
 
