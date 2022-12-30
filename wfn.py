@@ -219,6 +219,7 @@ class Wfn:
         delta = 0.000001  # (1/2**52)**(1/3)
         scale = self.get_parameters_scale()
         parameters = self.get_parameters(opt_jastrow, opt_backflow)
+        val = self.value(r_e)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
             parameters[i] -= delta * scale[i]
@@ -230,7 +231,7 @@ class Wfn:
             parameters[i] -= delta * scale[i]
 
         self.set_parameters(parameters, opt_jastrow, opt_backflow)
-        return res / delta / 2
+        return res / delta / 2 / val
 
     def value_parameters_numerical_d2(self, r_e, opt_jastrow=True, opt_backflow=True):
         """Second-order derivatives of value with respect to the parameters.
@@ -242,6 +243,7 @@ class Wfn:
         delta = 0.000001  # (1/2**52)**(1/3)
         scale = self.get_parameters_scale()
         parameters = self.get_parameters(opt_jastrow, opt_backflow)
+        val = self.value(r_e)
         res = -2 * self.value(r_e) * np.eye(parameters.size)
         for i in range(parameters.size):
             res[i, i] /= scale[i] * scale[i]
@@ -277,7 +279,7 @@ class Wfn:
                 res[j, i] = res[i, j]
 
         self.set_parameters(parameters, opt_jastrow, opt_backflow)
-        return res / delta / delta / 4
+        return res / delta / delta / 4 / val
 
     def energy_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
         """First-order derivatives of energy with respect to the parameters.
