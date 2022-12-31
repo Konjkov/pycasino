@@ -518,7 +518,7 @@ class Casino:
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         """
-        numerical = True
+        numerical = False
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
@@ -541,7 +541,7 @@ class Casino:
                 wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
             mean_energy_gradient = energy_parameters_gradient(energy_part, wfn_gradient_part)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
-            mean_energy_gradient = mean_energy_gradient / self.mpi_comm.size * scale
+            mean_energy_gradient = mean_energy_gradient / self.mpi_comm.size * scale * 5.5
             if self.mpi_comm.rank == 0:
                 print('gradient values min', mean_energy_gradient.min(), 'max', mean_energy_gradient.max())
             return mean_energy_gradient
@@ -558,7 +558,7 @@ class Casino:
             energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
             mean_energy_hessian = energy_parameters_hessian(energy, wfn_gradient, wfn_hessian, energy_gradient, estimator='UF')
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_hessian)
-            mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size * np.outer(scale, scale)
+            mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size * np.outer(scale, scale) * 5.5 * 5.5
             eigvals = np.linalg.eigvalsh(mean_energy_hessian)
             if self.mpi_comm.rank == 0:
                 print('hessian eigenvalues min', eigvals.min(), 'max', eigvals.max())
@@ -566,7 +566,7 @@ class Casino:
 
         res = minimize(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, method='Newton-CG',
-            jac=jac, hess=hess, options=dict(disp=self.mpi_comm.rank == 0)
+            jac=jac, hess=hess, options=dict(disp=self.mpi_comm.rank == 0, maxiter=20)
         )
         parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)

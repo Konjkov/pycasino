@@ -638,32 +638,6 @@ class Jastrow:
                             p += 1
                         temp += 1
 
-    def check_f_constrains(self):
-        for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
-            f_en_order = f_parameters.shape[0] - 1
-            f_ee_order = f_parameters.shape[2] - 1
-            f_spin_dep = f_parameters.shape[3] - 1
-
-            lm_sum = np.zeros((2 * f_en_order + 1, f_spin_dep + 1))
-            for l in range(f_en_order + 1):
-                for m in range(f_en_order + 1):
-                    lm_sum[l + m] += f_parameters[l, m, 1, :]
-            print(f'lm_sum = {lm_sum}')
-
-            mn_sum = np.zeros((f_en_order + f_ee_order + 1, f_spin_dep + 1))
-            for m in range(f_en_order + 1):
-                for n in range(f_ee_order + 1):
-                    mn_sum[m + n] += self.trunc * f_parameters[0, m, n, :] - L * f_parameters[1, m, n, :]
-            print(f'mn_sum = {mn_sum}')
-
-            if no_dup_u_term:
-                print('should be equal to zero')
-                print(f_parameters[1, 1, 0, :])
-                print(f_parameters[0, 0, :, :])
-            if no_dup_chi_term:
-                print('should be equal to zero')
-                print(f_parameters[:, 0, 0, :])
-
     def get_parameters_bounds(self):
         """Bonds constraints fluctuation of Jastrow parameters
         and thus increases robustness of the energy minimization procedure.

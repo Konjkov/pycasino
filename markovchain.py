@@ -242,14 +242,14 @@ class DMCMarkovChain:
 
 
 # @nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
-def vmc_observable(condition, position, observable):
+def vmc_observable(condition, position, observable, *args):
     """VMC observable.
     :param observable: observable quantity
     :param condition: accept/reject conditions
     :param position: random walk positions
     :return:
     """
-    first_res = observable(position[0])
+    first_res = observable(position[0], *args)
     res = np.empty(shape=condition.shape + np.shape(first_res))
     res[0] = first_res
 
