@@ -877,7 +877,7 @@ class Backflow:
         with dimensionless variables having only one dimensional parameter - cutoff length.
         """
         res = []
-        scale = 1.5  # AU
+        scale = 1.0  # no scale
         if self.eta_cutoff.any():
             for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
                 if eta_cutoff_optimizable:
@@ -885,7 +885,7 @@ class Backflow:
             for j1 in range(self.eta_parameters.shape[0]):
                 for j2 in range(self.eta_parameters.shape[1]):
                     if self.eta_mask[j1, j2] and self.eta_parameters_optimizable[j1, j2]:
-                        res.append(1 / self.eta_cutoff[j2 % self.eta_cutoff.shape[0]] ** j1)
+                        res.append(1 / scale ** j1)
 
         if self.mu_cutoff.any():
             for i, (mu_parameters, mu_parameters_optimizable, mu_mask, mu_cutoff, mu_cutoff_optimizable) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_mask, self.mu_cutoff, self.mu_cutoff_optimizable)):
@@ -894,7 +894,7 @@ class Backflow:
                 for j1 in range(mu_parameters.shape[0]):
                     for j2 in range(mu_parameters.shape[1]):
                         if mu_mask[j1, j2] and mu_parameters_optimizable[j1, j2]:
-                            res.append(1 / mu_cutoff ** j1)
+                            res.append(1 / scale ** j1)
 
         if self.phi_cutoff.any():
             for i, (phi_parameters, phi_parameters_optimizable, theta_parameters_optimizable, phi_mask, theta_mask, phi_cutoff, phi_cutoff_optimizable) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters_optimizable, self.phi_mask, self.theta_mask, self.phi_cutoff, self.phi_cutoff_optimizable)):
@@ -905,14 +905,14 @@ class Backflow:
                         for j3 in range(phi_parameters.shape[2]):
                             for j4 in range(phi_parameters.shape[3]):
                                 if phi_mask[j1, j2, j3, j4] and phi_parameters_optimizable[j1, j2, j3, j4]:
-                                    res.append(1 / phi_cutoff ** (j1 + j2 + j3))
+                                    res.append(1 / scale ** (j1 + j2 + j3))
 
                 for j1 in range(phi_parameters.shape[0]):
                     for j2 in range(phi_parameters.shape[1]):
                         for j3 in range(phi_parameters.shape[2]):
                             for j4 in range(phi_parameters.shape[3]):
                                 if theta_mask[j1, j2, j3, j4] and theta_parameters_optimizable[j1, j2, j3, j4]:
-                                    res.append(1 / phi_cutoff ** (j1 + j2 + j3))
+                                    res.append(1 / scale ** (j1 + j2 + j3))
 
         return np.array(res)
 

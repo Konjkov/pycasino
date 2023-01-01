@@ -14,7 +14,7 @@ from markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
 from wfn import Wfn
 from readers.casino import CasinoConfig
 from sem import correlated_sem
-from logger import logging
+from logger import logging, StreamToLogger
 
 
 def energy_parameters_gradient(energy, wfn_gradient):
@@ -78,7 +78,11 @@ class Casino:
         self.config.read()
         self.neu, self.ned = self.config.input.neu, self.config.input.ned
         self.logger = logging.getLogger('vmc')
-        if self.mpi_comm.rank > 0:
+        if self.mpi_comm.rank == 0:
+            # to redirect scipy.optimize stdout to log-file
+            sys.stdout = StreamToLogger(self.logger, logging.INFO)
+            # sys.stderr = StreamToLogger(self.logger, logging.ERROR)
+        else:
             self.logger.level = logging.ERROR
 
         if self.config.input.cusp_correction:
@@ -186,6 +190,11 @@ class Casino:
                 self.optimize_vmc_step(1000)
                 self.vmc_energy_accumulation()
                 for i in range(self.config.input.opt_cycles):
+                    self.logger.info(
+                        f' ==========================================\n'
+                        f' PERFORMING OPTIMIZATION CALCULATION No. {i+1}.\n'
+                        f' ==========================================\n\n'
+                    )
                     self.vmc_unreweighted_variance_minimization(
                         self.config.input.vmc_nconfig_write,
                         self.config.input.vmc_decorr_period,
@@ -208,6 +217,11 @@ class Casino:
                 self.optimize_vmc_step(1000)
                 self.vmc_energy_accumulation()
                 for i in range(self.config.input.opt_cycles):
+                    self.logger.info(
+                        f' ==========================================\n'
+                        f' PERFORMING OPTIMIZATION CALCULATION No. {i+1}.\n'
+                        f' ==========================================\n\n'
+                    )
                     self.vmc_energy_minimization(
                         self.config.input.vmc_nconfig_write,
                         self.config.input.vmc_decorr_period,
@@ -449,6 +463,11 @@ class Casino:
             self.mpi_comm.Allgather(energy_part, energy)
             return np.sqrt(2) * (energy - energy.mean()) / np.sqrt(steps - 1)
 
+        self.logger.info(
+            ' Optimization start\n'
+            ' =================='
+        )
+
         res = least_squares(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale,
             jac='2-point', method='trf', ftol=1/np.sqrt(steps-1), x_scale='jac',
@@ -457,7 +476,6 @@ class Casino:
         parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        self.logger.info(f'{res.message}\n')
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(np.sum(res.jac, axis=0) * scale)
 
@@ -492,6 +510,11 @@ class Casino:
             ddof = (weights**2).sum() / weights.sum()  # Delta Degrees of Freedom
             return np.sqrt(2) * (energy - np.average(energy, weights=weights)) * np.sqrt(weights / (weights.sum() - ddof))
 
+        self.logger.info(
+            ' Optimization start\n'
+            ' =================='
+        )
+
         res = least_squares(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale,
             jac='2-point', method='trf', ftol=1/np.sqrt(steps-1), x_scale='jac',
@@ -500,7 +523,6 @@ class Casino:
         parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        self.logger.info(f'{res.message}\n')
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(np.sum(res.jac, axis=0) * scale)
 
@@ -563,6 +585,11 @@ class Casino:
             if self.mpi_comm.rank == 0:
                 print('hessian eigenvalues min', eigvals.min(), 'max', eigvals.max())
             return mean_energy_hessian
+
+        self.logger.info(
+            ' Optimization start\n'
+            ' =================='
+        )
 
         res = minimize(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, method='Newton-CG',
