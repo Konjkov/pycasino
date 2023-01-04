@@ -658,7 +658,7 @@ class Jastrow:
         scale_u = []
         if self.u_cutoff:
             if self.u_cutoff_optimizable:
-                scale_u.append(1)
+                scale_u.append(self.u_cutoff)
             for j1 in range(self.u_parameters.shape[0]):
                 for j2 in range(self.u_parameters.shape[1]):
                     if self.u_mask[j1, j2] and self.u_parameters_optimizable[j1, j2]:

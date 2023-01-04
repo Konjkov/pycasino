@@ -12,6 +12,7 @@ from jastrow import Jastrow
 from backflow import Backflow
 from markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
 from wfn import Wfn
+from optimize import minimize_newtoncg
 from readers.casino import CasinoConfig
 from sem import correlated_sem
 from logger import logging, StreamToLogger
@@ -43,7 +44,7 @@ def energy_parameters_hessian(energy, wfn_gradient, wfn_hessian, energy_gradient
     :return:
     """
     mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
-    outer_wfn_gradient = np.einsum('ij,ik->ijk', wfn_gradient, wfn_gradient)
+    outer_wfn_gradient = np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2)
     A = 2 * (
         np.mean(wfn_hessian * energy[:, np.newaxis, np.newaxis], axis=0) -
         np.mean(wfn_hessian, axis=0) * np.mean(energy, axis=0) -
@@ -550,9 +551,8 @@ class Casino:
             energy = np.empty(shape=(steps,))
             energy_part = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allgather(energy_part, energy)
-            if self.mpi_comm.rank == 0:
-                print('energy', energy.mean(), energy.std())
-            return energy.mean()
+            self.logger.info(f'energy {energy.mean()} {energy.std()}')
+            return energy.mean() + 5 * energy.std()
 
         def jac(x, *args):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
@@ -563,9 +563,8 @@ class Casino:
                 wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
             mean_energy_gradient = energy_parameters_gradient(energy_part, wfn_gradient_part)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
-            mean_energy_gradient = mean_energy_gradient / self.mpi_comm.size * scale * 5.5
-            if self.mpi_comm.rank == 0:
-                print('gradient values min', mean_energy_gradient.min(), 'max', mean_energy_gradient.max())
+            mean_energy_gradient = mean_energy_gradient / self.mpi_comm.size * scale
+            self.logger.info(f'gradient values min {mean_energy_gradient.min()} max {mean_energy_gradient.max()}')
             return mean_energy_gradient
 
         def hess(x, *args):
@@ -580,10 +579,9 @@ class Casino:
             energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
             mean_energy_hessian = energy_parameters_hessian(energy, wfn_gradient, wfn_hessian, energy_gradient, estimator='UF')
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_hessian)
-            mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size * np.outer(scale, scale) * 5.5 * 5.5
+            mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size * np.outer(scale, scale)
             eigvals = np.linalg.eigvalsh(mean_energy_hessian)
-            if self.mpi_comm.rank == 0:
-                print('hessian eigenvalues min', eigvals.min(), 'max', eigvals.max())
+            self.logger.info(f'hessian eigenvalues min {eigvals.min()} max {eigvals.max()}')
             return mean_energy_hessian
 
         self.logger.info(
@@ -592,7 +590,7 @@ class Casino:
         )
 
         res = minimize(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, method='Newton-CG',
+            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, method=minimize_newtoncg,
             jac=jac, hess=hess, options=dict(disp=self.mpi_comm.rank == 0, maxiter=20)
         )
         parameters = res.x * scale

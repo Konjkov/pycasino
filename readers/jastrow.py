@@ -21,23 +21,16 @@ jastrow_template = """\
   {title}
  Truncation order C
    {trunc}
+ {terms}\
+ END JASTROW
+"""
+
+u_term_template = """\
  START U TERM
  Number of sets
    1
  {u_set}
  END U TERM
- START CHI TERM
- Number of sets ; labelling (1->atom in s. cell; 2->atom in p. cell; 3->species)
-   {n_chi_sets} 1
- {chi_sets}
- END CHI TERM
- START F TERM
- Number of sets ; labelling (1->atom in s. cell; 2->atom in p. cell; 3->species)
-   {n_f_sets} 1
- {f_sets}
- END F TERM
- END JASTROW
-
 """
 
 u_set_template = """\
@@ -53,6 +46,14 @@ START SET 1
  Parameter values  ;  Optimizable (0=NO; 1=YES)
   {u_parameters}
  END SET 1"""
+
+chi_term_template = """\
+ START CHI TERM
+ Number of sets ; labelling (1->atom in s. cell; 2->atom in p. cell; 3->species)
+   {n_chi_sets} 1
+ {chi_sets}
+ END CHI TERM
+"""
 
 chi_set_template = """\
 START SET {n_set}
@@ -73,6 +74,14 @@ START SET {n_set}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
   {chi_parameters}
  END SET {n_set}"""
+
+f_term_template = """\
+ START F TERM
+ Number of sets ; labelling (1->atom in s. cell; 2->atom in p. cell; 3->species)
+   {n_f_sets} 1
+ {f_sets}
+ END F TERM
+"""
 
 f_set_template = """\
 START SET {n_set}
@@ -199,6 +208,7 @@ class Jastrow:
         self.u_cusp_const = np.zeros(shape=(3, ))
 
     def read(self, base_path):
+        """Read Jastrow config from file."""
         file_path = os.path.join(base_path, 'correlation.data')
         if not os.path.isfile(file_path):
             return
@@ -344,20 +354,26 @@ class Jastrow:
                         set_number = None
 
     def write(self):
-        u_parameters_list = []
-        u_mask = self.get_u_mask(self.u_parameters)
-        for i in range(self.u_parameters.shape[1]):
-            for l in range(self.u_parameters.shape[0]):
-                if u_mask[l, i]:
-                    u_parameters_list.append(f'{self.u_parameters[l, i]: .16e}            {int(self.u_parameters_optimizable[l, i])}       ! alpha_{l},{i + 1}')
-        u_set = u_set_template.format(
-            u_order=self.u_parameters.shape[0] - 1,
-            u_spin_dep=self.u_parameters.shape[1] - 1,
-            u_cutoff=self.u_cutoff[0]['value'],
-            u_cutoff_optimizable=int(self.u_cutoff[0]['optimizable']),
-            u_parameters='\n  '.join(u_parameters_list),
-        )
-        chi_sets = ''
+        """Write Jastrow config to file"""
+        u_term = ""
+        if self.u_cutoff:
+            u_parameters_list = []
+            u_mask = self.get_u_mask(self.u_parameters)
+            for i in range(self.u_parameters.shape[1]):
+                for l in range(self.u_parameters.shape[0]):
+                    if u_mask[l, i]:
+                        u_parameters_list.append(f'{self.u_parameters[l, i]: .16e}            {int(self.u_parameters_optimizable[l, i])}       ! alpha_{l},{i + 1}')
+            u_set = u_set_template.format(
+                u_order=self.u_parameters.shape[0] - 1,
+                u_spin_dep=self.u_parameters.shape[1] - 1,
+                u_cutoff=self.u_cutoff[0]['value'],
+                u_cutoff_optimizable=int(self.u_cutoff[0]['optimizable']),
+                u_parameters='\n  '.join(u_parameters_list),
+            )
+            u_term = u_term_template.format(u_set=u_set)
+
+        n_chi_set = 0
+        chi_term = chi_sets = ''
         for n_chi_set, (chi_labels, chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cusp) in enumerate(zip(self.chi_labels, self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cusp)):
             chi_parameters_list = []
             chi_mask = self.get_chi_mask(chi_parameters)
@@ -376,7 +392,11 @@ class Jastrow:
                 chi_cutoff_optimizable=int(chi_cutoff['optimizable']),
                 chi_parameters='\n  '.join(chi_parameters_list),
             )
-        f_sets = ''
+        if chi_sets:
+            chi_term = chi_term_template.format(n_chi_sets=n_chi_set + 1, chi_sets=chi_sets)
+
+        n_f_set = 0
+        f_term = f_sets = ''
         for n_f_set, (f_labels, f_parameters, f_parameters_optimizable, f_cutoff, no_dup_u_term, no_dup_chi_term) in enumerate(zip(self.f_labels, self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term)):
             f_parameters_list = []
             f_mask = self.get_f_mask(f_parameters, f_cutoff['value'], no_dup_u_term, no_dup_chi_term)
@@ -399,14 +419,13 @@ class Jastrow:
                 f_cutoff_optimizable=int(f_cutoff['optimizable']),
                 f_parameters='\n  '.join(f_parameters_list),
             )
+        if f_sets:
+            f_term = f_term_template.format(n_f_sets=n_f_set + 1, f_sets=f_sets)
+
         jastrow = jastrow_template.format(
             title='no title given',
             trunc=self.trunc,
-            u_set=u_set,
-            n_chi_sets=n_chi_set + 1,
-            chi_sets=chi_sets,
-            n_f_sets=n_f_set + 1,
-            f_sets=f_sets,
+            terms=u_term + chi_term + f_term,
         )
         return jastrow
 
