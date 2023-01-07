@@ -156,7 +156,6 @@ def minimize_newtoncg(fun, x0, args=(), jac=None, hess=None, hessp=None,
                     xsupi = dri0 / (-curv) * b
                     break
             alphai = dri0 / curv
-            print('alphai', alphai)
             xsupi = xsupi + alphai * psupi
             ri = ri + alphai * Ap
             dri1 = np.dot(ri, ri)

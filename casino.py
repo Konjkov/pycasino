@@ -19,7 +19,7 @@ from logger import logging, StreamToLogger
 
 
 def energy_parameters_gradient(energy, wfn_gradient):
-    """Lin, Zhang and Rappe (LZR) and Umrigar and Filippi (UF) gradient estimator of local energy from
+    """Gradient estimator of local energy from
     Optimization of quantum Monte Carlo wave functions by energy minimization.
     Julien Toulouse, C. J. Umrigar
     :param energy:
@@ -32,40 +32,51 @@ def energy_parameters_gradient(energy, wfn_gradient):
     )
 
 
-def energy_parameters_hessian(energy, wfn_gradient, wfn_hessian, energy_gradient, estimator):
-    """Lin, Zhang and Rappe (LZR) and Umrigar and Filippi (UF) hessian estimators of local energy from
+def energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient, estimator):
+    """Hessian estimators of local energy from
     Optimization of quantum Monte Carlo wave functions by energy minimization.
-    Julien Toulouse, C. J. Umrigar (TU)
-    :param energy:
+    Julien Toulouse, C. J. Umrigar
     :param wfn_gradient:
-    :param wfn_hessian:
+    :param wfn_hessian: wfn_hessian - np.outer(wfn_gradient, wfn_gradient)
+    :param energy:
     :param energy_gradient:
-    :param estimator: LZP or FU
+    :param estimator: LZP or FU or TU
     :return:
     """
+    mean_energy = np.mean(energy)
     mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
-    outer_wfn_gradient = np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2)
     A = 2 * (
-        np.mean(wfn_hessian * energy[:, np.newaxis, np.newaxis], axis=0) -
-        np.mean(wfn_hessian, axis=0) * np.mean(energy, axis=0) -
-        np.mean(outer_wfn_gradient * energy[..., np.newaxis, np.newaxis], axis=0) +
-        np.mean(outer_wfn_gradient, axis=0) * np.mean(energy)
+        np.mean(wfn_hessian * np.expand_dims(energy, (1, 2)), axis=0) -
+        np.mean(wfn_hessian, axis=0) * mean_energy
     )
     t2 = wfn_gradient - mean_wfn_gradient
-    t3 = energy - np.mean(energy, axis=0)
-    B = 4 * np.mean(np.einsum('ij,ik->ijk', t2, t2) * t3[..., np.newaxis, np.newaxis], axis=0)
+    B = 4 * np.mean(
+        np.expand_dims(t2, 1) *
+        np.expand_dims(t2, 2) *
+        np.expand_dims(energy - mean_energy, (1, 2)),
+        axis=0
+    )
     if estimator == 'LZR':
-        C = 2 * np.mean(np.einsum('ij,ik->ijk', wfn_gradient, energy_gradient), axis=0)
+        # Lin, Zhang and Rappe
+        C = 2 * np.mean(
+            np.expand_dims(wfn_gradient, 1) *
+            np.expand_dims(energy_gradient, 2),
+            axis=0
+        )
         return A + B + C
     elif estimator == 'UF':
+        # Umrigar and Filippi
         mean_energy_gradient = np.mean(energy_gradient, axis=0)
         D = (
-            np.mean(np.einsum('ij,ik->ijk', energy_gradient, wfn_gradient), axis=0) +
-            np.mean(np.einsum('ij,ik->ijk', wfn_gradient, energy_gradient), axis=0) -
+            np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(energy_gradient, 2), axis=0) +
+            np.mean(np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy_gradient, 1), axis=0) -
             np.outer(mean_wfn_gradient, mean_energy_gradient) -
             np.outer(mean_energy_gradient, mean_wfn_gradient)
         )
         return A + B + D
+    elif estimator == 'TU':
+        # Toulouse, Umrigar
+        return A + B
 
 
 class Casino:
@@ -541,7 +552,6 @@ class Casino:
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         """
-        numerical = False
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
@@ -552,32 +562,25 @@ class Casino:
             energy_part = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allgather(energy_part, energy)
             self.logger.info(f'energy {energy.mean()} {energy.std()}')
-            return energy.mean() + 5 * energy.std()
+            return energy.mean() + energy.std()
 
         def jac(x, *args):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
             energy_part = vmc_observable(condition, position, self.wfn.energy)
-            if numerical:
-                wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
-            else:
-                wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
             mean_energy_gradient = energy_parameters_gradient(energy_part, wfn_gradient_part)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
             mean_energy_gradient = mean_energy_gradient / self.mpi_comm.size * scale
-            self.logger.info(f'gradient values min {mean_energy_gradient.min()} max {mean_energy_gradient.max()}')
+            self.logger.info(f'gradient modulo values min {np.abs(mean_energy_gradient).min()} max {np.abs(mean_energy_gradient).max()}')
             return mean_energy_gradient
 
         def hess(x, *args):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
             energy = vmc_observable(condition, position, self.wfn.energy)
-            if numerical:
-                wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
-                wfn_hessian = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d2)
-            else:
-                wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-                wfn_hessian = vmc_observable(condition, position, self.wfn.value_parameters_d2)
+            wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            wfn_hessian = vmc_observable(condition, position, self.wfn.value_parameters_d2)
             energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
-            mean_energy_hessian = energy_parameters_hessian(energy, wfn_gradient, wfn_hessian, energy_gradient, estimator='UF')
+            mean_energy_hessian = energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient, estimator='UF')
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_hessian)
             mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size * np.outer(scale, scale)
             eigvals = np.linalg.eigvalsh(mean_energy_hessian)

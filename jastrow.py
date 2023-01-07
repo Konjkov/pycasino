@@ -684,7 +684,7 @@ class Jastrow:
                         for j3 in range(f_parameters.shape[2]):
                             for j4 in range(f_parameters.shape[3]):
                                 if f_mask[j1, j2, j3, j4] and f_parameters_optimizable[j1, j2, j3, j4]:
-                                    scale_f.append(1 / f_cutoff ** (j1 + j2 + j3 + 2 * self.trunc - 1))
+                                    scale_f.append(1 / f_cutoff ** (j1 + j2 + j3 + 2 * self.trunc - 2))
 
         return np.array(scale_u), np.array(scale_chi), np.array(scale_f)
 
