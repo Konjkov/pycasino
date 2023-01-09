@@ -859,15 +859,6 @@ class Backflow:
                                 p += 1
                             temp += 1
 
-    def get_parameters_bounds(self):
-        """Bonds constraints fluctuation of Backflow parameters
-        and thus increases robustness of the energy minimization procedure.
-        :return:
-        """
-        scale = self.get_parameters_scale()
-        parameters = self.get_parameters()
-        return parameters - scale, parameters + scale
-
     def get_parameters_scale(self):
         """Characteristic scale of each variable. Setting x_scale is equivalent
         to reformulating the problem in scaled variables xs = x / x_scale.

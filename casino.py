@@ -3,7 +3,7 @@ import argparse
 from timeit import default_timer
 from numpy_config import np
 from mpi4py import MPI
-from scipy.optimize import least_squares, minimize, Bounds, curve_fit
+from scipy.optimize import least_squares, minimize, LinearConstraint, curve_fit
 import matplotlib.pyplot as plt
 
 from cusp import CuspFactory
@@ -554,6 +554,7 @@ class Casino:
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
+        # constr = LinearConstraint(A, lb=0, ub=0)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
 
         def fun(x, *args):
@@ -562,7 +563,7 @@ class Casino:
             energy_part = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allgather(energy_part, energy)
             self.logger.info(f'energy {energy.mean()} {energy.std()}')
-            return energy.mean() + energy.std()
+            return energy.mean()
 
         def jac(x, *args):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
@@ -593,7 +594,7 @@ class Casino:
         )
 
         res = minimize(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, method=minimize_newtoncg,
+            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, method='trust-constr',
             jac=jac, hess=hess, options=dict(disp=self.mpi_comm.rank == 0, maxiter=20)
         )
         parameters = res.x * scale
