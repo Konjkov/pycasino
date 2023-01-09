@@ -554,7 +554,8 @@ class Casino:
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
-        # constr = LinearConstraint(A, lb=0, ub=0)
+        # A = np.zeros(shape=(1, scale.size))
+        # constraints = LinearConstraint(A, lb=0, ub=0)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
 
         def fun(x, *args):
