@@ -110,38 +110,41 @@ class Jastrow:
 
     def fix_optimizable(self):
         """Set parameter fixed if there is no corresponded spin-pairs"""
+        ee_order = 2
         if self.u_parameters.shape[1] == 2:
-            if self.neu < 2 and self.ned < 2:
+            if self.neu < ee_order and self.ned < ee_order:
                 self.u_parameters_optimizable[:, 0] = False
-            if self.neu + self.ned < 2:
+            if self.neu + self.ned < ee_order:
                 self.u_parameters_optimizable[:, 1] = False
         elif self.u_parameters.shape[1] == 3:
-            if self.neu < 2:
+            if self.neu < ee_order:
                 self.u_parameters_optimizable[:, 0] = False
-            if self.neu + self.ned < 2:
+            if self.neu + self.ned < ee_order:
                 self.u_parameters_optimizable[:, 1] = False
-            if self.ned < 2:
+            if self.ned < ee_order:
                 self.u_parameters_optimizable[:, 2] = False
 
+        ee_order = 1
         for chi_parameters, chi_parameters_optimizable in zip(self.chi_parameters, self.chi_parameters_optimizable):
             if chi_parameters.shape[1] == 2:
-                if self.neu < 1:
+                if self.neu < ee_order:
                     chi_parameters_optimizable[:, 0] = False
-                if self.ned < 1:
+                if self.ned < ee_order:
                     chi_parameters_optimizable[:, 1] = False
 
+        ee_order = 2
         for f_parameters, f_parameters_optimizable in zip(self.f_parameters, self.f_parameters_optimizable):
             if f_parameters.shape[3] == 2:
-                if self.neu < 2 and self.ned < 2:
+                if self.neu < ee_order and self.ned < ee_order:
                     f_parameters_optimizable[:, :, :, 0] = False
-                if self.neu + self.ned < 2:
+                if self.neu + self.ned < ee_order:
                     f_parameters_optimizable[:, :, :, 1] = False
             elif f_parameters.shape[3] == 3:
-                if self.neu < 2:
+                if self.neu < ee_order:
                     f_parameters_optimizable[:, :, :, 0] = False
-                if self.neu + self.ned < 2:
+                if self.neu + self.ned < ee_order:
                     f_parameters_optimizable[:, :, :, 1] = False
-                if self.ned < 2:
+                if self.ned < ee_order:
                     f_parameters_optimizable[:, :, :, 2] = False
 
     def ee_powers(self, e_vectors) -> np.ndarray:

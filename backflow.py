@@ -107,43 +107,55 @@ class Backflow:
 
     def fix_optimizable(self):
         """Set parameter fixed if there is no corresponded spin-pairs"""
+        ee_order = 2
         if self.eta_parameters.shape[1] == 2:
-            if self.neu == 1 and self.ned == 1:
+            if self.neu < ee_order and self.ned < ee_order:
                 self.eta_parameters_optimizable[:, 0] = False
+            if self.neu + self.ned < ee_order:
+                self.eta_parameters_optimizable[:, 1] = False
         elif self.eta_parameters.shape[1] == 3:
-            if self.neu == 1:
+            if self.neu < ee_order:
                 self.eta_parameters_optimizable[:, 0] = False
-            if self.ned == 1:
+            if self.neu + self.ned < ee_order:
+                self.eta_parameters_optimizable[:, 1] = False
+            if self.ned < ee_order:
                 self.eta_parameters_optimizable[:, 2] = False
 
+        ee_order = 1
         for mu_parameters, mu_parameters_optimizable in zip(self.mu_parameters, self.mu_parameters_optimizable):
             if mu_parameters.shape[1] == 2:
-                if self.neu == 1 and self.ned == 1:
+                if self.neu < ee_order:
                     mu_parameters_optimizable[:, 0] = False
-            elif mu_parameters.shape[1] == 3:
-                if self.neu == 1:
-                    mu_parameters_optimizable[:, 0] = False
-                if self.ned == 1:
-                    mu_parameters_optimizable[:, 2] = False
+                if self.ned < ee_order:
+                    mu_parameters_optimizable[:, 1] = False
 
+        ee_order = 2
         for phi_parameters, phi_parameters_optimizable in zip(self.phi_parameters, self.phi_parameters_optimizable):
             if phi_parameters.shape[3] == 2:
-                if self.neu == 1 and self.ned == 1:
+                if self.neu < ee_order and self.ned < ee_order:
                     phi_parameters_optimizable[:, :, :, 0] = False
+                if self.neu + self.ned < ee_order:
+                    phi_parameters_optimizable[:, :, :, 1] = False
             elif phi_parameters.shape[3] == 3:
-                if self.neu == 1:
+                if self.neu < ee_order:
                     phi_parameters_optimizable[:, :, :, 0] = False
-                if self.ned == 1:
+                if self.neu + self.ned < ee_order:
+                    phi_parameters_optimizable[:, :, :, 1] = False
+                if self.ned < ee_order:
                     phi_parameters_optimizable[:, :, :, 2] = False
 
         for theta_parameters, theta_parameters_optimizable in zip(self.theta_parameters, self.theta_parameters_optimizable):
             if theta_parameters.shape[3] == 2:
-                if self.neu == 1 and self.ned == 1:
+                if self.neu < ee_order and self.ned < ee_order:
                     theta_parameters_optimizable[:, :, :, 0] = False
+                if self.neu + self.ned < ee_order:
+                    theta_parameters_optimizable[:, :, :, 1] = False
             elif theta_parameters.shape[3] == 3:
-                if self.neu == 1:
+                if self.neu < ee_order:
                     theta_parameters_optimizable[:, :, :, 0] = False
-                if self.ned == 1:
+                if self.neu + self.ned < ee_order:
+                    theta_parameters_optimizable[:, :, :, 1] = False
+                if self.ned < ee_order:
                     theta_parameters_optimizable[:, :, :, 2] = False
 
     def ee_powers(self, e_vectors):
