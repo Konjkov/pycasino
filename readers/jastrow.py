@@ -8,8 +8,6 @@ import numba as nb
 from readers.numerical import rref
 
 labels_type = nb.int64[:]
-chi_mask_type = nb.boolean[:, :]
-f_mask_type = nb.boolean[:, :, :, :]
 chi_parameters_type = nb.float64[:, :]
 chi_parameters_optimizable_type = nb.boolean[:, :]
 f_parameters_type = nb.float64[:, :, :, :]
@@ -188,9 +186,6 @@ class Jastrow:
 
     def __init__(self):
         self.trunc = 0
-        self.u_mask = np.zeros(shape=(0, 0), dtype=bool)
-        self.chi_mask = nb.typed.List.empty_list(chi_mask_type)
-        self.f_mask = nb.typed.List.empty_list(f_mask_type)
         self.u_parameters = np.zeros(shape=(0, 0), dtype=float)  # uu, ud, dd order
         self.u_parameters_optimizable = np.zeros(shape=(0, 0), dtype=bool)
         self.chi_parameters = nb.typed.List.empty_list(chi_parameters_type)  # u, d order
@@ -253,17 +248,17 @@ class Jastrow:
                     elif line.startswith('Parameter'):
                         self.u_parameters = np.zeros(shape=(u_order+1, u_spin_dep+1), dtype=float)
                         self.u_parameters_optimizable = np.zeros(shape=(u_order+1, u_spin_dep+1), dtype=bool)
-                        self.u_mask = self.get_u_mask(self.u_parameters)
+                        u_parameters_independent = self.u_parameters_independent(self.u_parameters)
                         try:
                             for i in range(u_spin_dep + 1):
                                 for l in range(u_order + 1):
-                                    if self.u_mask[l, i]:
+                                    if u_parameters_independent[l, i]:
                                         self.u_parameters[l, i], self.u_parameters_optimizable[l, i] = self.read_parameter()
                         except ValueError:
                             # e-e cusp condition for CASINO emin
                             # for i in range(u_spin_dep+1):
                             #     self.u_parameters[0, i] = -self.u_cutoff[0]['value'] / np.array([4, 2, 4])[i] / (-self.u_cutoff[0]['value']) ** self.trunc / self.trunc
-                            self.u_parameters_optimizable = self.u_mask.copy()
+                            self.u_parameters_optimizable = u_parameters_independent
                     elif line.startswith('END SET'):
                         pass
                 elif chi_term:
@@ -288,15 +283,14 @@ class Jastrow:
                     elif line.startswith('Parameter'):
                         chi_parameters = np.zeros(shape=(chi_order+1, chi_spin_dep+1), dtype=float)
                         chi_parameters_optimizable = np.zeros(shape=(chi_order + 1, chi_spin_dep + 1), dtype=bool)
-                        chi_mask = self.get_chi_mask(chi_parameters)
+                        chi_parameters_independent = self.chi_parameters_independent(chi_parameters)
                         try:
                             for i in range(chi_spin_dep + 1):
                                 for m in range(chi_order + 1):
-                                    if chi_mask[m, i]:
+                                    if chi_parameters_independent[m, i]:
                                         chi_parameters[m, i], chi_parameters_optimizable[m, i] = self.read_parameter()
                         except ValueError:
-                            chi_parameters_optimizable = chi_mask.copy()
-                        self.chi_mask.append(chi_mask)
+                            chi_parameters_optimizable = chi_parameters_independent
                         self.chi_parameters.append(chi_parameters)
                         self.chi_parameters_optimizable.append(chi_parameters_optimizable)
                     elif line.startswith('END SET'):
@@ -331,20 +325,19 @@ class Jastrow:
                     elif line.startswith('Parameter'):
                         f_parameters = np.zeros(shape=(f_en_order+1, f_en_order+1, f_ee_order+1, f_spin_dep+1), dtype=float)
                         f_parameters_optimizable = np.zeros(shape=(f_en_order + 1, f_en_order + 1, f_ee_order + 1, f_spin_dep + 1), dtype=bool)
-                        f_mask = self.get_f_mask(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
+                        f_parameters_independent = self.f_parameters_independent(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                         try:
                             for i in range(f_spin_dep + 1):
                                 for n in range(f_ee_order + 1):
                                     for m in range(f_en_order + 1):
                                         for l in range(f_en_order + 1):
-                                            if f_mask[l, m, n, i]:
+                                            if f_parameters_independent[l, m, n, i]:
                                                 # γlmnI = γmlnI
                                                 p = self.read_parameter([l, m, n, i+1, set_number+1])
                                                 f_parameters[l, m, n, i], f_parameters_optimizable[l, m, n, i] = p
                                                 f_parameters[m, l, n, i], f_parameters_optimizable[m, l, n, i] = p
                         except ValueError:
-                            f_parameters_optimizable = f_mask.copy()
-                        self.f_mask.append(f_mask)
+                            f_parameters_optimizable = f_parameters_independent
                         self.f_parameters.append(f_parameters)
                         self.f_parameters_optimizable.append(f_parameters_optimizable)
                         # for i, parameters in enumerate(self.f_parameters):
@@ -358,10 +351,10 @@ class Jastrow:
         u_term = ""
         if self.u_cutoff:
             u_parameters_list = []
-            u_mask = self.get_u_mask(self.u_parameters)
+            u_parameters_independent = self.u_parameters_independent(self.u_parameters)
             for i in range(self.u_parameters.shape[1]):
                 for l in range(self.u_parameters.shape[0]):
-                    if u_mask[l, i]:
+                    if u_parameters_independent[l, i]:
                         u_parameters_list.append(f'{self.u_parameters[l, i]: .16e}            {int(self.u_parameters_optimizable[l, i])}       ! alpha_{l},{i + 1}')
             u_set = u_set_template.format(
                 u_order=self.u_parameters.shape[0] - 1,
@@ -376,10 +369,10 @@ class Jastrow:
         chi_term = chi_sets = ''
         for n_chi_set, (chi_labels, chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cusp) in enumerate(zip(self.chi_labels, self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cusp)):
             chi_parameters_list = []
-            chi_mask = self.get_chi_mask(chi_parameters)
+            chi_parameters_independent = self.chi_parameters_independent(chi_parameters)
             for i in range(chi_parameters.shape[1]):
                 for m in range(chi_parameters.shape[0]):
-                    if chi_mask[m, i]:
+                    if chi_parameters_independent[m, i]:
                         chi_parameters_list.append(f'{chi_parameters[m, i]: .16e}            {int(chi_parameters_optimizable[m, i])}       ! beta_{m},{i + 1},{n_chi_set + 1}')
             chi_sets += chi_set_template.format(
                 n_set=n_chi_set + 1,
@@ -399,12 +392,12 @@ class Jastrow:
         f_term = f_sets = ''
         for n_f_set, (f_labels, f_parameters, f_parameters_optimizable, f_cutoff, no_dup_u_term, no_dup_chi_term) in enumerate(zip(self.f_labels, self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term)):
             f_parameters_list = []
-            f_mask = self.get_f_mask(f_parameters, f_cutoff['value'], no_dup_u_term, no_dup_chi_term)
+            f_parameters_independent = self.f_parameters_independent(f_parameters, f_cutoff['value'], no_dup_u_term, no_dup_chi_term)
             for i in range(f_parameters.shape[3]):
                 for n in range(f_parameters.shape[2]):
                     for m in range(f_parameters.shape[1]):
                         for l in range(f_parameters.shape[0]):
-                            if f_mask[l, m, n, i]:
+                            if f_parameters_independent[l, m, n, i]:
                                 f_parameters_list.append(f'{f_parameters[l, m, n, i]: .16e}            {int(f_parameters_optimizable[l, m, n, i])}       ! gamma_{l},{m},{n},{i + 1},{n_f_set + 1}')
             f_sets += f_set_template.format(
                 n_set=n_f_set + 1,
@@ -430,20 +423,20 @@ class Jastrow:
         return jastrow
 
     @staticmethod
-    def get_u_mask(parameters):
+    def u_parameters_independent(parameters):
         """Mask dependent parameters in u-term"""
         mask = np.ones(parameters.shape, bool)
         mask[1] = False
         return mask
 
     @staticmethod
-    def get_chi_mask(parameters):
+    def chi_parameters_independent(parameters):
         """Mask dependent parameters in chi-term"""
         mask = np.ones(parameters.shape, bool)
         mask[1] = False
         return mask
 
-    def get_f_mask(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
+    def f_parameters_independent(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
         """Mask dependent parameters in f-term."""
         f_en_order = f_parameters.shape[0] - 1
         f_ee_order = f_parameters.shape[2] - 1

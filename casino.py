@@ -118,12 +118,11 @@ class Casino:
         if self.config.jastrow:
             jastrow = Jastrow(
                 self.config.input.neu, self.config.input.ned,
-                self.config.jastrow.trunc, self.config.jastrow.u_parameters, self.config.jastrow.u_parameters_optimizable, self.config.jastrow.u_mask,
+                self.config.jastrow.trunc, self.config.jastrow.u_parameters, self.config.jastrow.u_parameters_optimizable,
                 self.config.jastrow.u_cutoff, self.config.jastrow.u_cusp_const,
-                self.config.jastrow.chi_parameters, self.config.jastrow.chi_parameters_optimizable, self.config.jastrow.chi_mask, self.config.jastrow.chi_cutoff,
+                self.config.jastrow.chi_parameters, self.config.jastrow.chi_parameters_optimizable, self.config.jastrow.chi_cutoff,
                 self.config.jastrow.chi_labels, self.config.jastrow.chi_cusp,
-                self.config.jastrow.f_parameters, self.config.jastrow.f_parameters_optimizable, self.config.jastrow.f_mask, self.config.jastrow.f_cutoff,
-                self.config.jastrow.f_labels,
+                self.config.jastrow.f_parameters, self.config.jastrow.f_parameters_optimizable, self.config.jastrow.f_cutoff, self.config.jastrow.f_labels,
                 self.config.jastrow.no_dup_u_term, self.config.jastrow.no_dup_chi_term
             )
         else:
@@ -132,12 +131,12 @@ class Casino:
         if self.config.backflow:
             backflow = Backflow(
                 self.config.input.neu, self.config.input.ned,
-                self.config.backflow.trunc, self.config.backflow.eta_parameters, self.config.backflow.eta_parameters_optimizable, self.config.backflow.eta_mask,
+                self.config.backflow.trunc, self.config.backflow.eta_parameters, self.config.backflow.eta_parameters_optimizable,
                 self.config.backflow.eta_cutoff,
-                self.config.backflow.mu_parameters, self.config.backflow.mu_parameters_optimizable, self.config.backflow.mu_mask, self.config.backflow.mu_cutoff,
+                self.config.backflow.mu_parameters, self.config.backflow.mu_parameters_optimizable, self.config.backflow.mu_cutoff,
                 self.config.backflow.mu_cusp, self.config.backflow.mu_labels,
-                self.config.backflow.phi_parameters, self.config.backflow.phi_parameters_optimizable, self.config.backflow.phi_mask,
-                self.config.backflow.theta_parameters, self.config.backflow.theta_parameters_optimizable, self.config.backflow.theta_mask,
+                self.config.backflow.phi_parameters, self.config.backflow.phi_parameters_optimizable,
+                self.config.backflow.theta_parameters, self.config.backflow.theta_parameters_optimizable,
                 self.config.backflow.phi_cutoff, self.config.backflow.phi_cusp, self.config.backflow.phi_labels, self.config.backflow.phi_irrotational,
                 self.config.backflow.ae_cutoff
             )

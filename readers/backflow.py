@@ -7,9 +7,6 @@ import numba as nb
 from readers.numerical import rref
 
 labels_type = nb.int64[:]
-mu_mask_type = nb.boolean[:, :]
-phi_mask_type = nb.boolean[:, :, :, :]
-theta_mask_type = nb.boolean[:, :, :, :]
 mu_parameters_type = nb.float64[:, :]
 mu_parameters_optimizable_type = nb.boolean[:, :]
 phi_parameters_type = nb.float64[:, :, :, :]
@@ -269,10 +266,6 @@ class Backflow:
 
     def __init__(self):
         self.trunc = 0
-        self.eta_mask = np.zeros(shape=(0, 0), dtype=bool)
-        self.mu_mask = nb.typed.List.empty_list(mu_mask_type)
-        self.phi_mask = nb.typed.List.empty_list(phi_mask_type)
-        self.theta_mask = nb.typed.List.empty_list(theta_mask_type)
         self.eta_parameters = np.zeros((0, 0), dtype=float)  # uu, ud, dd order
         self.eta_parameters_optimizable = np.zeros(shape=(0, 0), dtype=bool)  # uu, ud, dd order
         self.mu_parameters = nb.typed.List.empty_list(mu_parameters_type)  # u, d order
@@ -348,15 +341,15 @@ class Backflow:
                     elif line.startswith('Parameter'):
                         self.eta_parameters = np.zeros((eta_order+1, eta_spin_dep+1), dtype=float)
                         self.eta_parameters_optimizable = np.zeros((eta_order + 1, eta_spin_dep + 1), dtype=bool)
-                        self.eta_mask = self.get_eta_mask(self.eta_parameters)
+                        eta_parameters_independent = self.eta_parameters_independent(self.eta_parameters)
                         try:
                             for i in range(eta_spin_dep + 1):
                                 for j in range(eta_order + 1):
-                                    if self.eta_mask[j, i]:
+                                    if eta_parameters_independent[j, i]:
                                         self.eta_parameters[j, i], self.eta_parameters_optimizable[j, i] = self.read_parameter()
                         except ValueError:
                             eta_term = False
-                            self.eta_parameters_optimizable = self.eta_mask.copy()
+                            self.eta_parameters_optimizable = eta_parameters_independent
                         self.fix_eta_parameters()
                 elif mu_term:
                     if line.startswith('Number of sets'):
@@ -380,15 +373,15 @@ class Backflow:
                     elif line.startswith('Parameter values'):
                         mu_parameters = np.zeros((mu_order+1, mu_spin_dep+1), dtype=float)
                         mu_parameters_optimizable = np.zeros((mu_order + 1, mu_spin_dep + 1), dtype=bool)
-                        mu_mask = self.get_mu_mask(mu_parameters)
+                        mu_parameters_independent = self.mu_parameters_independent(mu_parameters)
                         try:
                             for i in range(mu_spin_dep + 1):
                                 for j in range(mu_order + 1):
-                                    if mu_mask[j, i]:
+                                    if mu_parameters_independent[j, i]:
                                         mu_parameters[j, i], mu_parameters_optimizable[j, i] = self.read_parameter()
                         except ValueError:
-                            mu_parameters_optimizable = mu_mask.copy()
-                        self.mu_mask.append(mu_mask)
+                            mu_parameters_optimizable = mu_parameters_independent
+                        # self.mu_mask.append(mu_parameters_independent)
                         self.mu_parameters.append(mu_parameters)
                         self.mu_parameters_optimizable.append(mu_parameters_optimizable)
                     elif line.startswith('END SET'):
@@ -424,24 +417,22 @@ class Backflow:
                         phi_parameters_optimizable = np.zeros((phi_en_order + 1, phi_en_order + 1, phi_ee_order + 1, phi_spin_dep + 1), bool)
                         theta_parameters = np.zeros((phi_en_order+1, phi_en_order+1, phi_ee_order+1, phi_spin_dep+1), float)
                         theta_parameters_optimizable = np.zeros((phi_en_order + 1, phi_en_order + 1, phi_ee_order + 1, phi_spin_dep + 1), bool)
-                        phi_mask, theta_mask = self.get_phi_theta_mask(phi_parameters, phi_cutoff, phi_cusp, phi_irrotational)
+                        phi_parameters_independent, theta_parameters_independent = self.phi_theta_parameters_independent(phi_parameters, phi_cutoff, phi_cusp, phi_irrotational)
                         try:
                             for i in range(phi_spin_dep + 1):
                                 for m in range(phi_ee_order + 1):
                                     for l in range(phi_en_order + 1):
                                         for k in range(phi_en_order + 1):
-                                            if phi_mask[k, l, m, i]:
+                                            if phi_parameters_independent[k, l, m, i]:
                                                 phi_parameters[k, l, m, i], phi_parameters_optimizable[k, l, m, i] = self.read_parameter([k, l, m, i + 1])
                                 for m in range(phi_ee_order + 1):
                                     for l in range(phi_en_order + 1):
                                         for k in range(phi_en_order + 1):
-                                            if theta_mask[k, l, m, i]:
+                                            if theta_parameters_independent[k, l, m, i]:
                                                 theta_parameters[k, l, m, i], theta_parameters_optimizable[k, l, m, i] = self.read_parameter([k, l, m, i + 1])
                         except ValueError:
-                            phi_parameters_optimizable = phi_mask.copy()
-                            theta_parameters_optimizable = theta_mask.copy()
-                        self.phi_mask.append(phi_mask)
-                        self.theta_mask.append(theta_mask)
+                            phi_parameters_optimizable = phi_parameters_independent
+                            theta_parameters_optimizable = theta_parameters_independent
                         self.phi_parameters.append(phi_parameters)
                         self.theta_parameters.append(theta_parameters)
                         self.phi_parameters_optimizable.append(phi_parameters_optimizable)
@@ -460,10 +451,10 @@ class Backflow:
 
     def write(self):
         eta_parameters_list = []
-        eta_mask = self.get_eta_mask(self.eta_parameters)
+        eta_parameters_independent = self.eta_parameters_independent(self.eta_parameters)
         for i in range(self.eta_parameters.shape[1]):
             for j in range(self.eta_parameters.shape[0]):
-                if eta_mask[j, i]:
+                if eta_parameters_independent[j, i]:
                     eta_parameters_list.append(f'{self.eta_parameters[j, i]: .16e}            {int(self.eta_parameters_optimizable[j, i])}       ! c_{j},{i + 1}')
         eta_set = eta_set_template.format(
             eta_order=self.eta_parameters.shape[0] - 1,
@@ -476,10 +467,10 @@ class Backflow:
         mu_sets = ''
         for n_mu_set, (mu_labels, mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cusp) in enumerate(zip(self.mu_labels, self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cusp)):
             mu_parameters_list = []
-            mu_mask = self.get_mu_mask(mu_parameters)
+            mu_parameters_independent = self.mu_parameters_independent(mu_parameters)
             for i in range(mu_parameters.shape[1]):
                 for j in range(mu_parameters.shape[0]):
-                    if mu_mask[j, i]:
+                    if mu_parameters_independent[j, i]:
                         mu_parameters_list.append(f'{mu_parameters[j, i]: .16e}            {int(mu_parameters_optimizable[j, i])}       ! mu_{j},{i + 1}')
             mu_sets += mu_set_template.format(
                 n_set=n_mu_set + 1,
@@ -495,18 +486,18 @@ class Backflow:
         phi_sets = ''
         for n_phi_set, (phi_labels, phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable, phi_cutoff, phi_cusp, phi_irrotational) in enumerate(zip(self.phi_labels, self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable, self.phi_cutoff, self.phi_cusp, self.phi_irrotational)):
             phi_theta_parameters_list = []
-            phi_mask, theta_mask = self.get_phi_theta_mask(phi_parameters, phi_cutoff['value'], phi_cusp, phi_irrotational)
+            phi_parameters_independent, theta_parameters_independent = self.phi_theta_parameters_independent(phi_parameters, phi_cutoff['value'], phi_cusp, phi_irrotational)
             for i in range(phi_parameters.shape[3]):
                 for m in range(phi_parameters.shape[2]):
                     for l in range(phi_parameters.shape[1]):
                         for k in range(phi_parameters.shape[0]):
-                            if phi_mask[k, l, m, i]:
-                                phi_theta_parameters_list.append(f'{phi_parameters[k, l, m, i]: .16e}            {int(phi_parameters_optimizable[k, l, m, i])}       ! phi_{l},{i + 1}')
+                            if phi_parameters_independent[k, l, m, i]:
+                                phi_theta_parameters_list.append(f'{phi_parameters[k, l, m, i]: .16e}            {int(phi_parameters_optimizable[k, l, m, i])}       ! phi_{k},{l},{m},{i + 1}')
                 for m in range(phi_parameters.shape[2]):
                     for l in range(phi_parameters.shape[1]):
                         for k in range(phi_parameters.shape[0]):
-                            if theta_mask[k, l, m, i]:
-                                phi_theta_parameters_list.append(f'{theta_parameters[k, l, m, i]: .16e}            {int(theta_parameters_optimizable[k, l, m, i])}       ! theta_{l},{i + 1}')
+                            if theta_parameters_independent[k, l, m, i]:
+                                phi_theta_parameters_list.append(f'{theta_parameters[k, l, m, i]: .16e}            {int(theta_parameters_optimizable[k, l, m, i])}       ! theta_{k},{l},{m},{i + 1}')
             phi_sets += phi_set_template.format(
                 n_set=n_phi_set + 1,
                 n_atoms=len(phi_labels),
@@ -536,7 +527,7 @@ class Backflow:
         return backflow
 
     @staticmethod
-    def get_eta_mask(parameters):
+    def eta_parameters_independent(parameters):
         """To obey the cusp conditions,
         we constrain the parallel-spin η(rij) function to have zero derivative at rij = 0,
         while the antiparallel-spin η function may have a nonzero derivative"""
@@ -547,12 +538,12 @@ class Backflow:
         return mask
 
     @staticmethod
-    def get_mu_mask(parameters):
+    def mu_parameters_independent(parameters):
         mask = np.ones(parameters.shape, np.bool)
         mask[0] = mask[1] = False
         return mask
 
-    def get_phi_theta_mask(self, phi_parameters, phi_cutoff, phi_cusp, phi_irrotational):
+    def phi_theta_parameters_independent(self, phi_parameters, phi_cutoff, phi_cusp, phi_irrotational):
         """Mask dependent parameters in phi-term.
         """
         phi_mask = np.zeros(shape=phi_parameters.shape, dtype=bool)
