@@ -138,6 +138,28 @@ class Jastrow:
                 if self.ned < ee_order:
                     f_parameters_optimizable[:, :, :, 2] = False
 
+    def f_parameters_size(self):
+        """"""
+        f_size = 0
+        ee_order = 2
+        for f_parameters_optimizable, f_cutoff_optimizable in zip(self.f_parameters_optimizable, self.f_cutoff_optimizable):
+            spin_dep = f_parameters_optimizable.shape[3]
+            if spin_dep == 2:
+                if self.neu < ee_order and self.ned < ee_order:
+                    spin_dep -= 1
+                if self.neu + self.ned < ee_order:
+                    spin_dep -= 1
+            elif spin_dep == 3:
+                if self.neu < ee_order:
+                    spin_dep -= 1
+                if self.neu + self.ned < ee_order:
+                    spin_dep -= 1
+                if self.ned < ee_order:
+                    spin_dep -= 1
+            f_size += f_parameters_optimizable.shape[0] * (f_parameters_optimizable.shape[1] + 1) * f_parameters_optimizable.shape[2] // 2 * spin_dep
+            f_size += f_cutoff_optimizable
+        return f_size
+
     def ee_powers(self, e_vectors) -> np.ndarray:
         """Powers of e-e distances
         :param e_vectors: e-e vectors - array(nelec, nelec, 3)
@@ -706,17 +728,14 @@ class Jastrow:
             for chi_parameters_optimizable, chi_cutoff_optimizable
             in zip(self.chi_parameters_optimizable, self.chi_cutoff_optimizable)
         ])
-        f_size = sum([
-            f_parameters_optimizable.sum() + f_cutoff_optimizable
-            for f_parameters_optimizable, f_cutoff_optimizable
-            in zip(self.f_parameters_optimizable, self.f_cutoff_optimizable)
-        ])
+        f_size = self.f_parameters_size()
+
         for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
             f_en_order = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[2] - 1
             a = construct_a_matrix(self.trunc, f_en_order, f_ee_order, L, no_dup_u_term, no_dup_chi_term)
-        res = np.zeros(shape=(a.shape[0], u_size + chi_size + a.shape[1]))
-        res[:, u_size + chi_size:u_size + chi_size + a.shape[1]] = a
+        res = np.zeros(shape=(a.shape[0], u_size + chi_size + f_size))
+        res[:, u_size + chi_size:u_size + chi_size + f_size] = a
         return res
 
     def get_parameters(self):
