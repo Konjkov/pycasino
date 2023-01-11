@@ -176,10 +176,10 @@ class Wfn:
             ))
         return res
 
-    def set_parameters(self, parameters, opt_jastrow=True, opt_backflow=True):
+    def set_parameters(self, parameters, opt_jastrow=True, opt_backflow=True, opt_f=True):
         """Update optimized parameters"""
         if self.jastrow is not None and opt_jastrow:
-            parameters = self.jastrow.set_parameters(parameters)
+            parameters = self.jastrow.set_parameters(parameters, opt_f=opt_f)
         if self.backflow is not None and opt_backflow:
             self.backflow.set_parameters(parameters)
 
@@ -209,14 +209,14 @@ class Wfn:
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
             parameters[i] -= delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_f=False)
             res[i] -= self.energy(r_e) / scale[i]
             parameters[i] += 2 * delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_f=False)
             res[i] += self.energy(r_e) / scale[i]
             parameters[i] -= delta * scale[i]
 
-        self.set_parameters(parameters, opt_jastrow, opt_backflow)
+        self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_f=False)
         return res / delta / 2
 
     def energy_parameters_numerical_d2(self, r_e, opt_jastrow=True, opt_backflow=True):

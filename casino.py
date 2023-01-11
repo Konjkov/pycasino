@@ -554,8 +554,8 @@ class Casino:
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
-        # A = np.zeros(shape=(1, scale.size))
-        # constraints = LinearConstraint(A, lb=0, ub=0)
+        A = self.wfn.jastrow.get_parameters_constraints()
+        constraints = LinearConstraint(A * scale, lb=0, ub=0)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
 
         def fun(x, *args):
@@ -564,7 +564,7 @@ class Casino:
             energy_part = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allgather(energy_part, energy)
             self.logger.info(f'energy {energy.mean()} {energy.std()}')
-            return energy.mean()
+            return energy.mean() + energy.std()
 
         def jac(x, *args):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
@@ -596,13 +596,13 @@ class Casino:
 
         res = minimize(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, method='trust-constr',
-            jac=jac, hess=hess, options=dict(disp=self.mpi_comm.rank == 0, maxiter=20)
+            jac=jac, hess=hess, constraints=constraints, options=dict(disp=self.mpi_comm.rank == 0, maxiter=20)
         )
         parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        self.logger.info('Jacobian at the solution:')
-        self.logger.info(res.jac)
+        # self.logger.info('Jacobian at the solution:')
+        # self.logger.info(res.jac)
 
 
 if __name__ == '__main__':
