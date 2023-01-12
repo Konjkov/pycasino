@@ -562,7 +562,7 @@ class Casino:
             energy = np.empty(shape=(steps,))
             energy_part = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allgather(energy_part, energy)
-            self.logger.info(f'energy {energy.mean()} {energy.std()}')
+            # self.logger.info(f'energy {energy.mean()} {energy.std()}')
             return energy.mean() + energy.std()
 
         def jac(x, *args):
@@ -572,7 +572,7 @@ class Casino:
             mean_energy_gradient = energy_parameters_gradient(energy_part, wfn_gradient_part)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
             mean_energy_gradient = mean_energy_gradient / self.mpi_comm.size * scale
-            self.logger.info(f'gradient modulo values min {np.abs(mean_energy_gradient).min()} max {np.abs(mean_energy_gradient).max()}')
+            # self.logger.info(f'gradient modulo values min {np.abs(mean_energy_gradient).min()} max {np.abs(mean_energy_gradient).max()}')
             return mean_energy_gradient
 
         def hess(x, *args):
@@ -585,7 +585,7 @@ class Casino:
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_hessian)
             mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size * np.outer(scale, scale)
             eigvals = np.linalg.eigvalsh(mean_energy_hessian)
-            self.logger.info(f'hessian eigenvalues min {eigvals.min()} max {eigvals.max()}')
+            # self.logger.info(f'hessian eigenvalues min {eigvals.min()} max {eigvals.max()}')
             return mean_energy_hessian
 
         self.logger.info(
@@ -593,15 +593,16 @@ class Casino:
             ' =================='
         )
 
+        verbose = 3 if self.mpi_comm.rank == 0 else 0
         res = minimize(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, method='trust-constr',
-            jac=jac, hess=hess, constraints=constraints, options=dict(disp=self.mpi_comm.rank == 0, maxiter=20)
+            jac=jac, hess=hess, constraints=constraints, options=dict(verbose=verbose, disp=self.mpi_comm.rank == 0)
         )
         parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        # self.logger.info('Jacobian at the solution:')
-        # self.logger.info(res.jac)
+        self.logger.info('scaled x at the solution:')
+        self.logger.info(res.x)
 
 
 if __name__ == '__main__':

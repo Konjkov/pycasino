@@ -689,7 +689,7 @@ class Jastrow:
             for j1 in range(self.u_parameters.shape[0]):
                 for j2 in range(self.u_parameters.shape[1]):
                     if self.u_parameters_optimizable[j1, j2]:
-                        scale_u.append(1 / self.u_cutoff ** (j1 + self.trunc - 1))
+                        scale_u.append(1 / 2 ** (j1 + self.trunc - 1))
 
         scale_chi = []
         if self.chi_cutoff.any():
@@ -699,7 +699,7 @@ class Jastrow:
                 for j1 in range(chi_parameters.shape[0]):
                     for j2 in range(chi_parameters.shape[1]):
                         if chi_parameters_optimizable[j1, j2]:
-                            scale_chi.append(1 / chi_cutoff ** (j1 + self.trunc - 1))
+                            scale_chi.append(1 / 2 ** (j1 + self.trunc - 1))
 
         scale_f = []
         if self.f_cutoff.any():
@@ -710,8 +710,8 @@ class Jastrow:
                     for j3 in range(f_parameters.shape[2]):
                         for j2 in range(f_parameters.shape[1]):
                             for j1 in range(j2, f_parameters.shape[0]):
-                                if f_parameters_optimizable[j1, j2, j3, j4]:
-                                    scale_f.append(1 / f_cutoff ** (j1 + j2 + j3 + 2 * self.trunc - 2))
+                                if j4 == 1:
+                                    scale_f.append(1 / 2 ** (j1 + j2 + j3 + 2 * self.trunc - 2))
 
         return np.array(scale_u), np.array(scale_chi), np.array(scale_f)
 
@@ -771,7 +771,7 @@ class Jastrow:
                     for j3 in range(f_parameters.shape[2]):
                         for j2 in range(f_parameters.shape[1]):
                             for j1 in range(j2, f_parameters.shape[0]):
-                                if f_parameters_optimizable[j1, j2, j3, j4]:
+                                if j4 == 1:
                                     res.append(f_parameters[j1, j2, j3, j4])
 
         return np.array(res)
@@ -819,7 +819,7 @@ class Jastrow:
                     for j3 in range(f_parameters.shape[2]):
                         for j2 in range(f_parameters.shape[1]):
                             for j1 in range(j2, f_parameters.shape[0]):
-                                if f_parameters_optimizable[j1, j2, j3, j4]:
+                                if j4 == 1:
                                     f_parameters[j1, j2, j3, j4] = f_parameters[j2, j1, j3, j4] = parameters[n]
                                     n += 1
             if opt_f:
@@ -917,12 +917,7 @@ class Jastrow:
 
         delta = 0.000001
         scale = self.get_parameters_scale()[2]
-        size = sum([
-            # 40 + f_cutoff_optimizable
-            f_parameters_optimizable.sum() + f_cutoff_optimizable
-            for f_parameters_optimizable, f_cutoff_optimizable
-            in zip(self.f_parameters_optimizable, self.f_cutoff_optimizable)
-        ])
+        size = self.f_parameters_size()
         res = np.zeros(shape=(size,))
 
         n = -1
@@ -941,7 +936,7 @@ class Jastrow:
                 for j3 in range(f_parameters.shape[2]):
                     for j2 in range(f_parameters.shape[1]):
                         for j1 in range(j2, f_parameters.shape[0]):
-                            if f_parameters_optimizable[j1, j2, j3, j4]:
+                            if j4 == 1:
                                 n += 1
                                 f_parameters[j1, j2, j3, j4] -= delta * scale[n]
                                 if j1 != j2:
@@ -955,7 +950,7 @@ class Jastrow:
                                 if j1 != j2:
                                     f_parameters[j2, j1, j3, j4] -= delta * scale[n]
 
-        self.fix_f_parameters()
+        # self.fix_f_parameters()
         return res / delta / 2
 
     def parameters_numerical_d1(self, e_vectors, n_vectors):
@@ -1158,13 +1153,8 @@ class Jastrow:
 
         delta = 0.000001
         scale = self.get_parameters_scale()[2]
-        size = sum([
-            # 40 + f_cutoff_optimizable
-            f_parameters_optimizable.sum() + f_cutoff_optimizable
-            for f_parameters_optimizable, f_cutoff_optimizable
-            in zip(self.f_parameters_optimizable, self.f_cutoff_optimizable)
-        ])
-        res = -2 * self.f_term(e_powers, n_powers) * np.eye(size)
+        size = self.f_parameters_size()
+        res = np.zeros(shape=(size, size))
         for i in range(size):
             res[i, i] /= scale[i] * scale[i]
 
@@ -1172,6 +1162,7 @@ class Jastrow:
             if self.f_cutoff_optimizable[i]:
                 n = m = 0
                 # derivatives of cutoff
+                res[n, m] -= 2 * self.f_term(e_powers, n_powers) / scale[n] / scale[n]
                 self.f_cutoff[i] -= 2 * delta * scale[n]
                 self.fix_f_parameters()
                 res[n, m] += self.f_term(e_powers, n_powers) / scale[n] / scale[n]
@@ -1207,69 +1198,62 @@ class Jastrow:
                                     self.f_cutoff[i] -= delta * scale[m]
                                     res[m, n] = res[n, m]
 
-            n = self.f_cutoff_optimizable[i] - 1
-            for j4 in range(f_parameters.shape[3]):
-                for j3 in range(f_parameters.shape[2]):
-                    for j2 in range(f_parameters.shape[1]):
-                        for j1 in range(j2, f_parameters.shape[0]):
-                            if f_parameters_optimizable[j1, j2, j3, j4]:
-                                n += 1
-                                m = self.f_cutoff_optimizable[i] - 1
-                                for k4 in range(f_parameters.shape[3]):
-                                    for k3 in range(f_parameters.shape[2]):
-                                        for k2 in range(f_parameters.shape[1]):
-                                            for k1 in range(k2, f_parameters.shape[0]):
-                                                if f_parameters_optimizable[k1, k2, k3, k4]:
-                                                    m += 1
-                                                    # diagonal terms of linear parameters
-                                                    if n == m:
-                                                        f_parameters[j1, j2, j3, j4] -= 2 * delta * scale[n]
-                                                        if j1 != j2:
-                                                            f_parameters[j2, j1, j3, j4] -= 2 * delta * scale[n]
-                                                        self.fix_f_parameters()
-                                                        res[n, m] += self.f_term(e_powers, n_powers) / scale[n] / scale[n]
-                                                        f_parameters[j1, j2, j3, j4] += 4 * delta * scale[n]
-                                                        if j1 != j2:
-                                                            f_parameters[j2, j1, j3, j4] += 4 * delta * scale[n]
-                                                        self.fix_f_parameters()
-                                                        res[n, m] += self.f_term(e_powers, n_powers) / scale[n] / scale[n]
-                                                        f_parameters[j1, j2, j3, j4] -= 2 * delta * scale[n]
-                                                        if j1 != j2:
-                                                            f_parameters[j2, j1, j3, j4] -= 2 * delta * scale[n]
-                                                    # off-diagonal derivatives of linear parameters
-                                                    elif n > m:
-                                                        f_parameters[j1, j2, j3, j4] -= delta * scale[n]
-                                                        if j1 != j2:
-                                                            f_parameters[j2, j1, j3, j4] -= delta * scale[n]
-                                                        f_parameters[k1, k2, k3, k4] -= delta * scale[m]
-                                                        if k1 != k2:
-                                                            f_parameters[k2, k1, k3, k4] -= delta * scale[m]
-                                                        self.fix_f_parameters()
-                                                        res[n, m] += self.f_term(e_powers, n_powers) / scale[n] / scale[m]
-                                                        f_parameters[j1, j2, j3, j4] += 2 * delta * scale[n]
-                                                        if j1 != j2:
-                                                            f_parameters[j2, j1, j3, j4] += 2 * delta * scale[n]
-                                                        self.fix_f_parameters()
-                                                        res[n, m] -= self.f_term(e_powers, n_powers) / scale[n] / scale[m]
-                                                        f_parameters[k1, k2, k3, k4] += 2 * delta * scale[m]
-                                                        if k1 != k2:
-                                                            f_parameters[k2, k1, k3, k4] += 2 * delta * scale[m]
-                                                        self.fix_f_parameters()
-                                                        res[n, m] += self.f_term(e_powers, n_powers) / scale[n] / scale[m]
-                                                        f_parameters[j1, j2, j3, j4] -= 2 * delta * scale[n]
-                                                        if j1 != j2:
-                                                            f_parameters[j2, j1, j3, j4] -= 2 * delta * scale[n]
-                                                        self.fix_f_parameters()
-                                                        res[n, m] -= self.f_term(e_powers, n_powers) / scale[n] / scale[m]
-                                                        f_parameters[j1, j2, j3, j4] += delta * scale[n]
-                                                        if j1 != j2:
-                                                            f_parameters[j2, j1, j3, j4] += delta * scale[n]
-                                                        f_parameters[k1, k2, k3, k4] -= delta * scale[m]
-                                                        if k1 != k2:
-                                                            f_parameters[k2, k1, k3, k4] -= delta * scale[m]
-                                                        res[m, n] = res[n, m]
+            # n = self.f_cutoff_optimizable[i] - 1
+            # for j4 in range(f_parameters.shape[3]):
+            #     for j3 in range(f_parameters.shape[2]):
+            #         for j2 in range(f_parameters.shape[1]):
+            #             for j1 in range(j2, f_parameters.shape[0]):
+            #                 if j4 == 1:
+            #                     n += 1
+            #                     m = self.f_cutoff_optimizable[i] - 1
+            #                     for k4 in range(f_parameters.shape[3]):
+            #                         for k3 in range(f_parameters.shape[2]):
+            #                             for k2 in range(f_parameters.shape[1]):
+            #                                 for k1 in range(k2, f_parameters.shape[0]):
+            #                                     if k4 == 1:
+            #                                         m += 1
+            #                                         # diagonal terms of linear parameters
+            #                                         if n == m:
+            #                                             f_parameters[j1, j2, j3, j4] -= 2 * delta * scale[n]
+            #                                             if j1 != j2:
+            #                                                 f_parameters[j2, j1, j3, j4] -= 2 * delta * scale[n]
+            #                                             res[n, m] += self.f_term(e_powers, n_powers) / scale[n] / scale[n]
+            #                                             f_parameters[j1, j2, j3, j4] += 4 * delta * scale[n]
+            #                                             if j1 != j2:
+            #                                                 f_parameters[j2, j1, j3, j4] += 4 * delta * scale[n]
+            #                                             res[n, m] += self.f_term(e_powers, n_powers) / scale[n] / scale[n]
+            #                                             f_parameters[j1, j2, j3, j4] -= 2 * delta * scale[n]
+            #                                             if j1 != j2:
+            #                                                 f_parameters[j2, j1, j3, j4] -= 2 * delta * scale[n]
+            #                                         # off-diagonal derivatives of linear parameters
+            #                                         elif n > m:
+            #                                             f_parameters[j1, j2, j3, j4] -= delta * scale[n]
+            #                                             if j1 != j2:
+            #                                                 f_parameters[j2, j1, j3, j4] -= delta * scale[n]
+            #                                             f_parameters[k1, k2, k3, k4] -= delta * scale[m]
+            #                                             if k1 != k2:
+            #                                                 f_parameters[k2, k1, k3, k4] -= delta * scale[m]
+            #                                             res[n, m] += self.f_term(e_powers, n_powers) / scale[n] / scale[m]
+            #                                             f_parameters[j1, j2, j3, j4] += 2 * delta * scale[n]
+            #                                             if j1 != j2:
+            #                                                 f_parameters[j2, j1, j3, j4] += 2 * delta * scale[n]
+            #                                             res[n, m] -= self.f_term(e_powers, n_powers) / scale[n] / scale[m]
+            #                                             f_parameters[k1, k2, k3, k4] += 2 * delta * scale[m]
+            #                                             if k1 != k2:
+            #                                                 f_parameters[k2, k1, k3, k4] += 2 * delta * scale[m]
+            #                                             res[n, m] += self.f_term(e_powers, n_powers) / scale[n] / scale[m]
+            #                                             f_parameters[j1, j2, j3, j4] -= 2 * delta * scale[n]
+            #                                             if j1 != j2:
+            #                                                 f_parameters[j2, j1, j3, j4] -= 2 * delta * scale[n]
+            #                                             res[n, m] -= self.f_term(e_powers, n_powers) / scale[n] / scale[m]
+            #                                             f_parameters[j1, j2, j3, j4] += delta * scale[n]
+            #                                             if j1 != j2:
+            #                                                 f_parameters[j2, j1, j3, j4] += delta * scale[n]
+            #                                             f_parameters[k1, k2, k3, k4] -= delta * scale[m]
+            #                                             if k1 != k2:
+            #                                                 f_parameters[k2, k1, k3, k4] -= delta * scale[m]
+            #                                             res[m, n] = res[n, m]
 
-        self.fix_f_parameters()
         return res / delta / delta / 4
 
     def parameters_numerical_d2(self, e_vectors, n_vectors):
