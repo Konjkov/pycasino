@@ -935,15 +935,15 @@ class Jastrow:
         C = self.trunc
         scale = self.get_parameters_scale()[2]
         size = sum([
-            ((f_parameters_optimizable | True) & f_parameters_available).sum() + f_cutoff_optimizable
-            for f_parameters_optimizable, f_cutoff_optimizable, f_parameters_available
-            in zip(self.f_parameters_optimizable, self.f_cutoff_optimizable, self.f_parameters_available)
+            f_parameters_available.sum() + f_cutoff_optimizable
+            for f_parameters_available, f_cutoff_optimizable
+            in zip(self.f_parameters_available, self.f_cutoff_optimizable)
         ])
         res = np.zeros(shape=(size,))
 
         n = -1
 
-        for i, (f_parameters, f_parameters_optimizable, f_parameters_available) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_parameters_available)):
+        for i, (f_parameters, f_parameters_available) in enumerate(zip(self.f_parameters, self.f_parameters_available)):
             if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta * scale[n]
@@ -959,9 +959,8 @@ class Jastrow:
                 for j3 in range(f_parameters.shape[2]):
                     for j2 in range(f_parameters.shape[1]):
                         for j1 in range(j2, f_parameters.shape[0]):
-                            if (f_parameters_optimizable[j1, j2, j3, j4] or True) and f_parameters_available[j1, j2, j3, j4]:
+                            if f_parameters_available[j1, j2, j3, j4]:
                                 n += 1
-
                                 # for label in f_labels:
                                 #     for j in range(1, self.neu + self.ned):
                                 #         for k in range(j):
@@ -972,7 +971,6 @@ class Jastrow:
                                 #                 if f_set == j4:
                                 #                     poly = n_powers[label, j, j1] * n_powers[label, k, j2] * e_powers[j, k, j3]
                                 #                     res[n] += poly * (r_e1I - self.f_cutoff[i]) ** C * (r_e2I - self.f_cutoff[i]) ** C
-
                                 f_parameters[j1, j2, j3, j4] -= delta * scale[n]
                                 if j1 != j2:
                                     f_parameters[j2, j1, j3, j4] -= delta * scale[n]
@@ -1188,13 +1186,13 @@ class Jastrow:
         delta = 0.000001
         scale = self.get_parameters_scale()[2]
         size = sum([
-            ((f_parameters_optimizable | True) & f_parameters_available).sum() + f_cutoff_optimizable
-            for f_parameters_optimizable, f_cutoff_optimizable, f_parameters_available
-            in zip(self.f_parameters_optimizable, self.f_cutoff_optimizable, self.f_parameters_available)
+            f_parameters_available.sum() + f_cutoff_optimizable
+            for f_parameters_available, f_cutoff_optimizable
+            in zip(self.f_parameters_available, self.f_cutoff_optimizable)
         ])
         res = np.zeros(shape=(size, size))
 
-        for i, (f_parameters, f_parameters_optimizable) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable)):
+        for i, (f_parameters, f_parameters_available) in enumerate(zip(self.f_parameters, self.f_parameters_available)):
             if self.f_cutoff_optimizable[i]:
                 n = m = 0
                 # derivatives of cutoff
@@ -1210,7 +1208,7 @@ class Jastrow:
                     for j3 in range(f_parameters.shape[2]):
                         for j2 in range(f_parameters.shape[1]):
                             for j1 in range(j2, f_parameters.shape[0]):
-                                if f_parameters_optimizable[j1, j2, j3, j4]:
+                                if f_parameters_available[j1, j2, j3, j4]:
                                     # derivatives on cutoff and linear parameters
                                     n += 1
                                     f_parameters[j1, j2, j3, j4] -= delta * scale[n]
