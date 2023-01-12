@@ -10,9 +10,9 @@ labels_type = nb.int64[:]
 u_parameters_type = nb.float64[:, :]
 chi_parameters_type = nb.float64[:, :]
 f_parameters_type = nb.float64[:, :, :, :]
-u_parameters_optimizable_type = nb.boolean[:, :]
-chi_parameters_optimizable_type = nb.boolean[:, :]
-f_parameters_optimizable_type = nb.boolean[:, :, :, :]
+u_parameters_mask_type = nb.boolean[:, :]
+chi_parameters_mask_type = nb.boolean[:, :]
+f_parameters_mask_type = nb.boolean[:, :, :, :]
 
 spec = [
     ('neu', nb.int64),
@@ -21,9 +21,12 @@ spec = [
     ('u_parameters', u_parameters_type),
     ('chi_parameters', nb.types.ListType(chi_parameters_type)),
     ('f_parameters', nb.types.ListType(f_parameters_type)),
-    ('u_parameters_optimizable', u_parameters_optimizable_type),
-    ('chi_parameters_optimizable', nb.types.ListType(chi_parameters_optimizable_type)),
-    ('f_parameters_optimizable', nb.types.ListType(f_parameters_optimizable_type)),
+    ('u_parameters_optimizable', u_parameters_mask_type),
+    ('chi_parameters_optimizable', nb.types.ListType(chi_parameters_mask_type)),
+    ('f_parameters_optimizable', nb.types.ListType(f_parameters_mask_type)),
+    ('u_parameters_available', u_parameters_mask_type),
+    ('chi_parameters_available', nb.types.ListType(chi_parameters_mask_type)),
+    ('f_parameters_available', nb.types.ListType(f_parameters_mask_type)),
     ('u_cutoff', nb.float64),
     ('u_cutoff_optimizable', nb.boolean),
     ('chi_cutoff', nb.float64[:]),
@@ -57,18 +60,21 @@ class Jastrow:
         self.u_cutoff_optimizable = u_cutoff[0]['optimizable']
         self.u_parameters = u_parameters
         self.u_parameters_optimizable = u_parameters_optimizable
+        self.u_parameters_available = np.ones_like(u_parameters_optimizable)
         # spin dep (0->u=d; 1->u/=d)
         self.chi_labels = chi_labels
         self.chi_cutoff = chi_cutoff['value']
         self.chi_cutoff_optimizable = chi_cutoff['optimizable']
         self.chi_parameters = chi_parameters
         self.chi_parameters_optimizable = chi_parameters_optimizable
+        self.chi_parameters_available = nb.typed.List.empty_list(chi_parameters_mask_type)
         # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
         self.f_labels = f_labels
         self.f_cutoff = f_cutoff['value']
         self.f_cutoff_optimizable = f_cutoff['optimizable']
         self.f_parameters = f_parameters
         self.f_parameters_optimizable = f_parameters_optimizable
+        self.f_parameters_available = nb.typed.List.empty_list(f_parameters_mask_type)
 
         self.max_ee_order = max((
             self.u_parameters.shape[0],
@@ -125,23 +131,29 @@ class Jastrow:
 
         ee_order = 2
         for f_parameters_optimizable in self.f_parameters_optimizable:
+            f_parameters_available = np.ones_like(f_parameters_optimizable)
+            for j2 in range(f_parameters_optimizable.shape[1]):
+                for j1 in range(f_parameters_optimizable.shape[0]):
+                    if j1 < j2:
+                        f_parameters_available[j1, j2, :, :] = False
             if f_parameters_optimizable.shape[3] == 2:
                 if self.neu < ee_order and self.ned < ee_order:
-                    f_parameters_optimizable[:, :, :, 0] = False
+                    f_parameters_available[:, :, :, 0] = False
                 if self.neu + self.ned < ee_order:
-                    f_parameters_optimizable[:, :, :, 1] = False
+                    f_parameters_available[:, :, :, 1] = False
             elif f_parameters_optimizable.shape[3] == 3:
                 if self.neu < ee_order:
-                    f_parameters_optimizable[:, :, :, 0] = False
+                    f_parameters_available[:, :, :, 0] = False
                 if self.neu + self.ned < ee_order:
-                    f_parameters_optimizable[:, :, :, 1] = False
+                    f_parameters_available[:, :, :, 1] = False
                 if self.ned < ee_order:
-                    f_parameters_optimizable[:, :, :, 2] = False
+                    f_parameters_available[:, :, :, 2] = False
+            self.f_parameters_available.append(f_parameters_available)
 
-    def f_parameters_size(self):
+    def f_parameters_spin_deps(self):
         """"""
-        f_size = 0
         ee_order = 2
+        spin_deps = []
         for f_parameters_optimizable, f_cutoff_optimizable in zip(self.f_parameters_optimizable, self.f_cutoff_optimizable):
             spin_dep = f_parameters_optimizable.shape[3]
             if spin_dep == 2:
@@ -156,9 +168,8 @@ class Jastrow:
                     spin_dep -= 1
                 if self.ned < ee_order:
                     spin_dep -= 1
-            f_size += f_parameters_optimizable.shape[0] * (f_parameters_optimizable.shape[1] + 1) * f_parameters_optimizable.shape[2] // 2 * spin_dep
-            f_size += f_cutoff_optimizable
-        return f_size
+            spin_deps.append(spin_dep)
+        return spin_deps
 
     def ee_powers(self, e_vectors) -> np.ndarray:
         """Powers of e-e distances
@@ -674,7 +685,7 @@ class Jastrow:
                             p += 1
                         temp += 1
 
-    def get_parameters_scale(self):
+    def get_parameters_scale(self, emin=True):
         """Characteristic scale of each variable. Setting x_scale is equivalent
         to reformulating the problem in scaled variables xs = x / x_scale.
         An alternative view is that the size of a trust region along j-th
@@ -703,19 +714,19 @@ class Jastrow:
 
         scale_f = []
         if self.f_cutoff.any():
-            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable):
+            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available):
                 if f_cutoff_optimizable:
                     scale_f.append(f_cutoff)
                 for j4 in range(f_parameters.shape[3]):
                     for j3 in range(f_parameters.shape[2]):
                         for j2 in range(f_parameters.shape[1]):
                             for j1 in range(j2, f_parameters.shape[0]):
-                                if j4 == 1:
+                                if (f_parameters_optimizable[j1, j2, j3, j4] or emin) and f_parameters_available[j1, j2, j3, j4]:
                                     scale_f.append(1 / 2 ** (j1 + j2 + j3 + 2 * self.trunc - 2))
 
         return np.array(scale_u), np.array(scale_chi), np.array(scale_f)
 
-    def get_parameters_constraints(self):
+    def get_parameters_constraints(self, emin=True):
         """Returns parameters in the following order
         u-cutoff, u-linear parameters,
         for every chi-set: chi-cutoff, chi-linear parameters,
@@ -728,14 +739,19 @@ class Jastrow:
             for chi_parameters_optimizable, chi_cutoff_optimizable
             in zip(self.chi_parameters_optimizable, self.chi_cutoff_optimizable)
         ])
-        f_size = self.f_parameters_size()
+        f_size = sum([
+            ((f_parameters_optimizable | emin) & f_parameters_available).sum() + f_cutoff_optimizable
+            for f_parameters_optimizable, f_cutoff_optimizable, f_parameters_available
+            in zip(self.f_parameters_optimizable, self.f_cutoff_optimizable, self.f_parameters_available)
+        ])
 
-        for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
+        for f_parameters, L, no_dup_u_term, no_dup_chi_term, spin_deps in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term, self.f_parameters_spin_deps()):
             f_en_order = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[2] - 1
             a = construct_a_matrix(self.trunc, f_en_order, f_ee_order, L, no_dup_u_term, no_dup_chi_term)
-        res = np.zeros(shape=(a.shape[0], u_size + chi_size + f_size))
-        res[:, u_size + chi_size:u_size + chi_size + f_size] = a
+            res = np.zeros(shape=(a.shape[0] * spin_deps, u_size + chi_size + f_size))
+            for spin_dep in range(spin_deps):
+                res[a.shape[0] * spin_dep:a.shape[0] * (spin_dep + 1), u_size + chi_size + a.shape[1] * spin_dep:u_size + chi_size + a.shape[1] * (spin_dep + 1)] = a
         return res
 
     def get_parameters(self):
@@ -764,14 +780,14 @@ class Jastrow:
                             res.append(chi_parameters[j1, j2])
 
         if self.f_cutoff.any():
-            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable):
+            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available):
                 if f_cutoff_optimizable:
                     res.append(f_cutoff)
                 for j4 in range(f_parameters.shape[3]):
                     for j3 in range(f_parameters.shape[2]):
                         for j2 in range(f_parameters.shape[1]):
                             for j1 in range(j2, f_parameters.shape[0]):
-                                if j4 == 1:
+                                if (f_parameters_optimizable[j1, j2, j3, j4] or True) and f_parameters_available[j1, j2, j3, j4]:
                                     res.append(f_parameters[j1, j2, j3, j4])
 
         return np.array(res)
@@ -810,7 +826,7 @@ class Jastrow:
             self.fix_chi_parameters()
 
         if self.f_cutoff.any():
-            for i, (f_parameters, f_parameters_optimizable, f_cutoff_optimizable) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff_optimizable)):
+            for i, (f_parameters, f_parameters_optimizable, f_cutoff_optimizable, f_parameters_available) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff_optimizable, self.f_parameters_available)):
                 if f_cutoff_optimizable:
                     # Sequence types is a pointer, but numeric types is not.
                     self.f_cutoff[i] = parameters[n]
@@ -819,7 +835,7 @@ class Jastrow:
                     for j3 in range(f_parameters.shape[2]):
                         for j2 in range(f_parameters.shape[1]):
                             for j1 in range(j2, f_parameters.shape[0]):
-                                if j4 == 1:
+                                if (f_parameters_optimizable[j1, j2, j3, j4] or True) and f_parameters_available[j1, j2, j3, j4]:
                                     f_parameters[j1, j2, j3, j4] = f_parameters[j2, j1, j3, j4] = parameters[n]
                                     n += 1
             if opt_f:
@@ -918,11 +934,16 @@ class Jastrow:
         delta = 0.000001
         C = self.trunc
         scale = self.get_parameters_scale()[2]
-        size = self.f_parameters_size()
+        size = sum([
+            ((f_parameters_optimizable | True) & f_parameters_available).sum() + f_cutoff_optimizable
+            for f_parameters_optimizable, f_cutoff_optimizable, f_parameters_available
+            in zip(self.f_parameters_optimizable, self.f_cutoff_optimizable, self.f_parameters_available)
+        ])
         res = np.zeros(shape=(size,))
 
         n = -1
-        for i, (f_parameters, f_parameters_optimizable, f_labels) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_labels)):
+
+        for i, (f_parameters, f_parameters_optimizable, f_parameters_available) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_parameters_available)):
             if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta * scale[n]
@@ -938,7 +959,7 @@ class Jastrow:
                 for j3 in range(f_parameters.shape[2]):
                     for j2 in range(f_parameters.shape[1]):
                         for j1 in range(j2, f_parameters.shape[0]):
-                            if j4 == 1:
+                            if (f_parameters_optimizable[j1, j2, j3, j4] or True) and f_parameters_available[j1, j2, j3, j4]:
                                 n += 1
 
                                 # for label in f_labels:
@@ -1166,10 +1187,12 @@ class Jastrow:
 
         delta = 0.000001
         scale = self.get_parameters_scale()[2]
-        size = self.f_parameters_size()
+        size = sum([
+            ((f_parameters_optimizable | True) & f_parameters_available).sum() + f_cutoff_optimizable
+            for f_parameters_optimizable, f_cutoff_optimizable, f_parameters_available
+            in zip(self.f_parameters_optimizable, self.f_cutoff_optimizable, self.f_parameters_available)
+        ])
         res = np.zeros(shape=(size, size))
-        for i in range(size):
-            res[i, i] /= scale[i] * scale[i]
 
         for i, (f_parameters, f_parameters_optimizable) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable)):
             if self.f_cutoff_optimizable[i]:

@@ -12,7 +12,6 @@ from jastrow import Jastrow
 from backflow import Backflow
 from markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
 from wfn import Wfn
-from optimize import minimize_newtoncg
 from readers.casino import CasinoConfig
 from sem import correlated_sem
 from logger import logging, StreamToLogger
