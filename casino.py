@@ -12,7 +12,6 @@ from jastrow import Jastrow
 from backflow import Backflow
 from markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
 from wfn import Wfn
-from optimize import minimize_newtoncg
 from readers.casino import CasinoConfig
 from sem import correlated_sem
 from logger import logging, StreamToLogger
@@ -594,7 +593,7 @@ class Casino:
         )
 
         res = minimize(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, method='Newton-CG',
+            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, method='trust-constr',
             jac=jac, hess=hess, options=dict(disp=self.mpi_comm.rank == 0, maxiter=20)
         )
         parameters = res.x * scale
