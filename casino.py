@@ -585,6 +585,8 @@ class Casino:
             mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size * np.outer(scale, scale)
             eigvals = np.linalg.eigvalsh(mean_energy_hessian)
             # self.logger.info(f'hessian eigenvalues min {eigvals.min()} max {eigvals.max()}')
+            if eigvals.min() < 0:
+                mean_energy_hessian += eigvals.min() * np.eye(x.size)
             return mean_energy_hessian
 
         self.logger.info(
