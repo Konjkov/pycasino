@@ -188,7 +188,7 @@ class Wfn:
         res = np.zeros(0)
         if self.jastrow is not None and opt_jastrow:
             res = np.concatenate((
-                res, np.concatenate(self.jastrow.get_parameters_scale())
+                res, self.jastrow.get_parameters_scale()
             ))
         if self.backflow is not None and opt_backflow:
             res = np.concatenate((
@@ -217,53 +217,6 @@ class Wfn:
 
         self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_f=False)
         return res / delta / 2
-
-    def energy_parameters_numerical_d2(self, r_e, opt_jastrow=True, opt_backflow=True):
-        """Second-order derivatives of energy with respect to the parameters.
-        :param r_e: electron coordinates - array(nelec, 3)
-        :param opt_jastrow: optimize jastrow parameters
-        :param opt_backflow: optimize backflow parameters
-        :return:
-        """
-        delta = 0.000001  # (1/2**52)**(1/3)
-        scale = self.get_parameters_scale()
-        parameters = self.get_parameters(opt_jastrow, opt_backflow)
-        res = -2 * self.energy(r_e) * np.eye(parameters.size)
-        for i in range(parameters.size):
-            res[i, i] /= scale[i] * scale[i]
-
-        for i in range(parameters.size):
-            parameters[i] -= 2 * delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow)
-            res[i, i] += self.energy(r_e) / scale[i] / scale[i]
-            parameters[i] += 4 * delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow)
-            res[i, i] += self.energy(r_e) / scale[i] / scale[i]
-            parameters[i] -= 2 * delta * scale[i]
-
-        for i in range(parameters.size):
-            for j in range(parameters.size):
-                if i >= j:
-                    continue
-                parameters[i] -= delta * scale[i]
-                parameters[j] -= delta * scale[j]
-                self.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] += self.energy(r_e) / scale[i] / scale[j]
-                parameters[i] += 2 * delta * scale[i]
-                self.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] -= self.energy(r_e) / scale[i] / scale[j]
-                parameters[j] += 2 * delta * scale[j]
-                self.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] += self.energy(r_e) / scale[i] / scale[j]
-                parameters[i] -= 2 * delta * scale[i]
-                self.set_parameters(parameters, opt_jastrow, opt_backflow)
-                res[i, j] -= self.energy(r_e) / scale[i] / scale[j]
-                parameters[i] += delta * scale[i]
-                parameters[j] -= delta * scale[j]
-                res[j, i] = res[i, j]
-
-        self.set_parameters(parameters, opt_jastrow, opt_backflow)
-        return res / delta / delta / 4
 
     def value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
         """First-order derivatives of the wave function with respect to the parameters divided by wfn.
