@@ -123,11 +123,13 @@ class Jastrow:
 
         ee_order = 1
         for chi_parameters_optimizable in self.chi_parameters_optimizable:
+            chi_parameters_available = np.ones_like(chi_parameters_optimizable)
             if chi_parameters_optimizable.shape[1] == 2:
                 if self.neu < ee_order:
-                    chi_parameters_optimizable[:, 0] = False
+                    chi_parameters_available[:, 0] = False
                 if self.ned < ee_order:
-                    chi_parameters_optimizable[:, 1] = False
+                    chi_parameters_available[:, 1] = False
+            self.chi_parameters_available.append(chi_parameters_available)
 
         ee_order = 2
         for f_parameters_optimizable in self.f_parameters_optimizable:
@@ -682,12 +684,12 @@ class Jastrow:
                         scale.append(1 / self.u_cutoff ** (j1 + self.trunc - 1))
 
         if self.chi_cutoff.any():
-            for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable):
+            for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
                 if chi_cutoff_optimizable:
                     scale.append(chi_cutoff)
                 for j1 in range(chi_parameters.shape[0]):
                     for j2 in range(chi_parameters.shape[1]):
-                        if chi_parameters_optimizable[j1, j2]:
+                        if (chi_parameters_optimizable[j1, j2] or emin) and chi_parameters_available[j1, j2]:
                             scale.append(1 / chi_cutoff ** (j1 + self.trunc - 1))
 
         if self.f_cutoff.any():
@@ -736,8 +738,9 @@ class Jastrow:
                 d1 = chi_parameters_size * spin_dep
                 d2 = u_parameters_size + chi_parameters_size * spin_dep
                 chi_constrains[d1:d1 + chi_constrains_size, d2:d2 + chi_parameters_size] = chi_matrix
-            # a = np.vstack((a, chi_constrains))
-            # b = np.concatenate((b, np.zeros(shape=(chi_constrains_size * chi_spin_deps,))))
+
+            a = np.vstack((a, chi_constrains))
+            b = np.concatenate((b, np.zeros(shape=(chi_constrains_size * chi_spin_deps,))))
 
         for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
             f_en_order = f_parameters.shape[0] - 1
@@ -787,12 +790,12 @@ class Jastrow:
                         res.append(self.u_parameters[j1, j2])
 
         if self.chi_cutoff.any():
-            for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable):
+            for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
                 if chi_cutoff_optimizable:
                     res.append(chi_cutoff)
                 for j1 in range(chi_parameters.shape[0]):
                     for j2 in range(chi_parameters.shape[1]):
-                        if chi_parameters_optimizable[j1, j2]:
+                        if (chi_parameters_optimizable[j1, j2] or emin) and chi_parameters_available[j1, j2]:
                             res.append(chi_parameters[j1, j2])
 
         if self.f_cutoff.any():
@@ -829,14 +832,14 @@ class Jastrow:
             self.fix_u_parameters()
 
         if self.chi_cutoff.any():
-            for i, (chi_parameters, chi_parameters_optimizable, chi_cutoff_optimizable) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff_optimizable)):
+            for i, (chi_parameters, chi_parameters_optimizable, chi_cutoff_optimizable, chi_parameters_available) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff_optimizable, self.chi_parameters_available)):
                 if chi_cutoff_optimizable:
                     # Sequence type is a pointer, but numeric type is not.
                     self.chi_cutoff[i] = parameters[n]
                     n += 1
                 for j1 in range(chi_parameters.shape[0]):
                     for j2 in range(chi_parameters.shape[1]):
-                        if chi_parameters_optimizable[j1, j2]:
+                        if (chi_parameters_optimizable[j1, j2] or emin) and chi_parameters_available[j1, j2]:
                             chi_parameters[j1, j2] = parameters[n]
                             n += 1
             self.fix_chi_parameters()
@@ -905,14 +908,14 @@ class Jastrow:
 
         delta = 0.000001
         size = sum([
-            chi_parameters_optimizable.sum() + chi_cutoff_optimizable
-            for chi_parameters_optimizable, chi_cutoff_optimizable
-            in zip(self.chi_parameters_optimizable, self.chi_cutoff_optimizable)
+            chi_parameters_available.sum() + chi_cutoff_optimizable
+            for chi_parameters_available, chi_cutoff_optimizable
+            in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
         ])
         res = np.zeros(shape=(size,))
 
         n = -1
-        for i, (chi_parameters, chi_parameters_optimizable) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable)):
+        for i, (chi_parameters, chi_parameters_available) in enumerate(zip(self.chi_parameters, self.chi_parameters_available)):
             if self.chi_cutoff_optimizable[i]:
                 n += 1
                 self.chi_cutoff[i] -= delta
@@ -925,13 +928,11 @@ class Jastrow:
 
             for j1 in range(chi_parameters.shape[0]):
                 for j2 in range(chi_parameters.shape[1]):
-                    if chi_parameters_optimizable[j1, j2]:
+                    if chi_parameters_available[j1, j2]:
                         n += 1
                         chi_parameters[j1, j2] -= delta
-                        self.fix_chi_parameters()
                         res[n] -= self.chi_term(n_powers)
                         chi_parameters[j1, j2] += 2 * delta
-                        self.fix_chi_parameters()
                         res[n] += self.chi_term(n_powers)
                         chi_parameters[j1, j2] -= delta
 
@@ -1092,82 +1093,41 @@ class Jastrow:
 
         delta = 0.000001
         size = sum([
-            chi_parameters_optimizable.sum() + chi_cutoff_optimizable
-            for chi_parameters_optimizable, chi_cutoff_optimizable
-            in zip(self.chi_parameters_optimizable, self.chi_cutoff_optimizable)
+            chi_parameters_available.sum() + chi_cutoff_optimizable
+            for chi_parameters_available, chi_cutoff_optimizable
+            in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
         ])
-        res = -2 * self.chi_term(n_powers) * np.eye(size)
+        res = np.zeros(shape=(size, size))
 
-        for i, (chi_parameters, chi_parameters_optimizable) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable)):
+        for i, (chi_parameters, chi_parameters_available) in enumerate(zip(self.chi_parameters, self.chi_parameters_available)):
             if self.chi_cutoff_optimizable[i]:
-                n = m = 0
+                n = 0
                 # derivatives of cutoff
+                res[0, 0] -= 2 * self.chi_term(n_powers)
                 self.chi_cutoff[i] -= 2 * delta
                 self.fix_chi_parameters()
-                res[n, m] += self.chi_term(n_powers)
+                res[0, 0] += self.chi_term(n_powers)
                 self.chi_cutoff[i] += 4 * delta
                 self.fix_chi_parameters()
-                res[n, m] += self.chi_term(n_powers)
+                res[0, 0] += self.chi_term(n_powers)
                 self.chi_cutoff[i] -= 2 * delta
                 for i1 in range(chi_parameters.shape[0]):
                     for j1 in range(chi_parameters.shape[1]):
-                        if chi_parameters_optimizable[i1, j1]:
+                        if chi_parameters_available[i1, j1]:
                             # derivatives of cutoff and linear parameters
                             n += 1
                             chi_parameters[i1, j1] -= delta
                             self.chi_cutoff[i] -= delta
-                            self.fix_chi_parameters()
-                            res[n, m] += self.chi_term(n_powers)
+                            res[n, 0] += self.chi_term(n_powers)
                             chi_parameters[i1, j1] += 2 * delta
-                            self.fix_chi_parameters()
-                            res[n, m] -= self.chi_term(n_powers)
+                            res[n, 0] -= self.chi_term(n_powers)
                             self.chi_cutoff[i] += 2 * delta
-                            self.fix_chi_parameters()
-                            res[n, m] += self.chi_term(n_powers)
+                            res[n, 0] += self.chi_term(n_powers)
                             chi_parameters[i1, j1] -= 2 * delta
-                            self.fix_chi_parameters()
-                            res[n, m] -= self.chi_term(n_powers)
+                            res[n, 0] -= self.chi_term(n_powers)
                             chi_parameters[i1, j1] += delta
                             self.chi_cutoff[i] -= delta
-                            res[m, n] = res[n, m]
-
-            n = self.chi_cutoff_optimizable[i] - 1
-            for i1 in range(chi_parameters.shape[0]):
-                for j1 in range(chi_parameters.shape[1]):
-                    if chi_parameters_optimizable[i1, j1]:
-                        n += 1
-                        m = self.chi_cutoff_optimizable[i] - 1
-                        for i2 in range(chi_parameters.shape[0]):
-                            for j2 in range(chi_parameters.shape[1]):
-                                if chi_parameters_optimizable[i2, j2]:
-                                    m += 1
-                                    # diagonal derivatives of linear parameters
-                                    if n == m:
-                                        chi_parameters[i1, j1] -= 2 * delta
-                                        self.fix_chi_parameters()
-                                        res[n, m] += self.chi_term(n_powers)
-                                        chi_parameters[i1, j1] += 4 * delta
-                                        self.fix_chi_parameters()
-                                        res[n, m] += self.chi_term(n_powers)
-                                        chi_parameters[i1, j1] -= 2 * delta
-                                    # off-diagonal derivatives of linear parameters
-                                    elif n > m:
-                                        chi_parameters[i1, j1] -= delta
-                                        chi_parameters[i2, j2] -= delta
-                                        self.fix_chi_parameters()
-                                        res[n, m] += self.chi_term(n_powers)
-                                        chi_parameters[i1, j1] += 2 * delta
-                                        self.fix_chi_parameters()
-                                        res[n, m] -= self.chi_term(n_powers)
-                                        chi_parameters[i2, j2] += 2 * delta
-                                        self.fix_chi_parameters()
-                                        res[n, m] += self.chi_term(n_powers)
-                                        chi_parameters[i1, j1] -= 2 * delta
-                                        self.fix_chi_parameters()
-                                        res[n, m] -= self.chi_term(n_powers)
-                                        chi_parameters[i1, j1] += delta
-                                        chi_parameters[i2, j2] -= delta
-                                        res[m, n] = res[n, m]
+                            res[0, n] = res[n, 0]
 
         self.fix_chi_parameters()
         return res / delta / delta / 4
