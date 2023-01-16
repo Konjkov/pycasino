@@ -710,40 +710,65 @@ class Jastrow:
         for every f-set: f-cutoff, f-linear parameters.
         :return:
         """
+        parameters_size = self.get_parameters_scale().size
+        a = np.zeros(shape=(0, parameters_size))
+        b = np.zeros(shape=(0,))
+
         u_parameters_size = self.u_parameters_optimizable.sum() + self.u_cutoff_optimizable
 
         chi_parameters_size = 0
-        for chi_parameters_optimizable, chi_cutoff_optimizable in zip(self.chi_parameters_optimizable, self.chi_cutoff_optimizable):
+        for chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable):
+            chi_constrains_size = 1
             chi_parameters_size += chi_parameters_optimizable.sum() + chi_cutoff_optimizable
-            chi_constrains = np.zeros(shape=(1, chi_parameters_size))
-            chi_constrains
+            chi_matrix = np.zeros(shape=(1, chi_parameters_size))
+            chi_matrix[0, 0] = self.trunc
+            chi_matrix[0, 1] = -chi_cutoff
+
+            chi_spin_deps = chi_parameters_optimizable.shape[1]
+            if chi_parameters_optimizable.shape[1] == 2:
+                if self.neu < 1:
+                    chi_spin_deps -= 1
+                if self.ned < 1:
+                    chi_spin_deps -= 1
+
+            chi_constrains = np.zeros(shape=(chi_constrains_size * chi_spin_deps, parameters_size))
+            for spin_dep in range(chi_spin_deps):
+                d1 = chi_parameters_size * spin_dep
+                d2 = u_parameters_size + chi_parameters_size * spin_dep
+                chi_constrains[d1:d1 + chi_constrains_size, d2:d2 + chi_parameters_size] = chi_matrix
+            # a = np.vstack((a, chi_constrains))
+            # b = np.concatenate((b, np.zeros(shape=(chi_constrains_size * chi_spin_deps,))))
 
         for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
             f_en_order = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[2] - 1
-            f_constrains = construct_a_matrix(self.trunc, f_en_order, f_ee_order, L, no_dup_u_term, no_dup_chi_term)
-            f_constrains_size, f_parameters_size = f_constrains.shape
+            f_matrix = construct_a_matrix(self.trunc, f_en_order, f_ee_order, L, no_dup_u_term, no_dup_chi_term)
+            f_constrains_size, f_parameters_size = f_matrix.shape
 
-            spin_deps = f_parameters.shape[3]
-            if spin_deps == 2:
+            f_spin_deps = f_parameters.shape[3]
+            if f_spin_deps == 2:
                 if self.neu < 2 and self.ned < 2:
-                    spin_deps -= 1
+                    f_spin_deps -= 1
                 if self.neu + self.ned < 2:
-                    spin_deps -= 1
-            elif spin_deps == 3:
+                    f_spin_deps -= 1
+            elif f_spin_deps == 3:
                 if self.neu < 2:
-                    spin_deps -= 1
+                    f_spin_deps -= 1
                 if self.neu + self.ned < 2:
-                    spin_deps -= 1
+                    f_spin_deps -= 1
                 if self.ned < 2:
-                    spin_deps -= 1
+                    f_spin_deps -= 1
 
-            res = np.zeros(shape=(f_constrains_size * spin_deps, u_parameters_size + chi_parameters_size + f_parameters_size * spin_deps))
-            for spin_dep in range(spin_deps):
+            f_constrains = np.zeros(shape=(f_constrains_size * f_spin_deps, parameters_size))
+            for spin_dep in range(f_spin_deps):
                 d1 = f_constrains_size * spin_dep
                 d2 = u_parameters_size + chi_parameters_size + f_parameters_size * spin_dep
-                res[d1:d1 + f_constrains_size, d2:d2 + f_parameters_size] = f_constrains
-        return res
+                f_constrains[d1:d1 + f_constrains_size, d2:d2 + f_parameters_size] = f_matrix
+
+            a = np.vstack((a, f_constrains))
+            b = np.concatenate((b, np.zeros(shape=(f_constrains_size * f_spin_deps,))))
+
+        return a, b
 
     def get_parameters(self, emin=True):
         """Returns parameters in the following order:
