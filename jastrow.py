@@ -716,18 +716,45 @@ class Jastrow:
         a = np.zeros(shape=(0, parameters_size))
         b = np.zeros(shape=(0,))
 
+        # u_constrains_size = 1
         u_parameters_size = self.u_parameters_optimizable.sum() + self.u_cutoff_optimizable
+        # u_matrix = np.zeros(shape=(u_constrains_size, u_parameters_size))
+        # u_matrix[0, 0] = self.trunc
+        # u_matrix[0, 1] = -self.u_cutoff
+        #
+        # u_spin_deps = self.u_parameters_available.shape[1]
+        # if u_spin_deps == 2:
+        #     if self.neu < 2 and self.ned < 2:
+        #         u_spin_deps -= 1
+        #     if self.neu + self.ned < 2:
+        #         u_spin_deps -= 1
+        # elif u_spin_deps == 3:
+        #     if self.neu < 2:
+        #         u_spin_deps -= 1
+        #     if self.neu + self.ned < 2:
+        #         u_spin_deps -= 1
+        #     if self.ned < 2:
+        #         u_spin_deps -= 1
+        #
+        # u_constrains = np.zeros(shape=(u_constrains_size * u_spin_deps, parameters_size))
+        # for spin_dep in range(u_spin_deps):
+        #     d1 = u_parameters_size * spin_dep
+        #     d2 = u_parameters_size * spin_dep
+        #     u_constrains[d1:d1 + u_constrains_size, d2:d2 + u_parameters_size] = u_matrix
+        #
+        # a = np.vstack((a, u_constrains))
+        # b = np.concatenate((b, np.zeros(shape=(u_constrains_size * u_spin_deps,))))
 
         chi_parameters_size = 0
-        for chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable):
+        for chi_parameters_available, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters_available, self.chi_cutoff, self.chi_cutoff_optimizable):
             chi_constrains_size = 1
-            chi_parameters_size += chi_parameters_optimizable.sum() + chi_cutoff_optimizable
-            chi_matrix = np.zeros(shape=(1, chi_parameters_size))
+            chi_parameters_size += chi_parameters_available.sum() + chi_cutoff_optimizable
+            chi_matrix = np.zeros(shape=(chi_constrains_size, chi_parameters_size))
             chi_matrix[0, 0] = self.trunc
             chi_matrix[0, 1] = -chi_cutoff
 
-            chi_spin_deps = chi_parameters_optimizable.shape[1]
-            if chi_parameters_optimizable.shape[1] == 2:
+            chi_spin_deps = chi_parameters_available.shape[1]
+            if chi_spin_deps == 2:
                 if self.neu < 1:
                     chi_spin_deps -= 1
                 if self.ned < 1:
@@ -883,6 +910,7 @@ class Jastrow:
             self.fix_u_parameters()
             res[n] += self.u_term(e_powers)
             self.u_cutoff -= delta
+            self.fix_u_parameters()
 
         for j1 in range(self.u_parameters.shape[0]):
             for j2 in range(self.u_parameters.shape[1]):
@@ -895,8 +923,8 @@ class Jastrow:
                     self.fix_u_parameters()
                     res[n] += self.u_term(e_powers)
                     self.u_parameters[j1, j2] -= delta
+                    self.fix_u_parameters()
 
-        self.fix_u_parameters()
         return res / delta / 2
 
     def chi_term_numerical_d1(self, n_powers):
@@ -925,6 +953,7 @@ class Jastrow:
                 self.fix_chi_parameters()
                 res[n] += self.chi_term(n_powers)
                 self.chi_cutoff[i] -= delta
+                self.fix_chi_parameters()
 
             for j1 in range(chi_parameters.shape[0]):
                 for j2 in range(chi_parameters.shape[1]):
@@ -936,7 +965,6 @@ class Jastrow:
                         res[n] += self.chi_term(n_powers)
                         chi_parameters[j1, j2] -= delta
 
-        self.fix_chi_parameters()
         return res / delta / 2
 
     def f_term_numerical_d1(self, e_powers, n_powers):
@@ -967,8 +995,8 @@ class Jastrow:
                 self.fix_f_parameters()
                 res[n] += self.f_term(e_powers, n_powers)
                 self.f_cutoff[i] -= delta
+                self.fix_f_parameters()
 
-            self.fix_f_parameters()
             for j4 in range(f_parameters.shape[3]):
                 for j3 in range(f_parameters.shape[2]):
                     for j2 in range(f_parameters.shape[1]):
@@ -1129,7 +1157,6 @@ class Jastrow:
                             self.chi_cutoff[i] -= delta
                             res[0, n] = res[n, 0]
 
-        self.fix_chi_parameters()
         return res / delta / delta / 4
 
     def f_term_numerical_d2(self, e_powers, n_powers):
@@ -1187,7 +1214,6 @@ class Jastrow:
                                     self.f_cutoff[i] -= delta
                                     res[0, n] = res[n, 0]
 
-        self.fix_f_parameters()
         return res / delta / delta / 4
 
     def parameters_numerical_d2(self, e_vectors, n_vectors):
