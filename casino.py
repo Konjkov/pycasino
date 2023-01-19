@@ -597,7 +597,8 @@ class Casino:
         verbose = 3 if self.mpi_comm.rank == 0 else 0
         res = minimize(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale, method='trust-constr',
-            jac=jac, hess=hess, constraints=constraints, options=dict(verbose=verbose, disp=self.mpi_comm.rank == 0)
+            jac=jac, hess=hess, constraints=constraints,
+            options=dict(factorization_method='SVDFactorization', verbose=verbose, disp=self.mpi_comm.rank == 0)
         )
         parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
