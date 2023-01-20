@@ -712,7 +712,7 @@ class Jastrow:
         for every f-set: f-cutoff, f-linear parameters.
         :return:
         """
-        parameters_size = self.get_parameters_scale().size
+        parameters_size = self.get_parameters_scale(True).size
         a = np.zeros(shape=(0, parameters_size))
         b = np.zeros(shape=(0,))
 

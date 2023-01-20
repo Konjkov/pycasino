@@ -204,18 +204,18 @@ class Wfn:
         :return:
         """
         delta = 0.000001  # (1/2**52)**(1/3)
-        parameters = self.get_parameters(opt_jastrow, opt_backflow)
+        parameters = self.get_parameters(opt_jastrow, opt_backflow, True)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
             parameters[i] -= delta
-            self.set_parameters(parameters, opt_jastrow, opt_backflow)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
             res[i] -= self.energy(r_e)
             parameters[i] += 2 * delta
-            self.set_parameters(parameters, opt_jastrow, opt_backflow)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
             res[i] += self.energy(r_e)
             parameters[i] -= delta
 
-        self.set_parameters(parameters, opt_jastrow, opt_backflow)
+        self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
         return res / delta / 2
 
     def value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
