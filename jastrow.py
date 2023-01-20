@@ -750,7 +750,7 @@ class Jastrow:
             u_constrains[d1:d1 + u_constrains_size, d2:d2 + u_parameters_size] = u_matrix
 
         a = np.vstack((a, u_constrains))
-        b = np.concatenate((b, -np.array(u_b) / (-self.u_cutoff) ** (self.trunc - 1)))
+        b = np.concatenate((b, np.array(u_b) / (-self.u_cutoff) ** (self.trunc - 1)))
 
         chi_parameters_size = 0
         for chi_parameters_available, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters_available, self.chi_cutoff, self.chi_cutoff_optimizable):

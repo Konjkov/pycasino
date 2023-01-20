@@ -550,9 +550,6 @@ class Casino:
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         """
-        # self.wfn.jastrow.fix_u_parameters()
-        # self.wfn.jastrow.fix_chi_parameters()
-        # self.wfn.jastrow.fix_f_parameters()
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow, True)
         a, b = self.wfn.jastrow.get_parameters_constraints()
