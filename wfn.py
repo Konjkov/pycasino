@@ -163,12 +163,12 @@ class Wfn:
                 res -= s_l / 2
         return res
 
-    def get_parameters(self, opt_jastrow=True, opt_backflow=True):
+    def get_parameters(self, opt_jastrow=True, opt_backflow=True, emin=False):
         """Get WFN parameters to be optimized"""
         res = np.zeros(0)
         if self.jastrow is not None and opt_jastrow:
             res = np.concatenate((
-                res, self.jastrow.get_parameters()
+                res, self.jastrow.get_parameters(emin=emin)
             ))
         if self.backflow is not None and opt_backflow:
             res = np.concatenate((
@@ -176,19 +176,19 @@ class Wfn:
             ))
         return res
 
-    def set_parameters(self, parameters, opt_jastrow=True, opt_backflow=True, opt_f=True):
+    def set_parameters(self, parameters, opt_jastrow=True, opt_backflow=True, emin=False):
         """Update optimized parameters"""
         if self.jastrow is not None and opt_jastrow:
-            parameters = self.jastrow.set_parameters(parameters, opt_f=opt_f)
+            parameters = self.jastrow.set_parameters(parameters, emin=emin)
         if self.backflow is not None and opt_backflow:
             self.backflow.set_parameters(parameters)
 
-    def get_parameters_scale(self, opt_jastrow=True, opt_backflow=True):
+    def get_parameters_scale(self, opt_jastrow=True, opt_backflow=True, emin=False):
         """Characteristic scale of each optimized parameter."""
         res = np.zeros(0)
         if self.jastrow is not None and opt_jastrow:
             res = np.concatenate((
-                res, self.jastrow.get_parameters_scale()
+                res, self.jastrow.get_parameters_scale(emin=emin)
             ))
         if self.backflow is not None and opt_backflow:
             res = np.concatenate((
@@ -208,14 +208,14 @@ class Wfn:
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
             parameters[i] -= delta
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_f=False)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow)
             res[i] -= self.energy(r_e)
             parameters[i] += 2 * delta
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_f=False)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow)
             res[i] += self.energy(r_e)
             parameters[i] -= delta
 
-        self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_f=False)
+        self.set_parameters(parameters, opt_jastrow, opt_backflow)
         return res / delta / 2
 
     def value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True):

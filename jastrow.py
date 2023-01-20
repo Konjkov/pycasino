@@ -666,7 +666,7 @@ class Jastrow:
                             p += 1
                         temp += 1
 
-    def get_parameters_scale(self, emin=True):
+    def get_parameters_scale(self, emin):
         """Characteristic scale of each variable. Setting x_scale is equivalent
         to reformulating the problem in scaled variables xs = x / x_scale.
         An alternative view is that the size of a trust region along j-th
@@ -807,7 +807,7 @@ class Jastrow:
 
         return a, b
 
-    def get_parameters(self, emin=True):
+    def get_parameters(self, emin):
         """Returns parameters in the following order:
         u-cutoff, u-linear parameters,
         for every chi-set: chi-cutoff, chi-linear parameters,
@@ -845,7 +845,7 @@ class Jastrow:
 
         return np.array(res)
 
-    def set_parameters(self, parameters, opt_f, emin=True):
+    def set_parameters(self, parameters, emin):
         """Set parameters in the following order:
         u-cutoff, u-linear parameters,
         for every chi-set: chi-cutoff, chi-linear parameters,
@@ -863,7 +863,8 @@ class Jastrow:
                     if (self.u_parameters_optimizable[j1, j2] or emin) and self.u_parameters_available[j1, j2]:
                         self.u_parameters[j1, j2] = parameters[n]
                         n += 1
-            self.fix_u_parameters()
+            if not emin:
+                self.fix_u_parameters()
 
         if self.chi_cutoff.any():
             for i, (chi_parameters, chi_parameters_optimizable, chi_cutoff_optimizable, chi_parameters_available) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff_optimizable, self.chi_parameters_available)):
@@ -876,7 +877,8 @@ class Jastrow:
                         if (chi_parameters_optimizable[j1, j2] or emin) and chi_parameters_available[j1, j2]:
                             chi_parameters[j1, j2] = parameters[n]
                             n += 1
-            self.fix_chi_parameters()
+            if not emin:
+                self.fix_chi_parameters()
 
         if self.f_cutoff.any():
             for i, (f_parameters, f_parameters_optimizable, f_cutoff_optimizable, f_parameters_available) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff_optimizable, self.f_parameters_available)):
@@ -891,7 +893,7 @@ class Jastrow:
                                 if (f_parameters_optimizable[j1, j2, j3, j4] or emin) and f_parameters_available[j1, j2, j3, j4]:
                                     f_parameters[j1, j2, j3, j4] = f_parameters[j2, j1, j3, j4] = parameters[n]
                                     n += 1
-            if opt_f:
+            if not emin:
                 self.fix_f_parameters()
 
         return parameters[n:]
