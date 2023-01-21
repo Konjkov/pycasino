@@ -678,8 +678,8 @@ class Jastrow:
         if self.u_cutoff:
             if self.u_cutoff_optimizable:
                 scale.append(self.u_cutoff)
-            for j1 in range(self.u_parameters.shape[0]):
-                for j2 in range(self.u_parameters.shape[1]):
+            for j2 in range(self.u_parameters.shape[1]):
+                for j1 in range(self.u_parameters.shape[0]):
                     if (self.u_parameters_optimizable[j1, j2] or emin) and self.u_parameters_available[j1, j2]:
                         scale.append(1 / self.u_cutoff ** (j1 + self.trunc - 1))
 
@@ -687,8 +687,8 @@ class Jastrow:
             for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
                 if chi_cutoff_optimizable:
                     scale.append(chi_cutoff)
-                for j1 in range(chi_parameters.shape[0]):
-                    for j2 in range(chi_parameters.shape[1]):
+                for j2 in range(chi_parameters.shape[1]):
+                    for j1 in range(chi_parameters.shape[0]):
                         if (chi_parameters_optimizable[j1, j2] or emin) and chi_parameters_available[j1, j2]:
                             scale.append(1 / chi_cutoff ** (j1 + self.trunc - 1))
 
@@ -717,35 +717,35 @@ class Jastrow:
         b = np.zeros(shape=(0,))
 
         u_constrains_size = 1
-        u_parameters_size = self.u_parameters_available.sum() + self.u_cutoff_optimizable
+        u_parameters_size = self.u_parameters.shape[0] + self.u_cutoff_optimizable
         u_matrix = np.zeros(shape=(u_constrains_size, u_parameters_size))
         u_matrix[0, 0] = self.trunc
         u_matrix[0, 1] = -self.u_cutoff
 
-        u_spin_deps = self.u_parameters_available.shape[1]
+        u_spin_deps = self.u_parameters.shape[1]
         if u_spin_deps == 2:
-            u_b = [1/2, 1/4]
+            u_b = [1/4, 1/2]
             if self.neu < 2 and self.ned < 2:
                 u_spin_deps -= 1
-                u_b = [1/4]
-            if self.neu + self.ned < 2:
-                u_spin_deps -= 1
                 u_b = [1/2]
+            if self.neu + self.ned < 2:
+                u_spin_deps -= 1
+                u_b = [1/4]
         elif u_spin_deps == 3:
-            u_b = [1/2, 1/4, 1/2]
+            u_b = [1/4, 1/2, 1/4]
             if self.neu < 2:
-                u_b = [1/4, 1/2]
+                u_b = [1/2, 1/4]
                 u_spin_deps -= 1
             if self.neu + self.ned < 2:
-                u_b = [1/2, 1/2]
+                u_b = [1/4, 1/4]
                 u_spin_deps -= 1
             if self.ned < 2:
-                u_b = [1/2, 1/4]
+                u_b = [1/4, 1/2]
                 u_spin_deps -= 1
 
         u_constrains = np.zeros(shape=(u_constrains_size * u_spin_deps, parameters_size))
         for spin_dep in range(u_spin_deps):
-            d1 = u_parameters_size * spin_dep
+            d1 = u_constrains_size * spin_dep
             d2 = u_parameters_size * spin_dep
             u_constrains[d1:d1 + u_constrains_size, d2:d2 + u_parameters_size] = u_matrix
 
@@ -753,14 +753,14 @@ class Jastrow:
         b = np.concatenate((b, np.array(u_b) / (-self.u_cutoff) ** (self.trunc - 1)))
 
         chi_parameters_size = 0
-        for chi_parameters_available, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters_available, self.chi_cutoff, self.chi_cutoff_optimizable):
+        for chi_parameters, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters, self.chi_cutoff, self.chi_cutoff_optimizable):
             chi_constrains_size = 1
-            chi_parameters_size += chi_parameters_available.sum() + chi_cutoff_optimizable
+            chi_parameters_size = chi_parameters.shape[0] + chi_cutoff_optimizable
             chi_matrix = np.zeros(shape=(chi_constrains_size, chi_parameters_size))
             chi_matrix[0, 0] = self.trunc
             chi_matrix[0, 1] = -chi_cutoff
 
-            chi_spin_deps = chi_parameters_available.shape[1]
+            chi_spin_deps = chi_parameters.shape[1]
             if chi_spin_deps == 2:
                 if self.neu < 1:
                     chi_spin_deps -= 1
@@ -769,17 +769,17 @@ class Jastrow:
 
             chi_constrains = np.zeros(shape=(chi_constrains_size * chi_spin_deps, parameters_size))
             for spin_dep in range(chi_spin_deps):
-                d1 = chi_parameters_size * spin_dep
-                d2 = u_parameters_size + chi_parameters_size * spin_dep
+                d1 = chi_constrains_size * spin_dep
+                d2 = u_parameters_size * u_spin_deps + chi_parameters_size * spin_dep
                 chi_constrains[d1:d1 + chi_constrains_size, d2:d2 + chi_parameters_size] = chi_matrix
 
             a = np.vstack((a, chi_constrains))
             b = np.concatenate((b, np.zeros(shape=(chi_constrains_size * chi_spin_deps,))))
 
-        for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
+        for f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
             f_en_order = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[2] - 1
-            f_matrix = construct_a_matrix(self.trunc, f_en_order, f_ee_order, L, no_dup_u_term, no_dup_chi_term)
+            f_matrix = construct_a_matrix(self.trunc, f_en_order, f_ee_order, f_cutoff, no_dup_u_term, no_dup_chi_term)
             f_constrains_size, f_parameters_size = f_matrix.shape
 
             f_spin_deps = f_parameters.shape[3]
@@ -799,7 +799,7 @@ class Jastrow:
             f_constrains = np.zeros(shape=(f_constrains_size * f_spin_deps, parameters_size))
             for spin_dep in range(f_spin_deps):
                 d1 = f_constrains_size * spin_dep
-                d2 = u_parameters_size + chi_parameters_size + f_parameters_size * spin_dep
+                d2 = u_parameters_size * u_spin_deps + chi_parameters_size * chi_spin_deps + f_parameters_size * spin_dep
                 f_constrains[d1:d1 + f_constrains_size, d2:d2 + f_parameters_size] = f_matrix
 
             a = np.vstack((a, f_constrains))
@@ -818,17 +818,20 @@ class Jastrow:
         if self.u_cutoff:
             if self.u_cutoff_optimizable:
                 res.append(self.u_cutoff)
-            for j1 in range(self.u_parameters.shape[0]):
-                for j2 in range(self.u_parameters.shape[1]):
+            for j2 in range(self.u_parameters.shape[1]):
+                for j1 in range(self.u_parameters.shape[0]):
                     if (self.u_parameters_optimizable[j1, j2] or emin) and self.u_parameters_available[j1, j2]:
-                        res.append(self.u_parameters[j1, j2])
+                        if j1 == 1:
+                            res.append(self.u_cusp_const[j2])
+                        else:
+                            res.append(self.u_parameters[j1, j2])
 
         if self.chi_cutoff.any():
             for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
                 if chi_cutoff_optimizable:
                     res.append(chi_cutoff)
-                for j1 in range(chi_parameters.shape[0]):
-                    for j2 in range(chi_parameters.shape[1]):
+                for j2 in range(chi_parameters.shape[1]):
+                    for j1 in range(chi_parameters.shape[0]):
                         if (chi_parameters_optimizable[j1, j2] or emin) and chi_parameters_available[j1, j2]:
                             res.append(chi_parameters[j1, j2])
 
@@ -858,10 +861,13 @@ class Jastrow:
             if self.u_cutoff_optimizable:
                 self.u_cutoff = parameters[n]
                 n += 1
-            for j1 in range(self.u_parameters.shape[0]):
-                for j2 in range(self.u_parameters.shape[1]):
+            for j2 in range(self.u_parameters.shape[1]):
+                for j1 in range(self.u_parameters.shape[0]):
                     if (self.u_parameters_optimizable[j1, j2] or emin) and self.u_parameters_available[j1, j2]:
-                        self.u_parameters[j1, j2] = parameters[n]
+                        if j1 == 1:
+                            self.u_cusp_const[j2] = parameters[n]
+                        else:
+                            self.u_parameters[j1, j2] = parameters[n]
                         n += 1
             if not emin:
                 self.fix_u_parameters()
@@ -872,8 +878,8 @@ class Jastrow:
                     # Sequence type is a pointer, but numeric type is not.
                     self.chi_cutoff[i] = parameters[n]
                     n += 1
-                for j1 in range(chi_parameters.shape[0]):
-                    for j2 in range(chi_parameters.shape[1]):
+                for j2 in range(chi_parameters.shape[1]):
+                    for j1 in range(chi_parameters.shape[0]):
                         if (chi_parameters_optimizable[j1, j2] or emin) and chi_parameters_available[j1, j2]:
                             chi_parameters[j1, j2] = parameters[n]
                             n += 1
@@ -918,15 +924,22 @@ class Jastrow:
             res[n] += self.u_term(e_powers)
             self.u_cutoff -= delta
 
-        for j1 in range(self.u_parameters.shape[0]):
-            for j2 in range(self.u_parameters.shape[1]):
+        for j2 in range(self.u_parameters.shape[1]):
+            for j1 in range(self.u_parameters.shape[0]):
                 if self.u_parameters_available[j1, j2]:
                     n += 1
-                    self.u_parameters[j1, j2] -= delta
-                    res[n] -= self.u_term(e_powers)
-                    self.u_parameters[j1, j2] += 2 * delta
-                    res[n] += self.u_term(e_powers)
-                    self.u_parameters[j1, j2] -= delta
+                    if j1 == 1:
+                        self.u_cusp_const[j2] -= delta
+                        res[n] -= self.u_term(e_powers)
+                        self.u_cusp_const[j2] += 2 * delta
+                        res[n] += self.u_term(e_powers)
+                        self.u_cusp_const[j2] -= delta
+                    else:
+                        self.u_parameters[j1, j2] -= delta
+                        res[n] -= self.u_term(e_powers)
+                        self.u_parameters[j1, j2] += 2 * delta
+                        res[n] += self.u_term(e_powers)
+                        self.u_parameters[j1, j2] -= delta
 
         return res / delta / 2
 
@@ -955,8 +968,8 @@ class Jastrow:
                 res[n] += self.chi_term(n_powers)
                 self.chi_cutoff[i] -= delta
 
-            for j1 in range(chi_parameters.shape[0]):
-                for j2 in range(chi_parameters.shape[1]):
+            for j2 in range(chi_parameters.shape[1]):
+                for j1 in range(chi_parameters.shape[0]):
                     if chi_parameters_available[j1, j2]:
                         n += 1
                         chi_parameters[j1, j2] -= delta
@@ -1045,8 +1058,8 @@ class Jastrow:
             self.u_cutoff += 4 * delta
             res[0, 0] += self.u_term(e_powers)
             self.u_cutoff -= 2 * delta
-            for j1 in range(self.u_parameters.shape[0]):
-                for j2 in range(self.u_parameters.shape[1]):
+            for j2 in range(self.u_parameters.shape[1]):
+                for j1 in range(self.u_parameters.shape[0]):
                     if self.u_parameters_available[j1, j2]:
                         # derivatives of cutoff and linear parameters
                         n += 1
@@ -1090,21 +1103,21 @@ class Jastrow:
                 self.chi_cutoff[i] += 4 * delta
                 res[0, 0] += self.chi_term(n_powers)
                 self.chi_cutoff[i] -= 2 * delta
-                for i1 in range(chi_parameters.shape[0]):
-                    for j1 in range(chi_parameters.shape[1]):
-                        if chi_parameters_available[i1, j1]:
+                for j2 in range(chi_parameters.shape[1]):
+                    for j1 in range(chi_parameters.shape[0]):
+                        if chi_parameters_available[j1, j2]:
                             # derivatives of cutoff and linear parameters
                             n += 1
-                            chi_parameters[i1, j1] -= delta
+                            chi_parameters[j1, j2] -= delta
                             self.chi_cutoff[i] -= delta
                             res[n, 0] += self.chi_term(n_powers)
-                            chi_parameters[i1, j1] += 2 * delta
+                            chi_parameters[j1, j2] += 2 * delta
                             res[n, 0] -= self.chi_term(n_powers)
                             self.chi_cutoff[i] += 2 * delta
                             res[n, 0] += self.chi_term(n_powers)
-                            chi_parameters[i1, j1] -= 2 * delta
+                            chi_parameters[j1, j2] -= 2 * delta
                             res[n, 0] -= self.chi_term(n_powers)
-                            chi_parameters[i1, j1] += delta
+                            chi_parameters[j1, j2] += delta
                             self.chi_cutoff[i] -= delta
                             res[0, n] = res[n, 0]
 
