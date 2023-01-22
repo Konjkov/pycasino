@@ -595,12 +595,11 @@ class Casino:
             ' =================='
         )
 
+        disp = self.mpi_comm.rank == 0
         verbose = 3 if self.mpi_comm.rank == 0 else 0
-        res = minimize(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow, True) / scale, method='trust-constr',
-            jac=jac, hess=hess, constraints=constraints,
-            options=dict(factorization_method='SVDFactorization', maxiter=3 * scale.size, verbose=verbose, disp=self.mpi_comm.rank == 0)
-        )
+        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow, True) / scale
+        options = dict(factorization_method='SVDFactorization', maxiter=x0.size, verbose=verbose, disp=disp)
+        res = minimize(fun, x0=x0, method='trust-constr', jac=jac, hess=hess, constraints=constraints, options=options)
         parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow, True)

@@ -216,9 +216,9 @@ class Jastrow:
 
         C = self.trunc
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
-            for i in chi_labels:
+            for label in chi_labels:
                 for j in range(self.neu + self.ned):
-                    r = n_powers[i, j, 1]
+                    r = n_powers[label, j, 1]
                     if r < L:
                         chi_set = int(j >= self.neu) % parameters.shape[1]
                         # FIXME: maybe in next numba
@@ -226,7 +226,7 @@ class Jastrow:
                         # res += polyval(r, parameters[:, chi_set]) * (r - L) ** C
                         poly = 0.0
                         for k in range(parameters.shape[0]):
-                            poly += parameters[k, chi_set] * n_powers[i, j, k]
+                            poly += parameters[k, chi_set] * n_powers[label, j, k]
                         res += poly * (r - L) ** C
         return res
 
@@ -242,18 +242,18 @@ class Jastrow:
 
         C = self.trunc
         for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
-            for i in f_labels:
+            for label in f_labels:
                 for j in range(1, self.neu + self.ned):
                     for k in range(j):
-                        r_e1I = n_powers[i, j, 1]
-                        r_e2I = n_powers[i, k, 1]
+                        r_e1I = n_powers[label, j, 1]
+                        r_e2I = n_powers[label, k, 1]
                         if r_e1I < L and r_e2I < L:
                             f_set = (int(j >= self.neu) + int(k >= self.neu)) % parameters.shape[3]
                             poly = 0.0
                             for l in range(parameters.shape[0]):
                                 for m in range(parameters.shape[1]):
                                     for n in range(parameters.shape[2]):
-                                        poly += parameters[l, m, n, f_set] * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n]
+                                        poly += parameters[l, m, n, f_set] * n_powers[label, j, l] * n_powers[label, k, m] * e_powers[j, k, n]
                             res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
         return res
 
@@ -306,18 +306,18 @@ class Jastrow:
 
         C = self.trunc
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
-            for i in chi_labels:
+            for label in chi_labels:
                 for j in range(self.neu + self.ned):
-                    r_vec = n_vectors[i, j]
-                    r = n_powers[i, j, 1]
+                    r_vec = n_vectors[label, j]
+                    r = n_powers[label, j, 1]
                     if r < L:
                         chi_set = int(j >= self.neu) % parameters.shape[1]
                         poly = poly_diff = 0.0
                         for k in range(parameters.shape[0]):
                             p = parameters[k, chi_set]
-                            poly += p * n_powers[i, j, k]
+                            poly += p * n_powers[label, j, k]
                             if k > 0:
-                                poly_diff += p * k * n_powers[i, j, k-1]
+                                poly_diff += p * k * n_powers[label, j, k-1]
 
                         res[j, :] += r_vec/r * (r-L) ** C * (C/(r-L) * poly + poly_diff)
         return res.ravel()
@@ -337,14 +337,14 @@ class Jastrow:
 
         C = self.trunc
         for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
-            for i in f_labels:
+            for label in f_labels:
                 for j in range(1, self.neu + self.ned):
                     for k in range(j):
-                        r_e1I_vec = n_vectors[i, j]
-                        r_e2I_vec = n_vectors[i, k]
+                        r_e1I_vec = n_vectors[label, j]
+                        r_e2I_vec = n_vectors[label, k]
                         r_ee_vec = e_vectors[j, k]
-                        r_e1I = n_powers[i, j, 1]
-                        r_e2I = n_powers[i, k, 1]
+                        r_e1I = n_powers[label, j, 1]
+                        r_e2I = n_powers[label, k, 1]
                         r_ee = e_powers[j, k, 1]
                         if r_e1I < L and r_e2I < L:
                             f_set = (int(j >= self.neu) + int(k >= self.neu)) % parameters.shape[3]
@@ -353,13 +353,13 @@ class Jastrow:
                                 for m in range(parameters.shape[1]):
                                     for n in range(parameters.shape[2]):
                                         p = parameters[l, m, n, f_set]
-                                        poly += n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n] * p
+                                        poly += n_powers[label, j, l] * n_powers[label, k, m] * e_powers[j, k, n] * p
                                         if l > 0:
-                                            poly_diff_e1I += l * n_powers[i, j, l-1] * n_powers[i, k, m] * e_powers[j, k, n] * p
+                                            poly_diff_e1I += l * n_powers[label, j, l-1] * n_powers[label, k, m] * e_powers[j, k, n] * p
                                         if m > 0:
-                                            poly_diff_e2I += m * n_powers[i, j, l] * n_powers[i, k, m-1] * e_powers[j, k, n] * p
+                                            poly_diff_e2I += m * n_powers[label, j, l] * n_powers[label, k, m-1] * e_powers[j, k, n] * p
                                         if n > 0:
-                                            poly_diff_ee += n * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n-1] * p
+                                            poly_diff_ee += n * n_powers[label, j, l] * n_powers[label, k, m] * e_powers[j, k, n-1] * p
 
                             e1_gradient = r_e1I_vec/r_e1I * (C/(r_e1I - L) * poly + poly_diff_e1I)
                             e2_gradient = r_e2I_vec/r_e2I * (C/(r_e2I - L) * poly + poly_diff_e2I)
@@ -415,19 +415,19 @@ class Jastrow:
 
         C = self.trunc
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
-            for i in chi_labels:
+            for label in chi_labels:
                 for j in range(self.neu + self.ned):
-                    r = n_powers[i, j, 1]
+                    r = n_powers[label, j, 1]
                     if r < L:
                         chi_set = int(j >= self.neu) % parameters.shape[1]
                         poly = poly_diff = poly_diff_2 = 0.0
                         for k in range(parameters.shape[0]):
                             p = parameters[k, chi_set]
-                            poly += p * n_powers[i, j, k]
+                            poly += p * n_powers[label, j, k]
                             if k > 0:
-                                poly_diff += k * p * n_powers[i, j, k-1]
+                                poly_diff += k * p * n_powers[label, j, k-1]
                             if k > 1:
-                                poly_diff_2 += k * (k-1) * p * n_powers[i, j, k-2]
+                                poly_diff_2 += k * (k-1) * p * n_powers[label, j, k-2]
 
                         res += (r-L)**C * (
                             C*(C - 1)/(r-L)**2 * poly + 2 * C/(r-L) * poly_diff + poly_diff_2 +
@@ -453,14 +453,14 @@ class Jastrow:
 
         C = self.trunc
         for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
-            for i in f_labels:
+            for label in f_labels:
                 for j in range(1, self.neu + self.ned):
                     for k in range(j):
-                        r_e1I_vec = n_vectors[i, j]
-                        r_e2I_vec = n_vectors[i, k]
+                        r_e1I_vec = n_vectors[label, j]
+                        r_e2I_vec = n_vectors[label, k]
                         r_ee_vec = e_vectors[j, k]
-                        r_e1I = n_powers[i, j, 1]
-                        r_e2I = n_powers[i, k, 1]
+                        r_e1I = n_powers[label, j, 1]
+                        r_e2I = n_powers[label, k, 1]
                         r_ee = e_powers[j, k, 1]
                         if r_e1I < L and r_e2I < L:
                             f_set = (int(j >= self.neu) + int(k >= self.neu)) % parameters.shape[3]
@@ -471,23 +471,23 @@ class Jastrow:
                                 for m in range(parameters.shape[1]):
                                     for n in range(parameters.shape[2]):
                                         p = parameters[l, m, n, f_set]
-                                        poly += n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n] * p
+                                        poly += n_powers[label, j, l] * n_powers[label, k, m] * e_powers[j, k, n] * p
                                         if l > 0:
-                                            poly_diff_e1I += l * n_powers[i, j, l-1] * n_powers[i, k, m] * e_powers[j, k, n] * p
+                                            poly_diff_e1I += l * n_powers[label, j, l-1] * n_powers[label, k, m] * e_powers[j, k, n] * p
                                         if m > 0:
-                                            poly_diff_e2I += m * n_powers[i, j, l] * n_powers[i, k, m-1] * e_powers[j, k, n] * p
+                                            poly_diff_e2I += m * n_powers[label, j, l] * n_powers[label, k, m-1] * e_powers[j, k, n] * p
                                         if n > 0:
-                                            poly_diff_ee += n * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n-1] * p
+                                            poly_diff_ee += n * n_powers[label, j, l] * n_powers[label, k, m] * e_powers[j, k, n-1] * p
                                         if l > 1:
-                                            poly_diff_e1I_2 += l * (l-1) * n_powers[i, j, l-2] * n_powers[i, k, m] * e_powers[j, k, n] * p
+                                            poly_diff_e1I_2 += l * (l-1) * n_powers[label, j, l-2] * n_powers[label, k, m] * e_powers[j, k, n] * p
                                         if m > 1:
-                                            poly_diff_e2I_2 += m * (m-1) * n_powers[i, j, l] * n_powers[i, k, m-2] * e_powers[j, k, n] * p
+                                            poly_diff_e2I_2 += m * (m-1) * n_powers[label, j, l] * n_powers[label, k, m-2] * e_powers[j, k, n] * p
                                         if n > 1:
-                                            poly_diff_ee_2 += n * (n-1) * n_powers[i, j, l] * n_powers[i, k, m] * e_powers[j, k, n-2] * p
+                                            poly_diff_ee_2 += n * (n-1) * n_powers[label, j, l] * n_powers[label, k, m] * e_powers[j, k, n-2] * p
                                         if l > 0 and n > 0:
-                                            poly_diff_e1I_ee += l * n * n_powers[i, j, l-1] * n_powers[i, k, m] * e_powers[j, k, n-1] * p
+                                            poly_diff_e1I_ee += l * n * n_powers[label, j, l-1] * n_powers[label, k, m] * e_powers[j, k, n-1] * p
                                         if m > 0 and n > 0:
-                                            poly_diff_e2I_ee += m * n * n_powers[i, j, l] * n_powers[i, k, m-1] * e_powers[j, k, n-1] * p
+                                            poly_diff_e2I_ee += m * n * n_powers[label, j, l] * n_powers[label, k, m-1] * e_powers[j, k, n-1] * p
 
                             diff_1 = (
                                 (C/(r_e1I - L) * poly + poly_diff_e1I) / r_e1I +
@@ -919,9 +919,9 @@ class Jastrow:
         if self.u_cutoff_optimizable:
             n += 1
             self.u_cutoff -= delta
-            res[n] -= self.u_term(e_powers)
+            res[n] -= self.u_term(e_powers) / delta / 2
             self.u_cutoff += 2 * delta
-            res[n] += self.u_term(e_powers)
+            res[n] += self.u_term(e_powers) / delta / 2
             self.u_cutoff -= delta
 
         for j2 in range(self.u_parameters.shape[1]):
@@ -930,18 +930,18 @@ class Jastrow:
                     n += 1
                     if j1 == 1:
                         self.u_cusp_const[j2] -= delta
-                        res[n] -= self.u_term(e_powers)
+                        res[n] -= self.u_term(e_powers) / delta / 2
                         self.u_cusp_const[j2] += 2 * delta
-                        res[n] += self.u_term(e_powers)
+                        res[n] += self.u_term(e_powers) / delta / 2
                         self.u_cusp_const[j2] -= delta
                     else:
                         self.u_parameters[j1, j2] -= delta
-                        res[n] -= self.u_term(e_powers)
+                        res[n] -= self.u_term(e_powers) / delta / 2
                         self.u_parameters[j1, j2] += 2 * delta
-                        res[n] += self.u_term(e_powers)
+                        res[n] += self.u_term(e_powers) / delta / 2
                         self.u_parameters[j1, j2] -= delta
 
-        return res / delta / 2
+        return res
 
     def chi_term_numerical_d1(self, n_powers):
         """Numerical first derivatives of logarithm wfn with respect to chi-term parameters
@@ -959,26 +959,28 @@ class Jastrow:
         res = np.zeros(shape=(size,))
 
         n = -1
-        for i, (chi_parameters, chi_parameters_available) in enumerate(zip(self.chi_parameters, self.chi_parameters_available)):
+        for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)):
             if self.chi_cutoff_optimizable[i]:
                 n += 1
                 self.chi_cutoff[i] -= delta
-                res[n] -= self.chi_term(n_powers)
+                res[n] -= self.chi_term(n_powers) / delta / 2
                 self.chi_cutoff[i] += 2 * delta
-                res[n] += self.chi_term(n_powers)
+                res[n] += self.chi_term(n_powers) / delta / 2
                 self.chi_cutoff[i] -= delta
 
             for j2 in range(chi_parameters.shape[1]):
                 for j1 in range(chi_parameters.shape[0]):
                     if chi_parameters_available[j1, j2]:
                         n += 1
-                        chi_parameters[j1, j2] -= delta
-                        res[n] -= self.chi_term(n_powers)
-                        chi_parameters[j1, j2] += 2 * delta
-                        res[n] += self.chi_term(n_powers)
-                        chi_parameters[j1, j2] -= delta
+                        for label in chi_labels:
+                            for j in range(self.neu + self.ned):
+                                r = n_powers[label, j, 1]
+                                if r < self.chi_cutoff[i]:
+                                    chi_set = int(j >= self.neu) % chi_parameters.shape[1]
+                                    if chi_set == j2:
+                                        res[n] += n_powers[label, j, j1] * (r - self.chi_cutoff[i]) ** self.trunc
 
-        return res / delta / 2
+        return res
 
     def f_term_numerical_d1(self, e_powers, n_powers):
         """Numerical first derivatives of logarithm wfn with respect to f-term parameters
@@ -1002,9 +1004,9 @@ class Jastrow:
             if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta
-                res[n] -= self.f_term(e_powers, n_powers)
+                res[n] -= self.f_term(e_powers, n_powers) / delta / 2
                 self.f_cutoff[i] += 2 * delta
-                res[n] += self.f_term(e_powers, n_powers)
+                res[n] += self.f_term(e_powers, n_powers) / delta / 2
                 self.f_cutoff[i] -= delta
 
             for j4 in range(f_parameters.shape[3]):
@@ -1021,8 +1023,10 @@ class Jastrow:
                                             if r_e1I < self.f_cutoff[i] and r_e2I < self.f_cutoff[i]:
                                                 f_set = (int(j >= self.neu) + int(k >= self.neu)) % f_parameters.shape[3]
                                                 if f_set == j4:
-                                                    poly = n_powers[label, j, j1] * n_powers[label, k, j2] * e_powers[j, k, j3]
-                                                    res[n] += poly * (r_e1I - self.f_cutoff[i]) ** C * (r_e2I - self.f_cutoff[i]) ** C
+                                                    res[n] += (
+                                                        n_powers[label, j, j1] * n_powers[label, k, j2] * e_powers[j, k, j3] *
+                                                        (r_e1I - self.f_cutoff[i]) ** C * (r_e2I - self.f_cutoff[i]) ** C
+                                                    )
 
         return res
 
