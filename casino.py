@@ -536,19 +536,16 @@ class Casino:
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(np.sum(res.jac, axis=0) * scale)
 
-    def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
+    def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True, method='trust-constr'):
         """Minimize vmc energy.
-        Function only for: Nelder-Mead, Powell
-        Gradient only for: CG, BFGS, L-BFGS-B, TNC, SLSQP
-        Gradient and Hessian is required for: Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact, trust-constr
         Constraints definition only for: COBYLA, SLSQP and trust-constr.
-        Bounds on variables for Nelder-Mead, Powell, L-BFGS-B, TNC, SLSQP, and trust-constr methods.
         SciPy, оптимизация с условиями - https://people.duke.edu/~ccc14/sta-663-2017/14C_Optimization_In_Python.html
 
         :param steps:
         :param decorr_period:
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param method: COBYLA, SLSQP and trust-constr
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         self.wfn.jastrow.fix_u_parameters()
@@ -596,10 +593,14 @@ class Casino:
         )
 
         disp = self.mpi_comm.rank == 0
-        verbose = 3 if self.mpi_comm.rank == 0 else 0
         x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow, True) / scale
-        options = dict(factorization_method='SVDFactorization', maxiter=x0.size, verbose=verbose, disp=disp)
-        res = minimize(fun, x0=x0, method='trust-constr', jac=jac, hess=hess, constraints=constraints, options=options)
+        if method == 'trust-constr':
+            verbose = 3 if self.mpi_comm.rank == 0 else 0
+            options = dict(initial_tr_radius=100, factorization_method='SVDFactorization', maxiter=x0.size, verbose=verbose, disp=disp)
+            res = minimize(fun, x0=x0, method='trust-constr', jac=jac, hess=hess, constraints=constraints, options=options)
+        else:
+            options = dict(maxiter=x0.size, disp=disp)
+            res = minimize(fun, x0=x0, method='SLSQP', jac=jac, constraints=constraints, options=options)
         parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow, True)

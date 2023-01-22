@@ -189,11 +189,11 @@ class Jastrow:
 
         C = self.trunc
         parameters = self.u_parameters
-        for i in range(1, self.neu + self.ned):
-            for j in range(i):
-                r = e_powers[i, j, 1]
+        for e1 in range(1, self.neu + self.ned):
+            for e2 in range(e1):
+                r = e_powers[e1, e2, 1]
                 if r < self.u_cutoff:
-                    cusp_set = int(i >= self.neu) + int(j >= self.neu)
+                    cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
                     u_set = cusp_set % parameters.shape[1]
                     poly = 0.0
                     for k in range(parameters.shape[0]):
@@ -201,7 +201,7 @@ class Jastrow:
                             p = self.u_cusp_const[cusp_set]
                         else:
                             p = parameters[k, u_set]
-                        poly += p * e_powers[i, j, k]
+                        poly += p * e_powers[e1, e2, k]
                     res += poly * (r - self.u_cutoff) ** C
         return res
 
@@ -928,18 +928,13 @@ class Jastrow:
             for j1 in range(self.u_parameters.shape[0]):
                 if self.u_parameters_available[j1, j2]:
                     n += 1
-                    if j1 == 1:
-                        self.u_cusp_const[j2] -= delta
-                        res[n] -= self.u_term(e_powers) / delta / 2
-                        self.u_cusp_const[j2] += 2 * delta
-                        res[n] += self.u_term(e_powers) / delta / 2
-                        self.u_cusp_const[j2] -= delta
-                    else:
-                        self.u_parameters[j1, j2] -= delta
-                        res[n] -= self.u_term(e_powers) / delta / 2
-                        self.u_parameters[j1, j2] += 2 * delta
-                        res[n] += self.u_term(e_powers) / delta / 2
-                        self.u_parameters[j1, j2] -= delta
+                    for e1 in range(1, self.neu + self.ned):
+                        for e2 in range(e1):
+                            r = e_powers[e1, e2, 1]
+                            if r < self.u_cutoff:
+                                u_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.u_parameters.shape[1]
+                                if u_set == j2:
+                                    res[n] += e_powers[e1, e2, j1] * (r - self.u_cutoff) ** self.trunc
 
         return res
 
