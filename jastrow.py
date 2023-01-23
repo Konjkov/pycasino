@@ -1198,6 +1198,48 @@ class Jastrow:
         res[b[2]:b[3], b[2]:b[3]] = f_term
         return res
 
+    def gradient_parameters_numerical_d1(self, e_vectors, n_vectors) -> float:
+        """Numerical gradiwnt with respect to parameters
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :return:
+        """
+        delta = 0.00001
+        parameters = self.get_parameters(True)
+        res = np.zeros(shape=(parameters.size, (self.neu + self.ned) * 3))
+        for i in range(parameters.size):
+            parameters[i] -= delta
+            self.set_parameters(parameters, True)
+            res[i] -= self.gradient(e_vectors, n_vectors)
+            parameters[i] += 2 * delta
+            self.set_parameters(parameters, True)
+            res[i] += self.gradient(e_vectors, n_vectors)
+            parameters[i] -= delta
+
+        self.set_parameters(parameters, True)
+        return res / delta / 2
+
+    def laplacian_parameters_numerical_d1(self, e_vectors, n_vectors) -> float:
+        """Numerical laplacian with respect to parameters
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :return:
+        """
+        delta = 0.00001
+        parameters = self.get_parameters(True)
+        res = np.zeros(shape=parameters.shape)
+        for i in range(parameters.size):
+            parameters[i] -= delta
+            self.set_parameters(parameters, True)
+            res[i] -= self.laplacian(e_vectors, n_vectors)
+            parameters[i] += 2 * delta
+            self.set_parameters(parameters, True)
+            res[i] += self.laplacian(e_vectors, n_vectors)
+            parameters[i] -= delta
+
+        self.set_parameters(parameters, True)
+        return res / delta / 2
+
     def profile_value(self, dr, steps, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
