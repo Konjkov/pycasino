@@ -38,10 +38,11 @@ def energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient
     :param wfn_gradient:
     :param wfn_hessian: wfn_hessian - np.outer(wfn_gradient, wfn_gradient)
     :param energy:
-    :param energy_gradient:
+    :param energy_gradient: [H(R) Ψj(R)] / Ψ0(R) without [Ψj(R) / Ψ0(R)] EL(R)
     :param estimator: LZP or FU or TU
     :return:
     """
+    energy_gradient -= wfn_gradient * energy[:, np.newaxis]
     mean_energy = np.mean(energy)
     mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
     A = 2 * (
@@ -553,10 +554,6 @@ class Casino:
         a, b = self.wfn.jastrow.get_parameters_constraints()
         constraints = LinearConstraint(a * scale, lb=b, ub=b)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
-        # for p in position:
-        #     energy_gradient = self.wfn.energy_parameters_numerical_d1(p)
-        #     energy_gradient_old = self.wfn.energy_parameters_numerical_d1_old(p)
-        #     print(energy_gradient / energy_gradient_old)
 
         def fun(x, *args):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, True)
@@ -600,7 +597,7 @@ class Casino:
         x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow, True) / scale
         if method == 'trust-constr':
             verbose = 3 if self.mpi_comm.rank == 0 else 0
-            options = dict(initial_tr_radius=1000, factorization_method='SVDFactorization', maxiter=x0.size, verbose=verbose, disp=disp)
+            options = dict(initial_tr_radius=1, factorization_method='SVDFactorization', maxiter=x0.size, verbose=verbose, disp=disp)
             res = minimize(fun, x0=x0, method='trust-constr', jac=jac, hess=hess, constraints=constraints, options=options)
         else:
             options = dict(maxiter=x0.size, disp=disp)
