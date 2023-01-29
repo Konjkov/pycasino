@@ -1022,6 +1022,8 @@ class Jastrow:
                                                         n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3] *
                                                         (r_e1I - self.f_cutoff[i]) ** C * (r_e2I - self.f_cutoff[i]) ** C
                                                     )
+                                if j1 != j2:
+                                    res[n] *= 2
 
         return res
 

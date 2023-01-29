@@ -524,7 +524,7 @@ class Casino:
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(np.sum(res.jac, axis=0) * scale)
 
-    def vmc_energy_minimization_old(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True, method='trust-constr'):
+    def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
         """Minimize vmc energy.
         Constraints definition only for: COBYLA, SLSQP and trust-constr.
         SciPy, оптимизация с условиями - https://people.duke.edu/~ccc14/sta-663-2017/14C_Optimization_In_Python.html
@@ -533,7 +533,6 @@ class Casino:
         :param decorr_period:
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
-        :param method: COBYLA, SLSQP and trust-constr
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         self.wfn.jastrow.fix_u_parameters()
@@ -564,14 +563,14 @@ class Casino:
             energy = vmc_observable(condition, position, self.wfn.energy)
             wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
             wfn_hessian = vmc_observable(condition, position, self.wfn.value_parameters_d2)
-            energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
+            energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             mean_energy_hessian = energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_hessian)
             mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size * np.outer(scale, scale)
-            eigvals = np.linalg.eigvalsh(mean_energy_hessian)
+            # eigvals = np.linalg.eigvalsh(mean_energy_hessian)
             # self.logger.info(f'hessian eigenvalues min {eigvals.min()} max {eigvals.max()}')
-            if eigvals.min() < 0:
-                mean_energy_hessian -= eigvals.min() * np.eye(x.size)
+            # if eigvals.min() < 0:
+            #     mean_energy_hessian -= eigvals.min() * np.eye(x.size)
             return mean_energy_hessian
 
         self.logger.info(
@@ -581,25 +580,18 @@ class Casino:
 
         disp = self.mpi_comm.rank == 0
         x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow, True) / scale
-        if method == 'trust-constr':
-            # https://epubs.siam.org/doi/10.1137/S1052623493262993
-            verbose = 3 if self.mpi_comm.rank == 0 else 0
-            constraints = LinearConstraint(a * scale, lb=b, ub=b)
-            options = dict(initial_tr_radius=1, factorization_method='SVDFactorization', maxiter=x0.size, verbose=verbose, disp=disp)
-            res = minimize(fun, x0=x0, method='trust-constr', jac=jac, hess=hess, constraints=constraints, options=options)
-            self.logger.info('Lagrange multipliers at the solution:')
-            self.logger.info(res.v)
-        else:
-            options = dict(maxiter=x0.size, disp=disp)
-            constraints = dict(type='eq', fun=lambda x: (a * scale) @ x - b)
-            res = minimize(fun, x0=x0, method='SLSQP', jac=jac, constraints=constraints, options=options)
-            self.logger.info('scaled x at the solution:')
-            self.logger.info(res.jac)
+        # https://epubs.siam.org/doi/10.1137/S1052623493262993
+        verbose = 3 if self.mpi_comm.rank == 0 else 0
+        constraints = LinearConstraint(a * scale, lb=b, ub=b)
+        options = dict(initial_tr_radius=1, factorization_method='SVDFactorization', maxiter=x0.size, verbose=verbose, disp=disp)
+        res = minimize(fun, x0=x0, method='trust-constr', jac=jac, hess=hess, constraints=constraints, options=options)
+        self.logger.info('Lagrange multipliers at the solution:')
+        self.logger.info(res.v)
         parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow, True)
 
-    def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
+    def vmc_energy_minimization_old(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
         """Minimize vmc energy.
         Constraints definition only for: COBYLA, SLSQP and trust-constr.
         SciPy, оптимизация с условиями - https://people.duke.edu/~ccc14/sta-663-2017/14C_Optimization_In_Python.html
@@ -616,6 +608,8 @@ class Casino:
         a *= scale
         p = np.eye(scale.size) - a.T @ np.linalg.inv(a @ a.T) @ a
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
+        # for pos in position:
+        #     print(self.wfn.value_parameters_d1(pos) - self.wfn.value_parameters_numerical_d1(pos))
 
         def fun(x, *args):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, True)
@@ -638,10 +632,10 @@ class Casino:
 
         def hess(x, *args):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, True)
-            energy = vmc_observable(condition[::10], position[::10], self.wfn.energy)
-            wfn_gradient = vmc_observable(condition[::10], position[::10], self.wfn.value_parameters_d1)
-            wfn_hessian = vmc_observable(condition[::10], position[::10], self.wfn.value_parameters_d2)
-            energy_gradient = vmc_observable(condition[::10], position[::10], self.wfn.energy_parameters_numerical_d1)
+            energy = vmc_observable(condition, position, self.wfn.energy)
+            wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            wfn_hessian = vmc_observable(condition, position, self.wfn.value_parameters_d2)
+            energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             mean_energy_hessian = energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_hessian)
             mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size * np.outer(scale, scale)

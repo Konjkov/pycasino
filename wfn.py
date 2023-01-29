@@ -196,7 +196,21 @@ class Wfn:
             ))
         return res
 
-    def energy_parameters_numerical_d1_old(self, r_e, opt_jastrow=True, opt_backflow=True):
+    def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
+        """First-order derivatives of energy with respect to the parameters.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :return:
+        """
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        s_g = self.slater.gradient(n_vectors)
+        j_g = self.jastrow.gradient(e_vectors, n_vectors)
+        j_g_d1 = self.jastrow.gradient_parameters_numerical_d1(e_vectors, n_vectors)
+        j_l_d1 = self.jastrow.laplacian_parameters_numerical_d1(e_vectors, n_vectors)
+        return - (np.sum((s_g + j_g) * j_g_d1, axis=1) + j_l_d1 / 2)
+
+    def energy_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
         """First-order derivatives of energy with respect to the parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
@@ -218,20 +232,6 @@ class Wfn:
         self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
         return res / delta / 2
 
-    def energy_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
-        """First-order derivatives of energy with respect to the parameters.
-        :param r_e: electron coordinates - array(nelec, 3)
-        :param opt_jastrow: optimize jastrow parameters
-        :param opt_backflow: optimize backflow parameters
-        :return:
-        """
-        e_vectors, n_vectors = self._relative_coordinates(r_e)
-        s_g = self.slater.gradient(n_vectors)
-        j_g = self.jastrow.gradient(e_vectors, n_vectors)
-        j_g_d1 = self.jastrow.gradient_parameters_numerical_d1(e_vectors, n_vectors)
-        j_l_d1 = self.jastrow.laplacian_parameters_numerical_d1(e_vectors, n_vectors)
-        return - (np.sum((s_g + j_g) * j_g_d1, axis=1) + j_l_d1 / 2)
-
     def value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
         """First-order derivatives of the wave function with respect to the parameters divided by wfn.
         :param r_e: electron coordinates - array(nelec, 3)
@@ -251,6 +251,28 @@ class Wfn:
                 res, self.backflow.parameters_numerical_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v).ravel()
             ))
         return res
+
+    def value_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
+        """First-order derivatives of energy with respect to the parameters.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :return:
+        """
+        delta = 0.000001  # (1/2**52)**(1/3)
+        parameters = self.get_parameters(opt_jastrow, opt_backflow, True)
+        res = np.zeros(shape=parameters.shape)
+        for i in range(parameters.size):
+            parameters[i] -= delta
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+            res[i] -= self.value(r_e)
+            parameters[i] += 2 * delta
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+            res[i] += self.value(r_e)
+            parameters[i] -= delta
+
+        self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+        return res / delta / 2 / self.value(r_e)
 
     def value_parameters_d2(self, r_e, opt_jastrow=True, opt_backflow=True):
         """Second-order derivatives of the wave function with respect to the parameters.
