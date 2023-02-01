@@ -206,8 +206,8 @@ class Wfn:
         e_vectors, n_vectors = self._relative_coordinates(r_e)
         s_g = self.slater.gradient(n_vectors)
         j_g = self.jastrow.gradient(e_vectors, n_vectors)
-        j_g_d1 = self.jastrow.gradient_parameters_numerical_d1(e_vectors, n_vectors)
-        j_l_d1 = self.jastrow.laplacian_parameters_numerical_d1(e_vectors, n_vectors)
+        j_g_d1 = self.jastrow.gradient_parameters_d1(e_vectors, n_vectors)
+        j_l_d1 = self.jastrow.laplacian_parameters_d1(e_vectors, n_vectors)
         return - (np.sum((s_g + j_g) * j_g_d1, axis=1) + j_l_d1 / 2)
 
     def energy_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True):

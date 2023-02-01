@@ -524,7 +524,7 @@ class Casino:
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(np.sum(res.jac, axis=0) * scale)
 
-    def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
+    def vmc_energy_minimization_old(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
         """Minimize vmc energy.
         Constraints definition only for: COBYLA, SLSQP and trust-constr.
         SciPy, оптимизация с условиями - https://people.duke.edu/~ccc14/sta-663-2017/14C_Optimization_In_Python.html
@@ -591,7 +591,7 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow, True)
 
-    def vmc_energy_minimization_old(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
+    def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
         """Minimize vmc energy.
         Constraints definition only for: COBYLA, SLSQP and trust-constr.
         SciPy, оптимизация с условиями - https://people.duke.edu/~ccc14/sta-663-2017/14C_Optimization_In_Python.html
@@ -608,15 +608,13 @@ class Casino:
         a *= scale
         p = np.eye(scale.size) - a.T @ np.linalg.inv(a @ a.T) @ a
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
-        # for pos in position:
-        #     print(self.wfn.value_parameters_d1(pos) - self.wfn.value_parameters_numerical_d1(pos))
 
         def fun(x, *args):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, True)
             energy = np.empty(shape=(steps,))
             energy_part = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allgather(energy_part, energy)
-            self.logger.info(f'energy {energy.mean()} {energy.std()}')
+            # self.logger.info(f'energy {energy.mean()} {energy.std()}')
             return energy.mean()
 
         def jac(x, *args):
@@ -641,7 +639,7 @@ class Casino:
             mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size * np.outer(scale, scale)
             projected_hessian = p @ mean_energy_hessian @ p
             projected_eigvals = np.linalg.eigvalsh(projected_hessian)
-            self.logger.info(f'projected  hessian eigenvalues min {projected_eigvals.min()} max {projected_eigvals.max()}')
+            self.logger.info(f'projected hessian eigenvalues min {projected_eigvals.min()} max {projected_eigvals.max()}')
             return projected_hessian
 
         self.logger.info(

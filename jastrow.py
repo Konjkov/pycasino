@@ -1200,8 +1200,374 @@ class Jastrow:
         res[b[2]:b[3], b[2]:b[3]] = f_term
         return res
 
-    def gradient_parameters_numerical_d1(self, e_vectors, n_vectors) -> float:
-        """Numerical gradiwnt with respect to parameters
+    def u_term_gradient_parameters_d1(self, e_powers, e_vectors):
+        """Gradient with respect to parameters
+        :param e_vectors: e-e vectors
+        :param e_powers: e-e powers
+        :return:
+        """
+        if not self.u_cutoff:
+            return np.zeros((0, 0))
+
+        delta = 0.000001
+        size = self.u_parameters_available.sum() + self.u_cutoff_optimizable
+        res = np.zeros(shape=(size, (self.neu + self.ned), 3))
+
+        n = -1
+        if self.u_cutoff_optimizable:
+            n += 1
+            self.u_cutoff -= delta
+            res[n] -= self.u_term_gradient(e_powers, e_vectors) / delta / 2
+            self.u_cutoff += 2 * delta
+            res[n] += self.u_term_gradient(e_powers, e_vectors) / delta / 2
+            self.u_cutoff -= delta
+
+        for j2 in range(self.u_parameters.shape[1]):
+            for j1 in range(self.u_parameters.shape[0]):
+                if self.u_parameters_available[j1, j2]:
+                    n += 1
+                    for e1 in range(1, self.neu + self.ned):
+                        for e2 in range(e1):
+                            r_vec = e_vectors[e1, e2]
+                            r = e_powers[e1, e2, 1]
+                            if r < self.u_cutoff:
+                                u_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.u_parameters.shape[1]
+                                if u_set == j2:
+                                    poly = e_powers[e1, e2, j1]
+                                    poly_diff = 0
+                                    if j1 > 0:
+                                        poly_diff = j1 * e_powers[e1, e2, j1 - 1]
+                                    gradient = r_vec / r * (r - self.u_cutoff) ** self.trunc * (self.trunc / (r - self.u_cutoff) * poly + poly_diff)
+                                    res[n, e1, :] += gradient
+                                    res[n, e2, :] -= gradient
+
+        return res.reshape(size, (self.neu + self.ned) * 3)
+
+    def chi_term_gradient_parameters_d1(self, n_powers, n_vectors):
+        """Gradient with respect to parameters
+        :param n_vectors: e-n vectors
+        :param n_powers: e-n powers
+        :return:
+        """
+        if not self.chi_cutoff.any():
+            return np.zeros((0, 0))
+
+        delta = 0.000001
+        size = sum([
+            chi_parameters_available.sum() + chi_cutoff_optimizable
+            for chi_parameters_available, chi_cutoff_optimizable
+            in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size, (self.neu + self.ned), 3))
+
+        n = -1
+        for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)):
+            if self.chi_cutoff_optimizable[i]:
+                n += 1
+                self.chi_cutoff[i] -= delta
+                res[n] -= self.chi_term_gradient(n_powers, n_vectors) / delta / 2
+                self.chi_cutoff[i] += 2 * delta
+                res[n] += self.chi_term_gradient(n_powers, n_vectors) / delta / 2
+                self.chi_cutoff[i] -= delta
+
+            L = self.chi_cutoff[i]
+            for j2 in range(chi_parameters.shape[1]):
+                for j1 in range(chi_parameters.shape[0]):
+                    if chi_parameters_available[j1, j2]:
+                        n += 1
+                        for label in chi_labels:
+                            for e1 in range(self.neu + self.ned):
+                                r_vec = n_vectors[label, e1]
+                                r = n_powers[label, e1, 1]
+                                if r < self.chi_cutoff[i]:
+                                    chi_set = int(e1 >= self.neu) % chi_parameters.shape[1]
+                                    if chi_set == j2:
+                                        poly = n_powers[label, e1, j1]
+                                        poly_diff = 0
+                                        if j1 > 0:
+                                            poly_diff = j1 * n_powers[label, e1, j1 - 1]
+                                        res[n, e1, :] += r_vec / r * (r - L) ** self.trunc * (self.trunc / (r - L) * poly+ poly_diff)
+
+        return res.reshape(size, (self.neu + self.ned) * 3)
+
+    def f_term_gradient_parameters_d1(self, e_powers, n_powers, e_vectors, n_vectors):
+        """Gradient with respect to parameters
+        :param n_vectors: e-n vectors
+        :param n_powers: e-n powers
+        :return:
+        """
+        if not self.f_cutoff.any():
+            return np.zeros((0, 0))
+
+        delta = 0.000001
+        size = sum([
+            f_parameters_available.sum() + f_cutoff_optimizable
+            for f_parameters_available, f_cutoff_optimizable
+            in zip(self.f_parameters_available, self.f_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size, (self.neu + self.ned), 3))
+
+        n = -1
+        for i, (f_parameters, f_parameters_available, f_labels) in enumerate(zip(self.f_parameters, self.f_parameters_available, self.f_labels)):
+            if self.f_cutoff_optimizable[i]:
+                n += 1
+                self.f_cutoff[i] -= delta
+                res[n] -= self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                self.f_cutoff[i] += 2 * delta
+                res[n] += self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                self.f_cutoff[i] -= delta
+
+            L = self.f_cutoff[i]
+            for j4 in range(f_parameters.shape[3]):
+                for j3 in range(f_parameters.shape[2]):
+                    for j2 in range(f_parameters.shape[1]):
+                        for j1 in range(j2, f_parameters.shape[0]):
+                            if f_parameters_available[j1, j2, j3, j4]:
+                                n += 1
+                                for label in f_labels:
+                                    for e1 in range(1, self.neu + self.ned):
+                                        for e2 in range(e1):
+                                            r_e1I_vec = n_vectors[label, e1]
+                                            r_e2I_vec = n_vectors[label, e2]
+                                            r_ee_vec = e_vectors[e1, e2]
+                                            r_e1I = n_powers[label, e1, 1]
+                                            r_e2I = n_powers[label, e2, 1]
+                                            r_ee = e_powers[e1, e2, 1]
+                                            if r_e1I < self.f_cutoff[i] and r_e2I < self.f_cutoff[i]:
+                                                f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % f_parameters.shape[3]
+                                                if f_set == j4:
+                                                    poly = n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
+                                                    poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0
+                                                    if j1 > 0:
+                                                        poly_diff_e1I = j1 * n_powers[label, e1, j1 - 1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
+                                                    if j2 > 0:
+                                                        poly_diff_e2I = j2 * n_powers[label, e1, j1] * n_powers[label, e2, j2 - 1] * e_powers[e1, e2, j3]
+                                                    if j3 > 0:
+                                                        poly_diff_ee = j3 * n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3 - 1]
+                                                    e1_gradient = r_e1I_vec / r_e1I * (self.trunc / (r_e1I - L) * poly + poly_diff_e1I)
+                                                    e2_gradient = r_e2I_vec / r_e2I * (self.trunc / (r_e2I - L) * poly + poly_diff_e2I)
+                                                    ee_gradient = r_ee_vec / r_ee * poly_diff_ee
+                                                    res[n, e1, :] += (r_e1I - L) ** self.trunc * (r_e2I - L) ** self.trunc * (e1_gradient + ee_gradient)
+                                                    res[n, e2, :] += (r_e1I - L) ** self.trunc * (r_e2I - L) ** self.trunc * (e2_gradient - ee_gradient)
+
+                                if j1 != j2:
+                                    res[n] *= 2
+
+        return res.reshape(size, (self.neu + self.ned) * 3)
+
+    def u_term_laplacian_parameters_d1(self, e_powers):
+        """Laplacian with respect to parameters
+        :param e_powers: e-e powers
+        :return:
+        """
+        if not self.u_cutoff:
+            return np.zeros((0, ))
+
+        delta = 0.000001
+        size = self.u_parameters_available.sum() + self.u_cutoff_optimizable
+        res = np.zeros(shape=(size, ))
+
+        n = -1
+        if self.u_cutoff_optimizable:
+            n += 1
+            self.u_cutoff -= delta
+            res[n] -= self.u_term_laplacian(e_powers) / delta / 2
+            self.u_cutoff += 2 * delta
+            res[n] += self.u_term_laplacian(e_powers) / delta / 2
+            self.u_cutoff -= delta
+
+        for j2 in range(self.u_parameters.shape[1]):
+            for j1 in range(self.u_parameters.shape[0]):
+                if self.u_parameters_available[j1, j2]:
+                    n += 1
+                    for e1 in range(1, self.neu + self.ned):
+                        for e2 in range(e1):
+                            r = e_powers[e1, e2, 1]
+                            if r < self.u_cutoff:
+                                u_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.u_parameters.shape[1]
+                                if u_set == j2:
+                                    poly = e_powers[e1, e2, j1]
+                                    poly_diff = poly_diff_2 = 0
+                                    if j1 > 0:
+                                        poly_diff = j1 * e_powers[e1, e2, j1 - 1]
+                                    if j1 > 1:
+                                        poly_diff_2 = j1 * (j1 - 1) * e_powers[e1, e2, j1 - 2]
+                                    res[n] += (r - self.u_cutoff)**self.trunc * (
+                                            self.trunc*(self.trunc - 1)/(r-self.u_cutoff)**2 * poly + 2 * self.trunc/(r-self.u_cutoff) * poly_diff + poly_diff_2 +
+                                            2 * (self.trunc/(r-self.u_cutoff) * poly + poly_diff) / r
+                                    )
+
+        return 2 * res
+
+    def chi_term_laplacian_parameters_d1(self, n_powers):
+        """Laplacian with respect to parameters
+        :param n_powers: e-n powers
+        :return:
+        """
+        if not self.chi_cutoff.any():
+            return np.zeros((0, ))
+
+        delta = 0.000001
+        size = sum([
+            chi_parameters_available.sum() + chi_cutoff_optimizable
+            for chi_parameters_available, chi_cutoff_optimizable
+            in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size, ))
+
+        n = -1
+        for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)):
+            if self.chi_cutoff_optimizable[i]:
+                n += 1
+                self.chi_cutoff[i] -= delta
+                res[n] -= self.chi_term_laplacian(n_powers) / delta / 2
+                self.chi_cutoff[i] += 2 * delta
+                res[n] += self.chi_term_laplacian(n_powers) / delta / 2
+                self.chi_cutoff[i] -= delta
+
+            L = self.chi_cutoff[i]
+            for j2 in range(chi_parameters.shape[1]):
+                for j1 in range(chi_parameters.shape[0]):
+                    if chi_parameters_available[j1, j2]:
+                        n += 1
+                        for label in chi_labels:
+                            for e1 in range(self.neu + self.ned):
+                                r = n_powers[label, e1, 1]
+                                if r < self.chi_cutoff[i]:
+                                    chi_set = int(e1 >= self.neu) % chi_parameters.shape[1]
+                                    if chi_set == j2:
+                                        poly = n_powers[label, e1, j1]
+                                        poly_diff = poly_diff_2 = 0
+                                        if j1 > 0:
+                                            poly_diff = j1 * n_powers[label, e1, j1 - 1]
+                                        if j1 > 1:
+                                            poly_diff_2 = j1 * (j1 - 1) * n_powers[label, e1, j1 - 2]
+                                        res[n] += (r-L)**self.trunc * (
+                                                self.trunc*(self.trunc - 1)/(r-L)**2 * poly + 2 * self.trunc/(r-L) * poly_diff + poly_diff_2 +
+                                                2 * (self.trunc/(r-L) * poly + poly_diff) / r
+                                        )
+
+        return res
+
+    def f_term_laplacian_parameters_d1(self, e_powers, n_powers, e_vectors, n_vectors):
+        """Laplacian with respect to parameters
+        :param n_powers: e-n powers
+        :return:
+        """
+        if not self.f_cutoff.any():
+            return np.zeros((0, ))
+
+        delta = 0.000001
+        size = sum([
+            f_parameters_available.sum() + f_cutoff_optimizable
+            for f_parameters_available, f_cutoff_optimizable
+            in zip(self.f_parameters_available, self.f_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size, ))
+
+        n = -1
+        C = self.trunc
+        for i, (f_parameters, f_parameters_available, f_labels) in enumerate(zip(self.f_parameters, self.f_parameters_available, self.f_labels)):
+            if self.f_cutoff_optimizable[i]:
+                n += 1
+                self.f_cutoff[i] -= delta
+                res[n] -= self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                self.f_cutoff[i] += 2 * delta
+                res[n] += self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                self.f_cutoff[i] -= delta
+
+            L = self.f_cutoff[i]
+            for j4 in range(f_parameters.shape[3]):
+                for j3 in range(f_parameters.shape[2]):
+                    for j2 in range(f_parameters.shape[1]):
+                        for j1 in range(j2, f_parameters.shape[0]):
+                            if f_parameters_available[j1, j2, j3, j4]:
+                                n += 1
+                                for label in f_labels:
+                                    for e1 in range(1, self.neu + self.ned):
+                                        for e2 in range(e1):
+                                            r_e1I_vec = n_vectors[label, e1]
+                                            r_e2I_vec = n_vectors[label, e2]
+                                            r_ee_vec = e_vectors[e1, e2]
+                                            r_e1I = n_powers[label, e1, 1]
+                                            r_e2I = n_powers[label, e2, 1]
+                                            r_ee = e_powers[e1, e2, 1]
+                                            if r_e1I < self.f_cutoff[i] and r_e2I < self.f_cutoff[i]:
+                                                f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % f_parameters.shape[3]
+                                                if f_set == j4:
+                                                    poly = n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
+                                                    poly_diff_e1I = poly_diff_e2I = 0
+                                                    poly_diff_ee = poly_diff_e1I_2 = poly_diff_e2I_2 = 0.0
+                                                    poly_diff_ee_2 = poly_diff_e1I_ee = poly_diff_e2I_ee = 0.0
+                                                    if j1 > 0:
+                                                        poly_diff_e1I = j1 * n_powers[label, e1, j1 - 1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
+                                                    if j2 > 0:
+                                                        poly_diff_e2I = j2 * n_powers[label, e1, j1] * n_powers[label, e2, j2 - 1] * e_powers[e1, e2, j3]
+                                                    if j3 > 0:
+                                                        poly_diff_ee = j3 * n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3 - 1]
+                                                    if j1 > 1:
+                                                        poly_diff_e1I_2 = j1 * (j1-1) * n_powers[label, e1, j1 - 2] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
+                                                    if j2 > 1:
+                                                        poly_diff_e2I_2 = j2 * (j2-1) * n_powers[label, e1, j1] * n_powers[label, e2, j2 - 2] * e_powers[e1, e2, j3]
+                                                    if j3 > 1:
+                                                        poly_diff_ee_2 = j3 * (j3-1) * n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3 - 2]
+                                                    if j1 > 0 and j3 > 0:
+                                                        poly_diff_e1I_ee = j1 * j3 * n_powers[label, e1, j1 - 1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3 - 1]
+                                                    if j2 > 0 and j3 > 0:
+                                                        poly_diff_e2I_ee = j2 * j3 * n_powers[label, e1, j1] * n_powers[label, e2, j2 - 1] * e_powers[e1, e2, j3 - 1]
+                                                    diff_1 = (
+                                                            (C / (r_e1I - L) * poly + poly_diff_e1I) / r_e1I +
+                                                            (C / (r_e2I - L) * poly + poly_diff_e2I) / r_e2I +
+                                                            2 * poly_diff_ee / r_ee
+                                                    )
+                                                    diff_2 = (
+                                                            C * (C - 1) / (r_e1I - L) ** 2 * poly +
+                                                            C * (C - 1) / (r_e2I - L) ** 2 * poly +
+                                                            (poly_diff_e1I_2 + poly_diff_e2I_2 + 2 * poly_diff_ee_2) +
+                                                            2 * C / (r_e1I - L) * poly_diff_e1I +
+                                                            2 * C / (r_e2I - L) * poly_diff_e2I
+                                                    )
+                                                    dot_product = (
+                                                            np.sum(r_e1I_vec * r_ee_vec) * (C / (r_e1I - L) * poly_diff_ee + poly_diff_e1I_ee) / r_e1I / r_ee -
+                                                            np.sum(r_e2I_vec * r_ee_vec) * (C / (r_e2I - L) * poly_diff_ee + poly_diff_e2I_ee) / r_e2I / r_ee
+                                                    )
+                                                    res[n] += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product)
+                                if j1 != j2:
+                                    res[n] *= 2
+        return res
+
+    def gradient_parameters_d1(self, e_vectors, n_vectors):
+        """gradient with respect to parameters
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :return:
+        """
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        return np.concatenate((
+            self.u_term_gradient_parameters_d1(e_powers, e_vectors),
+            self.chi_term_gradient_parameters_d1(n_powers, n_vectors),
+            self.f_term_gradient_parameters_d1(e_powers, n_powers, e_vectors, n_vectors),
+        ))
+
+    def laplacian_parameters_d1(self, e_vectors, n_vectors):
+        """Laplacian with respect to parameters
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :return:
+        """
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        return np.concatenate((
+            self.u_term_laplacian_parameters_d1(e_powers),
+            self.chi_term_laplacian_parameters_d1(n_powers),
+            self.f_term_laplacian_parameters_d1(e_powers, n_powers, e_vectors, n_vectors),
+        ))
+
+    def gradient_parameters_numerical_d1(self, e_vectors, n_vectors):
+        """Numerical gradient with respect to parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
