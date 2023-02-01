@@ -542,17 +542,17 @@ class Casino:
 
         def fun(x, *args):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, True)
-            energy = np.empty(shape=(steps,))
-            energy_part = vmc_observable(condition, position, self.wfn.energy)
-            self.mpi_comm.Allgather(energy_part, energy)
-            # self.logger.info(f'energy {energy.mean()} {energy.std()}')
-            return energy.mean()
+            energy = vmc_observable(condition, position, self.wfn.energy)
+            self.mpi_comm.Allreduce(MPI.IN_PLACE, energy)
+            mean_energy = energy.mean() / self.mpi_comm.size
+            # self.logger.info(f'energy {mean_energy}')
+            return mean_energy
 
         def jac(x, *args):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, True)
-            energy_part = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            mean_energy_gradient = energy_parameters_gradient(energy_part, wfn_gradient_part)
+            energy = vmc_observable(condition, position, self.wfn.energy)
+            wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            mean_energy_gradient = energy_parameters_gradient(energy, wfn_gradient)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
             mean_energy_gradient = mean_energy_gradient / self.mpi_comm.size * scale
             # self.logger.info(f'gradient values min {mean_energy_gradient.min()} max {mean_energy_gradient.max()}')
@@ -611,17 +611,17 @@ class Casino:
 
         def fun(x, *args):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, True)
-            energy = np.empty(shape=(steps,))
-            energy_part = vmc_observable(condition, position, self.wfn.energy)
-            self.mpi_comm.Allgather(energy_part, energy)
-            # self.logger.info(f'energy {energy.mean()} {energy.std()}')
-            return energy.mean()
+            energy = vmc_observable(condition, position, self.wfn.energy)
+            self.mpi_comm.Allreduce(MPI.IN_PLACE, energy)
+            mean_energy = energy.mean() / self.mpi_comm.size
+            # self.logger.info(f'energy {mean_energy}')
+            return mean_energy
 
         def jac(x, *args):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, True)
-            energy_part = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            mean_energy_gradient = energy_parameters_gradient(energy_part, wfn_gradient_part)
+            energy = vmc_observable(condition, position, self.wfn.energy)
+            wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            mean_energy_gradient = energy_parameters_gradient(energy, wfn_gradient)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
             mean_energy_gradient = mean_energy_gradient / self.mpi_comm.size * scale
             projected_gradient = mean_energy_gradient @ p
