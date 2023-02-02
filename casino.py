@@ -47,6 +47,8 @@ def energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient
     A = 2 * (
         np.mean(wfn_hessian * np.expand_dims(energy, (1, 2)), axis=0) -
         np.mean(wfn_hessian, axis=0) * mean_energy
+        # np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy, (1, 2)), axis=0) +
+        # np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2), axis=0) * mean_energy
     )
     t2 = wfn_gradient - mean_wfn_gradient
     B = 4 * np.mean(

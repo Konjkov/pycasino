@@ -274,6 +274,46 @@ class Wfn:
         self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
         return res / delta / 2 / self.value(r_e)
 
+    def value_parameters_numerical_d2(self, r_e, opt_jastrow=True, opt_backflow=True):
+        """Second-order derivatives of energy with respect to the parameters.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :return:
+        """
+        delta = 0.000001  # (1/2**52)**(1/3)
+        parameters = self.get_parameters(opt_jastrow, opt_backflow, True)
+        res = -2 * self.value(r_e) * np.eye(parameters.size)
+        for i in range(parameters.size):
+            parameters[i] -= 2 * delta
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+            res[i, i] += self.value(r_e)
+            parameters[i] += 4 * delta
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+            res[i, i] += self.value(r_e)
+            parameters[i] -= 2 * delta
+        for i in range(parameters.size):
+            for j in range(i + 1, parameters.size):
+                parameters[i] -= delta
+                parameters[j] -= delta
+                self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+                res[i, j] += self.value(r_e)
+                parameters[i] += 2 * delta
+                self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+                res[i, j] -= self.value(r_e)
+                parameters[j] += 2 * delta
+                self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+                res[i, j] += self.value(r_e)
+                parameters[i] -= 2 * delta
+                self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+                res[i, j] -= self.value(r_e)
+                parameters[i] += delta
+                parameters[j] -= delta
+                res[j, i] = res[i, j]
+
+        self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+        return res / delta / delta / 4 / self.value(r_e)
+
     def value_parameters_d2(self, r_e, opt_jastrow=True, opt_backflow=True):
         """Second-order derivatives of the wave function with respect to the parameters.
         :param r_e: electron coordinates - array(nelec, 3)
