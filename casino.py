@@ -38,7 +38,7 @@ def energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient
     :param wfn_gradient:
     :param wfn_hessian: wfn_hessian - np.outer(wfn_gradient, wfn_gradient)
     :param energy:
-    :param energy_gradient: [H(R) Ψj(R)] / Ψ0(R) without [Ψj(R) / Ψ0(R)] EL(R)
+    :param energy_gradient:
     :return:
     """
     mean_energy = np.mean(energy)
