@@ -26,7 +26,7 @@ def energy_parameters_gradient(energy, wfn_gradient):
     :return:
     """
     return 2 * (
-        np.mean(wfn_gradient * energy[:, np.newaxis], axis=0) -
+        np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0) -
         np.mean(wfn_gradient, axis=0) * np.mean(energy)
     )
 
@@ -41,7 +41,6 @@ def energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient
     :param energy_gradient: [H(R) Ψj(R)] / Ψ0(R) without [Ψj(R) / Ψ0(R)] EL(R)
     :return:
     """
-    energy_gradient -= wfn_gradient * np.expand_dims(energy, 1)
     mean_energy = np.mean(energy)
     mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
     A = 2 * (
