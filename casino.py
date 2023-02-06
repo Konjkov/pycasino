@@ -703,24 +703,25 @@ class Casino:
     #     """
     #     steps = steps // self.mpi_comm.size * self.mpi_comm.size
     #     self.wfn.jastrow.fix_u_parameters()
-    #     scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow, True)
+    #     scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
     #     a, b = self.wfn.jastrow.get_parameters_constraints()
-    #     p = np.eye(scale.size) - a.T @ np.linalg.inv(a @ a.T) @ a
+    #     p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
     #     mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
     #     condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
     #
-    #     energy = vmc_observable(condition, position, self.wfn.energy)
-    #     wfn_gradient = (vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p)[mask_idx]
-    #     energy_gradient = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[mask_idx]
-    #     S = overlap_matrix(wfn_gradient)
-    #     H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
-    #     eigvals, eigvectors = np.linalg.eigh(np.linalg.inv(S) @ H)
-    #     idx = np.abs(eigvals - np.mean(energy)).argmin()
-    #     parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-    #     parameters += eigvectors[idx][1:]
-    #     self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-    #     self.logger.info(f'eigenvalues min {eigvals[idx]}')
-    #     self.logger.info(f'eigvectors min {eigvectors[idx]}')
+    #     for i in range(10):
+    #         energy = vmc_observable(condition, position, self.wfn.energy)
+    #         wfn_gradient = (vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p)[:, mask_idx]
+    #         energy_gradient = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx]
+    #         S = overlap_matrix(wfn_gradient)
+    #         H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
+    #         eigvals, eigvectors = np.linalg.eigh(np.linalg.inv(S) @ H)
+    #         # idx = np.abs(eigvals - np.mean(energy)).argmin()
+    #         idx = 0
+    #         parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow) + eigvectors[idx][1:]
+    #         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
+    #         self.logger.info(f'eigenvalues min {eigvals[idx]}')
+    #         self.logger.info(f'eigvectors min {eigvectors[idx]}')
 
 
 if __name__ == '__main__':
