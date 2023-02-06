@@ -559,70 +559,70 @@ class Casino:
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(np.sum(res.jac, axis=0) * scale)
 
-    def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
-        """Minimize vmc energy by constrained optimization.
-        Constraints definition only for: COBYLA, SLSQP and trust-constr.
-        SciPy, оптимизация с условиями - https://people.duke.edu/~ccc14/sta-663-2017/14C_Optimization_In_Python.html
-
-        :param steps:
-        :param decorr_period:
-        :param opt_jastrow: optimize jastrow parameters
-        :param opt_backflow: optimize backflow parameters
-        """
-        steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        self.wfn.jastrow.fix_u_parameters()
-        scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow, True)
-        a, b = self.wfn.jastrow.get_parameters_constraints()
-        condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
-
-        def fun(x, *args):
-            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, True)
-            energy = vmc_observable(condition, position, self.wfn.energy)
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, energy)
-            mean_energy = energy.mean() / self.mpi_comm.size
-            # self.logger.info(f'energy {mean_energy}')
-            return mean_energy
-
-        def jac(x, *args):
-            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, True)
-            energy = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            mean_energy_gradient = energy_parameters_gradient(energy, wfn_gradient)
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
-            mean_energy_gradient = mean_energy_gradient / self.mpi_comm.size * scale
-            self.logger.info(f'gradient values min {mean_energy_gradient.min()} max {mean_energy_gradient.max()}')
-            return mean_energy_gradient
-
-        def hess(x, *args):
-            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, True)
-            energy = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            wfn_hessian = vmc_observable(condition, position, self.wfn.value_parameters_d2)
-            energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
-            mean_energy_hessian = energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient)
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_hessian)
-            mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size * np.outer(scale, scale)
-            eigvals = np.linalg.eigvalsh(mean_energy_hessian)
-            self.logger.info(f'hessian eigenvalues min {eigvals.min()} max {eigvals.max()}')
-            return mean_energy_hessian
-
-        self.logger.info(
-            ' Optimization start\n'
-            ' =================='
-        )
-
-        disp = self.mpi_comm.rank == 0
-        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow, True) / scale
-        # https://epubs.siam.org/doi/10.1137/S1052623493262993
-        verbose = 3 if self.mpi_comm.rank == 0 else 0
-        constraints = LinearConstraint(a * scale, lb=b, ub=b)
-        options = dict(initial_tr_radius=1, factorization_method='SVDFactorization', maxiter=x0.size, verbose=verbose, disp=disp)
-        res = minimize(fun, x0=x0, method='trust-constr', jac=jac, hess=hess, constraints=constraints, options=options)
-        self.logger.info('Lagrange multipliers at the solution:')
-        self.logger.info(res.v)
-        parameters = res.x * scale
-        self.mpi_comm.Bcast(parameters)
-        self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+    # def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
+    #     """Minimize vmc energy by constrained optimization.
+    #     Constraints definition only for: COBYLA, SLSQP and trust-constr.
+    #     SciPy, оптимизация с условиями - https://people.duke.edu/~ccc14/sta-663-2017/14C_Optimization_In_Python.html
+    #
+    #     :param steps:
+    #     :param decorr_period:
+    #     :param opt_jastrow: optimize jastrow parameters
+    #     :param opt_backflow: optimize backflow parameters
+    #     """
+    #     steps = steps // self.mpi_comm.size * self.mpi_comm.size
+    #     self.wfn.jastrow.fix_u_parameters()
+    #     scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow, True)
+    #     a, b = self.wfn.jastrow.get_parameters_constraints()
+    #     condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
+    #
+    #     def fun(x, *args):
+    #         self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, True)
+    #         energy = vmc_observable(condition, position, self.wfn.energy)
+    #         self.mpi_comm.Allreduce(MPI.IN_PLACE, energy)
+    #         mean_energy = energy.mean() / self.mpi_comm.size
+    #         # self.logger.info(f'energy {mean_energy}')
+    #         return mean_energy
+    #
+    #     def jac(x, *args):
+    #         self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, True)
+    #         energy = vmc_observable(condition, position, self.wfn.energy)
+    #         wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+    #         mean_energy_gradient = energy_parameters_gradient(energy, wfn_gradient)
+    #         self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
+    #         mean_energy_gradient = mean_energy_gradient / self.mpi_comm.size * scale
+    #         self.logger.info(f'gradient values min {mean_energy_gradient.min()} max {mean_energy_gradient.max()}')
+    #         return mean_energy_gradient
+    #
+    #     def hess(x, *args):
+    #         self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, True)
+    #         energy = vmc_observable(condition, position, self.wfn.energy)
+    #         wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+    #         wfn_hessian = vmc_observable(condition, position, self.wfn.value_parameters_d2)
+    #         energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+    #         mean_energy_hessian = energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient)
+    #         self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_hessian)
+    #         mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size * np.outer(scale, scale)
+    #         eigvals = np.linalg.eigvalsh(mean_energy_hessian)
+    #         self.logger.info(f'hessian eigenvalues min {eigvals.min()} max {eigvals.max()}')
+    #         return mean_energy_hessian
+    #
+    #     self.logger.info(
+    #         ' Optimization start\n'
+    #         ' =================='
+    #     )
+    #
+    #     disp = self.mpi_comm.rank == 0
+    #     x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow, True) / scale
+    #     # https://epubs.siam.org/doi/10.1137/S1052623493262993
+    #     verbose = 3 if self.mpi_comm.rank == 0 else 0
+    #     constraints = LinearConstraint(a * scale, lb=b, ub=b)
+    #     options = dict(initial_tr_radius=1, factorization_method='SVDFactorization', maxiter=x0.size, verbose=verbose, disp=disp)
+    #     res = minimize(fun, x0=x0, method='trust-constr', jac=jac, hess=hess, constraints=constraints, options=options)
+    #     self.logger.info('Lagrange multipliers at the solution:')
+    #     self.logger.info(res.v)
+    #     parameters = res.x * scale
+    #     self.mpi_comm.Bcast(parameters)
+    #     self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow, True)
 
     def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
         """Minimize vmc energy by projected gradient.
@@ -647,8 +647,8 @@ class Casino:
             energy = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, energy)
             mean_energy = energy.mean() / self.mpi_comm.size
-            # self.logger.info(f'energy {mean_energy}')
-            return mean_energy
+            self.logger.info(f'energy {mean_energy}')
+            return mean_energy  # + energy.std() / np.sqrt(self.mpi_comm.size)
 
         def jac(x, *args):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, True)
@@ -692,39 +692,39 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow, True)
 
-    def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
-        """Minimize vmc energy by stochastic reconfiguration.
-        Constraints definition only for: COBYLA, SLSQP and trust-constr.
-        SciPy, оптимизация с условиями - https://people.duke.edu/~ccc14/sta-663-2017/14C_Optimization_In_Python.html
-
-        :param steps:
-        :param decorr_period:
-        :param opt_jastrow: optimize jastrow parameters
-        :param opt_backflow: optimize backflow parameters
-        """
-        steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        self.wfn.jastrow.fix_u_parameters()
-        scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow, True)
-        a, b = self.wfn.jastrow.get_parameters_constraints()
-        # a *= scale
-        # p = np.eye(scale.size) - a.T @ np.linalg.inv(a @ a.T) @ a
-        condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
-
-        energy = vmc_observable(condition, position, self.wfn.energy)
-        wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-        energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
-        S = overlap_matrix(wfn_gradient)
-        H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
-        eigvals, eigvectors = np.linalg.eigh(np.linalg.inv(S) @ H)
-        idx = np.abs(eigvals - np.mean(energy)).argmin()
-        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow, True)
-        parameters += eigvectors[idx][1:]
-        self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow, True)
-        self.wfn.jastrow.fix_u_parameters()
-        self.wfn.jastrow.fix_chi_parameters()
-        self.wfn.jastrow.fix_f_parameters()
-        self.logger.info(f'eigenvalues min {eigvals[idx]}')
-        self.logger.info(f'eigvectors min {eigvectors[idx]}')
+    # def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
+    #     """Minimize vmc energy by stochastic reconfiguration.
+    #     Constraints definition only for: COBYLA, SLSQP and trust-constr.
+    #     SciPy, оптимизация с условиями - https://people.duke.edu/~ccc14/sta-663-2017/14C_Optimization_In_Python.html
+    #
+    #     :param steps:
+    #     :param decorr_period:
+    #     :param opt_jastrow: optimize jastrow parameters
+    #     :param opt_backflow: optimize backflow parameters
+    #     """
+    #     steps = steps // self.mpi_comm.size * self.mpi_comm.size
+    #     self.wfn.jastrow.fix_u_parameters()
+    #     scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow, True)
+    #     a, b = self.wfn.jastrow.get_parameters_constraints()
+    #     # a *= scale
+    #     # p = np.eye(scale.size) - a.T @ np.linalg.inv(a @ a.T) @ a
+    #     condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
+    #
+    #     energy = vmc_observable(condition, position, self.wfn.energy)
+    #     wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+    #     energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+    #     S = overlap_matrix(wfn_gradient)
+    #     H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
+    #     eigvals, eigvectors = np.linalg.eigh(np.linalg.inv(S) @ H)
+    #     idx = np.abs(eigvals - np.mean(energy)).argmin()
+    #     parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow, True)
+    #     parameters += eigvectors[idx][1:]
+    #     self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+    #     self.wfn.jastrow.fix_u_parameters()
+    #     self.wfn.jastrow.fix_chi_parameters()
+    #     self.wfn.jastrow.fix_f_parameters()
+    #     self.logger.info(f'eigenvalues min {eigvals[idx]}')
+    #     self.logger.info(f'eigvectors min {eigvectors[idx]}')
 
 
 if __name__ == '__main__':
