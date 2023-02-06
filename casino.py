@@ -48,9 +48,9 @@ def energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient
     mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
     A = 2 * (
         np.mean(wfn_hessian * np.expand_dims(energy, (1, 2)), axis=0) -
-        np.mean(wfn_hessian, axis=0) * mean_energy
-        # np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy, (1, 2)), axis=0) +
-        # np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2), axis=0) * mean_energy
+        np.mean(wfn_hessian, axis=0) * mean_energy -
+        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy, (1, 2)), axis=0) +
+        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2), axis=0) * mean_energy
     )
     t2 = wfn_gradient - mean_wfn_gradient
     B = 4 * np.mean(
@@ -654,28 +654,30 @@ class Casino:
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
             energy = vmc_observable(condition, position, self.wfn.energy)
             wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            mean_energy_gradient = energy_parameters_gradient(energy, wfn_gradient)
+            projected_wfn_gradient = (wfn_gradient @ p)[:, mask_idx]
+            mean_energy_gradient = energy_parameters_gradient(energy, projected_wfn_gradient)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
-            mean_energy_gradient = mean_energy_gradient / self.mpi_comm.size
-            projected_gradient = (mean_energy_gradient @ p)[mask_idx] * scale
-            self.logger.info(f'projected gradient values min {projected_gradient.min()} max {projected_gradient.max()}')
-            return projected_gradient
+            mean_energy_gradient = mean_energy_gradient / self.mpi_comm.size * scale
+            self.logger.info(f'projected gradient values min {mean_energy_gradient.min()} max {mean_energy_gradient.max()}')
+            return mean_energy_gradient
 
         def hess(x, *args):
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
             energy = vmc_observable(condition, position, self.wfn.energy)
             wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            wfn_hessian = vmc_observable(condition, position, self.wfn.value_parameters_d2)
+            projected_wfn_gradient = (wfn_gradient @ p)[:, mask_idx]
+            wfn_hessian = vmc_observable(condition, position, self.wfn.value_parameters_d2) + np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2)
+            projected_wfn_hessian = (p @ wfn_hessian @ p)[:, mask_idx, :][:, :, mask_idx]
             energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
-            mean_energy_hessian = energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient)
+            projected_energy_gradient = (energy_gradient @ p)[:, mask_idx]
+            mean_energy_hessian = energy_parameters_hessian(projected_wfn_gradient, projected_wfn_hessian, energy, projected_energy_gradient)
             self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_hessian)
-            mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size
-            projected_hessian = (p @ mean_energy_hessian @ p)[mask_idx, :][:, mask_idx] * np.outer(scale, scale)
-            projected_eigvals = np.linalg.eigvalsh(projected_hessian)
-            self.logger.info(f'projected hessian eigenvalues min {projected_eigvals.min()} max {projected_eigvals.max()}')
+            mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size * np.outer(scale, scale)
+            eigvals = np.linalg.eigvalsh(mean_energy_hessian)
+            self.logger.info(f'projected hessian eigenvalues min {eigvals.min()} max {eigvals.max()}')
             # if projected_eigvals.min() < 0:
             #     mean_energy_hessian -= projected_eigvals.min() * np.eye(x.size)
-            return projected_hessian
+            return mean_energy_hessian
 
         self.logger.info(
             ' Optimization start\n'
@@ -694,9 +696,6 @@ class Casino:
 
     # def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
     #     """Minimize vmc energy by stochastic reconfiguration.
-    #     Constraints definition only for: COBYLA, SLSQP and trust-constr.
-    #     SciPy, оптимизация с условиями - https://people.duke.edu/~ccc14/sta-663-2017/14C_Optimization_In_Python.html
-    #
     #     :param steps:
     #     :param decorr_period:
     #     :param opt_jastrow: optimize jastrow parameters
