@@ -655,9 +655,9 @@ class Casino:
             energy = vmc_observable(condition, position, self.wfn.energy)
             wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
             projected_wfn_gradient = (wfn_gradient @ p)[:, mask_idx]
-            mean_energy_gradient = energy_parameters_gradient(energy, projected_wfn_gradient)
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_gradient)
-            mean_energy_gradient = mean_energy_gradient / self.mpi_comm.size * scale
+            mean_projected_energy_gradient = energy_parameters_gradient(energy, projected_wfn_gradient)
+            self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_projected_energy_gradient)
+            mean_energy_gradient = mean_projected_energy_gradient / self.mpi_comm.size * scale
             self.logger.info(f'projected gradient values min {mean_energy_gradient.min()} max {mean_energy_gradient.max()}')
             return mean_energy_gradient
 
@@ -670,9 +670,9 @@ class Casino:
             projected_wfn_hessian = (p @ wfn_hessian @ p)[:, mask_idx, :][:, :, mask_idx]
             energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             projected_energy_gradient = (energy_gradient @ p)[:, mask_idx]
-            mean_energy_hessian = energy_parameters_hessian(projected_wfn_gradient, projected_wfn_hessian, energy, projected_energy_gradient)
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_energy_hessian)
-            mean_energy_hessian = mean_energy_hessian / self.mpi_comm.size * np.outer(scale, scale)
+            mean_projected_energy_hessian = energy_parameters_hessian(projected_wfn_gradient, projected_wfn_hessian, energy, projected_energy_gradient)
+            self.mpi_comm.Allreduce(MPI.IN_PLACE, mean_projected_energy_hessian)
+            mean_energy_hessian = mean_projected_energy_hessian / self.mpi_comm.size * np.outer(scale, scale)
             eigvals = np.linalg.eigvalsh(mean_energy_hessian)
             self.logger.info(f'projected hessian eigenvalues min {eigvals.min()} max {eigvals.max()}')
             # if projected_eigvals.min() < 0:
