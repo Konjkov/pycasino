@@ -666,6 +666,45 @@ class Jastrow:
                             p += 1
                         temp += 1
 
+    def get_parameters_mask(self):
+        """Mask of each variable. Setting x_scale is equivalent
+        to reformulating the problem in scaled variables xs = x / x_scale.
+        An alternative view is that the size of a trust region along j-th
+        dimension is proportional to x_scale[j].
+        The purpose of this method is to reformulate the optimization problem
+        with dimensionless variables having only one dimensional parameter - scale.
+        """
+        scale = []
+        if self.u_cutoff:
+            if self.u_cutoff_optimizable:
+                scale.append(self.u_cutoff)
+            for j2 in range(self.u_parameters.shape[1]):
+                for j1 in range(self.u_parameters.shape[0]):
+                    if self.u_parameters_available[j1, j2]:
+                        scale.append(self.u_parameters_optimizable[j1, j2])
+
+        if self.chi_cutoff.any():
+            for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
+                if chi_cutoff_optimizable:
+                    scale.append(chi_cutoff)
+                for j2 in range(chi_parameters.shape[1]):
+                    for j1 in range(chi_parameters.shape[0]):
+                        if chi_parameters_available[j1, j2]:
+                            scale.append(chi_parameters_optimizable[j1, j2])
+
+        if self.f_cutoff.any():
+            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available):
+                if f_cutoff_optimizable:
+                    scale.append(f_cutoff)
+                for j4 in range(f_parameters.shape[3]):
+                    for j3 in range(f_parameters.shape[2]):
+                        for j2 in range(f_parameters.shape[1]):
+                            for j1 in range(j2, f_parameters.shape[0]):
+                                if f_parameters_available[j1, j2, j3, j4]:
+                                    scale.append(f_parameters_optimizable[j1, j2, j3, j4])
+
+        return np.array(scale)
+
     def get_parameters_scale(self, emin):
         """Characteristic scale of each variable. Setting x_scale is equivalent
         to reformulating the problem in scaled variables xs = x / x_scale.
