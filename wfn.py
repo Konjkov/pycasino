@@ -183,12 +183,12 @@ class Wfn:
         if self.backflow is not None and opt_backflow:
             self.backflow.set_parameters(parameters)
 
-    def get_parameters_scale(self, opt_jastrow=True, opt_backflow=True, emin=False):
+    def get_parameters_scale(self, opt_jastrow=True, opt_backflow=True):
         """Characteristic scale of each optimized parameter."""
         res = np.zeros(0)
         if self.jastrow is not None and opt_jastrow:
             res = np.concatenate((
-                res, self.jastrow.get_parameters_scale(emin=emin)
+                res, self.jastrow.get_parameters_scale()
             ))
         if self.backflow is not None and opt_backflow:
             res = np.concatenate((
