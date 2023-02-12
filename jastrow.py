@@ -705,7 +705,7 @@ class Jastrow:
 
         return np.array(scale)
 
-    def get_parameters_scale(self, emin):
+    def get_parameters_scale(self):
         """Characteristic scale of each variable. Setting x_scale is equivalent
         to reformulating the problem in scaled variables xs = x / x_scale.
         An alternative view is that the size of a trust region along j-th
@@ -719,7 +719,7 @@ class Jastrow:
                 scale.append(self.u_cutoff)
             for j2 in range(self.u_parameters.shape[1]):
                 for j1 in range(self.u_parameters.shape[0]):
-                    if (self.u_parameters_optimizable[j1, j2] or emin) and self.u_parameters_available[j1, j2]:
+                    if self.u_parameters_optimizable[j1, j2] and self.u_parameters_available[j1, j2]:
                         scale.append(1 / self.u_cutoff ** (j1 + self.trunc - 1))
 
         if self.chi_cutoff.any():
@@ -728,7 +728,7 @@ class Jastrow:
                     scale.append(chi_cutoff)
                 for j2 in range(chi_parameters.shape[1]):
                     for j1 in range(chi_parameters.shape[0]):
-                        if (chi_parameters_optimizable[j1, j2] or emin) and chi_parameters_available[j1, j2]:
+                        if chi_parameters_optimizable[j1, j2] and chi_parameters_available[j1, j2]:
                             scale.append(1 / chi_cutoff ** (j1 + self.trunc - 1))
 
         if self.f_cutoff.any():
@@ -739,7 +739,7 @@ class Jastrow:
                     for j3 in range(f_parameters.shape[2]):
                         for j2 in range(f_parameters.shape[1]):
                             for j1 in range(j2, f_parameters.shape[0]):
-                                if (f_parameters_optimizable[j1, j2, j3, j4] or emin) and f_parameters_available[j1, j2, j3, j4]:
+                                if f_parameters_optimizable[j1, j2, j3, j4] and f_parameters_available[j1, j2, j3, j4]:
                                     scale.append(1 / f_cutoff ** (j1 + j2 + j3 + 2 * self.trunc - 2))
 
         return np.array(scale)
@@ -751,7 +751,7 @@ class Jastrow:
         for every f-set: f-cutoff, f-linear parameters.
         :return:
         """
-        parameters_size = self.get_parameters_scale(True).size
+        parameters_size = self.get_parameters(True).size
         a = np.zeros(shape=(0, parameters_size))
         b = np.zeros(shape=(0,))
 

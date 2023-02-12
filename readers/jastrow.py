@@ -4,7 +4,6 @@ import os
 
 import numpy as np
 import numba as nb
-# import sympy as sp
 from readers.numerical import rref
 
 labels_type = nb.int64[:]

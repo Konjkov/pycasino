@@ -3,6 +3,7 @@ import argparse
 from timeit import default_timer
 from numpy_config import np
 from mpi4py import MPI
+import scipy as sp
 from scipy.optimize import least_squares, minimize, LinearConstraint, curve_fit
 import matplotlib.pyplot as plt
 
@@ -72,16 +73,25 @@ def energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient
 
 def overlap_matrix(wfn_gradient):
     """Symmetric overlap matrix S"""
+    size = wfn_gradient.shape[1] + 1
+    S = np.zeros(shape=(size, size))
+    S[0, 0] = 1
     mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
-    return np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2), axis=0) - np.outer(mean_wfn_gradient, mean_wfn_gradient)
+    S[1:, 1:] = np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2), axis=0) - np.outer(mean_wfn_gradient, mean_wfn_gradient)
+    return S
 
 
 def hamiltonian_matrix(wfn_gradient, energy, energy_gradient):
     """Hamiltonian matrix H"""
+    size = wfn_gradient.shape[1] + 1
+    H = np.zeros(shape=(size, size))
+    H[0, 0] = np.mean(energy)
+    H[1:, 0] = energy_parameters_gradient(energy, wfn_gradient) / 2
+    H[0, 1:] = H[1:, 0] + np.mean(energy_gradient, axis=0)
     mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
     mean_energy_gradient = np.mean(energy_gradient, axis=0)
     mean_wfn_gradient_energy = np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0)
-    return (
+    H[1:, 1:] = (
         np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy, (1, 2)), axis=0) -
         np.outer(mean_wfn_gradient, mean_wfn_gradient_energy) -
         np.outer(mean_wfn_gradient_energy, mean_wfn_gradient) +
@@ -89,6 +99,7 @@ def hamiltonian_matrix(wfn_gradient, energy, energy_gradient):
         np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(energy_gradient, 2), axis=0) -
         np.outer(mean_wfn_gradient, mean_energy_gradient)
     )
+    return (H + H.T) / 2
 
 
 class Casino:
@@ -630,20 +641,24 @@ class Casino:
         mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
 
+        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        energy = vmc_observable(condition, position, self.wfn.energy)
+        mean_energy = energy.mean()
+        wfn_gradient = (vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p)[:, mask_idx]
+        energy_gradient = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx]
+        S = overlap_matrix(wfn_gradient)
+        H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
+        eigvals, eigvectors = sp.linalg.eigh(H, S)
+        # idx = np.abs(eigvals - np.mean(energy)).argmin()
+        dp = eigvectors[:, 0]
+        self.logger.info(f'eigenvalue {eigvals}')
+        self.logger.info(f'eigvector {eigvectors[:, 0]}')
         for i in range(10):
-            energy = vmc_observable(condition, position, self.wfn.energy)
-            self.logger.info(f'energy {energy.mean()}')
-            wfn_gradient = (vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p)[:, mask_idx]
-            energy_gradient = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx]
-            S = overlap_matrix(wfn_gradient)
-            H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
-            eigvals, eigvectors = np.linalg.eigh(np.linalg.inv(S + S.T) @ (H + H.T))
-            # idx = np.abs(eigvals - np.mean(energy)).argmin()
-            idx = 0
-            parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow) + eigvectors[idx]
+            parameters = x0 + dp[1:] / 10 ** i
             self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-            self.logger.info(f'eigenvalues min {eigvals[idx]}')
-            self.logger.info(f'eigvectors min {eigvectors[idx]}')
+            energy_i = vmc_observable(condition, position, self.wfn.energy).mean()
+            energy_e = mean_energy + (eigvals[0] - mean_energy) / 10 ** i
+            self.logger.info(f'{i} energy {energy_i} interpolated {energy_e} delta {energy_i - energy_e}')
 
     def vmc_energy_minimization_stochastic_reconfiguration(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
         """Minimize vmc energy by stochastic reconfiguration.
@@ -719,7 +734,7 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
-    vmc_energy_minimization = vmc_energy_minimization_newton_cg
+    vmc_energy_minimization = vmc_energy_minimization_linear_method
 
 
 if __name__ == '__main__':
