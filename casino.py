@@ -99,7 +99,7 @@ def hamiltonian_matrix(wfn_gradient, energy, energy_gradient):
         np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(energy_gradient, 2), axis=0) -
         np.outer(mean_wfn_gradient, mean_energy_gradient)
     )
-    return (H + H.T) / 2
+    return H
 
 
 class Casino:
@@ -641,7 +641,6 @@ class Casino:
         mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
 
-        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         energy = vmc_observable(condition, position, self.wfn.energy)
         mean_energy = energy.mean()
         wfn_gradient = (vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p)[:, mask_idx]
@@ -649,16 +648,11 @@ class Casino:
         S = overlap_matrix(wfn_gradient)
         H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
         eigvals, eigvectors = sp.linalg.eigh(H, S)
-        # idx = np.abs(eigvals - np.mean(energy)).argmin()
-        dp = eigvectors[:, 0]
-        self.logger.info(f'eigenvalue {eigvals}')
-        self.logger.info(f'eigvector {eigvectors[:, 0]}')
-        for i in range(10):
-            parameters = x0 + dp[1:] / 10 ** i
-            self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-            energy_i = vmc_observable(condition, position, self.wfn.energy).mean()
-            energy_e = mean_energy + (eigvals[0] - mean_energy) / 10 ** i
-            self.logger.info(f'{i} energy {energy_i} interpolated {energy_e} delta {energy_i - energy_e}')
+        idx = np.abs(eigvals - mean_energy).argmin()
+        self.logger.info(f'eigenvalue {eigvals[idx]}')
+        self.logger.info(f'eigvector {eigvectors[:, idx]}')
+        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow) + eigvectors[1:, idx]
+        self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
     def vmc_energy_minimization_stochastic_reconfiguration(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
         """Minimize vmc energy by stochastic reconfiguration.
