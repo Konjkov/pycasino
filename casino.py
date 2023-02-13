@@ -96,7 +96,7 @@ def hamiltonian_matrix(wfn_gradient, energy, energy_gradient):
         np.outer(mean_wfn_gradient, mean_wfn_gradient_energy) -
         np.outer(mean_wfn_gradient_energy, mean_wfn_gradient) +
         np.outer(mean_wfn_gradient, mean_wfn_gradient) * np.mean(energy) +
-        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(energy_gradient, 2), axis=0) -
+        np.mean(np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy_gradient, 1), axis=0) -
         np.outer(mean_wfn_gradient, mean_energy_gradient)
     )
     return H
@@ -647,11 +647,12 @@ class Casino:
         energy_gradient = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx]
         S = overlap_matrix(wfn_gradient)
         H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
-        eigvals, eigvectors = sp.linalg.eigh(H, S)
+        eigvals, eigvectors = sp.linalg.eig(H, S)
         idx = np.abs(eigvals - mean_energy).argmin()
+        eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
         self.logger.info(f'eigenvalue {eigvals[idx]}')
         self.logger.info(f'eigvector {eigvectors[:, idx]}')
-        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow) + eigvectors[1:, idx]
+        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow) + eigvectors[1:, idx] / eigvectors[0, idx] / 50
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
     def vmc_energy_minimization_stochastic_reconfiguration(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
