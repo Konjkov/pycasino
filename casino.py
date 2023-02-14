@@ -639,22 +639,29 @@ class Casino:
         a, b = self.wfn.jastrow.get_parameters_constraints()
         p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
         mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
-        condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
 
-        energy = vmc_observable(condition, position, self.wfn.energy)
-        mean_energy = energy.mean()
-        wfn_gradient = (vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p)[:, mask_idx]
-        energy_gradient = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx]
-        S = overlap_matrix(wfn_gradient)
-        H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
-        self.mpi_comm.Allreduce(MPI.IN_PLACE, S)
-        self.mpi_comm.Allreduce(MPI.IN_PLACE, H)
-        eigvals, eigvectors = sp.linalg.eig(H, S)
-        idx = np.abs(eigvals - mean_energy).argmin()
-        eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
-        self.logger.info(f'eigenvalue {eigvals[idx]}')
-        self.logger.info(f'eigvector {eigvectors[:, idx]}')
-        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow) + eigvectors[1:, idx] / eigvectors[0, idx]
+        sum_eigvals = 0
+        sum_eigvectors = np.zeros(len(mask_idx))
+        for i in range(10):
+            condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
+            energy = vmc_observable(condition, position, self.wfn.energy)
+            mean_energy = energy.mean()
+            wfn_gradient = (vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p)[:, mask_idx]
+            energy_gradient = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx]
+            S = overlap_matrix(wfn_gradient)
+            H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
+            self.mpi_comm.Allreduce(MPI.IN_PLACE, S)
+            self.mpi_comm.Allreduce(MPI.IN_PLACE, H)
+            eigvals, eigvectors = sp.linalg.eig(H, S)
+            idx = np.abs(eigvals - mean_energy).argmin()
+            eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
+            # self.logger.info(f'eigenvalue {eigvals[idx]}')
+            # self.logger.info(f'eigvector {eigvectors[:, idx]}')
+            sum_eigvals += eigvals[idx]
+            sum_eigvectors += eigvectors[1:, idx] / eigvectors[0, idx]
+        self.logger.info(f'eigenvalue {sum_eigvals / 10}')
+        self.logger.info(f'eigvector {sum_eigvectors / 10}')
+        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow) + sum_eigvectors / 10
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
