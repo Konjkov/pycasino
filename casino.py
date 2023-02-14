@@ -647,12 +647,15 @@ class Casino:
         energy_gradient = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx]
         S = overlap_matrix(wfn_gradient)
         H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
+        self.mpi_comm.Allreduce(MPI.IN_PLACE, S)
+        self.mpi_comm.Allreduce(MPI.IN_PLACE, H)
         eigvals, eigvectors = sp.linalg.eig(H, S)
         idx = np.abs(eigvals - mean_energy).argmin()
         eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
         self.logger.info(f'eigenvalue {eigvals[idx]}')
         self.logger.info(f'eigvector {eigvectors[:, idx]}')
-        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow) + eigvectors[1:, idx] / eigvectors[0, idx] / 50
+        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow) + eigvectors[1:, idx] / eigvectors[0, idx]
+        self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
     def vmc_energy_minimization_stochastic_reconfiguration(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
