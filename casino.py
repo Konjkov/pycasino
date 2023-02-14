@@ -640,9 +640,10 @@ class Casino:
         p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
         mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
 
+        n = 10
         sum_eigvals = 0
         sum_eigvectors = np.zeros(len(mask_idx))
-        for i in range(10):
+        for i in range(n):
             condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
             energy = vmc_observable(condition, position, self.wfn.energy)
             mean_energy = energy.mean()
@@ -659,9 +660,9 @@ class Casino:
             # self.logger.info(f'eigvector {eigvectors[:, idx]}')
             sum_eigvals += eigvals[idx]
             sum_eigvectors += eigvectors[1:, idx] / eigvectors[0, idx]
-        self.logger.info(f'eigenvalue {sum_eigvals / 10}')
-        self.logger.info(f'eigvector {sum_eigvectors / 10}')
-        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow) + sum_eigvectors / 10
+        self.logger.info(f'eigenvalue {sum_eigvals / n}')
+        self.logger.info(f'eigvector {sum_eigvectors / n}')
+        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow) + sum_eigvectors / n
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
