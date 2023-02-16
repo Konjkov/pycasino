@@ -608,6 +608,7 @@ class Casino:
             mean_energy_hessian = mean_projected_energy_hessian / self.mpi_comm.size * np.outer(scale, scale)
             eigvals = np.linalg.eigvalsh(mean_energy_hessian)
             self.logger.info(f'projected hessian eigenvalues min {eigvals.min()} max {eigvals.max()}')
+            self.logger.info(f'projected hessian rank {np.linalg.matrix_rank(mean_energy_hessian)} {mean_energy_hessian.shape}')
             # if projected_eigvals.min() < 0:
             #     mean_energy_hessian -= projected_eigvals.min() * np.eye(x.size)
             return mean_energy_hessian
@@ -635,34 +636,46 @@ class Casino:
         :param opt_backflow: optimize backflow parameters
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        self.wfn.jastrow.fix_u_parameters()
         a, b = self.wfn.jastrow.get_parameters_constraints()
         p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
         mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
 
-        n = 10
-        sum_eigvals = 0
-        sum_eigvectors = np.zeros(len(mask_idx))
-        for i in range(n):
+        condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
+        energy = vmc_observable(condition, position, self.wfn.energy)
+        mean_energy = energy.mean()
+        wfn_gradient = (vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p)[:, mask_idx]
+        energy_gradient = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx]
+        S = overlap_matrix(wfn_gradient)
+        H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
+        self.mpi_comm.Allreduce(MPI.IN_PLACE, S)
+        self.mpi_comm.Allreduce(MPI.IN_PLACE, H)
+        # self.logger.info(sp.linalg.null_space(S))
+        self.logger.info(f'H {np.linalg.matrix_rank(H)} {H.shape[0]}, S {np.linalg.matrix_rank(S)} {S.shape[0]}')
+        eigvals, eigvectors = sp.linalg.eig(H, S)
+        idx = eigvals.argmin()
+        eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
+        self.logger.info(f'eigenvalue {eigvals[idx]}')
+        self.logger.info(f'eigvector {eigvectors[:, idx]}')
+        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        x = np.linspace(-1, 1, 21)
+        y = []
+        for a in x:
+            parameters = x0 + a * 0.003 * (eigvals[idx] - mean_energy) * eigvectors[1:, idx] / eigvectors[1, idx]
+            self.mpi_comm.Bcast(parameters)
+            self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
             condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
             energy = vmc_observable(condition, position, self.wfn.energy)
-            mean_energy = energy.mean()
-            wfn_gradient = (vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p)[:, mask_idx]
-            energy_gradient = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx]
-            S = overlap_matrix(wfn_gradient)
-            H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, S)
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, H)
-            eigvals, eigvectors = sp.linalg.eig(H, S)
-            idx = np.abs(eigvals - mean_energy).argmin()
-            eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
-            # self.logger.info(f'eigenvalue {eigvals[idx]}')
-            # self.logger.info(f'eigvector {eigvectors[:, idx]}')
-            sum_eigvals += eigvals[idx]
-            sum_eigvectors += eigvectors[1:, idx] / eigvectors[0, idx]
-        self.logger.info(f'eigenvalue {sum_eigvals / n}')
-        self.logger.info(f'eigvector {sum_eigvectors / n}')
-        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow) + sum_eigvectors / n
+            self.mpi_comm.Allreduce(MPI.IN_PLACE, energy)
+            y.append(energy.mean() / self.mpi_comm.size)
+        if self.mpi_comm.rank == 0:
+            plt.plot(x, y, label=str(mean_energy - eigvals[idx]))
+            plt.xlabel('dp')
+            plt.ylabel('E')
+            plt.title('E vs dp')
+            plt.grid(True)
+            plt.legend()
+            plt.savefig(f'energy.png')
+        parameters = x0  # + 0.003 * (eigvals[idx] - mean_energy) * eigvectors[1:, idx] / eigvectors[1, idx]
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 

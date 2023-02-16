@@ -1249,7 +1249,7 @@ class Jastrow:
         :return:
         """
         if not self.u_cutoff:
-            return np.zeros((0, 0))
+            return np.zeros((0, (self.neu + self.ned) * 3))
 
         delta = 0.000001
         size = self.u_parameters_available.sum() + self.u_cutoff_optimizable
@@ -1292,7 +1292,7 @@ class Jastrow:
         :return:
         """
         if not self.chi_cutoff.any():
-            return np.zeros((0, 0))
+            return np.zeros((0, (self.neu + self.ned) * 3))
 
         delta = 0.000001
         size = sum([
@@ -1339,7 +1339,7 @@ class Jastrow:
         :return:
         """
         if not self.f_cutoff.any():
-            return np.zeros((0, 0))
+            return np.zeros((0, (self.neu + self.ned) * 3))
 
         delta = 0.000001
         size = sum([
