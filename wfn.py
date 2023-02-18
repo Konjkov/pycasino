@@ -250,7 +250,7 @@ class Wfn:
         :param opt_backflow: optimize backflow parameters
         :return:
         """
-        delta = 0.000001  # (1/2**52)**(1/3)
+        delta = 0.00000001  # (1/2**52)**(1/3)
         parameters = self.get_parameters(opt_jastrow, opt_backflow, True)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):

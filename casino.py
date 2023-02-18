@@ -636,11 +636,16 @@ class Casino:
         :param opt_backflow: optimize backflow parameters
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
+        self.wfn.jastrow.fix_u_parameters()
         a, b = self.wfn.jastrow.get_parameters_constraints()
         p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
         mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
 
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
+        for pos in position:
+            print(self.wfn.value_parameters_d1(pos) / self.wfn.value_parameters_numerical_d1(pos))
+            # print(self.wfn.energy_parameters_d1(pos) / self.wfn.energy_parameters_numerical_d1(pos))
+
         energy = vmc_observable(condition, position, self.wfn.energy)
         mean_energy = energy.mean()
         wfn_gradient = (vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p)[:, mask_idx]
@@ -660,7 +665,7 @@ class Casino:
         x = np.linspace(-1, 1, 21)
         y = []
         for a in x:
-            parameters = x0 + a * 0.003 * (eigvals[idx] - mean_energy) * eigvectors[1:, idx] / eigvectors[1, idx]
+            parameters = x0 + a * (eigvals[idx] - mean_energy) * eigvectors[1:, idx] / eigvectors[0, idx]
             self.mpi_comm.Bcast(parameters)
             self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
             condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
@@ -675,7 +680,7 @@ class Casino:
             plt.grid(True)
             plt.legend()
             plt.savefig(f'energy.png')
-        parameters = x0  # + 0.003 * (eigvals[idx] - mean_energy) * eigvectors[1:, idx] / eigvectors[1, idx]
+        parameters = x0 + (eigvals[idx] - mean_energy) * eigvectors[1:, idx] / eigvectors[0, idx]
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
