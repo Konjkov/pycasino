@@ -636,7 +636,7 @@ class Casino:
         :param opt_backflow: optimize backflow parameters
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        self.wfn.jastrow.fix_u_parameters()
+        # self.wfn.jastrow.fix_u_parameters()
         a, b = self.wfn.jastrow.get_parameters_constraints()
         p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
         mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
@@ -660,26 +660,8 @@ class Casino:
         idx = eigvals.argmin()
         eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
         self.logger.info(f'E_lin {eigvals[idx]}')
-        self.logger.info(f'delta p {eigvectors[:, idx] / eigvectors[0, idx]}')
+        self.logger.info(f'eigvectors {eigvectors[:, idx]}')
         x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        # x = np.linspace(-1, 1, 21)
-        # y = []
-        # for a in x:
-        #     parameters = x0 + a * eigvectors[1:, idx] / eigvectors[0, idx]
-        #     self.mpi_comm.Bcast(parameters)
-        #     self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        #     condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
-        #     energy = vmc_observable(condition, position, self.wfn.energy)
-        #     self.mpi_comm.Allreduce(MPI.IN_PLACE, energy)
-        #     y.append(energy.mean() / self.mpi_comm.size)
-        # if self.mpi_comm.rank == 0:
-        #     plt.plot(x, y, label=str(mean_energy - eigvals[idx]))
-        #     plt.xlabel('dp')
-        #     plt.ylabel('E')
-        #     plt.title('E vs dp')
-        #     plt.grid(True)
-        #     plt.legend()
-        #     plt.savefig(f'energy.png')
         parameters = x0 + eigvectors[1:, idx] / eigvectors[0, idx]
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
