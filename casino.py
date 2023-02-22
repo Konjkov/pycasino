@@ -642,14 +642,14 @@ class Casino:
         mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
 
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
-        for pos in position:
-            print(self.wfn.value_parameters_d1(pos) / self.wfn.value_parameters_numerical_d1(pos))
-            # print(self.wfn.energy_parameters_d1(pos) / self.wfn.energy_parameters_numerical_d1(pos))
+        # for pos in position:
+        #     print(self.wfn.value_parameters_d1(pos) / self.wfn.value_parameters_numerical_d1(pos))
+        #     print(self.wfn.energy_parameters_d1(pos) / self.wfn.energy_parameters_numerical_d1(pos))
 
         energy = vmc_observable(condition, position, self.wfn.energy)
-        mean_energy = energy.mean()
-        wfn_gradient = (vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p)[:, mask_idx]
-        energy_gradient = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx]
+        # mean_energy = energy.mean()
+        wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
+        energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
         S = overlap_matrix(wfn_gradient)
         H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
         self.mpi_comm.Allreduce(MPI.IN_PLACE, S)
@@ -659,28 +659,28 @@ class Casino:
         eigvals, eigvectors = sp.linalg.eig(H, S)
         idx = eigvals.argmin()
         eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
-        self.logger.info(f'eigenvalue {eigvals[idx]}')
-        self.logger.info(f'eigvector {eigvectors[:, idx]}')
+        self.logger.info(f'E_lin {eigvals[idx]}')
+        self.logger.info(f'delta p {eigvectors[:, idx] / eigvectors[0, idx]}')
         x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        x = np.linspace(-1, 1, 21)
-        y = []
-        for a in x:
-            parameters = x0 + a * (eigvals[idx] - mean_energy) * eigvectors[1:, idx] / eigvectors[0, idx]
-            self.mpi_comm.Bcast(parameters)
-            self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-            condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
-            energy = vmc_observable(condition, position, self.wfn.energy)
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, energy)
-            y.append(energy.mean() / self.mpi_comm.size)
-        if self.mpi_comm.rank == 0:
-            plt.plot(x, y, label=str(mean_energy - eigvals[idx]))
-            plt.xlabel('dp')
-            plt.ylabel('E')
-            plt.title('E vs dp')
-            plt.grid(True)
-            plt.legend()
-            plt.savefig(f'energy.png')
-        parameters = x0 + (eigvals[idx] - mean_energy) * eigvectors[1:, idx] / eigvectors[0, idx]
+        # x = np.linspace(-1, 1, 21)
+        # y = []
+        # for a in x:
+        #     parameters = x0 + a * eigvectors[1:, idx] / eigvectors[0, idx]
+        #     self.mpi_comm.Bcast(parameters)
+        #     self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
+        #     condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
+        #     energy = vmc_observable(condition, position, self.wfn.energy)
+        #     self.mpi_comm.Allreduce(MPI.IN_PLACE, energy)
+        #     y.append(energy.mean() / self.mpi_comm.size)
+        # if self.mpi_comm.rank == 0:
+        #     plt.plot(x, y, label=str(mean_energy - eigvals[idx]))
+        #     plt.xlabel('dp')
+        #     plt.ylabel('E')
+        #     plt.title('E vs dp')
+        #     plt.grid(True)
+        #     plt.legend()
+        #     plt.savefig(f'energy.png')
+        parameters = x0 + eigvectors[1:, idx] / eigvectors[0, idx]
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
