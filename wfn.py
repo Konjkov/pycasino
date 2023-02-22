@@ -163,12 +163,12 @@ class Wfn:
                 res -= s_l / 2
         return res
 
-    def get_parameters(self, opt_jastrow=True, opt_backflow=True, emin=False):
+    def get_parameters(self, opt_jastrow=True, opt_backflow=True, all_parameters=False):
         """Get WFN parameters to be optimized"""
         res = np.zeros(0)
         if self.jastrow is not None and opt_jastrow:
             res = np.concatenate((
-                res, self.jastrow.get_parameters(emin=emin)
+                res, self.jastrow.get_parameters(all_parameters=all_parameters)
             ))
         if self.backflow is not None and opt_backflow:
             res = np.concatenate((
@@ -176,10 +176,10 @@ class Wfn:
             ))
         return res
 
-    def set_parameters(self, parameters, opt_jastrow=True, opt_backflow=True, emin=False):
+    def set_parameters(self, parameters, opt_jastrow=True, opt_backflow=True, all_parameters=False):
         """Update optimized parameters"""
         if self.jastrow is not None and opt_jastrow:
-            parameters = self.jastrow.set_parameters(parameters, emin=emin)
+            parameters = self.jastrow.set_parameters(parameters, all_parameters=all_parameters)
         if self.backflow is not None and opt_backflow:
             self.backflow.set_parameters(parameters)
 
@@ -236,95 +236,101 @@ class Wfn:
         :param opt_backflow: optimize backflow parameters
         :return:
         """
+        res = np.zeros(0)
         e_vectors, n_vectors = self._relative_coordinates(r_e)
-        s_g = self.slater.gradient(n_vectors)
-        j_g = self.jastrow.gradient(e_vectors, n_vectors)
-        j_g_d1 = self.jastrow.gradient_parameters_d1(e_vectors, n_vectors)
-        j_l_d1 = self.jastrow.laplacian_parameters_d1(e_vectors, n_vectors)
-        return - (np.sum((s_g + j_g) * j_g_d1, axis=1) + j_l_d1 / 2)
+        if self.jastrow is not None and opt_jastrow:
+            s_g = self.slater.gradient(n_vectors)
+            j_g = self.jastrow.gradient(e_vectors, n_vectors)
+            j_g_d1 = self.jastrow.gradient_parameters_d1(e_vectors, n_vectors)
+            j_l_d1 = self.jastrow.laplacian_parameters_d1(e_vectors, n_vectors)
+            res = - (np.sum((s_g + j_g) * j_g_d1, axis=1) + j_l_d1 / 2)
+        return res
 
-    def value_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
+    def value_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True, all_parameters=False):
         """First-order derivatives of energy with respect to the parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param all_parameters: optimize all parameters or only independent
         :return:
         """
         delta = 0.00000001  # (1/2**52)**(1/3)
-        parameters = self.get_parameters(opt_jastrow, opt_backflow, True)
+        parameters = self.get_parameters(opt_jastrow, opt_backflow, all_parameters)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
             parameters[i] -= delta
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
             res[i] -= self.value(r_e)
             parameters[i] += 2 * delta
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
             res[i] += self.value(r_e)
             parameters[i] -= delta
 
-        self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+        self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
         return res / delta / 2 / self.value(r_e)
 
-    def value_parameters_numerical_d2(self, r_e, opt_jastrow=True, opt_backflow=True):
+    def value_parameters_numerical_d2(self, r_e, opt_jastrow=True, opt_backflow=True, all_parameters=False):
         """Second-order derivatives of energy with respect to the parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param all_parameters: optimize all parameters or only independent
         :return:
         """
         delta = 0.000001  # (1/2**52)**(1/3)
-        parameters = self.get_parameters(opt_jastrow, opt_backflow, True)
+        parameters = self.get_parameters(opt_jastrow, opt_backflow, all_parameters)
         res = -2 * self.value(r_e) * np.eye(parameters.size)
         for i in range(parameters.size):
             parameters[i] -= 2 * delta
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
             res[i, i] += self.value(r_e)
             parameters[i] += 4 * delta
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
             res[i, i] += self.value(r_e)
             parameters[i] -= 2 * delta
         for i in range(parameters.size):
             for j in range(i + 1, parameters.size):
                 parameters[i] -= delta
                 parameters[j] -= delta
-                self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+                self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
                 res[i, j] += self.value(r_e)
                 parameters[i] += 2 * delta
-                self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+                self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
                 res[i, j] -= self.value(r_e)
                 parameters[j] += 2 * delta
-                self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+                self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
                 res[i, j] += self.value(r_e)
                 parameters[i] -= 2 * delta
-                self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+                self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
                 res[i, j] -= self.value(r_e)
                 parameters[i] += delta
                 parameters[j] -= delta
                 res[j, i] = res[i, j]
 
-        self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+        self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
         return res / delta / delta / 4 / self.value(r_e)
 
-    def energy_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
+    def energy_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True, all_parameters=False):
         """First-order derivatives of energy with respect to the parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param all_parameters: optimize all parameters or only independent
         :return:
         """
         delta = 0.000001  # (1/2**52)**(1/3)
-        parameters = self.get_parameters(opt_jastrow, opt_backflow, True)
+        parameters = self.get_parameters(opt_jastrow, opt_backflow, all_parameters)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
             parameters[i] -= delta
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
             res[i] -= self.energy(r_e)
             parameters[i] += 2 * delta
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
             res[i] += self.energy(r_e)
             parameters[i] -= delta
 
-        self.set_parameters(parameters, opt_jastrow, opt_backflow, True)
+        self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
         return res / delta / 2
 
     def numerical_gradient(self, r_e):

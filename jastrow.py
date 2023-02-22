@@ -751,7 +751,7 @@ class Jastrow:
         for every f-set: f-cutoff, f-linear parameters.
         :return:
         """
-        parameters_size = self.get_parameters(True).size
+        parameters_size = self.get_parameters(all_parameters=True).size
         a = np.zeros(shape=(0, parameters_size))
         b = np.zeros(shape=(0,))
 
@@ -846,7 +846,7 @@ class Jastrow:
 
         return a, b
 
-    def get_parameters(self, emin):
+    def get_parameters(self, all_parameters):
         """Returns parameters in the following order:
         u-cutoff, u-linear parameters,
         for every chi-set: chi-cutoff, chi-linear parameters,
@@ -859,7 +859,7 @@ class Jastrow:
                 res.append(self.u_cutoff)
             for j2 in range(self.u_parameters.shape[1]):
                 for j1 in range(self.u_parameters.shape[0]):
-                    if (self.u_parameters_optimizable[j1, j2] or emin) and self.u_parameters_available[j1, j2]:
+                    if (self.u_parameters_optimizable[j1, j2] or all_parameters) and self.u_parameters_available[j1, j2]:
                         if j1 == 1:
                             res.append(self.u_cusp_const[j2])
                         else:
@@ -871,7 +871,7 @@ class Jastrow:
                     res.append(chi_cutoff)
                 for j2 in range(chi_parameters.shape[1]):
                     for j1 in range(chi_parameters.shape[0]):
-                        if (chi_parameters_optimizable[j1, j2] or emin) and chi_parameters_available[j1, j2]:
+                        if (chi_parameters_optimizable[j1, j2] or all_parameters) and chi_parameters_available[j1, j2]:
                             res.append(chi_parameters[j1, j2])
 
         if self.f_cutoff.any():
@@ -882,12 +882,12 @@ class Jastrow:
                     for j3 in range(f_parameters.shape[2]):
                         for j2 in range(f_parameters.shape[1]):
                             for j1 in range(j2, f_parameters.shape[0]):
-                                if (f_parameters_optimizable[j1, j2, j3, j4] or emin) and f_parameters_available[j1, j2, j3, j4]:
+                                if (f_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and f_parameters_available[j1, j2, j3, j4]:
                                     res.append(f_parameters[j1, j2, j3, j4])
 
         return np.array(res)
 
-    def set_parameters(self, parameters, emin):
+    def set_parameters(self, parameters, all_parameters):
         """Set parameters in the following order:
         u-cutoff, u-linear parameters,
         for every chi-set: chi-cutoff, chi-linear parameters,
@@ -902,14 +902,14 @@ class Jastrow:
                 n += 1
             for j2 in range(self.u_parameters.shape[1]):
                 for j1 in range(self.u_parameters.shape[0]):
-                    if (self.u_parameters_optimizable[j1, j2] or emin) and self.u_parameters_available[j1, j2]:
+                    if (self.u_parameters_optimizable[j1, j2] or all_parameters) and self.u_parameters_available[j1, j2]:
                         if j1 == 1:
                             for cup_set in range(j2, 3, self.u_parameters.shape[1]):
                                 self.u_cusp_const[cup_set] = parameters[n]
                         else:
                             self.u_parameters[j1, j2] = parameters[n]
                         n += 1
-            if not emin:
+            if not all_parameters:
                 self.fix_u_parameters()
 
         if self.chi_cutoff.any():
@@ -920,10 +920,10 @@ class Jastrow:
                     n += 1
                 for j2 in range(chi_parameters.shape[1]):
                     for j1 in range(chi_parameters.shape[0]):
-                        if (chi_parameters_optimizable[j1, j2] or emin) and chi_parameters_available[j1, j2]:
+                        if (chi_parameters_optimizable[j1, j2] or all_parameters) and chi_parameters_available[j1, j2]:
                             chi_parameters[j1, j2] = parameters[n]
                             n += 1
-            if not emin:
+            if not all_parameters:
                 self.fix_chi_parameters()
 
         if self.f_cutoff.any():
@@ -936,10 +936,10 @@ class Jastrow:
                     for j3 in range(f_parameters.shape[2]):
                         for j2 in range(f_parameters.shape[1]):
                             for j1 in range(j2, f_parameters.shape[0]):
-                                if (f_parameters_optimizable[j1, j2, j3, j4] or emin) and f_parameters_available[j1, j2, j3, j4]:
+                                if (f_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and f_parameters_available[j1, j2, j3, j4]:
                                     f_parameters[j1, j2, j3, j4] = f_parameters[j2, j1, j3, j4] = parameters[n]
                                     n += 1
-            if not emin:
+            if not all_parameters:
                 self.fix_f_parameters()
 
         return parameters[n:]
