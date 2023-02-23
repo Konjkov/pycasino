@@ -636,7 +636,7 @@ class Casino:
         :param opt_backflow: optimize backflow parameters
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        # self.wfn.jastrow.fix_u_parameters()
+        self.wfn.jastrow.fix_u_parameters()
         a, b = self.wfn.jastrow.get_parameters_constraints()
         p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
         mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
@@ -650,9 +650,10 @@ class Casino:
         # mean_energy = energy.mean()
         wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
         energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
-        S = overlap_matrix(wfn_gradient)
-        H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
+        S = overlap_matrix(wfn_gradient) / self.mpi_comm.size
+        H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient) / self.mpi_comm.size
         self.mpi_comm.Allreduce(MPI.IN_PLACE, S)
+        self.logger.info(f'{np.max(S)}, {np.min(S)}')
         self.mpi_comm.Allreduce(MPI.IN_PLACE, H)
         # self.logger.info(sp.linalg.null_space(S))
         self.logger.info(f'H {np.linalg.matrix_rank(H)} {H.shape[0]}, S {np.linalg.matrix_rank(S)} {S.shape[0]}')
