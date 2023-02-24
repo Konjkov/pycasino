@@ -628,7 +628,7 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
-    def vmc_energy_minimization_linear_method(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
+    def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
         """Minimize vmc energy by linear method.
         :param steps:
         :param decorr_period:
@@ -647,26 +647,26 @@ class Casino:
         #     print(self.wfn.energy_parameters_d1(pos) / self.wfn.energy_parameters_numerical_d1(pos))
 
         energy = vmc_observable(condition, position, self.wfn.energy)
-        # mean_energy = energy.mean()
         wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
         energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
         S = overlap_matrix(wfn_gradient) / self.mpi_comm.size
         H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient) / self.mpi_comm.size
         self.mpi_comm.Allreduce(MPI.IN_PLACE, S)
         self.mpi_comm.Allreduce(MPI.IN_PLACE, H)
+        # get normalized right eigenvector corresponding to the eigenvalue
         eigvals, eigvectors = sp.linalg.eig(H, S)
-        idx = eigvals.argmin()
-        # eigvals, eigvectors = sp.linalg.eig(np.linalg.pinv(S) @ H)
         # since imaginary parts only arise from statistical noise, discard them
         eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
+        idx = eigvals.argmin()
+        dp = eigvectors[1:, idx] / eigvectors[0, idx]
+        dp_S_dp = np.sum(S[1:, 1:] * np.outer(dp, dp))
+        norm = 1 / (1 + dp_S_dp)
         self.logger.info(f'E_lin {eigvals[idx]}')
         self.logger.info(f'eigvectors {eigvectors[:, idx]}')
-        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        parameters = x0 + eigvectors[1:, idx] / eigvectors[0, idx]
+        self.logger.info(f'norm {norm}')
+        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow) + norm * dp
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-
-    vmc_energy_minimization = vmc_energy_minimization_linear_method
 
 
 if __name__ == '__main__':
