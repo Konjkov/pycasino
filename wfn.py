@@ -254,17 +254,18 @@ class Wfn:
         :param all_parameters: optimize all parameters or only independent
         :return:
         """
-        delta = 0.00000001  # (1/2**52)**(1/3)
+        delta = (1/2**52)**(1/2)
+        scale = self.get_parameters_scale(opt_jastrow, opt_backflow)
         parameters = self.get_parameters(opt_jastrow, opt_backflow, all_parameters)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
-            parameters[i] -= delta
+            parameters[i] -= delta * scale[i]
             self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
-            res[i] -= self.value(r_e)
-            parameters[i] += 2 * delta
+            res[i] -= self.value(r_e) / scale[i]
+            parameters[i] += 2 * delta * scale[i]
             self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
-            res[i] += self.value(r_e)
-            parameters[i] -= delta
+            res[i] += self.value(r_e) / scale[i]
+            parameters[i] -= delta * scale[i]
 
         self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
         return res / delta / 2 / self.value(r_e)
@@ -277,7 +278,8 @@ class Wfn:
         :param all_parameters: optimize all parameters or only independent
         :return:
         """
-        delta = 0.000001  # (1/2**52)**(1/3)
+        delta = (1/2**52)**(1/3)
+        # scale = self.get_parameters_scale(opt_jastrow, opt_backflow)
         parameters = self.get_parameters(opt_jastrow, opt_backflow, all_parameters)
         res = -2 * self.value(r_e) * np.eye(parameters.size)
         for i in range(parameters.size):
@@ -318,17 +320,18 @@ class Wfn:
         :param all_parameters: optimize all parameters or only independent
         :return:
         """
-        delta = 0.000001  # (1/2**52)**(1/3)
+        delta = (1/2**52)**(1/2)
+        scale = self.get_parameters_scale(opt_jastrow, opt_backflow)
         parameters = self.get_parameters(opt_jastrow, opt_backflow, all_parameters)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
-            parameters[i] -= delta
+            parameters[i] -= delta * scale[i]
             self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
-            res[i] -= self.energy(r_e)
-            parameters[i] += 2 * delta
+            res[i] -= self.energy(r_e) / scale[i]
+            parameters[i] += 2 * delta * scale[i]
             self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
-            res[i] += self.energy(r_e)
-            parameters[i] -= delta
+            res[i] += self.energy(r_e) / scale[i]
+            parameters[i] -= delta * scale[i]
 
         self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
         return res / delta / 2
@@ -338,7 +341,7 @@ class Wfn:
         :param r_e: electron coordinates - array(nelec, 3)
         """
         # https://scicomp.stackexchange.com/questions/14355/choosing-epsilons
-        delta = 0.00001  # (1/2**52)**(1/3)
+        delta = (1/2**52)**(1/2)
 
         val = self.value(r_e)
         res = np.zeros((self.neu + self.ned, 3))
@@ -363,7 +366,7 @@ class Wfn:
         """Numerical laplacian with respect to e-coordinates
         :param r_e: electron coordinates - array(nelec, 3)
         """
-        delta = 0.00001
+        delta = (1/2**52)**(1/2)
 
         val = self.value(r_e)
         res = - 6 * (self.neu + self.ned) * self.value(r_e)
