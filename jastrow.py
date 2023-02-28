@@ -893,6 +893,7 @@ class Jastrow:
         for every chi-set: chi-cutoff, chi-linear parameters,
         for every f-set: f-cutoff, f-linear parameters.
         :param parameters:
+        :param all_parameters:
         :return:
         """
         n = 0
