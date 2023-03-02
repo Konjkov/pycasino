@@ -2,8 +2,6 @@ import os
 from math import factorial, pi, sqrt
 
 import numpy as np
-import numba as nb
-#from cusp.cusp import multiple_fits
 
 GAUSSIAN_TYPE = 0
 SLATER_TYPE = 1
@@ -123,25 +121,6 @@ class Gwfn(FortranFile):
         self.orbital_types = np.full((self._nprimitives,), GAUSSIAN_TYPE, np.int)
         self.slater_orders = np.zeros((self._nprimitives, ), np.int)
         self.remove_premultiplied_factor()
-        # self.set_cusp()
-
-    def set_cusp(self):
-        """set cusped orbitals"""
-        p = 0
-        for atom in range(self._natoms):
-            for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
-                primitives = self.primitives[nshell]
-                if self.shell_moments[nshell] == 0 and self.primitives[nshell] >= 3:
-                    coefficients = self.coefficients[p:p + primitives]
-                    exponents = self.exponents[p:p + primitives]
-                    charge = self.atom_charges[atom]
-                    new_primitives, new_coefficients, new_exponents = multiple_fits(coefficients, exponents, charge)
-                    self.orbital_types[nshell] = SLATER_TYPE
-                    self.coefficients[p:p + primitives] = np.zeros((primitives, ))
-                    self.coefficients[p:p + new_primitives] = new_coefficients
-                    self.exponents[p:p + primitives] = np.zeros((primitives, ))
-                    self.exponents[p:p + new_primitives] = new_exponents
-                p += primitives
 
     def remove_premultiplied_factor(self):
         """
