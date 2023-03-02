@@ -945,8 +945,8 @@ class Jastrow:
 
         return parameters[n:]
 
-    def u_term_numerical_d1(self, e_powers):
-        """Numerical first derivatives of logarithm wfn with respect to u-term parameters
+    def u_term_parameters_d1(self, e_powers):
+        """First derivatives of logarithm wfn with respect to u-term parameters
         :param e_powers: powers of e-e distances
         """
         if not self.u_cutoff:
@@ -979,9 +979,9 @@ class Jastrow:
 
         return res
 
-    def chi_term_numerical_d1(self, n_powers):
-        """Numerical first derivatives of logarithm wfn with respect to chi-term parameters
-        :param e_powers: powers of e-e distances
+    def chi_term_parameters_d1(self, n_powers):
+        """First derivatives of logarithm wfn with respect to chi-term parameters
+        :param n_powers: powers of e-n distances
         """
         if not self.chi_cutoff.any():
             return np.zeros((0,))
@@ -1019,9 +1019,10 @@ class Jastrow:
 
         return res
 
-    def f_term_numerical_d1(self, e_powers, n_powers):
+    def f_term_parameters_d1(self, e_powers, n_powers):
         """Numerical first derivatives of logarithm wfn with respect to f-term parameters
         :param e_powers: powers of e-e distances
+        :param n_powers: powers of e-n distances
         """
         if not self.f_cutoff.any():
             return np.zeros((0,))
@@ -1082,169 +1083,10 @@ class Jastrow:
         n_powers = self.en_powers(n_vectors)
 
         return np.concatenate((
-            self.u_term_numerical_d1(e_powers),
-            self.chi_term_numerical_d1(n_powers),
-            self.f_term_numerical_d1(e_powers, n_powers),
+            self.u_term_parameters_d1(e_powers),
+            self.chi_term_parameters_d1(n_powers),
+            self.f_term_parameters_d1(e_powers, n_powers),
         ))
-
-    def u_term_numerical_d2(self, e_powers):
-        """Numerical second derivatives of logarithm wfn with respect to u-term parameters
-        :param e_powers: powers of e-e distances
-        """
-
-        delta = 0.000001
-        size = self.u_parameters_available.sum() + self.u_cutoff_optimizable
-        res = np.zeros(shape=(size, size))
-
-        if self.u_cutoff_optimizable:
-            n = 0
-            # derivatives of cutoff
-            res[0, 0] -= 2 * self.u_term(e_powers)
-            self.u_cutoff -= 2 * delta
-            res[0, 0] += self.u_term(e_powers)
-            self.u_cutoff += 4 * delta
-            res[0, 0] += self.u_term(e_powers)
-            self.u_cutoff -= 2 * delta
-            for j2 in range(self.u_parameters.shape[1]):
-                for j1 in range(self.u_parameters.shape[0]):
-                    if self.u_parameters_available[j1, j2]:
-                        # derivatives of cutoff and linear parameters
-                        n += 1
-                        self.u_parameters[j1, j2] -= delta
-                        self.u_cutoff -= delta
-                        res[n, 0] += self.u_term(e_powers)
-                        self.u_parameters[j1, j2] += 2 * delta
-                        res[n, 0] -= self.u_term(e_powers)
-                        self.u_cutoff += 2 * delta
-                        res[n, 0] += self.u_term(e_powers)
-                        self.u_parameters[j1, j2] -= 2 * delta
-                        res[n, 0] -= self.u_term(e_powers)
-                        self.u_parameters[j1, j2] += delta
-                        self.u_cutoff -= delta
-                        res[0, n] = res[n, 0]
-
-        return res / delta / delta / 4
-
-    def chi_term_numerical_d2(self, n_powers):
-        """Numerical second derivatives of logarithm wfn with respect to chi-term parameters
-        :param n_powers: powers of e-n distances
-        """
-        if not self.chi_cutoff.any():
-            return np.zeros((0, 0))
-
-        delta = 0.000001
-        size = sum([
-            chi_parameters_available.sum() + chi_cutoff_optimizable
-            for chi_parameters_available, chi_cutoff_optimizable
-            in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
-        ])
-        res = np.zeros(shape=(size, size))
-
-        for i, (chi_parameters, chi_parameters_available) in enumerate(zip(self.chi_parameters, self.chi_parameters_available)):
-            if self.chi_cutoff_optimizable[i]:
-                n = 0
-                # derivatives of cutoff
-                res[0, 0] -= 2 * self.chi_term(n_powers)
-                self.chi_cutoff[i] -= 2 * delta
-                res[0, 0] += self.chi_term(n_powers)
-                self.chi_cutoff[i] += 4 * delta
-                res[0, 0] += self.chi_term(n_powers)
-                self.chi_cutoff[i] -= 2 * delta
-                for j2 in range(chi_parameters.shape[1]):
-                    for j1 in range(chi_parameters.shape[0]):
-                        if chi_parameters_available[j1, j2]:
-                            # derivatives of cutoff and linear parameters
-                            n += 1
-                            chi_parameters[j1, j2] -= delta
-                            self.chi_cutoff[i] -= delta
-                            res[n, 0] += self.chi_term(n_powers)
-                            chi_parameters[j1, j2] += 2 * delta
-                            res[n, 0] -= self.chi_term(n_powers)
-                            self.chi_cutoff[i] += 2 * delta
-                            res[n, 0] += self.chi_term(n_powers)
-                            chi_parameters[j1, j2] -= 2 * delta
-                            res[n, 0] -= self.chi_term(n_powers)
-                            chi_parameters[j1, j2] += delta
-                            self.chi_cutoff[i] -= delta
-                            res[0, n] = res[n, 0]
-
-        return res / delta / delta / 4
-
-    def f_term_numerical_d2(self, e_powers, n_powers):
-        """Numerical second derivatives of logarithm wfn with respect to f-term parameters
-        :param n_powers: powers of e-n distances
-        """
-        if not self.f_cutoff.any():
-            return np.zeros((0, 0))
-
-        delta = 0.000001
-        size = sum([
-            f_parameters_available.sum() + f_cutoff_optimizable
-            for f_parameters_available, f_cutoff_optimizable
-            in zip(self.f_parameters_available, self.f_cutoff_optimizable)
-        ])
-        res = np.zeros(shape=(size, size))
-
-        for i, (f_parameters, f_parameters_available) in enumerate(zip(self.f_parameters, self.f_parameters_available)):
-            if self.f_cutoff_optimizable[i]:
-                n = 0
-                # derivatives of cutoff
-                res[0, 0] -= 2 * self.f_term(e_powers, n_powers)
-                self.f_cutoff[i] -= 2 * delta
-                res[0, 0] += self.f_term(e_powers, n_powers)
-                self.f_cutoff[i] += 4 * delta
-                res[0, 0] += self.f_term(e_powers, n_powers)
-                self.f_cutoff[i] -= 2 * delta
-                for j4 in range(f_parameters.shape[3]):
-                    for j3 in range(f_parameters.shape[2]):
-                        for j2 in range(f_parameters.shape[1]):
-                            for j1 in range(j2, f_parameters.shape[0]):
-                                if f_parameters_available[j1, j2, j3, j4]:
-                                    # derivatives on cutoff and linear parameters
-                                    n += 1
-                                    f_parameters[j1, j2, j3, j4] -= delta
-                                    if j1 != j2:
-                                        f_parameters[j2, j1, j3, j4] -= delta
-                                    self.f_cutoff[i] -= delta
-                                    res[n, 0] += self.f_term(e_powers, n_powers)
-                                    f_parameters[j1, j2, j3, j4] += 2 * delta
-                                    if j1 != j2:
-                                        f_parameters[j2, j1, j3, j4] += 2 * delta
-                                    res[n, 0] -= self.f_term(e_powers, n_powers)
-                                    self.f_cutoff[i] += 2 * delta
-                                    res[n, 0] += self.f_term(e_powers, n_powers)
-                                    f_parameters[j1, j2, j3, j4] -= 2 * delta
-                                    if j1 != j2:
-                                        f_parameters[j2, j1, j3, j4] -= 2 * delta
-                                    res[n, 0] -= self.f_term(e_powers, n_powers)
-                                    f_parameters[j1, j2, j3, j4] += delta
-                                    if j1 != j2:
-                                        f_parameters[j2, j1, j3, j4] += delta
-                                    self.f_cutoff[i] -= delta
-                                    res[0, n] = res[n, 0]
-
-        return res / delta / delta / 4
-
-    def parameters_numerical_d2(self, e_vectors, n_vectors):
-        """Numerical second derivatives with respect to the Jastrow parameters (diagonal terms)
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        """
-        e_powers = self.ee_powers(e_vectors)
-        n_powers = self.en_powers(n_vectors)
-
-        u_term = self.u_term_numerical_d2(e_powers)
-        chi_term = self.chi_term_numerical_d2(n_powers)
-        f_term = self.f_term_numerical_d2(e_powers, n_powers)
-
-        # not supported by numba
-        # res = sp.linalg.block_diag(u_term, chi_term, f_term)
-        b = np.cumsum(np.array([0, u_term.shape[0], chi_term.shape[0], f_term.shape[0]]))
-        res = np.zeros((b[3], b[3]))
-        res[b[0]:b[1], b[0]:b[1]] = u_term
-        res[b[1]:b[2], b[1]:b[2]] = chi_term
-        res[b[2]:b[3], b[2]:b[3]] = f_term
-        return res
 
     def u_term_gradient_parameters_d1(self, e_powers, e_vectors):
         """Gradient with respect to parameters

@@ -4,7 +4,8 @@ from timeit import default_timer
 from numpy_config import np
 from mpi4py import MPI
 import scipy as sp
-from scipy.optimize import least_squares, minimize, curve_fit
+import mpmath as mp  # inherited from sympy, no need to install
+from scipy.optimize import least_squares, curve_fit
 import matplotlib.pyplot as plt
 
 from cusp import CuspFactory
@@ -24,6 +25,7 @@ def overlap_matrix(wfn_gradient):
     size = wfn_gradient.shape[1] + 1
     S = np.zeros(shape=(size, size))
     S[0, 0] = 1
+    # numba doesn't support kwarg for mean
     mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
     S[1:, 1:] = np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2), axis=0) - np.outer(mean_wfn_gradient, mean_wfn_gradient)
     return S
@@ -513,12 +515,13 @@ class Casino:
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(np.sum(res.jac, axis=0) * scale)
 
-    def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True):
+    def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True, precision=17):
         """Minimize vmc energy by linear method.
         :param steps:
         :param decorr_period:
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param precision: decimal precision in float-point arithmetic with mpmath.
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         self.wfn.jastrow.fix_u_parameters()
@@ -529,7 +532,7 @@ class Casino:
         a, b = self.wfn.jastrow.get_parameters_constraints()
         p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
         mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
-        to_optimizable = np.linalg.inv(p[:, mask_idx][mask_idx, :])
+        inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
         # optimizable_numerical_d1 = np.zeros(a.shape[1])
         # for pos in position:
         #     # a @ projected_d1 = 0
@@ -550,23 +553,33 @@ class Casino:
         energy = vmc_observable(condition, position, self.wfn.energy)
         # wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
         # energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
-        wfn_gradient = (vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p)[:, mask_idx] @ to_optimizable
-        energy_gradient = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx] @ to_optimizable
+        wfn_gradient = (vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p)[:, mask_idx] @ inv_p
+        energy_gradient = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx] @ inv_p
         S = overlap_matrix(wfn_gradient) / self.mpi_comm.size
         H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient) / self.mpi_comm.size
         self.mpi_comm.Allreduce(MPI.IN_PLACE, S)
         self.mpi_comm.Allreduce(MPI.IN_PLACE, H)
-        # get normalized right eigenvector corresponding to the eigenvalue
-        eigvals, eigvectors = sp.linalg.eig(H, S)
-        # since imaginary parts only arise from statistical noise, discard them
-        eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
-        idx = eigvals.argmin()
-        dp = eigvectors[1:, idx] / eigvectors[0, idx]
+        if precision is not None:
+            with mp.workdps(precision):
+                # https://github.com/mpmath/mpmath/blob/master/mpmath/matrices/eigen.py
+                # get right eigenvector corresponding to the eigenvalue sorted by increasing real part
+                E, ER = mp.eig(mp.matrix(S)**-1 * mp.matrix(H), overwrite_a=True)
+                E, ER = mp.eig_sort(E, ER=ER)
+                # since imaginary parts only arise from statistical noise, discard them
+                eigval, eigvector = float(mp.re(E[0])), np.array(list(map(mp.re, ER[:, 0])), dtype=np.float64)
+        else:
+            # get normalized right eigenvector corresponding to the eigenvalue
+            eigvals, eigvectors = sp.linalg.eig(H, S)
+            # since imaginary parts only arise from statistical noise, discard them
+            eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
+            idx = eigvals.argmin()
+            eigval, eigvector = eigvals[idx], eigvectors[:, idx]
+        dp = eigvector[1:] / eigvector[0]
         dp_S_dp = np.sum(S[1:, 1:] * np.outer(dp, dp))
         norm = 1 / (1 + dp_S_dp)
-        self.logger.info(f'E_lin {eigvals[idx]}')
-        self.logger.info(f'eigvectors {eigvectors[:, idx]}')
+        self.logger.info(f'E lin {eigval}')
         self.logger.info(f'norm {norm}')
+        self.logger.info(f'delta p {dp}')
         parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow) + norm * dp
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
