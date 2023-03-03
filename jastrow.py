@@ -751,13 +751,11 @@ class Jastrow:
         for every f-set: f-cutoff, f-linear parameters.
         :return:
         """
-        parameters_size = self.get_parameters(all_parameters=True).size
-        a = np.zeros(shape=(0, parameters_size))
-        b = np.zeros(shape=(0,))
+        a_list = []
+        b_list = []
 
-        u_constrains_size = 1
         u_parameters_size = self.u_parameters.shape[0] + self.u_cutoff_optimizable
-        u_matrix = np.zeros(shape=(u_constrains_size, u_parameters_size))
+        u_matrix = np.zeros(shape=(1, u_parameters_size))
         u_matrix[0, 0] = self.trunc
         u_matrix[0, 1] = -self.u_cutoff
 
@@ -781,21 +779,17 @@ class Jastrow:
             if self.ned < 2:
                 u_b = [1/4, 1/2]
                 u_spin_deps -= 1
+        else:
+            # FIXME: u_spin_deps == 1
+            u_b = [1/4]
 
-        u_constrains = np.zeros(shape=(u_constrains_size * u_spin_deps, parameters_size))
         for spin_dep in range(u_spin_deps):
-            d1 = u_constrains_size * spin_dep
-            d2 = u_parameters_size * spin_dep
-            u_constrains[d1:d1 + u_constrains_size, d2:d2 + u_parameters_size] = u_matrix
+            a_list.append(u_matrix)
+            b_list.append(u_b[spin_dep] / (-self.u_cutoff) ** (self.trunc - 1))
 
-        a = np.vstack((a, u_constrains))
-        b = np.concatenate((b, np.array(u_b) / (-self.u_cutoff) ** (self.trunc - 1)))
-
-        chi_parameters_size = 0
         for chi_parameters, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters, self.chi_cutoff, self.chi_cutoff_optimizable):
-            chi_constrains_size = 1
             chi_parameters_size = chi_parameters.shape[0] + chi_cutoff_optimizable
-            chi_matrix = np.zeros(shape=(chi_constrains_size, chi_parameters_size))
+            chi_matrix = np.zeros(shape=(1, chi_parameters_size))
             chi_matrix[0, 0] = self.trunc
             chi_matrix[0, 1] = -chi_cutoff
 
@@ -806,14 +800,9 @@ class Jastrow:
                 if self.ned < 1:
                     chi_spin_deps -= 1
 
-            chi_constrains = np.zeros(shape=(chi_constrains_size * chi_spin_deps, parameters_size))
             for spin_dep in range(chi_spin_deps):
-                d1 = chi_constrains_size * spin_dep
-                d2 = u_parameters_size * u_spin_deps + chi_parameters_size * spin_dep
-                chi_constrains[d1:d1 + chi_constrains_size, d2:d2 + chi_parameters_size] = chi_matrix
-
-            a = np.vstack((a, chi_constrains))
-            b = np.concatenate((b, np.zeros(shape=(chi_constrains_size * chi_spin_deps,))))
+                a_list.append(chi_matrix)
+                b_list.append(0)
 
         for f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
             f_en_order = f_parameters.shape[0] - 1
@@ -835,15 +824,18 @@ class Jastrow:
                 if self.ned < 2:
                     f_spin_deps -= 1
 
-            f_constrains = np.zeros(shape=(f_constrains_size * f_spin_deps, parameters_size))
             for spin_dep in range(f_spin_deps):
-                d1 = f_constrains_size * spin_dep
-                d2 = u_parameters_size * u_spin_deps + chi_parameters_size * chi_spin_deps + f_parameters_size * spin_dep
-                f_constrains[d1:d1 + f_constrains_size, d2:d2 + f_parameters_size] = f_matrix
+                a_list.append(f_matrix)
+                b_list += [0] * f_constrains_size
 
-            a = np.vstack((a, f_constrains))
-            b = np.concatenate((b, np.zeros(shape=(f_constrains_size * f_spin_deps,))))
-
+        # FIXME: create blockdiagonal matrix from list of matrix like scipy.linalg.block_diag
+        # a = sp.linalg.block_diag(a_list)
+        shape_0_list = np.cumsum(np.array([a.shape[0] for a in a_list]))
+        shape_1_list = np.cumsum(np.array([a.shape[1] for a in a_list]))
+        a = np.zeros(shape=(shape_0_list[-1], shape_1_list[-1]))
+        for a_part, p0, p1 in zip(a_list, shape_0_list, shape_1_list):
+            a[p0 - a_part.shape[0]:p0, p1 - a_part.shape[1]:p1] = a_part
+        b = np.array(b_list)
         return a, b
 
     def get_parameters(self, all_parameters):
@@ -1073,20 +1065,6 @@ class Jastrow:
                                                         )
 
         return res
-
-    def parameters_numerical_d1(self, e_vectors, n_vectors):
-        """Numerical first derivatives logarithm Jastrow with respect to the parameters
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        """
-        e_powers = self.ee_powers(e_vectors)
-        n_powers = self.en_powers(n_vectors)
-
-        return np.concatenate((
-            self.u_term_parameters_d1(e_powers),
-            self.chi_term_parameters_d1(n_powers),
-            self.f_term_parameters_d1(e_powers, n_powers),
-        ))
 
     def u_term_gradient_parameters_d1(self, e_powers, e_vectors):
         """Gradient with respect to parameters
@@ -1472,8 +1450,22 @@ class Jastrow:
                                                         res[n] += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product)
         return res
 
+    def parameters_d1(self, e_vectors, n_vectors):
+        """First derivatives logarithm Jastrow with respect to the parameters
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        """
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        return np.concatenate((
+            self.u_term_parameters_d1(e_powers),
+            self.chi_term_parameters_d1(n_powers),
+            self.f_term_parameters_d1(e_powers, n_powers),
+        ))
+
     def gradient_parameters_d1(self, e_vectors, n_vectors):
-        """gradient with respect to parameters
+        """First derivatives of Jastrow gradient with respect to parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
@@ -1488,7 +1480,7 @@ class Jastrow:
         ))
 
     def laplacian_parameters_d1(self, e_vectors, n_vectors):
-        """Laplacian with respect to parameters
+        """First derivatives of Jastrow laplacian with respect to parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
@@ -1503,7 +1495,7 @@ class Jastrow:
         ))
 
     def gradient_parameters_numerical_d1(self, e_vectors, n_vectors):
-        """Numerical gradient with respect to parameters
+        """Numerical first derivatives of Jastrow gradient with respect to parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
@@ -1523,8 +1515,8 @@ class Jastrow:
         self.set_parameters(parameters, True)
         return res / delta / 2
 
-    def laplacian_parameters_numerical_d1(self, e_vectors, n_vectors) -> float:
-        """Numerical laplacian with respect to parameters
+    def laplacian_parameters_numerical_d1(self, e_vectors, n_vectors):
+        """Numerical first derivatives of Jastrow laplacian with respect to parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:

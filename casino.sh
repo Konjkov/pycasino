@@ -57,6 +57,8 @@
 # path='test/stowfn/N/HF/QZ4P/CBCS/Jastrow_emin/'
 # path='test/stowfn/Ne/HF/QZ4P/CBCS/Jastrow_emin/'
 # path='test/stowfn/Ar/HF/QZ4P/CBCS/Jastrow_emin/'
+# path='test/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_emin/'
+# path='test/stowfn/O3/HF/QZ4P/CBCS/Jastrow_emin/'
 
 # path='test/stowfn/He/HF/QZ4P/CBCS/Jastrow/'
 # path='test/stowfn/Be/HF/QZ4P/CBCS/Jastrow/'

@@ -207,7 +207,7 @@ class Wfn:
         e_vectors, n_vectors = self._relative_coordinates(r_e)
         if self.jastrow is not None and opt_jastrow:
             res = np.concatenate((
-                res, self.jastrow.parameters_numerical_d1(e_vectors, n_vectors)
+                res, self.jastrow.parameters_d1(e_vectors, n_vectors)
             ))
         if self.backflow is not None and opt_backflow:
             b_v = self.backflow.value(e_vectors, n_vectors)
@@ -231,6 +231,9 @@ class Wfn:
             j_g_d1 = self.jastrow.gradient_parameters_d1(e_vectors, n_vectors)
             j_l_d1 = self.jastrow.laplacian_parameters_d1(e_vectors, n_vectors)
             res = - (np.sum((s_g + j_g) * j_g_d1, axis=1) + j_l_d1 / 2)
+        if self.backflow is not None and opt_backflow:
+            # FIXME: not implemented
+            pass
         return res
 
     def value_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True, all_parameters=False):

@@ -533,23 +533,10 @@ class Casino:
         p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
         mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
         inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
-        # optimizable_numerical_d1 = np.zeros(a.shape[1])
-        # for pos in position:
-        #     # a @ projected_d1 = 0
-        #     # x @ p = self.wfn.value_parameters_d1(pos) @ p - решить уравнение относительно переменных [mask_idx]
-        #     # когда x in non [mask_idx] равны нулю
-        #     optimizable_d1 = (self.wfn.value_parameters_d1(pos) @ p)[mask_idx] @ to_optimizable
-        #     self.logger.info((optimizable_d1 / self.wfn.value_parameters_numerical_d1(pos)))
-        #     # optimizable_numerical_d1[mask_idx] = self.wfn.value_parameters_numerical_d1(pos)
-        #     # self.logger.info((p @ self.wfn.value_parameters_d1(pos))[mask_idx] / (p @ optimizable_numerical_d1)[mask_idx])
-        #     # optimizable_numerical_d1[mask_idx] = self.wfn.energy_parameters_numerical_d1(pos)
-        #     # self.logger.info((self.wfn.energy_parameters_d1(pos) @ p)[mask_idx] / (optimizable_numerical_d1 @ p)[mask_idx])
-
         self.logger.info(
             ' Optimization start\n'
             ' =================='
         )
-
         energy = vmc_observable(condition, position, self.wfn.energy)
         # wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
         # energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
