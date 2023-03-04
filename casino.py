@@ -517,11 +517,26 @@ class Casino:
 
     def vmc_energy_minimization(self, steps, decorr_period, opt_jastrow=True, opt_backflow=True, precision=17):
         """Minimize vmc energy by linear method.
+        The most straightforward way to energy-optimize linear parameters in wave functions is to diagonalize the Hamiltonian
+        in the variational space that they define, leading to a generalized eigenvalue equation.
+        Energy calculated with wave function depended on parameters p is:
+                                           E(p) = <ψ(p)|Ĥ|ψ(p)>/<ψ(p)|ψ(p)>
+        which is Rayleigh quotient. To determine the stationary points of E(p) or solving ∇E(p) = 0 we have to solve
+        following generalized eigenvalue problem, with ψ(p) expand to first-order in the parameters p:
+                                           H · Δp = E(p) * S · Δp
+        where elements of the matrices S and H approach the standard quantum mechanical overlap integrals and Hamiltonian matrix elements in
+        the limit of an infinite Monte Carlo sample or exact ψ(p), hence their names. Thus, the extremum points of ψ(p*) (extremum values E(p*))
+        of the Rayleigh quotient are obtained as the eigenvectors e (eigenvalues λ(e)) of the corresponding generalized eigenproblem.
+        If the second-order expansion of ψ(p) is not small, this does not ensure the convergence in one step and may require uniformly rescaling
+        of ∆p to stabilise iterative process.
         :param steps:
         :param decorr_period:
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         :param precision: decimal precision in float-point arithmetic with mpmath.
+            np.finfo(np.double).precision -> 15
+            np.finfo(np.longdouble).precision -> 18
+        check also np.show_config() and sp.show_config()
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         self.wfn.jastrow.fix_u_parameters()
@@ -533,10 +548,12 @@ class Casino:
         p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
         mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
         inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
+
         self.logger.info(
             ' Optimization start\n'
             ' =================='
         )
+
         energy = vmc_observable(condition, position, self.wfn.energy)
         # wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
         # energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
@@ -566,8 +583,12 @@ class Casino:
         norm = 1 / (1 + dp_S_dp)
         self.logger.info(f'E lin {eigval}')
         self.logger.info(f'norm {norm}')
-        self.logger.info(f'delta p {dp}')
-        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow) + norm * dp
+        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        if parameters.all():
+            self.logger.info(f'delta p / p\n{norm * dp/parameters}')
+        else:
+            self.logger.info(f'delta p\n{norm * dp}')
+        parameters += norm * dp
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
