@@ -611,5 +611,5 @@ if __name__ == '__main__':
     if os.path.exists(os.path.join(args.config_path, 'input')):
         Casino(args.config_path).run()
     else:
-        print(f'File {args.config_path}/input not found...')
+        print(f'File {args.config_path}input not found...')
         sys.exit(1)
