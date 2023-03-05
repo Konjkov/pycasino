@@ -106,7 +106,7 @@ class Jastrow:
                 print(a @ np.array(x))
 
     def fix_optimizable(self):
-        """Set parameter fixed if there is no corresponded spin-pairs"""
+        """Set parameter optimisation to "fixed" if there is no corresponded spin-pairs"""
         ee_order = 2
         if self.u_parameters.shape[1] == 2:
             if self.neu < ee_order and self.ned < ee_order:
@@ -666,7 +666,7 @@ class Jastrow:
                             p += 1
                         temp += 1
 
-    def get_parameters_mask(self):
+    def get_parameters_mask(self) -> np.ndarray:
         """Mask of each variable. Setting x_scale is equivalent
         to reformulating the problem in scaled variables xs = x / x_scale.
         An alternative view is that the size of a trust region along j-th
@@ -705,7 +705,7 @@ class Jastrow:
 
         return np.array(scale)
 
-    def get_parameters_scale(self):
+    def get_parameters_scale(self) -> np.ndarray:
         """Characteristic scale of each variable. Setting x_scale is equivalent
         to reformulating the problem in scaled variables xs = x / x_scale.
         An alternative view is that the size of a trust region along j-th
@@ -838,7 +838,7 @@ class Jastrow:
         b = np.array(b_list)
         return a, b
 
-    def get_parameters(self, all_parameters):
+    def get_parameters(self, all_parameters) -> np.ndarray:
         """Returns parameters in the following order:
         u-cutoff, u-linear parameters,
         for every chi-set: chi-cutoff, chi-linear parameters,
@@ -937,7 +937,7 @@ class Jastrow:
 
         return parameters[n:]
 
-    def u_term_parameters_d1(self, e_powers):
+    def u_term_parameters_d1(self, e_powers) -> np.ndarray:
         """First derivatives of logarithm wfn with respect to u-term parameters
         :param e_powers: powers of e-e distances
         """
@@ -971,7 +971,7 @@ class Jastrow:
 
         return res
 
-    def chi_term_parameters_d1(self, n_powers):
+    def chi_term_parameters_d1(self, n_powers) -> np.ndarray:
         """First derivatives of logarithm wfn with respect to chi-term parameters
         :param n_powers: powers of e-n distances
         """
@@ -1011,7 +1011,7 @@ class Jastrow:
 
         return res
 
-    def f_term_parameters_d1(self, e_powers, n_powers):
+    def f_term_parameters_d1(self, e_powers, n_powers) -> np.ndarray:
         """Numerical first derivatives of logarithm wfn with respect to f-term parameters
         :param e_powers: powers of e-e distances
         :param n_powers: powers of e-n distances
@@ -1066,7 +1066,7 @@ class Jastrow:
 
         return res
 
-    def u_term_gradient_parameters_d1(self, e_powers, e_vectors):
+    def u_term_gradient_parameters_d1(self, e_powers, e_vectors) -> np.ndarray:
         """Gradient with respect to parameters
         :param e_vectors: e-e vectors
         :param e_powers: e-e powers
@@ -1109,7 +1109,7 @@ class Jastrow:
 
         return res.reshape(size, (self.neu + self.ned) * 3)
 
-    def chi_term_gradient_parameters_d1(self, n_powers, n_vectors):
+    def chi_term_gradient_parameters_d1(self, n_powers, n_vectors) -> np.ndarray:
         """Gradient with respect to parameters
         :param n_vectors: e-n vectors
         :param n_powers: e-n powers
@@ -1156,7 +1156,7 @@ class Jastrow:
 
         return res.reshape(size, (self.neu + self.ned) * 3)
 
-    def f_term_gradient_parameters_d1(self, e_powers, n_powers, e_vectors, n_vectors):
+    def f_term_gradient_parameters_d1(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
         """Gradient with respect to parameters
         :param n_vectors: e-n vectors
         :param n_powers: e-n powers
@@ -1233,7 +1233,7 @@ class Jastrow:
 
         return res.reshape(size, (self.neu + self.ned) * 3)
 
-    def u_term_laplacian_parameters_d1(self, e_powers):
+    def u_term_laplacian_parameters_d1(self, e_powers) -> np.ndarray:
         """Laplacian with respect to parameters
         :param e_powers: e-e powers
         :return:
@@ -1277,7 +1277,7 @@ class Jastrow:
 
         return 2 * res
 
-    def chi_term_laplacian_parameters_d1(self, n_powers):
+    def chi_term_laplacian_parameters_d1(self, n_powers) -> np.ndarray:
         """Laplacian with respect to parameters
         :param n_powers: e-n powers
         :return:
@@ -1327,7 +1327,7 @@ class Jastrow:
 
         return res
 
-    def f_term_laplacian_parameters_d1(self, e_powers, n_powers, e_vectors, n_vectors):
+    def f_term_laplacian_parameters_d1(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
         """Laplacian with respect to parameters
         :param n_powers: e-n powers
         :return:
@@ -1450,7 +1450,7 @@ class Jastrow:
                                                         res[n] += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product)
         return res
 
-    def parameters_d1(self, e_vectors, n_vectors):
+    def parameters_d1(self, e_vectors, n_vectors) -> np.ndarray:
         """First derivatives logarithm Jastrow with respect to the parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
@@ -1464,7 +1464,7 @@ class Jastrow:
             self.f_term_parameters_d1(e_powers, n_powers),
         ))
 
-    def gradient_parameters_d1(self, e_vectors, n_vectors):
+    def gradient_parameters_d1(self, e_vectors, n_vectors) -> np.ndarray:
         """First derivatives of Jastrow gradient with respect to parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
@@ -1479,7 +1479,7 @@ class Jastrow:
             self.f_term_gradient_parameters_d1(e_powers, n_powers, e_vectors, n_vectors),
         ))
 
-    def laplacian_parameters_d1(self, e_vectors, n_vectors):
+    def laplacian_parameters_d1(self, e_vectors, n_vectors) -> np.ndarray:
         """First derivatives of Jastrow laplacian with respect to parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
@@ -1494,7 +1494,7 @@ class Jastrow:
             self.f_term_laplacian_parameters_d1(e_powers, n_powers, e_vectors, n_vectors),
         ))
 
-    def gradient_parameters_numerical_d1(self, e_vectors, n_vectors):
+    def gradient_parameters_numerical_d1(self, e_vectors, n_vectors) -> np.ndarray:
         """Numerical first derivatives of Jastrow gradient with respect to parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
@@ -1515,7 +1515,7 @@ class Jastrow:
         self.set_parameters(parameters, True)
         return res / delta / 2
 
-    def laplacian_parameters_numerical_d1(self, e_vectors, n_vectors):
+    def laplacian_parameters_numerical_d1(self, e_vectors, n_vectors) -> np.ndarray:
         """Numerical first derivatives of Jastrow laplacian with respect to parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors

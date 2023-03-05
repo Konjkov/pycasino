@@ -4,7 +4,7 @@ from timeit import default_timer
 from numpy_config import np
 from mpi4py import MPI
 import scipy as sp
-import mpmath as mp  # inherited from sympy, no need to install
+import mpmath as mp  # inherited from sympy, not need to install
 from scipy.optimize import least_squares, curve_fit
 import matplotlib.pyplot as plt
 
@@ -23,11 +23,14 @@ from logger import logging, StreamToLogger
 def overlap_matrix(wfn_gradient):
     """Symmetric overlap matrix S"""
     size = wfn_gradient.shape[1] + 1
-    S = np.zeros(shape=(size, size))
+    S = np.zeros(shape=(size, size), dtype=np.longdouble)
     S[0, 0] = 1
     # numba doesn't support kwarg for mean
-    mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
-    S[1:, 1:] = np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2), axis=0) - np.outer(mean_wfn_gradient, mean_wfn_gradient)
+    mean_wfn_gradient = np.mean(wfn_gradient, axis=0, dtype=np.longdouble)
+    S[1:, 1:] = (
+        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2), axis=0, dtype=np.longdouble) -
+        np.outer(mean_wfn_gradient, mean_wfn_gradient)
+    )
     return S
 
 
@@ -35,23 +38,24 @@ def overlap_matrix(wfn_gradient):
 def hamiltonian_matrix(wfn_gradient, energy, energy_gradient):
     """Hamiltonian matrix H"""
     size = wfn_gradient.shape[1] + 1
-    H = np.zeros(shape=(size, size))
-    H[0, 0] = np.mean(energy)
+    H = np.zeros(shape=(size, size), dtype=np.longdouble)
+    mean_energy = np.mean(energy, dtype=np.longdouble)
+    H[0, 0] = mean_energy
     H[1:, 0] = (
         # numba doesn't support kwarg for mean
-        np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0) -
-        np.mean(wfn_gradient, axis=0) * np.mean(energy)
+        np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0, dtype=np.longdouble) -
+        np.mean(wfn_gradient, axis=0, dtype=np.longdouble) * mean_energy
     )
-    H[0, 1:] = H[1:, 0] + np.mean(energy_gradient, axis=0)
-    mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
-    mean_energy_gradient = np.mean(energy_gradient, axis=0)
-    mean_wfn_gradient_energy = np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0)
+    H[0, 1:] = H[1:, 0] + np.mean(energy_gradient, axis=0, dtype=np.longdouble)
+    mean_wfn_gradient = np.mean(wfn_gradient, axis=0, dtype=np.longdouble)
+    mean_energy_gradient = np.mean(energy_gradient, axis=0, dtype=np.longdouble)
+    mean_wfn_gradient_energy = np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0, dtype=np.longdouble)
     H[1:, 1:] = (
-        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy, (1, 2)), axis=0) -
+        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy, (1, 2)), axis=0, dtype=np.longdouble) -
         np.outer(mean_wfn_gradient, mean_wfn_gradient_energy) -
         np.outer(mean_wfn_gradient_energy, mean_wfn_gradient) +
-        np.outer(mean_wfn_gradient, mean_wfn_gradient) * np.mean(energy) +
-        np.mean(np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy_gradient, 1), axis=0) -
+        np.outer(mean_wfn_gradient, mean_wfn_gradient) * mean_energy +
+        np.mean(np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy_gradient, 1), axis=0, dtype=np.longdouble) -
         np.outer(mean_wfn_gradient, mean_energy_gradient)
     )
     return H
