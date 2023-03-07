@@ -230,11 +230,34 @@ class Wfn:
             j_g = self.jastrow.gradient(e_vectors, n_vectors)
             j_g_d1 = self.jastrow.gradient_parameters_d1(e_vectors, n_vectors)
             j_l_d1 = self.jastrow.laplacian_parameters_d1(e_vectors, n_vectors)
-            res = - (np.sum((s_g + j_g) * j_g_d1, axis=1) + j_l_d1 / 2)
+            res = np.concatenate((
+                res, np.sum((s_g + j_g) * j_g_d1, axis=1) + j_l_d1 / 2
+            ))
         if self.backflow is not None and opt_backflow:
-            # FIXME: not implemented
-            pass
-        return res
+            delta = (1 / 2 ** 52) ** (1 / 2)
+            parameters = self.backflow.get_parameters()
+            d1 = np.zeros(shape=parameters.shape)
+            for i in range(parameters.size):
+                parameters[i] -= delta
+                self.backflow.set_parameters(parameters)
+                b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
+                s_g = self.slater.gradient(b_v)
+                s_h = self.slater.hessian(b_v)
+                s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
+                d1[i] -= s_l
+                parameters[i] += 2 * delta
+                self.backflow.set_parameters(parameters)
+                b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
+                s_g = self.slater.gradient(b_v)
+                s_h = self.slater.hessian(b_v)
+                s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
+                d1[i] += s_l
+                parameters[i] -= delta
+                self.backflow.set_parameters(parameters)
+            res = np.concatenate((
+                res, d1 / 2
+            ))
+        return -res
 
     def value_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True, all_parameters=False):
         """First-order derivatives of energy with respect to the parameters.

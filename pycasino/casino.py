@@ -457,6 +457,7 @@ class Casino:
             energy = np.empty(shape=(steps,))
             energy_part = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allgather(energy_part, energy)
+            # rescale for "Cost column" in output of scipy.optimize.least_squares to by a variance of local E
             return np.sqrt(2) * (energy - energy.mean()) / np.sqrt(steps - 1)
 
         def jac(x, *args, **kwargs):
@@ -465,6 +466,7 @@ class Casino:
             # energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
             energy_gradient_part = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx] @ inv_p
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
+            # rescale for "Cost column" in output of scipy.optimize.least_squares to by a variance of local E
             return np.sqrt(2) * energy_gradient / np.sqrt(steps - 1)
 
         self.logger.info(
@@ -515,6 +517,7 @@ class Casino:
             self.mpi_comm.Allgather(energy_part, energy)
             weights = (wfn / wfn_0)**2
             ddof = (weights**2).sum() / weights.sum()  # Delta Degrees of Freedom
+            # rescale for "Cost column" in output of scipy.optimize.least_squares to by a variance of local E
             return np.sqrt(2) * (energy - np.average(energy, weights=weights)) * np.sqrt(weights / (weights.sum() - ddof))
 
         def jac(x, *args, **kwargs):
@@ -528,6 +531,7 @@ class Casino:
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
             weights = (wfn / wfn_0)**2
             ddof = (weights**2).sum() / weights.sum()  # Delta Degrees of Freedom
+            # rescale for "Cost column" in output of scipy.optimize.least_squares to by a variance of local E
             return np.sqrt(2) * energy_gradient * np.sqrt(np.expand_dims(weights, 1) / (weights.sum() - ddof))
 
         self.logger.info(

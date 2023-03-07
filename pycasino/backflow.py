@@ -11,10 +11,10 @@ eta_parameters_type = nb.float64[:, :]
 mu_parameters_type = nb.float64[:, :]
 phi_parameters_type = nb.float64[:, :, :, :]
 theta_parameters_type = nb.float64[:, :, :, :]
-eta_parameters_optimizable_type = nb.boolean[:, :]
-mu_parameters_optimizable_type = nb.boolean[:, :]
-phi_parameters_optimizable_type = nb.boolean[:, :, :, :]
-theta_parameters_optimizable_type = nb.boolean[:, :, :, :]
+eta_parameters_mask_type = nb.boolean[:, :]
+mu_parameters_mask_type = nb.boolean[:, :]
+phi_parameters_mask_type = nb.boolean[:, :, :, :]
+theta_parameters_mask_type = nb.boolean[:, :, :, :]
 
 
 spec = [
@@ -25,10 +25,13 @@ spec = [
     ('mu_parameters', nb.types.ListType(mu_parameters_type)),
     ('phi_parameters', nb.types.ListType(phi_parameters_type)),
     ('theta_parameters', nb.types.ListType(theta_parameters_type)),
-    ('eta_parameters_optimizable', eta_parameters_optimizable_type),
-    ('mu_parameters_optimizable', nb.types.ListType(mu_parameters_optimizable_type)),
-    ('phi_parameters_optimizable', nb.types.ListType(phi_parameters_optimizable_type)),
-    ('theta_parameters_optimizable', nb.types.ListType(theta_parameters_optimizable_type)),
+    ('eta_parameters_optimizable', eta_parameters_mask_type),
+    ('mu_parameters_optimizable', nb.types.ListType(mu_parameters_mask_type)),
+    ('phi_parameters_optimizable', nb.types.ListType(phi_parameters_mask_type)),
+    ('theta_parameters_optimizable', nb.types.ListType(theta_parameters_mask_type)),
+    ('eta_parameters_available', eta_parameters_mask_type),
+    ('phi_parameters_available', nb.types.ListType(phi_parameters_mask_type)),
+    ('theta_parameters_available', nb.types.ListType(theta_parameters_mask_type)),
     ('eta_cutoff', nb.float64[:]),
     ('eta_cutoff_optimizable', nb.boolean[:]),
     ('mu_cutoff', nb.float64[:]),
@@ -63,6 +66,7 @@ class Backflow:
         self.eta_cutoff_optimizable = eta_cutoff['optimizable']
         self.eta_parameters = eta_parameters
         self.eta_parameters_optimizable = eta_parameters_optimizable
+        self.eta_parameters_available = np.ones_like(eta_parameters_optimizable)
         # spin dep (0->u=d; 1->u/=d)
         self.mu_cusp = mu_cusp
         self.mu_labels = mu_labels
@@ -80,6 +84,8 @@ class Backflow:
         self.theta_parameters = theta_parameters
         self.phi_parameters_optimizable = phi_parameters_optimizable
         self.theta_parameters_optimizable = theta_parameters_optimizable
+        self.phi_parameters_available = nb.typed.List.empty_list(phi_parameters_mask_type)
+        self.theta_parameters_available = nb.typed.List.empty_list(theta_parameters_mask_type)
 
         self.max_ee_order = max((
             self.eta_parameters.shape[0],
