@@ -209,6 +209,11 @@ class Wfn:
             res = np.concatenate((
                 res, self.jastrow.parameters_d1(e_vectors, n_vectors)
             ))
+            a, b = self.jastrow.get_parameters_constraints()
+            p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
+            mask_idx = np.argwhere(self.jastrow.get_parameters_mask()).ravel()
+            inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
+            res = (res @ p)[mask_idx] @ inv_p
         if self.backflow is not None and opt_backflow:
             b_v = self.backflow.value(e_vectors, n_vectors)
             res = np.concatenate((
@@ -233,7 +238,13 @@ class Wfn:
             res = np.concatenate((
                 res, np.sum((s_g + j_g) * j_g_d1, axis=1) + j_l_d1 / 2
             ))
+            a, b = self.jastrow.get_parameters_constraints()
+            p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
+            mask_idx = np.argwhere(self.jastrow.get_parameters_mask()).ravel()
+            inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
+            res = (res @ p)[mask_idx] @ inv_p
         if self.backflow is not None and opt_backflow:
+            # FIXME: got singular matrix
             delta = (1 / 2 ** 52) ** (1 / 2)
             parameters = self.backflow.get_parameters()
             d1 = np.zeros(shape=parameters.shape)

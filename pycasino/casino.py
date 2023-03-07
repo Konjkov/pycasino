@@ -447,10 +447,6 @@ class Casino:
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
-        a, b = self.wfn.jastrow.get_parameters_constraints()
-        p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
-        mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
-        inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
 
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
@@ -464,7 +460,7 @@ class Casino:
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy_gradient = np.empty(shape=(steps, x.size))
             # energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
-            energy_gradient_part = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx] @ inv_p
+            energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
             # rescale for "Cost column" in output of scipy.optimize.least_squares to by a variance of local E
             return np.sqrt(2) * energy_gradient / np.sqrt(steps - 1)
@@ -499,10 +495,6 @@ class Casino:
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
-        a, b = self.wfn.jastrow.get_parameters_constraints()
-        p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
-        mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
-        inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
         wfn_0 = np.empty(shape=(steps,))
         wfn_0_part = vmc_observable(condition, position, self.wfn.value)
         self.mpi_comm.Allgather(wfn_0_part, wfn_0)
@@ -526,7 +518,7 @@ class Casino:
             energy_gradient = np.empty(shape=(steps, x.size))
             wfn_part = vmc_observable(condition, position, self.wfn.value)
             # energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
-            energy_gradient_part = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx] @ inv_p
+            energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             self.mpi_comm.Allgather(wfn_part, wfn)
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
             weights = (wfn / wfn_0)**2
@@ -577,12 +569,7 @@ class Casino:
         self.wfn.jastrow.fix_u_parameters()
         self.wfn.jastrow.fix_chi_parameters()
         self.wfn.jastrow.fix_f_parameters()
-
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
-        a, b = self.wfn.jastrow.get_parameters_constraints()
-        p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
-        mask_idx = np.argwhere(self.wfn.jastrow.get_parameters_mask()).ravel()
-        inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
 
         self.logger.info(
             ' Optimization start\n'
@@ -592,8 +579,8 @@ class Casino:
         energy = vmc_observable(condition, position, self.wfn.energy)
         # wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
         # energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
-        wfn_gradient = (vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p)[:, mask_idx] @ inv_p
-        energy_gradient = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)[:, mask_idx] @ inv_p
+        wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+        energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
         S = overlap_matrix(wfn_gradient) / self.mpi_comm.size
         H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient) / self.mpi_comm.size
         self.mpi_comm.Allreduce(MPI.IN_PLACE, S)
