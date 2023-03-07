@@ -27,6 +27,7 @@ spec = [
     ('theta_parameters', nb.types.ListType(theta_parameters_type)),
     ('eta_parameters_optimizable', eta_parameters_mask_type),
     ('mu_parameters_optimizable', nb.types.ListType(mu_parameters_mask_type)),
+    ('mu_parameters_available', nb.types.ListType(mu_parameters_mask_type)),
     ('phi_parameters_optimizable', nb.types.ListType(phi_parameters_mask_type)),
     ('theta_parameters_optimizable', nb.types.ListType(theta_parameters_mask_type)),
     ('eta_parameters_available', eta_parameters_mask_type),
@@ -74,6 +75,7 @@ class Backflow:
         self.mu_cutoff_optimizable = mu_cutoff['optimizable']
         self.mu_parameters = mu_parameters
         self.mu_parameters_optimizable = mu_parameters_optimizable
+        self.mu_parameters_available = nb.typed.List.empty_list(mu_parameters_mask_type)
         # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
         self.phi_irrotational = phi_irrotational
         self.phi_cusp = phi_cusp
@@ -104,53 +106,59 @@ class Backflow:
         ee_order = 2
         if self.eta_parameters.shape[1] == 2:
             if self.neu < ee_order and self.ned < ee_order:
-                self.eta_parameters_optimizable[:, 0] = False
+                self.eta_parameters_available[:, 0] = False
             if self.neu + self.ned < ee_order:
-                self.eta_parameters_optimizable[:, 1] = False
+                self.eta_parameters_available[:, 1] = False
         elif self.eta_parameters.shape[1] == 3:
             if self.neu < ee_order:
-                self.eta_parameters_optimizable[:, 0] = False
+                self.eta_parameters_available[:, 0] = False
             if self.neu + self.ned < ee_order:
-                self.eta_parameters_optimizable[:, 1] = False
+                self.eta_parameters_available[:, 1] = False
             if self.ned < ee_order:
-                self.eta_parameters_optimizable[:, 2] = False
+                self.eta_parameters_available[:, 2] = False
 
         ee_order = 1
         for mu_parameters_optimizable in self.mu_parameters_optimizable:
+            mu_parameters_available = np.ones_like(mu_parameters_optimizable)
             if mu_parameters_optimizable.shape[1] == 2:
                 if self.neu < ee_order:
-                    mu_parameters_optimizable[:, 0] = False
+                    mu_parameters_available[:, 0] = False
                 if self.ned < ee_order:
-                    mu_parameters_optimizable[:, 1] = False
+                    mu_parameters_available[:, 1] = False
+            self.mu_parameters_available.append(mu_parameters_available)
 
         ee_order = 2
         for phi_parameters_optimizable in self.phi_parameters_optimizable:
+            phi_parameters_available = np.ones_like(phi_parameters_optimizable)
             if phi_parameters_optimizable.shape[3] == 2:
                 if self.neu < ee_order and self.ned < ee_order:
-                    phi_parameters_optimizable[:, :, :, 0] = False
+                    phi_parameters_available[:, :, :, 0] = False
                 if self.neu + self.ned < ee_order:
-                    phi_parameters_optimizable[:, :, :, 1] = False
+                    phi_parameters_available[:, :, :, 1] = False
             elif phi_parameters_optimizable.shape[3] == 3:
                 if self.neu < ee_order:
-                    phi_parameters_optimizable[:, :, :, 0] = False
+                    phi_parameters_available[:, :, :, 0] = False
                 if self.neu + self.ned < ee_order:
-                    phi_parameters_optimizable[:, :, :, 1] = False
+                    phi_parameters_available[:, :, :, 1] = False
                 if self.ned < ee_order:
-                    phi_parameters_optimizable[:, :, :, 2] = False
+                    phi_parameters_available[:, :, :, 2] = False
+            self.phi_parameters_available.append(phi_parameters_available)
 
         for theta_parameters_optimizable in self.theta_parameters_optimizable:
+            theta_parameters_available = np.ones_like(theta_parameters_optimizable)
             if theta_parameters_optimizable.shape[3] == 2:
                 if self.neu < ee_order and self.ned < ee_order:
-                    theta_parameters_optimizable[:, :, :, 0] = False
+                    theta_parameters_available[:, :, :, 0] = False
                 if self.neu + self.ned < ee_order:
-                    theta_parameters_optimizable[:, :, :, 1] = False
+                    theta_parameters_available[:, :, :, 1] = False
             elif theta_parameters_optimizable.shape[3] == 3:
                 if self.neu < ee_order:
-                    theta_parameters_optimizable[:, :, :, 0] = False
+                    theta_parameters_available[:, :, :, 0] = False
                 if self.neu + self.ned < ee_order:
-                    theta_parameters_optimizable[:, :, :, 1] = False
+                    theta_parameters_available[:, :, :, 1] = False
                 if self.ned < ee_order:
-                    theta_parameters_optimizable[:, :, :, 2] = False
+                    theta_parameters_available[:, :, :, 2] = False
+            self.theta_parameters_available.append(theta_parameters_available)
 
     def ee_powers(self, e_vectors):
         """Powers of e-e distances
@@ -762,7 +770,7 @@ class Backflow:
         :param n_vectors: e-n vectors
         :return: partial derivatives of displacements of electrons - array(nelec * 3, nelec * 3)
         """
-        delta = 0.00001
+        delta = (1/2**52)**(1/2)
 
         res = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
 
@@ -788,7 +796,7 @@ class Backflow:
         :param n_vectors: e-n vectors
         :return: vector laplacian - array(nelec * 3)
         """
-        delta = 0.00001
+        delta = (1/2**52)**(1/2)
 
         res = -6 * (self.neu + self.ned) * self.value(e_vectors, n_vectors)
         for i in range(self.neu + self.ned):
@@ -865,6 +873,48 @@ class Backflow:
                                 p += 1
                             temp += 1
 
+    def get_parameters_mask(self) -> np.ndarray:
+        """Mask of each variable.
+        """
+        res = []
+        if self.eta_cutoff.any():
+            for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
+                if eta_cutoff_optimizable:
+                    res.append(1)
+            for j2 in range(self.eta_parameters.shape[1]):
+                for j1 in range(self.eta_parameters.shape[0]):
+                    if self.eta_parameters_available[j1, j2]:
+                        res.append(self.eta_parameters_optimizable[j1, j2])
+
+        if self.mu_cutoff.any():
+            for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_parameters_available) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_parameters_available)):
+                if mu_cutoff_optimizable:
+                    res.append(1)
+                for j2 in range(mu_parameters.shape[1]):
+                    for j1 in range(mu_parameters.shape[0]):
+                        if mu_parameters_available[j1, j2]:
+                            res.append(mu_parameters_optimizable[j1, j2])
+
+        if self.phi_cutoff.any():
+            for i, (phi_parameters, phi_parameters_optimizable, phi_parameters_available, theta_parameters_optimizable, theta_parameters_available, phi_cutoff, phi_cutoff_optimizable) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.phi_parameters_available, self.theta_parameters_optimizable, self.theta_parameters_available, self.phi_cutoff, self.phi_cutoff_optimizable)):
+                if phi_cutoff_optimizable:
+                    res.append(1)
+                for j4 in range(phi_parameters.shape[3]):
+                    for j3 in range(phi_parameters.shape[2]):
+                        for j2 in range(phi_parameters.shape[1]):
+                            for j1 in range(phi_parameters.shape[0]):
+                                if phi_parameters_available[j1, j2, j3, j4]:
+                                    res.append(phi_parameters_optimizable[j1, j2, j3, j4])
+
+                for j4 in range(phi_parameters.shape[3]):
+                    for j3 in range(phi_parameters.shape[2]):
+                        for j2 in range(phi_parameters.shape[1]):
+                            for j1 in range(phi_parameters.shape[0]):
+                                if theta_parameters_available[j1, j2, j3, j4]:
+                                    res.append(theta_parameters_optimizable[j1, j2, j3, j4])
+
+        return np.array(res)
+
     def get_parameters_scale(self):
         """Characteristic scale of each variable. Setting x_scale is equivalent
         to reformulating the problem in scaled variables xs = x / x_scale.
@@ -874,50 +924,126 @@ class Backflow:
         with dimensionless variables having only one dimensional parameter - cutoff length.
         """
         res = []
-        scale = 1.0  # no scale
         if self.eta_cutoff.any():
             for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
                 if eta_cutoff_optimizable:
                     res.append(1)
-            for j1 in range(self.eta_parameters.shape[0]):
-                for j2 in range(self.eta_parameters.shape[1]):
+            for j2 in range(self.eta_parameters.shape[1]):
+                for j1 in range(self.eta_parameters.shape[0]):
                     if self.eta_parameters_optimizable[j1, j2]:
-                        res.append(1 / scale ** j1)
+                        res.append(1 / np.mean(self.eta_cutoff) ** j1)
 
         if self.mu_cutoff.any():
             for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable)):
                 if mu_cutoff_optimizable:
                     res.append(1)
-                for j1 in range(mu_parameters.shape[0]):
-                    for j2 in range(mu_parameters.shape[1]):
+                for j2 in range(mu_parameters.shape[1]):
+                    for j1 in range(mu_parameters.shape[0]):
                         if mu_parameters_optimizable[j1, j2]:
-                            res.append(1 / scale ** j1)
+                            res.append(1 / mu_cutoff ** j1)
 
         if self.phi_cutoff.any():
             for i, (phi_parameters, phi_parameters_optimizable, theta_parameters_optimizable, phi_cutoff, phi_cutoff_optimizable) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters_optimizable, self.phi_cutoff, self.phi_cutoff_optimizable)):
                 if phi_cutoff_optimizable:
                     res.append(1)
-                for j1 in range(phi_parameters.shape[0]):
-                    for j2 in range(phi_parameters.shape[1]):
-                        for j3 in range(phi_parameters.shape[2]):
-                            for j4 in range(phi_parameters.shape[3]):
+                for j4 in range(phi_parameters.shape[3]):
+                    for j3 in range(phi_parameters.shape[2]):
+                        for j2 in range(phi_parameters.shape[1]):
+                            for j1 in range(phi_parameters.shape[0]):
                                 if phi_parameters_optimizable[j1, j2, j3, j4]:
-                                    res.append(1 / scale ** (j1 + j2 + j3))
+                                    res.append(1 / phi_cutoff ** (j1 + j2 + j3))
 
-                for j1 in range(phi_parameters.shape[0]):
-                    for j2 in range(phi_parameters.shape[1]):
-                        for j3 in range(phi_parameters.shape[2]):
-                            for j4 in range(phi_parameters.shape[3]):
+                for j4 in range(phi_parameters.shape[3]):
+                    for j3 in range(phi_parameters.shape[2]):
+                        for j2 in range(phi_parameters.shape[1]):
+                            for j1 in range(phi_parameters.shape[0]):
                                 if theta_parameters_optimizable[j1, j2, j3, j4]:
-                                    res.append(1 / scale ** (j1 + j2 + j3))
+                                    res.append(1 / phi_cutoff ** (j1 + j2 + j3))
 
         return np.array(res)
 
-    def get_parameters(self):
+    def get_parameters_constraints(self):
+        """Returns parameters in the following order
+        eta-cutoff, eta-linear parameters,
+        for every mu-set: mu-cutoff, mu-linear parameters,
+        for every phi/theta-set: phi-cutoff, phi-linear parameters, theta-linear parameters.
+        :return:
+        """
+        a_list = []
+        b_list = []
+
+        # FIXME: multiple eta cut-offs
+        eta_parameters_size = self.eta_parameters.shape[0] + self.eta_cutoff_optimizable[0]
+        eta_matrix = np.zeros(shape=(1, eta_parameters_size))
+        eta_matrix[0, 0] = self.trunc
+        eta_matrix[0, 1] = -self.eta_cutoff[0]
+
+        eta_spin_deps = self.eta_parameters.shape[1]
+        for spin_dep in range(eta_spin_deps):
+            # e-e term is affected by constraints only for like-spin electrons
+            if spin_dep in (0, 2):
+                a_list.append(eta_matrix)
+                b_list.append(0)
+            else:
+                # no constrains
+                eta_matrix = np.zeros(shape=(0, eta_parameters_size))
+                a_list.append(eta_matrix)
+
+        for mu_parameters, mu_cutoff, mu_cutoff_optimizable in zip(self.mu_parameters, self.mu_cutoff, self.mu_cutoff_optimizable):
+            mu_parameters_size = mu_parameters.shape[0] + mu_cutoff_optimizable
+            mu_matrix = np.zeros(shape=(2, mu_parameters_size))
+            mu_matrix[0, 0] = 1
+            mu_matrix[1, 0] = self.trunc
+            mu_matrix[1, 1] = -mu_cutoff
+
+            mu_spin_deps = mu_parameters.shape[1]
+            if mu_spin_deps == 2:
+                if self.neu < 1:
+                    mu_spin_deps -= 1
+                if self.ned < 1:
+                    mu_spin_deps -= 1
+
+            for spin_dep in range(mu_spin_deps):
+                a_list.append(mu_matrix)
+                b_list += [0] * 2
+
+        for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cusp, self.phi_irrotational):
+            phi_spin_deps = phi_parameters.shape[3]
+            if phi_spin_deps == 2:
+                if self.neu < 2 and self.ned < 2:
+                    phi_spin_deps -= 1
+                if self.neu + self.ned < 2:
+                    phi_spin_deps -= 1
+            elif phi_spin_deps == 3:
+                if self.neu < 2:
+                    phi_spin_deps -= 1
+                if self.neu + self.ned < 2:
+                    phi_spin_deps -= 1
+                if self.ned < 2:
+                    phi_spin_deps -= 1
+
+            for spin_dep in range(phi_spin_deps):
+                phi_matrix = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+                phi_constrains_size, phi_parameters_size = phi_matrix.shape
+                a_list.append(phi_matrix)
+                b_list += [0] * phi_constrains_size
+
+        # FIXME: create blockdiagonal matrix from list of matrix like scipy.linalg.block_diag
+        # a = sp.linalg.block_diag(a_list)
+        shape_0_list = np.cumsum(np.array([a.shape[0] for a in a_list]))
+        shape_1_list = np.cumsum(np.array([a.shape[1] for a in a_list]))
+        a = np.zeros(shape=(shape_0_list[-1], shape_1_list[-1]))
+        for a_part, p0, p1 in zip(a_list, shape_0_list, shape_1_list):
+            a[p0 - a_part.shape[0]:p0, p1 - a_part.shape[1]:p1] = a_part
+        b = np.array(b_list)
+        return a, b
+
+    def get_parameters(self, all_parameters):
         """Returns parameters in the following order:
         eta-cutoff(s), eta-linear parameters,
         for every mu-set: mu-cutoff, mu-linear parameters,
         for every phi/theta-set: phi-cutoff, phi-linear parameters, theta-linear parameters.
+        :param all_parameters:
         :return:
         """
         res = []
@@ -925,27 +1051,47 @@ class Backflow:
             for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
                 if eta_cutoff_optimizable:
                     res.append(eta_cutoff)
-            res += list(self.eta_parameters.ravel()[self.eta_parameters_optimizable.ravel()])
+                for j2 in range(self.eta_parameters.shape[1]):
+                    for j1 in range(self.eta_parameters.shape[0]):
+                        if (self.eta_parameters_optimizable[j1, j2] or all_parameters) and self.eta_parameters_available[j1, j2]:
+                            res.append(self.eta_parameters[j1, j2])
+
         if self.mu_cutoff.any():
-            for mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable in zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable):
+            for mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_parameters_available in zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_parameters_available):
                 if mu_cutoff_optimizable:
                     res.append(mu_cutoff)
-                res += list(mu_parameters.ravel()[mu_parameters_optimizable.ravel()])
+                for j2 in range(mu_parameters.shape[1]):
+                    for j1 in range(mu_parameters.shape[0]):
+                        if (mu_parameters_optimizable[j1, j2] or all_parameters) and mu_parameters_available[j1, j2]:
+                            res.append(mu_parameters[j1, j2])
+
         if self.phi_cutoff.any():
-            for phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable, phi_cutoff, phi_cutoff_optimizable in zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable, self.phi_cutoff, self.phi_cutoff_optimizable):
+            for phi_parameters, phi_parameters_optimizable, phi_parameters_available, theta_parameters, theta_parameters_optimizable, theta_parameters_available, phi_cutoff, phi_cutoff_optimizable in zip(self.phi_parameters, self.phi_parameters_optimizable, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_optimizable, self.theta_parameters_available, self.phi_cutoff, self.phi_cutoff_optimizable):
                 if phi_cutoff_optimizable:
                     res.append(phi_cutoff)
-                res += list(phi_parameters.ravel()[phi_parameters_optimizable.ravel()])
-                res += list(theta_parameters.ravel()[theta_parameters_optimizable.ravel()])
+                for j4 in range(phi_parameters.shape[3]):
+                    for j3 in range(phi_parameters.shape[2]):
+                        for j2 in range(phi_parameters.shape[1]):
+                            for j1 in range(phi_parameters.shape[0]):
+                                if (phi_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and phi_parameters_available[j1, j2, j3, j4]:
+                                    res.append(phi_parameters[j1, j2, j3, j4])
+
+                for j4 in range(phi_parameters.shape[3]):
+                    for j3 in range(phi_parameters.shape[2]):
+                        for j2 in range(phi_parameters.shape[1]):
+                            for j1 in range(phi_parameters.shape[0]):
+                                if (theta_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and theta_parameters_available[j1, j2, j3, j4]:
+                                    res.append(theta_parameters[j1, j2, j3, j4])
 
         return np.array(res)
 
-    def set_parameters(self, parameters):
+    def set_parameters(self, parameters, all_parameters):
         """Set parameters in the following order:
         eta-cutoff(s), eta-linear parameters,
         for every mu-set: mu-cutoff, mu-linear parameters,
         for every phi/theta-set: phi-cutoff, phi-linear parameters, theta-linear parameters.
         :param parameters:
+        :param all_parameters:
         :return:
         """
         n = 0
@@ -954,46 +1100,49 @@ class Backflow:
                 if self.eta_cutoff_optimizable[j1]:
                     self.eta_cutoff[j1] = parameters[n]
                     n += 1
-            for j1 in range(self.eta_parameters.shape[0]):
-                for j2 in range(self.eta_parameters.shape[1]):
-                    if self.eta_parameters_optimizable[j1, j2]:
+            for j2 in range(self.eta_parameters.shape[1]):
+                for j1 in range(self.eta_parameters.shape[0]):
+                    if (self.eta_parameters_optimizable[j1, j2] or all_parameters) and self.eta_parameters_available[j1, j2]:
                         self.eta_parameters[j1, j2] = parameters[n]
                         n += 1
-            self.fix_eta_parameters()
+            if not all_parameters:
+                self.fix_eta_parameters()
 
         if self.mu_cutoff.any():
-            for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff_optimizable) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff_optimizable)):
+            for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff_optimizable, mu_parameters_available) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff_optimizable, self.mu_parameters_available)):
                 if mu_cutoff_optimizable:
                     self.mu_cutoff[i] = parameters[n]
                     n += 1
-                for j1 in range(mu_parameters.shape[0]):
-                    for j2 in range(mu_parameters.shape[1]):
-                        if mu_parameters_optimizable[j1, j2]:
+                for j2 in range(mu_parameters.shape[1]):
+                    for j1 in range(mu_parameters.shape[0]):
+                        if (mu_parameters_optimizable[j1, j2] or all_parameters) and mu_parameters_available[j1, j2]:
                             mu_parameters[j1, j2] = parameters[n]
                             n += 1
-            self.fix_mu_parameters()
+            if not all_parameters:
+                self.fix_mu_parameters()
 
         if self.phi_cutoff.any():
-            for i, (phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable, phi_cutoff_optimizable) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable, self.phi_cutoff_optimizable)):
+            for i, (phi_parameters, phi_parameters_optimizable, phi_parameters_available, theta_parameters, theta_parameters_optimizable, phi_cutoff_optimizable, theta_parameters_available) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_optimizable, self.phi_cutoff_optimizable, self.theta_parameters_available)):
                 if phi_cutoff_optimizable:
                     self.phi_cutoff[i] = parameters[n]
                     n += 1
-                for j1 in range(phi_parameters.shape[0]):
-                    for j2 in range(phi_parameters.shape[1]):
-                        for j3 in range(phi_parameters.shape[2]):
-                            for j4 in range(phi_parameters.shape[3]):
-                                if phi_parameters_optimizable[j1, j2, j3, j4]:
+                for j4 in range(phi_parameters.shape[3]):
+                    for j3 in range(phi_parameters.shape[2]):
+                        for j2 in range(phi_parameters.shape[1]):
+                            for j1 in range(phi_parameters.shape[0]):
+                                if (phi_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and phi_parameters_available[j1, j2, j3, j4]:
                                     phi_parameters[j1, j2, j3, j4] = parameters[n]
                                     n += 1
 
-                for j1 in range(phi_parameters.shape[0]):
-                    for j2 in range(phi_parameters.shape[1]):
-                        for j3 in range(phi_parameters.shape[2]):
-                            for j4 in range(phi_parameters.shape[3]):
-                                if theta_parameters_optimizable[j1, j2, j3, j4]:
+                for j4 in range(phi_parameters.shape[3]):
+                    for j3 in range(phi_parameters.shape[2]):
+                        for j2 in range(phi_parameters.shape[1]):
+                            for j1 in range(phi_parameters.shape[0]):
+                                if (theta_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and theta_parameters_available[j1, j2, j3, j4]:
                                     theta_parameters[j1, j2, j3, j4] = parameters[n]
                                     n += 1
-            self.fix_phi_parameters()
+            if not all_parameters:
+                self.fix_phi_parameters()
 
         return parameters[n:]
 
@@ -1005,8 +1154,8 @@ class Backflow:
         if not self.eta_cutoff.any():
             return np.zeros(shape=(0, (self.neu + self.ned) * 3))
 
-        delta = 0.00001
-        size = self.eta_parameters_optimizable.sum() + self.eta_cutoff_optimizable.sum()
+        delta = (1/2**52)**(1/2)
+        size = self.eta_parameters_available.sum() + self.eta_cutoff_optimizable.sum()
         res = np.zeros(shape=(size, self.neu + self.ned, 3))
 
         n = -1
@@ -1014,26 +1163,21 @@ class Backflow:
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff -= delta
-                self.fix_eta_parameters()
                 res[n] -= self.eta_term(e_vectors, e_powers)
                 self.eta_cutoff += 2 * delta
-                self.fix_eta_parameters()
                 res[n] += self.eta_term(e_vectors, e_powers)
                 self.eta_cutoff -= delta
 
-        for j1 in range(self.eta_parameters.shape[0]):
-            for j2 in range(self.eta_parameters.shape[1]):
-                if self.eta_parameters_optimizable[j1, j2]:
+        for j2 in range(self.eta_parameters.shape[1]):
+            for j1 in range(self.eta_parameters.shape[0]):
+                if self.eta_parameters_available[j1, j2]:
                     n += 1
                     self.eta_parameters[j1, j2] -= delta
-                    self.fix_eta_parameters()
                     res[n] -= self.eta_term(e_vectors, e_powers)
                     self.eta_parameters[j1, j2] += 2 * delta
-                    self.fix_eta_parameters()
                     res[n] += self.eta_term(e_vectors, e_powers)
                     self.eta_parameters[j1, j2] -= delta
 
-        self.fix_eta_parameters()
         return res.reshape(size, (self.neu + self.ned) * 3) / delta / 2
 
     def mu_term_numerical_d1(self, n_vectors, n_powers):
@@ -1044,35 +1188,31 @@ class Backflow:
         if not self.mu_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
 
-        delta = 0.00001
+        delta = (1/2**52)**(1/2)
         size = sum([
-            mu_parameters_optimizable.sum() + mu_cutoff_optimizable
-            for mu_parameters_optimizable, mu_cutoff_optimizable
-            in zip(self.mu_parameters_optimizable, self.mu_cutoff_optimizable)
+            mu_parameters_available.sum() + mu_cutoff_optimizable
+            for mu_parameters_available, mu_cutoff_optimizable
+            in zip(self.mu_parameters_available, self.mu_cutoff_optimizable)
         ])
         res = np.zeros(shape=(size, 2, self.neu + self.ned, 3))
 
         n = -1
-        for i, (mu_parameters, mu_parameters_optimizable) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable)):
+        for i, (mu_parameters, mu_parameters_available) in enumerate(zip(self.mu_parameters, self.mu_parameters_available)):
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                self.fix_mu_parameters()
                 res[n] -= self.mu_term(n_vectors, n_powers)[0]
                 self.mu_cutoff[i] += 2 * delta
-                self.fix_mu_parameters()
                 res[n] += self.mu_term(n_vectors, n_powers)[0]
                 self.mu_cutoff[i] -= delta
 
-            for j1 in range(mu_parameters.shape[0]):
-                for j2 in range(mu_parameters.shape[1]):
-                    if mu_parameters_optimizable[j1, j2]:
+            for j2 in range(mu_parameters.shape[1]):
+                for j1 in range(mu_parameters.shape[0]):
+                    if mu_parameters_available[j1, j2]:
                         n += 1
                         mu_parameters[j1, j2] -= delta
-                        self.fix_mu_parameters()
                         res[n] -= self.mu_term(n_vectors, n_powers)[0]
                         mu_parameters[j1, j2] += 2 * delta
-                        self.fix_mu_parameters()
                         res[n] += self.mu_term(n_vectors, n_powers)[0]
                         mu_parameters[j1, j2] -= delta
 
@@ -1088,7 +1228,7 @@ class Backflow:
         if not self.phi_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
 
-        delta = 0.00001
+        delta = (1/2**52)**(1/2)
         size = sum([
             phi_parameters_optimizable.sum() + theta_parameters_optimizable.sum() + phi_cutoff_optimizable
             for phi_parameters_optimizable, theta_parameters_optimizable, phi_cutoff_optimizable
@@ -1097,44 +1237,36 @@ class Backflow:
         res = np.zeros(shape=(size, 2, self.neu + self.ned, 3))
 
         n = -1
-        for i, (phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable)):
+        for i, (phi_parameters, phi_parameters_available, theta_parameters, theta_parameters_available) in enumerate(zip(self.phi_parameters, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_available)):
             if self.phi_cutoff_optimizable[i]:
                 n += 1
                 self.phi_cutoff[i] -= delta
-                self.fix_phi_parameters()
-                # FIXME: ae_multiplier
                 res[n] -= self.phi_term(e_powers, n_powers, e_vectors, n_vectors)[0]
                 self.phi_cutoff[i] += 2 * delta
-                self.fix_phi_parameters()
-                # FIXME: ae_multiplier
                 res[n] += self.phi_term(e_powers, n_powers, e_vectors, n_vectors)[0]
                 self.phi_cutoff[i] -= delta
 
-            for j1 in range(phi_parameters.shape[0]):
-                for j2 in range(phi_parameters.shape[1]):
-                    for j3 in range(phi_parameters.shape[2]):
-                        for j4 in range(phi_parameters.shape[3]):
-                            if phi_parameters_optimizable[j1, j2, j3, j4]:
+            for j4 in range(phi_parameters.shape[3]):
+                for j3 in range(phi_parameters.shape[2]):
+                    for j2 in range(phi_parameters.shape[1]):
+                        for j1 in range(phi_parameters.shape[0]):
+                            if phi_parameters_available[j1, j2, j3, j4]:
                                 n += 1
                                 phi_parameters[j1, j2, j3, j4] -= delta
-                                self.fix_phi_parameters()
                                 res[n] -= self.phi_term(e_powers, n_powers, e_vectors, n_vectors)[0]
                                 phi_parameters[j1, j2, j3, j4] += 2 * delta
-                                self.fix_phi_parameters()
                                 res[n] += self.phi_term(e_powers, n_powers, e_vectors, n_vectors)[0]
                                 phi_parameters[j1, j2, j3, j4] -= delta
 
-            for j1 in range(phi_parameters.shape[0]):
-                for j2 in range(phi_parameters.shape[1]):
-                    for j3 in range(phi_parameters.shape[2]):
-                        for j4 in range(phi_parameters.shape[3]):
-                            if theta_parameters_optimizable[j1, j2, j3, j4]:
+            for j4 in range(phi_parameters.shape[3]):
+                for j3 in range(phi_parameters.shape[2]):
+                    for j2 in range(phi_parameters.shape[1]):
+                        for j1 in range(phi_parameters.shape[0]):
+                            if theta_parameters_available[j1, j2, j3, j4]:
                                 n += 1
                                 theta_parameters[j1, j2, j3, j4] -= delta
-                                self.fix_phi_parameters()
                                 res[n] -= self.phi_term(e_powers, n_powers, e_vectors, n_vectors)[0]
                                 theta_parameters[j1, j2, j3, j4] += 2 * delta
-                                self.fix_phi_parameters()
                                 res[n] += self.phi_term(e_powers, n_powers, e_vectors, n_vectors)[0]
                                 theta_parameters[j1, j2, j3, j4] -= delta
 

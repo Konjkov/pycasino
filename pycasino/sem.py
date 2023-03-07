@@ -3,9 +3,9 @@ import pyblock
 """
 https://ljmartin.github.io/technical-notes/stats/estimators-autocorrelated/
 
-There are many different solutions to calculating the SEM for autocorrelated data. There's no "true" 
-solution, meaning each one was developed in a different field for a different purpose. They all have 
-a bit of overlap, but differ in their ease of use. Ideally we want something that is robust to as many 
+There are many different solutions to calculating the SEM for autocorrelated data. There's no "true"
+solution, meaning each one was developed in a different field for a different purpose. They all have
+a bit of overlap, but differ in their ease of use. Ideally we want something that is robust to as many
 different situations as possible, giving SEM's that include the true mean value at the right rate.
 
 1. Block averaging

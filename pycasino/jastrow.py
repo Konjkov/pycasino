@@ -667,12 +667,7 @@ class Jastrow:
                         temp += 1
 
     def get_parameters_mask(self) -> np.ndarray:
-        """Mask of each variable. Setting x_scale is equivalent
-        to reformulating the problem in scaled variables xs = x / x_scale.
-        An alternative view is that the size of a trust region along j-th
-        dimension is proportional to x_scale[j].
-        The purpose of this method is to reformulate the optimization problem
-        with dimensionless variables having only one dimensional parameter - scale.
+        """Mask of each variable.
         """
         scale = []
         if self.u_cutoff:
@@ -944,7 +939,7 @@ class Jastrow:
         if not self.u_cutoff:
             return np.zeros((0,))
 
-        delta = 0.000001
+        delta = (1/2**52)**(1/2)
         size = self.u_parameters_available.sum() + self.u_cutoff_optimizable
         res = np.zeros(shape=(size,))
 
@@ -978,7 +973,7 @@ class Jastrow:
         if not self.chi_cutoff.any():
             return np.zeros((0,))
 
-        delta = 0.000001
+        delta = (1/2**52)**(1/2)
         size = sum([
             chi_parameters_available.sum() + chi_cutoff_optimizable
             for chi_parameters_available, chi_cutoff_optimizable
@@ -1019,7 +1014,7 @@ class Jastrow:
         if not self.f_cutoff.any():
             return np.zeros((0,))
 
-        delta = 0.000001
+        delta = (1/2**52)**(1/2)
         C = self.trunc
         size = sum([
             f_parameters_available.sum() + f_cutoff_optimizable
