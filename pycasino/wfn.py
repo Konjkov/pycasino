@@ -256,19 +256,27 @@ class Wfn:
                 b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
                 s_g = self.slater.gradient(b_v)
                 s_h = self.slater.hessian(b_v)
-                s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
-                d1[i] -= s_l
+                temp = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
+                if self.jastrow is not None:
+                    j_g = self.jastrow.gradient(e_vectors, n_vectors)
+                    s_g = s_g @ b_g
+                    temp += np.sum((s_g + j_g) ** 2 - s_g ** 2)
+                d1[i] -= temp / 2
                 parameters[i] += 2 * delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
                 b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
                 s_g = self.slater.gradient(b_v)
                 s_h = self.slater.hessian(b_v)
-                s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
-                d1[i] += s_l
+                temp = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
+                if self.jastrow is not None:
+                    j_g = self.jastrow.gradient(e_vectors, n_vectors)
+                    s_g = s_g @ b_g
+                    temp += np.sum((s_g + j_g) ** 2 - s_g ** 2)
+                d1[i] += temp / 2
                 parameters[i] -= delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
             res = np.concatenate((
-                res, (d1 / 2 / delta / 2) @ (p[:, mask_idx] @ inv_p)
+                res, (d1 / delta / 2) @ (p[:, mask_idx] @ inv_p)
             ))
         return -res
 
