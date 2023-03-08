@@ -250,6 +250,7 @@ class Wfn:
             mask_idx = np.argwhere(self.backflow.get_parameters_mask()).ravel()
             inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
             d1 = np.zeros(shape=parameters.shape)
+            j_g = self.jastrow.gradient(e_vectors, n_vectors)
             for i in range(parameters.size):
                 parameters[i] -= delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
@@ -258,9 +259,7 @@ class Wfn:
                 s_h = self.slater.hessian(b_v)
                 temp = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
                 if self.jastrow is not None:
-                    j_g = self.jastrow.gradient(e_vectors, n_vectors)
-                    s_g = s_g @ b_g
-                    temp += np.sum((s_g + j_g) ** 2 - s_g ** 2)
+                    temp += 2 * np.sum(s_g @ b_g * j_g)
                 d1[i] -= temp / 2
                 parameters[i] += 2 * delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
@@ -269,9 +268,7 @@ class Wfn:
                 s_h = self.slater.hessian(b_v)
                 temp = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
                 if self.jastrow is not None:
-                    j_g = self.jastrow.gradient(e_vectors, n_vectors)
-                    s_g = s_g @ b_g
-                    temp += np.sum((s_g + j_g) ** 2 - s_g ** 2)
+                    temp += 2 * np.sum(s_g @ b_g * j_g)
                 d1[i] += temp / 2
                 parameters[i] -= delta
                 self.backflow.set_parameters(parameters, all_parameters=True)

@@ -972,35 +972,36 @@ class Backflow:
         a_list = []
         b_list = []
 
-        eta_spin_deps = [0]
-        if self.eta_parameters.shape[1] == 2:
-            eta_spin_deps = [0, 1]
-            if self.neu < 2 and self.ned < 2:
-                eta_spin_deps = [x for x in eta_spin_deps if x != 0]
-            if self.neu + self.ned < 2:
-                eta_spin_deps = [x for x in eta_spin_deps if x != 1]
-        elif self.eta_parameters.shape[1] == 3:
-            eta_spin_deps = [0, 1, 2]
-            if self.neu < 2:
-                eta_spin_deps = [x for x in eta_spin_deps if x != 0]
-            if self.neu + self.ned < 2:
-                eta_spin_deps = [x for x in eta_spin_deps if x != 1]
-            if self.ned < 2:
-                eta_spin_deps = [x for x in eta_spin_deps if x != 2]
+        if self.eta_cutoff.any():
+            eta_spin_deps = [0]
+            if self.eta_parameters.shape[1] == 2:
+                eta_spin_deps = [0, 1]
+                if self.neu < 2 and self.ned < 2:
+                    eta_spin_deps = [x for x in eta_spin_deps if x != 0]
+                if self.neu + self.ned < 2:
+                    eta_spin_deps = [x for x in eta_spin_deps if x != 1]
+            elif self.eta_parameters.shape[1] == 3:
+                eta_spin_deps = [0, 1, 2]
+                if self.neu < 2:
+                    eta_spin_deps = [x for x in eta_spin_deps if x != 0]
+                if self.neu + self.ned < 2:
+                    eta_spin_deps = [x for x in eta_spin_deps if x != 1]
+                if self.ned < 2:
+                    eta_spin_deps = [x for x in eta_spin_deps if x != 2]
 
-        eta_parameters_size = self.eta_parameters.shape[0] + self.eta_cutoff_optimizable[0]
-        for spin_dep in eta_spin_deps:
-            # e-e term is affected by constraints only for like-spin electrons
-            if spin_dep in (0, 2):
-                eta_matrix = np.zeros(shape=(1, eta_parameters_size))
-                eta_matrix[0, 0] = self.trunc
-                eta_matrix[0, 1] = -self.eta_cutoff[spin_dep]
-                a_list.append(eta_matrix)
-                b_list.append(0)
-            else:
-                # no constrains
-                eta_matrix = np.zeros(shape=(0, eta_parameters_size))
-                a_list.append(eta_matrix)
+            eta_parameters_size = self.eta_parameters.shape[0] + self.eta_cutoff_optimizable[0]
+            for spin_dep in eta_spin_deps:
+                # e-e term is affected by constraints only for like-spin electrons
+                if spin_dep in (0, 2):
+                    eta_matrix = np.zeros(shape=(1, eta_parameters_size))
+                    eta_matrix[0, 0] = self.trunc
+                    eta_matrix[0, 1] = -self.eta_cutoff[spin_dep]
+                    a_list.append(eta_matrix)
+                    b_list.append(0)
+                else:
+                    # no constrains
+                    eta_matrix = np.zeros(shape=(0, eta_parameters_size))
+                    a_list.append(eta_matrix)
 
         for mu_parameters, mu_cutoff, mu_cutoff_optimizable in zip(self.mu_parameters, self.mu_cutoff, self.mu_cutoff_optimizable):
             mu_parameters_size = mu_parameters.shape[0] + mu_cutoff_optimizable

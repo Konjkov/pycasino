@@ -749,38 +749,39 @@ class Jastrow:
         a_list = []
         b_list = []
 
-        u_parameters_size = self.u_parameters.shape[0] + self.u_cutoff_optimizable
-        u_matrix = np.zeros(shape=(1, u_parameters_size))
-        u_matrix[0, 0] = self.trunc
-        u_matrix[0, 1] = -self.u_cutoff
+        if self.u_cutoff:
+            u_parameters_size = self.u_parameters.shape[0] + self.u_cutoff_optimizable
+            u_matrix = np.zeros(shape=(1, u_parameters_size))
+            u_matrix[0, 0] = self.trunc
+            u_matrix[0, 1] = -self.u_cutoff
 
-        u_spin_deps = self.u_parameters.shape[1]
-        if u_spin_deps == 2:
-            u_b = [1/4, 1/2]
-            if self.neu < 2 and self.ned < 2:
-                u_spin_deps -= 1
-                u_b = [1/2]
-            if self.neu + self.ned < 2:
-                u_spin_deps -= 1
-                u_b = [1/4]
-        elif u_spin_deps == 3:
-            u_b = [1/4, 1/2, 1/4]
-            if self.neu < 2:
-                u_b = [1/2, 1/4]
-                u_spin_deps -= 1
-            if self.neu + self.ned < 2:
-                u_b = [1/4, 1/4]
-                u_spin_deps -= 1
-            if self.ned < 2:
+            u_spin_deps = self.u_parameters.shape[1]
+            if u_spin_deps == 2:
                 u_b = [1/4, 1/2]
-                u_spin_deps -= 1
-        else:
-            # FIXME: u_spin_deps == 1
-            u_b = [1/4]
+                if self.neu < 2 and self.ned < 2:
+                    u_spin_deps -= 1
+                    u_b = [1/2]
+                if self.neu + self.ned < 2:
+                    u_spin_deps -= 1
+                    u_b = [1/4]
+            elif u_spin_deps == 3:
+                u_b = [1/4, 1/2, 1/4]
+                if self.neu < 2:
+                    u_b = [1/2, 1/4]
+                    u_spin_deps -= 1
+                if self.neu + self.ned < 2:
+                    u_b = [1/4, 1/4]
+                    u_spin_deps -= 1
+                if self.ned < 2:
+                    u_b = [1/4, 1/2]
+                    u_spin_deps -= 1
+            else:
+                # FIXME: u_spin_deps == 1
+                u_b = [1/4]
 
-        for spin_dep in range(u_spin_deps):
-            a_list.append(u_matrix)
-            b_list.append(u_b[spin_dep] / (-self.u_cutoff) ** (self.trunc - 1))
+            for spin_dep in range(u_spin_deps):
+                a_list.append(u_matrix)
+                b_list.append(u_b[spin_dep] / (-self.u_cutoff) ** (self.trunc - 1))
 
         for chi_parameters, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters, self.chi_cutoff, self.chi_cutoff_optimizable):
             chi_parameters_size = chi_parameters.shape[0] + chi_cutoff_optimizable
