@@ -972,16 +972,29 @@ class Backflow:
         a_list = []
         b_list = []
 
-        # FIXME: multiple eta cut-offs
-        eta_parameters_size = self.eta_parameters.shape[0] + self.eta_cutoff_optimizable[0]
-        eta_matrix = np.zeros(shape=(1, eta_parameters_size))
-        eta_matrix[0, 0] = self.trunc
-        eta_matrix[0, 1] = -self.eta_cutoff[0]
+        eta_spin_deps = {0}
+        if self.eta_parameters.shape[1] == 2:
+            eta_spin_deps = {0, 1}
+            if self.neu < 2 and self.ned < 2:
+                eta_spin_deps.remove(0)
+            if self.neu + self.ned < 2:
+                eta_spin_deps.remove(1)
+        elif self.eta_parameters.shape[1] == 3:
+            eta_spin_deps = {0, 1, 2}
+            if self.neu < 2:
+                eta_spin_deps.remove(0)
+            if self.neu + self.ned < 2:
+                eta_spin_deps.remove(1)
+            if self.ned < 2:
+                eta_spin_deps.remove(2)
 
-        eta_spin_deps = self.eta_parameters.shape[1]
-        for spin_dep in range(eta_spin_deps):
+        eta_parameters_size = self.eta_parameters.shape[0] + self.eta_cutoff_optimizable[0]
+        for spin_dep in sorted(eta_spin_deps):
             # e-e term is affected by constraints only for like-spin electrons
             if spin_dep in (0, 2):
+                eta_matrix = np.zeros(shape=(1, eta_parameters_size))
+                eta_matrix[0, 0] = self.trunc
+                eta_matrix[0, 1] = -self.eta_cutoff[spin_dep]
                 a_list.append(eta_matrix)
                 b_list.append(0)
             else:
@@ -1008,21 +1021,23 @@ class Backflow:
                 b_list += [0] * 2
 
         for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cusp, self.phi_irrotational):
-            phi_spin_deps = phi_parameters.shape[3]
-            if phi_spin_deps == 2:
+            phi_spin_deps = {0}
+            if phi_parameters.shape[3] == 2:
+                phi_spin_deps = {0, 1}
                 if self.neu < 2 and self.ned < 2:
-                    phi_spin_deps -= 1
+                    phi_spin_deps.remove(0)
                 if self.neu + self.ned < 2:
-                    phi_spin_deps -= 1
-            elif phi_spin_deps == 3:
+                    phi_spin_deps.remove(1)
+            elif phi_parameters.shape[3] == 3:
+                phi_spin_deps = {0, 1, 2}
                 if self.neu < 2:
-                    phi_spin_deps -= 1
+                    phi_spin_deps.remove(0)
                 if self.neu + self.ned < 2:
-                    phi_spin_deps -= 1
+                    phi_spin_deps.remove(1)
                 if self.ned < 2:
-                    phi_spin_deps -= 1
+                    phi_spin_deps.remove(2)
 
-            for spin_dep in range(phi_spin_deps):
+            for spin_dep in sorted(phi_spin_deps):
                 phi_matrix = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
                 phi_constrains_size, phi_parameters_size = phi_matrix.shape
                 a_list.append(phi_matrix)
@@ -1051,10 +1066,10 @@ class Backflow:
             for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
                 if eta_cutoff_optimizable:
                     res.append(eta_cutoff)
-                for j2 in range(self.eta_parameters.shape[1]):
-                    for j1 in range(self.eta_parameters.shape[0]):
-                        if (self.eta_parameters_optimizable[j1, j2] or all_parameters) and self.eta_parameters_available[j1, j2]:
-                            res.append(self.eta_parameters[j1, j2])
+            for j2 in range(self.eta_parameters.shape[1]):
+                for j1 in range(self.eta_parameters.shape[0]):
+                    if (self.eta_parameters_optimizable[j1, j2] or all_parameters) and self.eta_parameters_available[j1, j2]:
+                        res.append(self.eta_parameters[j1, j2])
 
         if self.mu_cutoff.any():
             for mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_parameters_available in zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_parameters_available):
