@@ -172,7 +172,7 @@ class Wfn:
             ))
         if self.backflow is not None and opt_backflow:
             res = np.concatenate((
-                res, self.backflow.get_parameters()
+                res, self.backflow.get_parameters(all_parameters=all_parameters)
             ))
         return res
 
@@ -181,7 +181,7 @@ class Wfn:
         if self.jastrow is not None and opt_jastrow:
             parameters = self.jastrow.set_parameters(parameters, all_parameters=all_parameters)
         if self.backflow is not None and opt_backflow:
-            self.backflow.set_parameters(parameters)
+            self.backflow.set_parameters(parameters, all_parameters=all_parameters)
 
     def get_parameters_scale(self, opt_jastrow=True, opt_backflow=True):
         """Characteristic scale of each optimized parameter."""
@@ -235,38 +235,40 @@ class Wfn:
             j_g = self.jastrow.gradient(e_vectors, n_vectors)
             j_g_d1 = self.jastrow.gradient_parameters_d1(e_vectors, n_vectors)
             j_l_d1 = self.jastrow.laplacian_parameters_d1(e_vectors, n_vectors)
-            res = np.concatenate((
-                res, np.sum((s_g + j_g) * j_g_d1, axis=1) + j_l_d1 / 2
-            ))
             a, b = self.jastrow.get_parameters_constraints()
             p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
             mask_idx = np.argwhere(self.jastrow.get_parameters_mask()).ravel()
             inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
-            res = res @ (p[:, mask_idx] @ inv_p)
+            res = np.concatenate((
+                res, (np.sum((s_g + j_g) * j_g_d1, axis=1) + j_l_d1 / 2) @ (p[:, mask_idx] @ inv_p)
+            ))
         if self.backflow is not None and opt_backflow:
-            # FIXME: got singular matrix
-            delta = (1 / 2 ** 52) ** (1 / 2)
-            parameters = self.backflow.get_parameters()
+            delta = (1/2**52)**(1/2)
+            parameters = self.backflow.get_parameters(all_parameters=True)
+            a, b = self.backflow.get_parameters_constraints()
+            p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
+            mask_idx = np.argwhere(self.backflow.get_parameters_mask()).ravel()
+            inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
             d1 = np.zeros(shape=parameters.shape)
             for i in range(parameters.size):
                 parameters[i] -= delta
-                self.backflow.set_parameters(parameters)
+                self.backflow.set_parameters(parameters, all_parameters=True)
                 b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
                 s_g = self.slater.gradient(b_v)
                 s_h = self.slater.hessian(b_v)
                 s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
                 d1[i] -= s_l
                 parameters[i] += 2 * delta
-                self.backflow.set_parameters(parameters)
+                self.backflow.set_parameters(parameters, all_parameters=True)
                 b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
                 s_g = self.slater.gradient(b_v)
                 s_h = self.slater.hessian(b_v)
                 s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
                 d1[i] += s_l
                 parameters[i] -= delta
-                self.backflow.set_parameters(parameters)
+                self.backflow.set_parameters(parameters, all_parameters=True)
             res = np.concatenate((
-                res, d1 / 2
+                res, (d1 / 2 / delta / 2) @ (p[:, mask_idx] @ inv_p)
             ))
         return -res
 

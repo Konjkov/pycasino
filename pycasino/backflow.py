@@ -1077,9 +1077,9 @@ class Backflow:
                                     res.append(phi_parameters[j1, j2, j3, j4])
 
                 for j4 in range(phi_parameters.shape[3]):
-                    for j3 in range(phi_parameters.shape[2]):
-                        for j2 in range(phi_parameters.shape[1]):
-                            for j1 in range(phi_parameters.shape[0]):
+                    for j3 in range(theta_parameters.shape[2]):
+                        for j2 in range(theta_parameters.shape[1]):
+                            for j1 in range(theta_parameters.shape[0]):
                                 if (theta_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and theta_parameters_available[j1, j2, j3, j4]:
                                     res.append(theta_parameters[j1, j2, j3, j4])
 
@@ -1134,10 +1134,10 @@ class Backflow:
                                     phi_parameters[j1, j2, j3, j4] = parameters[n]
                                     n += 1
 
-                for j4 in range(phi_parameters.shape[3]):
-                    for j3 in range(phi_parameters.shape[2]):
-                        for j2 in range(phi_parameters.shape[1]):
-                            for j1 in range(phi_parameters.shape[0]):
+                for j4 in range(theta_parameters.shape[3]):
+                    for j3 in range(theta_parameters.shape[2]):
+                        for j2 in range(theta_parameters.shape[1]):
+                            for j1 in range(theta_parameters.shape[0]):
                                 if (theta_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and theta_parameters_available[j1, j2, j3, j4]:
                                     theta_parameters[j1, j2, j3, j4] = parameters[n]
                                     n += 1
