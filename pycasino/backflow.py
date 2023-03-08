@@ -972,24 +972,24 @@ class Backflow:
         a_list = []
         b_list = []
 
-        eta_spin_deps = {0}
+        eta_spin_deps = [0]
         if self.eta_parameters.shape[1] == 2:
-            eta_spin_deps = {0, 1}
+            eta_spin_deps = [0, 1]
             if self.neu < 2 and self.ned < 2:
-                eta_spin_deps.remove(0)
+                eta_spin_deps = [x for x in eta_spin_deps if x != 0]
             if self.neu + self.ned < 2:
-                eta_spin_deps.remove(1)
+                eta_spin_deps = [x for x in eta_spin_deps if x != 1]
         elif self.eta_parameters.shape[1] == 3:
-            eta_spin_deps = {0, 1, 2}
+            eta_spin_deps = [0, 1, 2]
             if self.neu < 2:
-                eta_spin_deps.remove(0)
+                eta_spin_deps = [x for x in eta_spin_deps if x != 0]
             if self.neu + self.ned < 2:
-                eta_spin_deps.remove(1)
+                eta_spin_deps = [x for x in eta_spin_deps if x != 1]
             if self.ned < 2:
-                eta_spin_deps.remove(2)
+                eta_spin_deps = [x for x in eta_spin_deps if x != 2]
 
         eta_parameters_size = self.eta_parameters.shape[0] + self.eta_cutoff_optimizable[0]
-        for spin_dep in sorted(eta_spin_deps):
+        for spin_dep in eta_spin_deps:
             # e-e term is affected by constraints only for like-spin electrons
             if spin_dep in (0, 2):
                 eta_matrix = np.zeros(shape=(1, eta_parameters_size))
@@ -1021,23 +1021,23 @@ class Backflow:
                 b_list += [0] * 2
 
         for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cusp, self.phi_irrotational):
-            phi_spin_deps = {0}
+            phi_spin_deps = [0]
             if phi_parameters.shape[3] == 2:
-                phi_spin_deps = {0, 1}
+                phi_spin_deps = [0, 1]
                 if self.neu < 2 and self.ned < 2:
-                    phi_spin_deps.remove(0)
+                    phi_spin_deps = [x for x in phi_spin_deps if x != 0]
                 if self.neu + self.ned < 2:
-                    phi_spin_deps.remove(1)
+                    phi_spin_deps = [x for x in phi_spin_deps if x != 1]
             elif phi_parameters.shape[3] == 3:
-                phi_spin_deps = {0, 1, 2}
+                phi_spin_deps = [0, 1, 2]
                 if self.neu < 2:
-                    phi_spin_deps.remove(0)
+                    phi_spin_deps = [x for x in phi_spin_deps if x != 0]
                 if self.neu + self.ned < 2:
-                    phi_spin_deps.remove(1)
+                    phi_spin_deps = [x for x in phi_spin_deps if x != 1]
                 if self.ned < 2:
-                    phi_spin_deps.remove(2)
+                    phi_spin_deps = [x for x in phi_spin_deps if x != 2]
 
-            for spin_dep in sorted(phi_spin_deps):
+            for spin_dep in phi_spin_deps:
                 phi_matrix = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
                 phi_constrains_size, phi_parameters_size = phi_matrix.shape
                 a_list.append(phi_matrix)

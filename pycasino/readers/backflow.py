@@ -20,25 +20,19 @@ backflow_template = """\
   {title}
  Truncation order
    {trunc}
- START ETA TERM
- {eta_set}
- END ETA TERM
- START MU TERM
- Number of sets ; labelling (1->atom in s. cell; 2->atom in p. cell; 3->species)
-  {n_mu_sets} 1
- {mu_sets}
- END MU TERM
- START PHI TERM
- Number of sets ; labelling (1->atom in s. cell; 2->atom in p. cell; 3->species)
-  {n_phi_sets} 1
- {phi_sets}
- END PHI TERM
+ {terms}\
  START AE CUTOFFS
  Nucleus ; Set ; Cutoff length     ;  Optimizable (0=NO; 1=YES)
  {ae_cutoffs}
  END AE CUTOFFS
  END BACKFLOW
 
+"""
+
+eta_term_template = """\
+ START ETA TERM
+ {eta_set}
+ END ETA TERM
 """
 
 eta_set_template = """\
@@ -50,6 +44,14 @@ Expansion order
    {eta_cutoff:.16f}                {eta_cutoff_optimizable}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
   {eta_parameters}"""
+
+mu_term_template = """\
+ START MU TERM
+ Number of sets ; labelling (1->atom in s. cell; 2->atom in p. cell; 3->species)
+  {n_mu_sets} 1
+ {mu_sets}
+ END MU TERM
+"""
 
 mu_set_template = """\
 START SET {n_set}
@@ -68,6 +70,14 @@ START SET {n_set}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
   {mu_parameters}
  END SET {n_set}"""
+
+phi_term_template = """\
+ START PHI TERM
+ Number of sets ; labelling (1->atom in s. cell; 2->atom in p. cell; 3->species)
+  {n_phi_sets} 1
+ {phi_sets}
+ END PHI TERM
+"""
 
 phi_set_template = """\
 START SET {n_set}
@@ -450,21 +460,26 @@ class Backflow:
                         ae_cutoff_optimizable.append(float(cutoff_length_optimizable))
 
     def write(self):
-        eta_parameters_list = []
-        eta_parameters_independent = self.eta_parameters_independent(self.eta_parameters)
-        for i in range(self.eta_parameters.shape[1]):
-            for j in range(self.eta_parameters.shape[0]):
-                if eta_parameters_independent[j, i]:
-                    eta_parameters_list.append(f'{self.eta_parameters[j, i]: .16e}            {int(self.eta_parameters_optimizable[j, i])}       ! c_{j},{i + 1}')
-        eta_set = eta_set_template.format(
-            eta_order=self.eta_parameters.shape[0] - 1,
-            eta_spin_dep=self.eta_parameters.shape[1] - 1,
-            # FIXME: Optimizable (0=NO; 1=YES; 2=YES BUT NO SPIN-DEP)
-            eta_cutoff=self.eta_cutoff[0]['value'],
-            eta_cutoff_optimizable=int(self.eta_cutoff[0]['optimizable']),
-            eta_parameters='\n  '.join(eta_parameters_list),
-        )
-        mu_sets = ''
+        eta_term = ""
+        if self.eta_cutoff['value'].any():
+            eta_parameters_list = []
+            eta_parameters_independent = self.eta_parameters_independent(self.eta_parameters)
+            for i in range(self.eta_parameters.shape[1]):
+                for j in range(self.eta_parameters.shape[0]):
+                    if eta_parameters_independent[j, i]:
+                        eta_parameters_list.append(f'{self.eta_parameters[j, i]: .16e}            {int(self.eta_parameters_optimizable[j, i])}       ! c_{j},{i + 1}')
+            eta_set = eta_set_template.format(
+                eta_order=self.eta_parameters.shape[0] - 1,
+                eta_spin_dep=self.eta_parameters.shape[1] - 1,
+                # FIXME: Optimizable (0=NO; 1=YES; 2=YES BUT NO SPIN-DEP)
+                eta_cutoff=self.eta_cutoff[0]['value'],
+                eta_cutoff_optimizable=int(self.eta_cutoff[0]['optimizable']),
+                eta_parameters='\n  '.join(eta_parameters_list),
+            )
+            eta_term = eta_term_template.format(eta_set=eta_set)
+
+        n_mu_set = 0
+        mu_term = mu_sets = ''
         for n_mu_set, (mu_labels, mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cusp) in enumerate(zip(self.mu_labels, self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cusp)):
             mu_parameters_list = []
             mu_parameters_independent = self.mu_parameters_independent(mu_parameters)
@@ -483,7 +498,11 @@ class Backflow:
                 mu_cutoff_optimizable=int(mu_cutoff['optimizable']),
                 mu_parameters='\n  '.join(mu_parameters_list),
             )
-        phi_sets = ''
+        if mu_sets:
+            mu_term = mu_term_template.format(n_mu_sets=n_mu_set + 1, mu_sets=mu_sets)
+
+        n_phi_set = 0
+        phi_term = phi_sets = ''
         for n_phi_set, (phi_labels, phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable, phi_cutoff, phi_cusp, phi_irrotational) in enumerate(zip(self.phi_labels, self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable, self.phi_cutoff, self.phi_cusp, self.phi_irrotational)):
             phi_theta_parameters_list = []
             phi_parameters_independent, theta_parameters_independent = self.phi_theta_parameters_independent(phi_parameters, phi_cutoff['value'], phi_cusp, phi_irrotational)
@@ -511,17 +530,16 @@ class Backflow:
                 phi_irrotational=int(phi_irrotational),
                 phi_parameters='\n  '.join(phi_theta_parameters_list),
             )
+        if phi_sets:
+            phi_term = phi_term_template.format(n_phi_sets=n_phi_set + 1, phi_sets=phi_sets)
+
         ae_cutoff_list = []
         for i, (ae_cutoff, ae_cutoff_optimizable) in enumerate(zip(self.ae_cutoff, self.ae_cutoff_optimizable)):
             ae_cutoff_list.append(f' {i + 1}         1      {ae_cutoff}                               {int(ae_cutoff_optimizable)}')
         backflow = backflow_template.format(
             title='no title given',
             trunc=self.trunc,
-            eta_set=eta_set,
-            n_mu_sets=n_mu_set + 1,
-            mu_sets=mu_sets,
-            n_phi_sets=n_phi_set + 1,
-            phi_sets=phi_sets,
+            terms=eta_term + mu_term + phi_term,
             ae_cutoffs='\n  '.join(ae_cutoff_list),
         )
         return backflow
