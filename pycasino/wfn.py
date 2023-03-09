@@ -236,7 +236,7 @@ class Wfn:
             j_g_d1 = self.jastrow.gradient_parameters_d1(e_vectors, n_vectors)
             j_l_d1 = self.jastrow.laplacian_parameters_d1(e_vectors, n_vectors)
             a, b = self.jastrow.get_parameters_constraints()
-            p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
+            p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
             mask_idx = np.argwhere(self.jastrow.get_parameters_mask()).ravel()
             inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
             res = np.concatenate((
@@ -246,11 +246,13 @@ class Wfn:
             delta = (1/2**52)**(1/2)
             parameters = self.backflow.get_parameters(all_parameters=True)
             a, b = self.backflow.get_parameters_constraints()
-            p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
+            p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
             mask_idx = np.argwhere(self.backflow.get_parameters_mask()).ravel()
             inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
             d1 = np.zeros(shape=parameters.shape)
             j_g = self.jastrow.gradient(e_vectors, n_vectors)
+            # b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
+            # b_g_d1, b_v_d1 = self.backflow.gradient_parameters_d1(e_vectors, n_vectors)
             for i in range(parameters.size):
                 parameters[i] -= delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
