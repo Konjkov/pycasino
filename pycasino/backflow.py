@@ -188,43 +188,43 @@ class Backflow:
 
     def ae_multiplier(self, n_vectors, n_powers):
         """Zeroing the backflow displacement at AE atoms."""
-        res = np.ones(shape=(self.neu + self.ned, 3))
+        res = np.ones(shape=(2, self.neu + self.ned, 3))
         for i in range(n_vectors.shape[0]):
             Lg = self.ae_cutoff[i]
             for j in range(self.neu + self.ned):
                 r = n_powers[i, j, 1]
                 if r < Lg:
-                    res[j] = (r/Lg)**2 * (6 - 8 * (r/Lg) + 3 * (r/Lg)**2)
-        return res
+                    res[1, j] = (r/Lg)**2 * (6 - 8 * (r/Lg) + 3 * (r/Lg)**2)
+        return res.reshape(2, (self.neu + self.ned) * 3)
 
     def ae_multiplier_gradient(self, n_vectors, n_powers):
         """Zeroing the backflow displacement at AE atoms.
         Gradient of spherically symmetric function (in 3-D space) is:
             ∇(f) = df/dr * r_vec/r
         """
-        res = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
+        res = np.zeros(shape=(2, self.neu + self.ned, 3, self.neu + self.ned, 3))
         for i in range(n_vectors.shape[0]):
             Lg = self.ae_cutoff[i]
             for j in range(self.neu + self.ned):
                 r_vec = n_vectors[i, j]
                 r = n_powers[i, j, 1]
                 if r < Lg:
-                    res[j, :, j, :] = 12*r_vec/Lg**2 * (1 - r/Lg)**2
-        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+                    res[1, j, :, j, :] = 12*r_vec/Lg**2 * (1 - r/Lg)**2
+        return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def ae_multiplier_laplacian(self, n_vectors, n_powers):
         """Zeroing the backflow displacement at AE atoms.
         Laplace operator of spherically symmetric function (in 3-D space) is:
             ∇²(f) = d²f/dr² + 2/r * df/dr
         """
-        res = np.zeros(shape=(self.neu + self.ned, 3))
+        res = np.zeros(shape=(2, self.neu + self.ned, 3))
         for i in range(n_vectors.shape[0]):
             Lg = self.ae_cutoff[i]
             for j in range(self.neu + self.ned):
                 r = n_powers[i, j, 1]
                 if r < Lg:
-                    res[j] = 12/Lg**2 * (3 - 8 * (r/Lg) + 5 * (r/Lg)**2)
-        return res.ravel()
+                    res[1, j] = 12/Lg**2 * (3 - 8 * (r/Lg) + 5 * (r/Lg)**2)
+        return res.reshape(2, (self.neu + self.ned) * 3)
 
     def eta_term(self, e_vectors, e_powers):
         """
@@ -232,9 +232,10 @@ class Backflow:
         :param e_powers: powers of e-e distances
         :return: displacements of electrons - array(nelec, 3)
         """
-        res = np.zeros(shape=(self.neu + self.ned, 3))
+        ae_cutoff_condition = 1
+        res = np.zeros(shape=(2, self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
-            return res
+            return res.reshape(2, (self.neu + self.ned) * 3)
 
         C = self.trunc
         parameters = self.eta_parameters
@@ -249,9 +250,9 @@ class Backflow:
                     for k in range(parameters.shape[0]):
                         poly += parameters[k, eta_set] * e_powers[i, j, k]
                     bf = (1 - r/L) ** C * poly * r_vec
-                    res[i] += bf
-                    res[j] -= bf
-        return res
+                    res[ae_cutoff_condition, i] += bf
+                    res[ae_cutoff_condition, j] -= bf
+        return res.reshape(2, (self.neu + self.ned) * 3)
 
     def mu_term(self, n_vectors, n_powers):
         """
@@ -261,7 +262,7 @@ class Backflow:
         """
         res = np.zeros(shape=(2, self.neu + self.ned, 3))
         if not self.mu_cutoff.any():
-            return res
+            return res.reshape(2, (self.neu + self.ned) * 3)
 
         C = self.trunc
         for parameters, L, mu_labels in zip(self.mu_parameters, self.mu_cutoff, self.mu_labels):
@@ -279,7 +280,7 @@ class Backflow:
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[i])
                         res[ae_cutoff_condition, j] += poly * (1 - r / L) ** C * r_vec
-        return res
+        return res.reshape(2, (self.neu + self.ned) * 3)
 
     def phi_term(self, e_powers, n_powers, e_vectors, n_vectors):
         """
@@ -291,7 +292,7 @@ class Backflow:
         """
         res = np.zeros(shape=(2, self.neu + self.ned, 3))
         if not self.phi_cutoff.any():
-            return res
+            return res.reshape(2, (self.neu + self.ned) * 3)
 
         C = self.trunc
         for phi_parameters, theta_parameters, L, phi_labels in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_labels):
@@ -318,7 +319,7 @@ class Backflow:
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[i])
                             res[ae_cutoff_condition, j1] += (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * (phi_poly * r_ee_vec + theta_poly * r_e1I_vec)
-        return res
+        return res.reshape(2, (self.neu + self.ned) * 3)
 
     def eta_term_gradient(self, e_powers, e_vectors):
         """
@@ -327,9 +328,10 @@ class Backflow:
         Gradient of spherically symmetric function (in 3-D space) is df/dr * (x, y, z)
         :return: partial derivatives of displacements of electrons - array(nelec * 3, nelec * 3)
         """
-        res = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
+        ae_cutoff_condition = 1
+        res = np.zeros(shape=(2, self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
-            return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+            return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
         C = self.trunc
         parameters = self.eta_parameters
@@ -350,12 +352,12 @@ class Backflow:
                     bf = (1 - r/L)**C * (
                         (poly_diff - C/(L - r)*poly) * np.outer(r_vec, r_vec)/r + poly * np.eye(3)
                     )
-                    res[i, :, i, :] += bf
-                    res[i, :, j, :] -= bf
-                    res[j, :, i, :] -= bf
-                    res[j, :, j, :] += bf
+                    res[ae_cutoff_condition, i, :, i, :] += bf
+                    res[ae_cutoff_condition, i, :, j, :] -= bf
+                    res[ae_cutoff_condition, j, :, i, :] -= bf
+                    res[ae_cutoff_condition, j, :, j, :] += bf
 
-        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+        return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def mu_term_gradient(self, n_powers, n_vectors):
         """
@@ -469,9 +471,10 @@ class Backflow:
             ∇²(f) = d²f/dr² + 2/r * df/dr
         :return: vector laplacian - array(nelec * 3)
         """
-        res = np.zeros(shape=(self.neu + self.ned, 3))
+        ae_cutoff_condition = 1
+        res = np.zeros(shape=(2, self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
-            return res.ravel()
+            return res.reshape(2, (self.neu + self.ned) * 3)
 
         C = self.trunc
         parameters = self.eta_parameters
@@ -495,10 +498,10 @@ class Backflow:
                         4*(poly_diff - C/(L - r) * poly) +
                         r*(C*(C - 1)/(L - r)**2*poly - 2*C/(L - r)*poly_diff + poly_diff_2)
                     ) * r_vec/r
-                    res[i] += bf
-                    res[j] -= bf
+                    res[ae_cutoff_condition, i] += bf
+                    res[ae_cutoff_condition, j] -= bf
 
-        return res.ravel()
+        return res.reshape(2, (self.neu + self.ned) * 3)
 
     def mu_term_laplacian(self, n_powers, n_vectors):
         """
@@ -672,12 +675,10 @@ class Backflow:
         mu_term = self.mu_term(n_vectors, n_powers)
         phi_term = self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
 
-        ae_value = eta_term + mu_term[1] + phi_term[1]
+        ae_value = eta_term + mu_term + phi_term
+        ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
 
-        return (
-            ae_value * self.ae_multiplier(n_vectors, n_powers) +
-            mu_term[0] + phi_term[0]
-        ) + n_vectors
+        return np.sum(ae_value * ae_multiplier, axis=0).reshape((self.neu + self.ned), 3) + n_vectors
 
     def gradient(self, e_vectors, n_vectors):
         """Gradient with respect to e-coordinates
@@ -696,20 +697,17 @@ class Backflow:
         mu_term_gradient = self.mu_term_gradient(n_powers, n_vectors)
         phi_term_gradient = self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
 
-        ae_value = eta_term + mu_term[1] + phi_term[1]
+        ae_value = eta_term + mu_term + phi_term
         ae_gradient = eta_term_gradient + mu_term_gradient[1] + phi_term_gradient[1]
 
         ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
         ae_multiplier_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
 
-        value = (
-            ae_value * ae_multiplier +
-            mu_term[0] + phi_term[0]
-        ) + n_vectors
+        value = np.sum(ae_value * ae_multiplier, axis=0).reshape((self.neu + self.ned), 3) + n_vectors
 
         gradient = (
-            ae_multiplier_gradient * ae_value.reshape((-1, 1)) +
-            ae_gradient * ae_multiplier.reshape((-1, 1)) +
+            ae_multiplier_gradient * np.expand_dims(ae_value, 1) +
+            ae_gradient * np.expand_dims(ae_multiplier, 1) +
             mu_term_gradient[0] + phi_term_gradient[0]
         ) + np.eye((self.neu + self.ned) * 3)
 
@@ -736,30 +734,26 @@ class Backflow:
         mu_term_laplacian = self.mu_term_laplacian(n_powers, n_vectors)
         phi_term_laplacian = self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
 
-        ae_value = eta_term + mu_term[1] + phi_term[1]
-        ae_gradient = eta_term_gradient + mu_term_gradient[1] + phi_term_gradient[1]
-        ae_laplacian = eta_term_laplacian + mu_term_laplacian[1] + phi_term_laplacian[1]
+        ae_value = eta_term + mu_term + phi_term
+        ae_gradient = eta_term_gradient + mu_term_gradient + phi_term_gradient
+        ae_laplacian = eta_term_laplacian + mu_term_laplacian + phi_term_laplacian
 
         ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
         ae_multiplier_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
         ae_multiplier_laplacian = self.ae_multiplier_laplacian(n_vectors, n_powers)
 
-        value = (
-            ae_value * ae_multiplier +
-            mu_term[0] + phi_term[0]
-        ) + n_vectors
+        value = np.sum(ae_value * ae_multiplier, axis=0).reshape((self.neu + self.ned), 3) + n_vectors
 
         gradient = (
-            ae_multiplier_gradient * ae_value.reshape((-1, 1)) +
-            ae_gradient * ae_multiplier.reshape((-1, 1)) +
+            ae_multiplier_gradient[1] * np.expand_dims(ae_value[1], 1) +
+            ae_gradient[1] * np.expand_dims(ae_multiplier[1], 1) +
             mu_term_gradient[0] + phi_term_gradient[0]
         ) + np.eye((self.neu + self.ned) * 3)
 
         laplacian = (
-            ae_multiplier_laplacian * ae_value.ravel() +
-            2 * (ae_gradient * ae_multiplier_gradient).sum(axis=1) +
-            ae_laplacian * ae_multiplier.ravel() +
-            mu_term_laplacian[0] + phi_term_laplacian[0]
+            np.sum(ae_multiplier_laplacian * ae_value, axis=0) +
+            2 * (ae_gradient[1] * ae_multiplier_gradient[1]).sum(axis=1) +
+            np.sum(ae_laplacian * ae_multiplier, axis=0)
         )
 
         return laplacian, gradient, value
@@ -1257,9 +1251,9 @@ class Backflow:
             if self.phi_cutoff_optimizable[i]:
                 n += 1
                 self.phi_cutoff[i] -= delta
-                res[n] -= self.phi_term(e_powers, n_powers, e_vectors, n_vectors)[0]
+                res[n] -= self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
                 self.phi_cutoff[i] += 2 * delta
-                res[n] += self.phi_term(e_powers, n_powers, e_vectors, n_vectors)[0]
+                res[n] += self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
                 self.phi_cutoff[i] -= delta
 
             for j4 in range(phi_parameters.shape[3]):
