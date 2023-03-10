@@ -7,3 +7,9 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
 import numpy as np
 
 np.random.seed(31415926)
+
+# https://scicomp.stackexchange.com/questions/14355/choosing-epsilons
+# delta = np.sqrt(sys.float_info.epsilon)
+delta = np.sqrt(np.finfo(np.float).eps)
+
+# np.show_config()

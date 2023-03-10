@@ -1,15 +1,5 @@
-import os
-
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
-
-import numpy as np
+from numpy_config import np, delta
 import numba as nb
-
-# np.show_config()
 
 from logger import logging
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
@@ -411,8 +401,6 @@ class Slater:
         """Numerical gradient with respect to e-coordinates
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        delta = 0.00001
-
         val = self.value(n_vectors)
         res = np.zeros(shape=(self.neu + self.ned, 3))
         for i in range(self.neu + self.ned):
@@ -429,8 +417,6 @@ class Slater:
         """Numerical laplacian with respect to e-coordinates
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        delta = 0.00001
-
         val = self.value(n_vectors)
         res = - 6 * (self.neu + self.ned) * val
         for i in range(self.neu + self.ned):
@@ -449,8 +435,6 @@ class Slater:
         :param n_vectors: e-n vectors
         :return:
         """
-        delta = 0.00001
-
         val = self.value(n_vectors)
         res = -2 * val * np.eye((self.neu + self.ned) * 3).reshape(self.neu + self.ned, 3, self.neu + self.ned, 3)
         for i in range(self.neu + self.ned):

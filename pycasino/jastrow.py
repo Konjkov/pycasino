@@ -1,4 +1,4 @@
-from numpy_config import np
+from numpy_config import np, delta
 import numba as nb
 
 from readers.numerical import rref
@@ -561,8 +561,6 @@ class Jastrow:
         :param n_vectors: e-n vectors
         :return:
         """
-        delta = 0.00001
-
         res = np.zeros(shape=(self.neu + self.ned, 3))
 
         for i in range(self.neu + self.ned):
@@ -587,8 +585,6 @@ class Jastrow:
         :param n_vectors: e-n vectors
         :return:
         """
-        delta = 0.00001
-
         res = -6 * (self.neu + self.ned) * self.value(e_vectors, n_vectors)
         for i in range(self.neu + self.ned):
             for j in range(3):
@@ -940,7 +936,6 @@ class Jastrow:
         if not self.u_cutoff:
             return np.zeros((0,))
 
-        delta = (1/2**52)**(1/2)
         size = self.u_parameters_available.sum() + self.u_cutoff_optimizable
         res = np.zeros(shape=(size,))
 
@@ -974,7 +969,6 @@ class Jastrow:
         if not self.chi_cutoff.any():
             return np.zeros((0,))
 
-        delta = (1/2**52)**(1/2)
         size = sum([
             chi_parameters_available.sum() + chi_cutoff_optimizable
             for chi_parameters_available, chi_cutoff_optimizable
@@ -1015,7 +1009,6 @@ class Jastrow:
         if not self.f_cutoff.any():
             return np.zeros((0,))
 
-        delta = (1/2**52)**(1/2)
         C = self.trunc
         size = sum([
             f_parameters_available.sum() + f_cutoff_optimizable
@@ -1071,7 +1064,6 @@ class Jastrow:
         if not self.u_cutoff:
             return np.zeros((0, (self.neu + self.ned) * 3))
 
-        delta = 0.000001
         size = self.u_parameters_available.sum() + self.u_cutoff_optimizable
         res = np.zeros(shape=(size, (self.neu + self.ned), 3))
 
@@ -1114,7 +1106,6 @@ class Jastrow:
         if not self.chi_cutoff.any():
             return np.zeros((0, (self.neu + self.ned) * 3))
 
-        delta = 0.000001
         size = sum([
             chi_parameters_available.sum() + chi_cutoff_optimizable
             for chi_parameters_available, chi_cutoff_optimizable
@@ -1161,7 +1152,6 @@ class Jastrow:
         if not self.f_cutoff.any():
             return np.zeros((0, (self.neu + self.ned) * 3))
 
-        delta = 0.000001
         size = sum([
             f_parameters_available.sum() + f_cutoff_optimizable
             for f_parameters_available, f_cutoff_optimizable
@@ -1237,7 +1227,6 @@ class Jastrow:
         if not self.u_cutoff:
             return np.zeros((0, ))
 
-        delta = 0.000001
         size = self.u_parameters_available.sum() + self.u_cutoff_optimizable
         res = np.zeros(shape=(size, ))
 
@@ -1281,7 +1270,6 @@ class Jastrow:
         if not self.chi_cutoff.any():
             return np.zeros((0, ))
 
-        delta = 0.000001
         size = sum([
             chi_parameters_available.sum() + chi_cutoff_optimizable
             for chi_parameters_available, chi_cutoff_optimizable
@@ -1331,7 +1319,6 @@ class Jastrow:
         if not self.f_cutoff.any():
             return np.zeros((0, ))
 
-        delta = 0.000001
         size = sum([
             f_parameters_available.sum() + f_cutoff_optimizable
             for f_parameters_available, f_cutoff_optimizable
@@ -1446,7 +1433,7 @@ class Jastrow:
                                                         res[n] += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product)
         return res
 
-    def parameters_d1(self, e_vectors, n_vectors) -> np.ndarray:
+    def value_parameters_d1(self, e_vectors, n_vectors) -> np.ndarray:
         """First derivatives logarithm Jastrow w.r.t the parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
@@ -1496,7 +1483,6 @@ class Jastrow:
         :param n_vectors: e-n vectors
         :return:
         """
-        delta = (1/2**52)**(1/2)
         parameters = self.get_parameters(True)
         res = np.zeros(shape=(parameters.size, (self.neu + self.ned) * 3))
         for i in range(parameters.size):
@@ -1517,7 +1503,6 @@ class Jastrow:
         :param n_vectors: e-n vectors
         :return:
         """
-        delta = (1/2**52)**(1/2)
         parameters = self.get_parameters(True)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):

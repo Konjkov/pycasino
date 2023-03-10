@@ -1,4 +1,4 @@
-from numpy_config import np
+from numpy_config import np, delta
 import numba as nb
 
 from slater import Slater
@@ -207,7 +207,7 @@ class Wfn:
         e_vectors, n_vectors = self._relative_coordinates(r_e)
         if self.jastrow is not None and opt_jastrow:
             res = np.concatenate((
-                res, self.jastrow.parameters_d1(e_vectors, n_vectors)
+                res, self.jastrow.value_parameters_d1(e_vectors, n_vectors)
             ))
             a, b = self.jastrow.get_parameters_constraints()
             p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
@@ -217,6 +217,7 @@ class Wfn:
         if self.backflow is not None and opt_backflow:
             b_v = self.backflow.value(e_vectors, n_vectors)
             res = np.concatenate((
+                # FIXME: не проверено
                 res, self.backflow.parameters_numerical_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v).ravel()
             ))
         return res
@@ -243,7 +244,6 @@ class Wfn:
                 res, (np.sum((s_g + j_g) * j_g_d1, axis=1) + j_l_d1 / 2) @ (p[:, mask_idx] @ inv_p)
             ))
         if self.backflow is not None and opt_backflow:
-            delta = (1/2**52)**(1/2)
             parameters = self.backflow.get_parameters(all_parameters=True)
             a, b = self.backflow.get_parameters_constraints()
             p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
@@ -251,8 +251,16 @@ class Wfn:
             inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
             d1 = np.zeros(shape=parameters.shape)
             j_g = self.jastrow.gradient(e_vectors, n_vectors)
-            # b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
-            # b_g_d1, b_v_d1 = self.backflow.gradient_parameters_d1(e_vectors, n_vectors)
+            if self.jastrow is not None:
+                b_l_d1, b_g_d1, b_v_d1 = self.backflow.laplacian_parameters_d1(e_vectors, n_vectors)
+                print('self.backflow.laplacian_parameters_d1', b_l_d1.shape, b_g_d1.shape, b_v_d1.shape)
+                b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
+                print('backflow.gradient', b_g.shape)
+                s_g = self.slater.gradient(b_v)
+                s_h = self.slater.hessian(b_v)
+                print('self.slater.hessian', s_g.shape, s_h.shape)
+                # x = np.sum(s_g @ b_g_d1 * j_g, axis=1) + np.sum(s_g_d1 @ b_g * j_g, axis=1)
+                # print(x.shape)
             for i in range(parameters.size):
                 parameters[i] -= delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
@@ -268,10 +276,10 @@ class Wfn:
                 b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
                 s_g = self.slater.gradient(b_v)
                 s_h = self.slater.hessian(b_v)
-                temp = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
+                temp = (np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l) / 2
                 if self.jastrow is not None:
-                    temp += 2 * np.sum(s_g @ b_g * j_g)
-                d1[i] += temp / 2
+                    temp += np.sum(s_g @ b_g * j_g)
+                d1[i] += temp
                 parameters[i] -= delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
             res = np.concatenate((
@@ -287,7 +295,6 @@ class Wfn:
         :param all_parameters: optimize all parameters or only independent
         :return:
         """
-        delta = (1/2**52)**(1/2)
         scale = self.get_parameters_scale(opt_jastrow, opt_backflow)
         parameters = self.get_parameters(opt_jastrow, opt_backflow, all_parameters)
         res = np.zeros(shape=parameters.shape)
@@ -311,7 +318,6 @@ class Wfn:
         :param all_parameters: optimize all parameters or only independent
         :return:
         """
-        delta = (1/2**52)**(1/2)
         scale = self.get_parameters_scale(opt_jastrow, opt_backflow)
         parameters = self.get_parameters(opt_jastrow, opt_backflow, all_parameters)
         res = np.zeros(shape=parameters.shape)
@@ -331,9 +337,6 @@ class Wfn:
         """Numerical gradient with respect to e-coordinates
         :param r_e: electron coordinates - array(nelec, 3)
         """
-        # https://scicomp.stackexchange.com/questions/14355/choosing-epsilons
-        delta = (1/2**52)**(1/2)
-
         val = self.value(r_e)
         res = np.zeros((self.neu + self.ned, 3))
         e_vectors, n_vectors = self._relative_coordinates(r_e)
@@ -357,8 +360,6 @@ class Wfn:
         """Numerical laplacian with respect to e-coordinates
         :param r_e: electron coordinates - array(nelec, 3)
         """
-        delta = (1/2**52)**(1/2)
-
         val = self.value(r_e)
         res = - 6 * (self.neu + self.ned) * self.value(r_e)
         e_vectors, n_vectors = self._relative_coordinates(r_e)
