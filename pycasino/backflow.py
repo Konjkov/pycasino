@@ -226,7 +226,7 @@ class Backflow:
                     res[1, j] = 12/Lg**2 * (3 - 8 * (r/Lg) + 5 * (r/Lg)**2)
         return res.reshape(2, (self.neu + self.ned) * 3)
 
-    def eta_term(self, e_vectors, e_powers):
+    def eta_term(self, e_powers, e_vectors):
         """
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
@@ -254,7 +254,7 @@ class Backflow:
                     res[ae_cutoff_condition, e2] -= bf
         return res.reshape(2, (self.neu + self.ned) * 3)
 
-    def mu_term(self, n_vectors, n_powers):
+    def mu_term(self, n_powers, n_vectors):
         """
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
@@ -673,8 +673,8 @@ class Backflow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        eta_term = self.eta_term(e_vectors, e_powers)
-        mu_term = self.mu_term(n_vectors, n_powers)
+        eta_term = self.eta_term(e_powers, e_vectors)
+        mu_term = self.mu_term(n_powers, n_vectors)
         phi_term = self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
 
         ae_value = eta_term + mu_term + phi_term
@@ -694,8 +694,8 @@ class Backflow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        eta_term = self.eta_term(e_vectors, e_powers)
-        mu_term = self.mu_term(n_vectors, n_powers)
+        eta_term = self.eta_term(e_powers, e_vectors)
+        mu_term = self.mu_term(n_powers, n_vectors)
         phi_term = self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
 
         eta_term_gradient = self.eta_term_gradient(e_powers, e_vectors)
@@ -730,8 +730,8 @@ class Backflow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        eta_term = self.eta_term(e_vectors, e_powers)
-        mu_term = self.mu_term(n_vectors, n_powers)
+        eta_term = self.eta_term(e_powers, e_vectors)
+        mu_term = self.mu_term(n_powers, n_vectors)
         phi_term = self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
 
         eta_term_gradient = self.eta_term_gradient(e_powers, e_vectors)
@@ -1164,7 +1164,7 @@ class Backflow:
 
         return parameters[n:]
 
-    def eta_term_d1(self, e_vectors, e_powers):
+    def eta_term_d1(self, e_powers, e_vectors):
         """Numerical first derivatives of logarithm wfn w.r.t eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
@@ -1181,9 +1181,9 @@ class Backflow:
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                res[n] -= self.eta_term(e_vectors, e_powers)
+                res[n] -= self.eta_term(e_powers, e_vectors)
                 self.eta_cutoff[i] += 2 * delta
-                res[n] += self.eta_term(e_vectors, e_powers)
+                res[n] += self.eta_term(e_powers, e_vectors)
                 self.eta_cutoff[i] -= delta
 
         for j2 in range(self.eta_parameters.shape[1]):
@@ -1204,7 +1204,7 @@ class Backflow:
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
-    def eta_term_numerical_d1(self, e_vectors, e_powers):
+    def eta_term_numerical_d1(self, e_powers, e_vectors):
         """Numerical first derivatives of logarithm wfn w.r.t eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
@@ -1220,9 +1220,9 @@ class Backflow:
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                res[n] -= self.eta_term(e_vectors, e_powers)
+                res[n] -= self.eta_term(e_powers, e_vectors)
                 self.eta_cutoff[i] += 2 * delta
-                res[n] += self.eta_term(e_vectors, e_powers)
+                res[n] += self.eta_term(e_powers, e_vectors)
                 self.eta_cutoff[i] -= delta
 
         for j2 in range(self.eta_parameters.shape[1]):
@@ -1230,14 +1230,14 @@ class Backflow:
                 if self.eta_parameters_available[j1, j2]:
                     n += 1
                     self.eta_parameters[j1, j2] -= delta
-                    res[n] -= self.eta_term(e_vectors, e_powers)
+                    res[n] -= self.eta_term(e_powers, e_vectors)
                     self.eta_parameters[j1, j2] += 2 * delta
-                    res[n] += self.eta_term(e_vectors, e_powers)
+                    res[n] += self.eta_term(e_powers, e_vectors)
                     self.eta_parameters[j1, j2] -= delta
 
         return res / delta / 2
 
-    def mu_term_numerical_d1(self, n_vectors, n_powers):
+    def mu_term_numerical_d1(self, n_powers, n_vectors):
         """Numerical first derivatives of logarithm wfn w.r.t mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
@@ -1257,9 +1257,9 @@ class Backflow:
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                res[n] -= self.mu_term(n_vectors, n_powers)
+                res[n] -= self.mu_term(n_powers, n_vectors)
                 self.mu_cutoff[i] += 2 * delta
-                res[n] += self.mu_term(n_vectors, n_powers)
+                res[n] += self.mu_term(n_powers, n_vectors)
                 self.mu_cutoff[i] -= delta
 
             for j2 in range(mu_parameters.shape[1]):
@@ -1267,9 +1267,9 @@ class Backflow:
                     if mu_parameters_available[j1, j2]:
                         n += 1
                         mu_parameters[j1, j2] -= delta
-                        res[n] -= self.mu_term(n_vectors, n_powers)
+                        res[n] -= self.mu_term(n_powers, n_vectors)
                         mu_parameters[j1, j2] += 2 * delta
-                        res[n] += self.mu_term(n_vectors, n_powers)
+                        res[n] += self.mu_term(n_powers, n_vectors)
                         mu_parameters[j1, j2] -= delta
 
         return res / delta / 2
@@ -1329,7 +1329,7 @@ class Backflow:
 
         return res / delta / 2
 
-    def eta_term_gradient_d1(self, e_vectors, e_powers):
+    def eta_term_gradient_d1(self, e_powers, e_vectors):
         """Numerical first derivatives of logarithm wfn w.r.t eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
@@ -1346,9 +1346,9 @@ class Backflow:
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                res[n] -= self.eta_term_gradient(e_vectors, e_powers)
+                res[n] -= self.eta_term_gradient(e_powers, e_vectors)
                 self.eta_cutoff[i] += 2 * delta
-                res[n] += self.eta_term_gradient(e_vectors, e_powers)
+                res[n] += self.eta_term_gradient(e_powers, e_vectors)
                 self.eta_cutoff[i] -= delta
 
         for j2 in range(self.eta_parameters.shape[1]):
@@ -1377,7 +1377,7 @@ class Backflow:
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
-    def eta_term_gradient_numerical_d1(self, e_vectors, e_powers):
+    def eta_term_gradient_numerical_d1(self, e_powers, e_vectors):
         """Numerical first derivatives of logarithm wfn w.r.t eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
@@ -1393,9 +1393,9 @@ class Backflow:
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                res[n] -= self.eta_term_gradient(e_vectors, e_powers)
+                res[n] -= self.eta_term_gradient(e_powers, e_vectors)
                 self.eta_cutoff[i] += 2 * delta
-                res[n] += self.eta_term_gradient(e_vectors, e_powers)
+                res[n] += self.eta_term_gradient(e_powers, e_vectors)
                 self.eta_cutoff[i] -= delta
 
         for j2 in range(self.eta_parameters.shape[1]):
@@ -1403,14 +1403,14 @@ class Backflow:
                 if self.eta_parameters_available[j1, j2]:
                     n += 1
                     self.eta_parameters[j1, j2] -= delta
-                    res[n] -= self.eta_term_gradient(e_vectors, e_powers)
+                    res[n] -= self.eta_term_gradient(e_powers, e_vectors)
                     self.eta_parameters[j1, j2] += 2 * delta
-                    res[n] += self.eta_term_gradient(e_vectors, e_powers)
+                    res[n] += self.eta_term_gradient(e_powers, e_vectors)
                     self.eta_parameters[j1, j2] -= delta
 
         return res / delta / 2
 
-    def mu_term_gradient_numerical_d1(self, n_vectors, n_powers):
+    def mu_term_gradient_numerical_d1(self, n_powers, n_vectors):
         """Numerical first derivatives of logarithm wfn w.r.t mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
@@ -1430,9 +1430,9 @@ class Backflow:
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                res[n] -= self.mu_term_gradient(n_vectors, n_powers)
+                res[n] -= self.mu_term_gradient(n_powers, n_vectors)
                 self.mu_cutoff[i] += 2 * delta
-                res[n] += self.mu_term_gradient(n_vectors, n_powers)
+                res[n] += self.mu_term_gradient(n_powers, n_vectors)
                 self.mu_cutoff[i] -= delta
 
             for j2 in range(mu_parameters.shape[1]):
@@ -1440,9 +1440,9 @@ class Backflow:
                     if mu_parameters_available[j1, j2]:
                         n += 1
                         mu_parameters[j1, j2] -= delta
-                        res[n] -= self.mu_term_gradient(n_vectors, n_powers)
+                        res[n] -= self.mu_term_gradient(n_powers, n_vectors)
                         mu_parameters[j1, j2] += 2 * delta
-                        res[n] += self.mu_term_gradient(n_vectors, n_powers)
+                        res[n] += self.mu_term_gradient(n_powers, n_vectors)
                         mu_parameters[j1, j2] -= delta
 
         return res / delta / 2
@@ -1502,7 +1502,7 @@ class Backflow:
 
         return res / delta / 2
 
-    def eta_term_laplacian_d1(self, e_vectors, e_powers):
+    def eta_term_laplacian_d1(self, e_powers, e_vectors):
         """Numerical first derivatives of laplacian w.r.t eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
@@ -1520,9 +1520,9 @@ class Backflow:
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                res[n] -= self.eta_term_laplacian(e_vectors, e_powers)
+                res[n] -= self.eta_term_laplacian(e_powers, e_vectors)
                 self.eta_cutoff[i] += 2 * delta
-                res[n] += self.eta_term_laplacian(e_vectors, e_powers)
+                res[n] += self.eta_term_laplacian(e_powers, e_vectors)
                 self.eta_cutoff[i] -= delta
 
         for j2 in range(self.eta_parameters.shape[1]):
@@ -1553,7 +1553,7 @@ class Backflow:
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
-    def eta_term_laplacian_numerical_d1(self, e_vectors, e_powers):
+    def eta_term_laplacian_numerical_d1(self, e_powers, e_vectors):
         """Numerical first derivatives of laplacian w.r.t eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
@@ -1569,9 +1569,9 @@ class Backflow:
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                res[n] -= self.eta_term_laplacian(e_vectors, e_powers)
+                res[n] -= self.eta_term_laplacian(e_powers, e_vectors)
                 self.eta_cutoff[i] += 2 * delta
-                res[n] += self.eta_term_laplacian(e_vectors, e_powers)
+                res[n] += self.eta_term_laplacian(e_powers, e_vectors)
                 self.eta_cutoff[i] -= delta
 
         for j2 in range(self.eta_parameters.shape[1]):
@@ -1579,14 +1579,14 @@ class Backflow:
                 if self.eta_parameters_available[j1, j2]:
                     n += 1
                     self.eta_parameters[j1, j2] -= delta
-                    res[n] -= self.eta_term_laplacian(e_vectors, e_powers)
+                    res[n] -= self.eta_term_laplacian(e_powers, e_vectors)
                     self.eta_parameters[j1, j2] += 2 * delta
-                    res[n] += self.eta_term_laplacian(e_vectors, e_powers)
+                    res[n] += self.eta_term_laplacian(e_powers, e_vectors)
                     self.eta_parameters[j1, j2] -= delta
 
         return res / delta / 2
 
-    def mu_term_laplacian_numerical_d1(self, n_vectors, n_powers):
+    def mu_term_laplacian_numerical_d1(self, n_powers, n_vectors):
         """Numerical first derivatives of logarithm wfn w.r.t mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
@@ -1606,9 +1606,9 @@ class Backflow:
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                res[n] -= self.mu_term_laplacian(n_vectors, n_powers)
+                res[n] -= self.mu_term_laplacian(n_powers, n_vectors)
                 self.mu_cutoff[i] += 2 * delta
-                res[n] += self.mu_term_laplacian(n_vectors, n_powers)
+                res[n] += self.mu_term_laplacian(n_powers, n_vectors)
                 self.mu_cutoff[i] -= delta
 
             for j2 in range(mu_parameters.shape[1]):
@@ -1616,9 +1616,9 @@ class Backflow:
                     if mu_parameters_available[j1, j2]:
                         n += 1
                         mu_parameters[j1, j2] -= delta
-                        res[n] -= self.mu_term_laplacian(n_vectors, n_powers)
+                        res[n] -= self.mu_term_laplacian(n_powers, n_vectors)
                         mu_parameters[j1, j2] += 2 * delta
-                        res[n] += self.mu_term_laplacian(n_vectors, n_powers)
+                        res[n] += self.mu_term_laplacian(n_powers, n_vectors)
                         mu_parameters[j1, j2] -= delta
 
         return res / delta / 2
@@ -1686,8 +1686,8 @@ class Backflow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        eta_term = self.eta_term_numerical_d1(e_vectors, e_powers)
-        mu_term = self.mu_term_numerical_d1(n_vectors, n_powers)
+        eta_term = self.eta_term_numerical_d1(e_powers, e_vectors)
+        mu_term = self.mu_term_numerical_d1(n_powers, n_vectors)
         phi_term = self.phi_term_numerical_d1(e_powers, n_powers, e_vectors, n_vectors)
 
         ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
@@ -1706,8 +1706,8 @@ class Backflow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        eta_term = self.eta_term_numerical_d1(e_vectors, e_powers)
-        mu_term = self.mu_term_numerical_d1(n_vectors, n_powers)
+        eta_term = self.eta_term_numerical_d1(e_powers, e_vectors)
+        mu_term = self.mu_term_numerical_d1(n_powers, n_vectors)
         phi_term = self.phi_term_numerical_d1(e_powers, n_powers, e_vectors, n_vectors)
 
         eta_term_gradient = self.eta_term_gradient_numerical_d1(e_powers, e_vectors)
@@ -1740,8 +1740,8 @@ class Backflow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        eta_term = self.eta_term_numerical_d1(e_vectors, e_powers)
-        mu_term = self.mu_term_numerical_d1(n_vectors, n_powers)
+        eta_term = self.eta_term_numerical_d1(e_powers, e_vectors)
+        mu_term = self.mu_term_numerical_d1(n_powers, n_vectors)
         phi_term = self.phi_term_numerical_d1(e_powers, n_powers, e_vectors, n_vectors)
 
         eta_term_gradient = self.eta_term_gradient_numerical_d1(e_powers, e_vectors)
