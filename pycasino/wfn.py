@@ -139,9 +139,9 @@ class Wfn:
             if self.jastrow is not None:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
                 j_l = self.jastrow.laplacian(e_vectors, n_vectors)
-                s_g = s_g @ b_g
-                F = np.sum((s_g + j_g)**2) / 2
-                T = (np.sum(s_g**2) - s_l - j_l) / 4
+                s_g_b_g = s_g @ b_g
+                F = np.sum((s_g_b_g + j_g)**2) / 2
+                T = (np.sum(s_g_b_g**2) - s_l - j_l) / 4
                 res += 2 * T - F
             else:
                 res -= s_l / 2
@@ -227,6 +227,7 @@ class Wfn:
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        d(b_g @ b_g.T) = b_g_d1 @ b_g.T + b_g @ b_g_d1.T = b_g_d1 @ b_g.T + (db_g_d1 @ b_g.T).T
         :return:
         """
         res = np.zeros(0)
@@ -256,23 +257,28 @@ class Wfn:
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
             b_l_d1, b_g_d1, b_v_d1 = self.backflow.laplacian_parameters_d1(e_vectors, n_vectors)
             s_g = self.slater.gradient(b_v)
-            s_g_d1 = (self.slater.hessian(b_v) @ b_v_d1.T).T
-            # d2 += (s_g_d1 @ b_l + b_l_d1 @ s_g) / 2
+            # s_h = self.slater.hessian(b_v)
+            s_g_d1 = b_v_d1 @ self.slater.hessian(b_v)
+            d2 += np.sum(s_g_d1 * b_l + s_g * b_l_d1, axis=-1) / 2
+            # # FIXME: change to b_g_d1_b_g = b_g_d1 @ b_g when numba supports
+            # b_g_d1_b_g = np.empty_like(b_g_d1)
+            # for i in range(b_g_d1.shape[0]):
+            #     b_g_d1_b_g[i] = b_g_d1[i] @ b_g
+            # s_h = self.slater.hessian(b_v)
+            # d2 += np.sum(s_h * b_g_d1_b_g) / 2
             if self.jastrow is not None:
                 d2 += np.sum(np.sum(np.expand_dims(s_g_d1, 1) * b_g + s_g * b_g_d1, axis=-1) * j_g, axis=1)
             for i in range(parameters.size):
                 parameters[i] -= delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
-                b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
-                s_g = self.slater.gradient(b_v)
+                b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
                 s_h = self.slater.hessian(b_v)
-                d1[i] -= (np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l) / 2
+                d1[i] -= np.sum(s_h * (b_g @ b_g.T)) / 2
                 parameters[i] += 2 * delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
-                b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
-                s_g = self.slater.gradient(b_v)
+                b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
                 s_h = self.slater.hessian(b_v)
-                d1[i] += (np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l) / 2
+                d1[i] += np.sum(s_h * (b_g @ b_g.T)) / 2
                 parameters[i] -= delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
             res = np.concatenate((
