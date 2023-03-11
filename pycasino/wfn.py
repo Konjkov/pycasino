@@ -227,7 +227,7 @@ class Wfn:
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
-        d(b_g @ b_g.T) = b_g_d1 @ b_g.T + b_g @ b_g_d1.T = b_g_d1 @ b_g.T + (db_g_d1 @ b_g.T).T
+        d(b_g @ b_g.T) = b_g_d1 @ b_g.T + b_g @ b_g_d1.T = b_g_d1 @ b_g.T + (b_g_d1 @ b_g.T).T
         :return:
         """
         res = np.zeros(0)
@@ -260,23 +260,23 @@ class Wfn:
             # s_h = self.slater.hessian(b_v)
             s_g_d1 = b_v_d1 @ self.slater.hessian(b_v)
             d2 += np.sum(s_g_d1 * b_l + s_g * b_l_d1, axis=-1) / 2
-            # # FIXME: change to b_g_d1_b_g = b_g_d1 @ b_g when numba supports
-            # b_g_d1_b_g = np.empty_like(b_g_d1)
-            # for i in range(b_g_d1.shape[0]):
-            #     b_g_d1_b_g[i] = b_g_d1[i] @ b_g
-            # s_h = self.slater.hessian(b_v)
-            # d2 += np.sum(s_h * b_g_d1_b_g) / 2
+            b_g_d1_b_g = np.empty(parameters.size)
+            s_h = self.slater.hessian(b_v)
+            for i in range(parameters.size):
+                t1 = b_g_d1[i] @ b_g.T
+                b_g_d1_b_g[i] = np.sum(s_h * (t1 + t1.T))
+            d2 += b_g_d1_b_g / 2
             if self.jastrow is not None:
                 d2 += np.sum(np.sum(np.expand_dims(s_g_d1, 1) * b_g + s_g * b_g_d1, axis=-1) * j_g, axis=1)
             for i in range(parameters.size):
                 parameters[i] -= delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
-                b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
+                b_v = self.backflow.value(e_vectors, n_vectors)
                 s_h = self.slater.hessian(b_v)
                 d1[i] -= np.sum(s_h * (b_g @ b_g.T)) / 2
                 parameters[i] += 2 * delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
-                b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
+                b_v = self.backflow.value(e_vectors, n_vectors)
                 s_h = self.slater.hessian(b_v)
                 d1[i] += np.sum(s_h * (b_g @ b_g.T)) / 2
                 parameters[i] -= delta
