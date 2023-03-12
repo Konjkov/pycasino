@@ -383,7 +383,6 @@ class Backflow:
                             poly += p * n_powers[label, e1, k]
                             if k > 0:
                                 poly_diff += k * p * n_powers[label, e1, k-1]
-
                         # cutoff_condition
                         # 0: AE cutoff definitely not applied
                         # 1: AE cutoff maybe applied
@@ -440,7 +439,6 @@ class Backflow:
                                             poly_diff_ee = m * n_powers[label, e1, k] * n_powers[label, e2, l] * e_powers[e1, e2, m-1]
                                             phi_poly_diff_ee += poly_diff_ee * phi_p
                                             theta_poly_diff_ee += poly_diff_ee * theta_p
-
                             # cutoff_condition
                             # 0: AE cutoff definitely not applied
                             # 1: AE cutoff maybe applied
@@ -531,7 +529,6 @@ class Backflow:
                                 poly_diff += k * p * n_powers[label, e1, k-1]
                             if k > 1:
                                 poly_diff_2 += k * (k-1) * p * n_powers[label, e1, k-2]
-
                         # cutoff_condition
                         # 0: AE cutoff definitely not applied
                         # 1: AE cutoff maybe applied
@@ -1169,6 +1166,7 @@ class Backflow:
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
         """
+        C = self.trunc
         ae_cutoff_condition = 1
         if not self.eta_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
@@ -1181,9 +1179,9 @@ class Backflow:
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                res[n] -= self.eta_term(e_powers, e_vectors)
+                res[n] -= self.eta_term(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3)
                 self.eta_cutoff[i] += 2 * delta
-                res[n] += self.eta_term(e_powers, e_vectors)
+                res[n] += self.eta_term(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3)
                 self.eta_cutoff[i] -= delta
 
         for j2 in range(self.eta_parameters.shape[1]):
@@ -1198,50 +1196,18 @@ class Backflow:
                             L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
                             if r < L:
                                 if eta_set == j2:
-                                    bf = (1 - r / L) ** self.trunc * e_powers[e1, e2, j1] * r_vec
+                                    bf = (1 - r / L) ** C * e_powers[e1, e2, j1] * r_vec
                                     res[n, ae_cutoff_condition, e1] += bf
                                     res[n, ae_cutoff_condition, e2] -= bf
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
-    def eta_term_numerical_d1(self, e_powers, e_vectors):
-        """Numerical first derivatives of logarithm wfn w.r.t eta-term parameters
-        :param e_vectors: e-e vectors
-        :param e_powers: powers of e-e distances
-        """
-        if not self.eta_cutoff.any():
-            return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
-
-        size = self.eta_parameters_available.sum() + self.eta_cutoff_optimizable.sum()
-        res = np.zeros(shape=(size, 2, (self.neu + self.ned) * 3))
-
-        n = -1
-        for i in range(self.eta_cutoff.shape[0]):
-            if self.eta_cutoff_optimizable[i]:
-                n += 1
-                self.eta_cutoff[i] -= delta
-                res[n] -= self.eta_term(e_powers, e_vectors)
-                self.eta_cutoff[i] += 2 * delta
-                res[n] += self.eta_term(e_powers, e_vectors)
-                self.eta_cutoff[i] -= delta
-
-        for j2 in range(self.eta_parameters.shape[1]):
-            for j1 in range(self.eta_parameters.shape[0]):
-                if self.eta_parameters_available[j1, j2]:
-                    n += 1
-                    self.eta_parameters[j1, j2] -= delta
-                    res[n] -= self.eta_term(e_powers, e_vectors)
-                    self.eta_parameters[j1, j2] += 2 * delta
-                    res[n] += self.eta_term(e_powers, e_vectors)
-                    self.eta_parameters[j1, j2] -= delta
-
-        return res / delta / 2
-
-    def mu_term_numerical_d1(self, n_powers, n_vectors):
+    def mu_term_d1(self, n_powers, n_vectors):
         """Numerical first derivatives of logarithm wfn w.r.t mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
+        C = self.trunc
         if not self.mu_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
 
@@ -1250,29 +1216,83 @@ class Backflow:
             for mu_parameters_available, mu_cutoff_optimizable
             in zip(self.mu_parameters_available, self.mu_cutoff_optimizable)
         ])
-        res = np.zeros(shape=(size, 2, (self.neu + self.ned) * 3))
+        res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3))
 
         n = -1
-        for i, (mu_parameters, mu_parameters_available) in enumerate(zip(self.mu_parameters, self.mu_parameters_available)):
+        for i, (mu_parameters, mu_parameters_available, mu_labels) in enumerate(zip(self.mu_parameters, self.mu_parameters_available, self.mu_labels)):
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                res[n] -= self.mu_term(n_powers, n_vectors)
+                res[n] -= self.mu_term(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3)
                 self.mu_cutoff[i] += 2 * delta
-                res[n] += self.mu_term(n_powers, n_vectors)
+                res[n] += self.mu_term(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3)
                 self.mu_cutoff[i] -= delta
 
+            L = self.mu_cutoff[i]
             for j2 in range(mu_parameters.shape[1]):
                 for j1 in range(mu_parameters.shape[0]):
                     if mu_parameters_available[j1, j2]:
                         n += 1
-                        mu_parameters[j1, j2] -= delta
-                        res[n] -= self.mu_term(n_powers, n_vectors)
-                        mu_parameters[j1, j2] += 2 * delta
-                        res[n] += self.mu_term(n_powers, n_vectors)
-                        mu_parameters[j1, j2] -= delta
+                        for label in mu_labels:
+                            for e1 in range(self.neu + self.ned):
+                                r_vec = n_vectors[label, e1]
+                                r = n_powers[label, e1, 1]
+                                if r < L:
+                                    mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
+                                    if mu_set == j2:
+                                        poly = n_powers[label, e1, j1]
+                                        # cutoff_condition
+                                        # 0: AE cutoff definitely not applied
+                                        # 1: AE cutoff maybe applied
+                                        ae_cutoff_condition = int(r > self.ae_cutoff[label])
+                                        res[n, ae_cutoff_condition, e1] += poly * (1 - r / L) ** C * r_vec
 
-        return res / delta / 2
+        return res.reshape(size, 2, (self.neu + self.ned) * 3)
+
+    def phi_term_d1(self, e_powers, n_powers, e_vectors, n_vectors):
+        """Numerical first derivatives of logarithm wfn w.r.t phi-term parameters
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :param e_powers: powers of e-e distances
+        :param n_powers: powers of e-n distances
+        """
+        C = self.trunc
+        if not self.phi_cutoff.any():
+            return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
+
+        size = sum([
+            phi_parameters_available.sum() + theta_parameters_available.sum() + phi_cutoff_optimizable
+            for phi_parameters_available, theta_parameters_available, phi_cutoff_optimizable
+            in zip(self.phi_parameters_available, self.theta_parameters_available, self.phi_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3))
+
+        n = -1
+        for i, (phi_parameters, phi_parameters_available, theta_parameters, theta_parameters_available) in enumerate(zip(self.phi_parameters, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_available)):
+            if self.phi_cutoff_optimizable[i]:
+                n += 1
+                self.phi_cutoff[i] -= delta
+                res[n] -= self.phi_term(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3)
+                self.phi_cutoff[i] += 2 * delta
+                res[n] += self.phi_term(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3)
+                self.phi_cutoff[i] -= delta
+
+            L = self.phi_cutoff[i]
+            for j4 in range(phi_parameters.shape[3]):
+                for j3 in range(phi_parameters.shape[2]):
+                    for j2 in range(phi_parameters.shape[1]):
+                        for j1 in range(phi_parameters.shape[0]):
+                            if phi_parameters_available[j1, j2, j3, j4]:
+                                n += 1
+
+            for j4 in range(phi_parameters.shape[3]):
+                for j3 in range(phi_parameters.shape[2]):
+                    for j2 in range(phi_parameters.shape[1]):
+                        for j1 in range(phi_parameters.shape[0]):
+                            if theta_parameters_available[j1, j2, j3, j4]:
+                                n += 1
+
+        return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def phi_term_numerical_d1(self, e_powers, n_powers, e_vectors, n_vectors):
         """Numerical first derivatives of logarithm wfn w.r.t phi-term parameters
@@ -1334,6 +1354,7 @@ class Backflow:
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
         """
+        C = self.trunc
         ae_cutoff_condition = 1
         if not self.eta_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
@@ -1346,9 +1367,9 @@ class Backflow:
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                res[n] -= self.eta_term_gradient(e_powers, e_vectors)
+                res[n] -= self.eta_term_gradient(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3)
                 self.eta_cutoff[i] += 2 * delta
-                res[n] += self.eta_term_gradient(e_powers, e_vectors)
+                res[n] += self.eta_term_gradient(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3)
                 self.eta_cutoff[i] -= delta
 
         for j2 in range(self.eta_parameters.shape[1]):
@@ -1367,8 +1388,8 @@ class Backflow:
                                     poly_diff = 0
                                     if j1 > 0:
                                         poly_diff = j1 * e_powers[e1, e2, j1 - 1]
-                                    bf = (1 - r / L) ** self.trunc * (
-                                            (poly_diff - self.trunc / (L - r) * poly) * np.outer(r_vec, r_vec) / r + poly * np.eye(3)
+                                    bf = (1 - r / L) ** C * (
+                                            (poly_diff - C / (L - r) * poly) * np.outer(r_vec, r_vec) / r + poly * np.eye(3)
                                     )
                                     res[n, ae_cutoff_condition, e1, :, e1, :] += bf
                                     res[n, ae_cutoff_condition, e1, :, e2, :] -= bf
@@ -1377,44 +1398,12 @@ class Backflow:
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
-    def eta_term_gradient_numerical_d1(self, e_powers, e_vectors):
-        """Numerical first derivatives of logarithm wfn w.r.t eta-term parameters
-        :param e_vectors: e-e vectors
-        :param e_powers: powers of e-e distances
-        """
-        if not self.eta_cutoff.any():
-            return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
-
-        size = self.eta_parameters_available.sum() + self.eta_cutoff_optimizable.sum()
-        res = np.zeros(shape=(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
-
-        n = -1
-        for i in range(self.eta_cutoff.shape[0]):
-            if self.eta_cutoff_optimizable[i]:
-                n += 1
-                self.eta_cutoff[i] -= delta
-                res[n] -= self.eta_term_gradient(e_powers, e_vectors)
-                self.eta_cutoff[i] += 2 * delta
-                res[n] += self.eta_term_gradient(e_powers, e_vectors)
-                self.eta_cutoff[i] -= delta
-
-        for j2 in range(self.eta_parameters.shape[1]):
-            for j1 in range(self.eta_parameters.shape[0]):
-                if self.eta_parameters_available[j1, j2]:
-                    n += 1
-                    self.eta_parameters[j1, j2] -= delta
-                    res[n] -= self.eta_term_gradient(e_powers, e_vectors)
-                    self.eta_parameters[j1, j2] += 2 * delta
-                    res[n] += self.eta_term_gradient(e_powers, e_vectors)
-                    self.eta_parameters[j1, j2] -= delta
-
-        return res / delta / 2
-
-    def mu_term_gradient_numerical_d1(self, n_powers, n_vectors):
+    def mu_term_gradient_d1(self, n_powers, n_vectors):
         """Numerical first derivatives of logarithm wfn w.r.t mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
+        C = self.trunc
         if not self.mu_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
 
@@ -1423,29 +1412,88 @@ class Backflow:
             for mu_parameters_available, mu_cutoff_optimizable
             in zip(self.mu_parameters_available, self.mu_cutoff_optimizable)
         ])
-        res = np.zeros(shape=(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
+        res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3, (self.neu + self.ned), 3))
 
         n = -1
-        for i, (mu_parameters, mu_parameters_available) in enumerate(zip(self.mu_parameters, self.mu_parameters_available)):
+        for i, (mu_parameters, mu_parameters_available, mu_labels) in enumerate(zip(self.mu_parameters, self.mu_parameters_available, self.mu_labels)):
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                res[n] -= self.mu_term_gradient(n_powers, n_vectors)
+                res[n] -= self.mu_term_gradient(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3)
                 self.mu_cutoff[i] += 2 * delta
-                res[n] += self.mu_term_gradient(n_powers, n_vectors)
+                res[n] += self.mu_term_gradient(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3)
                 self.mu_cutoff[i] -= delta
 
+            L = self.mu_cutoff[i]
             for j2 in range(mu_parameters.shape[1]):
                 for j1 in range(mu_parameters.shape[0]):
                     if mu_parameters_available[j1, j2]:
                         n += 1
-                        mu_parameters[j1, j2] -= delta
-                        res[n] -= self.mu_term_gradient(n_powers, n_vectors)
-                        mu_parameters[j1, j2] += 2 * delta
-                        res[n] += self.mu_term_gradient(n_powers, n_vectors)
-                        mu_parameters[j1, j2] -= delta
+                        for label in mu_labels:
+                            for e1 in range(self.neu + self.ned):
+                                r_vec = n_vectors[label, e1]
+                                r = n_powers[label, e1, 1]
+                                if r < L:
+                                    mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
+                                    if mu_set == j2:
+                                        poly = n_powers[label, e1, j1]
+                                        poly_diff = 0.0
+                                        if j1 > 0:
+                                            poly_diff = j1 * n_powers[label, e1, j1 - 1]
+                                        # cutoff_condition
+                                        # 0: AE cutoff definitely not applied
+                                        # 1: AE cutoff maybe applied
+                                        ae_cutoff_condition = int(r > self.ae_cutoff[label])
+                                        res[n, ae_cutoff_condition, e1, :, e1, :] += (1 - r / L) ** C * (
+                                            (poly_diff - C / (L - r) * poly) * np.outer(r_vec, r_vec) / r + poly * np.eye(3)
+                                        )
 
-        return res / delta / 2
+        return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+
+    def phi_term_gradient_d1(self, e_powers, n_powers, e_vectors, n_vectors):
+        """Numerical first derivatives of logarithm wfn w.r.t phi-term parameters
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :param e_powers: powers of e-e distances
+        :param n_powers: powers of e-n distances
+        """
+        C = self.trunc
+        if not self.phi_cutoff.any():
+            return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
+
+        size = sum([
+            phi_parameters_available.sum() + theta_parameters_available.sum() + phi_cutoff_optimizable
+            for phi_parameters_available, theta_parameters_available, phi_cutoff_optimizable
+            in zip(self.phi_parameters_available, self.theta_parameters_available, self.phi_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3, (self.neu + self.ned), 3))
+
+        n = -1
+        for i, (phi_parameters, phi_parameters_available, theta_parameters, theta_parameters_available) in enumerate(zip(self.phi_parameters, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_available)):
+            if self.phi_cutoff_optimizable[i]:
+                n += 1
+                self.phi_cutoff[i] -= delta
+                res[n] -= self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3)
+                self.phi_cutoff[i] += 2 * delta
+                res[n] += self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3)
+                self.phi_cutoff[i] -= delta
+
+            L = self.mu_cutoff[i]
+            for j4 in range(phi_parameters.shape[3]):
+                for j3 in range(phi_parameters.shape[2]):
+                    for j2 in range(phi_parameters.shape[1]):
+                        for j1 in range(phi_parameters.shape[0]):
+                            if phi_parameters_available[j1, j2, j3, j4]:
+                                n += 1
+
+            for j4 in range(phi_parameters.shape[3]):
+                for j3 in range(phi_parameters.shape[2]):
+                    for j2 in range(phi_parameters.shape[1]):
+                        for j1 in range(phi_parameters.shape[0]):
+                            if theta_parameters_available[j1, j2, j3, j4]:
+                                n += 1
+
+        return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def phi_term_gradient_numerical_d1(self, e_powers, n_powers, e_vectors, n_vectors):
         """Numerical first derivatives of logarithm wfn w.r.t phi-term parameters
@@ -1520,9 +1568,9 @@ class Backflow:
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                res[n] -= self.eta_term_laplacian(e_powers, e_vectors)
+                res[n] -= self.eta_term_laplacian(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3)
                 self.eta_cutoff[i] += 2 * delta
-                res[n] += self.eta_term_laplacian(e_powers, e_vectors)
+                res[n] += self.eta_term_laplacian(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3)
                 self.eta_cutoff[i] -= delta
 
         for j2 in range(self.eta_parameters.shape[1]):
@@ -1543,7 +1591,6 @@ class Backflow:
                                         poly_diff = j1 * e_powers[e1, e2, j1 - 1]
                                     if j1 > 1:
                                         poly_diff_2 = j1 * (j1 - 1) * e_powers[e1, e2, j1 - 2]
-
                                     bf = 2 * (1 - r / L) ** C * (
                                         4 * (poly_diff - C / (L - r) * poly) +
                                         r * (C * (C - 1) / (L - r) ** 2 * poly - 2 * C / (L - r) * poly_diff + poly_diff_2)
@@ -1553,44 +1600,12 @@ class Backflow:
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
-    def eta_term_laplacian_numerical_d1(self, e_powers, e_vectors):
-        """Numerical first derivatives of laplacian w.r.t eta-term parameters
-        :param e_vectors: e-e vectors
-        :param e_powers: powers of e-e distances
-        """
-        if not self.eta_cutoff.any():
-            return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
-
-        size = self.eta_parameters_available.sum() + self.eta_cutoff_optimizable.sum()
-        res = np.zeros(shape=(size, 2, (self.neu + self.ned) * 3))
-
-        n = -1
-        for i in range(self.eta_cutoff.shape[0]):
-            if self.eta_cutoff_optimizable[i]:
-                n += 1
-                self.eta_cutoff[i] -= delta
-                res[n] -= self.eta_term_laplacian(e_powers, e_vectors)
-                self.eta_cutoff[i] += 2 * delta
-                res[n] += self.eta_term_laplacian(e_powers, e_vectors)
-                self.eta_cutoff[i] -= delta
-
-        for j2 in range(self.eta_parameters.shape[1]):
-            for j1 in range(self.eta_parameters.shape[0]):
-                if self.eta_parameters_available[j1, j2]:
-                    n += 1
-                    self.eta_parameters[j1, j2] -= delta
-                    res[n] -= self.eta_term_laplacian(e_powers, e_vectors)
-                    self.eta_parameters[j1, j2] += 2 * delta
-                    res[n] += self.eta_term_laplacian(e_powers, e_vectors)
-                    self.eta_parameters[j1, j2] -= delta
-
-        return res / delta / 2
-
-    def mu_term_laplacian_numerical_d1(self, n_powers, n_vectors):
+    def mu_term_laplacian_d1(self, n_powers, n_vectors):
         """Numerical first derivatives of logarithm wfn w.r.t mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
+        C = self.trunc
         if not self.mu_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
 
@@ -1599,29 +1614,46 @@ class Backflow:
             for mu_parameters_available, mu_cutoff_optimizable
             in zip(self.mu_parameters_available, self.mu_cutoff_optimizable)
         ])
-        res = np.zeros(shape=(size, 2, (self.neu + self.ned) * 3))
+        res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3))
 
         n = -1
-        for i, (mu_parameters, mu_parameters_available) in enumerate(zip(self.mu_parameters, self.mu_parameters_available)):
+        for i, (mu_parameters, mu_parameters_available, mu_labels) in enumerate(zip(self.mu_parameters, self.mu_parameters_available, self.mu_labels)):
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                res[n] -= self.mu_term_laplacian(n_powers, n_vectors)
+                res[n] -= self.mu_term_laplacian(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3)
                 self.mu_cutoff[i] += 2 * delta
-                res[n] += self.mu_term_laplacian(n_powers, n_vectors)
+                res[n] += self.mu_term_laplacian(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3)
                 self.mu_cutoff[i] -= delta
 
+            L = self.mu_cutoff[i]
             for j2 in range(mu_parameters.shape[1]):
                 for j1 in range(mu_parameters.shape[0]):
                     if mu_parameters_available[j1, j2]:
                         n += 1
-                        mu_parameters[j1, j2] -= delta
-                        res[n] -= self.mu_term_laplacian(n_powers, n_vectors)
-                        mu_parameters[j1, j2] += 2 * delta
-                        res[n] += self.mu_term_laplacian(n_powers, n_vectors)
-                        mu_parameters[j1, j2] -= delta
+                        for label in mu_labels:
+                            for e1 in range(self.neu + self.ned):
+                                r_vec = n_vectors[label, e1]
+                                r = n_powers[label, e1, 1]
+                                if r < L:
+                                    mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
+                                    if mu_set == j2:
+                                        poly = n_powers[label, e1, j1]
+                                        poly_diff = poly_diff_2 = 0.0
+                                        if j1 > 0:
+                                            poly_diff += j1 * n_powers[label, e1, j1 - 1]
+                                        if j1 > 1:
+                                            poly_diff_2 += j1 * (j1 - 1) * n_powers[label, e1, j1 - 2]
+                                        # cutoff_condition
+                                        # 0: AE cutoff definitely not applied
+                                        # 1: AE cutoff maybe applied
+                                        ae_cutoff_condition = int(r > self.ae_cutoff[label])
+                                        res[n, ae_cutoff_condition, e1] += (1 - r / L) ** C * (
+                                                4 * (poly_diff - C / (L - r) * poly) +
+                                                r * (C * (C - 1) / (L - r) ** 2 * poly - 2 * C / (L - r) * poly_diff + poly_diff_2)
+                                        ) * r_vec / r
 
-        return res / delta / 2
+        return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def phi_term_laplacian_numerical_d1(self, e_powers, n_powers, e_vectors, n_vectors):
         """Numerical first derivatives of laplacian w.r.t phi-term parameters
@@ -1686,8 +1718,8 @@ class Backflow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        eta_term = self.eta_term_numerical_d1(e_powers, e_vectors)
-        mu_term = self.mu_term_numerical_d1(n_powers, n_vectors)
+        eta_term = self.eta_term_d1(e_powers, e_vectors)
+        mu_term = self.mu_term_d1(n_powers, n_vectors)
         phi_term = self.phi_term_numerical_d1(e_powers, n_powers, e_vectors, n_vectors)
 
         ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
@@ -1706,12 +1738,12 @@ class Backflow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        eta_term = self.eta_term_numerical_d1(e_powers, e_vectors)
-        mu_term = self.mu_term_numerical_d1(n_powers, n_vectors)
+        eta_term = self.eta_term_d1(e_powers, e_vectors)
+        mu_term = self.mu_term_d1(n_powers, n_vectors)
         phi_term = self.phi_term_numerical_d1(e_powers, n_powers, e_vectors, n_vectors)
 
-        eta_term_gradient = self.eta_term_gradient_numerical_d1(e_powers, e_vectors)
-        mu_term_gradient = self.mu_term_gradient_numerical_d1(n_powers, n_vectors)
+        eta_term_gradient = self.eta_term_gradient_d1(e_powers, e_vectors)
+        mu_term_gradient = self.mu_term_gradient_d1(n_powers, n_vectors)
         phi_term_gradient = self.phi_term_gradient_numerical_d1(e_powers, n_powers, e_vectors, n_vectors)
 
         ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
@@ -1740,17 +1772,20 @@ class Backflow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        eta_term = self.eta_term_numerical_d1(e_powers, e_vectors)
-        mu_term = self.mu_term_numerical_d1(n_powers, n_vectors)
+        eta_term = self.eta_term_d1(e_powers, e_vectors)
+        mu_term = self.mu_term_d1(n_powers, n_vectors)
         phi_term = self.phi_term_numerical_d1(e_powers, n_powers, e_vectors, n_vectors)
+        # print(phi_term / self.phi_term_d1(n_powers, n_vectors))
 
-        eta_term_gradient = self.eta_term_gradient_numerical_d1(e_powers, e_vectors)
-        mu_term_gradient = self.mu_term_gradient_numerical_d1(n_powers, n_vectors)
+        eta_term_gradient = self.eta_term_gradient_d1(e_powers, e_vectors)
+        mu_term_gradient = self.mu_term_gradient_d1(n_powers, n_vectors)
         phi_term_gradient = self.phi_term_gradient_numerical_d1(e_powers, n_powers, e_vectors, n_vectors)
+        # print(phi_term_gradient / self.phi_term_gradient_d1(n_powers, n_vectors))
 
-        eta_term_laplacian = self.eta_term_laplacian_numerical_d1(e_powers, e_vectors)
-        mu_term_laplacian = self.mu_term_laplacian_numerical_d1(n_powers, n_vectors)
+        eta_term_laplacian = self.eta_term_laplacian_d1(e_powers, e_vectors)
+        mu_term_laplacian = self.mu_term_laplacian_d1(n_powers, n_vectors)
         phi_term_laplacian = self.phi_term_laplacian_numerical_d1(e_powers, n_powers, e_vectors, n_vectors)
+        # print(phi_term_laplacian / self.phi_term_laplacian_d1(n_powers, n_vectors))
 
         ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
         ae_multiplier_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
