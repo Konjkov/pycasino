@@ -250,35 +250,30 @@ class Wfn:
             p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
             mask_idx = np.argwhere(self.backflow.get_parameters_mask()).ravel()
             inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
-            d1 = np.zeros(shape=parameters.shape)
-            d2 = np.zeros(shape=parameters.shape)
 
+            bf_d1 = np.zeros(shape=parameters.shape)
             j_g = self.jastrow.gradient(e_vectors, n_vectors)
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
             b_l_d1, b_g_d1, b_v_d1 = self.backflow.laplacian_parameters_d1(e_vectors, n_vectors)
             s_g = self.slater.gradient(b_v)
             s_h = self.slater.hessian(b_v)
-            s_g_d1 = b_v_d1 @ self.slater.hessian(b_v)
-            d2 += np.sum(s_g_d1 * b_l + s_g * b_l_d1, axis=-1) / 2
+            s_t = self.slater.third_derivatives(b_v)
+            s_g_d1 = b_v_d1 @ s_h
+            s_h_d1 = np.zeros(shape=(b_v_d1.shape[0], s_h.shape[0], s_h.shape[1]))
+            # s_h_d1 = np.tensordot(b_v_d1 @ s_t, axes=1)
+            for i1 in range(b_v_d1.shape[0]):
+                for i2 in range(b_v_d1.shape[1]):
+                    for i3 in range(s_h.shape[0]):
+                        for j1 in range(s_h.shape[1]):
+                            s_h_d1[i1, i2, i3] += b_v_d1[i1, j1] * s_t[i2, i3, j1]
+            bf_d1 += (s_g_d1 @ b_l + b_l_d1 @ s_g) / 2
             for i in range(parameters.size):
-                d2[i] += np.sum(s_h * b_g_d1[i] @ b_g.T)
+                bf_d1[i] += np.sum(s_h * (b_g_d1[i] @ b_g.T)) + np.sum(s_h_d1[i] * (b_g @ b_g.T)) / 2
             if self.jastrow is not None:
-                d2 += np.sum(np.sum(np.expand_dims(s_g_d1, 1) * b_g + s_g * b_g_d1, axis=-1) * j_g, axis=1)
-            for i in range(parameters.size):
-                parameters[i] -= delta
-                self.backflow.set_parameters(parameters, all_parameters=True)
-                b_v = self.backflow.value(e_vectors, n_vectors)
-                s_h = self.slater.hessian(b_v)
-                d1[i] -= np.sum(s_h * (b_g @ b_g.T)) / 2
-                parameters[i] += 2 * delta
-                self.backflow.set_parameters(parameters, all_parameters=True)
-                b_v = self.backflow.value(e_vectors, n_vectors)
-                s_h = self.slater.hessian(b_v)
-                d1[i] += np.sum(s_h * (b_g @ b_g.T)) / 2
-                parameters[i] -= delta
-                self.backflow.set_parameters(parameters, all_parameters=True)
+                for i in range(parameters.size):
+                    bf_d1[i] += (s_g_d1[i] @ b_g + s_g @ b_g_d1[i]) @ j_g
             res = np.concatenate((
-                res, (d1 / delta / 2 + d2) @ (p[:, mask_idx] @ inv_p)
+                res, bf_d1 @ (p[:, mask_idx] @ inv_p)
             ))
         return -res
 
