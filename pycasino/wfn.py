@@ -266,12 +266,25 @@ class Wfn:
                     for i3 in range(s_h.shape[0]):
                         for j1 in range(s_h.shape[1]):
                             s_h_d1[i1, i2, i3] += b_v_d1[i1, j1] * s_t[i2, i3, j1]
-            bf_d1 += (s_g_d1 @ b_l + b_l_d1 @ s_g) / 2
             for i in range(parameters.size):
+                bf_d1[i] += (s_g_d1[i] @ b_l + s_g @ b_l_d1[i]) / 2
                 bf_d1[i] += np.sum(s_h * (b_g_d1[i] @ b_g.T)) + np.sum(s_h_d1[i] * (b_g @ b_g.T)) / 2
-            if self.jastrow is not None:
-                for i in range(parameters.size):
+                if self.jastrow is not None:
                     bf_d1[i] += (s_g_d1[i] @ b_g + s_g @ b_g_d1[i]) @ j_g
+
+                b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
+                s_g = self.slater.gradient(b_v)
+                s_h = self.slater.hessian(b_v)
+                s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
+                if self.jastrow is not None:
+                    j_g = self.jastrow.gradient(e_vectors, n_vectors)
+                    j_l = self.jastrow.laplacian(e_vectors, n_vectors)
+                    s_g_b_g = s_g @ b_g
+                    F = np.sum((s_g_b_g + j_g)**2) / 2
+                    T = (np.sum(s_g_b_g**2) - s_l - j_l) / 4
+                    bf_d1_numeric = 2 * T - F
+                print(i, bf_d1[i], bf_d1_numeric)
+
             res = np.concatenate((
                 res, bf_d1 @ (p[:, mask_idx] @ inv_p)
             ))
