@@ -272,6 +272,9 @@ class Wfn:
                 if self.jastrow is not None:
                     bf_d1[i] += (s_g_d1[i] @ b_g + s_g @ b_g_d1[i]) @ j_g
 
+                bf_d1_numeric = 0
+                parameters[i] -= delta
+                self.backflow.set_parameters(parameters, all_parameters=True)
                 b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
                 s_g = self.slater.gradient(b_v)
                 s_h = self.slater.hessian(b_v)
@@ -282,8 +285,24 @@ class Wfn:
                     s_g_b_g = s_g @ b_g
                     F = np.sum((s_g_b_g + j_g)**2) / 2
                     T = (np.sum(s_g_b_g**2) - s_l - j_l) / 4
-                    bf_d1_numeric = 2 * T - F
-                print(i, bf_d1[i], bf_d1_numeric)
+                    bf_d1_numeric -= 2 * T - F
+                parameters[i] += 2 * delta
+                self.backflow.set_parameters(parameters, all_parameters=True)
+                b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
+                s_g = self.slater.gradient(b_v)
+                s_h = self.slater.hessian(b_v)
+                s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
+                if self.jastrow is not None:
+                    j_g = self.jastrow.gradient(e_vectors, n_vectors)
+                    j_l = self.jastrow.laplacian(e_vectors, n_vectors)
+                    s_g_b_g = s_g @ b_g
+                    F = np.sum((s_g_b_g + j_g)**2) / 2
+                    T = (np.sum(s_g_b_g**2) - s_l - j_l) / 4
+                    bf_d1_numeric += 2 * T - F
+                parameters[i] -= delta
+                self.backflow.set_parameters(parameters, all_parameters=True)
+
+                print(i, bf_d1[i], bf_d1_numeric / delta / 2)
 
             res = np.concatenate((
                 res, bf_d1 @ (p[:, mask_idx] @ inv_p)
