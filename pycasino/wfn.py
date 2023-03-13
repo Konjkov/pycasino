@@ -343,29 +343,29 @@ class Wfn:
         if self.backflow is not None and opt_backflow:
             j_g = self.jastrow.gradient(e_vectors, n_vectors)
             parameters = self.backflow.get_parameters(all_parameters=True)
-            _b_l, _b_g, _b_v = self.backflow.laplacian(e_vectors, n_vectors)
+            b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
             b_l_d1, b_g_d1, b_v_d1 = self.backflow.laplacian_parameters_d1(e_vectors, n_vectors)
-            s_g = self.slater.gradient(_b_v)
-            _s_h = self.slater.hessian(_b_v)
-            s_g_d1 = b_v_d1 @ _s_h
+            s_g = self.slater.gradient(b_v)
+            s_h = self.slater.hessian(b_v)
+            s_g_d1 = b_v_d1 @ s_h
             bf_d1 = np.zeros(shape=parameters.shape)
             bf_d1_numeric = np.zeros(shape=parameters.shape)
             for i in range(parameters.size):
-                # bf_d1[i] += (s_g_d1[i] @ _b_l + _s_g @ b_l_d1[i]) / 2
-                bf_d1[i] += (s_g_d1[i] @ _b_l + s_g @ b_l_d1[i]) / 2
+                # bf_d1[i] += np.sum(s_h * (b_g_d1[i] @ b_g.T)) + np.sum(s_h_d1[i] * (b_g @ b_g.T)) / 2
+                bf_d1[i] += (s_g_d1[i] @ b_l + s_g @ b_l_d1[i]) / 2
                 if self.jastrow is not None:
-                    bf_d1[i] += (s_g_d1[i] @ _b_g + s_g @ b_g_d1[i]) @ j_g
+                    bf_d1[i] += (s_g_d1[i] @ b_g + s_g @ b_g_d1[i]) @ j_g
 
                 parameters[i] -= delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
-                b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
-                s_h = self.slater.hessian(b_v)
-                bf_d1_numeric[i] -= np.sum(s_h * (b_g @ b_g.T)) / 2
+                _b_g, _b_v = self.backflow.gradient(e_vectors, n_vectors)
+                _s_h = self.slater.hessian(_b_v)
+                bf_d1_numeric[i] -= np.sum(s_h * (_b_g @ _b_g.T)) / 2
                 parameters[i] += 2 * delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
-                b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
-                s_h = self.slater.hessian(b_v)
-                bf_d1_numeric[i] += np.sum(s_h * (b_g @ b_g.T)) / 2
+                _b_g, _b_v = self.backflow.gradient(e_vectors, n_vectors)
+                _s_h = self.slater.hessian(_b_v)
+                bf_d1_numeric[i] += np.sum(s_h * (_b_g @ _b_g.T)) / 2
 
             self.backflow.set_parameters(parameters, all_parameters=True)
 
