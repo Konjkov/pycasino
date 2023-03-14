@@ -446,7 +446,10 @@ class Casino:
             2 : display progress during iterations.
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
+        p = self.wfn.get_parameters_projector(opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
+        # for pos in position:
+        #     self.logger.info(self.wfn.energy_parameters_d1(pos) Q p / self.wfn.energy_parameters_numerical_d1(pos))
 
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
@@ -460,7 +463,7 @@ class Casino:
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy_gradient = np.empty(shape=(steps, x.size))
             # energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
-            energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+            energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
             # rescale for "Cost column" in output of scipy.optimize.least_squares to by a variance of local E
             return np.sqrt(2) * energy_gradient / np.sqrt(steps - 1)

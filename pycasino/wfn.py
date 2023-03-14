@@ -196,6 +196,30 @@ class Wfn:
             ))
         return res
 
+    def get_parameters_projector(self, opt_jastrow=True, opt_backflow=True):
+        """Get Projector matrix"""
+        res_list = []
+        if self.jastrow is not None and opt_jastrow:
+            a, b = self.jastrow.get_parameters_constraints()
+            p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
+            mask_idx = np.argwhere(self.jastrow.get_parameters_mask()).ravel()
+            inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
+            res_list.append(p[:, mask_idx] @ inv_p)
+        if self.backflow is not None and opt_backflow:
+            a, b = self.backflow.get_parameters_constraints()
+            p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
+            mask_idx = np.argwhere(self.backflow.get_parameters_mask()).ravel()
+            inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
+            res_list.append(p[:, mask_idx] @ inv_p)
+        # FIXME: create blockdiagonal matrix from list of matrix like scipy.linalg.block_diag
+        # a = sp.linalg.block_diag(a_list)
+        shape_0_list = np.cumsum(np.array([r.shape[0] for r in res_list]))
+        shape_1_list = np.cumsum(np.array([r.shape[1] for r in res_list]))
+        res = np.zeros(shape=(shape_0_list[-1], shape_1_list[-1]))
+        for r_part, p0, p1 in zip(res_list, shape_0_list, shape_1_list):
+            res[p0 - r_part.shape[0]:p0, p1 - r_part.shape[1]:p1] = r_part
+        return res
+
     def value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
         """First-order derivatives of the wave function with respect to the parameters divided by wfn.
         :param r_e: electron coordinates - array(nelec, 3)
@@ -209,11 +233,6 @@ class Wfn:
             res = np.concatenate((
                 res, self.jastrow.value_parameters_d1(e_vectors, n_vectors)
             ))
-            a, b = self.jastrow.get_parameters_constraints()
-            p = np.eye(a.shape[1]) - a.T @ np.linalg.inv(a @ a.T) @ a
-            mask_idx = np.argwhere(self.jastrow.get_parameters_mask()).ravel()
-            inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
-            res = res @ (p[:, mask_idx] @ inv_p)
         if self.backflow is not None and opt_backflow:
             b_v = self.backflow.value(e_vectors, n_vectors)
             res = np.concatenate((
@@ -242,15 +261,8 @@ class Wfn:
                 s_g = self.slater.gradient(b_v)
             else:
                 s_g = self.slater.gradient(n_vectors)
-            j_d1 = np.sum((s_g + j_g) * j_g_d1, axis=1) + j_l_d1 / 2
-
-            a, b = self.jastrow.get_parameters_constraints()
-            p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
-            mask_idx = np.argwhere(self.jastrow.get_parameters_mask()).ravel()
-            inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
-            res = np.concatenate((
-                res, j_d1 @ (p[:, mask_idx] @ inv_p)
-            ))
+            j_d1 = j_g_d1 @ (s_g + j_g) + j_l_d1 / 2
+            res = np.concatenate((res, j_d1))
         if self.backflow is not None and opt_backflow:
             # backflow parameters part
             j_g = self.jastrow.gradient(e_vectors, n_vectors)
@@ -266,32 +278,24 @@ class Wfn:
             bf_d1 = np.zeros(shape=parameters.shape)
             bf_d1_numeric = np.zeros(shape=parameters.shape)
             for i in range(parameters.size):
-                # bf_d1[i] += np.sum(s_h * (b_g_d1[i] @ b_g.T)) + np.sum(s_h_d1[:, :, i] * (b_g @ b_g.T)) / 2
+                # bf_d1[i] += np.sum(s_h_d1[:, :, i] * (b_g @ b_g.T)) / 2
+                bf_d1[i] += np.sum(s_h * (b_g_d1[i] @ b_g.T))
                 bf_d1[i] += (s_g_d1[:, i] @ b_l + s_g @ b_l_d1[i]) / 2
                 if self.jastrow is not None:
                     bf_d1[i] += (s_g_d1[:, i] @ b_g + s_g @ b_g_d1[i]) @ j_g
 
                 parameters[i] -= delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
-                _b_g, _b_v = self.backflow.gradient(e_vectors, n_vectors)
-                _s_h = self.slater.hessian(_b_v)
-                bf_d1_numeric[i] -= np.sum(_s_h * (_b_g @ _b_g.T)) / 2 / delta / 2
+                _s_h = self.slater.hessian(self.backflow.value(e_vectors, n_vectors))
+                bf_d1_numeric[i] -= np.sum(_s_h * (b_g @ b_g.T)) / 2 / delta / 2
                 parameters[i] += 2 * delta
                 self.backflow.set_parameters(parameters, all_parameters=True)
-                _b_g, _b_v = self.backflow.gradient(e_vectors, n_vectors)
-                _s_h = self.slater.hessian(_b_v)
-                bf_d1_numeric[i] += np.sum(_s_h * (_b_g @ _b_g.T)) / 2 / delta / 2
+                _s_h = self.slater.hessian(self.backflow.value(e_vectors, n_vectors))
+                bf_d1_numeric[i] += np.sum(_s_h * (b_g @ b_g.T)) / 2 / delta / 2
                 parameters[i] -= delta
 
             self.backflow.set_parameters(parameters, all_parameters=True)
-
-            a, b = self.backflow.get_parameters_constraints()
-            p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
-            mask_idx = np.argwhere(self.backflow.get_parameters_mask()).ravel()
-            inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
-            res = np.concatenate((
-                res, (bf_d1 + bf_d1_numeric) @ (p[:, mask_idx] @ inv_p)
-            ))
+            res = np.concatenate((res, bf_d1 + bf_d1_numeric))
         return -res
 
     def value_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True, all_parameters=False):
