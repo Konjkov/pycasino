@@ -449,7 +449,7 @@ class Casino:
         p = self.wfn.get_parameters_projector(opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
         # for pos in position:
-        #     self.logger.info(self.wfn.energy_parameters_d1(pos) Q p / self.wfn.energy_parameters_numerical_d1(pos))
+        #     self.logger.info(self.wfn.energy_parameters_d1(pos) @ p / self.wfn.energy_parameters_numerical_d1(pos))
 
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)

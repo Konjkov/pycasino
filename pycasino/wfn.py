@@ -4,7 +4,7 @@ import numba as nb
 from slater import Slater
 from jastrow import Jastrow
 from backflow import Backflow
-from overload import subtract_outer
+from overload import subtract_outer, block_diag
 
 spec = [
     ('neu', nb.int64),
@@ -211,14 +211,7 @@ class Wfn:
             mask_idx = np.argwhere(self.backflow.get_parameters_mask()).ravel()
             inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
             res_list.append(p[:, mask_idx] @ inv_p)
-        # FIXME: create blockdiagonal matrix from list of matrix like scipy.linalg.block_diag
-        # a = sp.linalg.block_diag(a_list)
-        shape_0_list = np.cumsum(np.array([r.shape[0] for r in res_list]))
-        shape_1_list = np.cumsum(np.array([r.shape[1] for r in res_list]))
-        res = np.zeros(shape=(shape_0_list[-1], shape_1_list[-1]))
-        for r_part, p0, p1 in zip(res_list, shape_0_list, shape_1_list):
-            res[p0 - r_part.shape[0]:p0, p1 - r_part.shape[1]:p1] = r_part
-        return res
+        return block_diag(res_list)
 
     def value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
         """First-order derivatives of the wave function with respect to the parameters divided by wfn.

@@ -3,7 +3,7 @@ import numba as nb
 
 from readers.numerical import rref
 from readers.backflow import construct_c_matrix
-from overload import subtract_outer, random_step
+from overload import subtract_outer, random_step, block_diag
 
 
 labels_type = nb.int64[:]
@@ -1044,15 +1044,7 @@ class Backflow:
                 a_list.append(phi_matrix)
                 b_list += [0] * phi_constrains_size
 
-        # FIXME: create blockdiagonal matrix from list of matrix like scipy.linalg.block_diag
-        # a = sp.linalg.block_diag(a_list)
-        shape_0_list = np.cumsum(np.array([a.shape[0] for a in a_list]))
-        shape_1_list = np.cumsum(np.array([a.shape[1] for a in a_list]))
-        a = np.zeros(shape=(shape_0_list[-1], shape_1_list[-1]))
-        for a_part, p0, p1 in zip(a_list, shape_0_list, shape_1_list):
-            a[p0 - a_part.shape[0]:p0, p1 - a_part.shape[1]:p1] = a_part
-        b = np.array(b_list)
-        return a, b
+        return block_diag(a_list), np.array(b_list)
 
     def get_parameters(self, all_parameters):
         """Returns parameters in the following order:
