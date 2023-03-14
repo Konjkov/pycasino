@@ -9,6 +9,7 @@ r = sqrt(x*x + y*y + z*z)
 
 momentum_map = dict(s=0, p=1, d=2, f=3, g=4)
 
+# https://www.chemeurope.com/en/encyclopedia/Solid_harmonics.html
 harmonics = dict()
 
 harmonics['s'] = (
@@ -52,33 +53,53 @@ harmonics['g'] = (
 )
 
 
-def derivatives_1(momentum):
-    """"""
-    for harmonic in harmonics[momentum]:
-        res = (
-            simplify(diff(harmonic, x)),
-            simplify(diff(harmonic, y)),
-            simplify(diff(harmonic, z))
-        )
-        print("derivatives_1({})=[{}, {}, {}]".format(momentum, *res))
+def derivatives_1():
+    """first derivatives"""
+    for momentum in 'spdfg':
+        for harmonic in harmonics[momentum]:
+            res = (
+                simplify(diff(harmonic, x)),
+                simplify(diff(harmonic, y)),
+                simplify(diff(harmonic, z)),
+            )
+            print("{}, {}, {},".format(*res))
 
 
-def derivatives_2(momentum):
-    """"""
-    for harmonic in harmonics[momentum]:
-        res = (
-            simplify(diff(harmonic, x, x)),
-            simplify(diff(harmonic, x, y)),
-            simplify(diff(harmonic, y, y)),
-            simplify(diff(harmonic, x, z)),
-            simplify(diff(harmonic, y, z)),
-            simplify(diff(harmonic, z, z))
-        )
-        print("derivatives_2({})=[{}, {}, {}, {}, {}, {}]".format(momentum, *res))
+def derivatives_2():
+    """second derivatives"""
+    for momentum in 'spdfg':
+        for harmonic in harmonics[momentum]:
+            res = (
+                simplify(diff(harmonic, x, x)),
+                simplify(diff(harmonic, x, y)),
+                simplify(diff(harmonic, y, y)),
+                simplify(diff(harmonic, x, z)),
+                simplify(diff(harmonic, y, z)),
+                simplify(diff(harmonic, z, z)),
+            )
+            print("{}, {}, {}, {}, {}, {},".format(*res))
+
+
+def derivatives_3():
+    """third derivatives"""
+    for momentum in 'spdfg':
+        for harmonic in harmonics[momentum]:
+            res = (
+                simplify(diff(harmonic, x, x, x)),
+                simplify(diff(harmonic, x, x, y)),
+                simplify(diff(harmonic, x, y, y)),
+                simplify(diff(harmonic, x, x, z)),
+                simplify(diff(harmonic, x, y, z)),
+                simplify(diff(harmonic, x, z, z)),
+                simplify(diff(harmonic, y, y, y)),
+                simplify(diff(harmonic, y, y, z)),
+                simplify(diff(harmonic, y, z, z)),
+                simplify(diff(harmonic, z, z, z)),
+            )
+            print("{}, {}, {}, {}, {}, {}, {}, {}, {}, {},".format(*res))
 
 
 if __name__ == "__main__":
 
-    for m in 'spdfg':
-        derivatives_1(m)
-        derivatives_2(m)
+    derivatives_1()
+    derivatives_2()

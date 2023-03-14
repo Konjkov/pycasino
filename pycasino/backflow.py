@@ -930,34 +930,34 @@ class Backflow:
                     res.append(1)
             for j2 in range(self.eta_parameters.shape[1]):
                 for j1 in range(self.eta_parameters.shape[0]):
-                    if self.eta_parameters_optimizable[j1, j2]:
+                    if self.eta_parameters_optimizable[j1, j2] and self.eta_parameters_available[j1, j2]:
                         res.append(1 / np.mean(self.eta_cutoff) ** j1)
 
         if self.mu_cutoff.any():
-            for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable)):
+            for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_parameters_available) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_parameters_available)):
                 if mu_cutoff_optimizable:
                     res.append(1)
                 for j2 in range(mu_parameters.shape[1]):
                     for j1 in range(mu_parameters.shape[0]):
-                        if mu_parameters_optimizable[j1, j2]:
+                        if mu_parameters_optimizable[j1, j2] and mu_parameters_available[j1, j2]:
                             res.append(1 / mu_cutoff ** j1)
 
         if self.phi_cutoff.any():
-            for i, (phi_parameters, phi_parameters_optimizable, theta_parameters_optimizable, phi_cutoff, phi_cutoff_optimizable) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters_optimizable, self.phi_cutoff, self.phi_cutoff_optimizable)):
+            for i, (phi_parameters, phi_parameters_optimizable, phi_parameters_available, theta_parameters_optimizable, theta_parameters_available, phi_cutoff, phi_cutoff_optimizable) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.phi_parameters_available, self.theta_parameters_optimizable, self.theta_parameters_available, self.phi_cutoff, self.phi_cutoff_optimizable)):
                 if phi_cutoff_optimizable:
                     res.append(1)
                 for j4 in range(phi_parameters.shape[3]):
                     for j3 in range(phi_parameters.shape[2]):
                         for j2 in range(phi_parameters.shape[1]):
                             for j1 in range(phi_parameters.shape[0]):
-                                if phi_parameters_optimizable[j1, j2, j3, j4]:
+                                if phi_parameters_optimizable[j1, j2, j3, j4] and phi_parameters_available[j1, j2, j3, j4]:
                                     res.append(1 / phi_cutoff ** (j1 + j2 + j3))
 
                 for j4 in range(phi_parameters.shape[3]):
                     for j3 in range(phi_parameters.shape[2]):
                         for j2 in range(phi_parameters.shape[1]):
                             for j1 in range(phi_parameters.shape[0]):
-                                if theta_parameters_optimizable[j1, j2, j3, j4]:
+                                if theta_parameters_optimizable[j1, j2, j3, j4] and theta_parameters_available[j1, j2, j3, j4]:
                                     res.append(1 / phi_cutoff ** (j1 + j2 + j3))
 
         return np.array(res)

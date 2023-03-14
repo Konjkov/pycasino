@@ -446,6 +446,7 @@ class Casino:
             2 : display progress during iterations.
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
+        # scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
         p = self.wfn.get_parameters_projector(opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
         # for pos in position:
@@ -456,7 +457,7 @@ class Casino:
             energy = np.empty(shape=(steps,))
             energy_part = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allgather(energy_part, energy)
-            # rescale for "Cost column" in output of scipy.optimize.least_squares to by a variance of local E
+            # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
             return np.sqrt(2) * (energy - energy.mean()) / np.sqrt(steps - 1)
 
         def jac(x, *args, **kwargs):
@@ -465,7 +466,7 @@ class Casino:
             # energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
             energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
-            # rescale for "Cost column" in output of scipy.optimize.least_squares to by a variance of local E
+            # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
             return np.sqrt(2) * energy_gradient / np.sqrt(steps - 1)
 
         self.logger.info(
@@ -512,7 +513,7 @@ class Casino:
             self.mpi_comm.Allgather(energy_part, energy)
             weights = (wfn / wfn_0)**2
             ddof = (weights**2).sum() / weights.sum()  # Delta Degrees of Freedom
-            # rescale for "Cost column" in output of scipy.optimize.least_squares to by a variance of local E
+            # rescale for "Cost column" in output of scipy.optimize.least_squares to be variance of E local
             return np.sqrt(2) * (energy - np.average(energy, weights=weights)) * np.sqrt(weights / (weights.sum() - ddof))
 
         def jac(x, *args, **kwargs):
@@ -526,7 +527,7 @@ class Casino:
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
             weights = (wfn / wfn_0)**2
             ddof = (weights**2).sum() / weights.sum()  # Delta Degrees of Freedom
-            # rescale for "Cost column" in output of scipy.optimize.least_squares to by a variance of local E
+            # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
             return np.sqrt(2) * energy_gradient * np.sqrt(np.expand_dims(weights, 1) / (weights.sum() - ddof))
 
         self.logger.info(
