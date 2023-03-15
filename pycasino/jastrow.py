@@ -711,7 +711,7 @@ class Jastrow:
             for j2 in range(self.u_parameters.shape[1]):
                 for j1 in range(self.u_parameters.shape[0]):
                     if self.u_parameters_optimizable[j1, j2] and self.u_parameters_available[j1, j2]:
-                        scale.append(1 / self.u_cutoff ** (j1 + self.trunc))
+                        scale.append(1 / self.u_cutoff ** (j1 + self.trunc - 1))
 
         if self.chi_cutoff.any():
             for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
@@ -720,7 +720,7 @@ class Jastrow:
                 for j2 in range(chi_parameters.shape[1]):
                     for j1 in range(chi_parameters.shape[0]):
                         if chi_parameters_optimizable[j1, j2] and chi_parameters_available[j1, j2]:
-                            scale.append(1 / chi_cutoff ** (j1 + self.trunc))
+                            scale.append(1 / chi_cutoff ** (j1 + self.trunc - 1))
 
         if self.f_cutoff.any():
             for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available):
@@ -731,7 +731,7 @@ class Jastrow:
                         for j2 in range(f_parameters.shape[1]):
                             for j1 in range(j2, f_parameters.shape[0]):
                                 if f_parameters_optimizable[j1, j2, j3, j4] and f_parameters_available[j1, j2, j3, j4]:
-                                    scale.append(1 / f_cutoff ** (j1 + j2 + j3 + 2 * self.trunc))
+                                    scale.append(1 / f_cutoff ** (j1 + j2 + j3 + 2 * self.trunc - 2))
 
         return np.array(scale)
 
