@@ -431,7 +431,6 @@ class Slater:
 
     def numerical_hessian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Numerical hessian with respect to e-coordinates
-        :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
         """
@@ -466,9 +465,8 @@ class Slater:
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / delta / 4 / val
 
-    def third_derivatives(self, n_vectors: np.ndarray) -> np.ndarray:
-        """Numerical third partial derivatives with respect to e-coordinates
-        :param e_vectors: e-e vectors
+    def hessian_derivatives(self, n_vectors: np.ndarray) -> np.ndarray:
+        """Tressian or numerical third partial derivatives with respect to e-coordinates
         :param n_vectors: e-n vectors
         :return:
         """
@@ -483,38 +481,6 @@ class Slater:
                 n_vectors[:, i, j] -= delta
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
-
-    def numerical_third_partial_derivatives(self, n_vectors: np.ndarray) -> np.ndarray:
-        """Numerical third partial derivatives with respect to e-coordinates
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return:
-        """
-        val = self.value(n_vectors)
-        res = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3, self.neu + self.ned, 3))
-
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                """d3F/dxdxdx"""
-                res[i, j, i, j, i, j] = 0
-
-        for i1 in range(self.neu + self.ned):
-            for j1 in range(3):
-                for i2 in range(i1 + 1):
-                    for j2 in range(3):
-                        """d3F/dxdxdy"""
-                        res[i1, j1, i1, j1, i2, j2] = 0
-
-        for i1 in range(self.neu + self.ned):
-            for j1 in range(3):
-                for i2 in range(i1 + 1):
-                    for j2 in range(3):
-                        for i3 in range(i2 + 1):
-                            for j3 in range(3):
-                                """d3F/dxdydz"""
-                                res[i1, j1, i2, j2, i3, j3] = 0
-
-        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / delta / delta / 8 / val
 
     def profile_value(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
