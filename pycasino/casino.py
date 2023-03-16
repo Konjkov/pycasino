@@ -446,14 +446,13 @@ class Casino:
             2 : display progress during iterations.
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
         p = self.wfn.get_parameters_projector(opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
         # for pos in position:
         #     self.logger.info(self.wfn.energy_parameters_d1(pos) @ p / self.wfn.energy_parameters_numerical_d1(pos))
 
         def fun(x, *args, **kwargs):
-            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy = np.empty(shape=(steps,))
             energy_part = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allgather(energy_part, energy)
@@ -461,10 +460,10 @@ class Casino:
             return np.sqrt(2) * (energy - energy.mean()) / np.sqrt(steps - 1)
 
         def jac(x, *args, **kwargs):
-            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy_gradient = np.empty(shape=(steps, x.size))
             # energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
-            energy_gradient_part = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p) * scale
+            energy_gradient_part = (vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p)
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
             # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
             return np.sqrt(2) * energy_gradient / np.sqrt(steps - 1)
@@ -475,11 +474,11 @@ class Casino:
         )
 
         res = least_squares(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale,
+            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow),
             jac=jac, method='trf', ftol=1/np.sqrt(steps-1), x_scale='jac',
             tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
         )
-        parameters = res.x * scale
+        parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
         self.logger.info('Jacobian matrix at the solution:')

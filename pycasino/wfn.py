@@ -36,7 +36,7 @@ class Wfn:
         self.ned = ned
         self.atom_positions = atom_positions
         self.atom_charges = atom_charges
-        self.nuclear_repulsion = self.get_nuclear_repulsion()
+        self.nuclear_repulsion = self._get_nuclear_repulsion()
         self.slater = slater
         self.jastrow = jastrow
         self.backflow = backflow
@@ -50,7 +50,7 @@ class Wfn:
         n_vectors = -subtract_outer(self.atom_positions, r_e)
         return e_vectors, n_vectors
 
-    def get_nuclear_repulsion(self) -> float:
+    def _get_nuclear_repulsion(self) -> float:
         """Value of n-n repulsion."""
         res = 0.0
         for i in range(self.atom_positions.shape[0] - 1):
@@ -214,7 +214,7 @@ class Wfn:
         return block_diag(res_list)
 
     def value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
-        """First-order derivatives of the wave function with respect to the parameters divided by wfn.
+        """First-order derivatives of the wave function w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
@@ -235,11 +235,10 @@ class Wfn:
         return res
 
     def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
-        """First-order derivatives of energy with respect to the parameters.
+        """First-order derivatives of local energy w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
-        d(b_g @ b_g.T) = b_g_d1 @ b_g.T + b_g @ b_g_d1.T = b_g_d1 @ b_g.T + (b_g_d1 @ b_g.T).T
         :return:
         """
         res = np.zeros(0)
@@ -258,7 +257,6 @@ class Wfn:
             res = np.concatenate((res, j_d1))
         if self.backflow is not None and opt_backflow:
             # backflow parameters part
-            j_g = self.jastrow.gradient(e_vectors, n_vectors)
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
             b_l_d1, b_g_d1, b_v_d1 = self.backflow.laplacian_parameters_d1(e_vectors, n_vectors)
             s_g = self.slater.gradient(b_v)
@@ -271,15 +269,18 @@ class Wfn:
             bf_d1 = np.zeros(shape=parameters.shape)
             for i in range(parameters.size):
                 bf_d1[i] += np.sum(s_h_d1[i] * (b_g @ b_g.T)) / 2
+                # d(b_g @ b_g.T) = b_g_d1 @ b_g.T + b_g @ b_g_d1.T = b_g_d1 @ b_g.T + (b_g_d1 @ b_g.T).T
+                # and s_h is symmetric matrix
                 bf_d1[i] += np.sum(s_h * (b_g_d1[i] @ b_g.T))
                 bf_d1[i] += (s_g_d1[i] @ b_l + s_g @ b_l_d1[i]) / 2
                 if self.jastrow is not None:
+                    j_g = self.jastrow.gradient(e_vectors, n_vectors)
                     bf_d1[i] += (s_g_d1[i] @ b_g + s_g @ b_g_d1[i]) @ j_g
             res = np.concatenate((res, bf_d1))
         return -res
 
     def value_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True, all_parameters=False):
-        """First-order derivatives of energy with respect to the parameters.
+        """First-order derivatives of energy w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
@@ -302,7 +303,7 @@ class Wfn:
         return res / delta / 2 / self.value(r_e)
 
     def energy_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True, all_parameters=False):
-        """First-order derivatives of energy with respect to the parameters.
+        """First-order derivatives of energy w.r.t. parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
@@ -325,7 +326,7 @@ class Wfn:
         return res / delta / 2
 
     def numerical_gradient(self, r_e):
-        """Numerical gradient with respect to e-coordinates
+        """Numerical gradient w.r.t e-coordinates
         :param r_e: electron coordinates - array(nelec, 3)
         """
         val = self.value(r_e)
@@ -348,7 +349,7 @@ class Wfn:
         return res.ravel() / delta / 2 / val
 
     def numerical_laplacian(self, r_e):
-        """Numerical laplacian with respect to e-coordinates
+        """Numerical laplacian w.r.t. e-coordinates
         :param r_e: electron coordinates - array(nelec, 3)
         """
         val = self.value(r_e)
