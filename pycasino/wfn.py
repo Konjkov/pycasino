@@ -229,8 +229,7 @@ class Wfn:
         if self.backflow is not None and opt_backflow:
             b_v = self.backflow.value(e_vectors, n_vectors)
             res = np.concatenate((
-                # FIXME: need check
-                res, self.backflow.parameters_numerical_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v).ravel()
+                res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v)
             ))
         return res
 

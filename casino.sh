@@ -60,6 +60,8 @@
 # path='tests/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_emin/'
 # path='tests/stowfn/O3/HF/QZ4P/CBCS/Jastrow_emin/'
 
+# path='tests/stowfn/He/HF/QZ4P/CBCS/Backflow_emin/'
+
 # path='tests/stowfn/He/HF/QZ4P/CBCS/Jastrow/'
 # path='tests/stowfn/Be/HF/QZ4P/CBCS/Jastrow/'
 # path='tests/stowfn/N/HF/QZ4P/CBCS/Jastrow/'

@@ -903,7 +903,6 @@ class Backflow:
                                 if phi_parameters_available[j1, j2, j3, j4]:
                                     res.append(phi_parameters_optimizable[j1, j2, j3, j4])
 
-                for j4 in range(phi_parameters.shape[3]):
                     for j3 in range(phi_parameters.shape[2]):
                         for j2 in range(phi_parameters.shape[1]):
                             for j1 in range(phi_parameters.shape[0]):
@@ -950,7 +949,6 @@ class Backflow:
                                 if phi_parameters_optimizable[j1, j2, j3, j4] and phi_parameters_available[j1, j2, j3, j4]:
                                     res.append(1)
 
-                for j4 in range(phi_parameters.shape[3]):
                     for j3 in range(phi_parameters.shape[2]):
                         for j2 in range(phi_parameters.shape[1]):
                             for j1 in range(phi_parameters.shape[0]):
@@ -1081,7 +1079,6 @@ class Backflow:
                                 if (phi_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and phi_parameters_available[j1, j2, j3, j4]:
                                     res.append(phi_parameters[j1, j2, j3, j4])
 
-                for j4 in range(phi_parameters.shape[3]):
                     for j3 in range(theta_parameters.shape[2]):
                         for j2 in range(theta_parameters.shape[1]):
                             for j1 in range(theta_parameters.shape[0]):
@@ -1139,7 +1136,6 @@ class Backflow:
                                     phi_parameters[j1, j2, j3, j4] = parameters[n]
                                     n += 1
 
-                for j4 in range(theta_parameters.shape[3]):
                     for j3 in range(theta_parameters.shape[2]):
                         for j2 in range(theta_parameters.shape[1]):
                             for j1 in range(theta_parameters.shape[0]):
@@ -1268,8 +1264,8 @@ class Backflow:
                 self.phi_cutoff[i] -= delta
 
             L = self.phi_cutoff[i]
-            dn = phi_parameters_available.sum()
             for j4 in range(phi_parameters.shape[3]):
+                dn = np.sum(phi_parameters_available[:, :, :, j4])
                 for j3 in range(phi_parameters.shape[2]):
                     for j2 in range(phi_parameters.shape[1]):
                         for j1 in range(phi_parameters.shape[0]):
@@ -1295,6 +1291,7 @@ class Backflow:
                                                     cutoff = (1 - r_e1I/L)**C * (1 - r_e2I/L)**C
                                                     res[n, ae_cutoff_condition, e1] += cutoff * poly * r_ee_vec
                                                     res[n + dn, ae_cutoff_condition, e1] += cutoff * poly * r_e1I_vec
+                n += dn
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
@@ -1428,8 +1425,8 @@ class Backflow:
                 self.phi_cutoff[i] -= delta
 
             L = self.mu_cutoff[i]
-            dn = phi_parameters_available.sum()
             for j4 in range(phi_parameters.shape[3]):
+                dn = np.sum(phi_parameters_available[:, :, :, j4])
                 for j3 in range(phi_parameters.shape[2]):
                     for j2 in range(phi_parameters.shape[1]):
                         for j1 in range(phi_parameters.shape[0]):
@@ -1478,6 +1475,7 @@ class Backflow:
                                                         (poly_diff_e2I - C / (L - r_e2I) * poly) * np.outer(r_e1I_vec, r_e2I_vec) / r_e2I -
                                                         poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee
                                                     )
+                n += dn
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
@@ -1615,8 +1613,8 @@ class Backflow:
                 self.phi_cutoff[i] -= delta
 
             L = self.phi_cutoff[i]
-            dn = phi_parameters_available.sum()
             for j4 in range(phi_parameters.shape[3]):
+                dn = np.sum(phi_parameters_available[:, :, :, j4])
                 for j3 in range(phi_parameters.shape[2]):
                     for j2 in range(phi_parameters.shape[1]):
                         for j1 in range(phi_parameters.shape[0]):
@@ -1699,6 +1697,7 @@ class Backflow:
                                                     res[n + dn, ae_cutoff_condition, e1] += cutoff * (
                                                         (theta_diff_2 + 2 * theta_diff_1) * r_e1I_vec + 2 * theta_dot_product
                                                     )
+                n += dn
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
