@@ -571,6 +571,19 @@ class Casino:
         self.wfn.jastrow.fix_f_parameters()
         p = self.wfn.get_parameters_projector(opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
+
+        # energy = np.empty(shape=(steps,))
+        # wfn_gradient = np.empty(shape=(steps, p.shape[1]))
+        # energy_gradient = np.empty(shape=(steps, p.shape[1]))
+        # energy_part = vmc_observable(condition, position, self.wfn.energy)
+        # wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p
+        # energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p
+        # self.mpi_comm.Ggather(energy_part, energy)
+        # self.mpi_comm.Ggather(wfn_gradient_part, wfn_gradient)
+        # self.mpi_comm.Ggather(energy_gradient_part, energy_gradient)
+        # S = overlap_matrix(wfn_gradient)
+        # H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
+
         # for pos in position:
         #     self.logger.info((self.wfn.value_parameters_d1(pos) @ p) / self.wfn.value_parameters_numerical_d1(pos))
         #     self.logger.info((self.wfn.energy_parameters_d1(pos) @ p) / self.wfn.energy_parameters_numerical_d1(pos))
@@ -587,34 +600,45 @@ class Casino:
         energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p
         S = overlap_matrix(wfn_gradient) / self.mpi_comm.size
         H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient) / self.mpi_comm.size
-        self.mpi_comm.Allreduce(MPI.IN_PLACE, S)
-        self.mpi_comm.Allreduce(MPI.IN_PLACE, H)
-        if precision is not None:
-            with mp.workdps(precision):
-                # https://github.com/mpmath/mpmath/blob/master/mpmath/matrices/eigen.py
-                # get right eigenvector corresponding to the eigenvalue sorted by increasing real part
-                E, ER = mp.eig(mp.matrix(S)**-1 * mp.matrix(H), overwrite_a=True)
-                E, ER = mp.eig_sort(E, ER=ER)
+        if self.mpi_comm.rank == 0:
+            self.mpi_comm.Reduce(MPI.IN_PLACE, S)
+        else:
+            self.mpi_comm.Reduce(S, None)
+        if self.mpi_comm.rank == 0:
+            self.mpi_comm.Reduce(MPI.IN_PLACE, H)
+        else:
+            self.mpi_comm.Reduce(H, None)
+        if self.mpi_comm.rank == 0:
+            if precision is not None:
+                with mp.workdps(precision):
+                    # https://github.com/mpmath/mpmath/blob/master/mpmath/matrices/eigen.py
+                    # get right eigenvector corresponding to the eigenvalue sorted by increasing real part
+                    E, ER = mp.eig(mp.matrix(S)**-1 * mp.matrix(H), overwrite_a=True)
+                    E, ER = mp.eig_sort(E, ER=ER)
+                    # since imaginary parts only arise from statistical noise, discard them
+                    eigval, eigvector = float(mp.re(E[0])), np.array(list(map(mp.re, ER[:, 0])), dtype=np.float64)
+            else:
+                # get normalized right eigenvector corresponding to the eigenvalue
+                v0 = np.zeros(shape=(S.shape[0],))
+                v0[0] = 1
+                eigvals, eigvectors = sp.sparse.linalg.eigs(A=H, k=1, M=S, sigma=energy.mean(), v0=v0, which='SR')
                 # since imaginary parts only arise from statistical noise, discard them
-                eigval, eigvector = float(mp.re(E[0])), np.array(list(map(mp.re, ER[:, 0])), dtype=np.float64)
+                eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
+                idx = eigvals.argmin()
+                eigval, eigvector = eigvals[idx], eigvectors[:, idx]
+            dp = eigvector[1:] / eigvector[0]
+            dp_S_dp = np.sum(S[1:, 1:] * np.outer(dp, dp))
+            norm = 1 / (1 + dp_S_dp)
+            self.logger.info(f'E lin {eigval}')
+            self.logger.info(f'norm {norm}')
+            parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+            if parameters.all():
+                self.logger.info(f'delta p / p\n{norm * dp/parameters}')
+            else:
+                self.logger.info(f'delta p\n{norm * dp}')
+            parameters += norm * dp
         else:
-            # get normalized right eigenvector corresponding to the eigenvalue
-            eigvals, eigvectors = sp.linalg.eig(H, S)
-            # since imaginary parts only arise from statistical noise, discard them
-            eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
-            idx = eigvals.argmin()
-            eigval, eigvector = eigvals[idx], eigvectors[:, idx]
-        dp = eigvector[1:] / eigvector[0]
-        dp_S_dp = np.sum(S[1:, 1:] * np.outer(dp, dp))
-        norm = 1 / (1 + dp_S_dp)
-        self.logger.info(f'E lin {eigval}')
-        self.logger.info(f'norm {norm}')
-        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        if parameters.all():
-            self.logger.info(f'delta p / p\n{norm * dp/parameters}')
-        else:
-            self.logger.info(f'delta p\n{norm * dp}')
-        parameters += norm * dp
+            parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
