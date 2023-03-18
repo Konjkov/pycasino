@@ -73,8 +73,8 @@ class Slater:
         self.cusp = cusp
         self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
 
-    def ao_value(self, n_vectors: np.ndarray) -> np.ndarray:
-        """AO value.
+    def value_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
+        """Value matrix.
         Atomic orbitals for every electron
         :param n_vectors: electron-nuclei array(nelec, natom, 3)
         :return: AO array(nelec, nbasis_functions)
@@ -110,8 +110,8 @@ class Slater:
             wfn_d += cusp_value_d
         return wfn_u, wfn_d
 
-    def ao_gradient(self, n_vectors: np.ndarray) -> np.ndarray:
-        """AO gradient.
+    def gradient_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
+        """Gradient matrix.
         :param n_vectors: electron-nuclei - array(natom, nelec, 3)
         :return: AO gradient - array(3, nelec, nbasis_functions)
         """
@@ -157,8 +157,8 @@ class Slater:
             grad_d += cusp_gradient_d
         return grad_u, grad_d
 
-    def ao_laplacian(self, n_vectors: np.ndarray) -> np.ndarray:
-        """AO Laplacian.
+    def laplacian_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
+        """Laplacian matrix.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :return: AO laplacian - array(nelec, nbasis_functions)
         """
@@ -197,8 +197,8 @@ class Slater:
             lap_d += cusp_laplacian_d
         return lap_u, lap_d
 
-    def ao_hessian(self, n_vectors: np.ndarray) -> np.ndarray:
-        """AO hessian.
+    def hessian_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
+        """Hessian matrix.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :return: AO hessian - array(6, nelec, nbasis_functions)
         """
@@ -269,7 +269,7 @@ class Slater:
         """Multideterminant wave function value.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        wfn_u, wfn_d = self.ao_value(n_vectors)
+        wfn_u, wfn_d = self.value_matrix(n_vectors)
         val = 0.0
         for i in range(self.coeff.shape[0]):
             val += self.coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
@@ -285,8 +285,8 @@ class Slater:
         C. Filippi, R. Assaraf, S. Moroni
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        wfn_u, wfn_d = self.ao_value(n_vectors)
-        grad_u, grad_d = self.ao_gradient(n_vectors)
+        wfn_u, wfn_d = self.value_matrix(n_vectors)
+        grad_u, grad_d = self.gradient_matrix(n_vectors)
         val = 0.0
         grad = np.zeros(shape=(self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
@@ -311,8 +311,8 @@ class Slater:
         C. Filippi, R. Assaraf, S. Moroni
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        wfn_u, wfn_d = self.ao_value(n_vectors)
-        lap_u, lap_d = self.ao_laplacian(n_vectors)
+        wfn_u, wfn_d = self.value_matrix(n_vectors)
+        lap_u, lap_d = self.laplacian_matrix(n_vectors)
         val = lap = 0
         for i in range(self.coeff.shape[0]):
             res_u = np.sum(np.linalg.inv(wfn_u[self.permutation_up[i]]) * lap_u[self.permutation_up[i]].T)
@@ -335,9 +335,9 @@ class Slater:
         in other case a sum of last two terms is zero.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        wfn_u, wfn_d = self.ao_value(n_vectors)
-        grad_u, grad_d = self.ao_gradient(n_vectors)
-        hess_u, hess_d = self.ao_hessian(n_vectors)
+        wfn_u, wfn_d = self.value_matrix(n_vectors)
+        grad_u, grad_d = self.gradient_matrix(n_vectors)
+        hess_u, hess_d = self.hessian_matrix(n_vectors)
         val = 0
         hess = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
@@ -345,44 +345,21 @@ class Slater:
             inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
             inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
 
-            temp_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
-            dx = temp_grad_u[:, :, 0]
-            dy = temp_grad_u[:, :, 1]
-            dz = temp_grad_u[:, :, 2]
-
             temp_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
-
+            temp_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
             # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
             res_u = np.zeros((self.neu, 3, self.neu, 3))
-            res_u[:, 0, :, 0] = np.diag(temp_hess_u[:, 0, 0]) - dx.T * dx
-            res_u[:, 0, :, 1] = np.diag(temp_hess_u[:, 0, 1]) - dx.T * dy
-            res_u[:, 0, :, 2] = np.diag(temp_hess_u[:, 0, 2]) - dx.T * dz
-            res_u[:, 1, :, 0] = np.diag(temp_hess_u[:, 1, 0]) - dy.T * dx
-            res_u[:, 1, :, 1] = np.diag(temp_hess_u[:, 1, 1]) - dy.T * dy
-            res_u[:, 1, :, 2] = np.diag(temp_hess_u[:, 1, 2]) - dy.T * dz
-            res_u[:, 2, :, 0] = np.diag(temp_hess_u[:, 2, 0]) - dz.T * dx
-            res_u[:, 2, :, 1] = np.diag(temp_hess_u[:, 2, 1]) - dz.T * dy
-            res_u[:, 2, :, 2] = np.diag(temp_hess_u[:, 2, 2]) - dz.T * dz
-
-            temp_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
-            dx = temp_grad_d[:, :, 0]
-            dy = temp_grad_d[:, :, 1]
-            dz = temp_grad_d[:, :, 2]
+            for r1 in range(3):
+                for r2 in range(3):
+                    res_u[:, r1, :, r2] = np.diag(temp_hess_u[:, r1, r2]) - temp_grad_u[:, :, r1].T * temp_grad_u[:, :, r2]
 
             temp_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
-
+            temp_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
             # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
             res_d = np.zeros((self.ned, 3, self.ned, 3))
-            # FIXME: res_d[:, ::(n + 1)] = temp_hess_d - https://stackoverflow.com/questions/67241824/3d-tensor-of-diagonal-matrices
-            res_d[:, 0, :, 0] = np.diag(temp_hess_d[:, 0, 0]) - dx.T * dx
-            res_d[:, 0, :, 1] = np.diag(temp_hess_d[:, 0, 1]) - dx.T * dy
-            res_d[:, 0, :, 2] = np.diag(temp_hess_d[:, 0, 2]) - dx.T * dz
-            res_d[:, 1, :, 0] = np.diag(temp_hess_d[:, 1, 0]) - dy.T * dx
-            res_d[:, 1, :, 1] = np.diag(temp_hess_d[:, 1, 1]) - dy.T * dy
-            res_d[:, 1, :, 2] = np.diag(temp_hess_d[:, 1, 2]) - dy.T * dz
-            res_d[:, 2, :, 0] = np.diag(temp_hess_d[:, 2, 0]) - dz.T * dx
-            res_d[:, 2, :, 1] = np.diag(temp_hess_d[:, 2, 1]) - dz.T * dy
-            res_d[:, 2, :, 2] = np.diag(temp_hess_d[:, 2, 2]) - dz.T * dz
+            for r1 in range(3):
+                for r2 in range(3):
+                    res_d[:, r1, :, r2] = np.diag(temp_hess_d[:, r1, r2]) - temp_grad_d[:, :, r1].T * temp_grad_d[:, :, r2]
 
             res_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].reshape(self.neu, self.neu, 3).T).T.sum(axis=0)
             res_grad_d = (inv_wfn_d * grad_d[self.permutation_down[i]].reshape(self.ned, self.ned, 3).T).T.sum(axis=0)
