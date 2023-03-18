@@ -593,22 +593,18 @@ class Casino:
             ' =================='
         )
 
-        energy = vmc_observable(condition, position, self.wfn.energy)
-        # wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_numerical_d1)
-        # energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_numerical_d1)
-        wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p
-        energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p
-        S = overlap_matrix(wfn_gradient) / self.mpi_comm.size
-        H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient) / self.mpi_comm.size
+        energy_part = vmc_observable(condition, position, self.wfn.energy)
+        energy = np.empty(shape=(steps,)) if self.mpi_comm.rank == 0 else None
+        self.mpi_comm.Gather(energy_part, energy)
+        wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p
+        wfn_gradient = np.empty(shape=(steps, p.shape[1])) if self.mpi_comm.rank == 0 else None
+        self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
+        energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p
+        energy_gradient = np.empty(shape=(steps, p.shape[1])) if self.mpi_comm.rank == 0 else None
+        self.mpi_comm.Gather(energy_gradient_part, energy_gradient)
         if self.mpi_comm.rank == 0:
-            self.mpi_comm.Reduce(MPI.IN_PLACE, S)
-        else:
-            self.mpi_comm.Reduce(S, None)
-        if self.mpi_comm.rank == 0:
-            self.mpi_comm.Reduce(MPI.IN_PLACE, H)
-        else:
-            self.mpi_comm.Reduce(H, None)
-        if self.mpi_comm.rank == 0:
+            S = overlap_matrix(wfn_gradient)
+            H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
             if precision is not None:
                 with mp.workdps(precision):
                     # https://github.com/mpmath/mpmath/blob/master/mpmath/matrices/eigen.py
