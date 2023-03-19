@@ -23,12 +23,12 @@ from logger import logging, StreamToLogger
 def overlap_matrix(wfn_gradient):
     """Symmetric overlap matrix S"""
     size = wfn_gradient.shape[1] + 1
-    S = np.zeros(shape=(size, size), dtype=np.longdouble)
+    S = np.zeros(shape=(size, size),)
     S[0, 0] = 1
     # numba doesn't support kwarg for mean
-    mean_wfn_gradient = np.mean(wfn_gradient, axis=0, dtype=np.longdouble)
+    mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
     S[1:, 1:] = (
-        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2), axis=0, dtype=np.longdouble) -
+        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2), axis=0) -
         np.outer(mean_wfn_gradient, mean_wfn_gradient)
     )
     return S
@@ -38,24 +38,24 @@ def overlap_matrix(wfn_gradient):
 def hamiltonian_matrix(wfn_gradient, energy, energy_gradient):
     """Hamiltonian matrix H"""
     size = wfn_gradient.shape[1] + 1
-    H = np.zeros(shape=(size, size), dtype=np.longdouble)
-    mean_energy = np.mean(energy, dtype=np.longdouble)
+    H = np.zeros(shape=(size, size))
+    mean_energy = np.mean(energy)
     H[0, 0] = mean_energy
     H[1:, 0] = (
         # numba doesn't support kwarg for mean
-        np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0, dtype=np.longdouble) -
-        np.mean(wfn_gradient, axis=0, dtype=np.longdouble) * mean_energy
+        np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0) -
+        np.mean(wfn_gradient, axis=0) * mean_energy
     )
-    H[0, 1:] = H[1:, 0] + np.mean(energy_gradient, axis=0, dtype=np.longdouble)
-    mean_wfn_gradient = np.mean(wfn_gradient, axis=0, dtype=np.longdouble)
-    mean_energy_gradient = np.mean(energy_gradient, axis=0, dtype=np.longdouble)
-    mean_wfn_gradient_energy = np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0, dtype=np.longdouble)
+    H[0, 1:] = H[1:, 0] + np.mean(energy_gradient, axis=0)
+    mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
+    mean_energy_gradient = np.mean(energy_gradient, axis=0)
+    mean_wfn_gradient_energy = np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0)
     H[1:, 1:] = (
-        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy, (1, 2)), axis=0, dtype=np.longdouble) -
+        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy, (1, 2)), axis=0) -
         np.outer(mean_wfn_gradient, mean_wfn_gradient_energy) -
         np.outer(mean_wfn_gradient_energy, mean_wfn_gradient) +
         np.outer(mean_wfn_gradient, mean_wfn_gradient) * mean_energy +
-        np.mean(np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy_gradient, 1), axis=0, dtype=np.longdouble) -
+        np.mean(np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy_gradient, 1), axis=0) -
         np.outer(mean_wfn_gradient, mean_energy_gradient)
     )
     return H
@@ -572,18 +572,6 @@ class Casino:
         p = self.wfn.get_parameters_projector(opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
 
-        # energy = np.empty(shape=(steps,))
-        # wfn_gradient = np.empty(shape=(steps, p.shape[1]))
-        # energy_gradient = np.empty(shape=(steps, p.shape[1]))
-        # energy_part = vmc_observable(condition, position, self.wfn.energy)
-        # wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p
-        # energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p
-        # self.mpi_comm.Ggather(energy_part, energy)
-        # self.mpi_comm.Ggather(wfn_gradient_part, wfn_gradient)
-        # self.mpi_comm.Ggather(energy_gradient_part, energy_gradient)
-        # S = overlap_matrix(wfn_gradient)
-        # H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
-
         # for pos in position:
         #     self.logger.info((self.wfn.value_parameters_d1(pos) @ p) / self.wfn.value_parameters_numerical_d1(pos))
         #     self.logger.info((self.wfn.energy_parameters_d1(pos) @ p) / self.wfn.energy_parameters_numerical_d1(pos))
@@ -615,9 +603,7 @@ class Casino:
                     eigval, eigvector = float(mp.re(E[0])), np.array(list(map(mp.re, ER[:, 0])), dtype=np.float64)
             else:
                 # get normalized right eigenvector corresponding to the eigenvalue
-                v0 = np.zeros(shape=(S.shape[0],))
-                v0[0] = 1
-                eigvals, eigvectors = sp.sparse.linalg.eigs(A=H, k=1, M=S, sigma=energy.mean(), v0=v0, which='SR')
+                eigvals, eigvectors = sp.sparse.linalg.eigs(A=H, k=1, M=S, sigma=energy.mean(), v0=S[0], which='SR')
                 # since imaginary parts only arise from statistical noise, discard them
                 eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
                 idx = eigvals.argmin()

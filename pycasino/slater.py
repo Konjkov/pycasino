@@ -333,6 +333,7 @@ class Slater:
         https://math.stackexchange.com/questions/2325807/second-derivative-of-a-determinant
         in case of x and y is a coordinates of different electrons first term is zero
         in other case a sum of last two terms is zero.
+        Also using np.trace(A @ B) = np.sum(A * B.T)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         wfn_u, wfn_d = self.value_matrix(n_vectors)
@@ -346,20 +347,20 @@ class Slater:
             inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
 
             temp_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
-            temp_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
+            temp_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3))
             # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
-            res_u = np.zeros((self.neu, 3, self.neu, 3))
+            res_u = -np.expand_dims(temp_grad_u.T.reshape(self.neu, 3, self.neu), 3) * np.expand_dims(temp_grad_u.reshape(self.neu, self.neu, 3), 1)
             for r1 in range(3):
                 for r2 in range(3):
-                    res_u[:, r1, :, r2] = np.diag(temp_hess_u[:, r1, r2]) - temp_grad_u[:, :, r1].T * temp_grad_u[:, :, r2]
+                    res_u[:, r1, :, r2] += np.diag(temp_hess_u[:, r1, r2])
 
             temp_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
-            temp_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
+            temp_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3))
             # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
-            res_d = np.zeros((self.ned, 3, self.ned, 3))
+            res_d = -np.expand_dims(temp_grad_d.T.reshape(self.ned, 3, self.ned), 3) * np.expand_dims(temp_grad_d.reshape(self.ned, self.ned, 3), 1)
             for r1 in range(3):
                 for r2 in range(3):
-                    res_d[:, r1, :, r2] = np.diag(temp_hess_d[:, r1, r2]) - temp_grad_d[:, :, r1].T * temp_grad_d[:, :, r2]
+                    res_d[:, r1, :, r2] += np.diag(temp_hess_d[:, r1, r2])
 
             res_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].reshape(self.neu, self.neu, 3).T).T.sum(axis=0)
             res_grad_d = (inv_wfn_d * grad_d[self.permutation_down[i]].reshape(self.ned, self.ned, 3).T).T.sum(axis=0)
