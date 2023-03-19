@@ -340,40 +340,40 @@ class Slater:
         grad_u, grad_d = self.gradient_matrix(n_vectors)
         hess_u, hess_d = self.hessian_matrix(n_vectors)
         val = 0
-        hess = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
+        hess = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         for i in range(self.coeff.shape[0]):
 
             inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
             inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
 
-            temp_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
-            temp_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3))
+            c = self.coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
+            val += c
+
+            res_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
             # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
+            temp_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3))
             res_u = -np.expand_dims(temp_grad_u.T.reshape(self.neu, 3, self.neu), 3) * np.expand_dims(temp_grad_u.reshape(self.neu, self.neu, 3), 1)
             for r1 in range(3):
                 for r2 in range(3):
-                    res_u[:, r1, :, r2] += np.diag(temp_hess_u[:, r1, r2])
+                    res_u[:, r1, :, r2] += np.diag(res_hess_u[:, r1, r2])
+            hess[:self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3)
 
-            temp_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
+            res_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
             temp_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3))
             # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
             res_d = -np.expand_dims(temp_grad_d.T.reshape(self.ned, 3, self.ned), 3) * np.expand_dims(temp_grad_d.reshape(self.ned, self.ned, 3), 1)
             for r1 in range(3):
                 for r2 in range(3):
-                    res_d[:, r1, :, r2] += np.diag(temp_hess_d[:, r1, r2])
+                    res_d[:, r1, :, r2] += np.diag(res_hess_d[:, r1, r2])
+            hess[self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3)
 
+            # tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy)
             res_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].reshape(self.neu, self.neu, 3).T).T.sum(axis=0)
             res_grad_d = (inv_wfn_d * grad_d[self.permutation_down[i]].reshape(self.ned, self.ned, 3).T).T.sum(axis=0)
-
-            c = self.coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
-            val += c
             res_grad = np.concatenate((res_grad_u.ravel(), res_grad_d.ravel()))
-            # tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy)
-            hess += c * np.outer(res_grad, res_grad).reshape((self.neu + self.ned), 3, (self.neu + self.ned), 3)
-            hess[:self.neu, :, :self.neu, :] += c * res_u
-            hess[self.neu:, :, self.neu:, :] += c * res_d
+            hess += c * np.outer(res_grad, res_grad)
 
-        return hess.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / val
+        return hess / val
 
     def numerical_gradient(self, n_vectors: np.ndarray) -> float:
         """Numerical gradient with respect to e-coordinates
