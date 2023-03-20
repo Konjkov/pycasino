@@ -243,6 +243,7 @@ class Slater:
                         #     np.eye(3) * angular_1[l*l+m] * radial_2 +
                         #     (np.outer(n_vectors[atom, i], angular_2[l*l+m, :]) + np.outer(angular_2[l*l+m, :], n_vectors[atom, i])) * radial_2 +
                         #     # convert angular_3[l * l + m, :] to symmetric matrix
+                        #     # a + a.T - np.diag(a.diagonal())
                         #     angular_3[l * l + m, :, :] * radial_3
                         # )
                         orbital[i, 0, 0, ao+m] = x*x * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * x * angular_2[l*l+m, 0]) * radial_2 + angular_3[l*l+m, 0] * radial_3

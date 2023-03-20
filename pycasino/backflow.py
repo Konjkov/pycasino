@@ -971,7 +971,7 @@ class Backflow:
 
         if self.eta_cutoff.any():
             if self.eta_cutoff_optimizable.any():
-                a_list.append(np.zeros(shape=(0, self.eta_cutoff_optimizable[0])))
+                a_list.append(np.zeros(shape=(0, self.eta_cutoff_optimizable.sum())))
 
             eta_spin_deps = [0]
             if self.eta_parameters.shape[1] == 2:
