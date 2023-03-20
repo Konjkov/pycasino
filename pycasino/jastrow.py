@@ -41,6 +41,7 @@ spec = [
     ('no_dup_u_term', nb.boolean[:]),
     ('no_dup_chi_term', nb.boolean[:]),
     ('u_cusp_const', nb.float64[:]),
+    ('parameters_projector', nb.float64[:, :]),
 ]
 
 
@@ -89,6 +90,7 @@ class Jastrow:
         self.no_dup_u_term = no_dup_u_term
         self.no_dup_chi_term = no_dup_chi_term
         self.fix_optimizable()
+        self.parameters_projector = self.get_parameters_projector()
 
     def check_constraint(self):
         """"""
@@ -821,6 +823,14 @@ class Jastrow:
                 b_list += [0] * f_constrains_size
 
         return block_diag(a_list), np.array(b_list)
+
+    def get_parameters_projector(self):
+        """Get Projector matrix"""
+        a, b = self.get_parameters_constraints()
+        p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
+        mask_idx = np.argwhere(self.get_parameters_mask()).ravel()
+        inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
+        return p[:, mask_idx] @ inv_p
 
     def get_parameters(self, all_parameters) -> np.ndarray:
         """Returns parameters in the following order:

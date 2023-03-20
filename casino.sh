@@ -87,4 +87,4 @@
 # path='tests/stowfn/O3/HF/QZ4P/CBCS/Jastrow_dmc/'
 
 # python pycasino/casino.py $path
-# mpiexec -n 4 python pycasino/casino.py $path
+# mpiexec python pycasino/casino.py $path

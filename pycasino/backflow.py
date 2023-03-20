@@ -47,6 +47,7 @@ spec = [
     ('phi_cusp', nb.boolean[:]),
     ('phi_irrotational', nb.boolean[:]),
     ('ae_cutoff', nb.float64[:]),
+    ('parameters_projector', nb.float64[:, :]),
 ]
 
 
@@ -100,6 +101,7 @@ class Backflow:
         ))
         self.ae_cutoff = ae_cutoff
         self.fix_optimizable()
+        self.parameters_projector = self.get_parameters_projector()
 
     def fix_optimizable(self):
         """Set parameter fixed if there is no corresponded spin-pairs"""
@@ -1040,6 +1042,14 @@ class Backflow:
                 b_list += [0] * phi_constrains_size
 
         return block_diag(a_list), np.array(b_list)
+
+    def get_parameters_projector(self):
+        """Get Projector matrix"""
+        a, b = self.get_parameters_constraints()
+        p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
+        mask_idx = np.argwhere(self.get_parameters_mask()).ravel()
+        inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
+        return p[:, mask_idx] @ inv_p
 
     def get_parameters(self, all_parameters):
         """Returns parameters in the following order:

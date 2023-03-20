@@ -446,7 +446,6 @@ class Casino:
             2 : display progress during iterations.
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        p = self.wfn.get_parameters_projector(opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
 
         def fun(x, *args, **kwargs):
@@ -460,7 +459,7 @@ class Casino:
         def jac(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy_gradient = np.empty(shape=(steps, x.size))
-            energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p
+            energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
             # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
             return np.sqrt(2) * energy_gradient / np.sqrt(steps - 1)
@@ -494,7 +493,6 @@ class Casino:
             2 : display progress during iterations.
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        p = self.wfn.get_parameters_projector(opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
         wfn_0 = np.empty(shape=(steps,))
         wfn_0_part = vmc_observable(condition, position, self.wfn.value)
@@ -518,7 +516,7 @@ class Casino:
             wfn = np.empty(shape=(steps,))
             energy_gradient = np.empty(shape=(steps, x.size))
             wfn_part = vmc_observable(condition, position, self.wfn.value)
-            energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p
+            energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             self.mpi_comm.Allgather(wfn_part, wfn)
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
             weights = (wfn / wfn_0)**2
@@ -569,12 +567,11 @@ class Casino:
         self.wfn.jastrow.fix_u_parameters()
         self.wfn.jastrow.fix_chi_parameters()
         self.wfn.jastrow.fix_f_parameters()
-        p = self.wfn.get_parameters_projector(opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, decorr_period)
 
         # for pos in position:
-        #     self.logger.info((self.wfn.value_parameters_d1(pos) @ p) / self.wfn.value_parameters_numerical_d1(pos))
-        #     self.logger.info((self.wfn.energy_parameters_d1(pos) @ p) / self.wfn.energy_parameters_numerical_d1(pos))
+        #     self.logger.info(self.wfn.value_parameters_d1(pos) / self.wfn.value_parameters_numerical_d1(pos))
+        #     self.logger.info(self.wfn.energy_parameters_d1(pos) / self.wfn.energy_parameters_numerical_d1(pos))
 
         self.logger.info(
             ' Optimization start\n'
@@ -584,11 +581,11 @@ class Casino:
         energy_part = vmc_observable(condition, position, self.wfn.energy)
         energy = np.empty(shape=(steps,)) if self.mpi_comm.rank == 0 else None
         self.mpi_comm.Gather(energy_part, energy)
-        wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1) @ p
-        wfn_gradient = np.empty(shape=(steps, p.shape[1])) if self.mpi_comm.rank == 0 else None
+        wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+        wfn_gradient = np.empty(shape=(steps, wfn_gradient_part.shape[1])) if self.mpi_comm.rank == 0 else None
         self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
-        energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1) @ p
-        energy_gradient = np.empty(shape=(steps, p.shape[1])) if self.mpi_comm.rank == 0 else None
+        energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+        energy_gradient = np.empty(shape=(steps, wfn_gradient_part.shape[1])) if self.mpi_comm.rank == 0 else None
         self.mpi_comm.Gather(energy_gradient_part, energy_gradient)
         if self.mpi_comm.rank == 0:
             S = overlap_matrix(wfn_gradient)
