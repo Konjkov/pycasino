@@ -798,11 +798,13 @@ class Jastrow:
                 a_list.append(chi_matrix)
                 b_list.append(0)
 
-        for f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
+        for f_parameters, f_cutoff, f_cutoff_optimizable, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.f_cutoff_optimizable, self.no_dup_u_term, self.no_dup_chi_term):
             f_en_order = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[2] - 1
             f_matrix = construct_a_matrix(self.trunc, f_en_order, f_ee_order, f_cutoff, no_dup_u_term, no_dup_chi_term)
             f_constrains_size, f_parameters_size = f_matrix.shape
+            if f_cutoff_optimizable:
+                a_list.append(np.zeros(shape=(0, 1)))
 
             f_spin_deps = f_parameters.shape[3]
             if f_spin_deps == 2:

@@ -1018,7 +1018,7 @@ class Backflow:
                 a_list.append(mu_matrix)
                 b_list += [0] * 2
 
-        for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cusp, self.phi_irrotational):
+        for phi_parameters, theta_parameters, phi_cutoff, phi_cutoff_optimizable, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cutoff_optimizable, self.phi_cusp, self.phi_irrotational):
             phi_spin_deps = [0]
             if phi_parameters.shape[3] == 2:
                 phi_spin_deps = [0, 1]
@@ -1034,6 +1034,9 @@ class Backflow:
                     phi_spin_deps = [x for x in phi_spin_deps if x != 1]
                 if self.ned < 2:
                     phi_spin_deps = [x for x in phi_spin_deps if x != 2]
+
+            if phi_cutoff_optimizable:
+                a_list.append(np.zeros(shape=(0, 1)))
 
             for spin_dep in phi_spin_deps:
                 phi_matrix = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
