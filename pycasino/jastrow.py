@@ -748,8 +748,10 @@ class Jastrow:
         b_list = []
 
         if self.u_cutoff:
-            u_parameters_size = self.u_parameters.shape[0] + self.u_cutoff_optimizable
-            u_matrix = np.zeros(shape=(1, u_parameters_size))
+            if self.u_cutoff_optimizable:
+                a_list.append(np.zeros(shape=(0, 1)))
+
+            u_matrix = np.zeros(shape=(1, self.u_parameters.shape[0]))
             u_matrix[0, 0] = self.trunc
             u_matrix[0, 1] = -self.u_cutoff
 
@@ -782,8 +784,10 @@ class Jastrow:
                 b_list.append(u_b[spin_dep] / (-self.u_cutoff) ** (self.trunc - 1))
 
         for chi_parameters, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters, self.chi_cutoff, self.chi_cutoff_optimizable):
-            chi_parameters_size = chi_parameters.shape[0] + chi_cutoff_optimizable
-            chi_matrix = np.zeros(shape=(1, chi_parameters_size))
+            if chi_cutoff_optimizable:
+                a_list.append(np.zeros(shape=(0, 1)))
+
+            chi_matrix = np.zeros(shape=(1, chi_parameters.shape[0]))
             chi_matrix[0, 0] = self.trunc
             chi_matrix[0, 1] = -chi_cutoff
 
@@ -799,12 +803,13 @@ class Jastrow:
                 b_list.append(0)
 
         for f_parameters, f_cutoff, f_cutoff_optimizable, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.f_cutoff_optimizable, self.no_dup_u_term, self.no_dup_chi_term):
+            if f_cutoff_optimizable:
+                a_list.append(np.zeros(shape=(0, 1)))
+
             f_en_order = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[2] - 1
             f_matrix = construct_a_matrix(self.trunc, f_en_order, f_ee_order, f_cutoff, no_dup_u_term, no_dup_chi_term)
             f_constrains_size, f_parameters_size = f_matrix.shape
-            if f_cutoff_optimizable:
-                a_list.append(np.zeros(shape=(0, 1)))
 
             f_spin_deps = f_parameters.shape[3]
             if f_spin_deps == 2:

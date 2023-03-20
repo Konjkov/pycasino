@@ -361,9 +361,8 @@ class Slater:
                     res_u[:, r1, :, r2] += np.diag(res_hess_u[:, r1, r2]) - temp_grad_u[:, :, r1].T * temp_grad_u[:, :, r2]
             hess[:self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3)
 
-            temp_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
             # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
-            # res_d = -np.expand_dims(temp_grad_d.T.reshape(self.ned, 3, self.ned), 3) * np.expand_dims(temp_grad_d.reshape(self.ned, self.ned, 3), 1)
+            temp_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3))
             for r1 in range(3):
                 for r2 in range(3):

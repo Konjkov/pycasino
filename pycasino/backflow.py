@@ -970,6 +970,9 @@ class Backflow:
         b_list = []
 
         if self.eta_cutoff.any():
+            if self.eta_cutoff_optimizable.any():
+                a_list.append(np.zeros(shape=(0, self.eta_cutoff_optimizable[0])))
+
             eta_spin_deps = [0]
             if self.eta_parameters.shape[1] == 2:
                 eta_spin_deps = [0, 1]
@@ -986,23 +989,24 @@ class Backflow:
                 if self.ned < 2:
                     eta_spin_deps = [x for x in eta_spin_deps if x != 2]
 
-            eta_parameters_size = self.eta_parameters.shape[0] + self.eta_cutoff_optimizable[0]
             for spin_dep in eta_spin_deps:
                 # e-e term is affected by constraints only for like-spin electrons
                 if spin_dep in (0, 2):
-                    eta_matrix = np.zeros(shape=(1, eta_parameters_size))
+                    eta_matrix = np.zeros(shape=(1, self.eta_parameters.shape[0]))
                     eta_matrix[0, 0] = self.trunc
                     eta_matrix[0, 1] = -self.eta_cutoff[spin_dep]
                     a_list.append(eta_matrix)
                     b_list.append(0)
                 else:
                     # no constrains
-                    eta_matrix = np.zeros(shape=(0, eta_parameters_size))
+                    eta_matrix = np.zeros(shape=(0, self.eta_parameters.shape[0]))
                     a_list.append(eta_matrix)
 
         for mu_parameters, mu_cutoff, mu_cutoff_optimizable in zip(self.mu_parameters, self.mu_cutoff, self.mu_cutoff_optimizable):
-            mu_parameters_size = mu_parameters.shape[0] + mu_cutoff_optimizable
-            mu_matrix = np.zeros(shape=(2, mu_parameters_size))
+            if mu_cutoff_optimizable:
+                a_list.append(np.zeros(shape=(0, 1)))
+
+            mu_matrix = np.zeros(shape=(2, mu_parameters.shape[0]))
             mu_matrix[0, 0] = 1
             mu_matrix[1, 0] = self.trunc
             mu_matrix[1, 1] = -mu_cutoff
@@ -1019,6 +1023,9 @@ class Backflow:
                 b_list += [0] * 2
 
         for phi_parameters, theta_parameters, phi_cutoff, phi_cutoff_optimizable, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cutoff_optimizable, self.phi_cusp, self.phi_irrotational):
+            if phi_cutoff_optimizable:
+                a_list.append(np.zeros(shape=(0, 1)))
+
             phi_spin_deps = [0]
             if phi_parameters.shape[3] == 2:
                 phi_spin_deps = [0, 1]
@@ -1034,9 +1041,6 @@ class Backflow:
                     phi_spin_deps = [x for x in phi_spin_deps if x != 1]
                 if self.ned < 2:
                     phi_spin_deps = [x for x in phi_spin_deps if x != 2]
-
-            if phi_cutoff_optimizable:
-                a_list.append(np.zeros(shape=(0, 1)))
 
             for spin_dep in phi_spin_deps:
                 phi_matrix = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
