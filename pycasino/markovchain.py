@@ -101,9 +101,11 @@ class VMCMarkovChain:
         position = np.empty(shape=(steps, ) + self.r_e.shape)
 
         for i in range(steps):
+            cond = False
             for _ in range(decorr_period):
                 self.simple_random_step()
-            condition[i], position[i] = self.cond, self.r_e
+                cond |= self.cond
+            condition[i], position[i] = cond, self.r_e
 
         return condition, position
 

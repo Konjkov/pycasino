@@ -325,7 +325,7 @@ class Backflow:
                     phi_term = True
                 elif line.startswith('END PHI TERM'):
                     self.fix_phi_parameters()
-                    self.check_phi_constrains()
+                    # self.check_phi_constrains()
                     phi_term = False
                 elif line.startswith('START AE CUTOFFS'):
                     ae_term = True

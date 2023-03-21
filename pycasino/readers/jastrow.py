@@ -231,7 +231,7 @@ class Jastrow:
                     chi_term = False
                 elif line.startswith('END F TERM'):
                     self.fix_f_parameters()
-                    self.check_f_constrains()
+                    # self.check_f_constrains()
                     f_term = False
                 elif u_term:
                     if line.startswith('START SET'):

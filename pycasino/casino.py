@@ -188,7 +188,7 @@ class Casino:
                         f' PERFORMING OPTIMIZATION CALCULATION No. {i+1}.\n'
                         f' ==========================================\n\n'
                     )
-                    self.vmc_reweighted_variance_minimization(
+                    self.vmc_unreweighted_variance_minimization(
                         self.config.input.vmc_nconfig_write,
                         self.config.input.vmc_decorr_period,
                         self.config.input.opt_jastrow,
