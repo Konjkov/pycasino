@@ -224,9 +224,7 @@ class Jastrow:
                 elif line.startswith('START F TERM'):
                     f_term = True
                 elif line.startswith('END U TERM'):
-                    if self.u_parameters.any():
-                        # impose e-e cusp condition only if it's not initial Jastrow
-                        self.fix_u_parameters()
+                    self.fix_u_parameters()
                     u_term = False
                 elif line.startswith('END CHI TERM'):
                     self.fix_chi_parameters()
@@ -257,6 +255,7 @@ class Jastrow:
                             # e-e cusp condition for CASINO emin
                             # for i in range(u_spin_dep+1):
                             #     self.u_parameters[0, i] = -self.u_cutoff[0]['value'] / np.array([4, 2, 4])[i] / (-self.u_cutoff[0]['value']) ** self.trunc / self.trunc
+                            u_term = False
                             self.u_parameters_optimizable = u_parameters_independent
                     elif line.startswith('END SET'):
                         pass
@@ -456,6 +455,9 @@ class Jastrow:
 
     def fix_u_parameters(self):
         """Fix u-term parameters"""
+        # impose e-e cusp condition only if it's not initial Jastrow
+        if not self.u_parameters.any():
+            return
         C = self.trunc
         L = self.u_cutoff[0]['value']
         for i in range(3):
@@ -465,6 +467,8 @@ class Jastrow:
         """Fix chi-term parameters"""
         C = self.trunc
         for chi_parameters, chi_cutoff, chi_cusp in zip(self.chi_parameters, self.chi_cutoff, self.chi_cusp):
+            if not chi_parameters.any():
+                continue
             L = chi_cutoff['value']
             chi_parameters[1] = chi_parameters[0] * C / L
             if chi_cusp:
@@ -483,6 +487,8 @@ class Jastrow:
         b-column has the sum of independent coefficients for each condition.
         """
         for f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
+            if not f_parameters.any():
+                continue
             L = f_cutoff['value']
             f_en_order = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[2] - 1

@@ -188,7 +188,7 @@ class Casino:
                         f' PERFORMING OPTIMIZATION CALCULATION No. {i+1}.\n'
                         f' ==========================================\n\n'
                     )
-                    self.vmc_unreweighted_variance_minimization(
+                    self.vmc_reweighted_variance_minimization(
                         self.config.input.vmc_nconfig_write,
                         self.config.input.vmc_decorr_period,
                         self.config.input.opt_jastrow,
@@ -471,7 +471,7 @@ class Casino:
 
         res = least_squares(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow),
-            jac=jac, method='trf', ftol=1/np.sqrt(steps-1), x_scale='jac',
+            jac=jac, method='trf', ftol=1/np.sqrt(steps-1),
             tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
         )
         parameters = res.x
@@ -531,7 +531,7 @@ class Casino:
 
         res = least_squares(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow),
-            jac=jac, method='trf', ftol=1/np.sqrt(steps-1), x_scale='jac',
+            jac=jac, method='trf', ftol=1/np.sqrt(steps-1),
             tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
         )
         parameters = res.x

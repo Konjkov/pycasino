@@ -314,10 +314,12 @@ class Backflow:
                 elif line.startswith('START ETA TERM'):
                     eta_term = True
                 elif line.startswith('END ETA TERM'):
+                    self.fix_eta_parameters()
                     eta_term = False
                 elif line.startswith('START MU TERM'):
                     mu_term = True
                 elif line.startswith('END MU TERM'):
+                    self.fix_mu_parameters()
                     mu_term = False
                 elif line.startswith('START PHI TERM'):
                     phi_term = True
@@ -360,7 +362,6 @@ class Backflow:
                         except ValueError:
                             eta_term = False
                             self.eta_parameters_optimizable = eta_parameters_independent
-                        self.fix_eta_parameters()
                 elif mu_term:
                     if line.startswith('Number of sets'):
                         number_of_sets = self.read_ints()[0]
@@ -601,6 +602,8 @@ class Backflow:
     def fix_phi_parameters(self):
         """Fix phi-term parameters"""
         for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff['value'], self.phi_cusp, self.phi_irrotational):
+            if not phi_parameters.any():
+                continue
             for spin_dep in range(phi_parameters.shape[3]):
                 c = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
                 c, pivot_positions = rref(c)
