@@ -44,14 +44,6 @@
 # path='tests/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_varmin/'
 # path='tests/stowfn/O3/HF/QZ4P/CBCS/Jastrow_varmin/'
 
-# path='tests/stowfn/He/HF/QZ4P/CBCS/Backflow_varmin/'
-# path='tests/stowfn/Be/HF/QZ4P/CBCS/Backflow_varmin/'
-# path='tests/stowfn/N/HF/QZ4P/CBCS/Backflow_varmin/'
-# path='tests/stowfn/Ne/HF/QZ4P/CBCS/Backflow_varmin/'
-# path='tests/stowfn/Ar/HF/QZ4P/CBCS/Backflow_varmin/'
-# path='tests/stowfn/Kr/HF/QZ4P/CBCS/Backflow_varmin/'
-# path='tests/stowfn/O3/HF/QZ4P/CBCS/Backflow_varmin/'
-
 # path='tests/stowfn/He/HF/QZ4P/CBCS/Jastrow_emin/'
 # path='tests/stowfn/Be/HF/QZ4P/CBCS/Jastrow_emin/'
 # path='tests/stowfn/N/HF/QZ4P/CBCS/Jastrow_emin/'
@@ -59,6 +51,14 @@
 # path='tests/stowfn/Ar/HF/QZ4P/CBCS/Jastrow_emin/'
 # path='tests/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_emin/'
 # path='tests/stowfn/O3/HF/QZ4P/CBCS/Jastrow_emin/'
+
+# path='tests/stowfn/He/HF/QZ4P/CBCS/Backflow_varmin/'
+# path='tests/stowfn/Be/HF/QZ4P/CBCS/Backflow_varmin/'
+# path='tests/stowfn/N/HF/QZ4P/CBCS/Backflow_varmin/'
+# path='tests/stowfn/Ne/HF/QZ4P/CBCS/Backflow_varmin/'
+# path='tests/stowfn/Ar/HF/QZ4P/CBCS/Backflow_varmin/'
+# path='tests/stowfn/Kr/HF/QZ4P/CBCS/Backflow_varmin/'
+# path='tests/stowfn/O3/HF/QZ4P/CBCS/Backflow_varmin/'
 
 # path='tests/stowfn/He/HF/QZ4P/CBCS/Backflow_emin/'
 
