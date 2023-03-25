@@ -77,7 +77,7 @@ class Slater:
         """Value matrix.
         Atomic orbitals for every electron
         :param n_vectors: electron-nuclei array(nelec, natom, 3)
-        :return: AO array(nelec, nbasis_functions)
+        :return: array(up_orbitals, up_electrons), array(down_orbitals, down_electrons)
         """
         orbital = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
         for i in range(self.neu + self.ned):
@@ -113,7 +113,7 @@ class Slater:
     def gradient_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient matrix.
         :param n_vectors: electron-nuclei - array(natom, nelec, 3)
-        :return: AO gradient - array(3, nelec, nbasis_functions)
+        :return: array(up_orbitals, up_electrons, 3), array(down_orbitals, down_electrons, 3)
         """
         orbital = np.zeros(shape=(self.neu + self.ned, 3, self.nbasis_functions))
         for i in range(self.neu + self.ned):
@@ -160,7 +160,7 @@ class Slater:
     def laplacian_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
         """Laplacian matrix.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        :return: AO laplacian - array(nelec, nbasis_functions)
+        :return: array(up_orbitals, up_electrons), array(down_orbitals, down_electrons)
         """
         orbital = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
         for i in range(self.neu + self.ned):
@@ -200,7 +200,7 @@ class Slater:
     def hessian_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
         """Hessian matrix.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        :return: AO hessian - array(6, nelec, nbasis_functions)
+        :return: array(up_orbitals, up_electrons, 3, 3), array(down_orbitals, down_electrons, 3, 3)
         """
         orbital = np.zeros(shape=(self.neu + self.ned, 3, 3, self.nbasis_functions))
 

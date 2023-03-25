@@ -1,5 +1,6 @@
 from numpy_config import np
 import numba as nb
+import numba_mpi as nb_mpi
 
 from wfn import Wfn
 
@@ -155,9 +156,13 @@ class DMCMarkovChain:
             self.velocity_list.append(limiting_factor * velocity)
             self.energy_list.append(self.wfn.energy(r_e))
             self.branching_energy_list.append(self.wfn.energy(r_e))
+        energy_list_len = np.empty(1, dtype=np.int64)
+        energy_list_sum = np.empty(1, dtype=np.float64)
+        nb_mpi.allreduce(len(self.energy_list), energy_list_len)
+        nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
         step_eff = self.step_size  # first guess
-        self.best_estimate_energy = sum(self.energy_list) / len(self.energy_list)
-        self.energy_t = self.best_estimate_energy - np.log(len(self.energy_list) / self.target_weight) / step_eff
+        self.best_estimate_energy = energy_list_sum[0] / energy_list_len[0]
+        self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) / step_eff
 
     def limiting_factor(self, v, a=1):
         """A significant source of error in DMC calculations comes from sampling electronic
@@ -225,9 +230,14 @@ class DMCMarkovChain:
         self.velocity_list = next_velocity_list
         self.wfn_value_list = next_wfn_value_list
         self.branching_energy_list = next_branching_energy_list
-        step_eff = sum_acceptance_probability / len(self.energy_list) * self.step_size
-        self.best_estimate_energy = sum(self.energy_list) / len(self.energy_list)
-        self.energy_t = self.best_estimate_energy - np.log(len(self.energy_list) / self.target_weight) * self.step_size / step_eff
+        energy_list_len = np.empty(1, dtype=np.int64)
+        energy_list_sum = np.empty(1, dtype=np.float64)
+        nb_mpi.allreduce(len(self.energy_list), energy_list_len)
+        nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
+        step_eff = sum_acceptance_probability / energy_list_len[0] * self.step_size
+        self.best_estimate_energy = energy_list_sum[0] / energy_list_len[0]
+        self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) * self.step_size / step_eff
+        # redistribute by nb.typed.List.pop() and nb.typed.List.append()
 
     def random_walk(self, steps):
         """DMC random walk.
@@ -240,6 +250,7 @@ class DMCMarkovChain:
             self.unr_random_step()
             energy[i] = self.best_estimate_energy
 
+        # print(nb_mpi.rank(), len(self.energy_list))
         return energy
 
 

@@ -188,7 +188,7 @@ class Casino:
                         f' PERFORMING OPTIMIZATION CALCULATION No. {i+1}.\n'
                         f' ==========================================\n\n'
                     )
-                    self.vmc_unreweighted_variance_minimization(
+                    self.vmc_reweighted_variance_minimization(
                         self.config.input.vmc_nconfig_write,
                         self.config.input.vmc_decorr_period,
                         self.config.input.opt_jastrow,
@@ -232,6 +232,7 @@ class Casino:
                     f' Total PyCasino real time : : :    {stop - start:.4f}'
                 )
         elif self.config.input.runtype == 'vmc_dmc':
+            start = default_timer()
             self.optimize_vmc_step(1000)
             # FIXME: decorr_period for dmc?
             block_start = default_timer()
@@ -247,10 +248,15 @@ class Casino:
                 f'  Standard error                        +/-       {energy.std():18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
-            r_e_list = position[-self.config.input.vmc_nconfig_write:]
+            r_e_list = position[-self.config.input.vmc_nconfig_write // self.mpi_comm.size:]
             self.dmc_markovchain = DMCMarkovChain(r_e_list, self.config.input.dtdmc, self.config.input.dmc_target_weight, self.wfn)
             self.dmc_energy_equilibration()
             self.dmc_energy_accumulation()
+            stop = default_timer()
+            self.logger.info(
+                f' =========================================================================\n\n'
+                f' Total PyCasino real time : : :    {stop - start:.4f}'
+            )
 
     def equilibrate(self, steps):
         """
@@ -471,7 +477,7 @@ class Casino:
 
         res = least_squares(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow),
-            jac=jac, method='trf', ftol=1/np.sqrt(steps-1),
+            jac=jac, method='trf', ftol=1/np.sqrt(steps-1), x_scale='jac',
             tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
         )
         parameters = res.x
