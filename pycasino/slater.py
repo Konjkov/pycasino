@@ -73,7 +73,7 @@ class Slater:
         self.cusp = cusp
         self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
 
-    def value_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
+    def _value_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
         """Value matrix.
         Atomic orbitals for every electron
         :param n_vectors: electron-nuclei array(nelec, natom, 3)
@@ -110,7 +110,7 @@ class Slater:
             wfn_d += cusp_value_d
         return wfn_u, wfn_d
 
-    def gradient_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
+    def _gradient_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient matrix.
         :param n_vectors: electron-nuclei - array(natom, nelec, 3)
         :return: array(up_orbitals, up_electrons, 3), array(down_orbitals, down_electrons, 3)
@@ -157,7 +157,7 @@ class Slater:
             grad_d += cusp_gradient_d
         return grad_u, grad_d
 
-    def laplacian_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
+    def _laplacian_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
         """Laplacian matrix.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :return: array(up_orbitals, up_electrons), array(down_orbitals, down_electrons)
@@ -197,7 +197,7 @@ class Slater:
             lap_d += cusp_laplacian_d
         return lap_u, lap_d
 
-    def hessian_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
+    def _hessian_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
         """Hessian matrix.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :return: array(up_orbitals, up_electrons, 3, 3), array(down_orbitals, down_electrons, 3, 3)
@@ -270,14 +270,14 @@ class Slater:
         """Multideterminant wave function value.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        wfn_u, wfn_d = self.value_matrix(n_vectors)
+        wfn_u, wfn_d = self._value_matrix(n_vectors)
         val = 0.0
         for i in range(self.coeff.shape[0]):
             val += self.coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
         return val
 
     def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
-        """Gradient ∇(phi).
+        """Gradient ∇(phi) / phi.
         ∇ln(det(A)) = tr(A^-1 * ∇A)
         where matrix ∇A is column-wise gradient of A
         then using np.trace(A @ B) = np.sum(A * B.T)
@@ -286,8 +286,8 @@ class Slater:
         C. Filippi, R. Assaraf, S. Moroni
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        wfn_u, wfn_d = self.value_matrix(n_vectors)
-        grad_u, grad_d = self.gradient_matrix(n_vectors)
+        wfn_u, wfn_d = self._value_matrix(n_vectors)
+        grad_u, grad_d = self._gradient_matrix(n_vectors)
         val = 0.0
         grad = np.zeros(shape=(self.neu + self.ned, 3))
         for i in range(self.coeff.shape[0]):
@@ -300,7 +300,7 @@ class Slater:
         return grad.ravel() / val
 
     def laplacian(self, n_vectors: np.ndarray) -> float:
-        """Scalar laplacian Δ(phi).
+        """Scalar laplacian Δ(phi) / phi.
         Δln(det(A)) = sum(tr(slater^-1 * B(n)) over n
         where matrix B(n) is zero with exception of the n-th column
         as tr(A) + tr(B) = tr(A + B)
@@ -312,8 +312,8 @@ class Slater:
         C. Filippi, R. Assaraf, S. Moroni
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        wfn_u, wfn_d = self.value_matrix(n_vectors)
-        lap_u, lap_d = self.laplacian_matrix(n_vectors)
+        wfn_u, wfn_d = self._value_matrix(n_vectors)
+        lap_u, lap_d = self._laplacian_matrix(n_vectors)
         val = lap = 0
         for i in range(self.coeff.shape[0]):
             res_u = np.sum(np.linalg.inv(wfn_u[self.permutation_up[i]]) * lap_u[self.permutation_up[i]].T)
@@ -337,9 +337,9 @@ class Slater:
         Also using np.trace(A @ B) = np.sum(A * B.T)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        wfn_u, wfn_d = self.value_matrix(n_vectors)
-        grad_u, grad_d = self.gradient_matrix(n_vectors)
-        hess_u, hess_d = self.hessian_matrix(n_vectors)
+        wfn_u, wfn_d = self._value_matrix(n_vectors)
+        grad_u, grad_d = self._gradient_matrix(n_vectors)
+        hess_u, hess_d = self._hessian_matrix(n_vectors)
         val = 0
         hess = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         for i in range(self.coeff.shape[0]):
@@ -377,7 +377,7 @@ class Slater:
         return hess / val
 
     def numerical_gradient(self, n_vectors: np.ndarray) -> float:
-        """Numerical gradient with respect to e-coordinates
+        """Numerical gradient w.r.t e-coordinates
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         val = self.value(n_vectors)
@@ -393,7 +393,7 @@ class Slater:
         return res.ravel() / delta / 2 / val
 
     def numerical_laplacian(self, n_vectors: np.ndarray) -> float:
-        """Numerical laplacian with respect to e-coordinates
+        """Numerical laplacian w.r.t e-coordinates
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         val = self.value(n_vectors)
@@ -409,7 +409,7 @@ class Slater:
         return res / delta / delta / val
 
     def numerical_hessian(self, n_vectors: np.ndarray) -> np.ndarray:
-        """Numerical hessian with respect to e-coordinates
+        """Numerical hessian w.r.t e-coordinates
         :param n_vectors: e-n vectors
         :return:
         """

@@ -189,7 +189,7 @@ class DMCMarkovChain:
         next_energy_list = nb.typed.List.empty_list(energy_type)
         next_branching_energy_list = nb.typed.List.empty_list(energy_type)
         for r_e, wfn_value, velocity, energy, branching_energy in zip(self.r_e_list, self.wfn_value_list, self.velocity_list, self.energy_list, self.branching_energy_list):
-            next_r_e = r_e + (np.sqrt(self.step_size) * np.random.normal(0, 1, ne * 3) + self.step_size * velocity).reshape((ne, 3))
+            next_r_e = r_e + (np.sqrt(self.step_size) * np.random.normal(0, 1, ne * 3) + self.step_size * velocity).reshape(ne, 3)
             next_wfn_value = self.wfn.value(next_r_e)
             # prevent crossing nodal surface
             cond = np.sign(wfn_value) == np.sign(next_wfn_value)
@@ -237,7 +237,75 @@ class DMCMarkovChain:
         step_eff = sum_acceptance_probability / energy_list_len[0] * self.step_size
         self.best_estimate_energy = energy_list_sum[0] / energy_list_len[0]
         self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) * self.step_size / step_eff
-        # redistribute by nb.typed.List.pop() and nb.typed.List.append()
+
+    def redistribute_walker(self, from_rank, to_rank, count):
+        """Redistribute count walkers from MPI from_rank to to_rank"""
+        rank = nb_mpi.rank()
+        if rank in (from_rank, to_rank):
+            ne = self.wfn.neu + self.wfn.ned
+            r_e = np.empty(shape=(count, ne, 3))
+            energy = np.empty(shape=(count,))
+            velocity = np.empty(shape=(count, ne * 3))
+            wfn_value = np.empty(shape=(count,))
+            branching_energy = np.empty(shape=(count, ))
+            if rank == from_rank:
+                for i in range(count):
+                    r_e[i] = self.r_e_list.pop()
+                    energy[i] = self.energy_list.pop()
+                    velocity[i] = self.velocity_list.pop()
+                    wfn_value[i] = self.wfn_value_list.pop()
+                    branching_energy[i] = self.branching_energy_list.pop()
+                nb_mpi.send(r_e, dest=to_rank, tag=0)
+                nb_mpi.send(energy, dest=to_rank, tag=0)
+                nb_mpi.send(velocity, dest=to_rank, tag=0)
+                nb_mpi.send(wfn_value, dest=to_rank, tag=0)
+                nb_mpi.send(branching_energy, dest=to_rank, tag=0)
+            elif rank == to_rank:
+                nb_mpi.recv(r_e, source=from_rank, tag=0)
+                nb_mpi.recv(energy, source=from_rank, tag=0)
+                nb_mpi.recv(velocity, source=from_rank, tag=0)
+                nb_mpi.recv(wfn_value, source=from_rank, tag=0)
+                nb_mpi.recv(branching_energy, source=from_rank, tag=0)
+                for i in range(count):
+                    self.r_e_list.append(r_e[i])
+                    self.energy_list.append(energy[i])
+                    self.velocity_list.append(velocity[i])
+                    self.wfn_value_list.append(wfn_value[i])
+                    self.branching_energy_list.append(branching_energy[i])
+
+    def load_balancing(self):
+        """Redistribute walkers across processes."""
+        if nb_mpi.size() == 1:
+            return
+        rank = nb_mpi.rank()
+        walkers = np.zeros(shape=(nb_mpi.size(),), dtype=np.int64)
+        walkers[rank] = len(self.energy_list)
+        if rank == 0:
+            for source in range(1, nb_mpi.size()):
+                nb_mpi.recv(walkers[source:source+1], source=source, tag=0)
+        else:
+            nb_mpi.send(walkers[rank:rank+1], dest=0, tag=0)
+        nb_mpi.bcast(walkers, root=0)
+        # https://stackoverflow.com/questions/21088420/mpi4py-send-recv-with-tag
+        walkers = (walkers - walkers.mean()).astype(np.int64)
+        rank_1 = 0
+        rank_2 = 1
+        while rank_2 < nb_mpi.size():
+            count = min(abs(walkers[rank_1]), abs(walkers[rank_2]))
+            if walkers[rank_1] > 0 > walkers[rank_2]:
+                self.redistribute_walker(rank_1, rank_2, count)
+                walkers[rank_1] -= count
+                walkers[rank_2] += count
+            elif walkers[rank_2] > 0 > walkers[rank_1]:
+                self.redistribute_walker(rank_2, rank_1, count)
+                walkers[rank_2] -= count
+                walkers[rank_1] += count
+            else:
+                rank_2 += 1
+            if walkers[rank_1] == 0:
+                rank_1 += 1
+            if walkers[rank_2] == 0:
+                rank_2 += 1
 
     def random_walk(self, steps):
         """DMC random walk.
@@ -249,8 +317,9 @@ class DMCMarkovChain:
         for i in range(steps):
             self.unr_random_step()
             energy[i] = self.best_estimate_energy
+            if i % 500 == 0:
+                self.load_balancing()
 
-        # print(nb_mpi.rank(), len(self.energy_list))
         return energy
 
 

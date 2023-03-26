@@ -373,22 +373,16 @@ class Casino:
 
         steps = self.config.input.dmc_equil_nstep
         nblock = self.config.input.dmc_equil_nblock
-        energy_block_mean = np.zeros(shape=(nblock,))
-        energy_block_sem = np.zeros(shape=(nblock,))
 
         for i in range(nblock):
             block_start = default_timer()
             energy = self.dmc_markovchain.random_walk(steps // nblock)
-            energy_block_mean[i] = energy.mean()
-            energy_block_sem[i] = correlated_sem(energy)
             block_stop = default_timer()
             self.logger.info(
                 f' =========================================================================\n'
                 f' In block : {i + 1}\n'
-                f'  Number of DMC steps           = {steps // nblock}\n\n'
-                f'  Block average energies (au)\n\n'
-                f'  Total energy                       (au) =       {energy_block_mean[i]:18.12f}\n'
-                f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
+                f' Number of moves in block             : {steps // nblock}\n'
+                f' New best estimate of DMC energy (au) : {energy.mean():18.12f}\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
 
@@ -402,28 +396,25 @@ class Casino:
 
         steps = self.config.input.dmc_stats_nstep
         nblock = self.config.input.dmc_stats_nblock
-        energy_block_mean = np.zeros(shape=(nblock,))
-        energy_block_sem = np.zeros(shape=(nblock,))
+        block_steps = steps // nblock
+        energy = np.zeros(shape=(steps,))
 
         for i in range(nblock):
             block_start = default_timer()
-            energy = self.dmc_markovchain.random_walk(steps // nblock)
-            energy_block_mean[i] = energy.mean()
-            energy_block_sem[i] = correlated_sem(energy)
+            energy[block_steps * i:block_steps * (i + 1)] = self.dmc_markovchain.random_walk(block_steps)
+            energy_mean = energy[:block_steps * (i + 1)].mean()
             block_stop = default_timer()
             self.logger.info(
                 f' =========================================================================\n'
                 f' In block : {i + 1}\n'
-                f'  Number of DMC steps           = {steps // nblock}\n\n'
-                f'  Block average energies (au)\n\n'
-                f'  Total energy                       (au) =       {energy_block_mean[i]:18.12f}\n'
-                f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
+                f' Number of moves in block             : {block_steps}\n\n'
+                f' New best estimate of DMC energy (au) : {energy_mean:18.12f}\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
         self.logger.info(
             f'Mixed estimators of the energies at the end of the run\n'
             f'------------------------------------------------------\n'
-            f'Total energy                 =       {energy_block_mean.mean():.12f} +/-  {energy_block_sem.mean() / np.sqrt(nblock):.12f}\n'
+            f'Total energy                 =       {energy.mean():.12f} +/-  {correlated_sem(energy):.12f}\n'
         )
 
     def normal_test(self, energy):
