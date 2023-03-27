@@ -107,6 +107,22 @@ class Wfn:
             else:
                 return s_g
 
+    def alimit(self, r_e, v):
+        """Parameter required by DMC drift-velocity- and energy-limiting schemes
+        :param r_e: electrons positions
+        :param v: drift velocity
+        :return:
+        """
+        n_vectors = -subtract_outer(self.atom_positions, r_e)
+        # FIXME: multiple nuclei
+        e = n_vectors[0]
+        v = v.reshape(self.neu + self.ned, 3)
+        res = np.empty(shape=(self.neu + self.ned, 3))
+        for i in range(self.neu + self.ned):
+            Z2_z2 = (self.atom_charges[0] * np.linalg.norm(e[i])) ** 2
+            res[i] = (1 + (v[i] @ e[i]) / np.linalg.norm(v[i]) / np.linalg.norm(e[i])) / 2 + Z2_z2 / 10 / (4 + Z2_z2)
+        return res.ravel()
+
     def energy(self, r_e) -> float:
         """Local energy.
         :param r_e: electron coordinates - array(nelec, 3)

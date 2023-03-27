@@ -16,6 +16,8 @@ class Input:
         self.cusp_threshold = 1e-7
         self.use_gpcc = None
         self.opt_backflow = False
+        self.nucleus_gf_mods = True
+        self.alimit = 0.5
 
     def read(self, base_path):
         def read_bool(line):
@@ -88,6 +90,10 @@ class Input:
                     self.vmc_decorr_period = read_int(line)
                 elif line.startswith('cusp_correction'):
                     self.cusp_correction = read_bool(line)
+                elif line.startswith('nucleus_gf_mods'):
+                    self.nucleus_gf_mods = read_bool(line)
+                elif line.startswith('alimit'):
+                    self.alimit = read_float(line)
         if self.cusp_correction is None:
             if self.atom_basis_type == 'gaussian':
                 self.cusp_correction = True

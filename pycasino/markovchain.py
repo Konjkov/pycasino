@@ -91,10 +91,10 @@ class VMCMarkovChain:
         """
         raise NotImplementedError
 
-    def random_walk(self, steps, decorr_period):
+    def random_walk(self, steps, decorr_period=1):
         """Metropolis-Hastings random walk.
         :param steps: number of steps to walk
-        :param decorr_period: number of steps to walk
+        :param decorr_period: decorrelation period
         :return:
         """
         self.probability_density = self.wfn.value(self.r_e) ** 2
@@ -116,8 +116,10 @@ energy_type = nb.types.float64
 r_e_type = nb.types.float64[:, :]
 velocity_type = nb.types.float64[:]
 dmc_spec = [
+    ('alimit', nb.float64[:]),
     ('step_size', nb.float64),
     ('target_weight', nb.float64),
+    ('nucleus_gf_mods', nb.boolean),
     ('r_e_list', nb.types.ListType(r_e_type)),
     ('wfn_value_list', nb.types.ListType(wfn_value_type)),
     ('velocity_list', nb.types.ListType(velocity_type)),
@@ -132,17 +134,20 @@ dmc_spec = [
 @nb.experimental.jitclass(dmc_spec)
 class DMCMarkovChain:
 
-    def __init__(self, r_e_list, step_size, target_weight, wfn):
+    def __init__(self, r_e_list, alimit, nucleus_gf_mods, step_size, target_weight, wfn):
         """Markov chain Monte Carlo.
         :param r_e_list: initial positions of walkers
+        :param alimit: parameter required by DMC drift-velocity- and energy-limiting schemes
         :param step_size: time step size
         :param target_weight: target weight of walkers
         :param wfn: instance of Wfn class
         :return:
         """
         self.wfn = wfn
+        self.alimit = alimit * np.ones(shape=((self.wfn.neu + self.wfn.ned) * 3,))
         self.step_size = step_size
         self.target_weight = target_weight
+        self.nucleus_gf_mods = nucleus_gf_mods
         self.r_e_list = nb.typed.List.empty_list(r_e_type)
         self.wfn_value_list = nb.typed.List.empty_list(wfn_value_type)
         self.velocity_list = nb.typed.List.empty_list(velocity_type)
@@ -152,8 +157,7 @@ class DMCMarkovChain:
             self.r_e_list.append(r_e)
             self.wfn_value_list.append(self.wfn.value(r_e))
             velocity = self.wfn.drift_velocity(r_e)
-            limiting_factor = self.limiting_factor(velocity)
-            self.velocity_list.append(limiting_factor * velocity)
+            self.velocity_list.append(self.limiting_velocity(r_e, velocity))
             self.energy_list.append(self.wfn.energy(r_e))
             self.branching_energy_list.append(self.wfn.energy(r_e))
         energy_list_len = np.empty(1, dtype=np.int64)
@@ -164,21 +168,25 @@ class DMCMarkovChain:
         self.best_estimate_energy = energy_list_sum[0] / energy_list_len[0]
         self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) / step_eff
 
-    def limiting_factor(self, v, a=1):
+    def limiting_velocity(self, r_e, velocity):
         """A significant source of error in DMC calculations comes from sampling electronic
         configurations near the nodal surface. Here both the drift velocity and local
         energy diverge, causing large time step errors and increasing the variance of
         energy estimates respectively. To reduce these undesirable effects it is necessary
         to limit the magnitude of both quantities.
-        :param v: drift velocity
-        :param a: strength of the limiting
-        :return: limiting_factor
+        :param r_e: position of walker
+        :param velocity: drift velocity
+        :return: limiting_factor * velocity
         """
-        square_mod_v = np.sum(v**2)
-        return (np.sqrt(1 + 2 * a * square_mod_v * self.step_size) - 1) / (a * square_mod_v * self.step_size)
+        if self.nucleus_gf_mods:
+            alimit = self.wfn.alimit(r_e, velocity)
+        else:
+            alimit = self.alimit
+        a_v_t = alimit * np.sum(velocity**2) * self.step_size
+        return velocity * (np.sqrt(1 + 2 * a_v_t) - 1) / a_v_t
 
     def unr_random_step(self):
-        """Collection of walkers representing the instantaneous wfn.
+        """DMC random step according to
         C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
         """
         ne = self.wfn.neu + self.wfn.ned
@@ -193,16 +201,15 @@ class DMCMarkovChain:
             next_wfn_value = self.wfn.value(next_r_e)
             # prevent crossing nodal surface
             cond = np.sign(wfn_value) == np.sign(next_wfn_value)
-            next_velocity = self.wfn.drift_velocity(next_r_e)
             next_energy = self.wfn.energy(next_r_e)
-            limiting_factor = self.limiting_factor(next_velocity)
-            next_velocity *= limiting_factor
-            next_branching_energy = self.best_estimate_energy - (self.best_estimate_energy - next_energy) * limiting_factor
+            next_velocity = self.wfn.drift_velocity(next_r_e)
+            next_limiting_velocity = self.limiting_velocity(r_e, next_velocity)
+            next_branching_energy = self.best_estimate_energy - (self.best_estimate_energy - next_energy) * np.linalg.norm(next_limiting_velocity) / np.linalg.norm(next_velocity)
             p = 0
             if cond:
                 # Green`s functions
                 green_forth = np.exp(-np.sum((next_r_e.ravel() - r_e.ravel() - self.step_size * velocity) ** 2) / 2 / self.step_size)
-                green_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
+                green_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step_size * next_limiting_velocity) ** 2) / 2 / self.step_size)
                 # condition
                 p = min(1, (green_back * next_wfn_value ** 2) / (green_forth * wfn_value ** 2))
                 cond = p >= np.random.random()
@@ -216,7 +223,7 @@ class DMCMarkovChain:
                 if cond:
                     next_r_e_list.append(next_r_e)
                     next_energy_list.append(next_energy)
-                    next_velocity_list.append(next_velocity)
+                    next_velocity_list.append(next_limiting_velocity)
                     next_wfn_value_list.append(next_wfn_value)
                     next_branching_energy_list.append(next_branching_energy)
                 else:
