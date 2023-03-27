@@ -366,9 +366,12 @@ class Casino:
     def dmc_energy_equilibration(self):
         """DMC energy equilibration"""
         self.logger.info(
-            ' ===========================================\n'
-            ' PERFORMING A DMC EQUILIBRATION CALCULATION.\n'
-            ' ===========================================\n\n'
+            f' ===========================================\n'
+            f' PERFORMING A DMC EQUILIBRATION CALCULATION.\n'
+            f' ===========================================\n\n'
+            f' Random number generator reset to state in config.in.\n\n'
+            f' EBEST = {self.dmc_markovchain.best_estimate_energy} (au/prim cell inc. N-N)\n'
+            f' EREF  = {self.dmc_markovchain.energy_t}\n\n'
         )
 
         steps = self.config.input.dmc_equil_nstep
@@ -380,18 +383,22 @@ class Casino:
             block_stop = default_timer()
             self.logger.info(
                 f' =========================================================================\n'
-                f' In block : {i + 1}\n'
+                f' In block : {i + 1}\n\n'
                 f' Number of moves in block             : {steps // nblock}\n'
-                f' New best estimate of DMC energy (au) : {energy.mean():18.12f}\n'
+                f' New best estimate of DMC energy (au) : {energy.mean():18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
 
     def dmc_energy_accumulation(self):
         """DMC energy accumulation"""
         self.logger.info(
-            ' =====================================================\n'
-            ' PERFORMING A DMC STATISTICS-ACCUMULATION CALCULATION.\n'
-            ' =====================================================\n\n'
+            f' =====================================================\n'
+            f' PERFORMING A DMC STATISTICS-ACCUMULATION CALCULATION.\n'
+            f' =====================================================\n\n'
+            f' Random number generator reset to state in config.in.\n\n'
+            f' EBEST = {self.dmc_markovchain.best_estimate_energy} (au/prim cell inc. N-N)\n'
+            f' EREF  = {self.dmc_markovchain.energy_t}\n\n'
+            f' Number of previous DMC stats accumulation moves : 0\n'
         )
 
         steps = self.config.input.dmc_stats_nstep
@@ -406,15 +413,15 @@ class Casino:
             block_stop = default_timer()
             self.logger.info(
                 f' =========================================================================\n'
-                f' In block : {i + 1}\n'
-                f' Number of moves in block             : {block_steps}\n\n'
-                f' New best estimate of DMC energy (au) : {energy_mean:18.12f}\n'
+                f' In block : {i + 1}\n\n'
+                f' Number of moves in block             : {block_steps}\n'
+                f' New best estimate of DMC energy (au) : {energy_mean:18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
         self.logger.info(
             f'Mixed estimators of the energies at the end of the run\n'
-            f'------------------------------------------------------\n'
-            f'Total energy                 =       {energy.mean():.12f} +/-  {correlated_sem(energy):.12f}\n'
+            f'------------------------------------------------------\n\n'
+            f'Total energy                 =       {energy.mean():.12f} +/- {correlated_sem(energy):.12f}\n'
         )
 
     def normal_test(self, energy):

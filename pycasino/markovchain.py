@@ -286,7 +286,7 @@ class DMCMarkovChain:
         else:
             nb_mpi.send(walkers[rank:rank+1], dest=0, tag=0)
         nb_mpi.bcast(walkers, root=0)
-        # https://stackoverflow.com/questions/21088420/mpi4py-send-recv-with-tag
+
         walkers = (walkers - walkers.mean()).astype(np.int64)
         rank_1 = 0
         rank_2 = 1
