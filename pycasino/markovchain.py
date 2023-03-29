@@ -230,7 +230,7 @@ class DMCMarkovChain:
                 else:
                     # probability q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
                     zeta = np.sqrt(self.wfn.atom_charges[0] ** 2 + 1/self.step_size)
-                    res[i] = np.random.laplace(0, 1/(2 * zeta), 3) + self.wfn.atom_positions[0]
+                    res[i] = np.random.laplace(0, 1/(2 * zeta), 3) - e[i]
         else:
             res = (np.random.normal(0, np.sqrt(self.step_size), ne * 3) + self.step_size * velocity).reshape(ne, 3)
         return res
