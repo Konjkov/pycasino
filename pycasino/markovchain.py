@@ -1,7 +1,9 @@
 from numpy_config import np
+from math import erfc
 import numba as nb
 import numba_mpi as nb_mpi
 
+from pycasino.overload import subtract_outer
 from wfn import Wfn
 
 vmc_spec = [
@@ -116,7 +118,7 @@ energy_type = nb.types.float64
 r_e_type = nb.types.float64[:, :]
 velocity_type = nb.types.float64[:]
 dmc_spec = [
-    ('alimit', nb.float64[:]),
+    ('alimit', nb.float64),
     ('step_size', nb.float64),
     ('target_weight', nb.float64),
     ('nucleus_gf_mods', nb.boolean),
@@ -144,7 +146,7 @@ class DMCMarkovChain:
         :return:
         """
         self.wfn = wfn
-        self.alimit = alimit * np.ones(shape=((self.wfn.neu + self.wfn.ned) * 3,))
+        self.alimit = alimit
         self.step_size = step_size
         self.target_weight = target_weight
         self.nucleus_gf_mods = nucleus_gf_mods
@@ -168,6 +170,23 @@ class DMCMarkovChain:
         self.best_estimate_energy = energy_list_sum[0] / energy_list_len[0]
         self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) / step_eff
 
+    def alimit_vector(self, r_e, velocity):
+        """Parameter required by DMC drift-velocity- and energy-limiting schemes
+        :param r_e: electrons positions
+        :param velocity: drift velocity
+        :return:
+        """
+        ne = self.wfn.neu + self.wfn.ned
+        n_vectors = -subtract_outer(self.wfn.atom_positions, r_e)
+        # FIXME: multiple nuclei
+        e = n_vectors[0]
+        v = velocity.reshape(ne, 3)
+        res = np.empty(shape=(ne, 3))
+        for i in range(ne):
+            Z2_z2 = (self.wfn.atom_charges[0] * np.linalg.norm(e[i])) ** 2
+            res[i] = (1 + (v[i] @ e[i]) / np.linalg.norm(v[i]) / np.linalg.norm(e[i])) / 2 + Z2_z2 / 10 / (4 + Z2_z2)
+        return res.ravel()
+
     def limiting_velocity(self, r_e, velocity):
         """A significant source of error in DMC calculations comes from sampling electronic
         configurations near the nodal surface. Here both the drift velocity and local
@@ -179,17 +198,47 @@ class DMCMarkovChain:
         :return: limiting_factor * velocity
         """
         if self.nucleus_gf_mods:
-            alimit = self.wfn.alimit(r_e, velocity)
+            a_v_t = np.sum(velocity**2) * self.step_size * self.alimit_vector(r_e, velocity)
+            res = velocity * (np.sqrt(1 + 2 * a_v_t) - 1) / a_v_t
         else:
-            alimit = self.alimit
-        a_v_t = alimit * np.sum(velocity**2) * self.step_size
-        return velocity * (np.sqrt(1 + 2 * a_v_t) - 1) / a_v_t
+            a_v_t = np.sum(velocity**2) * self.step_size * self.alimit
+            res = velocity * (np.sqrt(1 + 2 * a_v_t) - 1) / a_v_t
+        return res
+
+    def drift_diffusion_step(self, r_e, velocity):
+        """Drift-diffusion step."""
+        ne = self.wfn.neu + self.wfn.ned
+        if self.nucleus_gf_mods:
+            # FIXME: multiple nuclei
+            n_vectors = -subtract_outer(self.wfn.atom_positions, r_e)
+            e = n_vectors[0]
+            v = np.ascontiguousarray(velocity).reshape(ne, 3)
+            # v = velocity.reshape(ne, 3)
+            res = np.empty(shape=(ne, 3))
+            for i in range(ne):
+                z = np.linalg.norm(e[i])
+                e_z = e[i] / z
+                v_z = v[i] @ e_z
+                v_rho_vec = v[i] - v_z * e_z
+                v_rho = np.linalg.norm(v_rho_vec)
+                e_rho = v_rho_vec / v_rho
+                z_stroke = max(z + v_z * self.step_size, 0)
+                rho_stroke = 2 * v_rho * self.step_size * z_stroke / (z + z_stroke)
+                if erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2 < np.random.random():
+                    # probability p = 1 - q
+                    res[i] = np.random.normal(0, np.sqrt(self.step_size), 3) + z_stroke * e_z + rho_stroke * e_rho
+                else:
+                    # probability q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
+                    zeta = np.sqrt(self.wfn.atom_charges[0] ** 2 + 1/self.step_size)
+                    res[i] = np.random.laplace(0, 1/(2 * zeta), 3) + self.wfn.atom_positions[0]
+        else:
+            res = (np.random.normal(0, np.sqrt(self.step_size), ne * 3) + self.step_size * velocity).reshape(ne, 3)
+        return res
 
     def unr_random_step(self):
         """DMC random step according to
         C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
         """
-        ne = self.wfn.neu + self.wfn.ned
         sum_acceptance_probability = 0
         next_r_e_list = nb.typed.List.empty_list(r_e_type)
         next_wfn_value_list = nb.typed.List.empty_list(wfn_value_type)
@@ -197,7 +246,7 @@ class DMCMarkovChain:
         next_energy_list = nb.typed.List.empty_list(energy_type)
         next_branching_energy_list = nb.typed.List.empty_list(energy_type)
         for r_e, wfn_value, velocity, energy, branching_energy in zip(self.r_e_list, self.wfn_value_list, self.velocity_list, self.energy_list, self.branching_energy_list):
-            next_r_e = r_e + (np.sqrt(self.step_size) * np.random.normal(0, 1, ne * 3) + self.step_size * velocity).reshape(ne, 3)
+            next_r_e = r_e + self.drift_diffusion_step(r_e, velocity)
             next_wfn_value = self.wfn.value(next_r_e)
             # prevent crossing nodal surface
             cond = np.sign(wfn_value) == np.sign(next_wfn_value)
@@ -262,17 +311,17 @@ class DMCMarkovChain:
                     velocity[i] = self.velocity_list.pop()
                     wfn_value[i] = self.wfn_value_list.pop()
                     branching_energy[i] = self.branching_energy_list.pop()
-                nb_mpi.send(r_e, dest=to_rank, tag=0)
-                nb_mpi.send(energy, dest=to_rank, tag=0)
-                nb_mpi.send(velocity, dest=to_rank, tag=0)
-                nb_mpi.send(wfn_value, dest=to_rank, tag=0)
-                nb_mpi.send(branching_energy, dest=to_rank, tag=0)
+                nb_mpi.send(r_e, dest=to_rank)
+                nb_mpi.send(energy, dest=to_rank)
+                nb_mpi.send(velocity, dest=to_rank)
+                nb_mpi.send(wfn_value, dest=to_rank)
+                nb_mpi.send(branching_energy, dest=to_rank)
             elif rank == to_rank:
-                nb_mpi.recv(r_e, source=from_rank, tag=0)
-                nb_mpi.recv(energy, source=from_rank, tag=0)
-                nb_mpi.recv(velocity, source=from_rank, tag=0)
-                nb_mpi.recv(wfn_value, source=from_rank, tag=0)
-                nb_mpi.recv(branching_energy, source=from_rank, tag=0)
+                nb_mpi.recv(r_e, source=from_rank)
+                nb_mpi.recv(energy, source=from_rank)
+                nb_mpi.recv(velocity, source=from_rank)
+                nb_mpi.recv(wfn_value, source=from_rank)
+                nb_mpi.recv(branching_energy, source=from_rank)
                 for i in range(count):
                     self.r_e_list.append(r_e[i])
                     self.energy_list.append(energy[i])
@@ -289,9 +338,9 @@ class DMCMarkovChain:
         walkers[rank] = len(self.energy_list)
         if rank == 0:
             for source in range(1, nb_mpi.size()):
-                nb_mpi.recv(walkers[source:source+1], source=source, tag=0)
+                nb_mpi.recv(walkers[source:source+1], source=source)
         else:
-            nb_mpi.send(walkers[rank:rank+1], dest=0, tag=0)
+            nb_mpi.send(walkers[rank:rank+1], dest=0)
         nb_mpi.bcast(walkers, root=0)
 
         walkers = (walkers - walkers.mean()).astype(np.int64)
