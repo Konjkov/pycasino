@@ -220,15 +220,12 @@ class DMCMarkovChain:
                 z = np.linalg.norm(e[i])
                 e_z = e[i] / z
                 v_z = v[i] @ e_z
-                v_rho_vec = v[i] - v_z * e_z
-                v_rho = np.linalg.norm(v_rho_vec)
-                e_rho = v_rho_vec / v_rho
-                z_stroke = max(z + v_z * self.step_size, 0)
-                rho_stroke = 2 * v_rho * self.step_size * z_stroke / (z + z_stroke)
                 drift[i] -= e[i]
                 if erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2 < np.random.random():
                     # probability p = 1 - q
-                    drift[i] = z_stroke * e_z + rho_stroke * e_rho
+                    v_rho_vec = v[i] - v_z * e_z
+                    z_stroke = max(z + v_z * self.step_size, 0)
+                    drift[i] = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke))
                     diffusion[i] = np.random.normal(0, np.sqrt(self.step_size), 3)
                 else:
                     # probability q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
