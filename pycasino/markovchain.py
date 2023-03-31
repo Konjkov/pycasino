@@ -17,8 +17,9 @@ vmc_spec = [
 
 @nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
 def laplace_multivariate_distribution(zeta):
-    """In order to sample w from g2(w), we sample the cosine of the polar angle uniformly on [−1, 1],
-    the azimuthal angle uniformly on [0, 2π] and the magnitude w from 4ζ^3 * w^2 * exp(−2ζw).
+    """Sample from ζ³/π * exp(−2ζw).
+    In order to sample w from ζ³/π * exp(−2ζw), we sample the cosine of the polar angle uniformly on [−1, 1],
+    the azimuthal angle uniformly on [0, 2π] and the magnitude w from 4ζ³ * w² * exp(−2ζw).
     This is achieved by sampling r1, r2 and r3 uniformly on [0, 1] and setting w = − log(r1*r2*r3)/2ζ
 
     copy-past from
@@ -36,7 +37,6 @@ def laplace_multivariate_distribution(zeta):
       xi(2)=mod_xi_sin_theta_xi*sin(phi_xi)
       xi(3)=mod_xi*cos_theta_xi
     END SUBROUTINE g2_dist
-    :return:
     """
     mod_xi = -np.log(np.prod(np.random.random(3))) / (2 * zeta)
     cos_theta_xi = 1 - 2 * np.random.random()
@@ -258,16 +258,16 @@ class DMCMarkovChain:
                 v_z = v[i] @ e_z
                 v_rho_vec = v[i] - v_z * e_z
                 z_stroke = max(z + v_z * self.step_size, 0)
-                drift = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke))
+                drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[0]
 
                 q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
                 zeta = np.sqrt(self.wfn.atom_charges[0] ** 2 + 1 / self.step_size)
                 if q > np.random.random():
                     next_r_e[i] = laplace_multivariate_distribution(zeta) + self.wfn.atom_positions[0]
                 else:
-                    next_r_e[i] = np.random.normal(0, np.sqrt(self.step_size), 3) + drift + self.wfn.atom_positions[0]
+                    next_r_e[i] = np.random.normal(0, np.sqrt(self.step_size), 3) + drift_to
                 gf_forth *= (
-                    (1 - q) * np.exp(-np.sum((r_e[i] - drift) ** 2) / 2 / self.step_size) / (2 * np.pi * self.step_size) ** 1.5 +
+                    (1 - q) * np.exp(-np.sum((next_r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (2 * np.pi * self.step_size) ** 1.5 +
                     q * zeta ** 3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(next_r_e[i] - self.wfn.atom_positions[0]))
                 )
 
@@ -282,12 +282,12 @@ class DMCMarkovChain:
                 v_z = v[i] @ e_z
                 v_rho_vec = v[i] - v_z * e_z
                 z_stroke = max(z + v_z * self.step_size, 0)
-                drift_stroke = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke))
+                drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[0]
 
                 q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
                 zeta = np.sqrt(self.wfn.atom_charges[0] ** 2 + 1 / self.step_size)
                 gf_back *= (
-                    (1 - q) * np.exp(-np.sum((r_e[i] - drift_stroke) ** 2) / 2 / self.step_size) / (2 * np.pi * self.step_size) ** 1.5 +
+                    (1 - q) * np.exp(-np.sum((r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (2 * np.pi * self.step_size) ** 1.5 +
                     q * zeta ** 3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(r_e[i] - self.wfn.atom_positions[0]))
                 )
         else:
