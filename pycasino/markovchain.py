@@ -15,6 +15,40 @@ vmc_spec = [
 ]
 
 
+@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
+def laplace_multivariate_distribution(zeta):
+    """In order to sample w from g2(w), we sample the cosine of the polar angle uniformly on [−1, 1],
+    the azimuthal angle uniformly on [0, 2π] and the magnitude w from 4ζ^3 * w^2 * exp(−2ζw).
+    This is achieved by sampling r1, r2 and r3 uniformly on [0, 1] and setting w = − log(r1*r2*r3)/2ζ
+
+    copy-past from
+    SUBROUTINE g2_dist(zeta,xi)
+      USE constants, ONLY : twopi
+      IMPLICIT NONE
+      REAL(dp),INTENT(in) :: zeta
+      REAL(dp),INTENT(out) :: xi(3)
+      REAL(dp) r1,r2,r3,mod_xi,cos_theta_xi,phi_xi,mod_xi_sin_theta_xi
+      r1=ranx() ; r2=ranx() ; r3=ranx()
+      mod_xi=-log(r1*r2*r3)/(2._dp*zeta)
+      cos_theta_xi=1._dp-2._dp*ranx() ; phi_xi=ranx()*twopi
+      mod_xi_sin_theta_xi=mod_xi*sqrt(1._dp-cos_theta_xi**2)
+      xi(1)=mod_xi_sin_theta_xi*cos(phi_xi)
+      xi(2)=mod_xi_sin_theta_xi*sin(phi_xi)
+      xi(3)=mod_xi*cos_theta_xi
+    END SUBROUTINE g2_dist
+    :return:
+    """
+    mod_xi = -np.log(np.prod(np.random.random(3))) / (2 * zeta)
+    cos_theta_xi = 1 - 2 * np.random.random()
+    phi_xi = 2 * np.pi * np.random.random()
+    mod_xi_sin_theta_xi = mod_xi * np.sqrt(1 - cos_theta_xi ** 2)
+    return np.array([
+        mod_xi_sin_theta_xi * np.cos(phi_xi),
+        mod_xi_sin_theta_xi * np.sin(phi_xi),
+        mod_xi * cos_theta_xi
+    ])
+
+
 @nb.experimental.jitclass(vmc_spec)
 class VMCMarkovChain:
 
@@ -158,8 +192,7 @@ class DMCMarkovChain:
         for r_e in r_e_list:
             self.r_e_list.append(r_e)
             self.wfn_value_list.append(self.wfn.value(r_e))
-            drift_velocity = self.wfn.drift_velocity(r_e)
-            self.velocity_list.append(self.limiting_velocity(r_e, drift_velocity))
+            self.velocity_list.append(self.limiting_velocity(r_e)[0])
             self.energy_list.append(self.wfn.energy(r_e))
             self.branching_energy_list.append(self.wfn.energy(r_e))
         energy_list_len = np.empty(1, dtype=np.int64)
@@ -187,7 +220,7 @@ class DMCMarkovChain:
             res[i] = (1 + (v[i] @ e[i]) / np.linalg.norm(v[i]) / np.linalg.norm(e[i])) / 2 + Z2_z2 / 10 / (4 + Z2_z2)
         return res.ravel()
 
-    def limiting_velocity(self, r_e, velocity):
+    def limiting_velocity(self, r_e):
         """A significant source of error in DMC calculations comes from sampling electronic
         configurations near the nodal surface. Here both the drift velocity and local
         energy diverge, causing large time step errors and increasing the variance of
@@ -197,49 +230,76 @@ class DMCMarkovChain:
         :param velocity: drift velocity
         :return: limiting_factor * velocity
         """
+        drift_velocity = self.wfn.drift_velocity(r_e)
         if self.nucleus_gf_mods:
-            a_v_t = np.sum(velocity**2) * self.step_size * self.alimit_vector(r_e, velocity)
-            res = velocity * (np.sqrt(1 + 2 * a_v_t) - 1) / a_v_t
+            a_v_t = np.sum(drift_velocity**2) * self.step_size * self.alimit_vector(r_e, drift_velocity)
+            velocity = drift_velocity * (np.sqrt(1 + 2 * a_v_t) - 1) / a_v_t
         else:
-            a_v_t = np.sum(velocity**2) * self.step_size * self.alimit
-            res = velocity * (np.sqrt(1 + 2 * a_v_t) - 1) / a_v_t
-        return res
+            a_v_t = np.sum(drift_velocity**2) * self.step_size * self.alimit
+            velocity = drift_velocity * (np.sqrt(1 + 2 * a_v_t) - 1) / a_v_t
+        return velocity, np.linalg.norm(velocity) / np.linalg.norm(drift_velocity)
 
-    def drift_diffusion_step(self, r_e, velocity):
+    def drift_diffusion(self, r_e, velocity):
         """Drift-diffusion step."""
         ne = self.wfn.neu + self.wfn.ned
-        v = np.ascontiguousarray(velocity).reshape(ne, 3)
-        # v = velocity.reshape(ne, 3)
         if self.nucleus_gf_mods:
+            # random step according to
+            # C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
+            v = np.ascontiguousarray(velocity).reshape(ne, 3)
+            # v = velocity.reshape(ne, 3)
             # FIXME: multiple nuclei
             n_vectors = -subtract_outer(self.wfn.atom_positions, r_e)
             e = n_vectors[0]
-            drift = np.zeros(shape=(ne, 3))
-            diffusion = np.zeros(shape=(ne, 3))
+            gf_forth = 1
+            next_r_e = np.zeros(shape=(ne, 3))
             for i in range(ne):
                 z = np.linalg.norm(e[i])
                 e_z = e[i] / z
                 v_z = v[i] @ e_z
-                drift[i] -= e[i]
-                if erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2 < np.random.random():
-                    # probability p = 1 - q
-                    v_rho_vec = v[i] - v_z * e_z
-                    z_stroke = max(z + v_z * self.step_size, 0)
-                    drift[i] = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke))
-                    diffusion[i] = np.random.normal(0, np.sqrt(self.step_size), 3)
-                else:
-                    # probability q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
-                    zeta = np.sqrt(self.wfn.atom_charges[0] ** 2 + 1/self.step_size)
-                    diffusion[i] = np.random.laplace(0, 1/(2 * zeta), 3)
-        else:
-            drift = self.step_size * v
-            diffusion = np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape(ne, 3)
-        return drift, diffusion
+                v_rho_vec = v[i] - v_z * e_z
+                z_stroke = max(z + v_z * self.step_size, 0)
+                drift = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke))
 
-    def unr_random_step(self):
-        """DMC random step according to
-        C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
-        """
+                q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
+                zeta = np.sqrt(self.wfn.atom_charges[0] ** 2 + 1 / self.step_size)
+                if q > np.random.random():
+                    next_r_e[i] = laplace_multivariate_distribution(zeta) + self.wfn.atom_positions[0]
+                else:
+                    next_r_e[i] = np.random.normal(0, np.sqrt(self.step_size), 3) + drift + self.wfn.atom_positions[0]
+                gf_forth *= (
+                    (1 - q) * np.exp(-np.sum((r_e[i] - drift) ** 2) / 2 / self.step_size) / (2 * np.pi * self.step_size) ** 1.5 +
+                    q * zeta ** 3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(next_r_e[i] - self.wfn.atom_positions[0]))
+                )
+
+            next_velocity, velocity_ratio = self.limiting_velocity(next_r_e)
+            v = next_velocity.reshape(ne, 3)
+            n_vectors = -subtract_outer(self.wfn.atom_positions, next_r_e)
+            e = n_vectors[0]
+            gf_back = 1
+            for i in range(ne):
+                z = np.linalg.norm(e[i])
+                e_z = e[i] / z
+                v_z = v[i] @ e_z
+                v_rho_vec = v[i] - v_z * e_z
+                z_stroke = max(z + v_z * self.step_size, 0)
+                drift_stroke = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke))
+
+                q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
+                zeta = np.sqrt(self.wfn.atom_charges[0] ** 2 + 1 / self.step_size)
+                gf_back *= (
+                    (1 - q) * np.exp(-np.sum((r_e[i] - drift_stroke) ** 2) / 2 / self.step_size) / (2 * np.pi * self.step_size) ** 1.5 +
+                    q * zeta ** 3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(r_e[i] - self.wfn.atom_positions[0]))
+                )
+        else:
+            # simple random step
+            next_r_e = (np.random.normal(0, np.sqrt(self.step_size), ne * 3) + self.step_size * velocity).reshape(ne, 3) + r_e
+            gf_forth = np.exp(-np.sum((next_r_e.ravel() - r_e.ravel() - self.step_size * velocity) ** 2) / 2 / self.step_size)
+            next_velocity, velocity_ratio = self.limiting_velocity(next_r_e)
+            gf_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
+        return next_r_e, gf_forth, gf_back, next_velocity, velocity_ratio
+
+    def random_step(self):
+        """DMC random step"""
         sum_acceptance_probability = 0
         next_r_e_list = nb.typed.List.empty_list(r_e_type)
         next_wfn_value_list = nb.typed.List.empty_list(wfn_value_type)
@@ -247,23 +307,15 @@ class DMCMarkovChain:
         next_energy_list = nb.typed.List.empty_list(energy_type)
         next_branching_energy_list = nb.typed.List.empty_list(energy_type)
         for r_e, wfn_value, velocity, energy, branching_energy in zip(self.r_e_list, self.wfn_value_list, self.velocity_list, self.energy_list, self.branching_energy_list):
-            drift, diffusion = self.drift_diffusion_step(r_e, velocity)
-            next_r_e = r_e + drift + diffusion
-            next_wfn_value = self.wfn.value(next_r_e)
-            # prevent crossing nodal surface
-            cond = np.sign(wfn_value) == np.sign(next_wfn_value)
+            next_r_e, gf_forth, gf_back, next_velocity, velocity_ratio = self.drift_diffusion(r_e, velocity)
             next_energy = self.wfn.energy(next_r_e)
-            next_drift_velocity = self.wfn.drift_velocity(next_r_e)
-            next_velocity = self.limiting_velocity(r_e, next_drift_velocity)
-            next_branching_energy = self.best_estimate_energy - (self.best_estimate_energy - next_energy) * np.linalg.norm(next_velocity) / np.linalg.norm(next_drift_velocity)
+            next_branching_energy = self.best_estimate_energy - (self.best_estimate_energy - next_energy) * velocity_ratio
             p = 0
+            # prevent crossing nodal surface
+            next_wfn_value = self.wfn.value(next_r_e)
+            cond = np.sign(wfn_value) == np.sign(next_wfn_value)
             if cond:
-                # Green`s functions
-                next_drift, _ = self.drift_diffusion_step(next_r_e, next_velocity)
-                green_forth = np.exp(-np.sum((next_r_e - r_e - drift) ** 2) / 2 / self.step_size)
-                green_back = np.exp(-np.sum((r_e - next_r_e - next_drift) ** 2) / 2 / self.step_size)
-                # condition
-                p = min(1, (green_back * next_wfn_value ** 2) / (green_forth * wfn_value ** 2))
+                p = min(1, (gf_back * next_wfn_value ** 2) / (gf_forth * wfn_value ** 2))
                 cond = p >= np.random.random()
             # branching
             if cond:
@@ -374,7 +426,7 @@ class DMCMarkovChain:
         energy = np.empty(shape=(steps,))
 
         for i in range(steps):
-            self.unr_random_step()
+            self.random_step()
             energy[i] = self.best_estimate_energy
             if i % 500 == 0:
                 self.load_balancing()
