@@ -154,6 +154,7 @@ velocity_type = nb.types.float64[:]
 dmc_spec = [
     ('alimit', nb.float64),
     ('step_size', nb.float64),
+    ('step_eff', nb.float64),
     ('target_weight', nb.float64),
     ('nucleus_gf_mods', nb.boolean),
     ('r_e_list', nb.types.ListType(r_e_type)),
@@ -199,9 +200,9 @@ class DMCMarkovChain:
         energy_list_sum = np.empty(1, dtype=np.float64)
         nb_mpi.allreduce(len(self.energy_list), energy_list_len)
         nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
-        step_eff = self.step_size  # first guess
+        self.step_eff = self.step_size  # first guess
         self.best_estimate_energy = energy_list_sum[0] / energy_list_len[0]
-        self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) / step_eff
+        self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) / self.step_eff
 
     def alimit_vector(self, r_e, velocity):
         """Parameter required by DMC drift-velocity- and energy-limiting schemes
@@ -309,7 +310,7 @@ class DMCMarkovChain:
         for r_e, wfn_value, velocity, energy, branching_energy in zip(self.r_e_list, self.wfn_value_list, self.velocity_list, self.energy_list, self.branching_energy_list):
             next_r_e, gf_forth, gf_back, next_velocity, velocity_ratio = self.drift_diffusion(r_e, velocity)
             next_energy = self.wfn.energy(next_r_e)
-            next_branching_energy = self.best_estimate_energy - (self.best_estimate_energy - next_energy) * velocity_ratio
+            next_branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - next_energy) * velocity_ratio
             p = 0
             # prevent crossing nodal surface
             next_wfn_value = self.wfn.value(next_r_e)
@@ -319,9 +320,9 @@ class DMCMarkovChain:
                 cond = p >= np.random.random()
             # branching
             if cond:
-                weight = np.exp(-self.step_size * (next_branching_energy + branching_energy - 2 * self.energy_t) / 2)
+                weight = np.exp(self.step_size * (next_branching_energy + branching_energy) / 2)
             else:
-                weight = np.exp(-self.step_size * (branching_energy - self.energy_t))
+                weight = np.exp(self.step_size * branching_energy)
             for _ in range(int(weight + np.random.uniform(0, 1))):
                 sum_acceptance_probability += p
                 if cond:
@@ -343,11 +344,13 @@ class DMCMarkovChain:
         self.branching_energy_list = next_branching_energy_list
         energy_list_len = np.empty(1, dtype=np.int64)
         energy_list_sum = np.empty(1, dtype=np.float64)
+        total_sum_acceptance_probability = np.empty(1, dtype=np.float64)
         nb_mpi.allreduce(len(self.energy_list), energy_list_len)
         nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
-        step_eff = sum_acceptance_probability / energy_list_len[0] * self.step_size
+        nb_mpi.allreduce(sum_acceptance_probability, total_sum_acceptance_probability)
+        self.step_eff = total_sum_acceptance_probability[0] / energy_list_len[0] * self.step_size
         self.best_estimate_energy = energy_list_sum[0] / energy_list_len[0]
-        self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) * self.step_size / step_eff
+        self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) * self.step_size / self.step_eff
 
     def redistribute_walker(self, from_rank, to_rank, count):
         """Redistribute count walkers from MPI from_rank to to_rank"""
