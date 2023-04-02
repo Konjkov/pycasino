@@ -275,7 +275,7 @@ class DMCMarkovChain:
 
             next_velocity, velocity_ratio = self.limiting_velocity(next_r_e)
             v = next_velocity.reshape(ne, 3)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
+            n_vectors = np.expand_dims(next_r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
             e = n_vectors[0]
             gf_back = 1
             for i in range(ne):

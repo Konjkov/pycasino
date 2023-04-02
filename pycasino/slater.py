@@ -267,7 +267,7 @@ class Slater:
         return hess_u, hess_d
 
     def value(self, n_vectors: np.ndarray) -> float:
-        """Multideterminant wave function value.
+        """Wave function value.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         wfn_u, wfn_d = self._value_matrix(n_vectors)
@@ -277,7 +277,7 @@ class Slater:
         return val
 
     def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
-        """Gradient ∇(phi) / phi.
+        """Gradient ∇φ/φ w.r.t e-coordinates.
         ∇ln(det(A)) = tr(A^-1 * ∇A)
         where matrix ∇A is column-wise gradient of A
         then using np.trace(A @ B) = np.sum(A * B.T)
@@ -300,9 +300,9 @@ class Slater:
         return grad.ravel() / val
 
     def laplacian(self, n_vectors: np.ndarray) -> float:
-        """Scalar laplacian Δ(phi) / phi.
+        """Scalar laplacian Δφ/φ w.r.t e-coordinates.
         Δln(det(A)) = sum(tr(slater^-1 * B(n)) over n
-        where matrix B(n) is zero with exception of the n-th column
+        where matrix B(n) is zero with exception to the n-th column
         as tr(A) + tr(B) = tr(A + B)
         Δln(det(A)) = tr(slater^-1 * B)
         where the matrix Bij = ∆phi i (rj)
@@ -325,7 +325,7 @@ class Slater:
         return lap / val
 
     def hessian(self, n_vectors: np.ndarray) -> np.ndarray:
-        """Hessian.
+        """Hessian H(φ)/φ w.r.t e-coordinates.
         d²ln(det(A))/dxdy = (
             tr(A^-1 * d²A/dxdy) +
             tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) -

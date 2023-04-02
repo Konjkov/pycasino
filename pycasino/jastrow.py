@@ -180,7 +180,7 @@ class Jastrow:
                     res[i, j, k] = r_eI ** k
         return res
 
-    def u_term(self, e_powers) -> float:
+    def _u_term(self, e_powers) -> float:
         """Jastrow u-term
         :param e_powers: powers of e-e distances
         :return:
@@ -207,7 +207,7 @@ class Jastrow:
                     res += poly * (r - self.u_cutoff) ** C
         return res
 
-    def chi_term(self, n_powers) -> float:
+    def _chi_term(self, n_powers) -> float:
         """Jastrow chi-term
         :param n_powers: powers of e-e distances
         :return:
@@ -232,7 +232,7 @@ class Jastrow:
                         res += poly * (r - L) ** C
         return res
 
-    def f_term(self, e_powers, n_powers) -> float:
+    def _f_term(self, e_powers, n_powers) -> float:
         """Jastrow f-term
         :param e_powers: powers of e-e distances
         :param n_powers: powers of e-n distances
@@ -259,7 +259,7 @@ class Jastrow:
                             res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
         return res
 
-    def u_term_gradient(self, e_powers, e_vectors) -> np.ndarray:
+    def _u_term_gradient(self, e_powers, e_vectors) -> np.ndarray:
         """Jastrow u-term gradient with respect to a e-coordinates
         :param e_powers: powers of e-e distances
         :param e_vectors: e-e vectors
@@ -295,7 +295,7 @@ class Jastrow:
                     res[e2, :] -= gradient
         return res.ravel()
 
-    def chi_term_gradient(self, n_powers, n_vectors) -> np.ndarray:
+    def _chi_term_gradient(self, n_powers, n_vectors) -> np.ndarray:
         """Jastrow chi-term gradient with respect to a e-coordinates
         :param n_powers: powers of e-n distances
         :param n_vectors: e-n vectors
@@ -324,7 +324,7 @@ class Jastrow:
                         res[e1, :] += r_vec/r * (r-L) ** C * (C/(r-L) * poly + poly_diff)
         return res.ravel()
 
-    def f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
+    def _f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
         """Jastrow f-term gradient with respect to a e-coordinates
         :param e_powers: powers of e-e distances
         :param n_powers: powers of e-n distances
@@ -522,9 +522,9 @@ class Jastrow:
         n_powers = self.en_powers(n_vectors)
 
         return (
-            self.u_term(e_powers) +
-            self.chi_term(n_powers) +
-            self.f_term(e_powers, n_powers)
+            self._u_term(e_powers) +
+            self._chi_term(n_powers) +
+            self._f_term(e_powers, n_powers)
         )
 
     def gradient(self, e_vectors, n_vectors) -> np.ndarray:
@@ -537,9 +537,9 @@ class Jastrow:
         n_powers = self.en_powers(n_vectors)
 
         return (
-            self.u_term_gradient(e_powers, e_vectors) +
-            self.chi_term_gradient(n_powers, n_vectors) +
-            self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
+            self._u_term_gradient(e_powers, e_vectors) +
+            self._chi_term_gradient(n_powers, n_vectors) +
+            self._f_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
         )
 
     def laplacian(self, e_vectors, n_vectors) -> float:
@@ -552,9 +552,9 @@ class Jastrow:
         n_powers = self.en_powers(n_vectors)
 
         return (
-            self.u_term_laplacian(e_powers) +
-            self.chi_term_laplacian(n_powers) +
-            self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
+            self._u_term_laplacian(e_powers) +
+            self._chi_term_laplacian(n_powers) +
+            self._f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
         )
 
     def numerical_gradient(self, e_vectors, n_vectors) -> np.ndarray:
@@ -952,9 +952,9 @@ class Jastrow:
         if self.u_cutoff_optimizable:
             n += 1
             self.u_cutoff -= delta
-            res[n] -= self.u_term(e_powers) / delta / 2
+            res[n] -= self._u_term(e_powers) / delta / 2
             self.u_cutoff += 2 * delta
-            res[n] += self.u_term(e_powers) / delta / 2
+            res[n] += self._u_term(e_powers) / delta / 2
             self.u_cutoff -= delta
 
         for j2 in range(self.u_parameters.shape[1]):
@@ -990,9 +990,9 @@ class Jastrow:
             if self.chi_cutoff_optimizable[i]:
                 n += 1
                 self.chi_cutoff[i] -= delta
-                res[n] -= self.chi_term(n_powers) / delta / 2
+                res[n] -= self._chi_term(n_powers) / delta / 2
                 self.chi_cutoff[i] += 2 * delta
-                res[n] += self.chi_term(n_powers) / delta / 2
+                res[n] += self._chi_term(n_powers) / delta / 2
                 self.chi_cutoff[i] -= delta
 
             L = self.chi_cutoff[i]
@@ -1032,9 +1032,9 @@ class Jastrow:
             if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta
-                res[n] -= self.f_term(e_powers, n_powers) / delta / 2
+                res[n] -= self._f_term(e_powers, n_powers) / delta / 2
                 self.f_cutoff[i] += 2 * delta
-                res[n] += self.f_term(e_powers, n_powers) / delta / 2
+                res[n] += self._f_term(e_powers, n_powers) / delta / 2
                 self.f_cutoff[i] -= delta
 
             L = self.f_cutoff[i]
@@ -1080,9 +1080,9 @@ class Jastrow:
         if self.u_cutoff_optimizable:
             n += 1
             self.u_cutoff -= delta
-            res[n] -= self.u_term_gradient(e_powers, e_vectors) / delta / 2
+            res[n] -= self._u_term_gradient(e_powers, e_vectors) / delta / 2
             self.u_cutoff += 2 * delta
-            res[n] += self.u_term_gradient(e_powers, e_vectors) / delta / 2
+            res[n] += self._u_term_gradient(e_powers, e_vectors) / delta / 2
             self.u_cutoff -= delta
 
         for j2 in range(self.u_parameters.shape[1]):
@@ -1127,9 +1127,9 @@ class Jastrow:
             if self.chi_cutoff_optimizable[i]:
                 n += 1
                 self.chi_cutoff[i] -= delta
-                res[n] -= self.chi_term_gradient(n_powers, n_vectors) / delta / 2
+                res[n] -= self._chi_term_gradient(n_powers, n_vectors) / delta / 2
                 self.chi_cutoff[i] += 2 * delta
-                res[n] += self.chi_term_gradient(n_powers, n_vectors) / delta / 2
+                res[n] += self._chi_term_gradient(n_powers, n_vectors) / delta / 2
                 self.chi_cutoff[i] -= delta
 
             L = self.chi_cutoff[i]
@@ -1173,9 +1173,9 @@ class Jastrow:
             if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta
-                res[n] -= self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                res[n] -= self._f_term_gradient(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
                 self.f_cutoff[i] += 2 * delta
-                res[n] += self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                res[n] += self._f_term_gradient(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
                 self.f_cutoff[i] -= delta
 
             L = self.f_cutoff[i]
@@ -1243,9 +1243,9 @@ class Jastrow:
         if self.u_cutoff_optimizable:
             n += 1
             self.u_cutoff -= delta
-            res[n] -= self.u_term_laplacian(e_powers) / delta / 2
+            res[n] -= self._u_term_laplacian(e_powers) / delta / 2
             self.u_cutoff += 2 * delta
-            res[n] += self.u_term_laplacian(e_powers) / delta / 2
+            res[n] += self._u_term_laplacian(e_powers) / delta / 2
             self.u_cutoff -= delta
 
         for j2 in range(self.u_parameters.shape[1]):
@@ -1291,9 +1291,9 @@ class Jastrow:
             if self.chi_cutoff_optimizable[i]:
                 n += 1
                 self.chi_cutoff[i] -= delta
-                res[n] -= self.chi_term_laplacian(n_powers) / delta / 2
+                res[n] -= self._chi_term_laplacian(n_powers) / delta / 2
                 self.chi_cutoff[i] += 2 * delta
-                res[n] += self.chi_term_laplacian(n_powers) / delta / 2
+                res[n] += self._chi_term_laplacian(n_powers) / delta / 2
                 self.chi_cutoff[i] -= delta
 
             L = self.chi_cutoff[i]
@@ -1341,9 +1341,9 @@ class Jastrow:
             if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta
-                res[n] -= self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                res[n] -= self._f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
                 self.f_cutoff[i] += 2 * delta
-                res[n] += self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                res[n] += self._f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
                 self.f_cutoff[i] -= delta
 
             L = self.f_cutoff[i]
