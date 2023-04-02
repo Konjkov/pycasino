@@ -104,12 +104,12 @@ class Profiler(Casino):
         start = default_timer()
         self.vmc_markovchain.wfn.backflow.profile_gradient(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
-        logger.info(' backflow gradient  %8.1f', end - start)
+        logger.info(' backflow value gradient  %8.1f', end - start)
 
         start = default_timer()
         self.vmc_markovchain.wfn.backflow.profile_laplacian(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
-        logger.info(' backflow laplacian %8.1f', end - start)
+        logger.info(' backflow value gradient laplacian %8.1f', end - start)
 
     def markovchain_profiling(self):
 
@@ -177,7 +177,7 @@ if __name__ == '__main__':
      jastrow gradient     6377.9
     """
     for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
-        path = f'test/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
+        path = f'tests/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
         logger.info('%s:', mol)
         profiler = Profiler(path)
         profiler.slater_profiling()
@@ -218,7 +218,7 @@ if __name__ == '__main__':
      cusp hessian        115.4
     """
     for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
-        path = f'test/gwfn/{mol}/HF/cc-pVQZ/CBCS/Jastrow/'
+        path = f'tests/gwfn/{mol}/HF/cc-pVQZ/CBCS/Jastrow/'
         logger.info('%s:', mol)
         profiler = Profiler(path)
         profiler.cusp_profiling()
@@ -236,7 +236,7 @@ if __name__ == '__main__':
      slater hessian       1197.0
     """
     for method in ('HF', 'MP2-CASSCF(2.4)'):
-        path = f'test/gwfn/Be/{method}/cc-pVQZ/CBCS/Jastrow/'
+        path = f'tests/gwfn/Be/{method}/cc-pVQZ/CBCS/Jastrow/'
         logger.info('%s:', method)
         profiler = Profiler(path)
         profiler.slater_profiling()

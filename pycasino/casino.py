@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+import sys
 import argparse
 from timeit import default_timer
 from numpy_config import np
@@ -644,8 +646,6 @@ if __name__ == '__main__':
     parser.add_argument('config_path', type=str, help="path to CASINO config dir")
     args = parser.parse_args()
 
-    import os
-    import sys
     if os.path.exists(os.path.join(args.config_path, 'input')):
         Casino(args.config_path).run()
     else:

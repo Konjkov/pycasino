@@ -5,7 +5,7 @@ from logger import logging
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from cusp import Cusp
 from harmonics import angular_part, gradient_angular_part, hessian_angular_part
-from overload import subtract_outer, random_step
+from overload import random_step
 
 logger = logging.getLogger('vmc')
 
@@ -465,26 +465,26 @@ class Slater:
         """auxiliary code"""
         for _ in range(steps):
             r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = subtract_outer(atom_positions, r_e)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.value(n_vectors)
 
     def profile_gradient(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
             r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = subtract_outer(atom_positions, r_e)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.gradient(n_vectors)
 
     def profile_laplacian(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
             r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = subtract_outer(atom_positions, r_e)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.laplacian(n_vectors)
 
     def profile_hessian(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
             r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = subtract_outer(atom_positions, r_e)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.hessian(n_vectors)

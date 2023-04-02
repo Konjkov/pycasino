@@ -6,7 +6,6 @@ import numba as nb
 import matplotlib.pyplot as plt
 
 from readers.casino import CasinoConfig
-from overload import subtract_outer
 
 
 constants_type = nb.types.DictType(nb.types.unicode_type, nb.float64)
@@ -169,7 +168,7 @@ if __name__ == '__main__':
             y_grid = np.zeros(steps)
             for i in range(100):
                 r_e = np.array([[0.0, 0.0, 0.0], [x_grid[i], 0.0, 0.0]])
-                e_vectors = subtract_outer(r_e, r_e)
+                e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
                 e_powers = gjastrow.ee_powers(e_vectors)
                 y_grid[i] = gjastrow.term_2_0(e_powers, e_vectors, 2-channel)
             plt.plot(x_grid, y_grid, label=['1-1', '1-2', '2-2'][channel])

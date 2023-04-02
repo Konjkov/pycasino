@@ -3,7 +3,6 @@ from math import erfc
 import numba as nb
 import numba_mpi as nb_mpi
 
-from pycasino.overload import subtract_outer
 from wfn import Wfn
 
 vmc_spec = [
@@ -213,7 +212,7 @@ class DMCMarkovChain:
         :return:
         """
         ne = self.wfn.neu + self.wfn.ned
-        n_vectors = -subtract_outer(self.wfn.atom_positions, r_e)
+        n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
         # FIXME: multiple nuclei
         e = n_vectors[0]
         v = velocity.reshape(ne, 3)
@@ -251,7 +250,7 @@ class DMCMarkovChain:
             v = np.ascontiguousarray(velocity).reshape(ne, 3)
             # v = velocity.reshape(ne, 3)
             # FIXME: multiple nuclei
-            n_vectors = -subtract_outer(self.wfn.atom_positions, r_e)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
             e = n_vectors[0]
             gf_forth = 1
             next_r_e = np.zeros(shape=(ne, 3))
@@ -276,7 +275,7 @@ class DMCMarkovChain:
 
             next_velocity, velocity_ratio = self.limiting_velocity(next_r_e)
             v = next_velocity.reshape(ne, 3)
-            n_vectors = -subtract_outer(self.wfn.atom_positions, next_r_e)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
             e = n_vectors[0]
             gf_back = 1
             for i in range(ne):

@@ -4,7 +4,6 @@ import numba as nb
 from slater import Slater
 from jastrow import Jastrow
 from backflow import Backflow
-from overload import subtract_outer, block_diag
 
 spec = [
     ('neu', nb.int64),
@@ -46,8 +45,8 @@ class Wfn:
         :param r_e: electron positions
         :return: e-e vectors - array(nelec, nelec, 3), e-n vectors - array(natom, nelec, 3)
         """
-        e_vectors = subtract_outer(r_e, r_e)
-        n_vectors = -subtract_outer(self.atom_positions, r_e)
+        e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+        n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.atom_positions, 1)
         return e_vectors, n_vectors
 
     def _get_nuclear_repulsion(self) -> float:

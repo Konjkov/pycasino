@@ -3,7 +3,7 @@ import numba as nb
 
 from readers.numerical import rref
 from readers.backflow import construct_c_matrix
-from overload import subtract_outer, random_step, block_diag
+from overload import random_step, block_diag
 
 
 labels_type = nb.int64[:]
@@ -1820,23 +1820,23 @@ class Backflow:
         """auxiliary code"""
         for _ in range(steps):
             r_e = r_initial + random_step(dr, self.neu + self.ned)
-            e_vectors = subtract_outer(r_e, r_e)
-            n_vectors = subtract_outer(atom_positions, r_e)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.value(e_vectors, n_vectors)
 
     def profile_gradient(self, dr, steps, atom_positions, r_initial):
         """auxiliary code"""
         for _ in range(steps):
             r_e = r_initial + random_step(dr, self.neu + self.ned)
-            e_vectors = subtract_outer(r_e, r_e)
-            n_vectors = subtract_outer(atom_positions, r_e)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.gradient(e_vectors, n_vectors)
 
     def profile_laplacian(self, dr, steps, atom_positions, r_initial):
         """auxiliary code"""
         for _ in range(steps):
             r_e = r_initial + random_step(dr, self.neu + self.ned)
-            e_vectors = subtract_outer(r_e, r_e)
-            n_vectors = subtract_outer(atom_positions, r_e)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.laplacian(e_vectors, n_vectors)
 
