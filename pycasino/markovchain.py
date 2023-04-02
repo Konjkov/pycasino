@@ -164,6 +164,7 @@ dmc_spec = [
     ('branching_energy_list', nb.types.ListType(energy_type)),
     ('best_estimate_energy', energy_type),
     ('energy_t', energy_type),
+    ('ntransfers_tot', nb.int64),
     ('wfn', Wfn.class_type.instance_type),
 ]
 
@@ -203,6 +204,7 @@ class DMCMarkovChain:
         self.step_eff = self.step_size  # first guess
         self.best_estimate_energy = energy_list_sum[0] / energy_list_len[0]
         self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) / self.step_eff
+        self.ntransfers_tot = 0
 
     def alimit_vector(self, r_e, velocity):
         """Parameter required by DMC drift-velocity- and energy-limiting schemes
@@ -318,12 +320,12 @@ class DMCMarkovChain:
             if cond:
                 p = min(1, (gf_back * next_wfn_value ** 2) / (gf_forth * wfn_value ** 2))
                 cond = p >= np.random.random()
-            # branching
+            # branching UNR (23)
             if cond:
-                weight = np.exp(self.step_size * (next_branching_energy + branching_energy) / 2)
+                weight = np.exp(self.step_eff * (next_branching_energy + branching_energy) / 2)
             else:
-                weight = np.exp(self.step_size * branching_energy)
-            for _ in range(int(weight + np.random.uniform(0, 1))):
+                weight = np.exp(self.step_eff * branching_energy)
+            for _ in range(int(weight + np.random.random())):
                 sum_acceptance_probability += p
                 if cond:
                     next_r_e_list.append(next_r_e)
@@ -401,7 +403,9 @@ class DMCMarkovChain:
             nb_mpi.send(walkers[rank:rank+1], dest=0)
         nb_mpi.bcast(walkers, root=0)
 
+        # efficiency = walkers.mean() / np.max(walkers)
         walkers = (walkers - walkers.mean()).astype(np.int64)
+        self.ntransfers_tot += np.abs(walkers).sum() // 2
         rank_1 = 0
         rank_2 = 1
         while rank_2 < nb_mpi.size():
@@ -424,8 +428,9 @@ class DMCMarkovChain:
     def random_walk(self, steps):
         """DMC random walk.
         :param steps: number of steps to walk
-        :return: energy
+        :return: energy, number of config transfers
         """
+        self.ntransfers_tot = 0
         energy = np.empty(shape=(steps,))
 
         for i in range(steps):
