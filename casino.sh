@@ -88,3 +88,5 @@
 
 # python pycasino/casino.py $path
 # mpiexec python pycasino/casino.py $path
+
+# pycasino/profiling.py

@@ -102,7 +102,7 @@ START SET {n_set}
  END SET {n_set}"""
 
 
-@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
+@nb.njit(nogil=True, parallel=False, cache=True)
 def construct_c_matrix(trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
     """C-matrix has the following rows:
     ...

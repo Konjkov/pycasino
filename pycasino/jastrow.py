@@ -370,7 +370,7 @@ class Jastrow:
                             res[e2, :] += (r_e1I - L) ** C * (r_e2I - L) ** C * (e2_gradient - ee_gradient)
         return res.ravel()
 
-    def u_term_laplacian(self, e_powers) -> float:
+    def _u_term_laplacian(self, e_powers) -> float:
         """Jastrow u-term laplacian with respect to e-coordinates
         :param e_powers: powers of e-e distances
         :return:
@@ -406,7 +406,7 @@ class Jastrow:
                     )
         return 2 * res
 
-    def chi_term_laplacian(self, n_powers) -> float:
+    def _chi_term_laplacian(self, n_powers) -> float:
         """Jastrow chi-term laplacian with respect to e-coordinates
         :param n_powers: powers of e-n distances
         :return:
@@ -437,7 +437,7 @@ class Jastrow:
                         )
         return res
 
-    def f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors) -> float:
+    def _f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors) -> float:
         """Jastrow f-term laplacian with respect to e-coordinates
         f-term is a product of two spherically symmetric functions f(r_eI) and g(r_ee) so using
             ∇²(f*g) = ∇²(f)*g + 2*∇(f)*∇(g) + f*∇²(g)

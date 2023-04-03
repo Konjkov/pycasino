@@ -21,7 +21,7 @@ from sem import correlated_sem
 from logger import logging, StreamToLogger
 
 
-# @nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
+# @nb.njit(nogil=True, parallel=False, cache=True)
 def overlap_matrix(wfn_gradient):
     """Symmetric overlap matrix S"""
     size = wfn_gradient.shape[1] + 1
@@ -36,7 +36,7 @@ def overlap_matrix(wfn_gradient):
     return S
 
 
-# @nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
+# @nb.njit(nogil=True, parallel=False, cache=True)
 def hamiltonian_matrix(wfn_gradient, energy, energy_gradient):
     """Hamiltonian matrix H"""
     size = wfn_gradient.shape[1] + 1
@@ -393,7 +393,7 @@ class Casino:
                 f' =========================================================================\n'
                 f' In block : {i + 1}\n\n'
                 f' Number of moves in block                 : {steps // nblock}\n'
-                f' Load-balancing efficiency (%)            : 99.999\n'
+                f' Load-balancing efficiency (%)            : {100 * np.mean(self.dmc_markovchain.efficiency_list):.3f}\n'
                 f' Number of config transfers               : {self.dmc_markovchain.ntransfers_tot}\n'
                 f' New best estimate of DMC energy (au)     : {energy.mean():.8f}\n'
                 f' New best estimate of effective time step : {self.dmc_markovchain.step_eff:.8f}\n\n'
@@ -426,7 +426,7 @@ class Casino:
                 f' =========================================================================\n'
                 f' In block : {i + 1}\n\n'
                 f' Number of moves in block                 : {block_steps}\n'
-                f' Load-balancing efficiency (%)            : 99.999\n'
+                f' Load-balancing efficiency (%)            : {100 * np.mean(self.dmc_markovchain.efficiency_list):.3f}\n'
                 f' Number of config transfers               : {self.dmc_markovchain.ntransfers_tot}\n'
                 f' New best estimate of DMC energy (au)     : {energy_mean:.8f}\n'
                 f' New best estimate of effective time step : {self.dmc_markovchain.step_eff:.8f}\n\n'

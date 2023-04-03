@@ -2,7 +2,7 @@ from numpy_config import np
 import numba as nb
 
 
-@nb.jit(nopython=True, nogil=True, parallel=False)
+@nb.njit(nogil=True, parallel=False, cache=True)
 def angular_part(x, y, z):
     """Angular part of WFN.
     :return:
@@ -40,7 +40,7 @@ def angular_part(x, y, z):
     ])
 
 
-@nb.jit(nopython=True, nogil=True, parallel=False)
+@nb.njit(nogil=True, parallel=False, cache=True)
 def gradient_angular_part(x, y, z):
     """Angular part of WFN gradient.
     order: dx, dy, dz
@@ -78,7 +78,7 @@ def gradient_angular_part(x, y, z):
     ]).reshape(25, 3)
 
 
-@nb.jit(nopython=True, nogil=True, parallel=False)
+@nb.njit(nogil=True, parallel=False, cache=True)
 def hessian_angular_part(x, y, z):
     """Angular part of WFN hessian.
     order: dxdx, dxdy, dydy, dxdz, dydz, dzdz

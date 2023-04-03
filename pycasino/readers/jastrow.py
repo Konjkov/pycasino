@@ -103,7 +103,7 @@ START SET {n_set}
  END SET {n_set}"""
 
 
-@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
+@nb.njit(nogil=True, parallel=False, cache=True)
 def construct_a_matrix(trunc, f_en_order, f_ee_order, f_cutoff, no_dup_u_term, no_dup_chi_term):
     """A-matrix has the following rows:
     (2 * f_en_order + 1) constraints imposed to satisfy electron–electron no-cusp condition.

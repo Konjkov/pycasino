@@ -2,7 +2,7 @@ import numpy as np
 import numba as nb
 
 
-@nb.jit(nopython=True, nogil=True, cache=True, parallel=False)
+@nb.njit(nogil=True, parallel=False, cache=True)
 def rref(a, tol=1e-12):
     """
     Construct RREF matrix which:

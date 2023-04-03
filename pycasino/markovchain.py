@@ -14,7 +14,7 @@ vmc_spec = [
 ]
 
 
-@nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
+@nb.njit("nb.float64(nb.float64)", nogil=True, parallel=False, cache=True)
 def laplace_multivariate_distribution(zeta):
     """Sample from ζ³/π * exp(−2ζw).
     In order to sample w from ζ³/π * exp(−2ζw), we sample the cosine of the polar angle uniformly on [−1, 1],
@@ -146,6 +146,7 @@ class VMCMarkovChain:
         return condition, position
 
 
+efficiency_type = nb.types.float64
 wfn_value_type = nb.types.float64
 energy_type = nb.types.float64
 r_e_type = nb.types.float64[:, :]
@@ -164,6 +165,7 @@ dmc_spec = [
     ('best_estimate_energy', energy_type),
     ('energy_t', energy_type),
     ('ntransfers_tot', nb.int64),
+    ('efficiency_list', nb.types.ListType(efficiency_type)),
     ('wfn', Wfn.class_type.instance_type),
 ]
 
@@ -204,6 +206,7 @@ class DMCMarkovChain:
         self.best_estimate_energy = energy_list_sum[0] / energy_list_len[0]
         self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) / self.step_eff
         self.ntransfers_tot = 0
+        self.efficiency_list = nb.typed.List.empty_list(efficiency_type)
 
     def alimit_vector(self, r_e, velocity):
         """Parameter required by DMC drift-velocity- and energy-limiting schemes
@@ -391,6 +394,7 @@ class DMCMarkovChain:
     def load_balancing(self):
         """Redistribute walkers across processes."""
         if nb_mpi.size() == 1:
+            self.efficiency_list.append(1)
             return
         rank = nb_mpi.rank()
         walkers = np.zeros(shape=(nb_mpi.size(),), dtype=np.int64)
@@ -402,7 +406,7 @@ class DMCMarkovChain:
             nb_mpi.send(walkers[rank:rank+1], dest=0)
         nb_mpi.bcast(walkers, root=0)
 
-        # efficiency = walkers.mean() / np.max(walkers)
+        self.efficiency_list.append(walkers.mean() / np.max(walkers))
         walkers = (walkers - walkers.mean()).astype(np.int64)
         self.ntransfers_tot += np.abs(walkers).sum() // 2
         rank_1 = 0
@@ -430,6 +434,7 @@ class DMCMarkovChain:
         :return: energy, number of config transfers
         """
         self.ntransfers_tot = 0
+        self.efficiency_list = nb.typed.List.empty_list(efficiency_type)
         energy = np.empty(shape=(steps,))
 
         for i in range(steps):
@@ -441,7 +446,7 @@ class DMCMarkovChain:
         return energy
 
 
-# @nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
+# @nb.njit(nogil=True, parallel=False, cache=True)
 def vmc_observable(condition, position, observable, *args):
     """VMC observable.
     :param observable: observable quantity
