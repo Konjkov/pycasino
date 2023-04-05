@@ -14,7 +14,7 @@ vmc_spec = [
 ]
 
 
-@nb.njit("nb.float64(nb.float64)", nogil=True, parallel=False, cache=True)
+@nb.njit(nogil=True, parallel=False, cache=True)
 def laplace_multivariate_distribution(zeta):
     """Sample from ζ³/π * exp(−2ζw).
     In order to sample w from ζ³/π * exp(−2ζw), we sample the cosine of the polar angle uniformly on [−1, 1],

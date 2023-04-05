@@ -243,7 +243,7 @@ class Casino:
                         f' PERFORMING OPTIMIZATION CALCULATION No. {i+1}.\n'
                         f' ==========================================\n\n'
                     )
-                    self.vmc_reweighted_variance_minimization(
+                    self.vmc_unreweighted_variance_minimization(
                         self.config.input.vmc_nconfig_write,
                         self.config.input.opt_jastrow,
                         self.config.input.opt_backflow
@@ -463,6 +463,8 @@ class Casino:
             2 : display progress during iterations.
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
+        # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
+        scale = np.sqrt(2) / np.sqrt(steps - 1)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
 
         def fun(x, *args, **kwargs):
@@ -470,16 +472,14 @@ class Casino:
             energy = np.empty(shape=(steps,))
             energy_part = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allgather(energy_part, energy)
-            # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
-            return np.sqrt(2) * (energy - energy.mean()) / np.sqrt(steps - 1)
+            return scale * (energy - energy.mean())
 
         def jac(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy_gradient = np.empty(shape=(steps, x.size))
             energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
-            # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
-            return np.sqrt(2) * energy_gradient / np.sqrt(steps - 1)
+            return scale * (energy_gradient - energy_gradient.mean(axis=0))
 
         self.logger.info(
             ' Optimization start\n'
@@ -487,15 +487,14 @@ class Casino:
         )
 
         res = least_squares(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow),
-            jac=jac, method='trf', ftol=1/np.sqrt(steps-1), x_scale='jac',
-            tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
+            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), jac=jac, method='trf',
+            ftol=1/np.sqrt(steps-1), tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
         )
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
         self.logger.info('Jacobian matrix at the solution:')
-        self.logger.info(np.mean(res.jac, axis=0))
+        self.logger.info(res.jac.mean(axis=0))
 
     def vmc_reweighted_variance_minimization(self, steps, opt_jastrow, opt_backflow, verbose=2):
         """Minimize vmc reweighted variance.
@@ -524,8 +523,9 @@ class Casino:
             self.mpi_comm.Allgather(energy_part, energy)
             weights = (wfn / wfn_0)**2
             ddof = (weights**2).sum() / weights.sum()  # Delta Degrees of Freedom
+            mean_energy = np.average(energy, weights=weights)
             # rescale for "Cost column" in output of scipy.optimize.least_squares to be variance of E local
-            return np.sqrt(2) * (energy - np.average(energy, weights=weights)) * np.sqrt(weights / (weights.sum() - ddof))
+            return np.sqrt(2) * (energy - mean_energy) * np.sqrt(weights / (weights.sum() - ddof))
 
         def jac(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
@@ -537,8 +537,9 @@ class Casino:
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
             weights = (wfn / wfn_0)**2
             ddof = (weights**2).sum() / weights.sum()  # Delta Degrees of Freedom
+            mean_energy_gradient = np.average(energy_gradient, axis=0, weights=weights)
             # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
-            return np.sqrt(2) * energy_gradient * np.sqrt(np.expand_dims(weights, 1) / (weights.sum() - ddof))
+            return np.sqrt(2) * (energy_gradient - mean_energy_gradient) * np.sqrt(np.expand_dims(weights, 1) / (weights.sum() - ddof))
 
         self.logger.info(
             ' Optimization start\n'
@@ -546,15 +547,14 @@ class Casino:
         )
 
         res = least_squares(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow),
-            jac=jac, method='trf', ftol=1/np.sqrt(steps-1),
-            tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
+            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), jac=jac, method='trf',
+            ftol=1/np.sqrt(steps-1), tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
         )
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
         self.logger.info('Jacobian matrix at the solution:')
-        self.logger.info(np.mean(res.jac, axis=0))
+        self.logger.info(res.jac.mean(axis=0))
 
     def vmc_energy_minimization(self, steps, opt_jastrow=True, opt_backflow=True, precision=17):
         """Minimize vmc energy by linear method.
