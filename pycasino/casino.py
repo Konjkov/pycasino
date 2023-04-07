@@ -466,6 +466,7 @@ class Casino:
         # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
         scale = np.sqrt(2) / np.sqrt(steps - 1)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
+        steps_eff = self.mpi_comm.allreduce(condition.sum())
 
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
@@ -488,7 +489,7 @@ class Casino:
 
         res = least_squares(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), jac=jac, method='trf',
-            ftol=1/np.sqrt(steps-1), tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
+            ftol=1/np.sqrt(steps_eff-1), tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
         )
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
