@@ -211,7 +211,7 @@ class Wfn:
         if self.backflow is not None and opt_backflow:
             b_v = self.backflow.value(e_vectors, n_vectors)
             res = np.concatenate((
-                res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.backflow.parameters_projector @ self.slater.gradient(b_v)
+                res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v) @ self.backflow.parameters_projector
             ))
         return res
 
