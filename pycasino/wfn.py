@@ -196,7 +196,7 @@ class Wfn:
         return res
 
     def value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
-        """First-order derivatives of the wave function w.r.t parameters.
+        """First-order derivatives of the wave function value w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters

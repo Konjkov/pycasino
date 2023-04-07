@@ -271,7 +271,6 @@ class Casino:
                     )
                     self.vmc_energy_minimization(
                         self.config.input.vmc_nconfig_write,
-                        self.config.input.vmc_decorr_period,
                         self.config.input.opt_jastrow,
                         self.config.input.opt_backflow
                     )
@@ -510,6 +509,7 @@ class Casino:
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
+        steps_eff = self.mpi_comm.allreduce(condition.sum())
         wfn_0 = np.empty(shape=(steps,))
         wfn_0_part = vmc_observable(condition, position, self.wfn.value)
         self.mpi_comm.Allgather(wfn_0_part, wfn_0)
@@ -549,7 +549,7 @@ class Casino:
 
         res = least_squares(
             fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), jac=jac, method='trf',
-            ftol=1/np.sqrt(steps-1), tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
+            ftol=1/np.sqrt(steps_eff-1), tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
         )
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
@@ -557,7 +557,7 @@ class Casino:
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(res.jac.mean(axis=0))
 
-    def vmc_energy_minimization(self, steps, opt_jastrow=True, opt_backflow=True, precision=17):
+    def vmc_energy_minimization(self, steps, opt_jastrow=True, opt_backflow=True, precision=None):
         """Minimize vmc energy by linear method.
         The most straightforward way to energy-optimize linear parameters in wave functions is to diagonalize the Hamiltonian
         in the variational space that they define, leading to a generalized eigenvalue equation.
@@ -579,6 +579,7 @@ class Casino:
             np.finfo(np.longdouble).precision -> 18
         check also np.show_config() and sp.show_config()
         """
+        sparse = True
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         self.wfn.jastrow.fix_u_parameters()
         self.wfn.jastrow.fix_chi_parameters()
@@ -605,6 +606,7 @@ class Casino:
         self.mpi_comm.Gather(energy_gradient_part, energy_gradient)
         if self.mpi_comm.rank == 0:
             S = overlap_matrix(wfn_gradient)
+            self.logger.info(f'S is positive definite: {np.all(np.linalg.eigvals(S) > 0)}')
             H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
             if precision is not None:
                 with mp.workdps(precision):
@@ -615,8 +617,11 @@ class Casino:
                     # since imaginary parts only arise from statistical noise, discard them
                     eigval, eigvector = float(mp.re(E[0])), np.array(list(map(mp.re, ER[:, 0])), dtype=np.float64)
             else:
-                # get normalized right eigenvector corresponding to the eigenvalue
-                eigvals, eigvectors = sp.sparse.linalg.eigs(A=H, k=1, M=S, sigma=energy.mean(), v0=S[0], which='SR')
+                if sparse:
+                    # get normalized right eigenvector corresponding to the eigenvalue
+                    eigvals, eigvectors = sp.sparse.linalg.eigs(A=H, k=1, M=S, v0=S[0], which='SR')
+                else:
+                    eigvals, eigvectors = sp.linalg.eig(H, S)
                 # since imaginary parts only arise from statistical noise, discard them
                 eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
                 idx = eigvals.argmin()
