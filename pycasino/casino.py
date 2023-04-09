@@ -506,7 +506,7 @@ class Casino:
     def vmc_unreweighted_variance_minimization(self, steps, opt_jastrow, opt_backflow, verbose=2):
         """Minimize vmc unreweighted variance.
         https://github.com/scipy/scipy/issues/10634
-        :param steps:
+        :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         :param verbose:
@@ -552,7 +552,7 @@ class Casino:
     def vmc_reweighted_variance_minimization(self, steps, opt_jastrow, opt_backflow, verbose=2):
         """Minimize vmc reweighted variance.
         https://github.com/scipy/scipy/issues/10634
-        :param steps:
+        :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         :param verbose:
@@ -611,49 +611,60 @@ class Casino:
         self.logger.info(res.jac.mean(axis=0))
 
     def vmc_energy_minimization_newton_cg(self, steps, opt_jastrow=True, opt_backflow=True):
-        """Minimize vmc energy by Newton method.
-        :param steps:
+        """Minimize vmc energy by Newton or gradient descent methods.
+        For SJB wfn = exp(J(r)) * S(Bf(r))
+            second derivatives by Jastrow parameters is:
+        d²exp(J(p)) * S(Bf(r))/dp² = d(dJ(p)/dp * wfn)/dp = (d²J(p)/dp² + dJ(p)/dp * dJ(p)/dp) * wfn
+            second derivatives by backflow parameters is:
+        d²exp(J(r)) * S(Bf(p))/dp² = d(J(r) * dS(r)/dr * dBf(p)/dp)/dp =
+        J(r) * (d²S(r)/dr² * dBf(p)/dp * dBf(p)/dp + dS(r)/dr * d²Bf(p)/dp²) =
+        (1/S * d²S(r)/dr² * dBf(p)/dp * dBf(p)/dp + 1/S * dS(r)/dr * d²Bf(p)/dp²) * wfn
+        :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         """
+        root = self.mpi_comm.rank == 0
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
 
         def fun(x, *args):
             """For Nelder-Mead, Powell, COBYLA and those listed in jac and hess methods."""
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
-            energy = vmc_observable(condition, position, self.wfn.energy) / self.mpi_comm.size
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, energy)
-            return energy.mean()
+            energy_mean = vmc_observable(condition, position, self.wfn.energy).mean()
+            return self.mpi_comm.allreduce(energy_mean) / self.mpi_comm.size
 
         def jac(x, *args):
             """Only for CG, BFGS, L-BFGS-B, TNC, SLSQP and those listed in hess method."""
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy_part = vmc_observable(condition, position, self.wfn.energy)
-            energy = np.empty(shape=(steps,))
-            self.mpi_comm.Allgather(energy_part, energy)
+            energy = np.empty(shape=(steps,)) if root else None
+            self.mpi_comm.Gather(energy_part, energy)
             wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            wfn_gradient = np.empty(shape=(steps, wfn_gradient_part.shape[1]))
-            self.mpi_comm.Allgather(wfn_gradient_part, wfn_gradient)
-            return energy_parameters_gradient(energy, wfn_gradient)
+            wfn_gradient = np.empty(shape=(steps, x.size)) if root else None
+            self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
+            energy_gradient = energy_parameters_gradient(energy, wfn_gradient) if root else np.empty(shape=(x.size, ))
+            self.mpi_comm.Bcast(energy_gradient)
+            return energy_gradient
 
         def hess(x, *args):
             """Only for Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact and trust-constr."""
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy_part = vmc_observable(condition, position, self.wfn.energy)
-            energy = np.empty(shape=(steps,))
-            self.mpi_comm.Allgather(energy_part, energy)
+            energy = np.empty(shape=(steps,)) if root else None
+            self.mpi_comm.Gather(energy_part, energy)
             wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            wfn_gradient = np.empty(shape=(steps, wfn_gradient_part.shape[1]))
-            self.mpi_comm.Allgather(wfn_gradient_part, wfn_gradient)
+            wfn_gradient = np.empty(shape=(steps, x.size)) if root else None
+            self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
             energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
-            energy_gradient = np.empty(shape=(steps, energy_gradient_part.shape[1]))
-            self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
-            wfn_hessian_part = vmc_observable(condition, position, self.wfn.value_parameters_d2)
-            wfn_hessian = np.empty(shape=(steps, wfn_hessian_part.shape[1], wfn_hessian_part.shape[2]))
-            self.mpi_comm.Allgather(wfn_hessian_part, wfn_hessian)
-            wfn_hessian = wfn_hessian + np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2)
-            return energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient)
+            energy_gradient = np.empty(shape=(steps, x.size)) if root else None
+            self.mpi_comm.Gather(energy_gradient_part, energy_gradient)
+            # wfn_hessian_part = vmc_observable(condition, position, self.wfn.value_parameters_d2)
+            # wfn_hessian = np.empty(shape=(steps, x.size, x.size)) if root else None
+            # self.mpi_comm.Gather(wfn_hessian_part, wfn_hessian)
+            wfn_hessian = np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2) if root else None
+            energy_hessian = energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient) if root else np.empty(shape=(x.size, x.size))
+            self.mpi_comm.Bcast(energy_hessian)
+            return energy_hessian
 
         self.logger.info(
             ' Optimization start\n'
@@ -664,6 +675,7 @@ class Casino:
         x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         options = dict(disp=disp)
         res = minimize(fun, x0=x0, method='dogleg', jac=jac, hess=hess, options=options)
+        # res = minimize(fun, x0=x0, method='trust-exact', jac=jac, hess=hess, options=options)
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(res.jac)
         parameters = res.x
@@ -684,7 +696,7 @@ class Casino:
         of the Rayleigh quotient are obtained as the eigenvectors e (eigenvalues λ(e)) of the corresponding generalized eigenproblem.
         If the second-order expansion of ψ(p) is not small, this does not ensure the convergence in one step and may require uniformly rescaling
         of ∆p to stabilise iterative process.
-        :param steps:
+        :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         :param precision: decimal precision in float-point arithmetic with mpmath.
@@ -760,7 +772,7 @@ class Casino:
 
     def vmc_energy_minimization_stochastic_reconfiguration(self, steps, opt_jastrow=True, opt_backflow=True):
         """Minimize vmc energy by stochastic reconfiguration.
-        :param steps:
+        :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         """
