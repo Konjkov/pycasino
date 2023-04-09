@@ -617,9 +617,6 @@ class Casino:
         :param opt_backflow: optimize backflow parameters
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        self.wfn.jastrow.fix_u_parameters()
-        self.wfn.jastrow.fix_chi_parameters()
-        self.wfn.jastrow.fix_f_parameters()
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
 
         def fun(x, *args):
@@ -652,16 +649,11 @@ class Casino:
             energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             energy_gradient = np.empty(shape=(steps, energy_gradient_part.shape[1]))
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
-            wfn_hessian_part = vmc_observable(condition, position, self.wfn.value_parameters_d2) + np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2)
+            wfn_hessian_part = vmc_observable(condition, position, self.wfn.value_parameters_d2)
             wfn_hessian = np.empty(shape=(steps, wfn_hessian_part.shape[1], wfn_hessian_part.shape[2]))
             self.mpi_comm.Allgather(wfn_hessian_part, wfn_hessian)
-            mean_energy_hessian = energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient)
-            eigvals = np.linalg.eigvalsh(mean_energy_hessian)
-            self.logger.info(f'hessian eigenvalues min {eigvals.min()} max {eigvals.max()}')
-            self.logger.info(f'hessian rank {np.linalg.matrix_rank(mean_energy_hessian)} {mean_energy_hessian.shape}')
-            # if projected_eigvals.min() < 0:
-            #     mean_energy_hessian -= projected_eigvals.min() * np.eye(x.size)
-            return mean_energy_hessian
+            wfn_hessian = wfn_hessian + np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2)
+            return energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient)
 
         self.logger.info(
             ' Optimization start\n'
@@ -671,7 +663,7 @@ class Casino:
         disp = self.mpi_comm.rank == 0
         x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         options = dict(disp=disp)
-        res = minimize(fun, x0=x0, method='TNC', jac=jac, options=options)
+        res = minimize(fun, x0=x0, method='dogleg', jac=jac, hess=hess, options=options)
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(res.jac)
         parameters = res.x
@@ -836,7 +828,7 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
-    vmc_energy_minimization = vmc_energy_minimization_linear_method
+    vmc_energy_minimization = vmc_energy_minimization_newton_cg
 
 
 if __name__ == '__main__':
