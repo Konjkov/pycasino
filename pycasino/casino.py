@@ -127,7 +127,8 @@ class Casino:
         self.config.read()
         self.neu, self.ned = self.config.input.neu, self.config.input.ned
         self.logger = logging.getLogger('vmc')
-        if self.mpi_comm.rank == 0:
+        self.root = self.mpi_comm.rank == 0
+        if self.root:
             # to redirect scipy.optimize stdout to log-file
             sys.stdout = StreamToLogger(self.logger, logging.INFO)
             # sys.stderr = StreamToLogger(self.logger, logging.ERROR)
@@ -247,7 +248,7 @@ class Casino:
             return (np.exp(a/ts0) - 1) / (np.exp(a/ts0) + np.exp(ts/ts0) - 2)
 
         step_size = None
-        if self.mpi_comm.rank == 0:
+        if self.root:
             popt, pcov = curve_fit(f, xdata, ydata)
             step_size = approximate_step_size * popt[0]
 
@@ -302,7 +303,7 @@ class Casino:
                         self.config.input.opt_backflow
                     )
                     self.config.jastrow.u_cutoff[0]['value'] = self.wfn.jastrow.u_cutoff
-                    if self.mpi_comm.rank == 0:
+                    if self.root:
                         self.config.write('.', i + 1)
                     self.optimize_vmc_step(1000)
                     self.vmc_energy_accumulation()
@@ -328,7 +329,7 @@ class Casino:
                         self.config.input.opt_backflow
                     )
                     self.config.jastrow.u_cutoff[0]['value'] = self.wfn.jastrow.u_cutoff
-                    if self.mpi_comm.rank == 0:
+                    if self.root:
                         self.config.write('.', i + 1)
                     self.optimize_vmc_step(1000)
                     self.vmc_energy_accumulation()
@@ -539,9 +540,10 @@ class Casino:
             ' =================='
         )
 
+        x = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         res = least_squares(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), jac=jac, method='trf',
-            ftol=1/np.sqrt(steps_eff-1), tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
+            fun, x0=x, jac=jac, method='trf', ftol=1/np.sqrt(steps_eff-1),
+            tr_solver='exact', verbose=self.root and verbose
         )
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
@@ -600,9 +602,10 @@ class Casino:
             ' =================='
         )
 
+        x = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         res = least_squares(
-            fun, x0=self.wfn.get_parameters(opt_jastrow, opt_backflow), jac=jac, method='trf',
-            ftol=1/np.sqrt(steps_eff-1), tr_solver='exact', verbose=0 if self.mpi_comm.rank else verbose
+            fun, x0=x, jac=jac, method='trf', ftol=1/np.sqrt(steps_eff-1),
+            tr_solver='exact', verbose=self.root and verbose
         )
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
@@ -610,7 +613,7 @@ class Casino:
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(res.jac.mean(axis=0))
 
-    def vmc_energy_minimization_newton_cg(self, steps, opt_jastrow=True, opt_backflow=True):
+    def vmc_energy_minimization_newton(self, steps, opt_jastrow=True, opt_backflow=True, exact=True):
         """Minimize vmc energy by Newton or gradient descent methods.
         For SJB wfn = exp(J(r)) * S(Bf(r))
             second derivatives by Jastrow parameters is:
@@ -622,63 +625,67 @@ class Casino:
         :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param exact: exact or dogleg trust region optimization
         """
-        root = self.mpi_comm.rank == 0
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
+        scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
+        self.wfn.set_parameters(self.wfn.get_parameters(opt_jastrow, opt_backflow), opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
 
         def fun(x, *args):
             """For Nelder-Mead, Powell, COBYLA and those listed in jac and hess methods."""
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
             energy_mean = vmc_observable(condition, position, self.wfn.energy).mean()
+            self.logger.info(self.mpi_comm.allreduce(energy_mean) / self.mpi_comm.size)
             return self.mpi_comm.allreduce(energy_mean) / self.mpi_comm.size
 
         def jac(x, *args):
             """Only for CG, BFGS, L-BFGS-B, TNC, SLSQP and those listed in hess method."""
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
             energy_part = vmc_observable(condition, position, self.wfn.energy)
-            energy = np.empty(shape=(steps,)) if root else None
+            energy = np.empty(shape=(steps,)) if self.root else None
             self.mpi_comm.Gather(energy_part, energy)
             wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            wfn_gradient = np.empty(shape=(steps, x.size)) if root else None
+            wfn_gradient = np.empty(shape=(steps, x.size)) if self.root else None
             self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
-            energy_gradient = energy_parameters_gradient(energy, wfn_gradient) if root else np.empty(shape=(x.size, ))
+            energy_gradient = energy_parameters_gradient(energy, wfn_gradient) if self.root else np.empty(shape=(x.size, ))
             self.mpi_comm.Bcast(energy_gradient)
-            return energy_gradient
+            return energy_gradient * scale
 
         def hess(x, *args):
             """Only for Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact and trust-constr."""
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
             energy_part = vmc_observable(condition, position, self.wfn.energy)
-            energy = np.empty(shape=(steps,)) if root else None
+            energy = np.empty(shape=(steps,)) if self.root else None
             self.mpi_comm.Gather(energy_part, energy)
             wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            wfn_gradient = np.empty(shape=(steps, x.size)) if root else None
+            wfn_gradient = np.empty(shape=(steps, x.size)) if self.root else None
             self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
             energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
-            energy_gradient = np.empty(shape=(steps, x.size)) if root else None
+            energy_gradient = np.empty(shape=(steps, x.size)) if self.root else None
             self.mpi_comm.Gather(energy_gradient_part, energy_gradient)
             # wfn_hessian_part = vmc_observable(condition, position, self.wfn.value_parameters_d2)
             # wfn_hessian = np.empty(shape=(steps, x.size, x.size)) if root else None
             # self.mpi_comm.Gather(wfn_hessian_part, wfn_hessian)
-            wfn_hessian = np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2) if root else None
-            energy_hessian = energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient) if root else np.empty(shape=(x.size, x.size))
+            wfn_hessian = np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2) if self.root else None
+            energy_hessian = energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient) if self.root else np.empty(shape=(x.size, x.size))
             self.mpi_comm.Bcast(energy_hessian)
-            return energy_hessian
+            return energy_hessian * np.outer(scale, scale)
 
         self.logger.info(
             ' Optimization start\n'
             ' =================='
         )
 
-        disp = self.mpi_comm.rank == 0
-        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        options = dict(disp=disp)
-        res = minimize(fun, x0=x0, method='dogleg', jac=jac, hess=hess, options=options)
-        # res = minimize(fun, x0=x0, method='trust-exact', jac=jac, hess=hess, options=options)
+        x = self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale
+        options = dict(disp=self.root, initial_trust_radius=1, max_trrust_radius=1000)
+        if exact:
+            res = minimize(fun, x0=x, method='trust-exact', jac=jac, hess=hess, options=options)
+        else:
+            res = minimize(fun, x0=x, method='dogleg', jac=jac, hess=hess, options=options)
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(res.jac)
-        parameters = res.x
+        parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
@@ -706,12 +713,7 @@ class Casino:
         """
         sparse = True
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        self.wfn.jastrow.fix_u_parameters()
-        self.wfn.jastrow.fix_chi_parameters()
-        self.wfn.jastrow.fix_f_parameters()
-        self.wfn.backflow.fix_eta_parameters()
-        self.wfn.backflow.fix_mu_parameters()
-        self.wfn.backflow.fix_phi_parameters()
+        self.wfn.set_parameters(self.wfn.get_parameters(opt_jastrow, opt_backflow), opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
 
         # for pos in position:
@@ -723,16 +725,17 @@ class Casino:
             ' =================='
         )
 
+        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         energy_part = vmc_observable(condition, position, self.wfn.energy)
-        energy = np.empty(shape=(steps,)) if self.mpi_comm.rank == 0 else None
+        energy = np.empty(shape=(steps,)) if self.root else None
         self.mpi_comm.Gather(energy_part, energy)
         wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-        wfn_gradient = np.empty(shape=(steps, wfn_gradient_part.shape[1])) if self.mpi_comm.rank == 0 else None
+        wfn_gradient = np.empty(shape=(steps, parameters.size)) if self.root else None
         self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
         energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
-        energy_gradient = np.empty(shape=(steps, wfn_gradient_part.shape[1])) if self.mpi_comm.rank == 0 else None
+        energy_gradient = np.empty(shape=(steps, parameters.size)) if self.root else None
         self.mpi_comm.Gather(energy_gradient_part, energy_gradient)
-        if self.mpi_comm.rank == 0:
+        if self.root:
             S = overlap_matrix(wfn_gradient)
             self.logger.info(f'S is positive definite: {np.all(np.linalg.eigvals(S) > 0)}')
             H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
@@ -759,14 +762,11 @@ class Casino:
             norm = 1 / (1 + dp_S_dp)
             self.logger.info(f'E lin {eigval}')
             self.logger.info(f'norm {norm}')
-            parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
             if parameters.all():
                 self.logger.info(f'delta p / p\n{norm * dp/parameters}')
             else:
                 self.logger.info(f'delta p\n{norm * dp}')
             parameters += norm * dp
-        else:
-            parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
@@ -777,9 +777,7 @@ class Casino:
         :param opt_backflow: optimize backflow parameters
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        self.wfn.jastrow.fix_u_parameters()
-        self.wfn.jastrow.fix_chi_parameters()
-        self.wfn.jastrow.fix_f_parameters()
+        self.wfn.set_parameters(self.wfn.get_parameters(opt_jastrow, opt_backflow), opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
 
         def fun(x, *args):
@@ -793,10 +791,10 @@ class Casino:
         def jac(x, *args):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy_part = vmc_observable(condition, position, self.wfn.energy)
-            energy = np.empty(shape=(steps,)) if self.mpi_comm.rank == 0 else None
+            energy = np.empty(shape=(steps,)) if self.root else None
             self.mpi_comm.Gather(energy_part, energy)
             wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            wfn_gradient = np.empty(shape=(steps, wfn_gradient_part.shape[1])) if self.mpi_comm.rank == 0 else None
+            wfn_gradient = np.empty(shape=(steps, wfn_gradient_part.shape[1])) if self.root else None
             self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
             mean_energy_gradient = energy_parameters_gradient(energy, wfn_gradient)
             self.logger.info(f'gradient values min {mean_energy_gradient.min()} max {mean_energy_gradient.max()}')
@@ -830,17 +828,16 @@ class Casino:
             ' =================='
         )
 
-        disp = self.mpi_comm.rank == 0
-        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        options = dict(disp=disp)
-        res = minimize(fun, x0=x0, method='Newton-CG', jac=jac, hess=hess, options=options)
+        x = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        options = dict(disp=self.root)
+        res = minimize(fun, x0=x, method='Newton-CG', jac=jac, hess=hess, options=options)
         self.logger.info('scaled x at the solution:')
         self.logger.info(res.x)
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
-    vmc_energy_minimization = vmc_energy_minimization_newton_cg
+    vmc_energy_minimization = vmc_energy_minimization_linear_method
 
 
 if __name__ == '__main__':
