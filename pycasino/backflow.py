@@ -825,6 +825,9 @@ class Backflow:
 
     def fix_mu_parameters(self):
         """Fix mu-term parameters"""
+        for mu_parameters in self.mu_parameters:
+            # for AE atoms
+            mu_parameters[0:1] = 0
 
     def fix_phi_parameters(self):
         """Fix phi-term parameters"""

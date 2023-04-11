@@ -559,7 +559,7 @@ class Backflow:
     @staticmethod
     def mu_parameters_independent(parameters):
         mask = np.ones(parameters.shape, np.bool)
-        mask[0] = mask[1] = False
+        mask[0:1] = False
         return mask
 
     def phi_theta_parameters_independent(self, phi_parameters, phi_cutoff, phi_cusp, phi_irrotational):
@@ -598,6 +598,9 @@ class Backflow:
 
     def fix_mu_parameters(self):
         """Fix mu-term parameters"""
+        for mu_parameters in self.mu_parameters:
+            # for AE atoms
+            mu_parameters[0:1] = 0
 
     def fix_phi_parameters(self):
         """Fix phi-term parameters"""
