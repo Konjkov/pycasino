@@ -446,7 +446,8 @@ class DMCMarkovChain:
         return energy
 
 
-# @nb.njit(nogil=True, parallel=False, cache=True)
+# @nb.njit("float64(boolean[:], float64[:, :], FunctionType(float64[:, :](float64[:, :])))", nogil=True, parallel=False, cache=True)
+# https://github.com/numba/numba/issues/8405
 def vmc_observable(condition, position, observable, *args):
     """VMC observable.
     :param observable: observable quantity

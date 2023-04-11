@@ -613,7 +613,7 @@ class Casino:
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(res.jac.mean(axis=0))
 
-    def vmc_energy_minimization_newton(self, steps, opt_jastrow=True, opt_backflow=True, exact=True):
+    def vmc_energy_minimization_newton(self, steps, opt_jastrow=True, opt_backflow=True):
         """Minimize vmc energy by Newton or gradient descent methods.
         For SJB wfn = exp(J(r)) * S(Bf(r))
             second derivatives by Jastrow parameters is:
@@ -636,7 +636,6 @@ class Casino:
             """For Nelder-Mead, Powell, COBYLA and those listed in jac and hess methods."""
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
             energy_mean = vmc_observable(condition, position, self.wfn.energy).mean()
-            self.logger.info(self.mpi_comm.allreduce(energy_mean) / self.mpi_comm.size)
             return self.mpi_comm.allreduce(energy_mean) / self.mpi_comm.size
 
         def jac(x, *args):
@@ -678,11 +677,8 @@ class Casino:
         )
 
         x = self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale
-        options = dict(disp=self.root, initial_trust_radius=1, max_trrust_radius=1000)
-        if exact:
-            res = minimize(fun, x0=x, method='trust-exact', jac=jac, hess=hess, options=options)
-        else:
-            res = minimize(fun, x0=x, method='dogleg', jac=jac, hess=hess, options=options)
+        options = dict(disp=self.root, initial_trust_radius=1, max_trust_radius=1000)
+        res = minimize(fun, x0=x, method='trust-exact', jac=jac, hess=hess, options=options)
         self.logger.info('Jacobian matrix at the solution:')
         self.logger.info(res.jac)
         parameters = res.x * scale
@@ -691,7 +687,7 @@ class Casino:
 
     def vmc_energy_minimization_linear_method(self, steps, opt_jastrow=True, opt_backflow=True, precision=None):
         """Minimize vmc energy by linear method.
-        The most straightforward way to energy-optimize linear parameters in wave functions is to diagonalize the Hamiltonian
+        Another way to energy-optimize linear parameters of wfn is to diagonalize the Hamiltonian
         in the variational space that they define, leading to a generalized eigenvalue equation.
         Energy calculated with wave function depended on parameters p is:
                                            E(p) = <ψ(p)|Ĥ|ψ(p)>/<ψ(p)|ψ(p)>
@@ -701,7 +697,7 @@ class Casino:
         where elements of the matrices S and H approach the standard quantum mechanical overlap integrals and Hamiltonian matrix elements in
         the limit of an infinite Monte Carlo sample or exact ψ(p), hence their names. Thus, the extremum points of ψ(p*) (extremum values E(p*))
         of the Rayleigh quotient are obtained as the eigenvectors e (eigenvalues λ(e)) of the corresponding generalized eigenproblem.
-        If the second-order expansion of ψ(p) is not small, this does not ensure the convergence in one step and may require uniformly rescaling
+        If the second-order expansion of ψ(p) is not too small, this does not ensure the convergence in one step and may require uniformly rescaling
         of ∆p to stabilise iterative process.
         :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
@@ -837,7 +833,7 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
-    vmc_energy_minimization = vmc_energy_minimization_linear_method
+    vmc_energy_minimization = vmc_energy_minimization_newton
 
 
 if __name__ == '__main__':
