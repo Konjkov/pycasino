@@ -216,13 +216,14 @@ class DMCMarkovChain:
         """
         ne = self.wfn.neu + self.wfn.ned
         n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
-        # FIXME: multiple nuclei
-        e = n_vectors[0]
+        r = np.sqrt(np.sum(n_vectors ** 2, axis=2))
+        # find the nearest nucleus for each electron
+        idx = np.argmin(r, axis=0)
         v = velocity.reshape(ne, 3)
         res = np.empty(shape=(ne, 3))
         for i in range(ne):
-            Z2_z2 = (self.wfn.atom_charges[0] * np.linalg.norm(e[i])) ** 2
-            res[i] = (1 + (v[i] @ e[i]) / np.linalg.norm(v[i]) / np.linalg.norm(e[i])) / 2 + Z2_z2 / 10 / (4 + Z2_z2)
+            Z2_z2 = (self.wfn.atom_charges[idx[i]] * r[idx[i], i]) ** 2
+            res[i] = (1 + (v[i] @ n_vectors[idx[i], i]) / np.linalg.norm(v[i]) / r[idx[i], i]) / 2 + Z2_z2 / 10 / (4 + Z2_z2)
         return res.ravel()
 
     def limiting_velocity(self, r_e):
@@ -252,48 +253,51 @@ class DMCMarkovChain:
             # C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
             v = np.ascontiguousarray(velocity).reshape(ne, 3)
             # v = velocity.reshape(ne, 3)
-            # FIXME: multiple nuclei
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
-            e = n_vectors[0]
+            r = np.sqrt(np.sum(n_vectors ** 2, axis=2))
+            # find the closest nucleus for each electron
+            idx = np.argmin(r, axis=0)
             gf_forth = 1
             next_r_e = np.zeros(shape=(ne, 3))
             for i in range(ne):
-                z = np.linalg.norm(e[i])
-                e_z = e[i] / z
+                z = r[idx[i], i]
+                e_z = n_vectors[idx[i], i] / z
                 v_z = v[i] @ e_z
                 v_rho_vec = v[i] - v_z * e_z
                 z_stroke = max(z + v_z * self.step_size, 0)
-                drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[0]
+                drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[idx[i]]
 
                 q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
-                zeta = np.sqrt(self.wfn.atom_charges[0] ** 2 + 1 / self.step_size)
+                zeta = np.sqrt(self.wfn.atom_charges[idx[i]] ** 2 + 1 / self.step_size)
                 if q > np.random.random():
-                    next_r_e[i] = laplace_multivariate_distribution(zeta) + self.wfn.atom_positions[0]
+                    next_r_e[i] = laplace_multivariate_distribution(zeta) + self.wfn.atom_positions[idx[i]]
                 else:
                     next_r_e[i] = np.random.normal(0, np.sqrt(self.step_size), 3) + drift_to
                 gf_forth *= (
                     (1 - q) * np.exp(-np.sum((next_r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (2 * np.pi * self.step_size) ** 1.5 +
-                    q * zeta ** 3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(next_r_e[i] - self.wfn.atom_positions[0]))
+                    q * zeta ** 3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(next_r_e[i] - self.wfn.atom_positions[idx[i]]))
                 )
 
             next_velocity, velocity_ratio = self.limiting_velocity(next_r_e)
             v = next_velocity.reshape(ne, 3)
             n_vectors = np.expand_dims(next_r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
-            e = n_vectors[0]
+            r = np.sqrt(np.sum(n_vectors ** 2, axis=2))
+            # find the closest nucleus for each electron
+            idx = np.argmin(r, axis=0)
             gf_back = 1
             for i in range(ne):
-                z = np.linalg.norm(e[i])
-                e_z = e[i] / z
+                z = r[idx[i], i]
+                e_z = n_vectors[idx[i], i] / z
                 v_z = v[i] @ e_z
                 v_rho_vec = v[i] - v_z * e_z
                 z_stroke = max(z + v_z * self.step_size, 0)
-                drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[0]
+                drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[idx[i]]
 
                 q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
-                zeta = np.sqrt(self.wfn.atom_charges[0] ** 2 + 1 / self.step_size)
+                zeta = np.sqrt(self.wfn.atom_charges[idx[i]] ** 2 + 1 / self.step_size)
                 gf_back *= (
                     (1 - q) * np.exp(-np.sum((r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (2 * np.pi * self.step_size) ** 1.5 +
-                    q * zeta ** 3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(r_e[i] - self.wfn.atom_positions[0]))
+                    q * zeta ** 3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(r_e[i] - self.wfn.atom_positions[idx[i]]))
                 )
         else:
             # simple random step
