@@ -87,6 +87,14 @@
 # path='tests/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_dmc/'
 # path='tests/stowfn/O3/HF/QZ4P/CBCS/Jastrow_dmc/'
 
+# path='tests/stowfn/He/HF/QZ4P/CBCS/Backflow_dmc/'
+# path='tests/stowfn/Be/HF/QZ4P/CBCS/Backflow_dmc/'
+# path='tests/stowfn/N/HF/QZ4P/CBCS/Backflow_dmc/'
+# path='tests/stowfn/Ne/HF/QZ4P/CBCS/Backflow_dmc/'
+# path='tests/stowfn/Ar/HF/QZ4P/CBCS/Backflow_dmc/'
+# path='tests/stowfn/Kr/HF/QZ4P/CBCS/Backflow_dmc/'
+# path='tests/stowfn/O3/HF/QZ4P/CBCS/Backflow_dmc/'
+
 # python pycasino/casino.py $path
 # mpiexec python pycasino/casino.py $path
 

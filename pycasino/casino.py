@@ -7,7 +7,7 @@ from numpy_config import np
 from mpi4py import MPI
 import scipy as sp
 import mpmath as mp  # inherited from sympy, not need to install
-from scipy.optimize import least_squares, minimize, curve_fit
+from scipy.optimize import least_squares, minimize, curve_fit, line_search
 import matplotlib.pyplot as plt
 
 from cusp import CuspFactory
@@ -679,8 +679,8 @@ class Casino:
         x = self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale
         options = dict(disp=self.root, initial_trust_radius=1, max_trust_radius=1000)
         res = minimize(fun, x0=x, method='trust-exact', jac=jac, hess=hess, options=options)
-        self.logger.info('Jacobian matrix at the solution:')
-        self.logger.info(res.jac)
+        self.logger.info('Scaled Jacobian matrix at the solution:')
+        self.logger.info(res.jac / scale)
         parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
@@ -731,6 +731,8 @@ class Casino:
         energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
         energy_gradient = np.empty(shape=(steps, parameters.size)) if self.root else None
         self.mpi_comm.Gather(energy_gradient_part, energy_gradient)
+        norm = 0
+        dp = np.empty_like(parameters)
         if self.root:
             S = overlap_matrix(wfn_gradient)
             self.logger.info(f'S is positive definite: {np.all(np.linalg.eigvals(S) > 0)}')
@@ -763,6 +765,18 @@ class Casino:
             else:
                 self.logger.info(f'delta p\n{norm * dp}')
             parameters += norm * dp
+
+        self.mpi_comm.Bcast(dp)
+        norm = self.mpi_comm.bcast(norm)
+        for i in range(11):
+            self.wfn.set_parameters(parameters + i * norm * dp / 10, opt_jastrow, opt_backflow)
+            energy_part_mean = vmc_observable(condition, position, self.wfn.energy).mean()
+            energy_mean = self.mpi_comm.allreduce(energy_part_mean) / self.mpi_comm.size
+            _condition, _position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
+            _energy_part_mean = vmc_observable(_condition, _position, self.wfn.energy).mean()
+            _energy_mean = self.mpi_comm.allreduce(_energy_part_mean) / self.mpi_comm.size
+            self.logger.info(f'{i/10} {energy_mean} {_energy_mean}')
+
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
@@ -778,11 +792,8 @@ class Casino:
 
         def fun(x, *args):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
-            energy = vmc_observable(condition, position, self.wfn.energy)
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, energy)
-            mean_energy = energy.mean() / self.mpi_comm.size
-            self.logger.info(f'energy {mean_energy}')
-            return mean_energy
+            energy_mean = vmc_observable(condition, position, self.wfn.energy).mean()
+            return self.mpi_comm.allreduce(energy_mean) / self.mpi_comm.size
 
         def jac(x, *args):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
@@ -790,50 +801,64 @@ class Casino:
             energy = np.empty(shape=(steps,)) if self.root else None
             self.mpi_comm.Gather(energy_part, energy)
             wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            wfn_gradient = np.empty(shape=(steps, wfn_gradient_part.shape[1])) if self.root else None
+            wfn_gradient = np.empty(shape=(steps, x.size)) if self.root else None
             self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
-            mean_energy_gradient = energy_parameters_gradient(energy, wfn_gradient)
-            self.logger.info(f'gradient values min {mean_energy_gradient.min()} max {mean_energy_gradient.max()}')
-            return mean_energy_gradient
+            energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+            energy_gradient = np.empty(shape=(steps, x.size)) if self.root else None
+            self.mpi_comm.Gather(energy_gradient_part, energy_gradient)
+            H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
+            self.mpi_comm.Bcast(H)
+            return H[1:, 0]
 
         def hess(x, *args):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
-            wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            overlap = overlap_matrix(wfn_gradient)
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, overlap)
-            overlap = overlap / self.mpi_comm.size
-            eigvals = np.linalg.eigvalsh(overlap)
-            self.logger.info(f'hessian eigenvalues min {eigvals.min()} max {eigvals.max()}')
-            return overlap
+            wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            wfn_gradient = np.empty(shape=(steps, x.size)) if self.root else None
+            self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
+            S = overlap_matrix(wfn_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
+            self.mpi_comm.Bcast(S)
+            return np.linalg.inv(S[1:, 1:])
 
         def epsilon(x, *args):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
-            energy = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            energy_gradient = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
-            overlap = overlap_matrix(wfn_gradient)
-            hamiltonian = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
-            epsilon = np.diag(hamiltonian) / np.diag(overlap) - energy.mean()
-            self.mpi_comm.Allreduce(MPI.IN_PLACE, epsilon)
-            epsilon = epsilon / self.mpi_comm.size
-            self.logger.info(f'epsilon {epsilon}')
-            return epsilon
+            wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            wfn_gradient = np.empty(shape=(steps, x.size)) if self.root else None
+            self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
+            S = overlap_matrix(wfn_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
+            self.mpi_comm.Bcast(S)
+            energy_part = vmc_observable(condition, position, self.wfn.energy)
+            energy = np.empty(shape=(steps,)) if self.root else None
+            self.mpi_comm.Gather(energy_part, energy)
+            energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+            energy_gradient = np.empty(shape=(steps, x.size)) if self.root else None
+            self.mpi_comm.Gather(energy_gradient_part, energy_gradient)
+            H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
+            self.mpi_comm.Bcast(H)
+            return np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]
 
         self.logger.info(
             ' Optimization start\n'
             ' =================='
         )
 
-        x = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        options = dict(disp=self.root)
-        res = minimize(fun, x0=x, method='Newton-CG', jac=jac, hess=hess, options=options)
-        self.logger.info('scaled x at the solution:')
-        self.logger.info(res.x)
+        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        # S = np.linalg.inv(hess(parameters))
+        # H = jac(parameters)
+        # eps = epsilon(parameters)
+        # if self.root:
+        #     parameters -= S @ H / eps
+        # self.mpi_comm.Bcast(parameters)
+        # self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
+
+        options = dict(disp=self.root, eps=1/epsilon(parameters))
+        res = minimize(fun, x0=parameters, method='Newton-CG', jac=jac, hess=hess, options=options)
+        self.logger.info('Scaled Jacobian matrix at the solution:')
+        self.logger.info(res.jac)
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
-    vmc_energy_minimization = vmc_energy_minimization_newton
+    vmc_energy_minimization = vmc_energy_minimization_stochastic_reconfiguration
 
 
 if __name__ == '__main__':
