@@ -270,108 +270,60 @@ class Casino:
     def run(self):
         """Run Casino workflow.
         """
-        self.equilibrate(self.config.input.vmc_equil_nstep)
+        start = default_timer()
         if self.config.input.runtype == 'vmc':
-            start = default_timer()
             self.logger.info(
                 ' ====================================\n'
                 ' PERFORMING A SINGLE VMC CALCULATION.\n'
                 ' ====================================\n\n'
             )
-            self.optimize_vmc_step(1000)
             self.vmc_energy_accumulation()
-            stop = default_timer()
-            self.logger.info(
-                f' =========================================================================\n\n'
-                f' Total PyCasino real time : : :    {stop - start:.4f}'
-            )
         elif self.config.input.runtype == 'vmc_opt':
-            if self.config.input.opt_method == 'varmin':
-                start = default_timer()
+            if self.root:
                 self.config.write('.', 0)
-                self.optimize_vmc_step(1000)
-                self.vmc_energy_accumulation()
-                for i in range(self.config.input.opt_cycles):
-                    self.logger.info(
-                        f' ==========================================\n'
-                        f' PERFORMING OPTIMIZATION CALCULATION No. {i+1}.\n'
-                        f' ==========================================\n\n'
-                    )
+            self.vmc_energy_accumulation()
+            for i in range(self.config.input.opt_cycles):
+                self.logger.info(
+                    f' ==========================================\n'
+                    f' PERFORMING OPTIMIZATION CALCULATION No. {i+1}.\n'
+                    f' ==========================================\n\n'
+                )
+                if self.config.input.opt_method == 'varmin':
                     self.vmc_unreweighted_variance_minimization(
                         self.config.input.vmc_nconfig_write,
                         self.config.input.opt_jastrow,
                         self.config.input.opt_backflow
                     )
-                    self.config.jastrow.u_cutoff[0]['value'] = self.wfn.jastrow.u_cutoff
-                    if self.root:
-                        self.config.write('.', i + 1)
-                    self.optimize_vmc_step(1000)
-                    self.vmc_energy_accumulation()
-                stop = default_timer()
-                self.logger.info(
-                    f' =========================================================================\n\n'
-                    f' Total PyCasino real time : : :    {stop - start:.4f}'
-                )
-            elif self.config.input.opt_method == 'emin':
-                start = default_timer()
-                self.config.write('.', 0)
-                self.optimize_vmc_step(1000)
-                self.vmc_energy_accumulation()
-                for i in range(self.config.input.opt_cycles):
-                    self.logger.info(
-                        f' ==========================================\n'
-                        f' PERFORMING OPTIMIZATION CALCULATION No. {i+1}.\n'
-                        f' ==========================================\n\n'
-                    )
+                elif self.config.input.opt_method == 'emin':
                     self.vmc_energy_minimization(
                         self.config.input.vmc_nconfig_write,
                         self.config.input.opt_jastrow,
                         self.config.input.opt_backflow
                     )
-                    self.config.jastrow.u_cutoff[0]['value'] = self.wfn.jastrow.u_cutoff
-                    if self.root:
-                        self.config.write('.', i + 1)
-                    self.optimize_vmc_step(1000)
-                    self.vmc_energy_accumulation()
-                stop = default_timer()
-                self.logger.info(
-                    f' =========================================================================\n\n'
-                    f' Total PyCasino real time : : :    {stop - start:.4f}'
-                )
+                self.config.jastrow.u_cutoff[0]['value'] = self.wfn.jastrow.u_cutoff
+                if self.root:
+                    self.config.write('.', i + 1)
+                self.vmc_energy_accumulation()
         elif self.config.input.runtype == 'vmc_dmc':
-            start = default_timer()
-            self.optimize_vmc_step(1000)
-            block_start = default_timer()
-            condition, position = self.vmc_markovchain.random_walk(self.config.input.vmc_nstep, self.decorr_period)
-            energy = vmc_observable(condition, position, self.wfn.energy) + self.wfn.nuclear_repulsion
-            block_stop = default_timer()
             self.logger.info(
-                f' =========================================================================\n'
-                f' In block : {1}\n'
-                f'  Number of VMC steps           = {self.config.input.vmc_nstep}\n\n'
-                f'  Block average energies (au)\n\n'
-                f'  Total energy                       (au) =       {energy.mean():18.12f}\n'
-                f'  Standard error                        +/-       {energy.std():18.12f}\n\n'
-                f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
+                 ' ======================================================\n'
+                 ' PERFORMING A VMC CONFIGURATION-GENERATION CALCULATION.\n'
+                 ' ======================================================\n\n'
             )
+            _, position = self.vmc_energy_accumulation()
             r_e_list = position[-self.config.input.vmc_nconfig_write // self.mpi_comm.size:]
             self.dmc_markovchain = DMCMarkovChain(
                 r_e_list, self.config.input.alimit, self.config.input.nucleus_gf_mods,
                 self.config.input.dtdmc, self.config.input.dmc_target_weight, self.wfn
             )
-            self.logger.info(
-                f' *     *     *     *     *     *     *     *     *     *     *     *\n'
-            )
             self.dmc_energy_equilibration()
-            self.logger.info(
-                f' *     *     *     *     *     *     *     *     *     *     *     *\n'
-            )
             self.dmc_energy_accumulation()
-            stop = default_timer()
-            self.logger.info(
-                f' =========================================================================\n\n'
-                f' Total PyCasino real time : : :    {stop - start:.4f}'
-            )
+
+        stop = default_timer()
+        self.logger.info(
+            f' =========================================================================\n\n'
+            f' Total PyCasino real time : : :    {stop - start:.4f}'
+        )
 
     def equilibrate(self, steps):
         """Burn-in.
@@ -385,6 +337,13 @@ class Casino:
 
     def vmc_energy_accumulation(self):
         """VMC energy accumulation"""
+        self.logger.info(
+            f' BEGIN VMC CALCULATION\n'
+            f' =====================\n'
+        )
+        self.equilibrate(self.config.input.vmc_equil_nstep)
+        self.optimize_vmc_step(1000)
+
         steps = self.config.input.vmc_nstep
         nblock = self.config.input.vmc_nblock
 
@@ -392,13 +351,13 @@ class Casino:
         energy_block_sem = np.zeros(shape=(nblock,))
         energy_block_var = np.zeros(shape=(nblock,))
         self.logger.info(
-            f'Starting VMC.'
+            f'Starting VMC.\n'
         )
         for i in range(nblock):
             block_start = default_timer()
             block_energy = np.zeros(shape=(steps // nblock,))
             condition, position = self.vmc_markovchain.random_walk(steps // nblock // self.mpi_comm.size, self.decorr_period)
-            energy = vmc_observable(condition, position, self.wfn.energy) + self.wfn.nuclear_repulsion
+            energy = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Gather(energy, block_energy, root=0)
             if self.mpi_comm.rank == 0:
                 energy_block_mean[i] = block_energy.mean()
@@ -414,6 +373,9 @@ class Casino:
                 f'  Block average energies (au)\n\n'
                 f'  Total energy                       (au) =       {energy_block_mean[i]:18.12f}\n'
                 f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
+                f'  Constant energy contributions      (au) =       {self.wfn.nuclear_repulsion:18.12f}\n\n'
+                f'  Variance of local energy           (au) =       {energy_block_var[i]:18.12f}\n'
+                f'  Standard error                        +/-       {0:18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
         self.logger.info(
@@ -423,13 +385,17 @@ class Casino:
             f' {energy_block_mean.mean():.12f} +/- {energy_block_sem.mean() / np.sqrt(nblock):.12f}      On-the-fly reblocking method\n\n'
             f' Sample variance of E_L (au^2/sim.cell) : {energy_block_var.mean():.12f}\n\n'
         )
+        return condition, position
 
     def dmc_energy_equilibration(self):
         """DMC energy equilibration"""
         self.logger.info(
+            f' *     *     *     *     *     *     *     *     *     *     *     *\n\n'
             f' ===========================================\n'
             f' PERFORMING A DMC EQUILIBRATION CALCULATION.\n'
             f' ===========================================\n\n'
+            f' BEGIN DMC CALCULATION\n'
+            f' =====================\n\n'
             f' Random number generator reset to state in config.in.\n\n'
             f' EBEST = {self.dmc_markovchain.best_estimate_energy} (au/prim cell inc. N-N)\n'
             f' EREF  = {self.dmc_markovchain.energy_t}\n\n'
@@ -456,9 +422,12 @@ class Casino:
     def dmc_energy_accumulation(self):
         """DMC energy accumulation"""
         self.logger.info(
+            f' *     *     *     *     *     *     *     *     *     *     *     *\n\n'
             f' =====================================================\n'
             f' PERFORMING A DMC STATISTICS-ACCUMULATION CALCULATION.\n'
             f' =====================================================\n\n'
+            f' BEGIN DMC CALCULATION\n'
+            f' =====================\n\n'
             f' Random number generator reset to state in config.in.\n\n'
             f' EBEST = {self.dmc_markovchain.best_estimate_energy} (au/prim cell inc. N-N)\n'
             f' EREF  = {self.dmc_markovchain.energy_t}\n\n'
@@ -858,7 +827,7 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
-    vmc_energy_minimization = vmc_energy_minimization_stochastic_reconfiguration
+    vmc_energy_minimization = vmc_energy_minimization_linear_method
 
 
 if __name__ == '__main__':

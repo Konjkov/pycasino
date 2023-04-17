@@ -128,7 +128,7 @@ class Wfn:
 
         e_vectors, n_vectors = self._relative_coordinates(r_e)
 
-        res = self.coulomb(e_vectors, n_vectors)
+        res = self.coulomb(e_vectors, n_vectors) + self.nuclear_repulsion
 
         if self.backflow is not None:
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
