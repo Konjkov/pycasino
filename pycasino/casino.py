@@ -381,7 +381,7 @@ class Casino:
         self.logger.info(
             f' =========================================================================\n'
             f' FINAL RESULT:\n\n'
-            f'  VMC energy (au)    Standard error      Correction for serial correlation\n'
+            f'  VMC energy (au)    Standard error      Correction for serial correlation\n\n'
             f' {energy_block_mean.mean():.12f} +/- {energy_block_sem.mean() / np.sqrt(nblock):.12f}      On-the-fly reblocking method\n\n'
             f' Sample variance of E_L (au^2/sim.cell) : {energy_block_var.mean():.12f}\n\n'
         )
