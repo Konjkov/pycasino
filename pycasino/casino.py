@@ -646,7 +646,7 @@ class Casino:
         )
 
         x = self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale
-        options = dict(disp=self.root, initial_trust_radius=1, max_trust_radius=1000)
+        options = dict(disp=self.root, initial_trust_radius=1, max_trust_radius=10)
         res = minimize(fun, x0=x, method='trust-exact', jac=jac, hess=hess, options=options)
         self.logger.info('Scaled Jacobian matrix at the solution:')
         self.logger.info(res.jac / scale)
@@ -827,7 +827,7 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
-    vmc_energy_minimization = vmc_energy_minimization_linear_method
+    vmc_energy_minimization = vmc_energy_minimization_newton
 
 
 if __name__ == '__main__':
