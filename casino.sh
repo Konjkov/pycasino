@@ -36,33 +36,6 @@
 # path='tests/stowfn/Kr/HF/QZ4P/CBCS/Slater/'
 # path='tests/stowfn/O3/HF/QZ4P/CBCS/Slater/'
 
-# path='tests/stowfn/He/HF/QZ4P/CBCS/Jastrow_varmin/'
-# path='tests/stowfn/Be/HF/QZ4P/CBCS/Jastrow_varmin/'
-# path='tests/stowfn/N/HF/QZ4P/CBCS/Jastrow_varmin/'
-# path='tests/stowfn/Ne/HF/QZ4P/CBCS/Jastrow_varmin/'
-# path='tests/stowfn/Ar/HF/QZ4P/CBCS/Jastrow_varmin/'
-# path='tests/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_varmin/'
-# path='tests/stowfn/O3/HF/QZ4P/CBCS/Jastrow_varmin/'
-
-# path='tests/stowfn/He/HF/QZ4P/CBCS/Jastrow_emin/'
-# path='tests/stowfn/Be/HF/QZ4P/CBCS/Jastrow_emin/'
-# path='tests/stowfn/N/HF/QZ4P/CBCS/Jastrow_emin/'
-# path='tests/stowfn/Ne/HF/QZ4P/CBCS/Jastrow_emin/'
-# path='tests/stowfn/Ar/HF/QZ4P/CBCS/Jastrow_emin/'
-# path='tests/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_emin/'
-# path='tests/stowfn/O3/HF/QZ4P/CBCS/Jastrow_emin/'
-
-# path='tests/stowfn/He/HF/QZ4P/CBCS/Backflow_varmin/'
-# path='tests/stowfn/Be/HF/QZ4P/CBCS/Backflow_varmin/'
-# path='tests/stowfn/N/HF/QZ4P/CBCS/Backflow_varmin/'
-# path='tests/stowfn/Ne/HF/QZ4P/CBCS/Backflow_varmin/'
-# path='tests/stowfn/Ar/HF/QZ4P/CBCS/Backflow_varmin/'
-# path='tests/stowfn/Kr/HF/QZ4P/CBCS/Backflow_varmin/'
-# path='tests/stowfn/O3/HF/QZ4P/CBCS/Backflow_varmin/'
-
-# path='tests/stowfn/He/HF/QZ4P/CBCS/Backflow_emin/'
-# path='tests/stowfn/Be/HF/QZ4P/CBCS/Backflow_emin/'
-
 # path='tests/stowfn/He/HF/QZ4P/CBCS/Jastrow/'
 # path='tests/stowfn/Be/HF/QZ4P/CBCS/Jastrow/'
 # path='tests/stowfn/N/HF/QZ4P/CBCS/Jastrow/'
@@ -94,6 +67,33 @@
 # path='tests/stowfn/Ar/HF/QZ4P/CBCS/Backflow_dmc/'
 # path='tests/stowfn/Kr/HF/QZ4P/CBCS/Backflow_dmc/'
 # path='tests/stowfn/O3/HF/QZ4P/CBCS/Backflow_dmc/'
+
+# path='tests/stowfn/He/HF/QZ4P/CBCS/Jastrow_varmin/'
+# path='tests/stowfn/Be/HF/QZ4P/CBCS/Jastrow_varmin/'
+# path='tests/stowfn/N/HF/QZ4P/CBCS/Jastrow_varmin/'
+# path='tests/stowfn/Ne/HF/QZ4P/CBCS/Jastrow_varmin/'
+# path='tests/stowfn/Ar/HF/QZ4P/CBCS/Jastrow_varmin/'
+# path='tests/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_varmin/'
+# path='tests/stowfn/O3/HF/QZ4P/CBCS/Jastrow_varmin/'
+
+# path='tests/stowfn/He/HF/QZ4P/CBCS/Jastrow_emin/'
+# path='tests/stowfn/Be/HF/QZ4P/CBCS/Jastrow_emin/'
+# path='tests/stowfn/N/HF/QZ4P/CBCS/Jastrow_emin/'
+# path='tests/stowfn/Ne/HF/QZ4P/CBCS/Jastrow_emin/'
+# path='tests/stowfn/Ar/HF/QZ4P/CBCS/Jastrow_emin/'
+# path='tests/stowfn/Kr/HF/QZ4P/CBCS/Jastrow_emin/'
+# path='tests/stowfn/O3/HF/QZ4P/CBCS/Jastrow_emin/'
+
+# path='tests/stowfn/He/HF/QZ4P/CBCS/Backflow_varmin/'
+# path='tests/stowfn/Be/HF/QZ4P/CBCS/Backflow_varmin/'
+# path='tests/stowfn/N/HF/QZ4P/CBCS/Backflow_varmin/'
+# path='tests/stowfn/Ne/HF/QZ4P/CBCS/Backflow_varmin/'
+# path='tests/stowfn/Ar/HF/QZ4P/CBCS/Backflow_varmin/'
+# path='tests/stowfn/Kr/HF/QZ4P/CBCS/Backflow_varmin/'
+# path='tests/stowfn/O3/HF/QZ4P/CBCS/Backflow_varmin/'
+
+# path='tests/stowfn/He/HF/QZ4P/CBCS/Backflow_emin/'
+# path='tests/stowfn/Be/HF/QZ4P/CBCS/Backflow_emin/'
 
 # python pycasino/casino.py $path
 # mpiexec python pycasino/casino.py $path

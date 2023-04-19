@@ -248,9 +248,9 @@ class Slater:
                         # )
                         orbital[i, 0, 0, ao+m] = x*x * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * x * angular_2[l*l+m, 0]) * radial_2 + angular_3[l*l+m, 0] * radial_3
                         orbital[i, 0, 1, ao+m] = x*y * angular_1[l*l+m] * radial_1 + (y * angular_2[l*l+m, 0] + x * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 1] * radial_3
-                        orbital[i, 0, 2, ao+m] = x*z * angular_1[l*l+m] * radial_1 + (z * angular_2[l*l+m, 0] + x * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 3] * radial_3
+                        orbital[i, 0, 2, ao+m] = x*z * angular_1[l*l+m] * radial_1 + (z * angular_2[l*l+m, 0] + x * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 2] * radial_3
                         orbital[i, 1, 0, ao+m] = orbital[i, 0, 1, ao+m]
-                        orbital[i, 1, 1, ao+m] = y*y * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * y * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 2] * radial_3
+                        orbital[i, 1, 1, ao+m] = y*y * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * y * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 3] * radial_3
                         orbital[i, 1, 2, ao+m] = y*z * angular_1[l*l+m] * radial_1 + (z * angular_2[l*l+m, 1] + y * angular_2[l*l+m, 2]) * radial_2 + angular_3[l*l+m, 4] * radial_3
                         orbital[i, 2, 0, ao+m] = orbital[i, 0, 2, ao+m]
                         orbital[i, 2, 1, ao+m] = orbital[i, 1, 2, ao+m]
@@ -265,6 +265,24 @@ class Slater:
             hess_u += cusp_hessian_u
             hess_d += cusp_hessian_d
         return hess_u, hess_d
+
+    def _tressian_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
+        """Tressian matrix.
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+        :return: array(up_orbitals, up_electrons, 3, 3, 3), array(down_orbitals, down_electrons, 3, 3, 3)
+        """
+        orbital = np.zeros(shape=(self.neu + self.ned, 3, 3, 3, self.nbasis_functions))
+        for i in range(self.neu + self.ned):
+            p = ao = 0
+            for atom in range(n_vectors.shape[0]):
+                x, y, z = n_vectors[atom, i]
+                r2 = x * x + y * y + z * z
+                angular_1 = angular_part(x, y, z)
+
+        ao_tressian = self.norm * orbital.reshape((self.neu + self.ned) * 27, self.nbasis_functions)
+        tress_u = (self.mo_up @ ao_tressian[:self.neu * 27].T).reshape(self.mo_up.shape[0], self.neu, 3, 3, 3)
+        tress_d = (self.mo_down @ ao_tressian[self.neu * 27:].T).reshape(self.mo_down.shape[0], self.ned, 3, 3, 3)
+        return tress_u, tress_d
 
     def value(self, n_vectors: np.ndarray) -> float:
         """Wave function value.
