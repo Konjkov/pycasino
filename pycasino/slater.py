@@ -137,9 +137,9 @@ class Slater:
                         r = np.sqrt(r2)
                         n = self.slater_orders[nshell]
                         for primitive in range(self.primitives[nshell]):
-                            alpha = self.exponents[p + primitive]
-                            exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-alpha * r)
-                            radial_1 -= (alpha*r - n)/r2 * exponent
+                            minus_alpha_r = - self.exponents[p + primitive] * r
+                            exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
+                            radial_1 += (minus_alpha_r + n)/r2 * exponent
                             radial_2 += exponent
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
@@ -180,9 +180,9 @@ class Slater:
                         r = np.sqrt(r2)
                         n = self.slater_orders[nshell]
                         for primitive in range(self.primitives[nshell]):
-                            alpha = self.exponents[p + primitive]
-                            exponent = r**n * self.coefficients[p + primitive] * np.exp(-alpha * r)
-                            radial_1 += (alpha**2 - 2*(l+n+1)*alpha/r + (2*l+n+1)*n/r2) * exponent
+                            minus_alpha_r = - self.exponents[p + primitive] * r
+                            exponent = r**n * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
+                            radial_1 += (minus_alpha_r**2 + 2*(l+n+1)*minus_alpha_r + (2*l+n+1)*n)/r2 * exponent
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
                         orbital[i, ao+m] = angular_1[l*l+m] * radial_1
@@ -229,10 +229,10 @@ class Slater:
                         r = np.sqrt(r2)
                         for primitive in range(self.primitives[nshell]):
                             n = self.slater_orders[nshell]
-                            alpha = self.exponents[p + primitive]
-                            exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-alpha * r)
-                            c = -(alpha*r - n)/r2
-                            d = c**2 + (alpha*r - 2*n)/r2**2
+                            minus_alpha_r = - self.exponents[p + primitive] * r
+                            exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
+                            c = (minus_alpha_r + n)/r2
+                            d = c**2 - (minus_alpha_r + 2*n)/r2**2
                             radial_1 += d * exponent
                             radial_2 += c * exponent
                             radial_3 += exponent
