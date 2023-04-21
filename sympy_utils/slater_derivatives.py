@@ -81,8 +81,18 @@ def tressian(momentum, n):
                 3 * d * x * (harmonic + x * diff(harmonic, x)) +
                 e * x * x * x * harmonic
             ) * r**n * exp(-alpha*r)),
-            # simplify(diff(orb, x, x, y)),
-            # simplify(diff(orb, x, x, z)),
+            simplify(diff(orb, x, x, y) - (
+                diff(harmonic, x, x, y) +
+                c * (diff(harmonic, y) + 2 * x * diff(harmonic, x, y) + y * diff(harmonic, x, x)) +
+                d * (y * harmonic + 2 * x * y * diff(harmonic, x) + x * x * diff(harmonic, y)) +
+                e * x * x * y * harmonic
+            ) * r**n * exp(-alpha*r)),
+            simplify(diff(orb, x, x, z) - (
+                diff(harmonic, x, x, z) +
+                c * (diff(harmonic, z) + 2 * x * diff(harmonic, x, z) + z * diff(harmonic, x, x)) +
+                d * (z * harmonic + 2 * x * z * diff(harmonic, x) + x * x * diff(harmonic, z)) +
+                e * x * x * z * harmonic
+            ) * r**n * exp(-alpha*r)),
             # simplify(diff(orb, x, y, y)),
             simplify(diff(orb, x, y, z) - (
                 diff(harmonic, x, y, z) +
@@ -97,7 +107,12 @@ def tressian(momentum, n):
                 3 * d * y * (harmonic + y * diff(harmonic, y)) +
                 e * y * y * y * harmonic
             ) * r**n * exp(-alpha*r)),
-            # simplify(diff(orb, y, y, z)),
+            simplify(diff(orb, y, y, z) - (
+                diff(harmonic, y, y, z) +
+                c * (diff(harmonic, z) + 2 * y * diff(harmonic, y, z) + z * diff(harmonic, y, y)) +
+                d * (z * harmonic + 2 * y * z * diff(harmonic, x) + y * y * diff(harmonic, z)) +
+                e * y * y * z * harmonic
+            ) * r**n * exp(-alpha*r)),
             # simplify(diff(orb, y, z, z)),
             simplify(diff(orb, z, z, z) - (
                 diff(harmonic, z, z, z) +
@@ -106,7 +121,7 @@ def tressian(momentum, n):
                 e * z * z * z * harmonic
             ) * r**n * exp(-alpha*r)),
         )
-        print("tressian({}, {})=[{}, {}, {}, {}]".format(momentum, n, *res))
+        print("tressian({}, {})=[{}, {}, {}, {}, {}, {}, {}]".format(momentum, n, *res))
         # print("tressian({}, {})=[{}, {}, {}, {}, {}, {},  {}, {},  {}, {}]".format(momentum, n, *res))
 
 
