@@ -22,7 +22,7 @@ def gradient(momentum, n):
 
 def hessian(momentum, n):
     """
-    hess(orb) =
+    hess(orb) = ...
     """
     for harmonic in harmonics[momentum]:
         minus_alpha_r = -alpha * r
@@ -66,7 +66,7 @@ def laplacian(momentum, n):
 
 def tressian(momentum, n):
     """
-    tress(orb) =
+    tress(orb) = ...
     """
     for harmonic in harmonics[momentum]:
         minus_alpha_r = -alpha * r
@@ -93,14 +93,24 @@ def tressian(momentum, n):
                 d * (z * harmonic + 2 * x * z * diff(harmonic, x) + x * x * diff(harmonic, z)) +
                 e * x * x * z * harmonic
             ) * r**n * exp(-alpha*r)),
-            # simplify(diff(orb, x, y, y)),
+            simplify(diff(orb, x, y, y) - (
+                diff(harmonic, x, y, y) +
+                c * (diff(harmonic, x) + 2 * y * diff(harmonic, x, y) + x * diff(harmonic, y, y)) +
+                d * (x * harmonic + 2 * x * y * diff(harmonic, y) + y * y * diff(harmonic, x)) +
+                e * x * y * y * harmonic
+            ) * r**n * exp(-alpha*r)),
             simplify(diff(orb, x, y, z) - (
                 diff(harmonic, x, y, z) +
                 c * (z * diff(harmonic, x, y) + y * diff(harmonic, x, z) + x * diff(harmonic, y, z)) +
                 d * (z * y * diff(harmonic, x) + z * x * diff(harmonic, y) + x * y * diff(harmonic, z)) +
                 e * x * y * z * harmonic
             ) * r**n * exp(-alpha*r)),
-            # simplify(diff(orb, x, z, z)),
+            simplify(diff(orb, x, z, z) - (
+                diff(harmonic, x, z, z) +
+                c * (diff(harmonic, x) + 2 * z * diff(harmonic, x, z) + x * diff(harmonic, z, z)) +
+                d * (x * harmonic + 2 * x * z * diff(harmonic, z) + z * z * diff(harmonic, x)) +
+                e * x * z * z * harmonic
+            ) * r**n * exp(-alpha*r)),
             simplify(diff(orb, y, y, y) - (
                 diff(harmonic, y, y, y) +
                 3 * c * (diff(harmonic, y) + y * diff(harmonic, y, y)) +
@@ -110,10 +120,15 @@ def tressian(momentum, n):
             simplify(diff(orb, y, y, z) - (
                 diff(harmonic, y, y, z) +
                 c * (diff(harmonic, z) + 2 * y * diff(harmonic, y, z) + z * diff(harmonic, y, y)) +
-                d * (z * harmonic + 2 * y * z * diff(harmonic, x) + y * y * diff(harmonic, z)) +
+                d * (z * harmonic + 2 * y * z * diff(harmonic, y) + y * y * diff(harmonic, z)) +
                 e * y * y * z * harmonic
             ) * r**n * exp(-alpha*r)),
-            # simplify(diff(orb, y, z, z)),
+            simplify(diff(orb, y, z, z) - (
+                diff(harmonic, y, z, z) +
+                c * (diff(harmonic, y) + 2 * z * diff(harmonic, y, z) + y * diff(harmonic, z, z)) +
+                d * (y * harmonic + 2 * y * z * diff(harmonic, z) + z * z * diff(harmonic, y)) +
+                e * y * z * z * harmonic
+            ) * r**n * exp(-alpha*r)),
             simplify(diff(orb, z, z, z) - (
                 diff(harmonic, z, z, z) +
                 3 * c * (diff(harmonic, z) + z * diff(harmonic, z, z)) +
@@ -121,8 +136,7 @@ def tressian(momentum, n):
                 e * z * z * z * harmonic
             ) * r**n * exp(-alpha*r)),
         )
-        print("tressian({}, {})=[{}, {}, {}, {}, {}, {}, {}]".format(momentum, n, *res))
-        # print("tressian({}, {})=[{}, {}, {}, {}, {}, {},  {}, {},  {}, {}]".format(momentum, n, *res))
+        print("tressian({}, {})=[{}, {}, {}, {}, {}, {},  {}, {},  {}, {}]".format(momentum, n, *res))
 
 
 if __name__ == "__main__":
