@@ -6,7 +6,6 @@ from timeit import default_timer
 from numpy_config import np
 from mpi4py import MPI
 import scipy as sp
-import mpmath as mp  # inherited from sympy, not need to install
 from scipy.optimize import least_squares, minimize, curve_fit, line_search
 import matplotlib.pyplot as plt
 
@@ -654,7 +653,7 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
-    def vmc_energy_minimization_linear_method(self, steps, opt_jastrow=True, opt_backflow=True, precision=None):
+    def vmc_energy_minimization_linear_method(self, steps, opt_jastrow=True, opt_backflow=True):
         """Minimize vmc energy by linear method.
         Another way to energy-optimize linear parameters of wfn is to diagonalize the Hamiltonian
         in the variational space that they define, leading to a generalized eigenvalue equation.
@@ -671,10 +670,6 @@ class Casino:
         :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
-        :param precision: decimal precision in float-point arithmetic with mpmath.
-            np.finfo(np.double).precision -> 15
-            np.finfo(np.longdouble).precision -> 18
-        check also np.show_config() and sp.show_config()
         """
         sparse = True
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
@@ -700,52 +695,38 @@ class Casino:
         energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
         energy_gradient = np.empty(shape=(steps, parameters.size)) if self.root else None
         self.mpi_comm.Gather(energy_gradient_part, energy_gradient)
-        norm = 0
         dp = np.empty_like(parameters)
         if self.root:
             S = overlap_matrix(wfn_gradient)
             self.logger.info(f'S is positive definite: {np.all(np.linalg.eigvals(S) > 0)}')
             H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
-            if precision is not None:
-                with mp.workdps(precision):
-                    # https://github.com/mpmath/mpmath/blob/master/mpmath/matrices/eigen.py
-                    # get right eigenvector corresponding to the eigenvalue sorted by increasing real part
-                    E, ER = mp.eig(mp.matrix(S)**-1 * mp.matrix(H), overwrite_a=True)
-                    E, ER = mp.eig_sort(E, ER=ER)
-                    # since imaginary parts only arise from statistical noise, discard them
-                    eigval, eigvector = float(mp.re(E[0])), np.array(list(map(mp.re, ER[:, 0])), dtype=np.float64)
+            if sparse:
+                # get normalized right eigenvector corresponding to the eigenvalue
+                eigvals, eigvectors = sp.sparse.linalg.eigs(A=H, k=1, M=S, v0=S[0], which='SR')
             else:
-                if sparse:
-                    # get normalized right eigenvector corresponding to the eigenvalue
-                    eigvals, eigvectors = sp.sparse.linalg.eigs(A=H, k=1, M=S, v0=S[0], which='SR')
-                else:
-                    eigvals, eigvectors = sp.linalg.eig(H, S)
-                # since imaginary parts only arise from statistical noise, discard them
-                eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
-                idx = eigvals.argmin()
-                eigval, eigvector = eigvals[idx], eigvectors[:, idx]
-            dp = eigvector[1:] / eigvector[0]
-            dp_S_dp = np.sum(S[1:, 1:] * np.outer(dp, dp))
-            norm = 1 / (1 + dp_S_dp)
+                eigvals, eigvectors = sp.linalg.eig(H, S)
+            # since imaginary parts only arise from statistical noise, discard them
+            eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
+            idx = eigvals.argmin()
+            eigval, eigvector = eigvals[idx], eigvectors[:, idx]
+            dp = eigvector[0] * eigvector[1:]
             self.logger.info(f'E lin {eigval}')
-            self.logger.info(f'norm {norm}')
+            # eigvector[0] ** 2 + eigvector[1:] @ S[1:, 1:] @ eigvector[1:] = eigvector @ S @ eigvector = 1
+            self.logger.info(f'eigvector[0] {eigvector[0]}')
             if parameters.all():
-                self.logger.info(f'delta p / p\n{norm * dp/parameters}')
+                self.logger.info(f'delta p / p\n{dp/parameters}')
             else:
-                self.logger.info(f'delta p\n{norm * dp}')
-            parameters += norm * dp
+                self.logger.info(f'delta p\n{dp}')
 
         self.mpi_comm.Bcast(dp)
-        norm = self.mpi_comm.bcast(norm)
         for i in range(11):
-            self.wfn.set_parameters(parameters + i * norm * dp / 10, opt_jastrow, opt_backflow)
-            energy_part_mean = vmc_observable(condition, position, self.wfn.energy).mean()
-            energy_mean = self.mpi_comm.allreduce(energy_part_mean) / self.mpi_comm.size
+            self.wfn.set_parameters(parameters + i * dp / 10, opt_jastrow, opt_backflow)
             _condition, _position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
-            _energy_part_mean = vmc_observable(_condition, _position, self.wfn.energy).mean()
-            _energy_mean = self.mpi_comm.allreduce(_energy_part_mean) / self.mpi_comm.size
-            self.logger.info(f'{i/10} {energy_mean} {_energy_mean}')
+            energy_part_mean = vmc_observable(_condition, _position, self.wfn.energy).mean()
+            energy_mean = self.mpi_comm.allreduce(energy_part_mean) / self.mpi_comm.size
+            self.logger.info(f'* {i/10} {energy_mean}')
 
+        parameters += dp
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
@@ -827,7 +808,7 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
-    vmc_energy_minimization = vmc_energy_minimization_newton
+    vmc_energy_minimization = vmc_energy_minimization_linear_method
 
 
 if __name__ == '__main__':
