@@ -28,7 +28,7 @@ def hessian(momentum, n):
         minus_alpha_r = -alpha * r
         orb = harmonic * r**n * exp(minus_alpha_r)
         c = (minus_alpha_r + n)/r**2
-        d = c**2 - (minus_alpha_r + 2*n)/r**4
+        d = c**2 - c/r**2 - n/r**4
         res = (
             simplify(diff(orb, x, x) - (
                 (diff(harmonic, x, x) + c * (harmonic + 2*x*diff(harmonic, x)) + d * x*x*harmonic) * r**n * exp(-alpha*r)
@@ -72,7 +72,7 @@ def tressian(momentum, n):
         minus_alpha_r = -alpha * r
         orb = harmonic * r**n * exp(minus_alpha_r)
         c = (minus_alpha_r + n)/r**2
-        d = c**2 - (minus_alpha_r + 2*n)/r**4
+        d = c**2 - c/r**2 - n/r**4
         e = c**3 - 3*c**2/r**2 - 3*(n-1)*c/r**4 + n*5/r**6
         res = (
             simplify(diff(orb, x, x, x) - (
@@ -136,14 +136,14 @@ def tressian(momentum, n):
                 e * z * z * z * harmonic
             ) * r**n * exp(-alpha*r)),
         )
-        print("tressian({}, {})=[{}, {}, {}, {}, {}, {},  {}, {},  {}, {}]".format(momentum, n, *res))
+        print("tressian({}, {})=[{}, {}, {}, {}, {}, {}, {}, {}, {}, {}]".format(momentum, n, *res))
 
 
 if __name__ == "__main__":
 
     for n in range(4):
         for m in 'spdfg':
-            # gradient(m, n)
-            # hessian(m, n)
-            # laplacian(m, n)
+            gradient(m, n)
+            hessian(m, n)
+            laplacian(m, n)
             tressian(m, n)

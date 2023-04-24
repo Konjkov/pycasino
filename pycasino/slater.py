@@ -4,7 +4,7 @@ import numba as nb
 from logger import logging
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from cusp import Cusp
-from harmonics import angular_part, gradient_angular_part, hessian_angular_part
+from harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
 from overload import random_step
 
 logger = logging.getLogger('vmc')
@@ -232,7 +232,7 @@ class Slater:
                             minus_alpha_r = - self.exponents[p + primitive] * r
                             exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
                             c = (minus_alpha_r + n)/r2
-                            d = c**2 - (minus_alpha_r + 2*n)/r2**2
+                            d = c**2 - c/r2 - n/r2**2
                             radial_1 += d * exponent
                             radial_2 += c * exponent
                             radial_3 += exponent
@@ -278,6 +278,64 @@ class Slater:
                 x, y, z = n_vectors[atom, i]
                 r2 = x * x + y * y + z * z
                 angular_1 = angular_part(x, y, z)
+                angular_2 = gradient_angular_part(x, y, z)
+                angular_3 = hessian_angular_part(x, y, z)
+                angular_4 = tressian_angular_part(x, y, z)
+                for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
+                    l = self.shell_moments[nshell]
+                    radial_1 = 0.0
+                    radial_2 = 0.0
+                    radial_3 = 0.0
+                    radial_4 = 0.0
+                    if self.orbital_types[nshell] == GAUSSIAN_TYPE:
+                        pass
+                    elif self.orbital_types[nshell] == SLATER_TYPE:
+                        r = np.sqrt(r2)
+                        for primitive in range(self.primitives[nshell]):
+                            n = self.slater_orders[nshell]
+                            minus_alpha_r = - self.exponents[p + primitive] * r
+                            exponent = r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
+                            c = (minus_alpha_r + n)/r2
+                            d = c**2 - c/r2 - n/r2**2
+                            e = c**3 - 3*c**2/r2 - 3*(n-1)*c/r2**2 + 5*n/r2**3
+                            radial_1 += e * exponent
+                            radial_2 += d * exponent
+                            radial_3 += c * exponent
+                            radial_4 += exponent
+                    p += self.primitives[nshell]
+                    for m in range(2 * l + 1):
+                        # orbital[i, :, :, ao+m] = (
+                        #     np.prod(np.ix_(n_vectors[atom, i], n_vectors[atom, i], n_vectors[atom, i])) * angular_1[l*l+m] * radial_1 +
+                        #     ...
+                        # )
+                        orbital[i, 0, 0, 0, ao + m] = x*x*x * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 0 * radial_3 + angular_4[l*l+m, 0] * radial_4
+                        orbital[i, 0, 0, 1, ao + m] = x*x*y * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 0 * radial_3 + angular_4[l*l+m, 1] * radial_4
+                        orbital[i, 0, 0, 2, ao + m] = x*x*z * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 0 * radial_3 + angular_4[l*l+m, 2] * radial_4
+                        orbital[i, 0, 1, 0, ao + m] = orbital[i, 0, 0, 1, ao + m]
+                        orbital[i, 0, 1, 1, ao + m] = x*y*y * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 0 * radial_3 + angular_4[l*l+m, 3] * radial_4
+                        orbital[i, 0, 1, 2, ao + m] = x*y*z * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 0 * radial_3 + angular_4[l*l+m, 4] * radial_4
+                        orbital[i, 0, 2, 0, ao + m] = orbital[i, 0, 0, 2, ao + m]
+                        orbital[i, 0, 2, 1, ao + m] = orbital[i, 0, 1, 2, ao + m]
+                        orbital[i, 0, 2, 2, ao + m] = x*z*z * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 0 * radial_3 + angular_4[l*l+m, 5] * radial_4
+                        orbital[i, 1, 0, 0, ao + m] = orbital[i, 0, 0, 1, ao + m]
+                        orbital[i, 1, 0, 1, ao + m] = orbital[i, 0, 1, 1, ao + m]
+                        orbital[i, 1, 0, 2, ao + m] = orbital[i, 0, 1, 2, ao + m]
+                        orbital[i, 1, 1, 0, ao + m] = orbital[i, 0, 1, 1, ao + m]
+                        orbital[i, 1, 1, 1, ao + m] = y*y*y * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 0 * radial_3 + angular_4[l*l+m, 6] * radial_4
+                        orbital[i, 1, 1, 2, ao + m] = y*y*z * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 0 * radial_3 + angular_4[l*l+m, 7] * radial_4
+                        orbital[i, 1, 2, 0, ao + m] = orbital[i, 0, 1, 2, ao + m]
+                        orbital[i, 1, 2, 1, ao + m] = orbital[i, 1, 1, 2, ao + m]
+                        orbital[i, 1, 2, 2, ao + m] = y*z*z * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 0 * radial_3 + angular_4[l*l+m, 8] * radial_4
+                        orbital[i, 2, 0, 0, ao + m] = orbital[i, 0, 0, 2, ao + m]
+                        orbital[i, 2, 0, 1, ao + m] = orbital[i, 0, 1, 2, ao + m]
+                        orbital[i, 2, 0, 2, ao + m] = orbital[i, 0, 2, 2, ao + m]
+                        orbital[i, 2, 1, 0, ao + m] = orbital[i, 0, 1, 2, ao + m]
+                        orbital[i, 2, 1, 1, ao + m] = orbital[i, 1, 1, 2, ao + m]
+                        orbital[i, 2, 1, 2, ao + m] = orbital[i, 1, 2, 2, ao + m]
+                        orbital[i, 2, 2, 0, ao + m] = orbital[i, 0, 2, 2, ao + m]
+                        orbital[i, 2, 2, 1, ao + m] = orbital[i, 1, 2, 2, ao + m]
+                        orbital[i, 2, 2, 2, ao + m] = z*z*z * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 0 * radial_3 + angular_4[l*l+m, 9] * radial_4
+                    ao += 2 * l + 1
 
         ao_tressian = self.norm * orbital.reshape((self.neu + self.ned) * 27, self.nbasis_functions)
         tress_u = (self.mo_up @ ao_tressian[:self.neu * 27].T).reshape(self.mo_up.shape[0], self.neu, 3, 3, 3)
