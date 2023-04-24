@@ -11,7 +11,7 @@ def gradient(momentum, n):
     for harmonic in harmonics[momentum]:
         minus_alpha_r = -alpha * r
         orb = harmonic * r**n * exp(minus_alpha_r)
-        c = (minus_alpha_r + n)/r**2
+        c = (minus_alpha_r + n)/r2
         res = (
             simplify(diff(orb, x) - (diff(harmonic, x) * r**n * exp(minus_alpha_r) + c * x * orb)),
             simplify(diff(orb, y) - (diff(harmonic, y) * r**n * exp(minus_alpha_r) + c * y * orb)),
@@ -22,13 +22,15 @@ def gradient(momentum, n):
 
 def hessian(momentum, n):
     """
-    hess(orb) = ...
+    hess(orb) = (hess(angular) - c * A * orb + (c + d) * B * angular) * exp(-alpha*r) - 2 * alpha * orb * I
+    A = (x, y, z) x ∇(angular) + ∇(angular) x (x, y, z)
+    B = (x, y, z) x (x, y, z)
     """
     for harmonic in harmonics[momentum]:
         minus_alpha_r = -alpha * r
         orb = harmonic * r**n * exp(minus_alpha_r)
-        c = (minus_alpha_r + n)/r**2
-        d = c**2 - c/r**2 - n/r**4
+        c = (minus_alpha_r + n)/r2
+        d = c**2 - c/r2 - n/r2**2
         res = (
             simplify(diff(orb, x, x) - (
                 (diff(harmonic, x, x) + c * (harmonic + 2*x*diff(harmonic, x)) + d * x*x*harmonic) * r**n * exp(-alpha*r)
@@ -59,8 +61,10 @@ def laplacian(momentum, n):
     for harmonic in harmonics[momentum]:
         l = momentum_map[momentum]
         minus_alpha_r = -alpha * r
+        c = (minus_alpha_r + n)/r2
+        d = c**2 + 2*(l+1)*c/r2 - n/r2**2
         orb = harmonic * r**n * exp(minus_alpha_r)
-        lap = simplify(diff(orb, x, x) + diff(orb, y, y) + diff(orb, z, z) - (minus_alpha_r**2 + 2*(l+n+1)*minus_alpha_r + (2*l+n+1)*n)/r2 * orb)
+        lap = simplify(diff(orb, x, x) + diff(orb, y, y) + diff(orb, z, z) - d * r2 * orb)
         print("laplacian({}, {})={}".format(momentum, n, lap))
 
 
@@ -71,9 +75,9 @@ def tressian(momentum, n):
     for harmonic in harmonics[momentum]:
         minus_alpha_r = -alpha * r
         orb = harmonic * r**n * exp(minus_alpha_r)
-        c = (minus_alpha_r + n)/r**2
-        d = c**2 - c/r**2 - n/r**4
-        e = c**3 - 3*c**2/r**2 - 3*(n-1)*c/r**4 + n*5/r**6
+        c = (minus_alpha_r + n)/r2
+        d = c**2 - c/r2 - n/r2**2
+        e = c**3 - 3*c**2/r2 - 3*(n-1)*c/r2**2 + n*5/r2**3
         res = (
             simplify(diff(orb, x, x, x) - (
                 diff(harmonic, x, x, x) +
