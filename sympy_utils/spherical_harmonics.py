@@ -75,11 +75,15 @@ def derivatives_2():
                 simplify(diff(harmonic, x, x)).subs(substitutions),
                 simplify(diff(harmonic, x, y)).subs(substitutions),
                 simplify(diff(harmonic, x, z)).subs(substitutions),
+                # simplify(diff(harmonic, y, x)).subs(substitutions),
                 simplify(diff(harmonic, y, y)).subs(substitutions),
                 simplify(diff(harmonic, y, z)).subs(substitutions),
+                # simplify(diff(harmonic, z, x)).subs(substitutions),
+                # simplify(diff(harmonic, z, y)).subs(substitutions),
                 simplify(diff(harmonic, z, z)).subs(substitutions),
             )
             print('{}, {}, {}, {}, {}, {},'.format(*res))
+            # print('{}, {}, {}, {}, {}, {}, {}, {}, {},'.format(*res))
 
 
 def derivatives_3():

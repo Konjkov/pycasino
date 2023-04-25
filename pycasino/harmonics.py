@@ -81,7 +81,9 @@ def gradient_angular_part(x, y, z):
 @nb.njit(nogil=True, parallel=False, cache=True)
 def hessian_angular_part(x, y, z):
     """Angular part of WFN hessian.
-    order: dxdx, dxdy, dxdz, dydy, dydz, dzdz
+    order: dxdx, dxdy, dxdz,
+                 dydy, dydz,
+                       dzdz
     :return:
     """
     x2 = x**2
@@ -117,9 +119,56 @@ def hessian_angular_part(x, y, z):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+def hessian_angular_part_square(x, y, z):
+    """Angular part of WFN hessian.
+    order: dxdx, dxdy, dxdz,
+           dydx, dydy, dydz,
+           dzdx, dzdy, dzdz
+    :return:
+    """
+    x2 = x**2
+    y2 = y**2
+    z2 = z**2
+    return np.array([
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        -1, 0, 0, 0, -1, 0, 0, 0, 2,
+        0, 0, 3, 0, 0, 0, 3, 0, 0,
+        0, 0, 0, 0, 0, 3, 0, 3, 0,
+        6, 0, 0, 0, -6, 0, 0, 0, 0,
+        0, 6, 0, 6, 0, 0, 0, 0, 0,
+        -3*z, 0, -3*x, 0, -3*z, -3*y, -3*x, -3*y, 6*z,
+        -9*x, -3*y, 12*z, -3*y, -3*x, 0, 12*z, 0, 12*x,
+        -3*y, -3*x, 0, -3*x, -9*y, 12*z, 0, 12*z, 12*y,
+        30*z, 0, 30*x, 0, -30*z, -30*y, 30*x, -30*y, 0,
+        0, 30*z, 30*y, 30*z, 0, 30*x, 30*y, 30*x, 0,
+        90*x, -90*y, 0, -90*y, -90*x, 0, 0, 0, 0,
+        90*y, 90*x, 0, 90*x, -90*y, 0, 0, 0, 0,
+        9*x2/2 + 3*y2/2 - 6*z2, 3*x*y, -12*x*z, 3*x*y, 3*x2/2 + 9*y2/2 - 6*z2, -12*y*z, -12*x*z, -12*y*z, -6*x2 - 6*y2 + 12*z2,
+        -45*x*z, -15*y*z, -45*x2/2 - 15*y2/2 + 30*z2, -15*y*z, -15*x*z, -15*x*y, -45*x2/2 - 15*y2/2 + 30*z2, -15*x*y, 60*x*z,
+        -15*y*z, -15*x*z, -15*x*y, -15*x*z, -45*y*z, -15*x2/2 - 45*y2/2 + 30*z2, -15*x*y, -15*x2/2 - 45*y2/2 + 30*z2, 60*y*z,
+        -90*x2 + 90*z2, 0, 180*x*z, 0, 90*y2 - 90*z2, -180*y*z, 180*x*z, -180*y*z, 90*x2 - 90*y2,
+        -90*x*y, -45*x2 - 45*y2 + 90*z2, 180*y*z, -45*x2 - 45*y2 + 90*z2, -90*x*y, 180*x*z, 180*y*z, 180*x*z, 180*x*y,
+        630*x*z, -630*y*z, 315*x2 - 315*y2, -630*y*z, -630*x*z, -630*x*y, 315*x2 - 315*y2, -630*x*y, 0,
+        630*y*z, 630*x*z, 630*x*y, 630*x*z, -630*y*z, 315*x2 - 315*y2, 630*x*y, 315*x2 - 315*y2, 0,
+        1260*x2 - 1260*y2, -2520*x*y, 0, -2520*x*y, -1260*x2 + 1260*y2, 0, 0, 0, 0,
+        2520*x*y, 1260*x2 - 1260*y2, 0, 1260*x2 - 1260*y2, -2520*x*y, 0, 0, 0, 0,
+    ]).reshape(25, 3, 3)
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 def tressian_angular_part(x, y, z):
     """Angular part of WFN 3-rd derivatives.
-    order: dxdxdx, dxdxdy, dxdxdz, dxdydy, dxdydz, dxdzdz, dydydy, dydydz, dydzdz, dzdzdz
+    order: dxdxdx, dxdxdy, dxdxdz,
+                   dxdydy, dxdydz,
+                           dxdzdz,
+           ----------------------
+                   dydydy, dydydz,
+                           dydzdz,
+           ----------------------
+                           dzdzdz
     :return:
     """
     return np.array([

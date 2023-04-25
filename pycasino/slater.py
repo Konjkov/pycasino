@@ -213,7 +213,7 @@ class Slater:
                 angular_2 = gradient_angular_part(x, y, z)
                 angular_3 = hessian_angular_part(x, y, z)
                 # angular_3 = hessian_angular_part_square(x, y, z)
-                # n_vector_angular_2 = np.outer(angular_2, n_vectors[atom, i])
+                # n_vector_angular_2 = np.outer(angular_2, n_vectors[atom, i]).reshape(-1, 3, 3)
                 # n_vector_outer = np.outer(n_vectors[atom, i], n_vectors[atom, i])
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
