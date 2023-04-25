@@ -4,7 +4,7 @@ import numba as nb
 from logger import logging
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from cusp import Cusp
-from harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
+from harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part, hessian_angular_part_square
 from overload import random_step
 
 logger = logging.getLogger('vmc')
@@ -211,8 +211,10 @@ class Slater:
                 r2 = x * x + y * y + z * z
                 angular_1 = angular_part(x, y, z)
                 angular_2 = gradient_angular_part(x, y, z)
-                # convert hessian_angular_part to symmetric matrix a + a.T - np.diag(a.diagonal())
-                angular_3 = hessian_angular_part(x, y, z)  # + hessian_angular_part(x, y, z).T - np.diag(hessian_angular_part(x, y, z).diagonal())
+                angular_3 = hessian_angular_part(x, y, z)
+                # angular_3 = hessian_angular_part_square(x, y, z)
+                # n_vector_angular_2 = np.outer(angular_2, n_vectors[atom, i])
+                # n_vector_outer = np.outer(n_vectors[atom, i], n_vectors[atom, i])
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
                     radial_1 = 0.0
@@ -240,10 +242,10 @@ class Slater:
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
                         # orbital[i, :, :, ao+m] = (
-                        #     np.outer(n_vectors[atom, i], n_vectors[atom, i]) * angular_1[l*l+m] * radial_1 +
-                        #     np.eye(3) * angular_1[l*l+m] * radial_2 +
-                        #     (np.outer(n_vectors[atom, i], angular_2[l*l+m, :]) + np.outer(angular_2[l*l+m, :], n_vectors[atom, i])) * radial_2 +
-                        #     angular_3[l * l + m, :, :] * radial_3
+                        #     n_vector_outer * angular_1[l*l+m] * radial_1 +
+                        #     (np.eye(3) * angular_1[l*l+m] + n_vector_angular_2[l*l+m] + n_vector_angular_2[l*l+m].T) * radial_2 +
+                        #     # convert hessian_angular_part to symmetric matrix a + a.T - np.diag(a.diagonal())
+                        #     angular_3[l*l+m, :, :] * radial_3
                         # )
                         orbital[i, 0, 0, ao+m] = x*x * angular_1[l*l+m] * radial_1 + (angular_1[l*l+m] + 2 * x * angular_2[l*l+m, 0]) * radial_2 + angular_3[l*l+m, 0] * radial_3
                         orbital[i, 0, 1, ao+m] = x*y * angular_1[l*l+m] * radial_1 + (y * angular_2[l*l+m, 0] + x * angular_2[l*l+m, 1]) * radial_2 + angular_3[l*l+m, 1] * radial_3
