@@ -309,7 +309,7 @@ class Slater:
                         #     np.prod(np.ix_(n_vectors[atom, i], n_vectors[atom, i], n_vectors[atom, i])) * angular_1[l*l+m] * radial_1 +
                         #     ...
                         # )
-                        orbital[i, 0, 0, 0, ao + m] = x*x*x * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 3*(angular_3[l*l+m, 0] + x * angular_3[l*l+m, 0]) * radial_3 + angular_4[l*l+m, 0] * radial_4
+                        orbital[i, 0, 0, 0, ao + m] = x*x*x * angular_1[l*l+m] * radial_1 + 3*x*(angular_1[l*l+m] + x * angular_2[l*l+m, 0]) * radial_2 + 3*(angular_2[l*l+m, 0] + x * angular_3[l*l+m, 0]) * radial_3 + angular_4[l*l+m, 0] * radial_4
                         orbital[i, 0, 0, 1, ao + m] = x*x*y * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 0 * radial_3 + angular_4[l*l+m, 1] * radial_4
                         orbital[i, 0, 0, 2, ao + m] = x*x*z * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 0 * radial_3 + angular_4[l*l+m, 2] * radial_4
                         orbital[i, 0, 1, 0, ao + m] = orbital[i, 0, 0, 1, ao + m]
@@ -322,7 +322,7 @@ class Slater:
                         orbital[i, 1, 0, 1, ao + m] = orbital[i, 0, 1, 1, ao + m]
                         orbital[i, 1, 0, 2, ao + m] = orbital[i, 0, 1, 2, ao + m]
                         orbital[i, 1, 1, 0, ao + m] = orbital[i, 0, 1, 1, ao + m]
-                        orbital[i, 1, 1, 1, ao + m] = y*y*y * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 3*(angular_3[l*l+m, 1] + x * angular_3[l*l+m, 3]) * radial_3 + angular_4[l*l+m, 6] * radial_4
+                        orbital[i, 1, 1, 1, ao + m] = y*y*y * angular_1[l*l+m] * radial_1 + 3*y*(angular_1[l*l+m] + y * angular_2[l*l+m, 0]) * radial_2 + 3*(angular_2[l*l+m, 1] + y * angular_3[l*l+m, 3]) * radial_3 + angular_4[l*l+m, 6] * radial_4
                         orbital[i, 1, 1, 2, ao + m] = y*y*z * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 0 * radial_3 + angular_4[l*l+m, 7] * radial_4
                         orbital[i, 1, 2, 0, ao + m] = orbital[i, 0, 1, 2, ao + m]
                         orbital[i, 1, 2, 1, ao + m] = orbital[i, 1, 1, 2, ao + m]
@@ -335,7 +335,7 @@ class Slater:
                         orbital[i, 2, 1, 2, ao + m] = orbital[i, 1, 2, 2, ao + m]
                         orbital[i, 2, 2, 0, ao + m] = orbital[i, 0, 2, 2, ao + m]
                         orbital[i, 2, 2, 1, ao + m] = orbital[i, 1, 2, 2, ao + m]
-                        orbital[i, 2, 2, 2, ao + m] = z*z*z * angular_1[l*l+m] * radial_1 + 0 * radial_2 + 3*(angular_3[l*l+m, 2] + x * angular_3[l*l+m, 5]) * radial_3 + angular_4[l*l+m, 9] * radial_4
+                        orbital[i, 2, 2, 2, ao + m] = z*z*z * angular_1[l*l+m] * radial_1 + 3*z*(angular_1[l*l+m] + z * angular_2[l*l+m, 0]) * radial_2 + 3*(angular_2[l*l+m, 2] + z * angular_3[l*l+m, 5]) * radial_3 + angular_4[l*l+m, 9] * radial_4
                     ao += 2 * l + 1
 
         ao_tressian = self.norm * orbital.reshape((self.neu + self.ned) * 27, self.nbasis_functions)

@@ -9,10 +9,11 @@ def gradient(momentum):
     """
     for harmonic in harmonics[momentum]:
         orb = harmonic * exp(-alpha*r2)
+        c = -2 * alpha
         res = (
-            simplify(diff(orb, x) - (diff(harmonic, x) * exp(-alpha*r2) - 2 * alpha * x * orb)),
-            simplify(diff(orb, y) - (diff(harmonic, y) * exp(-alpha*r2) - 2 * alpha * y * orb)),
-            simplify(diff(orb, z) - (diff(harmonic, z) * exp(-alpha*r2) - 2 * alpha * z * orb))
+            simplify(diff(orb, x) - (diff(harmonic, x) * exp(-alpha*r2) + c * x * orb)),
+            simplify(diff(orb, y) - (diff(harmonic, y) * exp(-alpha*r2) + c * y * orb)),
+            simplify(diff(orb, z) - (diff(harmonic, z) * exp(-alpha*r2) + c * z * orb))
         )
         print("gradient({})=[{}, {}, {}]".format(momentum, *res))
 
@@ -25,7 +26,7 @@ def hessian(momentum):
     """
     for harmonic in harmonics[momentum]:
         orb = harmonic * exp(-alpha*r2)
-        c = -2*alpha
+        c = -2 * alpha
         res = (
             simplify(diff(orb, x, x) - (
                 (diff(harmonic, x, x) + c * (harmonic + 2*x*diff(harmonic, x)) + c**2 * x*x*harmonic) * exp(-alpha*r2)
@@ -60,9 +61,82 @@ def laplacian(momentum):
         print("laplacian({})={}".format(momentum, res))
 
 
+def tressian(momentum):
+    """
+    tress(orb) = ...
+    """
+    for harmonic in harmonics[momentum]:
+        orb = harmonic * exp(-alpha*r2)
+        c = -2 * alpha
+        res = (
+            simplify(diff(orb, x, x, x) - (
+                diff(harmonic, x, x, x) +
+                3 * c * (diff(harmonic, x) + x * diff(harmonic, x, x)) +
+                3 * c**2 * x * (harmonic + x * diff(harmonic, x)) +
+                c**3 * x * x * x * harmonic
+            ) * exp(-alpha*r2)),
+            simplify(diff(orb, x, x, y) - (
+                diff(harmonic, x, x, y) +
+                c * (diff(harmonic, y) + 2 * x * diff(harmonic, x, y) + y * diff(harmonic, x, x)) +
+                c**2 * (y * harmonic + 2 * x * y * diff(harmonic, x) + x * x * diff(harmonic, y)) +
+                c**3 * x * x * y * harmonic
+            ) * exp(-alpha*r2)),
+            simplify(diff(orb, x, x, z) - (
+                diff(harmonic, x, x, z) +
+                c * (diff(harmonic, z) + 2 * x * diff(harmonic, x, z) + z * diff(harmonic, x, x)) +
+                c ** 2 * (z * harmonic + 2 * x * z * diff(harmonic, x) + x * x * diff(harmonic, z)) +
+                c ** 3 * x * x * z * harmonic
+            ) * exp(-alpha*r2)),
+            simplify(diff(orb, x, y, y) - (
+                diff(harmonic, x, y, y) +
+                c * (diff(harmonic, x) + 2 * y * diff(harmonic, x, y) + x * diff(harmonic, y, y)) +
+                c ** 2 * (x * harmonic + 2 * x * y * diff(harmonic, y) + y * y * diff(harmonic, x)) +
+                c ** 3 * x * y * y * harmonic
+            ) * exp(-alpha*r2)),
+            simplify(diff(orb, x, y, z) - (
+                diff(harmonic, x, y, z) +
+                c * (z * diff(harmonic, x, y) + y * diff(harmonic, x, z) + x * diff(harmonic, y, z)) +
+                c ** 2 * (z * y * diff(harmonic, x) + z * x * diff(harmonic, y) + x * y * diff(harmonic, z)) +
+                c ** 3 * x * y * z * harmonic
+            ) * exp(-alpha*r2)),
+            simplify(diff(orb, x, z, z) - (
+                diff(harmonic, x, z, z) +
+                c * (diff(harmonic, x) + 2 * z * diff(harmonic, x, z) + x * diff(harmonic, z, z)) +
+                c ** 2 * (x * harmonic + 2 * x * z * diff(harmonic, z) + z * z * diff(harmonic, x)) +
+                c ** 3 * x * z * z * harmonic
+            ) * exp(-alpha*r2)),
+            simplify(diff(orb, y, y, y) - (
+                diff(harmonic, y, y, y) +
+                3 * c * (diff(harmonic, y) + y * diff(harmonic, y, y)) +
+                3 * c ** 2 * y * (harmonic + y * diff(harmonic, y)) +
+                c ** 3 * y * y * y * harmonic
+              ) * exp(-alpha*r2)),
+            simplify(diff(orb, y, y, z) - (
+                diff(harmonic, y, y, z) +
+                c * (diff(harmonic, z) + 2 * y * diff(harmonic, y, z) + z * diff(harmonic, y, y)) +
+                c ** 2 * (z * harmonic + 2 * y * z * diff(harmonic, y) + y * y * diff(harmonic, z)) +
+                c ** 3 * y * y * z * harmonic
+            ) * exp(-alpha*r2)),
+            simplify(diff(orb, y, z, z) - (
+                diff(harmonic, y, z, z) +
+                c * (diff(harmonic, y) + 2 * z * diff(harmonic, y, z) + y * diff(harmonic, z, z)) +
+                c ** 2 * (y * harmonic + 2 * y * z * diff(harmonic, z) + z * z * diff(harmonic, y)) +
+                c ** 3 * y * z * z * harmonic
+            ) * exp(-alpha*r2)),
+            simplify(diff(orb, z, z, z) - (
+                diff(harmonic, z, z, z) +
+                3 * c * (diff(harmonic, z) + z * diff(harmonic, z, z)) +
+                3 * c ** 2 * z * (harmonic + z * diff(harmonic, z)) +
+                c ** 3 * z * z * z * harmonic
+            ) * exp(-alpha*r2)),
+        )
+        print("tressian({})=[{}, {}, {}, {}, {}, {}, {}, {}, {}, {}]".format(momentum, *res))
+
+
 if __name__ == "__main__":
 
     for m in 'spdfg':
         gradient(m)
         hessian(m)
         laplacian(m)
+        tressian(m)
