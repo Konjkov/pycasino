@@ -132,7 +132,6 @@ class VMCMarkovChain:
         :param decorr_period: decorrelation period
         :return:
         """
-        self.probability_density = self.wfn.value(self.r_e) ** 2
         condition = np.empty(shape=(steps, ), dtype=np.bool_)
         position = np.empty(shape=(steps, ) + self.r_e.shape)
 
@@ -144,6 +143,24 @@ class VMCMarkovChain:
             condition[i], position[i] = cond, self.r_e
 
         return condition, position
+
+    def vmc_energy(self, condition, position):
+        """VMC energy.
+        :param condition: accept/reject conditions
+        :param position: random walk positions
+        :return:
+        """
+        # FIXME: very slow
+        first_res = self.wfn.energy(position[0])
+        res = np.empty(shape=condition.shape + np.shape(first_res))
+        res[0] = first_res
+
+        for i in range(1, condition.shape[0]):
+            if condition[i]:
+                res[i] = self.wfn.energy(position[i])
+            else:
+                res[i] = res[i-1]
+        return res
 
 
 efficiency_type = nb.types.float64
@@ -450,8 +467,6 @@ class DMCMarkovChain:
         return energy
 
 
-# @nb.njit("float64(boolean[:], float64[:, :], FunctionType(float64[:, :](float64[:, :])))", nogil=True, parallel=False, cache=True)
-# https://github.com/numba/numba/issues/8405
 def vmc_observable(condition, position, observable, *args):
     """VMC observable.
     :param observable: observable quantity

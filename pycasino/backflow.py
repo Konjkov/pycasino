@@ -248,9 +248,7 @@ class Backflow:
                 eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[1]
                 L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
                 if r < L:
-                    poly = 0
-                    for k in range(parameters.shape[0]):
-                        poly += parameters[k, eta_set] * e_powers[e1, e2, k]
+                    poly = parameters[:, eta_set] @ e_powers[e1, e2]
                     bf = (1 - r/L) ** C * poly * r_vec
                     res[ae_cutoff_condition, e1] += bf
                     res[ae_cutoff_condition, e2] -= bf
@@ -274,14 +272,12 @@ class Backflow:
                     r = n_powers[label, e1, 1]
                     if r < L:
                         mu_set = int(e1 >= self.neu) % parameters.shape[1]
-                        poly = 0.0
-                        for k in range(parameters.shape[0]):
-                            poly += parameters[k, mu_set] * n_powers[label, e1, k]
+                        poly = parameters[:, mu_set] @ n_powers[label, e1]
                         # cutoff_condition
                         # 0: AE cutoff definitely not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
-                        res[ae_cutoff_condition, e1] += poly * (1 - r / L) ** C * r_vec
+                        res[ae_cutoff_condition, e1] += poly * (1 - r/L) ** C * r_vec
         return res.reshape(2, (self.neu + self.ned) * 3)
 
     def phi_term(self, e_powers, n_powers, e_vectors, n_vectors):

@@ -4,7 +4,7 @@ import numba as nb
 from logger import logging
 from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from cusp import Cusp
-from harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part, hessian_angular_part_square
+from harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
 from overload import random_step
 
 logger = logging.getLogger('vmc')
