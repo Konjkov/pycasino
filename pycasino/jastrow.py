@@ -254,8 +254,9 @@ class Jastrow:
                             poly = 0.0
                             for l in range(parameters.shape[0]):
                                 for m in range(parameters.shape[1]):
+                                    en_part = n_powers[label, e1, l] * n_powers[label, e2, m]
                                     for n in range(parameters.shape[2]):
-                                        poly += parameters[l, m, n, f_set] * n_powers[label, e1, l] * n_powers[label, e2, m] * e_powers[e1, e2, n]
+                                        poly += parameters[l, m, n, f_set] * en_part * e_powers[e1, e2, n]
                             res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
         return res
 
@@ -283,14 +284,13 @@ class Jastrow:
                     poly = poly_diff = 0.0
                     for k in range(parameters.shape[0]):
                         if k == 1:
-                            p = self.u_cusp_const[cusp_set]
+                            p = self.u_cusp_const[cusp_set] * e_powers[e1, e2, k]
                         else:
-                            p = parameters[k, u_set]
-                        poly += p * e_powers[e1, e2, k]
-                        if k > 0:
-                            poly_diff += p * k * e_powers[e1, e2, k-1]
+                            p = parameters[k, u_set] * e_powers[e1, e2, k]
+                        poly += p
+                        poly_diff += p * k
 
-                    gradient = r_vec/r * (r-L) ** C * (C/(r-L) * poly + poly_diff)
+                    gradient = r_vec * (r-L) ** C * (C*r/(r-L) * poly + poly_diff) / r**2
                     res[e1, :] += gradient
                     res[e2, :] -= gradient
         return res.ravel()
@@ -316,12 +316,11 @@ class Jastrow:
                         chi_set = int(e1 >= self.neu) % parameters.shape[1]
                         poly = poly_diff = 0.0
                         for k in range(parameters.shape[0]):
-                            p = parameters[k, chi_set]
-                            poly += p * n_powers[label, e1, k]
-                            if k > 0:
-                                poly_diff += p * k * n_powers[label, e1, k - 1]
+                            p = parameters[k, chi_set] * n_powers[label, e1, k]
+                            poly += p
+                            poly_diff += p * k
 
-                        res[e1, :] += r_vec/r * (r-L) ** C * (C/(r-L) * poly + poly_diff)
+                        res[e1, :] += r_vec * (r-L) ** C * (C*r/(r-L) * poly + poly_diff) / r**2
         return res.ravel()
 
     def _f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
@@ -353,19 +352,17 @@ class Jastrow:
                             poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
                             for l in range(parameters.shape[0]):
                                 for m in range(parameters.shape[1]):
+                                    en_part = n_powers[label, e1, l] * n_powers[label, e2, m]
                                     for n in range(parameters.shape[2]):
-                                        p = parameters[l, m, n, f_set]
-                                        poly += n_powers[label, e1, l] * n_powers[label, e2, m] * e_powers[e1, e2, n] * p
-                                        if l > 0:
-                                            poly_diff_e1I += l * n_powers[label, e1, l-1] * n_powers[label, e2, m] * e_powers[e1, e2, n] * p
-                                        if m > 0:
-                                            poly_diff_e2I += m * n_powers[label, e1, l] * n_powers[label, e2, m-1] * e_powers[e1, e2, n] * p
-                                        if n > 0:
-                                            poly_diff_ee += n * n_powers[label, e1, l] * n_powers[label, e2, m] * e_powers[e1, e2, n-1] * p
+                                        p = parameters[l, m, n, f_set] * en_part * e_powers[e1, e2, n]
+                                        poly += p
+                                        poly_diff_e1I += l * p
+                                        poly_diff_e2I += m * p
+                                        poly_diff_ee += n * p
 
-                            e1_gradient = r_e1I_vec/r_e1I * (C/(r_e1I - L) * poly + poly_diff_e1I)
-                            e2_gradient = r_e2I_vec/r_e2I * (C/(r_e2I - L) * poly + poly_diff_e2I)
-                            ee_gradient = r_ee_vec/r_ee * poly_diff_ee
+                            e1_gradient = r_e1I_vec * (C*r_e1I/(r_e1I - L) * poly + poly_diff_e1I) / r_e1I**2
+                            e2_gradient = r_e2I_vec * (C*r_e2I/(r_e2I - L) * poly + poly_diff_e2I) / r_e2I**2
+                            ee_gradient = r_ee_vec * poly_diff_ee / r_ee**2
                             res[e1, :] += (r_e1I - L) ** C * (r_e2I - L) ** C * (e1_gradient + ee_gradient)
                             res[e2, :] += (r_e1I - L) ** C * (r_e2I - L) ** C * (e2_gradient - ee_gradient)
         return res.ravel()
@@ -391,19 +388,17 @@ class Jastrow:
                     poly = poly_diff = poly_diff_2 = 0.0
                     for k in range(parameters.shape[0]):
                         if k == 1:
-                            p = self.u_cusp_const[cusp_set]
+                            p = self.u_cusp_const[cusp_set] * e_powers[e1, e2, k]
                         else:
-                            p = parameters[k, u_set]
-                        poly += p * e_powers[e1, e2, k]
-                        if k > 0:
-                            poly_diff += k * p * e_powers[e1, e2, k-1]
-                        if k > 1:
-                            poly_diff_2 += k * (k-1) * p * e_powers[e1, e2, k-2]
+                            p = parameters[k, u_set] * e_powers[e1, e2, k]
+                        poly += p
+                        poly_diff += k * p
+                        poly_diff_2 += k * (k-1) * p
 
                     res += (r-L)**C * (
-                        C*(C - 1)/(r-L)**2 * poly + 2 * C/(r-L) * poly_diff + poly_diff_2 +
-                        2 * (C/(r-L) * poly + poly_diff) / r
-                    )
+                        C*(C - 1)*r**2/(r-L)**2 * poly + 2 * C*r/(r-L) * poly_diff + poly_diff_2 +
+                        2 * (C*r/(r-L) * poly + poly_diff)
+                    ) / r**2
         return 2 * res
 
     def _chi_term_laplacian(self, n_powers) -> float:
@@ -424,17 +419,15 @@ class Jastrow:
                         chi_set = int(e1 >= self.neu) % parameters.shape[1]
                         poly = poly_diff = poly_diff_2 = 0.0
                         for k in range(parameters.shape[0]):
-                            p = parameters[k, chi_set]
-                            poly += p * n_powers[label, e1, k]
-                            if k > 0:
-                                poly_diff += k * p * n_powers[label, e1, k - 1]
-                            if k > 1:
-                                poly_diff_2 += k * (k-1) * p * n_powers[label, e1, k-2]
+                            p = parameters[k, chi_set] * n_powers[label, e1, k]
+                            poly += p
+                            poly_diff += k * p
+                            poly_diff_2 += k * (k-1) * p
 
                         res += (r-L)**C * (
-                            C*(C - 1)/(r-L)**2 * poly + 2 * C/(r-L) * poly_diff + poly_diff_2 +
-                            2 * (C/(r-L) * poly + poly_diff) / r
-                        )
+                            C*(C - 1)*r**2/(r-L)**2 * poly + 2 * C*r/(r-L) * poly_diff + poly_diff_2 +
+                            2 * (C*r/(r-L) * poly + poly_diff)
+                        ) / r**2
         return res
 
     def _f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors) -> float:
@@ -471,42 +464,35 @@ class Jastrow:
                             poly_diff_ee_2 = poly_diff_e1I_ee = poly_diff_e2I_ee = 0.0
                             for l in range(parameters.shape[0]):
                                 for m in range(parameters.shape[1]):
+                                    en_part = n_powers[label, e1, l] * n_powers[label, e2, m]
                                     for n in range(parameters.shape[2]):
-                                        p = parameters[l, m, n, f_set]
-                                        poly += n_powers[label, e1, l] * n_powers[label, e2, m] * e_powers[e1, e2, n] * p
-                                        if l > 0:
-                                            poly_diff_e1I += l * n_powers[label, e1, l-1] * n_powers[label, e2, m] * e_powers[e1, e2, n] * p
-                                        if m > 0:
-                                            poly_diff_e2I += m * n_powers[label, e1, l] * n_powers[label, e2, m-1] * e_powers[e1, e2, n] * p
-                                        if n > 0:
-                                            poly_diff_ee += n * n_powers[label, e1, l] * n_powers[label, e2, m] * e_powers[e1, e2, n-1] * p
-                                        if l > 1:
-                                            poly_diff_e1I_2 += l * (l-1) * n_powers[label, e1, l-2] * n_powers[label, e2, m] * e_powers[e1, e2, n] * p
-                                        if m > 1:
-                                            poly_diff_e2I_2 += m * (m-1) * n_powers[label, e1, l] * n_powers[label, e2, m-2] * e_powers[e1, e2, n] * p
-                                        if n > 1:
-                                            poly_diff_ee_2 += n * (n-1) * n_powers[label, e1, l] * n_powers[label, e2, m] * e_powers[e1, e2, n-2] * p
-                                        if l > 0 and n > 0:
-                                            poly_diff_e1I_ee += l * n * n_powers[label, e1, l-1] * n_powers[label, e2, m] * e_powers[e1, e2, n-1] * p
-                                        if m > 0 and n > 0:
-                                            poly_diff_e2I_ee += m * n * n_powers[label, e1, l] * n_powers[label, e2, m-1] * e_powers[e1, e2, n-1] * p
+                                        p = parameters[l, m, n, f_set] * en_part * e_powers[e1, e2, n]
+                                        poly += p
+                                        poly_diff_e1I += l * p
+                                        poly_diff_e2I += m * p
+                                        poly_diff_ee += n * p
+                                        poly_diff_e1I_2 += l * (l-1) * p
+                                        poly_diff_e2I_2 += m * (m-1) * p
+                                        poly_diff_ee_2 += n * (n-1) * p
+                                        poly_diff_e1I_ee += l * n * p
+                                        poly_diff_e2I_ee += m * n * p
 
                             diff_1 = (
-                                (C/(r_e1I - L) * poly + poly_diff_e1I) / r_e1I +
-                                (C/(r_e2I - L) * poly + poly_diff_e2I) / r_e2I +
-                                2 * poly_diff_ee / r_ee
+                                (C*r_e1I/(r_e1I - L) * poly + poly_diff_e1I) / r_e1I**2 +
+                                (C*r_e2I/(r_e2I - L) * poly + poly_diff_e2I) / r_e2I**2 +
+                                2 * poly_diff_ee / r_ee**2
                             )
                             diff_2 = (
-                                C * (C - 1) / (r_e1I - L) ** 2 * poly +
-                                C * (C - 1) / (r_e2I - L) ** 2 * poly +
-                                (poly_diff_e1I_2 + poly_diff_e2I_2 + 2 * poly_diff_ee_2) +
-                                2 * C/(r_e1I - L) * poly_diff_e1I +
-                                2 * C/(r_e2I - L) * poly_diff_e2I
+                                C*(C-1)/(r_e1I - L)**2 * poly +
+                                C*(C-1)/(r_e2I - L)**2 * poly +
+                                (poly_diff_e1I_2 / r_e1I**2 + poly_diff_e2I_2 / r_e2I**2 + 2 * poly_diff_ee_2 / r_ee**2) +
+                                2 * C/(r_e1I - L) * poly_diff_e1I / r_e1I +
+                                2 * C/(r_e2I - L) * poly_diff_e2I / r_e2I
                             )
                             dot_product = (
-                                np.sum(r_e1I_vec * r_ee_vec) * (C/(r_e1I - L) * poly_diff_ee + poly_diff_e1I_ee) / r_e1I / r_ee -
-                                np.sum(r_e2I_vec * r_ee_vec) * (C/(r_e2I - L) * poly_diff_ee + poly_diff_e2I_ee) / r_e2I / r_ee
-                            )
+                                (r_e1I_vec @ r_ee_vec) * (C*r_e1I/(r_e1I - L) * poly_diff_ee + poly_diff_e1I_ee) / r_e1I**2 -
+                                (r_e2I_vec @ r_ee_vec) * (C*r_e2I/(r_e2I - L) * poly_diff_ee + poly_diff_e2I_ee) / r_e2I**2
+                            ) / r_ee**2
                             res += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product)
         return res
 
