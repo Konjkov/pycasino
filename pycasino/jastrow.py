@@ -253,8 +253,10 @@ class Jastrow:
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[3]
                             poly = 0.0
                             for l in range(parameters.shape[0]):
-                                for m in range(parameters.shape[1]):
+                                for m in range(l, parameters.shape[1]):
                                     en_part = n_powers[label, e1, l] * n_powers[label, e2, m]
+                                    if l != m:
+                                        en_part += n_powers[label, e1, m] * n_powers[label, e2, l]
                                     for n in range(parameters.shape[2]):
                                         poly += parameters[l, m, n, f_set] * en_part * e_powers[e1, e2, n]
                             res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
@@ -1044,15 +1046,10 @@ class Jastrow:
                                             if r_e1I < L and r_e2I < L:
                                                 f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % f_parameters.shape[3]
                                                 if f_set == j4:
-                                                    res[n] += (
-                                                        n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3] *
-                                                        (r_e1I - L) ** C * (r_e2I - L) ** C
-                                                    )
+                                                    en_part = n_powers[label, e1, j1] * n_powers[label, e2, j2]
                                                     if j1 != j2:
-                                                        res[n] += (
-                                                            n_powers[label, e1, j2] * n_powers[label, e2, j1] * e_powers[e1, e2, j3] *
-                                                            (r_e1I - L) ** C * (r_e2I - L) ** C
-                                                        )
+                                                        en_part += n_powers[label, e1, j2] * n_powers[label, e2, j1]
+                                                    res[n] += en_part * e_powers[e1, e2, j3] * (r_e1I - L) ** C * (r_e2I - L) ** C
 
         return res
 
@@ -1237,12 +1234,11 @@ class Jastrow:
                                 u_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.u_parameters.shape[1]
                                 if u_set == j2:
                                     poly = e_powers[e1, e2, j1]
-                                    poly_diff = j1 * poly / r
-                                    poly_diff_2 = j1 * (j1 - 1) * poly / r**2
                                     res[n] += (r - L)**C * (
-                                        C*(C - 1)/(r-L)**2 * poly + 2 * C/(r-L) * poly_diff + poly_diff_2 +
-                                        2 * (C/(r-L) * poly + poly_diff) / r
-                                    )
+                                        C*(C - 1)/(r-L)**2 +
+                                        2 * C/(r-L) * (j1 + 1) / r +
+                                        j1 * (j1 + 1) / r**2
+                                    ) * poly
 
         return 2 * res
 
@@ -1284,12 +1280,11 @@ class Jastrow:
                                     chi_set = int(e1 >= self.neu) % chi_parameters.shape[1]
                                     if chi_set == j2:
                                         poly = n_powers[label, e1, j1]
-                                        poly_diff = j1 * poly / r
-                                        poly_diff_2 = j1 * (j1 - 1) * poly / r**2
                                         res[n] += (r-L)**C * (
-                                            C*(C - 1)/(r-L)**2 * poly + 2 * C/(r-L) * poly_diff + poly_diff_2 +
-                                            2 * (C/(r-L) * poly + poly_diff) / r
-                                        )
+                                            C*(C - 1)/(r-L)**2 +
+                                            2 * C/(r-L) * (j1 + 1) / r +
+                                            j1 * (j1 + 1) / r**2
+                                        ) * poly
 
         return res
 
@@ -1339,58 +1334,42 @@ class Jastrow:
                                                 f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % f_parameters.shape[3]
                                                 if f_set == j4:
                                                     poly = n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
-                                                    poly_diff_e1I = j1 * poly / r_e1I
-                                                    poly_diff_e2I = j2 * poly / r_e2I
-                                                    poly_diff_ee = j3 * poly / r_ee
-                                                    poly_diff_e1I_2 = j1 * (j1-1) * poly / r_e1I**2
-                                                    poly_diff_e2I_2 = j2 * (j2-1) * poly / r_e2I**2
-                                                    poly_diff_ee_2 = j3 * (j3-1) * poly / r_ee**2
-                                                    poly_diff_e1I_ee = j1 * j3 * poly / r_e1I / r_ee
-                                                    poly_diff_e2I_ee = j2 * j3 * poly / r_e2I / r_ee
                                                     diff_1 = (
-                                                            (C / (r_e1I - L) * poly + poly_diff_e1I) / r_e1I +
-                                                            (C / (r_e2I - L) * poly + poly_diff_e2I) / r_e2I +
-                                                            2 * poly_diff_ee / r_ee
+                                                            (C / (r_e1I - L) + j1 / r_e1I) / r_e1I +
+                                                            (C / (r_e2I - L) + j2 / r_e2I) / r_e2I +
+                                                            2 * j3 / r_ee**2
                                                     )
                                                     diff_2 = (
-                                                            C * (C - 1) / (r_e1I - L) ** 2 * poly +
-                                                            C * (C - 1) / (r_e2I - L) ** 2 * poly +
-                                                            (poly_diff_e1I_2 + poly_diff_e2I_2 + 2 * poly_diff_ee_2) +
-                                                            2 * C / (r_e1I - L) * poly_diff_e1I +
-                                                            2 * C / (r_e2I - L) * poly_diff_e2I
+                                                            C * (C - 1) / (r_e1I - L) ** 2 +
+                                                            C * (C - 1) / (r_e2I - L) ** 2 +
+                                                            (j1 * (j1-1) / r_e1I**2 + j2 * (j2-1) / r_e2I**2 + 2 * j3 * (j3-1) / r_ee**2) +
+                                                            2 * C / (r_e1I - L) * j1 / r_e1I +
+                                                            2 * C / (r_e2I - L) * j2 / r_e2I
                                                     )
                                                     dot_product = (
-                                                            (r_e1I_vec @ r_ee_vec) * (C / (r_e1I - L) * poly_diff_ee + poly_diff_e1I_ee) / r_e1I -
-                                                            (r_e2I_vec @ r_ee_vec) * (C / (r_e2I - L) * poly_diff_ee + poly_diff_e2I_ee) / r_e2I
-                                                    ) / r_ee
-                                                    res[n] += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product)
+                                                            (r_e1I_vec @ r_ee_vec) * (C * r_e1I / (r_e1I - L) + j1) / r_e1I**2 -
+                                                            (r_e2I_vec @ r_ee_vec) * (C * r_e2I / (r_e2I - L) + j2) / r_e2I**2
+                                                    ) * j3 / r_ee**2
+                                                    res[n] += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product) * poly
                                                     if j1 != j2:
                                                         poly = n_powers[label, e1, j2] * n_powers[label, e2, j1] * e_powers[e1, e2, j3]
-                                                        poly_diff_e1I = j2 * poly / r_e1I
-                                                        poly_diff_e2I = j1 * poly / r_e2I
-                                                        poly_diff_ee = j3 * poly / r_ee
-                                                        poly_diff_e1I_2 = j2 * (j2 - 1) * poly / r_e1I**2
-                                                        poly_diff_e2I_2 = j1 * (j1 - 1) * poly / r_e2I**2
-                                                        poly_diff_ee_2 = j3 * (j3 - 1) * poly / r_ee**2
-                                                        poly_diff_e1I_ee = j2 * j3 * poly / r_e1I / r_ee
-                                                        poly_diff_e2I_ee = j1 * j3 * poly / r_e2I / r_ee
                                                         diff_1 = (
-                                                                (C / (r_e1I - L) * poly + poly_diff_e1I) / r_e1I +
-                                                                (C / (r_e2I - L) * poly + poly_diff_e2I) / r_e2I +
-                                                                2 * poly_diff_ee / r_ee
+                                                                (C / (r_e1I - L) + j2 / r_e1I) / r_e1I +
+                                                                (C / (r_e2I - L) + j1 / r_e2I) / r_e2I +
+                                                                2 * j3 / r_ee**2
                                                         )
                                                         diff_2 = (
-                                                                C * (C - 1) / (r_e1I - L) ** 2 * poly +
-                                                                C * (C - 1) / (r_e2I - L) ** 2 * poly +
-                                                                (poly_diff_e1I_2 + poly_diff_e2I_2 + 2 * poly_diff_ee_2) +
-                                                                2 * C / (r_e1I - L) * poly_diff_e1I +
-                                                                2 * C / (r_e2I - L) * poly_diff_e2I
+                                                                C * (C - 1) / (r_e1I - L) ** 2 +
+                                                                C * (C - 1) / (r_e2I - L) ** 2 +
+                                                                (j2 * (j2 - 1) / r_e1I**2 + j1 * (j1 - 1) / r_e2I**2 + 2 * j3 * (j3 - 1) / r_ee**2) +
+                                                                2 * C / (r_e1I - L) * j2 / r_e1I +
+                                                                2 * C / (r_e2I - L) * j1 / r_e2I
                                                         )
                                                         dot_product = (
-                                                                (r_e1I_vec @ r_ee_vec) * (C / (r_e1I - L) * poly_diff_ee + poly_diff_e1I_ee) / r_e1I -
-                                                                (r_e2I_vec @ r_ee_vec) * (C / (r_e2I - L) * poly_diff_ee + poly_diff_e2I_ee) / r_e2I
-                                                        ) / r_ee
-                                                        res[n] += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product)
+                                                                (r_e1I_vec @ r_ee_vec) * (C / (r_e1I - L) + j2 / r_e1I) / r_e1I -
+                                                                (r_e2I_vec @ r_ee_vec) * (C / (r_e2I - L) + j1 / r_e2I) / r_e2I
+                                                        ) * j3 / r_ee**2
+                                                        res[n] += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product) * poly
         return res
 
     def value_parameters_d1(self, e_vectors, n_vectors) -> np.ndarray:
