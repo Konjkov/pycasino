@@ -289,7 +289,14 @@ class Slater:
                     radial_3 = 0.0
                     radial_4 = 0.0
                     if self.orbital_types[nshell] == GAUSSIAN_TYPE:
-                        pass
+                        for primitive in range(self.primitives[nshell]):
+                            alpha = self.exponents[p + primitive]
+                            exponent = self.coefficients[p + primitive] * np.exp(-alpha * r2)
+                            c = -2 * alpha
+                            radial_1 += c ** 3 * exponent
+                            radial_2 += c ** 2 * exponent
+                            radial_3 += c * exponent
+                            radial_4 += exponent
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
                         for primitive in range(self.primitives[nshell]):
@@ -452,6 +459,18 @@ class Slater:
             hess += c * np.outer(res_grad, res_grad)
 
         return hess / val
+
+    def tressian(self, n_vectors: np.ndarray) -> np.ndarray:
+        """Tressian Tress(φ)/φ w.r.t e-coordinates.
+        d³ln(det(A))/dxdydz = (
+            tr(A^-1 * d³A/dxdydz) +
+            tr(A^-1 * d³A/dxdy) * tr(A^-1 * dA/dz) +
+            tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) * tr(A^-1 * dA/dz) -
+            tr(A^-1 * dA/dx * A^-1 * dA/dy * A^-1 * dA/dz)
+            ...
+        )
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+        """
 
     def numerical_gradient(self, n_vectors: np.ndarray) -> float:
         """Numerical gradient w.r.t e-coordinates

@@ -226,7 +226,10 @@ class Jastrow:
                         # FIXME: maybe in next numba
                         # from numpy.polynomial.polynomial import polyval, polyval3d
                         # res += polyval(r, parameters[:, chi_set]) * (r - L) ** C
-                        res += parameters[:, chi_set] @ n_powers[label, e1] * (r - L) ** C
+                        poly = 0.0
+                        for k in range(parameters.shape[0]):
+                            poly += parameters[k, chi_set] * n_powers[label, e1, k]
+                        res += poly * (r - L) ** C
         return res
 
     def _f_term(self, e_powers, n_powers) -> float:
@@ -311,11 +314,12 @@ class Jastrow:
                     r = n_powers[label, e1, 1]
                     if r < L:
                         chi_set = int(e1 >= self.neu) % parameters.shape[1]
-                        poly = parameters[:, chi_set] @ n_powers[label, e1]
-                        poly_diff = 0.0
-                        for k in range(1, parameters.shape[0]):
+                        poly = poly_diff = 0.0
+                        for k in range(parameters.shape[0]):
                             p = parameters[k, chi_set]
-                            poly_diff += p * k * n_powers[label, e1, k-1]
+                            poly += p * n_powers[label, e1, k]
+                            if k > 0:
+                                poly_diff += p * k * n_powers[label, e1, k - 1]
 
                         res[e1, :] += r_vec/r * (r-L) ** C * (C/(r-L) * poly + poly_diff)
         return res.ravel()
@@ -418,11 +422,12 @@ class Jastrow:
                     r = n_powers[label, e1, 1]
                     if r < L:
                         chi_set = int(e1 >= self.neu) % parameters.shape[1]
-                        poly = parameters[:, chi_set] @ n_powers[label, e1]
-                        poly_diff = poly_diff_2 = 0.0
-                        for k in range(1, parameters.shape[0]):
+                        poly = poly_diff = poly_diff_2 = 0.0
+                        for k in range(parameters.shape[0]):
                             p = parameters[k, chi_set]
-                            poly_diff += k * p * n_powers[label, e1, k-1]
+                            poly += p * n_powers[label, e1, k]
+                            if k > 0:
+                                poly_diff += k * p * n_powers[label, e1, k - 1]
                             if k > 1:
                                 poly_diff_2 += k * (k-1) * p * n_powers[label, e1, k-2]
 
