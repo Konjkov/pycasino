@@ -346,13 +346,12 @@ class Backflow:
                 if r < L:
                     poly = poly_diff = 0
                     for k in range(parameters.shape[0]):
-                        p = parameters[k, eta_set]
-                        poly += p * e_powers[e1, e2, k]
-                        if k > 0:
-                            poly_diff += p * k * e_powers[e1, e2, k - 1]
+                        p = parameters[k, eta_set] * e_powers[e1, e2, k]
+                        poly += p
+                        poly_diff += p * k
 
                     bf = (1 - r/L)**C * (
-                        (poly_diff - C/(L - r)*poly) * np.outer(r_vec, r_vec)/r + poly * np.eye(3)
+                        (poly_diff - C*r/(L - r)*poly) * np.outer(r_vec, r_vec)/r**2 + poly * np.eye(3)
                     )
                     res[ae_cutoff_condition, e1, :, e1, :] += bf
                     res[ae_cutoff_condition, e1, :, e2, :] -= bf
@@ -381,16 +380,15 @@ class Backflow:
                         mu_set = int(e1 >= self.neu) % parameters.shape[1]
                         poly = poly_diff = 0.0
                         for k in range(parameters.shape[0]):
-                            p = parameters[k, mu_set]
-                            poly += p * n_powers[label, e1, k]
-                            if k > 0:
-                                poly_diff += k * p * n_powers[label, e1, k-1]
+                            p = parameters[k, mu_set] * n_powers[label, e1, k]
+                            poly += p
+                            poly_diff += k * p
                         # cutoff_condition
                         # 0: AE cutoff definitely not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         res[ae_cutoff_condition, e1, :, e1, :] += (1 - r/L)**C * (
-                            (poly_diff - C/(L - r)*poly) * np.outer(r_vec, r_vec)/r + poly * np.eye(3)
+                            (poly_diff - C*r/(L - r)*poly) * np.outer(r_vec, r_vec)/r**2 + poly * np.eye(3)
                         )
 
         return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
@@ -427,36 +425,34 @@ class Backflow:
                                     for m in range(phi_parameters.shape[2]):
                                         phi_p = phi_parameters[k, l, m, phi_set]
                                         theta_p = theta_parameters[k, l, m, phi_set]
-                                        phi_poly += n_powers[label, e1, k] * n_powers[label, e2, l] * e_powers[e1, e2, m] * phi_p
-                                        theta_poly += n_powers[label, e1, k] * n_powers[label, e2, l] * e_powers[e1, e2, m] * theta_p
-                                        if k > 0:
-                                            poly_diff_e1I = k * n_powers[label, e1, k-1] * n_powers[label, e2, l] * e_powers[e1, e2, m]
-                                            phi_poly_diff_e1I += poly_diff_e1I * phi_p
-                                            theta_poly_diff_e1I += poly_diff_e1I * theta_p
-                                        if l > 0:
-                                            poly_diff_e2I = l * n_powers[label, e1, k] * n_powers[label, e2, l-1] * e_powers[e1, e2, m]
-                                            phi_poly_diff_e2I += poly_diff_e2I * phi_p
-                                            theta_poly_diff_e2I += poly_diff_e2I * theta_p
-                                        if m > 0:
-                                            poly_diff_ee = m * n_powers[label, e1, k] * n_powers[label, e2, l] * e_powers[e1, e2, m-1]
-                                            phi_poly_diff_ee += poly_diff_ee * phi_p
-                                            theta_poly_diff_ee += poly_diff_ee * theta_p
+                                        poly = n_powers[label, e1, k] * n_powers[label, e2, l] * e_powers[e1, e2, m]
+                                        phi_poly += poly * phi_p
+                                        theta_poly += poly * theta_p
+                                        poly_diff_e1I = k * poly
+                                        phi_poly_diff_e1I += poly_diff_e1I * phi_p
+                                        theta_poly_diff_e1I += poly_diff_e1I * theta_p
+                                        poly_diff_e2I = l * poly
+                                        phi_poly_diff_e2I += poly_diff_e2I * phi_p
+                                        theta_poly_diff_e2I += poly_diff_e2I * theta_p
+                                        poly_diff_ee = m * poly
+                                        phi_poly_diff_ee += poly_diff_ee * phi_p
+                                        theta_poly_diff_ee += poly_diff_ee * theta_p
                             # cutoff_condition
                             # 0: AE cutoff definitely not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             cutoff = (1-r_e1I/L) ** C * (1-r_e2I/L) ** C
                             res[ae_cutoff_condition, e1, :, e1, :] += cutoff * (
-                                (phi_poly_diff_e1I - C/(L - r_e1I)*phi_poly) * np.outer(r_ee_vec, r_e1I_vec)/r_e1I +
-                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee + phi_poly * np.eye(3) +
-                                (theta_poly_diff_e1I - C / (L - r_e1I) * theta_poly) * np.outer(r_e1I_vec, r_e1I_vec) / r_e1I +
-                                theta_poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee + theta_poly * np.eye(3)
+                                (phi_poly_diff_e1I - C*r_e1I/(L - r_e1I)*phi_poly) * np.outer(r_ee_vec, r_e1I_vec)/r_e1I**2 +
+                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 + phi_poly * np.eye(3) +
+                                (theta_poly_diff_e1I - C*r_e1I/(L - r_e1I) * theta_poly) * np.outer(r_e1I_vec, r_e1I_vec)/r_e1I**2 +
+                                theta_poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2 + theta_poly * np.eye(3)
                             )
                             res[ae_cutoff_condition, e1, :, e2, :] += cutoff * (
-                                (phi_poly_diff_e2I - C/(L - r_e2I)*phi_poly) * np.outer(r_ee_vec, r_e2I_vec)/r_e2I -
-                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee - phi_poly * np.eye(3) +
-                                (theta_poly_diff_e2I - C / (L - r_e2I) * theta_poly) * np.outer(r_e1I_vec, r_e2I_vec) / r_e2I -
-                                theta_poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee
+                                (phi_poly_diff_e2I - C*r_e2I/(L - r_e2I)*phi_poly) * np.outer(r_ee_vec, r_e2I_vec)/r_e2I**2 -
+                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 - phi_poly * np.eye(3) +
+                                (theta_poly_diff_e2I - C*r_e2I/(L - r_e2I) * theta_poly) * np.outer(r_e1I_vec, r_e2I_vec) / r_e2I**2 -
+                                theta_poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2
                             )
 
         return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
@@ -485,17 +481,15 @@ class Backflow:
                 if r < L:
                     poly = poly_diff = poly_diff_2 = 0
                     for k in range(parameters.shape[0]):
-                        p = parameters[k, eta_set]
-                        poly += p * e_powers[e1, e2, k]
-                        if k > 0:
-                            poly_diff += k * p * e_powers[e1, e2, k-1]
-                        if k > 1:
-                            poly_diff_2 += k * (k - 1) * p * e_powers[e1, e2, k-2]
+                        p = parameters[k, eta_set] * e_powers[e1, e2, k]
+                        poly += p
+                        poly_diff += k * p
+                        poly_diff_2 += k * (k - 1) * p
 
                     bf = 2 * (1 - r/L)**C * (
-                        4*(poly_diff - C/(L - r) * poly) +
-                        r*(C*(C - 1)/(L - r)**2*poly - 2*C/(L - r)*poly_diff + poly_diff_2)
-                    ) * r_vec/r
+                        4*(poly_diff - C*r/(L - r) * poly) +
+                        (C*(C - 1)*r**2/(L - r)**2*poly - 2*C*r/(L - r)*poly_diff + poly_diff_2)
+                    ) * r_vec / r**2
                     res[ae_cutoff_condition, e1] += bf
                     res[ae_cutoff_condition, e2] -= bf
 
@@ -523,20 +517,18 @@ class Backflow:
                         mu_set = int(e1 >= self.neu) % parameters.shape[1]
                         poly = poly_diff = poly_diff_2 = 0.0
                         for k in range(parameters.shape[0]):
-                            p = parameters[k, mu_set]
-                            poly += p * n_powers[label, e1, k]
-                            if k > 0:
-                                poly_diff += k * p * n_powers[label, e1, k-1]
-                            if k > 1:
-                                poly_diff_2 += k * (k-1) * p * n_powers[label, e1, k-2]
+                            p = parameters[k, mu_set] * n_powers[label, e1, k]
+                            poly += p
+                            poly_diff += k * p
+                            poly_diff_2 += k * (k-1) * p
                         # cutoff_condition
                         # 0: AE cutoff definitely not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         res[ae_cutoff_condition, e1] += (1 - r/L)**C * (
-                            4*(poly_diff - C/(L - r) * poly) +
-                            r*(C*(C - 1)/(L - r)**2*poly - 2*C/(L - r)*poly_diff + poly_diff_2)
-                        ) * r_vec/r
+                            4*(poly_diff - C*r/(L - r) * poly) +
+                            (C*(C - 1)*r**2/(L - r)**2*poly - 2*C*r/(L - r)*poly_diff + poly_diff_2)
+                        ) * r_vec / r**2
 
         return res.reshape(2, (self.neu + self.ned) * 3)
 
@@ -585,38 +577,30 @@ class Backflow:
                                         poly = n_powers[label, e1, k] * n_powers[label, e2, l] * e_powers[e1, e2, m]
                                         phi_poly += poly * phi_p
                                         theta_poly += poly * theta_p
-                                        if k > 0:
-                                            poly_diff_e1I = k * n_powers[label, e1, k-1] * n_powers[label, e2, l] * e_powers[e1, e2, m]
-                                            phi_poly_diff_e1I += poly_diff_e1I * phi_p
-                                            theta_poly_diff_e1I += poly_diff_e1I * theta_p
-                                        if l > 0:
-                                            poly_diff_e2I = l * n_powers[label, e1, k] * n_powers[label, e2, l-1] * e_powers[e1, e2, m]
-                                            phi_poly_diff_e2I += poly_diff_e2I * phi_p
-                                            theta_poly_diff_e2I += poly_diff_e2I * theta_p
-                                        if m > 0:
-                                            poly_diff_ee = m * n_powers[label, e1, k] * n_powers[label, e2, l] * e_powers[e1, e2, m-1]
-                                            phi_poly_diff_ee += poly_diff_ee * phi_p
-                                            theta_poly_diff_ee += poly_diff_ee * theta_p
-                                        if k > 1:
-                                            poly_diff_e1I_2 = k * (k-1) * n_powers[label, e1, k-2] * n_powers[label, e2, l] * e_powers[e1, e2, m]
-                                            phi_poly_diff_e1I_2 += poly_diff_e1I_2 * phi_p
-                                            theta_poly_diff_e1I_2 += poly_diff_e1I_2 * theta_p
-                                        if l > 1:
-                                            poly_diff_e2I_2 = l * (l-1) * n_powers[label, e1, k] * n_powers[label, e2, l-2] * e_powers[e1, e2, m]
-                                            phi_poly_diff_e2I_2 += poly_diff_e2I_2 * phi_p
-                                            theta_poly_diff_e2I_2 += poly_diff_e2I_2 * theta_p
-                                        if m > 1:
-                                            poly_diff_ee_2 = m * (m-1) * n_powers[label, e1, k] * n_powers[label, e2, l] * e_powers[e1, e2, m-2]
-                                            phi_poly_diff_ee_2 += poly_diff_ee_2 * phi_p
-                                            theta_poly_diff_ee_2 += poly_diff_ee_2 * theta_p
-                                        if k > 0 and m > 0:
-                                            poly_diff_e1I_ee = k * m * n_powers[label, e1, k-1] * n_powers[label, e2, l] * e_powers[e1, e2, m-1]
-                                            phi_poly_diff_e1I_ee += poly_diff_e1I_ee * phi_p
-                                            theta_poly_diff_e1I_ee += poly_diff_e1I_ee * theta_p
-                                        if l > 0 and m > 0:
-                                            poly_diff_e2I_ee = l * m * n_powers[label, e1, k] * n_powers[label, e2, l-1] * e_powers[e1, e2, m-1]
-                                            phi_poly_diff_e2I_ee += poly_diff_e2I_ee * phi_p
-                                            theta_poly_diff_e2I_ee += poly_diff_e2I_ee * theta_p
+                                        poly_diff_e1I = k * poly / r_e1I
+                                        phi_poly_diff_e1I += poly_diff_e1I * phi_p
+                                        theta_poly_diff_e1I += poly_diff_e1I * theta_p
+                                        poly_diff_e2I = l * poly / r_e2I
+                                        phi_poly_diff_e2I += poly_diff_e2I * phi_p
+                                        theta_poly_diff_e2I += poly_diff_e2I * theta_p
+                                        poly_diff_ee = m * poly / r_ee
+                                        phi_poly_diff_ee += poly_diff_ee * phi_p
+                                        theta_poly_diff_ee += poly_diff_ee * theta_p
+                                        poly_diff_e1I_2 = k * (k-1) * poly / r_e1I**2
+                                        phi_poly_diff_e1I_2 += poly_diff_e1I_2 * phi_p
+                                        theta_poly_diff_e1I_2 += poly_diff_e1I_2 * theta_p
+                                        poly_diff_e2I_2 = l * (l-1) * poly / r_e2I**2
+                                        phi_poly_diff_e2I_2 += poly_diff_e2I_2 * phi_p
+                                        theta_poly_diff_e2I_2 += poly_diff_e2I_2 * theta_p
+                                        poly_diff_ee_2 = m * (m-1) * poly / r_ee**2
+                                        phi_poly_diff_ee_2 += poly_diff_ee_2 * phi_p
+                                        theta_poly_diff_ee_2 += poly_diff_ee_2 * theta_p
+                                        poly_diff_e1I_ee = k * m * poly / r_e1I / r_ee
+                                        phi_poly_diff_e1I_ee += poly_diff_e1I_ee * phi_p
+                                        theta_poly_diff_e1I_ee += poly_diff_e1I_ee * theta_p
+                                        poly_diff_e2I_ee = l * m * poly / r_e2I / r_ee
+                                        phi_poly_diff_e2I_ee += poly_diff_e2I_ee * phi_p
+                                        theta_poly_diff_e2I_ee += poly_diff_e2I_ee * theta_p
 
                             phi_diff_1 = (
                                 (phi_poly_diff_e1I - C*phi_poly/(L - r_e1I))/r_e1I +
