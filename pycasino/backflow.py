@@ -1156,7 +1156,7 @@ class Backflow:
         return parameters[n:]
 
     def eta_term_d1(self, e_powers, e_vectors):
-        """Numerical first derivatives of logarithm wfn w.r.t eta-term parameters
+        """First derivatives of logarithm wfn w.r.t. eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
         """
@@ -1197,7 +1197,7 @@ class Backflow:
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def mu_term_d1(self, n_powers, n_vectors):
-        """Numerical first derivatives of logarithm wfn w.r.t mu-term parameters
+        """First derivatives of logarithm wfn w.r.t. mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -1244,7 +1244,7 @@ class Backflow:
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def phi_term_d1(self, e_powers, n_powers, e_vectors, n_vectors):
-        """Numerical first derivatives of logarithm wfn w.r.t phi-term parameters
+        """First derivatives of logarithm wfn w.r.t. phi-term parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param e_powers: powers of e-e distances
@@ -1304,7 +1304,7 @@ class Backflow:
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def eta_term_gradient_d1(self, e_powers, e_vectors):
-        """Numerical first derivatives of logarithm wfn w.r.t eta-term parameters
+        """First derivatives of logarithm wfn w.r.t. eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
         """
@@ -1339,9 +1339,7 @@ class Backflow:
                             if r < L:
                                 if eta_set == j2:
                                     poly = e_powers[e1, e2, j1]
-                                    poly_diff = 0
-                                    if j1 > 0:
-                                        poly_diff = j1 * e_powers[e1, e2, j1 - 1]
+                                    poly_diff = j1 * poly / r
                                     bf = (1 - r/L)**C * (
                                             (poly_diff - C / (L - r) * poly) * np.outer(r_vec, r_vec) / r + poly * np.eye(3)
                                     )
@@ -1353,7 +1351,7 @@ class Backflow:
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def mu_term_gradient_d1(self, n_powers, n_vectors):
-        """Numerical first derivatives of logarithm wfn w.r.t mu-term parameters
+        """First derivatives of logarithm wfn w.r.t. mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -1391,9 +1389,7 @@ class Backflow:
                                     mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
                                     if mu_set == j2:
                                         poly = n_powers[label, e1, j1]
-                                        poly_diff = 0.0
-                                        if j1 > 0:
-                                            poly_diff = j1 * n_powers[label, e1, j1 - 1]
+                                        poly_diff = j1 * poly / r
                                         # cutoff_condition
                                         # 0: AE cutoff definitely not applied
                                         # 1: AE cutoff maybe applied
@@ -1405,7 +1401,7 @@ class Backflow:
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def phi_term_gradient_d1(self, e_powers, n_powers, e_vectors, n_vectors):
-        """Numerical first derivatives of logarithm wfn w.r.t phi-term parameters
+        """First derivatives of logarithm wfn w.r.t. phi-term parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param e_powers: powers of e-e distances
@@ -1454,14 +1450,10 @@ class Backflow:
                                             if r_e1I < L and r_e2I < L:
                                                 phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
                                                 if phi_set == j4:
-                                                    poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0
                                                     poly = n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
-                                                    if j1 > 0:
-                                                        poly_diff_e1I = j1 * n_powers[label, e1, j1 - 1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
-                                                    if j2 > 0:
-                                                        poly_diff_e2I = j2 * n_powers[label, e1, j1] * n_powers[label, e2, j2 - 1] * e_powers[e1, e2, j3]
-                                                    if j3 > 0:
-                                                        poly_diff_ee = j3 * n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3 - 1]
+                                                    poly_diff_e1I = j1 * poly / r_e1I
+                                                    poly_diff_e2I = j2 * poly / r_e2I
+                                                    poly_diff_ee = j3 * poly / r_ee
                                                     # cutoff_condition
                                                     # 0: AE cutoff definitely not applied
                                                     # 1: AE cutoff maybe applied
@@ -1488,7 +1480,7 @@ class Backflow:
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def eta_term_laplacian_d1(self, e_powers, e_vectors):
-        """Numerical first derivatives of laplacian w.r.t eta-term parameters
+        """First derivatives of laplacian w.r.t. eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
         """
@@ -1523,11 +1515,8 @@ class Backflow:
                             if r < L:
                                 if eta_set == j2:
                                     poly = e_powers[e1, e2, j1]
-                                    poly_diff = poly_diff_2 = 0
-                                    if j1 > 0:
-                                        poly_diff = j1 * e_powers[e1, e2, j1 - 1]
-                                    if j1 > 1:
-                                        poly_diff_2 = j1 * (j1 - 1) * e_powers[e1, e2, j1 - 2]
+                                    poly_diff = j1 * poly / r
+                                    poly_diff_2 = j1 * (j1 - 1) * poly / r**2
                                     bf = 2 * (1 - r / L) ** C * (
                                         4 * (poly_diff - C / (L - r) * poly) +
                                         r * (C * (C - 1) / (L - r) ** 2 * poly - 2 * C / (L - r) * poly_diff + poly_diff_2)
@@ -1538,7 +1527,7 @@ class Backflow:
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def mu_term_laplacian_d1(self, n_powers, n_vectors):
-        """Numerical first derivatives of logarithm wfn w.r.t mu-term parameters
+        """First derivatives of logarithm wfn w.r.t. mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -1576,11 +1565,8 @@ class Backflow:
                                     mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
                                     if mu_set == j2:
                                         poly = n_powers[label, e1, j1]
-                                        poly_diff = poly_diff_2 = 0.0
-                                        if j1 > 0:
-                                            poly_diff += j1 * n_powers[label, e1, j1 - 1]
-                                        if j1 > 1:
-                                            poly_diff_2 += j1 * (j1 - 1) * n_powers[label, e1, j1 - 2]
+                                        poly_diff = j1 * poly / r
+                                        poly_diff_2 = j1 * (j1 - 1) * poly / r**2
                                         # cutoff_condition
                                         # 0: AE cutoff definitely not applied
                                         # 1: AE cutoff maybe applied
@@ -1593,7 +1579,7 @@ class Backflow:
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def phi_term_laplacian_d1(self, e_powers, n_powers, e_vectors, n_vectors):
-        """Numerical first derivatives of laplacian w.r.t phi-term parameters
+        """First derivatives of laplacian w.r.t. phi-term parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param e_powers: powers of e-e distances
@@ -1642,26 +1628,15 @@ class Backflow:
                                             if r_e1I < L and r_e2I < L:
                                                 phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
                                                 if phi_set == j4:
-                                                    poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
-                                                    poly_diff_e1I_2 = poly_diff_e2I_2 = poly_diff_ee_2 = 0.0
-                                                    poly_diff_e1I_ee = poly_diff_e2I_ee = 0.0
                                                     poly = n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
-                                                    if j1 > 0:
-                                                        poly_diff_e1I = j1 * n_powers[label, e1, j1 - 1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
-                                                    if j2 > 0:
-                                                        poly_diff_e2I = j2 * n_powers[label, e1, j1] * n_powers[label, e2, j2 - 1] * e_powers[e1, e2, j3]
-                                                    if j3 > 0:
-                                                        poly_diff_ee = j3 * n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3 - 1]
-                                                    if j1 > 1:
-                                                        poly_diff_e1I_2 = j1 * (j1 - 1) * n_powers[label, e1, j1 - 2] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
-                                                    if j2 > 1:
-                                                        poly_diff_e2I_2 = j2 * (j2 - 1) * n_powers[label, e1, j1] * n_powers[label, e2, j2 - 2] * e_powers[e1, e2, j3]
-                                                    if j3 > 1:
-                                                        poly_diff_ee_2 = j3 * (j3 - 1) * n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3 - 2]
-                                                    if j1 > 0 and j3 > 0:
-                                                        poly_diff_e1I_ee = j1 * j3 * n_powers[label, e1, j1 - 1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3 - 1]
-                                                    if j2 > 0 and j3 > 0:
-                                                        poly_diff_e2I_ee = j2 * j3 * n_powers[label, e1, j1] * n_powers[label, e2, j2 - 1] * e_powers[e1, e2, j3 - 1]
+                                                    poly_diff_e1I = j1 * poly / r_e1I
+                                                    poly_diff_e2I = j2 * poly / r_e2I
+                                                    poly_diff_ee = j3 * poly / r_ee
+                                                    poly_diff_e1I_2 = j1 * (j1 - 1) * poly / r_e1I**2
+                                                    poly_diff_e2I_2 = j2 * (j2 - 1) * poly / r_e2I**2
+                                                    poly_diff_ee_2 = j3 * (j3 - 1) * poly / r_ee**2
+                                                    poly_diff_e1I_ee = j1 * j3 * poly / r_e1I / r_ee
+                                                    poly_diff_e2I_ee = j2 * j3 * poly / r_e2I / r_ee
 
                                                     phi_diff_1 = (
                                                         (poly_diff_e1I - C * poly / (L - r_e1I)) / r_e1I +
@@ -1674,10 +1649,10 @@ class Backflow:
                                                         2 * poly_diff_ee_2
                                                     )
                                                     phi_dot_product = (
-                                                        (poly_diff_e1I - C * poly / (L - r_e1I)) * np.eye(3) @ r_e1I_vec / r_e1I -
-                                                        (poly_diff_e2I - C * poly / (L - r_e2I)) * np.eye(3) @ r_e2I_vec / r_e2I +
-                                                        (poly_diff_e1I_ee - C * poly_diff_ee / (L - r_e1I)) * np.outer(r_ee_vec, r_ee_vec) / r_ee @ r_e1I_vec / r_e1I -
-                                                        (poly_diff_e2I_ee - C * poly_diff_ee / (L - r_e2I)) * np.outer(r_ee_vec, r_ee_vec) / r_ee @ r_e2I_vec / r_e2I
+                                                        (poly_diff_e1I - C * poly / (L - r_e1I)) * r_e1I_vec / r_e1I -
+                                                        (poly_diff_e2I - C * poly / (L - r_e2I)) * r_e2I_vec / r_e2I +
+                                                        (poly_diff_e1I_ee - C * poly_diff_ee / (L - r_e1I)) * np.outer(r_ee_vec, r_ee_vec) @ r_e1I_vec / r_e1I / r_ee -
+                                                        (poly_diff_e2I_ee - C * poly_diff_ee / (L - r_e2I)) * np.outer(r_ee_vec, r_ee_vec) @ r_e2I_vec / r_e2I / r_ee
                                                     )
                                                     theta_diff_1 = (
                                                         2 * (poly_diff_e1I - C * poly / (L - r_e1I)) / r_e1I +
@@ -1690,10 +1665,10 @@ class Backflow:
                                                         2 * poly_diff_ee_2
                                                     )
                                                     theta_dot_product = (
-                                                        (poly_diff_e1I_ee - C * poly_diff_ee / (L - r_e1I)) * np.outer(r_e1I_vec, r_e1I_vec) / r_e1I @ r_ee_vec / r_ee -
-                                                        (poly_diff_e2I_ee - C * poly_diff_ee / (L - r_e2I)) * np.outer(r_e1I_vec, r_e2I_vec) / r_e2I @ r_ee_vec / r_ee +
-                                                        poly_diff_ee * np.eye(3) @ r_ee_vec / r_ee
-                                                    )
+                                                        (poly_diff_e1I_ee - C * poly_diff_ee / (L - r_e1I)) * np.outer(r_e1I_vec, r_e1I_vec) @ r_ee_vec / r_e1I -
+                                                        (poly_diff_e2I_ee - C * poly_diff_ee / (L - r_e2I)) * np.outer(r_e1I_vec, r_e2I_vec) @ r_ee_vec / r_e2I +
+                                                        poly_diff_ee * r_ee_vec
+                                                    ) / r_ee
                                                     # cutoff_condition
                                                     # 0: AE cutoff definitely not applied
                                                     # 1: AE cutoff maybe applied
@@ -1710,7 +1685,7 @@ class Backflow:
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def value_parameters_d1(self, e_vectors, n_vectors):
-        """First derivatives of backflow w.r.t the parameters
+        """First derivatives of backflow w.r.t. the parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         """
@@ -1729,7 +1704,7 @@ class Backflow:
         ))
 
     def gradient_parameters_d1(self, e_vectors, n_vectors) -> np.ndarray:
-        """First derivatives of backflow gradient w.r.t the parameters
+        """First derivatives of backflow gradient w.r.t. the parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
@@ -1763,7 +1738,7 @@ class Backflow:
         return gradient, value
 
     def laplacian_parameters_d1(self, e_vectors, n_vectors) -> np.ndarray:
-        """First derivatives of backflow laplacian w.r.t the parameters
+        """First derivatives of backflow laplacian w.r.t. the parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
