@@ -1512,12 +1512,10 @@ class Backflow:
                             if r < L:
                                 if eta_set == j2:
                                     poly = e_powers[e1, e2, j1]
-                                    poly_diff = j1 * poly / r
-                                    poly_diff_2 = j1 * (j1 - 1) * poly / r**2
                                     bf = 2 * (1 - r / L) ** C * (
-                                        4 * (poly_diff - C / (L - r) * poly) +
-                                        r * (C * (C - 1) / (L - r) ** 2 * poly - 2 * C / (L - r) * poly_diff + poly_diff_2)
-                                    ) * r_vec / r
+                                        4 * (j1 / r - C / (L - r)) +
+                                        r * (C * (C - 1) / (L - r) ** 2 - 2 * C / (L - r) * j1 / r + j1 * (j1 - 1) / r**2)
+                                    ) * r_vec * poly / r
                                     res[n, ae_cutoff_condition, e1] += bf
                                     res[n, ae_cutoff_condition, e2] -= bf
 
@@ -1562,16 +1560,14 @@ class Backflow:
                                     mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
                                     if mu_set == j2:
                                         poly = n_powers[label, e1, j1]
-                                        poly_diff = j1 * poly / r
-                                        poly_diff_2 = j1 * (j1 - 1) * poly / r**2
                                         # cutoff_condition
                                         # 0: AE cutoff definitely not applied
                                         # 1: AE cutoff maybe applied
                                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                                         res[n, ae_cutoff_condition, e1] += (1 - r / L) ** C * (
-                                                4 * (poly_diff - C / (L - r) * poly) +
-                                                r * (C * (C - 1) / (L - r) ** 2 * poly - 2 * C / (L - r) * poly_diff + poly_diff_2)
-                                        ) * r_vec / r
+                                            4 * (j1 / r - C / (L - r)) +
+                                            r * (C * (C - 1) / (L - r) ** 2 - 2 * C / (L - r) * j1 / r + j1 * (j1 - 1) / r**2)
+                                        ) * r_vec * poly / r
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
