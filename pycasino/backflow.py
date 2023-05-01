@@ -1339,10 +1339,9 @@ class Backflow:
                             if r < L:
                                 if eta_set == j2:
                                     poly = e_powers[e1, e2, j1]
-                                    poly_diff = j1 * poly / r
                                     bf = (1 - r/L)**C * (
-                                            (poly_diff - C / (L - r) * poly) * np.outer(r_vec, r_vec) / r + poly * np.eye(3)
-                                    )
+                                            (j1 / r - C / (L - r)) * np.outer(r_vec, r_vec) / r + np.eye(3)
+                                    ) * poly
                                     res[n, ae_cutoff_condition, e1, :, e1, :] += bf
                                     res[n, ae_cutoff_condition, e1, :, e2, :] -= bf
                                     res[n, ae_cutoff_condition, e2, :, e1, :] -= bf
@@ -1389,14 +1388,13 @@ class Backflow:
                                     mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
                                     if mu_set == j2:
                                         poly = n_powers[label, e1, j1]
-                                        poly_diff = j1 * poly / r
                                         # cutoff_condition
                                         # 0: AE cutoff definitely not applied
                                         # 1: AE cutoff maybe applied
                                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                                         res[n, ae_cutoff_condition, e1, :, e1, :] += (1 - r / L) ** C * (
-                                            (poly_diff - C / (L - r) * poly) * np.outer(r_vec, r_vec) / r + poly * np.eye(3)
-                                        )
+                                            (j1 / r - C / (L - r)) * np.outer(r_vec, r_vec) / r + np.eye(3)
+                                        ) * poly
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
@@ -1450,33 +1448,30 @@ class Backflow:
                                             if r_e1I < L and r_e2I < L:
                                                 phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
                                                 if phi_set == j4:
-                                                    cutoff_diff_e1I = C * r_e1I / (L - r_e1I)
-                                                    cutoff_diff_e2I = C * r_e2I / (L - r_e2I)
-                                                    poly = n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
-                                                    poly_diff_e1I = j1 * poly / r_e1I
-                                                    poly_diff_e2I = j2 * poly / r_e2I
-                                                    poly_diff_ee = j3 * poly / r_ee
                                                     # cutoff_condition
                                                     # 0: AE cutoff definitely not applied
                                                     # 1: AE cutoff maybe applied
                                                     ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                                                     cutoff = (1 - r_e1I/L)**C * (1 - r_e2I/L)**C
+                                                    cutoff_diff_e1I = C * r_e1I / (L - r_e1I)
+                                                    cutoff_diff_e2I = C * r_e2I / (L - r_e2I)
+                                                    poly = n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
                                                     res[n, ae_cutoff_condition, e1, :, e1, :] += cutoff * (
-                                                        (poly_diff_e1I - C / (L - r_e1I) * poly) * np.outer(r_ee_vec, r_e1I_vec) / r_e1I +
-                                                        poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee + poly * np.eye(3)
-                                                    )
+                                                        (j1 - cutoff_diff_e1I) * np.outer(r_ee_vec, r_e1I_vec) / r_e1I**2 +
+                                                        j3 * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 + np.eye(3)
+                                                    ) * poly
                                                     res[n + dn, ae_cutoff_condition, e1, :, e1, :] += cutoff * (
-                                                        (poly_diff_e1I - C / (L - r_e1I) * poly) * np.outer(r_e1I_vec, r_e1I_vec) / r_e1I +
-                                                        poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee + poly * np.eye(3)
-                                                    )
+                                                        (j1 - cutoff_diff_e1I) * np.outer(r_e1I_vec, r_e1I_vec) / r_e1I**2 +
+                                                        j3 * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2 + np.eye(3)
+                                                    ) * poly
                                                     res[n, ae_cutoff_condition, e1, :, e2, :] += cutoff * (
-                                                        (poly_diff_e2I - C / (L - r_e2I) * poly) * np.outer(r_ee_vec, r_e2I_vec) / r_e2I -
-                                                        poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee - poly * np.eye(3)
-                                                    )
+                                                        (j2 - cutoff_diff_e2I) * np.outer(r_ee_vec, r_e2I_vec) / r_e2I**2 -
+                                                        j3 * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 - np.eye(3)
+                                                    ) * poly
                                                     res[n + dn, ae_cutoff_condition, e1, :, e2, :] += cutoff * (
-                                                        (poly_diff_e2I - C / (L - r_e2I) * poly) * np.outer(r_e1I_vec, r_e2I_vec) / r_e2I -
-                                                        poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee
-                                                    )
+                                                        (j2 - cutoff_diff_e2I) * np.outer(r_e1I_vec, r_e2I_vec) / r_e2I**2 -
+                                                        j3 * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2
+                                                    ) * poly
                 n += dn
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
@@ -1629,11 +1624,11 @@ class Backflow:
                                             r_ee = e_powers[e1, e2, 1]
                                             if r_e1I < L and r_e2I < L:
                                                 phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
-                                                cutoff_diff_e1I = C * r_e1I / (L - r_e1I)
-                                                cutoff_diff_e2I = C * r_e2I / (L - r_e2I)
-                                                cutoff_diff_e1I_2 = C * (C - 1) * r_e1I ** 2 / (L - r_e1I) ** 2
-                                                cutoff_diff_e2I_2 = C * (C - 1) * r_e2I ** 2 / (L - r_e2I) ** 2
                                                 if phi_set == j4:
+                                                    cutoff_diff_e1I = C * r_e1I / (L - r_e1I)
+                                                    cutoff_diff_e2I = C * r_e2I / (L - r_e2I)
+                                                    cutoff_diff_e1I_2 = C * (C - 1) * r_e1I ** 2 / (L - r_e1I) ** 2
+                                                    cutoff_diff_e2I_2 = C * (C - 1) * r_e2I ** 2 / (L - r_e2I) ** 2
                                                     phi_diff_1 = (
                                                         (j1 - cutoff_diff_e1I) / r_e1I**2 +
                                                         (j2 - cutoff_diff_e2I) / r_e2I**2 +
