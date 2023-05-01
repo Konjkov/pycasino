@@ -84,7 +84,7 @@ class Slater:
             p = ao = 0
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
-                r2 = x * x + y * y + z * z
+                r2 = n_vectors[atom, i] @ n_vectors[atom, i]
                 angular_1 = angular_part(x, y, z)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
@@ -120,7 +120,7 @@ class Slater:
             p = ao = 0
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
-                r2 = x * x + y * y + z * z
+                r2 = n_vectors[atom, i] @ n_vectors[atom, i]
                 angular_1 = angular_part(x, y, z)
                 angular_2 = gradient_angular_part(x, y, z)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
@@ -167,7 +167,7 @@ class Slater:
             p = ao = 0
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
-                r2 = x * x + y * y + z * z
+                r2 = n_vectors[atom, i] @ n_vectors[atom, i]
                 angular_1 = angular_part(x, y, z)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
@@ -208,7 +208,7 @@ class Slater:
             p = ao = 0
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
-                r2 = x * x + y * y + z * z
+                r2 = n_vectors[atom, i] @ n_vectors[atom, i]
                 angular_1 = angular_part(x, y, z)
                 angular_2 = gradient_angular_part(x, y, z)
                 angular_3 = hessian_angular_part(x, y, z)
@@ -277,7 +277,7 @@ class Slater:
             p = ao = 0
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
-                r2 = x * x + y * y + z * z
+                r2 = n_vectors[atom, i] @ n_vectors[atom, i]
                 angular_1 = angular_part(x, y, z)
                 angular_2 = gradient_angular_part(x, y, z)
                 angular_3 = hessian_angular_part(x, y, z)
