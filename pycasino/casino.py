@@ -6,7 +6,7 @@ from timeit import default_timer
 from numpy_config import np
 from mpi4py import MPI
 import scipy as sp
-from scipy.optimize import least_squares, minimize, curve_fit, line_search
+from scipy.optimize import least_squares, minimize, curve_fit, line_search, OptimizeWarning
 import matplotlib.pyplot as plt
 
 from cusp import CuspFactory
@@ -229,9 +229,9 @@ class Casino:
         """Optimize vmc step size."""
         xdata = np.linspace(0, 2, 11)
         ydata = np.ones_like(xdata)
-        approximate_step_size = self.approximate_step_size
+        step_size = self.approximate_step_size
         for i in range(1, xdata.size):
-            self.vmc_markovchain.step_size = approximate_step_size * xdata[i]
+            self.vmc_markovchain.step_size = step_size * xdata[i]
             condition, position = self.vmc_markovchain.random_walk(steps)
             acc_rate = condition.mean()
             ydata[i] = self.mpi_comm.allreduce(acc_rate) / self.mpi_comm.size
@@ -246,14 +246,22 @@ class Casino:
             """
             return (np.exp(a/ts0) - 1) / (np.exp(a/ts0) + np.exp(ts/ts0) - 2)
 
-        step_size = None
+        self.logger.info(
+            f'Performing time-step optimization.'
+        )
         if self.root:
-            popt, pcov = curve_fit(f, xdata, ydata)
-            step_size = approximate_step_size * popt[0]
-
+            try:
+                popt, pcov = curve_fit(f, xdata, ydata)
+                step_size *= popt[0]
+            except OptimizeWarning:
+                self.logger.info(
+                    f' time-step optimization failed for.\n'
+                    f' xdata: {xdata}\n'
+                    f' ydata: {ydata}\n'
+                    f' set step size to approximate'
+                )
         step_size = self.mpi_comm.bcast(step_size)
         self.logger.info(
-            f'Performing time-step optimization.\n'
             f'Optimized step size: {step_size:.5f}\n'
         )
         self.vmc_markovchain.step_size = step_size
@@ -544,30 +552,53 @@ class Casino:
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             wfn = np.empty(shape=(steps,))
-            energy = np.empty(shape=(steps,))
             wfn_part = vmc_observable(condition, position, self.wfn.value)
-            energy_part = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allgather(wfn_part, wfn)
+            energy = np.empty(shape=(steps,))
+            energy_part = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Allgather(energy_part, energy)
             weights = (wfn / wfn_0)**2
-            ddof = (weights**2).sum() / weights.sum()  # Delta Degrees of Freedom
             mean_energy = np.average(energy, weights=weights)
+            ddof = np.average(weights, weights=weights)  # Delta Degrees of Freedom
             # rescale for "Cost column" in output of scipy.optimize.least_squares to be variance of E local
             return np.sqrt(2) * (energy - mean_energy) * np.sqrt(weights / (weights.sum() - ddof))
 
         def jac(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             wfn = np.empty(shape=(steps,))
-            energy_gradient = np.empty(shape=(steps, x.size))
             wfn_part = vmc_observable(condition, position, self.wfn.value)
-            energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             self.mpi_comm.Allgather(wfn_part, wfn)
+            wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            wfn_gradient = np.empty(shape=(steps, x.size))
+            self.mpi_comm.Allgather(wfn_gradient_part, wfn_gradient)
+            energy = np.empty(shape=(steps,))
+            energy_part = vmc_observable(condition, position, self.wfn.energy)
+            self.mpi_comm.Allgather(energy_part, energy)
+            energy_gradient = np.empty(shape=(steps, x.size))
+            energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
             weights = (wfn / wfn_0)**2
-            ddof = (weights**2).sum() / weights.sum()  # Delta Degrees of Freedom
+            mean_energy = np.average(energy, weights=weights)
+            mean_wfn_gradient = np.average(wfn_gradient, axis=0, weights=weights)
             mean_energy_gradient = np.average(energy_gradient, axis=0, weights=weights)
+            ddof = np.average(weights, weights=weights)  # Delta Degrees of Freedom
+            half_ddof_gradient = 2 * np.average(wfn_gradient * np.expand_dims(weights, 1), axis=0, weights=weights) - ddof * mean_wfn_gradient
+            # diff(weights, p) = 2 * wfn_gradient * weights
+            # diff(np.average(x, weights=weights), p) =
+            #            np.average(diff(x, p), weights=weights) +
+            #            2 * np.average(x * wfn_gradient, weights=weights) -
+            #            2 * np.average(wfn_gradient, weights=weights) * np.average(x, weights=weights)
+            # diff(ddof, p) = diff(np.average(weights, weights=weights), p) =
+            #            2 * np.average(wfn_gradient * weights, weights=weights) +
+            #            2 * np.average(weights * wfn_gradient, weights=weights) -
+            #            2 * np.average(wfn_gradient, weights=weights) * ddof
             # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
-            return np.sqrt(2) * (energy_gradient - mean_energy_gradient) * np.sqrt(np.expand_dims(weights, 1) / (weights.sum() - ddof))
+            return np.sqrt(2) * (
+                energy_gradient -
+                (mean_energy_gradient + 2 * np.average(wfn_gradient * np.expand_dims(energy, 1), axis=0, weights=weights) - 2 * mean_energy * mean_wfn_gradient) +
+                np.expand_dims((energy - mean_energy), 1) * mean_wfn_gradient -
+                np.expand_dims((energy - mean_energy), 1) * (mean_wfn_gradient * weights.sum() - half_ddof_gradient) / (weights.sum() - ddof)
+            ) * np.sqrt(np.expand_dims(weights, 1) / (weights.sum() - ddof))
 
         self.logger.info(
             ' Optimization start\n'
