@@ -463,6 +463,8 @@ class Jastrow:
                         r_ee = e_powers[e1, e2, 1]
                         if r_e1I < L and r_e2I < L:
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[3]
+                            cutoff_diff_e1I = C*r_e1I/(r_e1I - L)
+                            cutoff_diff_e2I = C*r_e2I/(r_e2I - L)
                             poly = poly_diff_e1I = poly_diff_e2I = 0.0
                             poly_diff_ee = poly_diff_e1I_2 = poly_diff_e2I_2 = 0.0
                             poly_diff_ee_2 = poly_diff_e1I_ee = poly_diff_e2I_ee = 0.0
@@ -482,20 +484,20 @@ class Jastrow:
                                         poly_diff_e2I_ee += m * n * p
 
                             diff_1 = (
-                                (C*r_e1I/(r_e1I - L) * poly + poly_diff_e1I) / r_e1I**2 +
-                                (C*r_e2I/(r_e2I - L) * poly + poly_diff_e2I) / r_e2I**2 +
+                                (cutoff_diff_e1I * poly + poly_diff_e1I) / r_e1I**2 +
+                                (cutoff_diff_e2I * poly + poly_diff_e2I) / r_e2I**2 +
                                 2 * poly_diff_ee / r_ee**2
                             )
                             diff_2 = (
                                 C*(C-1)/(r_e1I - L)**2 * poly +
                                 C*(C-1)/(r_e2I - L)**2 * poly +
-                                (poly_diff_e1I_2 / r_e1I**2 + poly_diff_e2I_2 / r_e2I**2 + 2 * poly_diff_ee_2 / r_ee**2) +
-                                2 * C/(r_e1I - L) * poly_diff_e1I / r_e1I +
-                                2 * C/(r_e2I - L) * poly_diff_e2I / r_e2I
+                                poly_diff_e1I_2 / r_e1I**2 + poly_diff_e2I_2 / r_e2I**2 + 2 * poly_diff_ee_2 / r_ee**2 +
+                                2 * cutoff_diff_e1I * poly_diff_e1I / r_e1I**2 +
+                                2 * cutoff_diff_e2I * poly_diff_e2I / r_e2I**2
                             )
                             dot_product = (
-                                (r_e1I_vec @ r_ee_vec) * (C*r_e1I/(r_e1I - L) * poly_diff_ee + poly_diff_e1I_ee) / r_e1I**2 -
-                                (r_e2I_vec @ r_ee_vec) * (C*r_e2I/(r_e2I - L) * poly_diff_ee + poly_diff_e2I_ee) / r_e2I**2
+                                (r_e1I_vec @ r_ee_vec) * (cutoff_diff_e1I * poly_diff_ee + poly_diff_e1I_ee) / r_e1I**2 -
+                                (r_e2I_vec @ r_ee_vec) * (cutoff_diff_e2I * poly_diff_ee + poly_diff_e2I_ee) / r_e2I**2
                             ) / r_ee**2
                             res += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product)
         return res

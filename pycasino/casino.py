@@ -489,6 +489,10 @@ class Casino:
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         steps_eff = self.mpi_comm.allreduce(condition.sum())
 
+        # for pos in position:
+        #     self.logger.info(self.wfn.value_parameters_d1(pos) / self.wfn.value_parameters_numerical_d1(pos))
+        #     self.logger.info(self.wfn.energy_parameters_d1(pos) / self.wfn.energy_parameters_numerical_d1(pos))
+
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy = np.empty(shape=(steps,))
