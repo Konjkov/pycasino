@@ -10,6 +10,7 @@ class Input:
         self.dmc_method = 1
         self.limdmc = 4
         self.vmc_decorr_period = 3
+        self.vm_reweight = False
         self.ebest_av_window = 25
         self.nucleus_gf_mods = True
         self.cusp_correction = None
@@ -88,6 +89,8 @@ class Input:
                     self.dmc_target_weight = read_float(line)
                 elif line.startswith('vmc_decorr_period'):
                     self.vmc_decorr_period = read_int(line)
+                elif line.startswith('vm_reweight'):
+                    self.vm_reweight = read_bool(line)
                 elif line.startswith('cusp_correction'):
                     self.cusp_correction = read_bool(line)
                 elif line.startswith('nucleus_gf_mods'):

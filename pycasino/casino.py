@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
+import warnings
 import argparse
 from timeit import default_timer
 from numpy_config import np
@@ -250,6 +251,7 @@ class Casino:
             f'Performing time-step optimization.'
         )
         if self.root:
+            warnings.simplefilter("error", OptimizeWarning)
             try:
                 popt, pcov = curve_fit(f, xdata, ydata)
                 step_size *= popt[0]
@@ -296,11 +298,20 @@ class Casino:
                     f' ==========================================\n\n'
                 )
                 if self.config.input.opt_method == 'varmin':
-                    self.vmc_unreweighted_variance_minimization(
-                        self.config.input.vmc_nconfig_write,
-                        self.config.input.opt_jastrow,
-                        self.config.input.opt_backflow
-                    )
+                    if self.config.input.vm_reweight:
+                        self.vmc_reweighted_variance_minimization(
+                            self.config.input.vmc_nconfig_write,
+                            self.config.input.opt_jastrow,
+                            self.config.input.opt_backflow
+                        )
+                    else:
+                        self.vmc_unreweighted_variance_minimization(
+                            self.config.input.vmc_nconfig_write,
+                            self.config.input.opt_jastrow,
+                            self.config.input.opt_backflow
+                        )
+                elif self.config.input.opt_method == 'madmin':
+                    raise NotImplemented
                 elif self.config.input.opt_method == 'emin':
                     self.vmc_energy_minimization(
                         self.config.input.vmc_nconfig_write,
@@ -520,9 +531,9 @@ class Casino:
             ' =================='
         )
 
-        x = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         res = least_squares(
-            fun, x0=x, jac=jac, method='trf', ftol=1/np.sqrt(steps_eff-1),
+            fun, x0=x0, jac=jac, method='trf', ftol=1/np.sqrt(steps_eff-1),
             tr_solver='exact', verbose=self.root and verbose
         )
         parameters = res.x
@@ -605,9 +616,9 @@ class Casino:
             ' =================='
         )
 
-        x = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         res = least_squares(
-            fun, x0=x, jac=jac, method='trf', ftol=1/np.sqrt(steps_eff-1),
+            fun, x0=x0, jac=jac, method='trf', ftol=1/np.sqrt(steps_eff-1),
             tr_solver='exact', verbose=self.root and verbose
         )
         parameters = res.x
@@ -679,9 +690,9 @@ class Casino:
             ' =================='
         )
 
-        x = self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale
+        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale
         options = dict(disp=self.root, initial_trust_radius=1, max_trust_radius=10)
-        res = minimize(fun, x0=x, method='trust-exact', jac=jac, hess=hess, options=options)
+        res = minimize(fun, x0=x0, method='trust-exact', jac=jac, hess=hess, options=options)
         self.logger.info('Scaled Jacobian matrix at the solution:')
         self.logger.info(res.jac / scale)
         parameters = res.x * scale
