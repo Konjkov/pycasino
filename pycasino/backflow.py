@@ -1173,10 +1173,13 @@ class Backflow:
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                res[n] -= self.eta_term(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3)
+                self.fix_eta_parameters()
+                res[n] -= self.eta_term(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] += 2 * delta
-                res[n] += self.eta_term(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3)
+                self.fix_eta_parameters()
+                res[n] += self.eta_term(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] -= delta
+                self.fix_eta_parameters()
 
         for j2 in range(self.eta_parameters.shape[1]):
             for j1 in range(self.eta_parameters.shape[0]):
@@ -1217,10 +1220,13 @@ class Backflow:
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                res[n] -= self.mu_term(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3)
+                self.fix_mu_parameters()
+                res[n] -= self.mu_term(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] += 2 * delta
-                res[n] += self.mu_term(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3)
+                self.fix_mu_parameters()
+                res[n] += self.mu_term(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] -= delta
+                self.fix_mu_parameters()
 
             L = self.mu_cutoff[i]
             for j2 in range(mu_parameters.shape[1]):
@@ -1266,10 +1272,13 @@ class Backflow:
             if self.phi_cutoff_optimizable[i]:
                 n += 1
                 self.phi_cutoff[i] -= delta
-                res[n] -= self.phi_term(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3)
+                self.fix_phi_parameters()
+                res[n] -= self.phi_term(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] += 2 * delta
-                res[n] += self.phi_term(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3)
+                self.fix_phi_parameters()
+                res[n] += self.phi_term(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] -= delta
+                self.fix_phi_parameters()
 
             L = self.phi_cutoff[i]
             for j4 in range(phi_parameters.shape[3]):
@@ -1321,10 +1330,13 @@ class Backflow:
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                res[n] -= self.eta_term_gradient(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3)
+                self.fix_eta_parameters()
+                res[n] -= self.eta_term_gradient(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] += 2 * delta
-                res[n] += self.eta_term_gradient(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3)
+                self.fix_eta_parameters()
+                res[n] += self.eta_term_gradient(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] -= delta
+                self.fix_eta_parameters()
 
         for j2 in range(self.eta_parameters.shape[1]):
             for j1 in range(self.eta_parameters.shape[0]):
@@ -1370,10 +1382,13 @@ class Backflow:
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                res[n] -= self.mu_term_gradient(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3)
+                self.fix_mu_parameters()
+                res[n] -= self.mu_term_gradient(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] += 2 * delta
-                res[n] += self.mu_term_gradient(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3)
+                self.fix_mu_parameters()
+                res[n] += self.mu_term_gradient(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] -= delta
+                self.fix_mu_parameters()
 
             L = self.mu_cutoff[i]
             for j2 in range(mu_parameters.shape[1]):
@@ -1421,10 +1436,13 @@ class Backflow:
             if self.phi_cutoff_optimizable[i]:
                 n += 1
                 self.phi_cutoff[i] -= delta
-                res[n] -= self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3)
+                self.fix_phi_parameters()
+                res[n] -= self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] += 2 * delta
-                res[n] += self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3)
+                self.fix_phi_parameters()
+                res[n] += self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] -= delta
+                self.fix_phi_parameters()
 
             L = self.mu_cutoff[i]
             for j4 in range(phi_parameters.shape[3]):
@@ -1494,10 +1512,13 @@ class Backflow:
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                res[n] -= self.eta_term_laplacian(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3)
+                self.fix_eta_parameters()
+                res[n] -= self.eta_term_laplacian(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] += 2 * delta
-                res[n] += self.eta_term_laplacian(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3)
+                self.fix_eta_parameters()
+                res[n] += self.eta_term_laplacian(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] -= delta
+                self.fix_eta_parameters()
 
         for j2 in range(self.eta_parameters.shape[1]):
             for j1 in range(self.eta_parameters.shape[0]):
@@ -1542,10 +1563,13 @@ class Backflow:
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                res[n] -= self.mu_term_laplacian(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3)
+                self.fix_mu_parameters()
+                res[n] -= self.mu_term_laplacian(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] += 2 * delta
-                res[n] += self.mu_term_laplacian(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3)
+                self.fix_mu_parameters()
+                res[n] += self.mu_term_laplacian(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] -= delta
+                self.fix_mu_parameters()
 
             L = self.mu_cutoff[i]
             for j2 in range(mu_parameters.shape[1]):
@@ -1594,10 +1618,13 @@ class Backflow:
             if self.phi_cutoff_optimizable[i]:
                 n += 1
                 self.phi_cutoff[i] -= delta
-                res[n] -= self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3)
+                self.fix_phi_parameters()
+                res[n] -= self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] += 2 * delta
-                res[n] += self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3)
+                self.fix_phi_parameters()
+                res[n] += self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] -= delta
+                self.fix_phi_parameters()
 
             L = self.phi_cutoff[i]
             for j4 in range(phi_parameters.shape[3]):

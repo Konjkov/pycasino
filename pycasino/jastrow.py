@@ -947,10 +947,13 @@ class Jastrow:
         if self.u_cutoff_optimizable:
             n += 1
             self.u_cutoff -= delta
+            self.fix_u_parameters()
             res[n] -= self._u_term(e_powers) / delta / 2
             self.u_cutoff += 2 * delta
+            self.fix_u_parameters()
             res[n] += self._u_term(e_powers) / delta / 2
             self.u_cutoff -= delta
+            self.fix_u_parameters()
 
         for j2 in range(self.u_parameters.shape[1]):
             for j1 in range(self.u_parameters.shape[0]):
@@ -986,10 +989,13 @@ class Jastrow:
             if self.chi_cutoff_optimizable[i]:
                 n += 1
                 self.chi_cutoff[i] -= delta
+                self.fix_chi_parameters()
                 res[n] -= self._chi_term(n_powers) / delta / 2
                 self.chi_cutoff[i] += 2 * delta
+                self.fix_chi_parameters()
                 res[n] += self._chi_term(n_powers) / delta / 2
                 self.chi_cutoff[i] -= delta
+                self.fix_chi_parameters()
 
             L = self.chi_cutoff[i]
             for j2 in range(chi_parameters.shape[1]):
@@ -1028,10 +1034,13 @@ class Jastrow:
             if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta
+                self.fix_f_parameters()
                 res[n] -= self._f_term(e_powers, n_powers) / delta / 2
                 self.f_cutoff[i] += 2 * delta
+                self.fix_f_parameters()
                 res[n] += self._f_term(e_powers, n_powers) / delta / 2
                 self.f_cutoff[i] -= delta
+                self.fix_f_parameters()
 
             L = self.f_cutoff[i]
             for j4 in range(f_parameters.shape[3]):
@@ -1073,10 +1082,13 @@ class Jastrow:
         if self.u_cutoff_optimizable:
             n += 1
             self.u_cutoff -= delta
-            res[n] -= self._u_term_gradient(e_powers, e_vectors) / delta / 2
+            self.fix_u_parameters()
+            res[n] -= self._u_term_gradient(e_powers, e_vectors).reshape((self.neu + self.ned), 3) / delta / 2
             self.u_cutoff += 2 * delta
-            res[n] += self._u_term_gradient(e_powers, e_vectors) / delta / 2
+            self.fix_u_parameters()
+            res[n] += self._u_term_gradient(e_powers, e_vectors).reshape((self.neu + self.ned), 3) / delta / 2
             self.u_cutoff -= delta
+            self.fix_u_parameters()
 
         for j2 in range(self.u_parameters.shape[1]):
             for j1 in range(self.u_parameters.shape[0]):
@@ -1118,10 +1130,13 @@ class Jastrow:
             if self.chi_cutoff_optimizable[i]:
                 n += 1
                 self.chi_cutoff[i] -= delta
-                res[n] -= self._chi_term_gradient(n_powers, n_vectors) / delta / 2
+                self.fix_chi_parameters()
+                res[n] -= self._chi_term_gradient(n_powers, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
                 self.chi_cutoff[i] += 2 * delta
-                res[n] += self._chi_term_gradient(n_powers, n_vectors) / delta / 2
+                self.fix_chi_parameters()
+                res[n] += self._chi_term_gradient(n_powers, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
                 self.chi_cutoff[i] -= delta
+                self.fix_chi_parameters()
 
             L = self.chi_cutoff[i]
             for j2 in range(chi_parameters.shape[1]):
@@ -1162,10 +1177,13 @@ class Jastrow:
             if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta
-                res[n] -= self._f_term_gradient(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                self.fix_f_parameters()
+                res[n] -= self._f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
                 self.f_cutoff[i] += 2 * delta
-                res[n] += self._f_term_gradient(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                self.fix_f_parameters()
+                res[n] += self._f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
                 self.f_cutoff[i] -= delta
+                self.fix_f_parameters()
 
             L = self.f_cutoff[i]
             for j4 in range(f_parameters.shape[3]):
@@ -1220,10 +1238,13 @@ class Jastrow:
         if self.u_cutoff_optimizable:
             n += 1
             self.u_cutoff -= delta
+            self.fix_u_parameters()
             res[n] -= self._u_term_laplacian(e_powers) / delta / 2
             self.u_cutoff += 2 * delta
+            self.fix_u_parameters()
             res[n] += self._u_term_laplacian(e_powers) / delta / 2
             self.u_cutoff -= delta
+            self.fix_u_parameters()
 
         for j2 in range(self.u_parameters.shape[1]):
             for j1 in range(self.u_parameters.shape[0]):
@@ -1265,10 +1286,13 @@ class Jastrow:
             if self.chi_cutoff_optimizable[i]:
                 n += 1
                 self.chi_cutoff[i] -= delta
+                self.fix_chi_parameters()
                 res[n] -= self._chi_term_laplacian(n_powers) / delta / 2
                 self.chi_cutoff[i] += 2 * delta
+                self.fix_chi_parameters()
                 res[n] += self._chi_term_laplacian(n_powers) / delta / 2
                 self.chi_cutoff[i] -= delta
+                self.fix_chi_parameters()
 
             L = self.chi_cutoff[i]
             for j2 in range(chi_parameters.shape[1]):
@@ -1311,10 +1335,13 @@ class Jastrow:
             if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta
+                self.fix_f_parameters()
                 res[n] -= self._f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
                 self.f_cutoff[i] += 2 * delta
+                self.fix_f_parameters()
                 res[n] += self._f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
                 self.f_cutoff[i] -= delta
+                self.fix_f_parameters()
 
             L = self.f_cutoff[i]
             for j4 in range(f_parameters.shape[3]):

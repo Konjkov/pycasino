@@ -490,6 +490,12 @@ class Casino:
         plt.savefig('hist.png')
         plt.clf()
 
+    def check_d1(self, condition, position):
+        for cond, pos in zip(condition, position):
+            if cond:
+                self.logger.info(self.wfn.value_parameters_d1(pos) / self.wfn.value_parameters_numerical_d1(pos))
+                self.logger.info(self.wfn.energy_parameters_d1(pos) / self.wfn.energy_parameters_numerical_d1(pos))
+
     def vmc_unreweighted_variance_minimization(self, steps, opt_jastrow, opt_backflow, verbose=2):
         """Minimize vmc unreweighted variance.
         https://github.com/scipy/scipy/issues/10634
@@ -506,10 +512,6 @@ class Casino:
         scale = np.sqrt(2) / np.sqrt(steps - 1)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         steps_eff = self.mpi_comm.allreduce(condition.sum())
-
-        # for pos in position:
-        #     self.logger.info(self.wfn.value_parameters_d1(pos) / self.wfn.value_parameters_numerical_d1(pos))
-        #     self.logger.info(self.wfn.energy_parameters_d1(pos) / self.wfn.energy_parameters_numerical_d1(pos))
 
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
@@ -727,10 +729,6 @@ class Casino:
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         self.wfn.set_parameters(self.wfn.get_parameters(opt_jastrow, opt_backflow), opt_jastrow, opt_backflow)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
-
-        # for pos in position:
-        #     self.logger.info(self.wfn.value_parameters_d1(pos) / self.wfn.value_parameters_numerical_d1(pos))
-        #     self.logger.info(self.wfn.energy_parameters_d1(pos) / self.wfn.energy_parameters_numerical_d1(pos))
 
         self.logger.info(
             ' Optimization start\n'
