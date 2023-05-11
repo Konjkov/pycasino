@@ -1436,8 +1436,28 @@ class Jastrow:
             self.f_term_laplacian_parameters_d1(e_powers, n_powers, e_vectors, n_vectors),
         ))
 
+    def value_parameters_numerical_d1(self, e_vectors, n_vectors) -> np.ndarray:
+        """Numerical first derivatives of Jastrow value w.r.t. the parameters
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :return:
+        """
+        parameters = self.get_parameters(True)
+        res = np.zeros(shape=parameters.shape)
+        for i in range(parameters.size):
+            parameters[i] -= delta
+            self.set_parameters(parameters, True)
+            res[i] -= self.value(e_vectors, n_vectors)
+            parameters[i] += 2 * delta
+            self.set_parameters(parameters, True)
+            res[i] += self.value(e_vectors, n_vectors)
+            parameters[i] -= delta
+            self.set_parameters(parameters, True)
+
+        return res / delta / 2
+
     def gradient_parameters_numerical_d1(self, e_vectors, n_vectors) -> np.ndarray:
-        """Numerical first derivatives of Jastrow gradient w.r.t the parameters
+        """Numerical first derivatives of Jastrow gradient w.r.t. the parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
@@ -1452,12 +1472,12 @@ class Jastrow:
             self.set_parameters(parameters, True)
             res[i] += self.gradient(e_vectors, n_vectors)
             parameters[i] -= delta
+            self.set_parameters(parameters, True)
 
-        self.set_parameters(parameters, True)
         return res / delta / 2
 
     def laplacian_parameters_numerical_d1(self, e_vectors, n_vectors) -> np.ndarray:
-        """Numerical first derivatives of Jastrow laplacian w.r.t the parameters
+        """Numerical first derivatives of Jastrow laplacian w.r.t. the parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
@@ -1472,8 +1492,8 @@ class Jastrow:
             self.set_parameters(parameters, True)
             res[i] += self.laplacian(e_vectors, n_vectors)
             parameters[i] -= delta
+            self.set_parameters(parameters, True)
 
-        self.set_parameters(parameters, True)
         return res / delta / 2
 
     def profile_value(self, dr, steps, atom_positions, r_initial) -> None:
