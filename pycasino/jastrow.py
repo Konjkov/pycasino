@@ -688,7 +688,7 @@ class Jastrow:
 
         return np.array(res)
 
-    def get_parameters_scale(self) -> np.ndarray:
+    def get_parameters_scale(self, all_parameters) -> np.ndarray:
         """Characteristic scale of each variable. Setting x_scale is equivalent
         to reformulating the problem in scaled variables xs = x / x_scale.
         An alternative view is that the size of a trust region along j-th
@@ -703,7 +703,7 @@ class Jastrow:
                 scale.append(1)
             for j2 in range(self.u_parameters.shape[1]):
                 for j1 in range(self.u_parameters.shape[0]):
-                    if self.u_parameters_optimizable[j1, j2] and self.u_parameters_available[j1, j2]:
+                    if (self.u_parameters_optimizable[j1, j2] or all_parameters) and self.u_parameters_available[j1, j2]:
                         scale.append(2 / self.u_cutoff ** j1 / ne ** 2)
 
         if self.chi_cutoff.any():
@@ -712,7 +712,7 @@ class Jastrow:
                     scale.append(1)
                 for j2 in range(chi_parameters.shape[1]):
                     for j1 in range(chi_parameters.shape[0]):
-                        if chi_parameters_optimizable[j1, j2] and chi_parameters_available[j1, j2]:
+                        if (chi_parameters_optimizable[j1, j2] or all_parameters) and chi_parameters_available[j1, j2]:
                             scale.append(1 / chi_cutoff ** j1 / ne)
 
         if self.f_cutoff.any():
@@ -723,7 +723,7 @@ class Jastrow:
                     for j3 in range(f_parameters.shape[2]):
                         for j2 in range(f_parameters.shape[1]):
                             for j1 in range(j2, f_parameters.shape[0]):
-                                if f_parameters_optimizable[j1, j2, j3, j4] and f_parameters_available[j1, j2, j3, j4]:
+                                if (f_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and f_parameters_available[j1, j2, j3, j4]:
                                     scale.append(2 / f_cutoff ** (j1 + j2 + j3) / ne ** 3)
 
         return np.array(scale)

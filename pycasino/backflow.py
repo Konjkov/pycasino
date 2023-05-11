@@ -904,7 +904,7 @@ class Backflow:
 
         return np.array(res)
 
-    def get_parameters_scale(self):
+    def get_parameters_scale(self, all_parameters):
         """Characteristic scale of each variable. Setting x_scale is equivalent
         to reformulating the problem in scaled variables xs = x / x_scale.
         An alternative view is that the size of a trust region along j-th
@@ -919,7 +919,7 @@ class Backflow:
                     res.append(1)
             for j2 in range(self.eta_parameters.shape[1]):
                 for j1 in range(self.eta_parameters.shape[0]):
-                    if self.eta_parameters_optimizable[j1, j2] and self.eta_parameters_available[j1, j2]:
+                    if (self.eta_parameters_optimizable[j1, j2] or all_parameters) and self.eta_parameters_available[j1, j2]:
                         res.append(1)
 
         if self.mu_cutoff.any():
@@ -928,7 +928,7 @@ class Backflow:
                     res.append(1)
                 for j2 in range(mu_parameters.shape[1]):
                     for j1 in range(mu_parameters.shape[0]):
-                        if mu_parameters_optimizable[j1, j2] and mu_parameters_available[j1, j2]:
+                        if (mu_parameters_optimizable[j1, j2] or all_parameters) and mu_parameters_available[j1, j2]:
                             res.append(1)
 
         if self.phi_cutoff.any():
@@ -939,13 +939,13 @@ class Backflow:
                     for j3 in range(phi_parameters.shape[2]):
                         for j2 in range(phi_parameters.shape[1]):
                             for j1 in range(phi_parameters.shape[0]):
-                                if phi_parameters_optimizable[j1, j2, j3, j4] and phi_parameters_available[j1, j2, j3, j4]:
+                                if (phi_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and phi_parameters_available[j1, j2, j3, j4]:
                                     res.append(1)
 
                     for j3 in range(phi_parameters.shape[2]):
                         for j2 in range(phi_parameters.shape[1]):
                             for j1 in range(phi_parameters.shape[0]):
-                                if theta_parameters_optimizable[j1, j2, j3, j4] and theta_parameters_available[j1, j2, j3, j4]:
+                                if (theta_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and theta_parameters_available[j1, j2, j3, j4]:
                                     res.append(1)
 
         return np.array(res)
