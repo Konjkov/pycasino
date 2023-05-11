@@ -280,7 +280,6 @@ class Casino:
         """
         start = default_timer()
         if self.config.input.runtype == 'vmc':
-            self.check_d1(10000)
             self.logger.info(
                 ' ====================================\n'
                 ' PERFORMING A SINGLE VMC CALCULATION.\n'
@@ -495,6 +494,10 @@ class Casino:
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         for cond, pos in zip(condition, position):
             if cond:
+                e_vectors, n_vectors = self.wfn._relative_coordinates(pos)
+                self.logger.info(self.wfn.backflow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.backflow.value_parameters_numerical_d1(e_vectors, n_vectors))
+                self.logger.info(self.wfn.backflow.gradient_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.gradient_parameters_numerical_d1(e_vectors, n_vectors))
+                self.logger.info(self.wfn.backflow.laplacian_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.laplacian_parameters_numerical_d1(e_vectors, n_vectors))
                 self.logger.info(self.wfn.value_parameters_d1(pos) / self.wfn.value_parameters_numerical_d1(pos))
                 self.logger.info(self.wfn.energy_parameters_d1(pos) / self.wfn.energy_parameters_numerical_d1(pos))
 

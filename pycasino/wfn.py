@@ -78,7 +78,7 @@ class Wfn:
         if self.jastrow is not None:
             res *= np.exp(self.jastrow.value(e_vectors, n_vectors))
         if self.backflow is not None:
-            n_vectors = self.backflow.value(e_vectors, n_vectors)
+            n_vectors = self.backflow.value(e_vectors, n_vectors) + n_vectors
         res *= self.slater.value(n_vectors)
         return res
 
@@ -91,7 +91,7 @@ class Wfn:
 
         if self.backflow is not None:
             b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
-            s_g = self.slater.gradient(b_v)
+            s_g = self.slater.gradient(b_v + n_vectors)
             s_g = s_g @ b_g
             if self.jastrow is not None:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
@@ -132,8 +132,8 @@ class Wfn:
 
         if self.backflow is not None:
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
-            s_g = self.slater.gradient(b_v)
-            s_h = self.slater.hessian(b_v)
+            s_g = self.slater.gradient(b_v + n_vectors)
+            s_h = self.slater.hessian(b_v + n_vectors)
             s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
             if self.jastrow is not None:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
@@ -209,7 +209,7 @@ class Wfn:
                 res, self.jastrow.value_parameters_d1(e_vectors, n_vectors) @ self.jastrow.parameters_projector
             ))
         if self.backflow is not None and opt_backflow:
-            b_v = self.backflow.value(e_vectors, n_vectors)
+            b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
             res = np.concatenate((
                 res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v) @ self.backflow.parameters_projector
             ))
@@ -240,7 +240,7 @@ class Wfn:
             j_l_d1 = self.jastrow.laplacian_parameters_d1(e_vectors, n_vectors)
             if self.backflow is not None and opt_backflow:
                 b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
-                s_g = self.slater.gradient(b_v) @ b_g
+                s_g = self.slater.gradient(b_v + n_vectors) @ b_g
             else:
                 s_g = self.slater.gradient(n_vectors)
             j_d1 = j_g_d1 @ (s_g + j_g) + j_l_d1 / 2
@@ -249,10 +249,10 @@ class Wfn:
             # backflow parameters part
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
             b_l_d1, b_g_d1, b_v_d1 = self.backflow.laplacian_parameters_d1(e_vectors, n_vectors)
-            s_g = self.slater.gradient(b_v)
-            s_h = self.slater.hessian(b_v)
+            s_g = self.slater.gradient(b_v + n_vectors)
+            s_h = self.slater.hessian(b_v + n_vectors)
             s_g_d1 = b_v_d1 @ (s_h - np.outer(s_g, s_g))  # as hessian is d²ln(phi)/dxdy
-            s_h_coordinates_d1 = self.slater.hessian_derivatives(b_v)  # d(d²ln(phi)/dxdy)/dz
+            s_h_coordinates_d1 = self.slater.hessian_derivatives(b_v + n_vectors)  # d(d²ln(phi)/dxdy)/dz
             s_h_d1 = (
                 b_v_d1 @ s_h_coordinates_d1.reshape(s_h_coordinates_d1.shape[0], -1)
             ).reshape(b_v_d1.shape[0], s_h_coordinates_d1.shape[1], s_h_coordinates_d1.shape[2])
@@ -290,8 +290,8 @@ class Wfn:
             self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
             res[i] += self.value(r_e) / scale[i]
             parameters[i] -= delta * scale[i]
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
 
-        self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
         return res / delta / 2 / self.value(r_e)
 
     def energy_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True, all_parameters=False):
@@ -313,8 +313,8 @@ class Wfn:
             self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
             res[i] += self.energy(r_e) / scale[i]
             parameters[i] -= delta * scale[i]
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
 
-        self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
         return res / delta / 2
 
     def numerical_gradient(self, r_e):
