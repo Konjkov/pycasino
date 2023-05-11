@@ -40,7 +40,6 @@ spec = [
     ('chi_cusp', nb.boolean[:]),
     ('no_dup_u_term', nb.boolean[:]),
     ('no_dup_chi_term', nb.boolean[:]),
-    ('u_cusp_const', nb.float64[:]),
     ('parameters_projector', nb.float64[:, :]),
 ]
 
@@ -49,7 +48,7 @@ spec = [
 class Jastrow:
 
     def __init__(
-        self, neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutoff, u_cusp_const,
+        self, neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutoff,
         chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_labels, chi_cusp,
         f_parameters, f_parameters_optimizable, f_cutoff, f_labels, no_dup_u_term, no_dup_chi_term
     ):
@@ -85,7 +84,6 @@ class Jastrow:
             max([p.shape[0] for p in self.chi_parameters]) if self.chi_parameters else 0,
             max([p.shape[0] for p in self.f_parameters]) if self.f_parameters else 0,
         ))
-        self.u_cusp_const = u_cusp_const
         self.chi_cusp = chi_cusp
         self.no_dup_u_term = no_dup_u_term
         self.no_dup_chi_term = no_dup_chi_term
@@ -199,8 +197,8 @@ class Jastrow:
                     u_set = cusp_set % parameters.shape[1]
                     poly = 0.0
                     for k in range(parameters.shape[0]):
-                        if k == 1:
-                            p = self.u_cusp_const[cusp_set]
+                        if parameters.shape[1] == 1 and cusp_set == 1 and k == 1:
+                            p = parameters[k, u_set] * 2
                         else:
                             p = parameters[k, u_set]
                         poly += p * e_powers[e1, e2, k]
@@ -285,8 +283,8 @@ class Jastrow:
                     u_set = cusp_set % parameters.shape[1]
                     poly = poly_diff = 0.0
                     for k in range(parameters.shape[0]):
-                        if k == 1:
-                            p = self.u_cusp_const[cusp_set] * e_powers[e1, e2, k]
+                        if parameters.shape[1] == 1 and cusp_set == 1 and k == 1:
+                            p = parameters[k, u_set] * e_powers[e1, e2, k] * 2
                         else:
                             p = parameters[k, u_set] * e_powers[e1, e2, k]
                         poly += p
@@ -389,8 +387,8 @@ class Jastrow:
                     u_set = cusp_set % parameters.shape[1]
                     poly = poly_diff = poly_diff_2 = 0.0
                     for k in range(parameters.shape[0]):
-                        if k == 1:
-                            p = self.u_cusp_const[cusp_set] * e_powers[e1, e2, k]
+                        if parameters.shape[1] == 1 and cusp_set == 1 and k == 1:
+                            p = parameters[k, u_set] * e_powers[e1, e2, k] * 2
                         else:
                             p = parameters[k, u_set] * e_powers[e1, e2, k]
                         poly += p
@@ -600,8 +598,8 @@ class Jastrow:
         """Fix u-term parameters"""
         C = self.trunc
         L = self.u_cutoff
-        for i in range(3):
-            self.u_cusp_const[i] = 1 / np.array([4, 2, 4])[i] / (-L) ** C + self.u_parameters[0, i % self.u_parameters.shape[1]] * C / L
+        for i in range(self.u_parameters.shape[1]):
+            self.u_parameters[1, i] = 1 / np.array([4, 2, 4])[i] / (-L) ** C + self.u_parameters[0, i] * C / L
 
     def fix_chi_parameters(self):
         """Fix chi-term parameters"""
@@ -846,10 +844,7 @@ class Jastrow:
             for j2 in range(self.u_parameters.shape[1]):
                 for j1 in range(self.u_parameters.shape[0]):
                     if (self.u_parameters_optimizable[j1, j2] or all_parameters) and self.u_parameters_available[j1, j2]:
-                        if j1 == 1:
-                            res.append(self.u_cusp_const[j2])
-                        else:
-                            res.append(self.u_parameters[j1, j2])
+                        res.append(self.u_parameters[j1, j2])
 
         if self.chi_cutoff.any():
             for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
@@ -890,11 +885,7 @@ class Jastrow:
             for j2 in range(self.u_parameters.shape[1]):
                 for j1 in range(self.u_parameters.shape[0]):
                     if (self.u_parameters_optimizable[j1, j2] or all_parameters) and self.u_parameters_available[j1, j2]:
-                        if j1 == 1:
-                            for cup_set in range(j2, 3, self.u_parameters.shape[1]):
-                                self.u_cusp_const[cup_set] = parameters[n]
-                        else:
-                            self.u_parameters[j1, j2] = parameters[n]
+                        self.u_parameters[j1, j2] = parameters[n]
                         n += 1
             if not all_parameters:
                 self.fix_u_parameters()

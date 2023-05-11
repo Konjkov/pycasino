@@ -199,7 +199,6 @@ class Jastrow:
         self.f_labels = nb.typed.List.empty_list(labels_type)
         self.no_dup_u_term = np.zeros(0, bool)
         self.no_dup_chi_term = np.zeros(0, bool)
-        self.u_cusp_const = np.zeros(shape=(3, ))
 
     def read(self, base_path):
         """Read Jastrow config from file."""
@@ -460,8 +459,8 @@ class Jastrow:
             return
         C = self.trunc
         L = self.u_cutoff[0]['value']
-        for i in range(3):
-            self.u_cusp_const[i] = 1 / np.array([4, 2, 4])[i] / (-L) ** C + self.u_parameters[0, i % self.u_parameters.shape[1]] * C / L
+        for i in range(self.u_parameters.shape[1]):
+            self.u_parameters[1, i] = 1 / np.array([4, 2, 4])[i] / (-L) ** C + self.u_parameters[0, i] * C / L
 
     def fix_chi_parameters(self):
         """Fix chi-term parameters"""

@@ -157,7 +157,7 @@ class Casino:
             jastrow = Jastrow(
                 self.config.input.neu, self.config.input.ned,
                 self.config.jastrow.trunc, self.config.jastrow.u_parameters, self.config.jastrow.u_parameters_optimizable,
-                self.config.jastrow.u_cutoff, self.config.jastrow.u_cusp_const,
+                self.config.jastrow.u_cutoff,
                 self.config.jastrow.chi_parameters, self.config.jastrow.chi_parameters_optimizable, self.config.jastrow.chi_cutoff,
                 self.config.jastrow.chi_labels, self.config.jastrow.chi_cusp,
                 self.config.jastrow.f_parameters, self.config.jastrow.f_parameters_optimizable, self.config.jastrow.f_cutoff, self.config.jastrow.f_labels,
@@ -280,6 +280,7 @@ class Casino:
         """
         start = default_timer()
         if self.config.input.runtype == 'vmc':
+            self.check_d1(10000)
             self.logger.info(
                 ' ====================================\n'
                 ' PERFORMING A SINGLE VMC CALCULATION.\n'
@@ -490,7 +491,8 @@ class Casino:
         plt.savefig('hist.png')
         plt.clf()
 
-    def check_d1(self, condition, position):
+    def check_d1(self, steps):
+        condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         for cond, pos in zip(condition, position):
             if cond:
                 self.logger.info(self.wfn.value_parameters_d1(pos) / self.wfn.value_parameters_numerical_d1(pos))
