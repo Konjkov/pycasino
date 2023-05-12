@@ -495,6 +495,9 @@ class Casino:
         for cond, pos in zip(condition, position):
             if cond:
                 e_vectors, n_vectors = self.wfn._relative_coordinates(pos)
+                self.logger.info(self.wfn.jastrow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.value_parameters_numerical_d1(e_vectors, n_vectors))
+                self.logger.info(self.wfn.jastrow.gradient_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.gradient_parameters_numerical_d1(e_vectors, n_vectors))
+                self.logger.info(self.wfn.jastrow.laplacian_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.laplacian_parameters_numerical_d1(e_vectors, n_vectors))
                 self.logger.info(self.wfn.backflow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.backflow.value_parameters_numerical_d1(e_vectors, n_vectors))
                 self.logger.info(self.wfn.backflow.gradient_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.gradient_parameters_numerical_d1(e_vectors, n_vectors))
                 self.logger.info(self.wfn.backflow.laplacian_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.laplacian_parameters_numerical_d1(e_vectors, n_vectors))
@@ -527,6 +530,7 @@ class Casino:
 
         def jac(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
             energy_gradient = np.empty(shape=(steps, x.size))
             energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
@@ -593,6 +597,7 @@ class Casino:
                        2 * np.average(wfn_gradient, weights=weights) * ddof
             """
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
             wfn = np.empty(shape=(steps,))
             wfn_part = vmc_observable(condition, position, self.wfn.value)
             self.mpi_comm.Allgather(wfn_part, wfn)
@@ -663,6 +668,7 @@ class Casino:
         def jac(x, *args):
             """Only for CG, BFGS, L-BFGS-B, TNC, SLSQP and those listed in hess method."""
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
             energy_part = vmc_observable(condition, position, self.wfn.energy)
             energy = np.empty(shape=(steps,)) if self.root else None
             self.mpi_comm.Gather(energy_part, energy)
@@ -676,6 +682,7 @@ class Casino:
         def hess(x, *args):
             """Only for Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact and trust-constr."""
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
             energy_part = vmc_observable(condition, position, self.wfn.energy)
             energy = np.empty(shape=(steps,)) if self.root else None
             self.mpi_comm.Gather(energy_part, energy)
@@ -741,6 +748,7 @@ class Casino:
         )
 
         parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
         energy_part = vmc_observable(condition, position, self.wfn.energy)
         energy = np.empty(shape=(steps,)) if self.root else None
         self.mpi_comm.Gather(energy_part, energy)
@@ -817,6 +825,7 @@ class Casino:
 
         def jac(x, *args):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
             energy_part = vmc_observable(condition, position, self.wfn.energy)
             energy = np.empty(shape=(steps,)) if self.root else None
             self.mpi_comm.Gather(energy_part, energy)
@@ -832,6 +841,7 @@ class Casino:
 
         def hess(x, *args):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
             wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
             wfn_gradient = np.empty(shape=(steps, x.size)) if self.root else None
             self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
