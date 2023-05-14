@@ -285,6 +285,7 @@ class Casino:
                 ' PERFORMING A SINGLE VMC CALCULATION.\n'
                 ' ====================================\n\n'
             )
+            self.check_d1(10000)
             self.vmc_energy_accumulation()
         elif self.config.input.runtype == 'vmc_opt':
             if self.root:
@@ -359,7 +360,8 @@ class Casino:
             f' =====================\n'
         )
         self.equilibrate(self.config.input.vmc_equil_nstep)
-        self.optimize_vmc_step(1000)
+        # Jastrow but not backflow without cutoff optimized = all = 1.000
+        # self.optimize_vmc_step(1000)
 
         steps = self.config.input.vmc_nstep
         nblock = self.config.input.vmc_nblock
@@ -477,7 +479,7 @@ class Casino:
             f'Total energy                 =       {energy.mean():.12f} +/- {correlated_sem(energy):.12f}\n'
         )
 
-    def normal_test(self, energy):
+    def distribution(self, energy):
         """Test whether energy distribution differs from a normal one."""
         from scipy import stats
         self.logger.info(f'skew = {stats.skewtest(energy)}, kurtosis = {stats.kurtosistest(energy)}')
@@ -491,6 +493,7 @@ class Casino:
         plt.clf()
 
     def check_d1(self, steps):
+        self.wfn.set_parameters_projector(True, True)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         for cond, pos in zip(condition, position):
             if cond:
@@ -520,6 +523,8 @@ class Casino:
         scale = np.sqrt(2) / np.sqrt(steps - 1)
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         steps_eff = self.mpi_comm.allreduce(condition.sum())
+        # Jastrow + backflow without cutoff optimized = all = 1.000
+        # self.check_d1(10000)
 
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
