@@ -500,7 +500,7 @@ class Jastrow:
         return res
 
     def value(self, e_vectors, n_vectors) -> float:
-        """Jastrow with respect to a e-coordinates
+        """Jastrow value
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param neu: number of up electrons
@@ -517,7 +517,7 @@ class Jastrow:
         )
 
     def gradient(self, e_vectors, n_vectors) -> np.ndarray:
-        """Gradient with respect to e-coordinates
+        """Jastrow gradient w.r.t. e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
@@ -532,7 +532,7 @@ class Jastrow:
         )
 
     def laplacian(self, e_vectors, n_vectors) -> float:
-        """Laplacian with respect to a e-coordinates
+        """Jastrow laplacian w.r.t. e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
@@ -547,7 +547,7 @@ class Jastrow:
         )
 
     def numerical_gradient(self, e_vectors, n_vectors) -> np.ndarray:
-        """Numerical gradient with respect to an e-coordinates
+        """Jastrow numerical gradient w.r.t. e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
@@ -571,7 +571,7 @@ class Jastrow:
         return res.ravel() / delta / 2
 
     def numerical_laplacian(self, e_vectors, n_vectors) -> float:
-        """Numerical laplacian with respect to an e-coordinates
+        """Jastrow numerical laplacian w.r.t. e-coordinates
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
