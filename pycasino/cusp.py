@@ -405,6 +405,12 @@ class Cusp:
 
         return hessian[:self.orbitals_up, :self.neu], hessian[self.orbitals_up:, self.neu:]
 
+    def tressian(self, n_vectors: np.ndarray):
+        """Cusp part of tressian"""
+        tressian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3, 3, 3))
+
+        return tressian[:self.orbitals_up, :self.neu], tressian[self.orbitals_up:, self.neu:]
+
     def profile_value(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):

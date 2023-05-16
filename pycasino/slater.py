@@ -348,6 +348,10 @@ class Slater:
         ao_tressian = self.norm * orbital.reshape((self.neu + self.ned) * 27, self.nbasis_functions)
         tress_u = (self.mo_up @ ao_tressian[:self.neu * 27].T).reshape(self.mo_up.shape[0], self.neu, 3, 3, 3)
         tress_d = (self.mo_down @ ao_tressian[self.neu * 27:].T).reshape(self.mo_down.shape[0], self.ned, 3, 3, 3)
+        if self.cusp is not None:
+            cusp_tressian_u, cusp_tressian_d = self.cusp.tressian(n_vectors)
+            tress_u += cusp_tressian_u
+            tress_d += cusp_tressian_d
         return tress_u, tress_d
 
     def value(self, n_vectors: np.ndarray) -> float:
@@ -462,15 +466,74 @@ class Slater:
 
     def tressian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Tressian Tress(φ)/φ w.r.t e-coordinates.
-        d³ln(det(A))/dxdydz = (
+        https://math.stackexchange.com/questions/890552/nth-derivative-of-determinant-wrt-matrix?rq=1
+        d³ln(det(A))/dxdydz = 1/det(A) * (
+            d(det(A))/dz * tr(A^-1 * d²A/dxdy) + det(A) * d(tr(A^-1 * d²A/dxdy))/dz
+            d(det(A))/dz * tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) + det(A) * d(tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy))/dz -
+            d(det(A))/dz * tr(A^-1 * dA/dx * A^-1 * dA/dy) - det(A) * d(tr(A^-1 * dA/dx * A^-1 * dA/dy))/dz
+        ) = 1/det(A) * (
+            det(A) * tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy) + det(A) * d(tr(A^-1 * d²A/dxdy))/dz
+            det(A) * tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) + det(A) * d(tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy))/dz -
+            det(A) * tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx * A^-1 * dA/dy) - det(A) * d(tr(A^-1 * dA/dx * A^-1 * dA/dy))/dz
+        ) = (
+            tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy) + tr(d(A^-1 * d²A/dxdy)/dz)
+            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) + tr(d(A^-1 * dA/dx) * tr(A^-1 * dA/dy)/dz) -
+            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx * A^-1 * dA/dy) - tr(d(A^-1 * dA/dx * A^-1 * dA/dy)/dz)
+        ) = (
+            tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy) + tr(d(A^-1)/dz * d²A/dxdy) + tr(A^-1 * d³A/dxdydz) +
+            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) + tr(d(A^-1 * dA/dx)/dz * tr(A^-1 * dA/dy) + tr(A^-1 * dA/dx) * tr(d(A^-1 * dA/dy)/dz) -
+            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx * A^-1 * dA/dy) - tr(A^-1 * dA/dx * d(A^-1 * dA/dy)/dz) - tr(d(A^-1 * dA/dx)/dz * A^-1 * dA/dy)
+        ) = (
+            tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dz * A^-1 * d²A/dxdy) + tr(A^-1 * d³A/dxdydz) +
+            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) +
+            tr(d(A^-1)/dz * dA/dx * tr(A^-1 * dA/dy) + tr(A^-1 * d²A/dxdz) * tr(A^-1 * dA/dy) +
+            tr(A^-1 * dA/dx) * tr(d(A^-1)/dz * dA/dy) + tr(A^-1 * dA/dx) * tr(A^-1 * d²A/dydz) -
+            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx * A^-1 * dA/dy) -
+            tr(A^-1 * dA/dx * A^-1 * d²A/dydz) - tr(A^-1 * dA/dx * d(A^-1)/dz * dA/dy) -
+            tr(d(A^-1)/dz * dA/dx * A^-1 * dA/dy) - tr(A^-1 * dA²/dxdz * A^-1 * dA/dy)
+        ) = (
+            tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dz * A^-1 * d²A/dxdy) + tr(A^-1 * d³A/dxdydz) +
+            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) -
+            tr(A^-1 * dA/dz * A^-1 * dA/dx) * tr(A^-1 * dA/dy) + tr(A^-1 * d²A/dxdz) * tr(A^-1 * dA/dy) -
+            tr(A^-1 * dA/dx) * tr(A^-1 * dA/dz * A^-1 * dA/dy) + tr(A^-1 * dA/dx) * tr(A^-1 * d²A/dydz) -
+            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx * A^-1 * dA/dy) -
+            tr(A^-1 * dA/dx * A^-1 * d²A/dydz) + tr(A^-1 * dA/dx * A^-1 * dA/dz * A^-1 * dA/dy) +
+            tr(A^-1 * dA/dz * A^-1 * dA/dx * A^-1 * dA/dy) - tr(A^-1 * dA²/dxdz * A^-1 * dA/dy)
+        ) = (
             tr(A^-1 * d³A/dxdydz) +
-            tr(A^-1 * d³A/dxdy) * tr(A^-1 * dA/dz) +
-            tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) * tr(A^-1 * dA/dz) -
-            tr(A^-1 * dA/dx * A^-1 * dA/dy * A^-1 * dA/dz)
-            ...
+            tr(A^-1 * dA/dx) * tr(A^-1 * d²A/dydz) - tr(A^-1 * dA/dx * A^-1 * d²A/dydz) - tr(A^-1 * dA/dx) * tr(A^-1 * dA/dz * A^-1 * dA/dy) +
+            tr(A^-1 * dA/dy) * tr(A^-1 * d²A/dxdz) - tr(A^-1 * dA²/dxdz * A^-1 * dA/dy) - tr(A^-1 * dA/dy) * tr(A^-1 * dA/dz * A^-1 * dA/dx) +
+            tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dz * A^-1 * d²A/dxdy) - tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx * A^-1 * dA/dy) +
+            tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) * tr(A^-1 * dA/dz) +
+            tr(A^-1 * dA/dx * A^-1 * dA/dz * A^-1 * dA/dy) + tr(A^-1 * dA/dz * A^-1 * dA/dx * A^-1 * dA/dy)
         )
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
+        wfn_u, wfn_d = self._value_matrix(n_vectors)
+        grad_u, grad_d = self._gradient_matrix(n_vectors)
+        hess_u, hess_d = self._hessian_matrix(n_vectors)
+        tress_u, tress_d = self._tressian_matrix(n_vectors)
+        val = 0
+        tress = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
+        for i in range(self.coeff.shape[0]):
+
+            inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
+            inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
+            res_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
+            res_grad_d = (inv_wfn_d * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
+            res_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
+            res_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
+            res_tress_u = (inv_wfn_u * tress_u[self.permutation_down[i]].T).T.sum(axis=0)
+            res_tress_d = (inv_wfn_d * tress_d[self.permutation_down[i]].T).T.sum(axis=0)
+
+            c = self.coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
+            val += c
+
+            # tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) * tr(A^-1 * dA/dz)
+            res_grad = np.concatenate((res_grad_u.ravel(), res_grad_d.ravel()))
+            tress += c * np.expand_dims(res_grad, (1, 2)) * np.expand_dims(res_grad, (0, 2)) * np.expand_dims(res_grad, (0, 1))
+
+        return tress / val
 
     def numerical_gradient(self, n_vectors: np.ndarray) -> float:
         """Numerical gradient w.r.t e-coordinates
