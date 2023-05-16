@@ -459,8 +459,8 @@ class Jastrow:
             return
         C = self.trunc
         L = self.u_cutoff[0]['value']
-        for i in range(self.u_parameters.shape[1]):
-            self.u_parameters[1, i] = 1 / np.array([4, 2, 4])[i] / (-L) ** C + self.u_parameters[0, i] * C / L
+        Gamma = 1 / np.array([4, 2, 4][:self.u_parameters.shape[1]])
+        self.u_parameters[1] = Gamma / (-L) ** C + self.u_parameters[0] * C / L
 
     def fix_chi_parameters(self):
         """Fix chi-term parameters"""

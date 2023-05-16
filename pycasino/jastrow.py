@@ -275,9 +275,9 @@ class Jastrow:
         parameters = self.u_parameters
         for e1 in range(1, self.neu + self.ned):
             for e2 in range(e1):
-                r_vec = e_vectors[e1, e2]
                 r = e_powers[e1, e2, 1]
                 if r < L:
+                    r_vec = e_vectors[e1, e2] / r
                     cusp_set = (int(e1 >= self.neu) + int(e2 >= self.neu))
                     u_set = cusp_set % parameters.shape[1]
                     poly = poly_diff = 0.0
@@ -289,7 +289,7 @@ class Jastrow:
                         poly += p
                         poly_diff += p * k
 
-                    gradient = r_vec * (r-L) ** C * (C*r/(r-L) * poly + poly_diff) / r**2
+                    gradient = r_vec * (r-L) ** C * (C/(r-L) * poly + poly_diff/r)
                     res[e1, :] += gradient
                     res[e2, :] -= gradient
         return res.ravel()
@@ -309,9 +309,9 @@ class Jastrow:
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
-                    r_vec = n_vectors[label, e1]
                     r = n_powers[label, e1, 1]
                     if r < L:
+                        r_vec = n_vectors[label, e1] / r
                         chi_set = int(e1 >= self.neu) % parameters.shape[1]
                         poly = poly_diff = 0.0
                         for k in range(parameters.shape[0]):
@@ -319,7 +319,7 @@ class Jastrow:
                             poly += p
                             poly_diff += p * k
 
-                        res[e1, :] += r_vec * (r-L) ** C * (C*r/(r-L) * poly + poly_diff) / r**2
+                        res[e1, :] += r_vec * (r-L) ** C * (C/(r-L) * poly + poly_diff/r)
         return res.ravel()
 
     def _f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
@@ -340,13 +340,13 @@ class Jastrow:
             for label in f_labels:
                 for e1 in range(1, self.neu + self.ned):
                     for e2 in range(e1):
-                        r_e1I_vec = n_vectors[label, e1]
-                        r_e2I_vec = n_vectors[label, e2]
-                        r_ee_vec = e_vectors[e1, e2]
                         r_e1I = n_powers[label, e1, 1]
                         r_e2I = n_powers[label, e2, 1]
                         r_ee = e_powers[e1, e2, 1]
                         if r_e1I < L and r_e2I < L:
+                            r_e1I_vec = n_vectors[label, e1] / r_e1I
+                            r_e2I_vec = n_vectors[label, e2] / r_e2I
+                            r_ee_vec = e_vectors[e1, e2] / r_ee
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[3]
                             poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
                             for l in range(parameters.shape[0]):
@@ -359,9 +359,9 @@ class Jastrow:
                                         poly_diff_e2I += m * p
                                         poly_diff_ee += n * p
 
-                            e1_gradient = r_e1I_vec * (C*r_e1I/(r_e1I - L) * poly + poly_diff_e1I) / r_e1I**2
-                            e2_gradient = r_e2I_vec * (C*r_e2I/(r_e2I - L) * poly + poly_diff_e2I) / r_e2I**2
-                            ee_gradient = r_ee_vec * poly_diff_ee / r_ee**2
+                            e1_gradient = r_e1I_vec * (C/(r_e1I - L) * poly + poly_diff_e1I/r_e1I)
+                            e2_gradient = r_e2I_vec * (C/(r_e2I - L) * poly + poly_diff_e2I/r_e2I)
+                            ee_gradient = r_ee_vec * poly_diff_ee/r_ee
                             res[e1, :] += (r_e1I - L) ** C * (r_e2I - L) ** C * (e1_gradient + ee_gradient)
                             res[e2, :] += (r_e1I - L) ** C * (r_e2I - L) ** C * (e2_gradient - ee_gradient)
         return res.ravel()
@@ -597,8 +597,8 @@ class Jastrow:
         """Fix u-term parameters"""
         C = self.trunc
         L = self.u_cutoff
-        for i in range(self.u_parameters.shape[1]):
-            self.u_parameters[1, i] = 1 / np.array([4, 2, 4])[i] / (-L) ** C + self.u_parameters[0, i] * C / L
+        Gamma = 1 / np.array([4, 2, 4][:self.u_parameters.shape[1]])
+        self.u_parameters[1] = Gamma / (-L) ** C + self.u_parameters[0] * C / L
 
     def fix_chi_parameters(self):
         """Fix chi-term parameters"""
@@ -1086,13 +1086,13 @@ class Jastrow:
                     n += 1
                     for e1 in range(1, self.neu + self.ned):
                         for e2 in range(e1):
-                            r_vec = e_vectors[e1, e2]
                             r = e_powers[e1, e2, 1]
                             if r < self.u_cutoff:
+                                r_vec = e_vectors[e1, e2] / r
                                 u_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.u_parameters.shape[1]
                                 if u_set == j2:
                                     poly = e_powers[e1, e2, j1]
-                                    gradient = r_vec / r * (r - L) ** C * (C / (r - L) + j1 / r) * poly
+                                    gradient = r_vec * (r - L) ** C * (C / (r - L) + j1 / r) * poly
                                     res[n, e1, :] += gradient
                                     res[n, e2, :] -= gradient
 
@@ -1135,13 +1135,13 @@ class Jastrow:
                         n += 1
                         for label in chi_labels:
                             for e1 in range(self.neu + self.ned):
-                                r_vec = n_vectors[label, e1]
                                 r = n_powers[label, e1, 1]
                                 if r < L:
+                                    r_vec = n_vectors[label, e1] / r
                                     chi_set = int(e1 >= self.neu) % chi_parameters.shape[1]
                                     if chi_set == j2:
                                         poly = n_powers[label, e1, j1]
-                                        res[n, e1, :] += r_vec / r * (r - L) ** C * (C / (r - L) + j1 / r) * poly
+                                        res[n, e1, :] += r_vec * (r - L) ** C * (C / (r - L) + j1 / r) * poly
 
         return res.reshape(size, (self.neu + self.ned) * 3)
 
@@ -1185,27 +1185,27 @@ class Jastrow:
                                 for label in f_labels:
                                     for e1 in range(1, self.neu + self.ned):
                                         for e2 in range(e1):
-                                            r_e1I_vec = n_vectors[label, e1]
-                                            r_e2I_vec = n_vectors[label, e2]
-                                            r_ee_vec = e_vectors[e1, e2]
                                             r_e1I = n_powers[label, e1, 1]
                                             r_e2I = n_powers[label, e2, 1]
                                             r_ee = e_powers[e1, e2, 1]
+                                            r_e1I_vec = n_vectors[label, e1] / r_e1I
+                                            r_e2I_vec = n_vectors[label, e2] / r_e2I
+                                            r_ee_vec = e_vectors[e1, e2] / r_ee
                                             if r_e1I < L and r_e2I < L:
                                                 f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % f_parameters.shape[3]
                                                 if f_set == j4:
                                                     poly = n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
-                                                    e1_gradient = r_e1I_vec * (C * r_e1I / (r_e1I - L) + j1) / r_e1I**2
-                                                    e2_gradient = r_e2I_vec * (C * r_e2I / (r_e2I - L) + j2) / r_e2I**2
-                                                    ee_gradient = r_ee_vec * j3 / r_ee**2
+                                                    e1_gradient = r_e1I_vec * (C / (r_e1I - L) + j1 / r_e1I)
+                                                    e2_gradient = r_e2I_vec * (C / (r_e2I - L) + j2 / r_e2I)
+                                                    ee_gradient = r_ee_vec * j3 / r_ee
                                                     res[n, e1, :] += (r_e1I - L) ** C * (r_e2I - L) ** C * (e1_gradient + ee_gradient) * poly
                                                     res[n, e2, :] += (r_e1I - L) ** C * (r_e2I - L) ** C * (e2_gradient - ee_gradient) * poly
 
                                                     if j1 != j2:
                                                         poly = n_powers[label, e1, j2] * n_powers[label, e2, j1] * e_powers[e1, e2, j3]
-                                                        e1_gradient = r_e1I_vec * (C * r_e1I / (r_e1I - L) + j2) / r_e1I**2
-                                                        e2_gradient = r_e2I_vec * (C * r_e2I / (r_e2I - L) + j1) / r_e2I**2
-                                                        ee_gradient = r_ee_vec * j3 / r_ee**2
+                                                        e1_gradient = r_e1I_vec * (C / (r_e1I - L) + j2 / r_e1I)
+                                                        e2_gradient = r_e2I_vec * (C / (r_e2I - L) + j1 / r_e2I)
+                                                        ee_gradient = r_ee_vec * j3 / r_ee
                                                         res[n, e1, :] += (r_e1I - L) ** C * (r_e2I - L) ** C * (e1_gradient + ee_gradient) * poly
                                                         res[n, e2, :] += (r_e1I - L) ** C * (r_e2I - L) ** C * (e2_gradient - ee_gradient) * poly
 
