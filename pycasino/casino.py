@@ -285,7 +285,7 @@ class Casino:
                 ' PERFORMING A SINGLE VMC CALCULATION.\n'
                 ' ====================================\n\n'
             )
-            self.check_d1(10000)
+            self.check_d1(1000)
             self.vmc_energy_accumulation()
         elif self.config.input.runtype == 'vmc_opt':
             if self.root:
@@ -498,12 +498,12 @@ class Casino:
         for cond, pos in zip(condition, position):
             if cond:
                 e_vectors, n_vectors = self.wfn._relative_coordinates(pos)
-                self.logger.info(self.wfn.jastrow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.value_parameters_numerical_d1(e_vectors, n_vectors))
-                self.logger.info(self.wfn.jastrow.gradient_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.gradient_parameters_numerical_d1(e_vectors, n_vectors))
-                self.logger.info(self.wfn.jastrow.laplacian_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.laplacian_parameters_numerical_d1(e_vectors, n_vectors))
-                self.logger.info(self.wfn.backflow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.backflow.value_parameters_numerical_d1(e_vectors, n_vectors))
-                self.logger.info(self.wfn.backflow.gradient_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.gradient_parameters_numerical_d1(e_vectors, n_vectors))
-                self.logger.info(self.wfn.backflow.laplacian_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.laplacian_parameters_numerical_d1(e_vectors, n_vectors))
+                self.logger.info(self.wfn.jastrow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.value_parameters_numerical_d1(e_vectors, n_vectors, False))
+                self.logger.info(self.wfn.jastrow.gradient_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False))
+                self.logger.info(self.wfn.jastrow.laplacian_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.laplacian_parameters_numerical_d1(e_vectors, n_vectors, False))
+                self.logger.info(self.wfn.backflow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.backflow.value_parameters_numerical_d1(e_vectors, n_vectors, False))
+                self.logger.info(self.wfn.backflow.gradient_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False))
+                self.logger.info(self.wfn.backflow.laplacian_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.laplacian_parameters_numerical_d1(e_vectors, n_vectors, False))
                 self.logger.info(self.wfn.value_parameters_d1(pos) / self.wfn.value_parameters_numerical_d1(pos))
                 self.logger.info(self.wfn.energy_parameters_d1(pos) / self.wfn.energy_parameters_numerical_d1(pos))
 
@@ -524,7 +524,7 @@ class Casino:
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         steps_eff = self.mpi_comm.allreduce(condition.sum())
         # Jastrow + backflow without cutoff optimized = all = 1.000
-        # self.check_d1(10000)
+        # self.check_d1(100)
 
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)

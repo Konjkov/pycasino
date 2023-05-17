@@ -1796,63 +1796,66 @@ class Backflow:
 
         return laplacian, gradient, value
 
-    def value_parameters_numerical_d1(self, e_vectors, n_vectors) -> np.ndarray:
+    def value_parameters_numerical_d1(self, e_vectors, n_vectors, all_parameters) -> np.ndarray:
         """Numerical first derivatives of backflow value w.r.t. the parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
+        :param all_parameters: all parameters or only independent
         :return:
         """
-        parameters = self.get_parameters(True)
+        parameters = self.get_parameters(all_parameters)
         res = np.zeros(shape=(parameters.size, (self.neu + self.ned), 3))
         for i in range(parameters.size):
             parameters[i] -= delta
-            self.set_parameters(parameters, True)
+            self.set_parameters(parameters, all_parameters)
             res[i] -= self.value(e_vectors, n_vectors)
             parameters[i] += 2 * delta
-            self.set_parameters(parameters, True)
+            self.set_parameters(parameters, all_parameters)
             res[i] += self.value(e_vectors, n_vectors)
             parameters[i] -= delta
-            self.set_parameters(parameters, True)
+            self.set_parameters(parameters, all_parameters)
 
         return res.reshape(parameters.size, (self.neu + self.ned) * 3) / delta / 2
 
-    def gradient_parameters_numerical_d1(self, e_vectors, n_vectors) -> np.ndarray:
+    def gradient_parameters_numerical_d1(self, e_vectors, n_vectors, all_parameters) -> np.ndarray:
         """Numerical first derivatives of backflow gradient w.r.t. the parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
+        :param all_parameters: all parameters or only independent
         :return:
         """
-        parameters = self.get_parameters(True)
+        parameters = self.get_parameters(all_parameters)
         res = np.zeros(shape=(parameters.size, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         for i in range(parameters.size):
             parameters[i] -= delta
-            self.set_parameters(parameters, True)
+            self.set_parameters(parameters, all_parameters)
             res[i] -= self.gradient(e_vectors, n_vectors)[0]
             parameters[i] += 2 * delta
-            self.set_parameters(parameters, True)
+            self.set_parameters(parameters, all_parameters)
             res[i] += self.gradient(e_vectors, n_vectors)[0]
             parameters[i] -= delta
-            self.set_parameters(parameters, True)
+            self.set_parameters(parameters, all_parameters)
 
         return res / delta / 2
 
-    def laplacian_parameters_numerical_d1(self, e_vectors, n_vectors) -> np.ndarray:
+    def laplacian_parameters_numerical_d1(self, e_vectors, n_vectors, all_parameters) -> np.ndarray:
         """Numerical first derivatives of backflow laplacian w.r.t. the parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
+        :param all_parameters: all parameters or only independent
         :return:
         """
-        parameters = self.get_parameters(True)
+        parameters = self.get_parameters(all_parameters)
         res = np.zeros(shape=(parameters.size, (self.neu + self.ned) * 3))
         for i in range(parameters.size):
             parameters[i] -= delta
-            self.set_parameters(parameters, True)
+            self.set_parameters(parameters, all_parameters)
             res[i] -= self.laplacian(e_vectors, n_vectors)[0]
             parameters[i] += 2 * delta
-            self.set_parameters(parameters, True)
+            self.set_parameters(parameters, all_parameters)
             res[i] += self.laplacian(e_vectors, n_vectors)[0]
             parameters[i] -= delta
-            self.set_parameters(parameters, True)
+            self.set_parameters(parameters, all_parameters)
 
         return res / delta / 2
 
