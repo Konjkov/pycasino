@@ -1399,7 +1399,7 @@ class Jastrow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        return np.concatenate((
+        return self.parameters_projector.T @ np.concatenate((
             self.u_term_parameters_d1(e_powers),
             self.chi_term_parameters_d1(n_powers),
             self.f_term_parameters_d1(e_powers, n_powers),
@@ -1414,7 +1414,7 @@ class Jastrow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        return np.concatenate((
+        return self.parameters_projector.T @ np.concatenate((
             self.u_term_gradient_parameters_d1(e_powers, e_vectors),
             self.chi_term_gradient_parameters_d1(n_powers, n_vectors),
             self.f_term_gradient_parameters_d1(e_powers, n_powers, e_vectors, n_vectors),
@@ -1429,7 +1429,7 @@ class Jastrow:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        return np.concatenate((
+        return self.parameters_projector.T @ np.concatenate((
             self.u_term_laplacian_parameters_d1(e_powers),
             self.chi_term_laplacian_parameters_d1(n_powers),
             self.f_term_laplacian_parameters_d1(e_powers, n_powers, e_vectors, n_vectors),
