@@ -1711,7 +1711,7 @@ class Backflow:
         phi_term = self.phi_term_d1(e_powers, n_powers, e_vectors, n_vectors)
 
         ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
-        return np.concatenate((
+        return self.parameters_projector.T @ np.concatenate((
             np.sum(eta_term * ae_multiplier, axis=1),
             np.sum(mu_term * ae_multiplier, axis=1),
             np.sum(phi_term * ae_multiplier, axis=1),
