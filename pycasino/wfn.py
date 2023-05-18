@@ -278,7 +278,7 @@ class Wfn:
             res = np.concatenate((res, bf_d1 @ self.backflow.parameters_projector))
         return -res
 
-    def value_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True, all_parameters=False):
+    def value_parameters_numerical_d1(self, r_e, opt_jastrow, opt_backflow, all_parameters=False):
         """First-order derivatives of log wfn value w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
@@ -301,7 +301,7 @@ class Wfn:
 
         return res / delta / 2 / self.value(r_e)
 
-    def energy_parameters_numerical_d1(self, r_e, opt_jastrow=True, opt_backflow=True, all_parameters=False):
+    def energy_parameters_numerical_d1(self, r_e, opt_jastrow, opt_backflow, all_parameters=False):
         """First-order derivatives of local energy w.r.t. parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters

@@ -285,7 +285,7 @@ class Casino:
                 ' PERFORMING A SINGLE VMC CALCULATION.\n'
                 ' ====================================\n\n'
             )
-            self.check_d1(1000, self.config.input.opt_jastrow, self.config.input.opt_backflow)
+            self.check_d1(1000)
             self.vmc_energy_accumulation()
         elif self.config.input.runtype == 'vmc_opt':
             if self.root:
@@ -492,8 +492,9 @@ class Casino:
         plt.savefig('hist.png')
         plt.clf()
 
-    def check_d1(self, steps, opt_jastrow, opt_backflow):
-        self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
+    def check_d1(self, steps):
+        self.wfn.set_parameters_projector()
+        opt_jastrow, opt_backflow = False, True
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         for cond, pos in zip(condition, position):
             if cond:
@@ -505,8 +506,8 @@ class Casino:
                 # FIXME: matmul: Input operand 1 has a mismatch in its core dimension 0, with gufunc signature (n?,k),(k,m?)->(n?,m?) (size 6 is different from 151)
                 self.logger.info(self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.gradient_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False))
                 self.logger.info(self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.laplacian_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.laplacian_parameters_numerical_d1(e_vectors, n_vectors, False))
-                self.logger.info(self.wfn.value_parameters_d1(pos) / self.wfn.value_parameters_numerical_d1(pos))
-                self.logger.info(self.wfn.energy_parameters_d1(pos) / self.wfn.energy_parameters_numerical_d1(pos))
+                self.logger.info(self.wfn.value_parameters_d1(pos, opt_jastrow, opt_backflow) / self.wfn.value_parameters_numerical_d1(pos, opt_jastrow, opt_backflow))
+                self.logger.info(self.wfn.energy_parameters_d1(pos, opt_jastrow, opt_backflow) / self.wfn.energy_parameters_numerical_d1(pos, opt_jastrow, opt_backflow))
 
     def vmc_unreweighted_variance_minimization(self, steps, opt_jastrow, opt_backflow, verbose=2):
         """Minimize vmc unreweighted variance.
