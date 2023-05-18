@@ -1443,7 +1443,7 @@ class Backflow:
                 self.phi_cutoff[i] -= delta
                 self.fix_phi_parameters()
 
-            L = self.mu_cutoff[i]
+            L = self.phi_cutoff[i]
             for j4 in range(phi_parameters.shape[3]):
                 dn = np.sum(phi_parameters_available[:, :, :, j4])
                 for j3 in range(phi_parameters.shape[2]):
