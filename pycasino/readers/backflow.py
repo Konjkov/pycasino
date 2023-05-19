@@ -458,7 +458,7 @@ class Backflow:
                     else:
                         _, _, cutoff_length, cutoff_length_optimizable = line.split()
                         ae_cutoff.append(float(cutoff_length))
-                        ae_cutoff_optimizable.append(float(cutoff_length_optimizable))
+                        ae_cutoff_optimizable.append(bool(int(cutoff_length_optimizable)))
 
     def write(self):
         eta_term = ""
@@ -536,7 +536,7 @@ class Backflow:
 
         ae_cutoff_list = []
         for i, (ae_cutoff, ae_cutoff_optimizable) in enumerate(zip(self.ae_cutoff, self.ae_cutoff_optimizable)):
-            ae_cutoff_list.append(f' {i + 1}         1      {ae_cutoff}                               {int(ae_cutoff_optimizable)}')
+            ae_cutoff_list.append(f' {i + 1}         1      {ae_cutoff: .16e}           {int(ae_cutoff_optimizable)}')
         backflow = backflow_template.format(
             title='no title given',
             trunc=self.trunc,

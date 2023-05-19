@@ -176,7 +176,7 @@ class Casino:
                 self.config.backflow.phi_parameters, self.config.backflow.phi_parameters_optimizable,
                 self.config.backflow.theta_parameters, self.config.backflow.theta_parameters_optimizable,
                 self.config.backflow.phi_cutoff, self.config.backflow.phi_cusp, self.config.backflow.phi_labels, self.config.backflow.phi_irrotational,
-                self.config.backflow.ae_cutoff
+                self.config.backflow.ae_cutoff, self.config.backflow.ae_cutoff_optimizable
             )
         else:
             backflow = None
