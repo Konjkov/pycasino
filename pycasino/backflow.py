@@ -1753,18 +1753,18 @@ class Backflow:
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
-    def ae_multiplier_laplacian_d1(self, e_vectors, n_vectors):
+    def ae_multiplier_laplacian_d1(self, n_vectors, n_powers):
         """First derivatives of laplacian w.r.t. ae_cutoff
-        :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
+        :param n_powers: powers of e-n distances
         """
         size = self.ae_cutoff_optimizable.sum()
-        res = np.zeros(shape=(size, (self.neu + self.ned) * 3))
+        res = np.zeros(shape=(size, 2, (self.neu + self.ned) * 3))
         for i in range(size):
             self.ae_cutoff[i] -= delta
-            res[i] -= self.laplacian(e_vectors, n_vectors)[0]
+            res[i] -= self.ae_multiplier_laplacian(n_vectors, n_powers)
             self.ae_cutoff[i] += 2 * delta
-            res[i] += self.laplacian(e_vectors, n_vectors)[0]
+            res[i] += self.ae_multiplier_laplacian(n_vectors, n_powers)
             self.ae_cutoff[i] -= delta
 
         return res / delta / 2
@@ -1865,6 +1865,11 @@ class Backflow:
         phi_term_gradient = self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
         ae_gradient = eta_term_gradient + mu_term_gradient + phi_term_gradient
 
+        eta_term_laplacian = self.eta_term_laplacian(e_powers, e_vectors)
+        mu_term_laplacian = self.mu_term_laplacian(n_powers, n_vectors)
+        phi_term_laplacian = self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
+        ae_laplacian = eta_term_laplacian + mu_term_laplacian + phi_term_laplacian
+
         eta_term_d1 = self.eta_term_d1(e_powers, e_vectors)
         mu_term_d1 = self.mu_term_d1(n_powers, n_vectors)
         phi_term_d1 = self.phi_term_d1(e_powers, n_powers, e_vectors, n_vectors)
@@ -1883,7 +1888,7 @@ class Backflow:
 
         ae_multiplier_d1 = self.ae_multiplier_d1(n_vectors, n_powers)
         ae_multiplier_gradient_d1 = self.ae_multiplier_gradient_d1(n_vectors, n_powers)
-        ae_multiplier_laplacian_d1 = self.ae_multiplier_laplacian_d1(e_vectors, n_vectors)
+        ae_multiplier_laplacian_d1 = self.ae_multiplier_laplacian_d1(n_vectors, n_powers)
 
         value = np.concatenate((
             np.sum(eta_term_d1 * ae_multiplier, axis=1),
@@ -1903,7 +1908,7 @@ class Backflow:
             np.sum(ae_multiplier_laplacian * eta_term_d1 + 2 * (eta_term_gradient_d1 * ae_multiplier_gradient).sum(axis=-1) + eta_term_laplacian_d1 * ae_multiplier, axis=1),
             np.sum(ae_multiplier_laplacian * mu_term_d1 + 2 * (mu_term_gradient_d1 * ae_multiplier_gradient).sum(axis=-1) + mu_term_laplacian_d1 * ae_multiplier, axis=1),
             np.sum(ae_multiplier_laplacian * phi_term_d1 + 2 * (phi_term_gradient_d1 * ae_multiplier_gradient).sum(axis=-1) + phi_term_laplacian_d1 * ae_multiplier, axis=1),
-            ae_multiplier_laplacian_d1,
+            np.sum(ae_multiplier_laplacian_d1 * ae_value + 2 * (ae_gradient * ae_multiplier_gradient_d1).sum(axis=-1) + ae_laplacian * ae_multiplier_d1, axis=1),
         ))
 
         return laplacian, gradient, value
