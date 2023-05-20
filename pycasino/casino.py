@@ -285,7 +285,6 @@ class Casino:
                 ' PERFORMING A SINGLE VMC CALCULATION.\n'
                 ' ====================================\n\n'
             )
-            self.check_d1(1000)
             self.vmc_energy_accumulation()
         elif self.config.input.runtype == 'vmc_opt':
             if self.root:
