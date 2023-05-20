@@ -1333,10 +1333,10 @@ class Backflow:
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
-    def ae_multiplier_d1(self, n_powers, n_vectors):
+    def ae_multiplier_d1(self, n_vectors, n_powers):
         """First derivatives of logarithm wfn w.r.t. ae_cutoff
-        :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
+        :param n_powers: powers of e-n distances
         """
         size = self.ae_cutoff_optimizable.sum()
         res = np.zeros(shape=(size, 2, (self.neu + self.ned) * 3))
@@ -1532,18 +1532,18 @@ class Backflow:
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
-    def ae_multiplier_gradient_d1(self, e_vectors, n_vectors):
+    def ae_multiplier_gradient_d1(self, n_vectors, n_powers):
         """First derivatives of gradient w.r.t. ae_cutoff
-        :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
+        :param n_powers: powers of e-n distances
         """
         size = self.ae_cutoff_optimizable.sum()
-        res = np.zeros(shape=(size, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
+        res = np.zeros(shape=(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         for i in range(size):
             self.ae_cutoff[i] -= delta
-            res[i] -= self.gradient(e_vectors, n_vectors)[0]
+            res[i] -= self.ae_multiplier_gradient(n_vectors, n_powers)
             self.ae_cutoff[i] += 2 * delta
-            res[i] += self.gradient(e_vectors, n_vectors)[0]
+            res[i] += self.ae_multiplier_gradient(n_vectors, n_powers)
             self.ae_cutoff[i] -= delta
 
         return res / delta / 2
@@ -1788,7 +1788,7 @@ class Backflow:
 
         ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
 
-        ae_multiplier_d1 = self.ae_multiplier_d1(n_powers, n_vectors)
+        ae_multiplier_d1 = self.ae_multiplier_d1(n_vectors, n_powers)
 
         return self.parameters_projector.T @ np.concatenate((
             np.sum(eta_term_d1 * ae_multiplier, axis=1),
@@ -1811,6 +1811,11 @@ class Backflow:
         phi_term = self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
         ae_value = eta_term + mu_term + phi_term
 
+        eta_term_gradient = self.eta_term_gradient(e_powers, e_vectors)
+        mu_term_gradient = self.mu_term_gradient(n_powers, n_vectors)
+        phi_term_gradient = self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
+        ae_gradient = eta_term_gradient + mu_term_gradient + phi_term_gradient
+
         eta_term_d1 = self.eta_term_d1(e_powers, e_vectors)
         mu_term_d1 = self.mu_term_d1(n_powers, n_vectors)
         phi_term_d1 = self.phi_term_d1(e_powers, n_powers, e_vectors, n_vectors)
@@ -1822,8 +1827,8 @@ class Backflow:
         ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
         ae_multiplier_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
 
-        ae_multiplier_d1 = self.ae_multiplier_d1(n_powers, n_vectors)
-        ae_multiplier_gradient_d1 = self.ae_multiplier_gradient_d1(e_vectors, n_vectors)
+        ae_multiplier_d1 = self.ae_multiplier_d1(n_vectors, n_powers)
+        ae_multiplier_gradient_d1 = self.ae_multiplier_gradient_d1(n_vectors, n_powers)
 
         value = np.concatenate((
             np.sum(eta_term_d1 * ae_multiplier, axis=1),
@@ -1836,7 +1841,7 @@ class Backflow:
             np.sum(ae_multiplier_gradient * np.expand_dims(eta_term_d1, 3) + eta_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
             np.sum(ae_multiplier_gradient * np.expand_dims(mu_term_d1, 3) + mu_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
             np.sum(ae_multiplier_gradient * np.expand_dims(phi_term_d1, 3) + phi_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
-            ae_multiplier_gradient_d1,
+            np.sum(ae_multiplier_gradient_d1 * np.expand_dims(ae_value, 2) + ae_gradient * np.expand_dims(ae_multiplier_d1, 3), axis=1),
         ))
 
         return gradient, value
@@ -1855,6 +1860,11 @@ class Backflow:
         phi_term = self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
         ae_value = eta_term + mu_term + phi_term
 
+        eta_term_gradient = self.eta_term_gradient(e_powers, e_vectors)
+        mu_term_gradient = self.mu_term_gradient(n_powers, n_vectors)
+        phi_term_gradient = self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
+        ae_gradient = eta_term_gradient + mu_term_gradient + phi_term_gradient
+
         eta_term_d1 = self.eta_term_d1(e_powers, e_vectors)
         mu_term_d1 = self.mu_term_d1(n_powers, n_vectors)
         phi_term_d1 = self.phi_term_d1(e_powers, n_powers, e_vectors, n_vectors)
@@ -1871,9 +1881,9 @@ class Backflow:
         ae_multiplier_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
         ae_multiplier_laplacian = self.ae_multiplier_laplacian(n_vectors, n_powers)
 
-        ae_multiplier_d1 = self.ae_multiplier_d1(n_powers, n_vectors)
-        ae_multiplier_gradient_d1 = self.ae_multiplier_gradient_d1(e_vectors, n_vectors)
-        ae_multiplier_laplacian_d1 = self.ae_multiplier_laplacian_d1(n_vectors, n_powers)
+        ae_multiplier_d1 = self.ae_multiplier_d1(n_vectors, n_powers)
+        ae_multiplier_gradient_d1 = self.ae_multiplier_gradient_d1(n_vectors, n_powers)
+        ae_multiplier_laplacian_d1 = self.ae_multiplier_laplacian_d1(e_vectors, n_vectors)
 
         value = np.concatenate((
             np.sum(eta_term_d1 * ae_multiplier, axis=1),
@@ -1886,7 +1896,7 @@ class Backflow:
             np.sum(ae_multiplier_gradient * np.expand_dims(eta_term_d1, 3) + eta_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
             np.sum(ae_multiplier_gradient * np.expand_dims(mu_term_d1, 3) + mu_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
             np.sum(ae_multiplier_gradient * np.expand_dims(phi_term_d1, 3) + phi_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
-            ae_multiplier_gradient_d1,
+            np.sum(ae_multiplier_gradient_d1 * np.expand_dims(ae_value, 2) + ae_gradient * np.expand_dims(ae_multiplier_d1, 3), axis=1),
         ))
 
         laplacian = np.concatenate((
