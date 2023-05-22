@@ -456,6 +456,7 @@ class Backflow:
                         # Nucleus ; Set ; Cutoff length     ;  Optimizable (0=NO; 1=YES)
                         pass
                     else:
+                        # FIXME: Nucleus order
                         _, _, cutoff_length, cutoff_length_optimizable = line.split()
                         ae_cutoff.append(float(cutoff_length))
                         ae_cutoff_optimizable.append(bool(int(cutoff_length_optimizable)))

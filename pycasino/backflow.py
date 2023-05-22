@@ -1339,16 +1339,18 @@ class Backflow:
         :param n_powers: powers of e-n distances
         """
         size = self.ae_cutoff_optimizable.sum()
-        res = np.zeros(shape=(size, 2, (self.neu + self.ned) * 3))
+        res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3))
+        n = -1
+        for i in range(n_vectors.shape[0]):
+            if self.ae_cutoff_optimizable[i]:
+                n += 1
+                Lg = self.ae_cutoff[i]
+                for j in range(self.neu + self.ned):
+                    r = n_powers[i, j, 1]
+                    if r < Lg:
+                        res[n, 1, j] = -12/Lg * (r/Lg)**2 * (1 - r/Lg)**2
 
-        for i in range(size):
-            self.ae_cutoff[i] -= delta
-            res[i] -= self.ae_multiplier(n_vectors, n_powers)
-            self.ae_cutoff[i] += 2 * delta
-            res[i] += self.ae_multiplier(n_vectors, n_powers)
-            self.ae_cutoff[i] -= delta
-
-        return res / delta / 2
+        return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def eta_term_gradient_d1(self, e_powers, e_vectors):
         """First derivatives of logarithm wfn w.r.t. eta-term parameters
@@ -1538,15 +1540,19 @@ class Backflow:
         :param n_powers: powers of e-n distances
         """
         size = self.ae_cutoff_optimizable.sum()
-        res = np.zeros(shape=(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
-        for i in range(size):
-            self.ae_cutoff[i] -= delta
-            res[i] -= self.ae_multiplier_gradient(n_vectors, n_powers)
-            self.ae_cutoff[i] += 2 * delta
-            res[i] += self.ae_multiplier_gradient(n_vectors, n_powers)
-            self.ae_cutoff[i] -= delta
+        res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3, self.neu + self.ned, 3))
+        n = -1
+        for i in range(n_vectors.shape[0]):
+            if self.ae_cutoff_optimizable[i]:
+                n += 1
+                Lg = self.ae_cutoff[i]
+                for j in range(self.neu + self.ned):
+                    r_vec = n_vectors[i, j]
+                    r = n_powers[i, j, 1]
+                    if r < Lg:
+                        res[n, 1, j, :, j, :] = -24 * r_vec/Lg**3 * (1 - 3*(r/Lg) + 2*(r/Lg)**2)
 
-        return res / delta / 2
+        return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def eta_term_laplacian_d1(self, e_powers, e_vectors):
         """First derivatives of laplacian w.r.t. eta-term parameters
@@ -1759,15 +1765,18 @@ class Backflow:
         :param n_powers: powers of e-n distances
         """
         size = self.ae_cutoff_optimizable.sum()
-        res = np.zeros(shape=(size, 2, (self.neu + self.ned) * 3))
-        for i in range(size):
-            self.ae_cutoff[i] -= delta
-            res[i] -= self.ae_multiplier_laplacian(n_vectors, n_powers)
-            self.ae_cutoff[i] += 2 * delta
-            res[i] += self.ae_multiplier_laplacian(n_vectors, n_powers)
-            self.ae_cutoff[i] -= delta
+        res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3))
+        n = -1
+        for i in range(n_vectors.shape[0]):
+            if self.ae_cutoff_optimizable[i]:
+                n += 1
+                Lg = self.ae_cutoff[i]
+                for j in range(self.neu + self.ned):
+                    r = n_powers[i, j, 1]
+                    if r < Lg:
+                        res[n, 1, j] = -24/Lg**3 * (3 - 12 * (r/Lg) + 10 * (r/Lg)**2)
 
-        return res / delta / 2
+        return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def value_parameters_d1(self, e_vectors, n_vectors):
         """First derivatives of backflow w.r.t. the parameters

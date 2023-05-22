@@ -25,7 +25,7 @@ slater_spec = [
     ('permutation_down', nb.int64[:, :]),
     ('mo_up', nb.float64[:, :]),
     ('mo_down', nb.float64[:, :]),
-    ('coeff', nb.float64[:]),
+    ('det_coeff', nb.float64[:]),
     ('cusp', nb.optional(Cusp.class_type.instance_type)),
     ('norm', nb.float64),
 ]
@@ -69,7 +69,7 @@ class Slater:
         self.mo_down = mo_down[:np.max(permutation_down) + 1]
         self.permutation_up = permutation_up
         self.permutation_down = permutation_down
-        self.coeff = coeff
+        self.det_coeff = coeff
         self.cusp = cusp
         self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
 
@@ -360,8 +360,8 @@ class Slater:
         """
         wfn_u, wfn_d = self._value_matrix(n_vectors)
         val = 0.0
-        for i in range(self.coeff.shape[0]):
-            val += self.coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
+        for i in range(self.det_coeff.size):
+            val += self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
         return val
 
     def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
@@ -378,10 +378,10 @@ class Slater:
         grad_u, grad_d = self._gradient_matrix(n_vectors)
         val = 0.0
         grad = np.zeros(shape=(self.neu + self.ned, 3))
-        for i in range(self.coeff.shape[0]):
+        for i in range(self.det_coeff.size):
             res_u = (np.linalg.inv(wfn_u[self.permutation_up[i]]) * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
             res_d = (np.linalg.inv(wfn_d[self.permutation_down[i]]) * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
-            c = self.coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
+            c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             grad += c * np.concatenate((res_u, res_d))
 
@@ -403,10 +403,10 @@ class Slater:
         wfn_u, wfn_d = self._value_matrix(n_vectors)
         lap_u, lap_d = self._laplacian_matrix(n_vectors)
         val = lap = 0
-        for i in range(self.coeff.shape[0]):
+        for i in range(self.det_coeff.size):
             res_u = np.sum(np.linalg.inv(wfn_u[self.permutation_up[i]]) * lap_u[self.permutation_up[i]].T)
             res_d = np.sum(np.linalg.inv(wfn_d[self.permutation_down[i]]) * lap_d[self.permutation_down[i]].T)
-            c = self.coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
+            c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             lap += c * (res_u + res_d)
 
@@ -430,7 +430,7 @@ class Slater:
         hess_u, hess_d = self._hessian_matrix(n_vectors)
         val = 0
         hess = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
-        for i in range(self.coeff.shape[0]):
+        for i in range(self.det_coeff.size):
 
             inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
             inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
@@ -439,7 +439,7 @@ class Slater:
             res_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
             res_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
 
-            c = self.coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
+            c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
 
             # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
@@ -515,7 +515,7 @@ class Slater:
         tress_u, tress_d = self._tressian_matrix(n_vectors)
         val = 0
         tress = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
-        for i in range(self.coeff.shape[0]):
+        for i in range(self.det_coeff.size):
 
             inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
             inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
@@ -526,7 +526,7 @@ class Slater:
             res_tress_u = (inv_wfn_u * tress_u[self.permutation_down[i]].T).T.sum(axis=0)
             res_tress_d = (inv_wfn_d * tress_d[self.permutation_down[i]].T).T.sum(axis=0)
 
-            c = self.coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
+            c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
 
             # tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) * tr(A^-1 * dA/dz)
@@ -534,6 +534,35 @@ class Slater:
             tress += c * np.expand_dims(res_grad, (1, 2)) * np.expand_dims(res_grad, (0, 2)) * np.expand_dims(res_grad, (0, 1))
 
         return tress / val
+
+    def fix_eta_parameters(self):
+        """Fix parameters"""
+        self.det_coeff /= np.linalg.norm(self.det_coeff)
+
+    def get_parameters(self, all_parameters):
+        """Returns parameters in the following order:
+        determinant coefficients accept the first.
+        :param all_parameters:
+        :return:
+        """
+        if all_parameters:
+            return self.det_coeff
+        else:
+            return self.det_coeff[1:]
+
+    def set_parameters(self, parameters, all_parameters):
+        """Set parameters in the following order:
+        determinant coefficients accept the first.
+        :param parameters:
+        :param all_parameters:
+        :return:
+        """
+        if all_parameters:
+            self.det_coeff = parameters[:self.det_coeff.shape[0]]
+            return parameters[self.det_coeff.shape[0]:]
+        else:
+            self.det_coeff[1:] = parameters[:self.det_coeff.shape[0]-1]
+            return parameters[self.det_coeff.shape[0]-1:]
 
     def numerical_gradient(self, n_vectors: np.ndarray) -> float:
         """Numerical gradient w.r.t e-coordinates

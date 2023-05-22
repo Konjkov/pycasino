@@ -764,8 +764,12 @@ class Casino:
         energy_gradient = np.empty(shape=(steps, parameters.size)) if self.root else None
         self.mpi_comm.Gather(energy_gradient_part, energy_gradient)
         eigval = None
+        energy_0 = None
+        energy_sem = None
         dp = np.empty_like(parameters)
         if self.root:
+            energy_0 = energy.mean()
+            energy_sem = energy.std() / np.sqrt(steps)
             S = overlap_matrix(wfn_gradient)
             self.logger.info(f'S is positive definite: {np.all(np.linalg.eigvals(S) > 0)}')
             H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
@@ -779,7 +783,7 @@ class Casino:
             idx = eigvals.argmin()
             eigval, eigvector = eigvals[idx], eigvectors[:, idx]
             dp = eigvector[1:] / eigvector[0]
-            self.logger.info(f'E lin {eigval}')
+            self.logger.info(f'E lin {eigval} dE {eigval - energy_0}')
             # eigvector[0] ** 2 + eigvector[1:] @ S[1:, 1:] @ eigvector[1:] = eigvector @ S @ eigvector = 1
             self.logger.info(f'eigvector[0] {eigvector[0]}')
 
@@ -791,20 +795,23 @@ class Casino:
             energy_part = vmc_observable(condition, position, self.wfn.energy)
             energy = np.empty(shape=(steps,))
             self.mpi_comm.Allgather(energy_part, energy)
-            return energy.mean(), energy.std() / np.sqrt(steps)
+            return energy.mean()
 
         eigval = self.mpi_comm.bcast(eigval)
-        energy_mean, energy_sem = f(1)
-        emin_error = (energy_mean - eigval) / energy_sem
-        if True:
-            self.logger.info(f'Next step data: {eigval:.8f} {energy_mean:.8f} +/- {energy_sem:.8f} {emin_error:8.4f}\n')
-            alpha = 0
-        else:
-            alpha = 0
-            # self.logger.info('Performing minimum search:\n')
-            # res = minimize_scalar(f, bounds=(0, 1), options=dict(disp=self.root and verbose, xatol=energy_sem))
-            # alpha = res.x
-        self.logger.info(f'Optimal alpha: {alpha:.4f}')
+        energy_0 = self.mpi_comm.bcast(energy_0)
+        energy_sem = self.mpi_comm.bcast(energy_sem)
+        alpha = 1
+        while True:
+            energy_alpha = f(alpha)
+            emin_error = (alpha * (eigval - energy_0) + energy_0 - energy_alpha) / energy_sem
+            self.logger.info(f'step data: E({alpha:.4f}) = {energy_alpha:.8f} +/- {energy_sem:.8f} or {emin_error:.4f} sigma_E(0)')
+            if emin_error > -3:
+                break
+            else:
+                alpha /= 1.5
+                # self.logger.info('Performing minimum search:\n')
+                # res = minimize_scalar(f, bounds=(0, 1), options=dict(disp=self.root and verbose, xatol=energy_sem))
+                # alpha = res.x
         if parameters.all():
             self.logger.info(f'delta p / p\n{alpha * dp / parameters}\n')
         else:
