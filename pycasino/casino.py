@@ -804,7 +804,9 @@ class Casino:
         eigval = self.mpi_comm.bcast(eigval)
         energy_0 = self.mpi_comm.bcast(energy_0)
         energy_sem = self.mpi_comm.bcast(energy_sem)
-        for alpha in (1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1):
+        for alpha in (1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0):
+            if alpha == 0:
+                break
             energy_alpha = f(alpha)
             emin_error = (energy_alpha - alpha * (eigval - energy_0) - energy_0) / energy_sem
             self.logger.info(f'step data: E({alpha:.4f}) = {energy_alpha:.8f} differ by {emin_error:.4f} sigma_E(0) from linear')
