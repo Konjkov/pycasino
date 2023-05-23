@@ -289,8 +289,8 @@ class Casino:
         elif self.config.input.runtype == 'vmc_opt':
             if self.root:
                 self.config.write('.', 0)
-            self.vmc_energy_accumulation()
             for i in range(self.config.input.opt_cycles):
+                self.vmc_energy_accumulation()
                 self.logger.info(
                     f' ==========================================\n'
                     f' PERFORMING OPTIMIZATION CALCULATION No. {i+1}.\n'
@@ -320,7 +320,7 @@ class Casino:
                 self.config.jastrow.u_cutoff[0]['value'] = self.wfn.jastrow.u_cutoff
                 if self.root:
                     self.config.write('.', i + 1)
-                self.vmc_energy_accumulation()
+            self.vmc_energy_accumulation()
         elif self.config.input.runtype == 'vmc_dmc':
             self.logger.info(
                  ' ======================================================\n'
@@ -521,6 +521,7 @@ class Casino:
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
         scale = np.sqrt(2) / np.sqrt(steps - 1)
+        # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         steps_eff = self.mpi_comm.allreduce(condition.sum())
         # Jastrow + backflow without cutoff optimized = all = 1.000
@@ -569,6 +570,7 @@ class Casino:
             2 : display progress during iterations.
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
+        # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         steps_eff = self.mpi_comm.allreduce(condition.sum())
         wfn_0 = np.empty(shape=(steps,))
@@ -662,6 +664,7 @@ class Casino:
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
         self.wfn.set_parameters(self.wfn.get_parameters(opt_jastrow, opt_backflow), opt_jastrow, opt_backflow)
+        # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
 
         def fun(x, *args):
@@ -745,6 +748,7 @@ class Casino:
         sparse = True
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         self.wfn.set_parameters(self.wfn.get_parameters(opt_jastrow, opt_backflow), opt_jastrow, opt_backflow)
+        # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
 
         self.logger.info(
@@ -782,40 +786,34 @@ class Casino:
             eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
             idx = eigvals.argmin()
             eigval, eigvector = eigvals[idx], eigvectors[:, idx]
-            dp = eigvector[1:] / eigvector[0]
             self.logger.info(f'E lin {eigval} dE {eigval - energy_0}')
-            # eigvector[0] ** 2 + eigvector[1:] @ S[1:, 1:] @ eigvector[1:] = eigvector @ S @ eigvector = 1
             self.logger.info(f'eigvector[0] {eigvector[0]}')
+            dp = eigvector[1:] / eigvector[0]
 
         self.mpi_comm.Bcast(dp)
 
         def f(alpha):
             self.wfn.set_parameters(parameters + alpha * dp, opt_jastrow, opt_backflow)
-            condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
-            energy_part = vmc_observable(condition, position, self.wfn.energy)
-            energy = np.empty(shape=(steps,))
-            self.mpi_comm.Allgather(energy_part, energy)
-            return energy.mean()
+            try:
+                condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
+                energy_mean = vmc_observable(condition, position, self.wfn.energy).mean()
+            except ZeroDivisionError:
+                energy_mean = 0
+            return self.mpi_comm.allreduce(energy_mean) / self.mpi_comm.size
 
         eigval = self.mpi_comm.bcast(eigval)
         energy_0 = self.mpi_comm.bcast(energy_0)
         energy_sem = self.mpi_comm.bcast(energy_sem)
-        alpha = 1
-        while True:
+        for alpha in (1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1):
             energy_alpha = f(alpha)
-            emin_error = (alpha * (eigval - energy_0) + energy_0 - energy_alpha) / energy_sem
-            self.logger.info(f'step data: E({alpha:.4f}) = {energy_alpha:.8f} +/- {energy_sem:.8f} or {emin_error:.4f} sigma_E(0)')
-            if emin_error > -3:
+            emin_error = (energy_alpha - alpha * (eigval - energy_0) - energy_0) / energy_sem
+            self.logger.info(f'step data: E({alpha:.4f}) = {energy_alpha:.8f} differ by {emin_error:.4f} sigma_E(0) from linear')
+            if emin_error < 3:
                 break
-            else:
-                alpha /= 1.5
-                # self.logger.info('Performing minimum search:\n')
-                # res = minimize_scalar(f, bounds=(0, 1), options=dict(disp=self.root and verbose, xatol=energy_sem))
-                # alpha = res.x
         if parameters.all():
-            self.logger.info(f'delta p / p\n{alpha * dp / parameters}\n')
+            self.logger.info(f'alpha {alpha}\ndelta p / p\n{alpha * dp / parameters}\n')
         else:
-            self.logger.info(f'delta p\n{alpha * dp}\n')
+            self.logger.info(f'alpha {alpha}\ndelta p\n{alpha * dp}\n')
         parameters += alpha * dp
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
@@ -828,6 +826,7 @@ class Casino:
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         self.wfn.set_parameters(self.wfn.get_parameters(opt_jastrow, opt_backflow), opt_jastrow, opt_backflow)
+        # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
 
         def fun(x, *args):
