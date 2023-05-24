@@ -117,10 +117,11 @@ class Cusp:
                         l = self.shell_moments[nshell]
                         if r < self.rc[atom, i] and self.shell_moments[nshell] == 0:
                             for primitive in range(self.primitives[nshell]):
+                                # look for Slater.value for s-radial gaussian function
                                 s_part += self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r * r) * self.mo[i, ao]
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
-
+                    # subtract uncusped s-part
                     value[i, j] -= s_part * self.norm
 
         for i in range(self.orbitals_up, self.orbitals_up + self.orbitals_down):
@@ -143,10 +144,11 @@ class Cusp:
                         l = self.shell_moments[nshell]
                         if r < self.rc[atom, i] and self.shell_moments[nshell] == 0:
                             for primitive in range(self.primitives[nshell]):
+                                # look for Slater.value for s-radial gaussian function
                                 s_part += self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r * r) * self.mo[i, ao]
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
-
+                    # subtract uncusped s-part
                     value[i, j] -= s_part * self.norm
 
         return value[:self.orbitals_up, :self.neu], value[self.orbitals_up:, self.neu:]
@@ -181,12 +183,13 @@ class Cusp:
                         l = self.shell_moments[nshell]
                         if r < self.rc[atom, i] and self.shell_moments[nshell] == 0:
                             for primitive in range(self.primitives[nshell]):
+                                # look for Slater.gradient for s-radial gaussian function
                                 alpha = self.exponents[p + primitive]
                                 exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                                 s_part -= 2 * alpha * exponent * self.mo[i, ao]
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
-
+                    # subtract uncusped s-part
                     gradient[i, j] -= n_vectors[atom, j] * s_part * self.norm
 
         for i in range(self.orbitals_up, self.orbitals_up + self.orbitals_down):
@@ -214,12 +217,13 @@ class Cusp:
                         l = self.shell_moments[nshell]
                         if r < self.rc[atom, i] and self.shell_moments[nshell] == 0:
                             for primitive in range(self.primitives[nshell]):
+                                # look for Slater.gradient for s-radial gaussian function
                                 alpha = self.exponents[p + primitive]
                                 exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                                 s_part -= 2 * alpha * exponent * self.mo[i, ao]
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
-
+                    # subtract uncusped s-part
                     gradient[i, j] -= n_vectors[atom, j] * s_part * self.norm
 
         return gradient[:self.orbitals_up, :self.neu], gradient[self.orbitals_up:, self.neu:]
@@ -256,12 +260,13 @@ class Cusp:
                         l = self.shell_moments[nshell]
                         if r < self.rc[atom, i] and self.shell_moments[nshell] == 0:
                             for primitive in range(self.primitives[nshell]):
+                                # look for Slater.laplacian for s-radial gaussian function
                                 alpha = self.exponents[p + primitive]
                                 exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                                 s_part += 2 * alpha * (2 * alpha * r * r - 3) * exponent * self.mo[i, ao]
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
-
+                    # subtract uncusped s-part
                     laplacian[i, j] -= s_part * self.norm
 
         for i in range(self.orbitals_up, self.orbitals_up + self.orbitals_down):
@@ -291,12 +296,13 @@ class Cusp:
                         l = self.shell_moments[nshell]
                         if r < self.rc[atom, i] and self.shell_moments[nshell] == 0:
                             for primitive in range(self.primitives[nshell]):
+                                # look for Slater.laplacian for s-radial gaussian function
                                 alpha = self.exponents[p + primitive]
                                 exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                                 s_part += 2 * alpha * (2 * alpha * r * r - 3) * exponent * self.mo[i, ao]
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
-
+                    # subtract uncusped s-part
                     laplacian[i, j] -= s_part * self.norm
 
         return laplacian[:self.orbitals_up, :self.neu], laplacian[self.orbitals_up:, self.neu:]
@@ -346,13 +352,14 @@ class Cusp:
                         l = self.shell_moments[nshell]
                         if r < self.rc[atom, i] and self.shell_moments[nshell] == 0:
                             for primitive in range(self.primitives[nshell]):
+                                # look for Slater.hessian for s-radial gaussian function
                                 alpha = self.exponents[p + primitive]
                                 exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                                 c = -2 * alpha
                                 s_part += (np.outer(n_vectors[atom, j], n_vectors[atom, j]) * c + np.eye(3)) * c * exponent * self.mo[i, ao]
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
-
+                    # subtract uncusped s-part
                     hessian[i, j] -= s_part * self.norm
 
         for i in range(self.orbitals_up, self.orbitals_up + self.orbitals_down):
@@ -394,13 +401,14 @@ class Cusp:
                         l = self.shell_moments[nshell]
                         if r < self.rc[atom, i] and self.shell_moments[nshell] == 0:
                             for primitive in range(self.primitives[nshell]):
+                                # look for Slater.hessian for s-radial gaussian function
                                 alpha = self.exponents[p + primitive]
                                 exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                                 c = -2 * alpha
                                 s_part += (np.outer(n_vectors[atom, j], n_vectors[atom, j]) * c + np.eye(3)) * c * exponent * self.mo[i, ao]
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
-
+                    # subtract uncusped s-part
                     hessian[i, j] -= s_part * self.norm
 
         return hessian[:self.orbitals_up, :self.neu], hessian[self.orbitals_up:, self.neu:]
@@ -408,6 +416,124 @@ class Cusp:
     def tressian(self, n_vectors: np.ndarray):
         """Cusp part of tressian"""
         tressian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3, 3, 3))
+
+        for i in range(self.orbitals_up):
+            for j in range(self.neu):
+                p = ao = 0
+                for atom in range(n_vectors.shape[0]):
+                    x, y, z = n_vectors[atom, j]
+                    r = np.sqrt(x * x + y * y + z * z)
+                    if r < self.rc[atom, i]:
+                        tressian[i, j, :, :, :] = self.orbital_sign[atom, i] * (
+                            # FIXME:
+                            1
+                        ) * np.exp(
+                            self.alpha[0, atom, i] +
+                            self.alpha[1, atom, i] * r +
+                            self.alpha[2, atom, i] * r ** 2 +
+                            self.alpha[3, atom, i] * r ** 3 +
+                            self.alpha[4, atom, i] * r ** 4
+                        )
+
+                    s_part = np.zeros(shape=(3, 3, 3))
+                    for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
+                        l = self.shell_moments[nshell]
+                        if r < self.rc[atom, i] and self.shell_moments[nshell] == 0:
+                            for primitive in range(self.primitives[nshell]):
+                                # look for Slater.tressian for s-radial gaussian function
+                                alpha = self.exponents[p + primitive]
+                                exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
+                                c = -2 * alpha
+                                s_part[0, 0, 0] += (x * x * x * c ** 3 + 3 * x * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[1, 1, 1] += (y * y * y * c ** 3 + 3 * y * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[2, 2, 2] += (z * z * z * c ** 3 + 3 * z * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[0, 1, 1] += (x * y * y * c ** 3 + x * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[0, 0, 1] += (x * x * y * c ** 3 + y * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[0, 0, 2] += (x * x * z * c ** 3 + z * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[0, 2, 2] += (x * z * z * c ** 3 + x * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[1, 1, 2] += (y * y * z * c ** 3 + z * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[1, 2, 2] += (y * z * z * c ** 3 + y * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[0, 1, 2] += x * y * z * c ** 3 * exponent * self.mo[i, ao]
+                                s_part[0, 1, 0] += s_part[0, 0, 1]
+                                s_part[0, 2, 0] += s_part[0, 0, 2]
+                                s_part[0, 2, 1] += s_part[0, 1, 2]
+                                s_part[1, 0, 0] += s_part[0, 0, 1]
+                                s_part[1, 0, 1] += s_part[0, 1, 1]
+                                s_part[1, 0, 2] += s_part[0, 1, 2]
+                                s_part[1, 1, 0] += s_part[0, 1, 1]
+                                s_part[1, 2, 0] += s_part[0, 1, 2]
+                                s_part[1, 2, 1] += s_part[1, 1, 2]
+                                s_part[2, 0, 0] += s_part[0, 0, 2]
+                                s_part[2, 0, 1] += s_part[0, 1, 2]
+                                s_part[2, 0, 2] += s_part[0, 2, 2]
+                                s_part[2, 1, 0] += s_part[0, 1, 2]
+                                s_part[2, 1, 1] += s_part[1, 1, 2]
+                                s_part[2, 1, 2] += s_part[1, 2, 2]
+                                s_part[2, 2, 0] += s_part[0, 2, 2]
+                                s_part[2, 2, 1] += s_part[1, 2, 2]
+                        p += self.primitives[nshell]
+                        ao += 2 * l + 1
+                    # subtract uncusped s-part
+                    tressian[i, j] -= s_part * self.norm
+
+        for i in range(self.orbitals_up, self.orbitals_up + self.orbitals_down):
+            for j in range(self.neu, self.neu + self.ned):
+                p = ao = 0
+                for atom in range(n_vectors.shape[0]):
+                    x, y, z = n_vectors[atom, j]
+                    r = np.sqrt(x * x + y * y + z * z)
+                    if r < self.rc[atom, i]:
+                        tressian[i, j, :, :, :] = self.orbital_sign[atom, i] * (
+                            # FIXME:
+                            1
+                        ) * np.exp(
+                            self.alpha[0, atom, i] +
+                            self.alpha[1, atom, i] * r +
+                            self.alpha[2, atom, i] * r ** 2 +
+                            self.alpha[3, atom, i] * r ** 3 +
+                            self.alpha[4, atom, i] * r ** 4
+                        )
+
+                    s_part = np.zeros(shape=(3, 3, 3))
+                    for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
+                        l = self.shell_moments[nshell]
+                        if r < self.rc[atom, i] and self.shell_moments[nshell] == 0:
+                            for primitive in range(self.primitives[nshell]):
+                                # look for Slater.tressian for s-radial gaussian function
+                                alpha = self.exponents[p + primitive]
+                                exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
+                                c = -2 * alpha
+                                s_part[0, 0, 0] += (x * x * x * c ** 3 + 3 * x * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[1, 1, 1] += (y * y * y * c ** 3 + 3 * y * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[2, 2, 2] += (z * z * z * c ** 3 + 3 * z * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[0, 1, 1] += (x * y * y * c ** 3 + x * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[0, 0, 1] += (x * x * y * c ** 3 + y * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[0, 0, 2] += (x * x * z * c ** 3 + z * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[0, 2, 2] += (x * z * z * c ** 3 + x * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[1, 1, 2] += (y * y * z * c ** 3 + z * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[1, 2, 2] += (y * z * z * c ** 3 + y * c ** 2) * exponent * self.mo[i, ao]
+                                s_part[0, 1, 2] += x * y * z * c ** 3 * exponent * self.mo[i, ao]
+                                s_part[0, 1, 0] += s_part[0, 0, 1]
+                                s_part[0, 2, 0] += s_part[0, 0, 2]
+                                s_part[0, 2, 1] += s_part[0, 1, 2]
+                                s_part[1, 0, 0] += s_part[0, 0, 1]
+                                s_part[1, 0, 1] += s_part[0, 1, 1]
+                                s_part[1, 0, 2] += s_part[0, 1, 2]
+                                s_part[1, 1, 0] += s_part[0, 1, 1]
+                                s_part[1, 2, 0] += s_part[0, 1, 2]
+                                s_part[1, 2, 1] += s_part[1, 1, 2]
+                                s_part[2, 0, 0] += s_part[0, 0, 2]
+                                s_part[2, 0, 1] += s_part[0, 1, 2]
+                                s_part[2, 0, 2] += s_part[0, 2, 2]
+                                s_part[2, 1, 0] += s_part[0, 1, 2]
+                                s_part[2, 1, 1] += s_part[1, 1, 2]
+                                s_part[2, 1, 2] += s_part[1, 2, 2]
+                                s_part[2, 2, 0] += s_part[0, 2, 2]
+                                s_part[2, 2, 1] += s_part[1, 2, 2]
+                        p += self.primitives[nshell]
+                        ao += 2 * l + 1
+                    # subtract uncusped s-part
+                    tressian[i, j] -= s_part * self.norm
 
         return tressian[:self.orbitals_up, :self.neu], tressian[self.orbitals_up:, self.neu:]
 
