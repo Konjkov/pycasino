@@ -366,7 +366,7 @@ class Slater:
 
     def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient ∇φ/φ w.r.t e-coordinates.
-        ∇ln(det(A)) = tr(A^-1 * ∇A)
+        ∇ln(det(A)) = tr(A^-1 @ ∇A)
         where matrix ∇A is column-wise gradient of A
         then using np.trace(A @ B) = np.sum(A * B.T)
         Read for details:
@@ -392,7 +392,7 @@ class Slater:
         Δln(det(A)) = sum(tr(slater^-1 * B(n)) over n
         where matrix B(n) is zero with exception to the n-th column
         as tr(A) + tr(B) = tr(A + B)
-        Δln(det(A)) = tr(slater^-1 * B)
+        Δln(det(A)) = tr(slater^-1 @ B)
         where the matrix Bij = ∆phi i (rj)
         then using np.trace(A @ B) = np.sum(A * B.T)
         Read for details:
@@ -415,9 +415,9 @@ class Slater:
     def hessian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Hessian H(φ)/φ w.r.t e-coordinates.
         d²ln(det(A))/dxdy = (
-            tr(A^-1 * d²A/dxdy) +
-            tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) -
-            tr(A^-1 * dA/dx * A^-1 * dA/dy)
+            tr(A^-1 @ d²A/dxdy) +
+            tr(A^-1 @ dA/dx) ⊗ tr(A^-1 @ dA/dy) -
+            tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
         )
         https://math.stackexchange.com/questions/2325807/second-derivative-of-a-determinant
         in case of x and y is a coordinates of different electrons first term is zero
@@ -442,20 +442,20 @@ class Slater:
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
 
-            # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
+            # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
             temp_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
             res_u = np.zeros(shape=(self.neu, 3, self.neu, 3))
             for r1 in range(3):
                 for r2 in range(3):
-                    res_u[:, r1, :, r2] += np.diag(res_hess_u[:, r1, r2]) - temp_grad_u[:, :, r1].T * temp_grad_u[:, :, r2]
+                    res_u[:, r1, :, r2] = np.diag(res_hess_u[:, r1, r2]) - temp_grad_u[:, :, r1].T * temp_grad_u[:, :, r2]
             hess[:self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3)
 
-            # tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dx * A^-1 * dA/dy)
+            # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
             temp_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3))
             for r1 in range(3):
                 for r2 in range(3):
-                    res_d[:, r1, :, r2] += np.diag(res_hess_d[:, r1, r2]) - temp_grad_d[:, :, r1].T * temp_grad_d[:, :, r2]
+                    res_d[:, r1, :, r2] = np.diag(res_hess_d[:, r1, r2]) - temp_grad_d[:, :, r1].T * temp_grad_d[:, :, r2]
             hess[self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3)
 
             # tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy)
@@ -469,8 +469,8 @@ class Slater:
         https://math.stackexchange.com/questions/890552/nth-derivative-of-determinant-wrt-matrix?rq=1
         d³ln(det(A))/dxdydz = 1/det(A) * (
             d(det(A))/dz * tr(A^-1 * d²A/dxdy) + det(A) * d(tr(A^-1 * d²A/dxdy))/dz
-            d(det(A))/dz * tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) + det(A) * d(tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy))/dz -
-            d(det(A))/dz * tr(A^-1 * dA/dx * A^-1 * dA/dy) - det(A) * d(tr(A^-1 * dA/dx * A^-1 * dA/dy))/dz
+            d(det(A))/dz * tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) + det(A) * d(tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy))/dz -
+            d(det(A))/dz * tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy) - det(A) * d(tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy))/dz
         ) = 1/det(A) * (
             det(A) * tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy) + det(A) * d(tr(A^-1 * d²A/dxdy))/dz
             det(A) * tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) + det(A) * d(tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy))/dz -
@@ -512,7 +512,7 @@ class Slater:
         wfn_u, wfn_d = self.value_matrix(n_vectors)
         grad_u, grad_d = self.gradient_matrix(n_vectors)
         hess_u, hess_d = self.hessian_matrix(n_vectors)
-        tress_u, tress_d = self._tressian_matrix(n_vectors)
+        tress_u, tress_d = self.tressian_matrix(n_vectors)
         val = 0
         tress = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         for i in range(self.det_coeff.size):

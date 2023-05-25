@@ -359,8 +359,7 @@ class Casino:
             f' =====================\n'
         )
         self.equilibrate(self.config.input.vmc_equil_nstep)
-        # Jastrow but not backflow without cutoff optimized = all = 1.000
-        # self.optimize_vmc_step(1000)
+        self.optimize_vmc_step(1000)
 
         steps = self.config.input.vmc_nstep
         nblock = self.config.input.vmc_nblock
