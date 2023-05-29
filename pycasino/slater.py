@@ -1,4 +1,4 @@
-from numpy_config import np, delta
+from numpy_config import np, delta, delta_3
 import numba as nb
 
 from logger import logging
@@ -530,8 +530,8 @@ class Slater:
             val += c
 
             # tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) * tr(A^-1 * dA/dz)
-            res_grad = np.concatenate((res_grad_u.ravel(), res_grad_d.ravel()))
-            tress += c * np.expand_dims(res_grad, (1, 2)) * np.expand_dims(res_grad, (0, 2)) * np.expand_dims(res_grad, (0, 1))
+            # res_grad = np.concatenate((res_grad_u.ravel(), res_grad_d.ravel()))
+            # tress += c * np.expand_dims(res_grad, (1, 2)) * np.expand_dims(res_grad, (0, 2)) * np.expand_dims(res_grad, (0, 1))
 
         return tress / val
 
@@ -631,6 +631,59 @@ class Slater:
                         res[i2, j2, i1, j1] = res[i1, j1, i2, j2]
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / delta / 4 / val
+
+    def numerical_tressian(self, n_vectors: np.ndarray) -> np.ndarray:
+        """Numerical tressian w.r.t e-coordinates
+        :param n_vectors: e-n vectors
+        :return:
+        """
+        val = self.value(n_vectors)
+        res = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3, self.neu + self.ned, 3))
+
+        for i1 in range(self.neu + self.ned):
+            for j1 in range(3):
+                for i2 in range(self.neu + self.ned):
+                    for j2 in range(3):
+                        for i3 in range(self.neu + self.ned):
+                            for j3 in range(3):
+                                n_vectors[:, i1, j1] -= delta_3
+                                n_vectors[:, i2, j2] -= delta_3
+                                n_vectors[:, i3, j3] -= delta_3
+                                # (-1, -1, -1)
+                                res[i1, j1, i2, j2, i3, j3] -= self.value(n_vectors)
+                                n_vectors[:, i1, j1] += 2 * delta_3
+                                # ( 1, -1, -1)
+                                res[i1, j1, i2, j2, i3, j3] += self.value(n_vectors)
+                                n_vectors[:, i2, j2] += 2 * delta_3
+                                # ( 1,  1, -1)
+                                res[i1, j1, i2, j2, i3, j3] -= self.value(n_vectors)
+                                n_vectors[:, i1, j1] -= 2 * delta_3
+                                # (-1,  1, -1)
+                                res[i1, j1, i2, j2, i3, j3] += self.value(n_vectors)
+                                n_vectors[:, i2, j2] -= 2 * delta_3
+                                n_vectors[:, i3, j3] += 2 * delta_3
+                                # (-1, -1,  1)
+                                res[i1, j1, i2, j2, i3, j3] += self.value(n_vectors)
+                                n_vectors[:, i1, j1] += 2 * delta_3
+                                # ( 1, -1,  1)
+                                res[i1, j1, i2, j2, i3, j3] -= self.value(n_vectors)
+                                n_vectors[:, i2, j2] += 2 * delta_3
+                                # ( 1,  1,  1)
+                                res[i1, j1, i2, j2, i3, j3] += self.value(n_vectors)
+                                n_vectors[:, i1, j1] -= 2 * delta_3
+                                # (-1,  1,  1)
+                                res[i1, j1, i2, j2, i3, j3] -= self.value(n_vectors)
+                                n_vectors[:, i1, j1] += delta_3
+                                n_vectors[:, i2, j2] -= delta_3
+                                n_vectors[:, i3, j3] -= delta_3
+
+                                # res[i1, j1, i3, j3, i2, j2] = res[i1, j1, i2, j2, i3, j3]
+                                # res[i2, j2, i1, j1, i3, j3] = res[i1, j1, i2, j2, i3, j3]
+                                # res[i2, j2, i3, j3, i1, j1] = res[i1, j1, i2, j2, i3, j3]
+                                # res[i3, j3, i1, j1, i2, j2] = res[i1, j1, i2, j2, i3, j3]
+                                # res[i3, j3, i2, j2, i1, j1] = res[i1, j1, i2, j2, i3, j3]
+
+        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta_3 / delta_3 / delta_3 / 8 / val
 
     def hessian_derivatives(self, n_vectors: np.ndarray) -> np.ndarray:
         """Tressian or numerical third partial derivatives with respect to e-coordinates

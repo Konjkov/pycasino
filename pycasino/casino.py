@@ -490,13 +490,19 @@ class Casino:
         plt.savefig('hist.png')
         plt.clf()
 
-    def check_d1(self, steps):
+    def check(self, steps):
+        """Check"""
         self.wfn.set_parameters_projector()
         opt_jastrow, opt_backflow = False, True
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         for cond, pos in zip(condition, position):
             if cond:
                 e_vectors, n_vectors = self.wfn._relative_coordinates(pos)
+                self.logger.info(
+                    self.wfn.slater.hessian_derivatives(n_vectors) /
+                    (self.wfn.slater.numerical_tressian(n_vectors) - np.expand_dims(self.wfn.slater.hessian(n_vectors), 2) * self.wfn.slater.gradient(n_vectors))
+                )
+                self.logger.info(self.wfn.slater.tressian(n_vectors) / self.wfn.slater.numerical_tressian(n_vectors))
                 self.logger.info(self.wfn.jastrow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.value_parameters_numerical_d1(e_vectors, n_vectors, False))
                 self.logger.info(self.wfn.jastrow.gradient_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False))
                 self.logger.info(self.wfn.jastrow.laplacian_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.laplacian_parameters_numerical_d1(e_vectors, n_vectors, False))
