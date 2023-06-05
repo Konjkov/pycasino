@@ -28,6 +28,15 @@
 # path='tests/gwfn/Kr/HF/cc-pVQZ/CBCS/Backflow/'
 # path='tests/gwfn/O3/HF/cc-pVQZ/CBCS/Backflow/'
 
+# path='tests/gwfn/He/HF/cc-pVQZ/CBCS/Jastrow_varmin/'
+# path='tests/gwfn/Be/HF/cc-pVQZ/CBCS/Jastrow_varmin/'
+# path='tests/gwfn/Be/MP2-CASSCF(2.4)/cc-pVQZ/CBCS/Jastrow_varmin/'
+# path='tests/gwfn/N/HF/cc-pVQZ/CBCS/Jastrow_varmin/'
+# path='tests/gwfn/Ne/HF/cc-pVQZ/CBCS/Jastrow_varmin/'
+# path='tests/gwfn/Ar/HF/cc-pVQZ/CBCS/Jastrow_varmin/'
+# path='tests/gwfn/Kr/HF/cc-pVQZ/CBCS/Jastrow_varmin/'
+# path='tests/gwfn/O3/HF/cc-pVQZ/CBCS/Jastrow_varmin/'
+
 # path='tests/stowfn/He/HF/QZ4P/CBCS/Slater/'
 # path='tests/stowfn/Be/HF/QZ4P/CBCS/Slater/'
 # path='tests/stowfn/N/HF/QZ4P/CBCS/Slater/'

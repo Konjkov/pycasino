@@ -760,11 +760,11 @@ class Slater:
         res = np.zeros(shape=(self.det_coeff.size, (self.neu + self.ned) * 3))
         for i in range(self.det_coeff.size):
             self.det_coeff[i] -= delta
-            res[i] -= self.gradient(n_vectors) * self.value(n_vectors)
+            res[i] -= self.gradient(n_vectors)
             self.det_coeff[i] += 2 * delta
-            res[i] += self.gradient(n_vectors) * self.value(n_vectors)
+            res[i] += self.gradient(n_vectors)
             self.det_coeff[i] -= delta
-        return self.parameters_projector.T @ (res / delta / 2 / self.value(n_vectors))
+        return self.parameters_projector.T @ (res / delta / 2)
 
     def laplacian_parameters_d1(self, n_vectors: np.ndarray) -> np.ndarray:
         """First derivatives of laplacian w.r.t the parameters
@@ -773,11 +773,24 @@ class Slater:
         res = np.zeros(shape=(self.det_coeff.size, ))
         for i in range(self.det_coeff.size):
             self.det_coeff[i] -= delta
-            res[i] -= self.laplacian(n_vectors) * self.value(n_vectors)
+            res[i] -= self.laplacian(n_vectors)
             self.det_coeff[i] += 2 * delta
-            res[i] += self.laplacian(n_vectors) * self.value(n_vectors)
+            res[i] += self.laplacian(n_vectors)
             self.det_coeff[i] -= delta
-        return self.parameters_projector.T @ (res / delta / 2 / self.value(n_vectors))
+        return self.parameters_projector.T @ (res / delta / 2)
+
+    def hessian_parameters_d1(self, n_vectors: np.ndarray) -> np.ndarray:
+        """First derivatives of hessian w.r.t the parameters
+        :param n_vectors: e-n vectors
+        """
+        res = np.zeros(shape=(self.det_coeff.size, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
+        for i in range(self.det_coeff.size):
+            self.det_coeff[i] -= delta
+            res[i] -= self.hessian(n_vectors)
+            self.det_coeff[i] += 2 * delta
+            res[i] += self.hessian(n_vectors)
+            self.det_coeff[i] -= delta
+        return self.parameters_projector.T @ (res / delta / 2)
 
     def profile_value(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
