@@ -28,6 +28,7 @@ slater_spec = [
     ('det_coeff', nb.float64[:]),
     ('cusp', nb.optional(Cusp.class_type.instance_type)),
     ('norm', nb.float64),
+    ('parameters_projector', nb.float64[:, :]),
 ]
 
 
@@ -72,6 +73,7 @@ class Slater:
         self.det_coeff = coeff
         self.cusp = cusp
         self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
+        self.fix_det_coeff_parameters()
 
     def value_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
         """Value matrix.
@@ -366,6 +368,7 @@ class Slater:
 
     def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient ∇φ/φ w.r.t e-coordinates.
+        Derivative of determinant of symmetric matrix w.r.t. a scalar
         ∇ln(det(A)) = tr(A^-1 @ ∇A)
         where matrix ∇A is column-wise gradient of A
         then using np.trace(A @ B) = np.sum(A * B.T)
@@ -394,7 +397,7 @@ class Slater:
         as tr(A) + tr(B) = tr(A + B)
         Δln(det(A)) = tr(slater^-1 @ B)
         where the matrix Bij = ∆phi i (rj)
-        then using np.trace(A @ B) = np.sum(A * B.T)
+        then using np.trace(A @ B) = np.sum(A * B.T) = np.tensordot(A, B.T)
         Read for details:
         "Simple formalism for efficient derivatives and multi-determinant expansions in quantum Monte Carlo"
         C. Filippi, R. Assaraf, S. Moroni
@@ -404,8 +407,8 @@ class Slater:
         lap_u, lap_d = self.laplacian_matrix(n_vectors)
         val = lap = 0
         for i in range(self.det_coeff.size):
-            res_u = np.sum(np.linalg.inv(wfn_u[self.permutation_up[i]]) * lap_u[self.permutation_up[i]].T)
-            res_d = np.sum(np.linalg.inv(wfn_d[self.permutation_down[i]]) * lap_d[self.permutation_down[i]].T)
+            res_u = (np.linalg.inv(wfn_u[self.permutation_up[i]]) * lap_u[self.permutation_up[i]].T).sum()
+            res_d = (np.linalg.inv(wfn_d[self.permutation_down[i]]) * lap_d[self.permutation_down[i]].T).sum()
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             lap += c * (res_u + res_d)
@@ -458,7 +461,7 @@ class Slater:
                     res_d[:, r1, :, r2] = np.diag(res_hess_d[:, r1, r2]) - temp_grad_d[:, :, r1].T * temp_grad_d[:, :, r2]
             hess[self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3)
 
-            # tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy)
+            # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
             res_grad = np.concatenate((res_grad_u.ravel(), res_grad_d.ravel()))
             hess += c * np.outer(res_grad, res_grad)
 
@@ -473,8 +476,8 @@ class Slater:
             d(det(A))/dz * tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy) - det(A) * d(tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy))/dz
         ) = 1/det(A) * (
             det(A) * tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy) + det(A) * d(tr(A^-1 * d²A/dxdy))/dz
-            det(A) * tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) + det(A) * d(tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy))/dz -
-            det(A) * tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx * A^-1 * dA/dy) - det(A) * d(tr(A^-1 * dA/dx * A^-1 * dA/dy))/dz
+            det(A) * tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) + det(A) * d(tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy))/dz -
+            det(A) * tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy) - det(A) * d(tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy))/dz
         ) = (
             tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy) + tr(d(A^-1 * d²A/dxdy)/dz)
             tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) + tr(d(A^-1 * dA/dx) * tr(A^-1 * dA/dy)/dz) -
@@ -535,9 +538,43 @@ class Slater:
 
         return tress / val
 
-    def fix_eta_parameters(self):
+    def fix_det_coeff_parameters(self):
         """Fix parameters"""
         self.det_coeff /= np.linalg.norm(self.det_coeff)
+
+    def get_parameters_mask(self) -> np.ndarray:
+        """Mask of each variable.
+        """
+        res = np.ones_like(self.det_coeff, dtype=np.bool_)
+        res[0] = False
+        return res
+
+    def get_parameters_scale(self, all_parameters) -> np.ndarray:
+        """Characteristic scale of each variable. Setting x_scale is equivalent
+        to reformulating the problem in scaled variables xs = x / x_scale.
+        An alternative view is that the size of a trust region along j-th
+        dimension is proportional to x_scale[j].
+        The purpose of this method is to reformulate the optimization problem
+        with dimensionless variables having only one dimensional parameter - scale.
+        """
+        if all_parameters:
+            return 1 / self.det_coeff
+        else:
+            return 1 / self.det_coeff[1:]
+
+    def get_parameters_constraints(self):
+        """Returns det_coeff parameters
+        :return:
+        """
+        return np.expand_dims(self.det_coeff, 0), np.ones(shape=(1,))
+
+    def set_parameters_projector(self):
+        """Get Projector matrix"""
+        a, b = self.get_parameters_constraints()
+        p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
+        mask_idx = np.argwhere(self.get_parameters_mask()).ravel()
+        inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
+        self.parameters_projector = p[:, mask_idx] @ inv_p
 
     def get_parameters(self, all_parameters):
         """Returns parameters in the following order:
@@ -558,10 +595,11 @@ class Slater:
         :return:
         """
         if all_parameters:
-            self.det_coeff = parameters[:self.det_coeff.shape[0]]
-            return parameters[self.det_coeff.shape[0]:]
+            self.det_coeff = parameters[:self.det_coeff.size]
+            return parameters[self.det_coeff.size:]
         else:
-            self.det_coeff[1:] = parameters[:self.det_coeff.shape[0]-1]
+            self.det_coeff[1:] = parameters[:self.det_coeff.size-1]
+            self.fix_det_coeff_parameters()
             return parameters[self.det_coeff.shape[0]-1:]
 
     def numerical_gradient(self, n_vectors: np.ndarray) -> float:
@@ -701,6 +739,45 @@ class Slater:
                 n_vectors[:, i, j] -= delta
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
+
+    def value_parameters_d1(self, n_vectors: np.ndarray) -> np.ndarray:
+        """First derivatives of logarithm wfn w.r.t the parameters
+        :param n_vectors: e-n vectors
+        """
+        res = np.zeros(shape=(self.det_coeff.size, ))
+        for i in range(self.det_coeff.size):
+            self.det_coeff[i] -= delta
+            res[i] -= self.value(n_vectors)
+            self.det_coeff[i] += 2 * delta
+            res[i] += self.value(n_vectors)
+            self.det_coeff[i] -= delta
+        return self.parameters_projector.T @ (res / delta / 2 / self.value(n_vectors))
+
+    def gradient_parameters_d1(self, n_vectors: np.ndarray) -> np.ndarray:
+        """First derivatives of gradient w.r.t the parameters
+        :param n_vectors: e-n vectors
+        """
+        res = np.zeros(shape=(self.det_coeff.size, (self.neu + self.ned) * 3))
+        for i in range(self.det_coeff.size):
+            self.det_coeff[i] -= delta
+            res[i] -= self.gradient(n_vectors) * self.value(n_vectors)
+            self.det_coeff[i] += 2 * delta
+            res[i] += self.gradient(n_vectors) * self.value(n_vectors)
+            self.det_coeff[i] -= delta
+        return self.parameters_projector.T @ (res / delta / 2 / self.value(n_vectors))
+
+    def laplacian_parameters_d1(self, n_vectors: np.ndarray) -> np.ndarray:
+        """First derivatives of laplacian w.r.t the parameters
+        :param n_vectors: e-n vectors
+        """
+        res = np.zeros(shape=(self.det_coeff.size, ))
+        for i in range(self.det_coeff.size):
+            self.det_coeff[i] -= delta
+            res[i] -= self.laplacian(n_vectors) * self.value(n_vectors)
+            self.det_coeff[i] += 2 * delta
+            res[i] += self.laplacian(n_vectors) * self.value(n_vectors)
+            self.det_coeff[i] -= delta
+        return self.parameters_projector.T @ (res / delta / 2 / self.value(n_vectors))
 
     def profile_value(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""

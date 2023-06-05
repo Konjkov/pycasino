@@ -167,11 +167,15 @@ class Wfn:
         res = np.zeros(0)
         if self.jastrow is not None and opt_jastrow:
             res = np.concatenate((
-                res, self.jastrow.get_parameters(all_parameters=all_parameters)
+                res, self.jastrow.get_parameters(all_parameters)
             ))
         if self.backflow is not None and opt_backflow:
             res = np.concatenate((
-                res, self.backflow.get_parameters(all_parameters=all_parameters)
+                res, self.backflow.get_parameters(all_parameters)
+            ))
+        if self.slater.det_coeff.size > 1:
+            res = np.concatenate((
+                res, self.slater.get_parameters(all_parameters)
             ))
         return res
 
@@ -180,7 +184,9 @@ class Wfn:
         if self.jastrow is not None and opt_jastrow:
             parameters = self.jastrow.set_parameters(parameters, all_parameters=all_parameters)
         if self.backflow is not None and opt_backflow:
-            self.backflow.set_parameters(parameters, all_parameters=all_parameters)
+            parameters = self.backflow.set_parameters(parameters, all_parameters=all_parameters)
+        if self.slater.det_coeff.size > 1:
+            self.slater.set_parameters(parameters, all_parameters=all_parameters)
 
     def set_parameters_projector(self, opt_jastrow=True, opt_backflow=True):
         """Update optimized parameters"""
@@ -188,6 +194,8 @@ class Wfn:
             self.jastrow.set_parameters_projector()
         if self.backflow is not None and opt_backflow:
             self.backflow.set_parameters_projector()
+        if self.slater.det_coeff.size > 1:
+            self.slater.set_parameters_projector()
 
     def get_parameters_scale(self, opt_jastrow=True, opt_backflow=True, all_parameters=False):
         """Characteristic scale of each optimized parameter."""
@@ -199,6 +207,10 @@ class Wfn:
         if self.backflow is not None and opt_backflow:
             res = np.concatenate((
                 res, self.backflow.get_parameters_scale(all_parameters)
+            ))
+        if self.slater.det_coeff.size > 1:
+            res = np.concatenate((
+                res, self.slater.get_parameters_scale(all_parameters)
             ))
         return res
 
@@ -219,6 +231,10 @@ class Wfn:
             b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
             res = np.concatenate((
                 res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v)
+            ))
+        if self.slater.det_coeff.size > 1:
+            res = np.concatenate((
+                res, self.slater.value_parameters_d1(n_vectors)
             ))
         return res
 
@@ -277,6 +293,16 @@ class Wfn:
                     j_g = self.jastrow.gradient(e_vectors, n_vectors)
                     bf_d1[i] += (s_g_d1[i] @ b_g + s_g @ b_g_d1[i]) @ j_g
             res = np.concatenate((res, bf_d1 @ self.backflow.parameters_projector))
+        if self.slater.det_coeff.size > 1:
+            if self.backflow is not None:
+                b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
+                n_vectors = b_v + n_vectors
+            sl_d1 = self.slater.laplacian_parameters_d1(n_vectors) / 2
+            if self.jastrow is not None:
+                j_g = self.jastrow.gradient(e_vectors, n_vectors)
+                s_g_d1 = self.slater.gradient_parameters_d1(n_vectors)
+                sl_d1 += s_g_d1 @ j_g
+            res = np.concatenate((res, sl_d1))
         return -res
 
     def value_parameters_numerical_d1(self, r_e, opt_jastrow, opt_backflow, all_parameters=False):

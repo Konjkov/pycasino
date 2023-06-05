@@ -9,12 +9,7 @@ Title
 MD
   {n_dets}
   {det_weights}
-  DET 2 1 PR 2 1 3 1
-  DET 2 2 PR 2 1 3 1
-  DET 3 1 PR 2 1 4 1
-  DET 3 2 PR 2 1 4 1
-  DET 4 1 PR 2 1 5 1
-  DET 4 2 PR 2 1 5 1
+  {promote}
 END MDET
 """
 
@@ -27,6 +22,7 @@ class Mdet:
         self.neu = neu
         self.ned = ned
         self.coeff = np.ones(n_dets)
+        self.promote_lines = []
         self.permutation_up = np.stack([np.arange(neu)] * n_dets)
         self.permutation_down = np.stack([np.arange(ned)] * n_dets)
 
@@ -55,6 +51,7 @@ class Mdet:
                                     self.coeff[i] = coeff = float(line[0])
                         elif line.startswith('DET'):
                             # DET 2 1 PR 2 1 3 1
+                            self.promote_lines.append(line)
                             _, n_det, spin, operation, from_orb, _, to_orb, _ = line.split()
                             if operation == 'PR':
                                 if spin == '1':
@@ -63,12 +60,15 @@ class Mdet:
                                     self.permutation_down[int(n_det)-1, int(from_orb)-1] = int(to_orb)-1
 
     def write(self):
-        det_weights_list = []
-        for coeff in self.coeff:
-            det_weights_list.append(f'{coeff: .16e}            1       0')
-        mdet = mdet_template.format(
-            title='no title given',
-            n_dets=self.coeff.size,
-            det_weights='\n  '.join(det_weights_list),
-        )
+        mdet = ''
+        if self.coeff.size > 1:
+            det_weights_list = []
+            for coeff in self.coeff:
+                det_weights_list.append(f'{coeff: .16e}            1       0')
+            mdet = mdet_template.format(
+                title='no title given',
+                n_dets=self.coeff.size,
+                det_weights='\n  '.join(det_weights_list),
+                promote='\n  '.join(self.promote_lines),
+            )
         return mdet

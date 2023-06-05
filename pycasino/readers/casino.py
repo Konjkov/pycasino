@@ -7,7 +7,7 @@ from readers.gjastrow import Gjastrow
 from readers.mdet import Mdet
 from readers.backflow import Backflow
 
-template = """\
+correlation_data_template = """\
  START HEADER
   {title}
  END HEADER
@@ -53,19 +53,17 @@ class CasinoConfig:
             self.backflow.read(self.base_path)
 
     def write(self, base_path, version):
-        title = 'no title given'
-        correlation = template.format(title=title)
+        correlation_data = correlation_data_template.format(title='no title given')
 
         # if self.wfn:
         #     self.wfn.write()
-        if self.mdet:
-            self.mdet.write()
         if self.jastrow:
-            correlation += self.jastrow.write()
+            correlation_data += self.jastrow.write()
         if self.backflow:
-            correlation += self.backflow.write()
+            correlation_data += self.backflow.write()
+        if self.mdet:
+            correlation_data += self.mdet.write()
 
         file_path = os.path.join(base_path, f'correlation.out.{version}')
         with open(file_path, 'w') as f:
-            f.write(correlation)
-
+            f.write(correlation_data)
