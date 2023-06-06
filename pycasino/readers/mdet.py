@@ -58,6 +58,8 @@ class Mdet:
                                     self.permutation_up[int(n_det)-1, int(from_orb)-1] = int(to_orb)-1
                                 elif spin == '2':
                                     self.permutation_down[int(n_det)-1, int(from_orb)-1] = int(to_orb)-1
+                # normalisation
+                self.coeff /= np.linalg.norm(self.coeff)
 
     def write(self):
         mdet = ''

@@ -594,14 +594,14 @@ class Jastrow:
         return res / delta / delta
 
     def fix_u_parameters(self):
-        """Fix u-term parameters"""
+        """Fix u-term dependent parameters."""
         C = self.trunc
         L = self.u_cutoff
         Gamma = 1 / np.array([4, 2, 4][:self.u_parameters.shape[1]])
         self.u_parameters[1] = Gamma / (-L) ** C + self.u_parameters[0] * C / L
 
     def fix_chi_parameters(self):
-        """Fix chi-term parameters"""
+        """Fix chi-term dependent parameters."""
         C = self.trunc
         for chi_parameters, L, chi_cusp in zip(self.chi_parameters, self.chi_cutoff, self.chi_cusp):
             chi_parameters[1] = chi_parameters[0] * C / L
@@ -611,7 +611,8 @@ class Jastrow:
                 # chi_parameters[1] -= charge / (-L) ** C
 
     def fix_f_parameters(self):
-        """To find the dependent coefficients of f-term it is necessary to solve
+        """Fix f-term dependent parameters.
+        To find the dependent coefficients of f-term it is necessary to solve
         the system of linear equations:  A*x=b
         A-matrix has the following rows:
         (2 * f_en_order + 1) constraints imposed to satisfy electron–electron no-cusp condition.

@@ -73,7 +73,6 @@ class Slater:
         self.det_coeff = coeff
         self.cusp = cusp
         self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
-        self.fix_det_coeff_parameters()
 
     def value_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
         """Value matrix.
@@ -539,12 +538,12 @@ class Slater:
         return tress / val
 
     def fix_det_coeff_parameters(self):
-        """Fix parameters"""
-        self.det_coeff /= np.linalg.norm(self.det_coeff)
+        """Fix dependent parameters."""
+        # FIXME: can be a negative number under the radical
+        self.det_coeff[0] = np.sqrt(1 - np.sum(self.det_coeff[1:]**2))
 
     def get_parameters_mask(self) -> np.ndarray:
-        """Mask of each variable.
-        """
+        """Mask dependent parameters."""
         res = np.ones_like(self.det_coeff, dtype=np.bool_)
         res[0] = False
         return res

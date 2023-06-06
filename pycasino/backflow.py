@@ -804,7 +804,7 @@ class Backflow:
         return res.ravel() / delta / delta
 
     def fix_eta_parameters(self):
-        """Fix eta-term parameters"""
+        """Fix eta-term dependent parameters"""
         C = self.trunc
         L = self.eta_cutoff[0]
         self.eta_parameters[1, 0] = C * self.eta_parameters[0, 0] / L
@@ -813,13 +813,13 @@ class Backflow:
             self.eta_parameters[1, 2] = C * self.eta_parameters[0, 2] / L
 
     def fix_mu_parameters(self):
-        """Fix mu-term parameters"""
+        """Fix mu-term dependent parameters"""
         for mu_parameters in self.mu_parameters:
             # for AE atoms
             mu_parameters[0:2] = 0
 
     def fix_phi_parameters(self):
-        """Fix phi-term parameters"""
+        """Fix phi-term dependent parameters"""
         for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cusp, self.phi_irrotational):
             for spin_dep in range(phi_parameters.shape[3]):
                 c = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)

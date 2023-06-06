@@ -493,7 +493,7 @@ class Casino:
     def check(self, steps):
         """Check"""
         self.wfn.set_parameters_projector()
-        opt_jastrow, opt_backflow = False, True
+        opt_jastrow, opt_backflow = False, False
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         for cond, pos in zip(condition, position):
             if cond:
@@ -503,12 +503,14 @@ class Casino:
                     (self.wfn.slater.numerical_tressian(n_vectors) - np.expand_dims(self.wfn.slater.hessian(n_vectors), 2) * self.wfn.slater.gradient(n_vectors))
                 )
                 self.logger.info(self.wfn.slater.tressian(n_vectors) / self.wfn.slater.numerical_tressian(n_vectors))
-                self.logger.info(self.wfn.jastrow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.value_parameters_numerical_d1(e_vectors, n_vectors, False))
-                self.logger.info(self.wfn.jastrow.gradient_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False))
-                self.logger.info(self.wfn.jastrow.laplacian_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.laplacian_parameters_numerical_d1(e_vectors, n_vectors, False))
-                self.logger.info(self.wfn.backflow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.backflow.value_parameters_numerical_d1(e_vectors, n_vectors, False))
-                self.logger.info(self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.gradient_parameters_d1(e_vectors, n_vectors)[0][:, :, 1] / self.wfn.backflow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False)[:, :, 1])
-                self.logger.info(self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.laplacian_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.laplacian_parameters_numerical_d1(e_vectors, n_vectors, False))
+                if self.wfn.jastrow is not None:
+                    self.logger.info(self.wfn.jastrow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.value_parameters_numerical_d1(e_vectors, n_vectors, False))
+                    self.logger.info(self.wfn.jastrow.gradient_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False))
+                    self.logger.info(self.wfn.jastrow.laplacian_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.laplacian_parameters_numerical_d1(e_vectors, n_vectors, False))
+                if self.wfn.backflow is not None:
+                    self.logger.info(self.wfn.backflow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.backflow.value_parameters_numerical_d1(e_vectors, n_vectors, False))
+                    self.logger.info(self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.gradient_parameters_d1(e_vectors, n_vectors)[0][:, :, 1] / self.wfn.backflow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False)[:, :, 1])
+                    self.logger.info(self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.laplacian_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.laplacian_parameters_numerical_d1(e_vectors, n_vectors, False))
                 self.logger.info(self.wfn.value_parameters_d1(pos, opt_jastrow, opt_backflow) / self.wfn.value_parameters_numerical_d1(pos, opt_jastrow, opt_backflow))
                 self.logger.info(self.wfn.energy_parameters_d1(pos, opt_jastrow, opt_backflow) / self.wfn.energy_parameters_numerical_d1(pos, opt_jastrow, opt_backflow))
 
