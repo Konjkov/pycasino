@@ -233,7 +233,7 @@ class Wfn:
                 res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v)
             ))
         if self.slater.det_coeff.size > 1:
-            if self.backflow is not None
+            if self.backflow is not None:
                 n_vectors = self.backflow.value(e_vectors, n_vectors) + n_vectors
             res = np.concatenate((
                 res, self.slater.value_parameters_d1(n_vectors)
