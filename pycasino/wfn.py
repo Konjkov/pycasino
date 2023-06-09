@@ -297,12 +297,18 @@ class Wfn:
             res = np.concatenate((res, bf_d1 @ self.backflow.parameters_projector))
         if self.slater.det_coeff.size > 1:
             if self.backflow is not None:
+                # FIXME: check
                 b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
-                n_vectors = b_v + n_vectors
-            sl_d1 = self.slater.laplacian_parameters_d1(n_vectors) / 2
+                s_g_d1 = self.slater.gradient_parameters_d1(b_v + n_vectors)
+                s_h_d1 = self.slater.hessian_parameters_d1(b_v + n_vectors)
+                sl_d1 = (np.sum(s_h_d1 * (b_g @ b_g.T)) + s_g_d1 @ b_l) / 2
+                s_g_d1 = s_g_d1 @ b_g
+            else:
+                s_g_d1 = self.slater.gradient_parameters_d1(n_vectors)
+                s_l_d1 = self.slater.laplacian_parameters_d1(n_vectors)
+                sl_d1 = s_l_d1 / 2
             if self.jastrow is not None:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
-                s_g_d1 = self.slater.gradient_parameters_d1(n_vectors)
                 sl_d1 += s_g_d1 @ j_g
             res = np.concatenate((res, sl_d1))
         return -res
