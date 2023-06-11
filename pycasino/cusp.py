@@ -730,7 +730,7 @@ class CuspFactory:
         """
         return (beta0 + np.where(self.atom_charges[:, np.newaxis] == 1, 0, polyval(r, self.beta) * r**2)) * self.atom_charges[:, np.newaxis] ** 2  # (17)
 
-    def energy_diff_max(self, alpha):
+    def get_energy_diff_max(self, alpha):
         """Maximum square deviation of phi_tilde energy from the ideal energy
         :return:
         """
@@ -775,7 +775,8 @@ class CuspFactory:
         def f(x):
             phi_tilde_0[nonzero_index] = x
             alpha = self.alpha_data(phi_tilde_0)
-            return np.sum(self.energy_diff_max(alpha)[nonzero_index])
+            self.energy_diff_max = self.get_energy_diff_max(alpha)
+            return np.sum(self.energy_diff_max[nonzero_index])
 
         options = dict(disp=False)
         res = minimize(f, nonzero_phi_tilde_0, method='Powell', options=options)
@@ -921,15 +922,16 @@ class CuspFactory:
                             f' Value of uncorrected orbital at nucleus   : {(self.phi_0 + self.eta)[atom][orb]:16.12f}\n'
                             f' Value of s part of orbital at nucleus     : {self.phi_0[atom][orb]:16.12f}\n'
                             f' Optimum corrected s orbital at nucleus    : {self.phi_tilde_0[atom][orb]:16.12f}\n'
-                            f' Maximum deviation from ideal local energy : {0:16.12f}\n'
+                            f' Maximum deviation from ideal local energy : {self.energy_diff_max[atom][orb]:16.12f}\n'
                             f' Effective nuclear charge                  : {self.atom_charges[atom]:16.12f}\n'
                         )
                     else:
                         self.logger.info(
                             ' Orbital s component effectively zero at this nucleus.\n'
                         )
+        nonzero_index = np.nonzero(self.phi_tilde_0)
         self.logger.info(
-            f' Maximum deviation from ideal (averaged over orbitals) : {0:16.12f}.\n'
+            f' Maximum deviation from ideal (averaged over orbitals) : {np.mean(self.energy_diff_max[nonzero_index]):16.12f}.\n'
         )
 
 
