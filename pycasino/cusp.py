@@ -570,7 +570,8 @@ class CuspFactory:
 
     def __init__(
             self, neu, ned, mo_up, mo_down, permutation_up, permutation_down,
-            first_shells, shell_moments, primitives, coefficients, exponents, atom_positions, atom_charges
+            first_shells, shell_moments, primitives, coefficients, exponents, atom_positions, atom_charges,
+            logger
     ):
         self.neu = neu
         self.ned = ned
@@ -590,8 +591,18 @@ class CuspFactory:
         self.phi_0, _, _ = self.phi(np.zeros(shape=(self.atom_positions.shape[0], self.mo.shape[0])))
         self.orb_mask = np.abs(self.phi_0) > self.cusp_threshold
         self.beta = np.array([3.25819, -15.0126, 33.7308, -42.8705, 31.2276, -12.1316, 1.94692])
+        # atoms, MO - Value of corrected orbital at nucleus
+        # self.phi_tilde_0 = self.phi_0
+        # atoms, MO - cusp correction radius
+        self.rc = self.rc_initial()
         # atoms, MO - sign of s-type Gaussian functions centered on the nucleus
         self.orbital_sign = self.phi_sign()
+        # atoms, MO - shift chosen so that phi − shift is of one sign within rc
+        self.shift = np.zeros((self.atom_positions.shape[0], self.mo.shape[0]))
+        # atoms, MO - contribution from Gaussians on other nuclei
+        self.eta = self.eta_data()
+        self.unrestricted = self.orbitals_up != self.orbitals_down
+        self.logger = logger
 
     def phi(self, rc):
         """Wfn of single electron of s-orbitals on each atom"""
@@ -653,20 +664,21 @@ class CuspFactory:
         """Calculate phi sign."""
         return np.where(self.orb_mask, np.sign(self.phi_0), 0).astype(np.int64)
 
-    def alpha_data(self, rc, eta, phi_tilde_0, shift):
+    def alpha_data(self, phi_tilde_0):
         """Calculate phi coefficients.
         shift variable chosen so that (phi−shift) is of one sign within rc.
         eta is a contribution from Gaussians on other nuclei.
         """
+        rc = self.rc
         np.seterr(divide='ignore', invalid='ignore')
         alpha = np.zeros(shape=(5, self.atom_positions.shape[0], self.mo.shape[0]))
         phi_rc, phi_diff_rc, phi_diff_2_rc = self.phi(rc)
-        R = phi_tilde_0 - shift
-        X1 = np.log(np.abs(phi_rc - shift))                             # (9)
-        X2 = phi_diff_rc / (phi_rc - shift)                             # (10)
-        X3 = phi_diff_2_rc / (phi_rc - shift)                           # (11)
-        X4 = -self.atom_charges[:, np.newaxis] * (shift + R + eta) / R  # (12)
-        X5 = np.log(np.abs(R))                                          # (13)
+        R = phi_tilde_0 - self.shift
+        X1 = np.log(np.abs(phi_rc - self.shift))                                  # (9)
+        X2 = phi_diff_rc / (phi_rc - self.shift)                                  # (10)
+        X3 = phi_diff_2_rc / (phi_rc - self.shift)                                # (11)
+        X4 = -self.atom_charges[:, np.newaxis] * (self.shift + R + self.eta) / R  # (12)
+        X5 = np.log(np.abs(R))                                                    # (13)
         # (14)
         alpha[0] = X5
         alpha[1] = X4
@@ -677,18 +689,18 @@ class CuspFactory:
         # remove NaN from orbitals without s-part
         return np.nan_to_num(alpha, posinf=0, neginf=0)
 
-    def phi_energy(self, r, eta, shift):
+    def phi_energy(self, r):
         """Effective one-electron local energy for gaussian s-part orbital.
         :param r:
         :return: energy
         """
-        R = self.phi_0 - shift
+        R = self.phi_0 - self.shift
         phi_rc, phi_diff_rc, phi_diff_2_rc = self.phi(r)
-        z_eff = self.atom_charges[:, np.newaxis] * (1 + eta / (R + shift))         # (16)
-        return - 0.5 * (2 * phi_diff_rc / r + phi_diff_2_rc) / phi_rc - z_eff / r  # (15)
+        z_eff = self.atom_charges[:, np.newaxis] * (1 + self.eta / (R + self.shift))  # (16)
+        return - 0.5 * (2 * phi_diff_rc / r + phi_diff_2_rc) / phi_rc - z_eff / r     # (15)
 
-    def phi_tilde_energy(self, r, eta, shift, alpha):
-        """effective one-electron local energy for corrected orbital.
+    def phi_tilde_energy(self, r, alpha):
+        """Effective one-electron local energy for corrected orbital.
         Equation (15)
         :param r:
         :return: energy
@@ -698,14 +710,14 @@ class CuspFactory:
         p_diff_2 = 2 * alpha[2] + 2 * 3 * alpha[3] * r + 3 * 4 * alpha[4] * r ** 2
         R = self.orbital_sign * np.exp(p)
         np.seterr(divide='ignore', invalid='ignore')
-        z_eff = self.atom_charges[:, np.newaxis] * (1 + eta / (R + shift))  # (16)
+        z_eff = self.atom_charges[:, np.newaxis] * (1 + self.eta / (R + self.shift))  # (16)
         # np.where is not lazy
         # https://pretagteam.com/question/numpy-where-function-can-not-avoid-evaluate-sqrtnegative
         energy = np.where(
             r == 0,
             # apply L'Hôpital's rule to find energy limit at r=0 in (15)
-            -0.5 * R / (R + shift) * (3 * p_diff_2 + p_diff_1 ** 2),
-            -0.5 * R / (R + shift) * (2 * p_diff_1 / r + p_diff_2 + p_diff_1 ** 2) - z_eff / r
+            -0.5 * R / (R + self.shift) * (3 * p_diff_2 + p_diff_1 ** 2),
+            -0.5 * R / (R + self.shift) * (2 * p_diff_1 / r + p_diff_2 + p_diff_1 ** 2) - z_eff / r
         )  # (15)
         np.seterr(divide='warn', invalid='warn')
         return energy
@@ -718,19 +730,20 @@ class CuspFactory:
         """
         return (beta0 + np.where(self.atom_charges[:, np.newaxis] == 1, 0, polyval(r, self.beta) * r**2)) * self.atom_charges[:, np.newaxis] ** 2  # (17)
 
-    def energy_diff_max(self, rc, eta, shift, alpha):
+    def energy_diff_max(self, alpha):
         """Maximum square deviation of phi_tilde energy from the ideal energy
         :return:
         """
         steps = 1000
-        beta0 = (self.phi_tilde_energy(rc, eta, shift, alpha) - self.ideal_energy(rc, 0)) / self.atom_charges[:, np.newaxis] ** 2
-        r = np.linspace(0, rc, steps + 1)
-        energy = np.abs(self.phi_tilde_energy(r, eta, shift, alpha) - self.ideal_energy(r, beta0))
+        beta0 = (self.phi_tilde_energy(self.rc, alpha) - self.ideal_energy(self.rc, 0)) / self.atom_charges[:, np.newaxis] ** 2
+        r = np.linspace(0, self.rc, steps + 1)
+        energy = np.abs(self.phi_tilde_energy(r, alpha) - self.ideal_energy(r, beta0))
         return np.max(energy, axis=0)
 
-    def optimize_rc(self, rc, eta, shift):
+    def optimize_rc(self):
         """Optimize rc"""
-        beta0 = (self.phi_energy(self.rc_initial(), eta, shift) - self.ideal_energy(self.rc_initial(), 0)) / self.atom_charges[:, np.newaxis] ** 2
+        rc = self.rc
+        beta0 = (self.phi_energy(self.rc_initial()) - self.ideal_energy(self.rc_initial(), 0)) / self.atom_charges[:, np.newaxis] ** 2
         for atom in range(self.atom_positions.shape[0]):
             for orb in range(self.mo.shape[0]):
                 r = rc[atom, orb]
@@ -739,7 +752,7 @@ class CuspFactory:
                     continue
 
                 for r in np.linspace(rc[atom, orb], 0, int(rc[atom, orb] * 2000) + 1):
-                    energy_delta = np.abs(self.phi_energy(rc, eta, shift) - self.ideal_energy(rc, beta0))
+                    energy_delta = np.abs(self.phi_energy(rc) - self.ideal_energy(rc, beta0))
                     if (energy_delta > self.atom_charges[:, np.newaxis] ** 2 / 50)[atom, orb]:
                         rc[atom, orb] = r
                         break
@@ -747,16 +760,13 @@ class CuspFactory:
         drc = rc * 0.05 * 2000
 
         for r in np.linspace(rc - 4 * drc, rc + 4 * drc, 9):
-            self.optimize_phi_tilde_0(r, eta, np.copy(self.phi_0), shift)
+            self.optimize_phi_tilde_0(r, np.copy(self.phi_0))
 
         return rc
 
-    def optimize_phi_tilde_0(self, rc, eta, phi_tilde_0, shift):
+    def optimize_phi_tilde_0(self, phi_tilde_0):
         """Optimize phi_tilde at r=0
-        :param rc:
-        :param eta:
         :param phi_tilde_0: initial value
-        :param shift:
         :return:
         """
         for atom in range(self.atom_positions.shape[0]):
@@ -765,8 +775,8 @@ class CuspFactory:
 
             def f(x):
                 phi_tilde_0[atom][nonzero_index] = x
-                alpha = self.alpha_data(rc, eta, phi_tilde_0, shift)
-                return np.sum(self.energy_diff_max(rc, eta, shift, alpha)[atom][nonzero_index])
+                alpha = self.alpha_data(phi_tilde_0)
+                return np.sum(self.energy_diff_max(alpha)[atom][nonzero_index])
 
             options = dict(disp=False)
             res = minimize(f, nonzero_phi_tilde_0, method='Powell', options=options)
@@ -851,29 +861,76 @@ class CuspFactory:
                 [-0.018824846884, -0.002828414129, -5.299444354528,  0.398174414615, -0.701172068569,  0.709930839504, 0.0, -0.026979314668,  0.436599565976, 0.0,  0.032554800149,  0.012216984810],
                 [-0.024767570392,  5.292572118630, -0.002698702856,  0.625758024578,  0.816314024042,  0.547346193858, 0.0, -0.243109138643, -0.182823180811, 0.0, -0.009584833190,  0.026173722176],
             ]))
-        # atoms, MO - shift chosen so that phi − shift is of one sign within rc
-        shift = np.zeros((self.atom_positions.shape[0], self.mo.shape[0]))
-        # atoms, MO - cusp correction radius
         if casino_rc:
             # atoms, MO - Value of uncorrected orbital at nucleus
             wfn_0 = np.concatenate((wfn_0_up, wfn_0_down), axis=1) * (self.norm / self.casino_norm)
-            eta = wfn_0 - self.phi_0
-            rc = np.concatenate((rc_up, rc_down), axis=1)
+            self.eta = wfn_0 - self.phi_0
+            # atoms, MO - cusp correction radius
+            self.rc = np.concatenate((rc_up, rc_down), axis=1)
         else:
-            eta = self.eta_data()
-            rc = self.rc_initial()
-            # rc = self.optimize_rc(rc, eta, shift)
+            pass
+            # rc = self.optimize_rc(rc)
         # atoms, MO - Value of corrected orbital at nucleus
         if casino_phi_tilde_0:
             phi_tilde_0 = np.concatenate((phi_tilde_0_up, phi_tilde_0_down), axis=1) * (self.norm / self.casino_norm)
         else:
-            phi_tilde_0 = self.optimize_phi_tilde_0(rc, eta, np.copy(self.phi_0), shift)
+            phi_tilde_0 = self.optimize_phi_tilde_0(np.copy(self.phi_0))
 
-        alpha = self.alpha_data(rc, eta, phi_tilde_0, shift)
+        alpha = self.alpha_data(phi_tilde_0)
         return Cusp(
-            self.neu, self.ned, self.orbitals_up, self.orbitals_down, rc, shift, self.orbital_sign, alpha,
+            self.neu, self.ned, self.orbitals_up, self.orbitals_down, self.rc, self.shift, self.orbital_sign, alpha,
             self.mo, self.first_shells, self.shell_moments, self.primitives, self.coefficients, self.exponents
         )
+
+    def cusp_info(self):
+        """If cusp correction is set to T for an all-electron Gaussian basis set calculation,
+        then casino will alter the orbitals inside a small radius around each nucleus in such a way
+        that they obey the electron–nucleus cusp condition. If cusp info is set to T then information
+        about precisely how this is done will be printed to the out file. Be aware that in large systems
+        this may produce a lot of output.
+        :return:
+        """
+        self.logger.info(
+            ' Gaussian cusp correction\n'
+            ' ========================\n\n'
+            'Verbose print out flagged (turn off with cusp_info : F)\n'
+        )
+        phi_tilde_0 = self.optimize_phi_tilde_0(np.copy(self.phi_0))
+        for i in range(2) if self.unrestricted else range(1):
+            if self.unrestricted:
+                if i == 0:
+                    self.logger.info(
+                        ' UP SPIN\n'
+                    )
+                else:
+                    self.logger.info(
+                        ' DOWN SPIN\n'
+                    )
+            else:
+                self.logger.info(
+                    ' Spin restricted calculation.\n'
+                )
+
+            for atom in range(self.atom_positions.shape[0]):
+                for orb in range(self.orbitals_up) if i == 0 else range(self.orbitals_up, self.orbitals_up + self.orbitals_down):
+                    self.logger.info(
+                        f' Orbital {orb + 1 if i == 0 else orb + 1 - self.orbitals_up} at position of ion {atom + 1}'
+                    )
+                    if self.orb_mask[atom][orb]:
+                        sign = 'positive' if self.orbital_sign[atom][orb] else 'negative'
+                        self.logger.info(
+                            f' Sign of orbital at nucleus                : {sign}\n'
+                            f' Cusp radius (au)                          : {self.rc[atom][orb]:16.12f}\n'
+                            f' Value of uncorrected orbital at nucleus   : {(self.phi_0 + self.eta)[atom][orb]:16.12f}\n'
+                            f' Value of s part of orbital at nucleus     : {self.phi_0[atom][orb]:16.12f}\n'
+                            f' Optimum corrected s orbital at nucleus    : {phi_tilde_0[atom][orb]:16.12f}\n'
+                            f' Maximum deviation from ideal local energy : {0:16.12f}\n'
+                            f' Effective nuclear charge                  : {self.atom_charges[atom]:16.12f}\n'
+                        )
+                    else:
+                        self.logger.info(
+                            f' Orbital s component effectively zero at this nucleus.\n'
+                        )
 
 
 class TestCuspFactory:
@@ -1152,7 +1209,8 @@ if __name__ == '__main__':
             config.mdet.permutation_up, config.mdet.permutation_down,
             config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
             config.wfn.coefficients, config.wfn.exponents,
-            config.wfn.atom_positions, config.wfn.atom_charges
+            config.wfn.atom_positions, config.wfn.atom_charges,
+            None
         ).create(casino_rc=True, casino_phi_tilde_0=False)
 
         cusp_test = TestCuspFactory(
