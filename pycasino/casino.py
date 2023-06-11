@@ -136,13 +136,17 @@ class Casino:
             self.logger.level = logging.ERROR
 
         if self.config.input.cusp_correction:
-            cusp = CuspFactory(
+            cusp_factory = CuspFactory(
                 self.config.input.neu, self.config.input.ned, self.config.wfn.mo_up, self.config.wfn.mo_down,
                 self.config.mdet.permutation_up, self.config.mdet.permutation_down,
                 self.config.wfn.first_shells, self.config.wfn.shell_moments, self.config.wfn.primitives,
                 self.config.wfn.coefficients, self.config.wfn.exponents,
-                self.config.wfn.atom_positions, self.config.wfn.atom_charges
-            ).create()
+                self.config.wfn.atom_positions, self.config.wfn.atom_charges, self.config.wfn.unrestricted,
+                self.logger
+            )
+            cusp = cusp_factory.create()
+            if self.config.input.cusp_info:
+                cusp_factory.cusp_info()
         else:
             cusp = None
 

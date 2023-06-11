@@ -15,6 +15,7 @@ class Input:
         self.nucleus_gf_mods = True
         self.cusp_correction = None
         self.cusp_threshold = 1e-7
+        self.cusp_info = False
         self.use_gpcc = None
         self.opt_jastrow = self.opt_backflow = False
         self.nucleus_gf_mods = True
@@ -93,6 +94,8 @@ class Input:
                     self.vm_reweight = read_bool(line)
                 elif line.startswith('cusp_correction'):
                     self.cusp_correction = read_bool(line)
+                elif line.startswith('cusp_info'):
+                    self.cusp_info = read_bool(line)
                 elif line.startswith('nucleus_gf_mods'):
                     self.nucleus_gf_mods = read_bool(line)
                 elif line.startswith('alimit'):
