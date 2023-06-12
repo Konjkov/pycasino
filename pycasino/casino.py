@@ -18,7 +18,7 @@ from markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
 from wfn import Wfn
 from readers.casino import CasinoConfig
 from sem import correlated_sem
-from logger import logging, StreamToLogger
+from logger import disclamer, logging, StreamToLogger
 
 
 # @nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
@@ -283,6 +283,7 @@ class Casino:
         """Run Casino workflow.
         """
         start = default_timer()
+        self.logger.info(disclamer)
         if self.config.input.runtype == 'vmc':
             self.logger.info(
                 ' ====================================\n'

@@ -769,7 +769,7 @@ class CuspFactory:
         :param phi_tilde_0: initial value
         :return:
         """
-        nonzero_index = np.nonzero(phi_tilde_0)
+        nonzero_index = np.nonzero(self.orb_mask)
         nonzero_phi_tilde_0 = phi_tilde_0[nonzero_index]
 
         def f(x):
@@ -929,7 +929,7 @@ class CuspFactory:
                         self.logger.info(
                             ' Orbital s component effectively zero at this nucleus.\n'
                         )
-        nonzero_index = np.nonzero(self.phi_tilde_0)
+        nonzero_index = np.nonzero(self.orb_mask)
         self.logger.info(
             f' Maximum deviation from ideal (averaged over orbitals) : {np.mean(self.energy_diff_max[nonzero_index]):16.12f}.\n'
         )
