@@ -32,9 +32,11 @@ class Gjastrow:
             return dict(ChainMap(*node)) if isinstance(node, list) else node
         res = term
         for arg in args:
-            res = res.get(arg)
-            if arg not in ['a', 'b', 'L']:
-                res = list_or_dict(res)
+            if res := res.get(arg):
+                if arg not in ['a', 'b', 'L']:
+                    res = list_or_dict(res)
+            else:
+                return ''
         return res
 
     def get_terms(self):
@@ -139,8 +141,8 @@ class Gjastrow:
             for channel in self.get(term, 'e-n cutoff', 'Parameters') or []:
                 en_term_parameters.append(
                     dict_to_typed_dict(
-                        {parameter: self.get(term, 'e-e cutoff', 'Parameters', channel, parameter)[0]
-                         for parameter in self.get(term, 'e-e cutoff', 'Parameters', channel)}
+                        {parameter: self.get(term, 'e-n cutoff', 'Parameters', channel, parameter)[0]
+                         for parameter in self.get(term, 'e-n cutoff', 'Parameters', channel)}
                     )
                 )
         return ee_term_parameters, en_term_parameters
@@ -194,9 +196,10 @@ class Gjastrow:
                 G = 1/4 if ch1 == ch2 else 1/2
                 if self.linear_parameters[j, 0]:
                     continue
-                C = self.ee_cutoff_parameters[j]['L'] / self.ee_constants[i]['C']
-                if self.ee_cutoff_type[0] == 'polynomial':
+                if self.ee_cutoff_type[i] == 'polynomial':
+                    C = self.ee_cutoff_parameters[j]['L'] / self.ee_constants[i]['C']
                     self.linear_parameters[j, 0] = C * (self.linear_parameters[j, 1] - G)
-                elif self.ee_cutoff_type[0] == 'alt polynomial':
+                elif self.ee_cutoff_type[i] == 'alt polynomial':
+                    C = self.ee_cutoff_parameters[j]['L'] / self.ee_constants[i]['C']
                     self.linear_parameters[j, 0] = C * (self.linear_parameters[j, 1] - G/(-self.ee_cutoff_parameters[j]['L'])**self.ee_constants[i]['C'])
             # self.e_permutation = np.zeros((0,))

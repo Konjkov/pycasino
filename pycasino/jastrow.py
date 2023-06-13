@@ -151,7 +151,7 @@ class Jastrow:
                     f_parameters_available[:, :, :, 2] = False
             self.f_parameters_available.append(f_parameters_available)
 
-    def ee_powers(self, e_vectors) -> np.ndarray:
+    def ee_powers(self, e_vectors: np.ndarray) -> np.ndarray:
         """Powers of e-e distances
         :param e_vectors: e-e vectors - array(nelec, nelec, 3)
         :return: powers of e-e distances - array(nelec, nelec, max_ee_order)
@@ -164,7 +164,7 @@ class Jastrow:
                     res[i, j, k] = res[j, i, k] = r_ee ** k
         return res
 
-    def en_powers(self, n_vectors) -> np.ndarray:
+    def en_powers(self, n_vectors: np.ndarray) -> np.ndarray:
         """Powers of e-n distances
         :param n_vectors: e-n vectors - array(natom, nelec, 3)
         :return: powers of e-n distances - array(natom, nelec, max_en_order)
@@ -177,7 +177,7 @@ class Jastrow:
                     res[i, j, k] = r_eI ** k
         return res
 
-    def u_term(self, e_powers) -> float:
+    def u_term(self, e_powers: np.ndarray) -> float:
         """Jastrow u-term
         :param e_powers: powers of e-e distances
         :return:
@@ -204,7 +204,7 @@ class Jastrow:
                     res += poly * (r - self.u_cutoff) ** C
         return res
 
-    def chi_term(self, n_powers) -> float:
+    def chi_term(self, n_powers: np.ndarray) -> float:
         """Jastrow chi-term
         :param n_powers: powers of e-e distances
         :return:

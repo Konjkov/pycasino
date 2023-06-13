@@ -1,12 +1,5 @@
-#!/usr/bin/env python3
-
-from numpy_config import np
+from numpy_config import np, delta
 import numba as nb
-
-import matplotlib.pyplot as plt
-
-from readers.casino import CasinoConfig
-
 
 constants_type = nb.types.DictType(nb.types.unicode_type, nb.float64)
 parameters_type = nb.types.ListType(nb.types.DictType(nb.types.unicode_type, nb.float64))
@@ -33,9 +26,11 @@ spec = [
 class Gjastrow:
 
     def __init__(
-            self, e_rank, n_rank, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type,
+            self, neu, ned, e_rank, n_rank, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type,
             ee_constants, en_constants, ee_basis_parameters, en_basis_parameters, ee_cutoff_parameters,
             en_cutoff_parameters, linear_parameters):
+        self.neu = neu
+        self.ned = ned
         self.e_rank = e_rank
         self.n_rank = n_rank
         self.ee_basis_type = ee_basis_type
@@ -90,10 +85,9 @@ class Gjastrow:
                             res[i, j, k, l] = (1/(r + a)) ** k
         return res
 
-    def term_2_0(self, e_powers, e_vectors, neu):
+    def term_2_0(self, e_powers, e_vectors) -> float:
         """Jastrow term rank [2, 0]
         :param e_powers: electrons coordinates
-        :param neu: number of up electrons
         :return:
         """
         res = 0.0
@@ -103,7 +97,7 @@ class Gjastrow:
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
                 r = np.linalg.norm(e_vectors[i, j])
-                channel = int(i >= neu) + int(j >= neu)
+                channel = int(i >= self.neu) + int(j >= self.neu)
                 L = self.ee_cutoff_parameters[channel]['L']
                 L_hard = self.ee_cutoff_parameters[channel].get('L_hard')
 
@@ -125,57 +119,61 @@ class Gjastrow:
                         pass
         return res
 
-    def value(self, e_vectors, n_vectors, neu):
+    def value(self, e_vectors, n_vectors):
         """Jastrow
         :param e_vectors: electrons coordinates
         :param n_vectors: nucleus coordinates
-        :param neu: number of up electrons
         :return:
         """
 
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        return self.term_2_0(e_powers, e_vectors, neu)
+        return self.term_2_0(e_powers, e_vectors)
 
+    def gradient(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
+        """Gradient w.r.t. e-coordinates.
+        :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+        :return: partial derivatives of displacements of electrons shape = (nelec * 3, nelec * 3)
+        """
+        res = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
 
-if __name__ == '__main__':
-    """
-    """
+        for i in range(self.neu + self.ned):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+                res[:, :, i, j] -= self.value(e_vectors, n_vectors)
+                e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
+                n_vectors[:, i, j] += 2 * delta
+                res[:, :, i, j] += self.value(e_vectors, n_vectors)
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
 
-    rank = [2, 0]
+        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
 
-    config_path = 'test/gwfn/he/HF/cc-pVQZ/VMC_OPT/emin/casl/8__1/'
+    def laplacian(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
+        """Laplacian w.r.t. e-coordinates.
+        :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+        :return: vector laplacian shape = (nelec * 3)
+        """
+        res = -6 * (self.neu + self.ned) * self.value(e_vectors, n_vectors)
+        for i in range(self.neu + self.ned):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+                res += self.value(e_vectors, n_vectors)
+                e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
+                n_vectors[:, i, j] += 2 * delta
+                res += self.value(e_vectors, n_vectors)
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
 
-    casino = CasinoConfig(config_path)
-    casino.read()
-    gjastrow = Gjastrow(
-        casino.jastrow.e_rank, casino.jastrow.n_rank,
-        casino.jastrow.ee_basis_type, casino.jastrow.en_basis_type,
-        casino.jastrow.ee_cutoff_type, casino.jastrow.en_cutoff_type,
-        casino.jastrow.ee_constants, casino.jastrow.en_constants,
-        casino.jastrow.ee_basis_parameters, casino.jastrow.en_basis_parameters,
-        casino.jastrow.ee_cutoff_parameters, casino.jastrow.en_cutoff_parameters,
-        casino.jastrow.linear_parameters
-    )
-
-    steps = 100
-
-    if rank == [2, 0]:
-        x_min, x_max = 0, gjastrow.ee_cutoff_parameters[0]['L']
-        x_grid = np.linspace(x_min, x_max, steps)
-        for channel in range(gjastrow.linear_parameters.shape[0]):
-            y_grid = np.zeros(steps)
-            for i in range(100):
-                r_e = np.array([[0.0, 0.0, 0.0], [x_grid[i], 0.0, 0.0]])
-                e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
-                e_powers = gjastrow.ee_powers(e_vectors)
-                y_grid[i] = gjastrow.term_2_0(e_powers, e_vectors, 2-channel)
-            plt.plot(x_grid, y_grid, label=['1-1', '1-2', '2-2'][channel])
-        plt.xlabel('r_ee (au)')
-        plt.ylabel('polynomial part')
-        plt.title(f'JASTROW term {rank}')
-
-    plt.grid(True)
-    plt.legend()
-    plt.show()
+        return res.ravel() / delta / delta

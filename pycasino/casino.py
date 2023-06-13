@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from cusp import CuspFactory
 from slater import Slater
 from jastrow import Jastrow
+from gjastrow import Gjastrow
 from backflow import Backflow
 from markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
 from wfn import Wfn
@@ -158,15 +159,27 @@ class Casino:
         )
 
         if self.config.jastrow:
-            jastrow = Jastrow(
-                self.config.input.neu, self.config.input.ned,
-                self.config.jastrow.trunc, self.config.jastrow.u_parameters, self.config.jastrow.u_parameters_optimizable,
-                self.config.jastrow.u_cutoff,
-                self.config.jastrow.chi_parameters, self.config.jastrow.chi_parameters_optimizable, self.config.jastrow.chi_cutoff,
-                self.config.jastrow.chi_labels, self.config.jastrow.chi_cusp,
-                self.config.jastrow.f_parameters, self.config.jastrow.f_parameters_optimizable, self.config.jastrow.f_cutoff, self.config.jastrow.f_labels,
-                self.config.jastrow.no_dup_u_term, self.config.jastrow.no_dup_chi_term
-            )
+            if self.config.input.use_jastrow:
+                jastrow = Jastrow(
+                    self.config.input.neu, self.config.input.ned,
+                    self.config.jastrow.trunc, self.config.jastrow.u_parameters, self.config.jastrow.u_parameters_optimizable,
+                    self.config.jastrow.u_cutoff,
+                    self.config.jastrow.chi_parameters, self.config.jastrow.chi_parameters_optimizable, self.config.jastrow.chi_cutoff,
+                    self.config.jastrow.chi_labels, self.config.jastrow.chi_cusp,
+                    self.config.jastrow.f_parameters, self.config.jastrow.f_parameters_optimizable, self.config.jastrow.f_cutoff, self.config.jastrow.f_labels,
+                    self.config.jastrow.no_dup_u_term, self.config.jastrow.no_dup_chi_term
+                )
+            elif self.config.input.use_gjastrow:
+                jastrow = Gjastrow(
+                    self.config.input.neu, self.config.input.ned,
+                    self.config.jastrow.e_rank, self.config.jastrow.n_rank,
+                    self.config.jastrow.ee_basis_type, self.config.jastrow.en_basis_type,
+                    self.config.jastrow.ee_cutoff_type, self.config.jastrow.en_cutoff_type,
+                    self.config.jastrow.ee_constants, self.config.jastrow.en_constants,
+                    self.config.jastrow.ee_basis_parameters, self.config.jastrow.en_basis_parameters,
+                    self.config.jastrow.ee_cutoff_parameters, self.config.jastrow.en_cutoff_parameters,
+                    self.config.jastrow.linear_parameters
+                )
         else:
             jastrow = None
 
