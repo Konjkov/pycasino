@@ -156,16 +156,16 @@ class Gjastrow:
                 e_vectors[i, :, j] -= delta
                 e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
-                res[:, :, i, j] -= self.value(e_vectors, n_vectors)
+                res[i, j] -= self.value(e_vectors, n_vectors)
                 e_vectors[i, :, j] += 2 * delta
                 e_vectors[:, i, j] -= 2 * delta
                 n_vectors[:, i, j] += 2 * delta
-                res[:, :, i, j] += self.value(e_vectors, n_vectors)
+                res[i, j] += self.value(e_vectors, n_vectors)
                 e_vectors[i, :, j] -= delta
                 e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
 
-        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
+        return res.reshape((self.neu + self.ned) * 3) / delta / 2
 
     def laplacian(self, e_vectors, n_vectors) -> float:
         """Laplacian w.r.t. e-coordinates.
@@ -188,4 +188,4 @@ class Gjastrow:
                 e_vectors[:, i, j] += delta
                 n_vectors[:, i, j] -= delta
 
-        return res.ravel() / delta / delta
+        return res / delta / delta

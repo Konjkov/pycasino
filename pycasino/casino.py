@@ -171,7 +171,7 @@ class Casino:
                     self.config.jastrow.no_dup_u_term, self.config.jastrow.no_dup_chi_term
                 )
             elif self.config.input.use_gjastrow:
-                jastrow = Gjastrow(
+                gjastrow = Gjastrow(
                     self.config.input.neu, self.config.input.ned,
                     self.config.jastrow.e_rank, self.config.jastrow.n_rank,
                     self.config.jastrow.ee_basis_type, self.config.jastrow.en_basis_type,
@@ -198,7 +198,7 @@ class Casino:
             backflow = None
 
         self.wfn = Wfn(
-            self.config.input.neu, self.config.input.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges, slater, jastrow, backflow
+            self.config.input.neu, self.config.input.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges, slater, jastrow, gjastrow, backflow
         )
 
         self.vmc_markovchain = VMCMarkovChain(

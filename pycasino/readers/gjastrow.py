@@ -106,6 +106,7 @@ class Gjastrow:
         ee_term_parameters = nb.typed.List.empty_list(parameters_type)
         en_term_parameters = nb.typed.List.empty_list(parameters_type)
         if e_rank > 1:
+            # FIXME: 'e-e basis', Type: natural power, Order: 8
             for channel in self.get(term, 'e-e basis', 'Parameters') or []:
                 ee_term_parameters.append(
                     dict_to_typed_dict(

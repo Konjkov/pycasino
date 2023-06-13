@@ -22,7 +22,7 @@ spec = [
 @nb.experimental.jitclass(spec)
 class Wfn:
 
-    def __init__(self, neu, ned, atom_positions, atom_charges, slater, jastrow, backflow):
+    def __init__(self, neu, ned, atom_positions, atom_charges, slater, jastrow, gjastrow, backflow):
         """Wave function in general form.
         :param neu: number of up electrons
         :param ned: number of down electrons
@@ -30,6 +30,7 @@ class Wfn:
         :param atom_charges: atomic charges
         :param slater: instance of Slater class
         :param jastrow: instance of Jastrow class
+        :param gjastrow: instance of Gjastrow class
         :param backflow: instance of Backflow class
         :return:
         """
@@ -40,6 +41,7 @@ class Wfn:
         self.nuclear_repulsion = self._get_nuclear_repulsion()
         self.slater = slater
         self.jastrow = jastrow
+        self.gjastrow = gjastrow
         self.backflow = backflow
 
     def _relative_coordinates(self, r_e):
@@ -153,6 +155,13 @@ class Wfn:
             if self.jastrow is not None:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
                 j_l = self.jastrow.laplacian(e_vectors, n_vectors)
+                s_g = self.slater.gradient(n_vectors)
+                F = np.sum((s_g + j_g)**2) / 2
+                T = (np.sum(s_g**2) - s_l - j_l) / 4
+                res += 2 * T - F
+            elif self.gjastrow is not None:
+                j_g = self.gjastrow.gradient(e_vectors, n_vectors)
+                j_l = self.gjastrow.laplacian(e_vectors, n_vectors)
                 s_g = self.slater.gradient(n_vectors)
                 F = np.sum((s_g + j_g)**2) / 2
                 T = (np.sum(s_g**2) - s_l - j_l) / 4
