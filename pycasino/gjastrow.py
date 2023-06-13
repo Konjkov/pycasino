@@ -6,6 +6,8 @@ parameters_type = nb.types.ListType(nb.types.DictType(nb.types.unicode_type, nb.
 linear_parameters_type = nb.float64[:, :]
 
 spec = [
+    ('neu', nb.int64),
+    ('ned', nb.int64),
     ('e_rank', nb.types.ListType(nb.int64)),
     ('n_rank', nb.types.ListType(nb.int64)),
     ('ee_basis_type', nb.types.ListType(nb.types.unicode_type)),
@@ -45,16 +47,20 @@ class Gjastrow:
         self.en_cutoff_parameters = en_cutoff_parameters
         self.linear_parameters = linear_parameters
 
-    def ee_powers(self, e_vectors):
+    def ee_powers(self, e_vectors: np.ndarray):
+        """Powers of e-e distances
+        :param e_vectors: e-e vectors - array(nelec, nelec, 3)
+        :return: powers of e-e distances - array(nelec, nelec, max_ee_order, channel)
+        """
         res = np.zeros((e_vectors.shape[0], e_vectors.shape[1], self.linear_parameters.shape[1], self.linear_parameters.shape[0]))
-        if self.ee_basis_parameters:
-            a = self.ee_basis_parameters[channel].get('a')
-            b = self.ee_basis_parameters[channel].get('b')
         for i in range(e_vectors.shape[0] - 1):
             for j in range(i + 1, e_vectors.shape[1]):
                 r = np.linalg.norm(e_vectors[i, j])
                 for k in range(self.linear_parameters.shape[1]):
-                    for l in range(self.linear_parameters.shape[0]):
+                    for channel in range(self.linear_parameters.shape[0]):
+                        if self.ee_basis_parameters:
+                            a = self.ee_basis_parameters[channel].get('a')
+                            b = self.ee_basis_parameters[channel].get('b')
                         if self.ee_basis_type[0] == 'natural power':
                             res[i, j, k, l] = r ** k
                         elif self.ee_basis_type[0] == 'r/(r^b+a) power':
@@ -65,16 +71,20 @@ class Gjastrow:
                             res[i, j, k, l] = (1/(r + a)) ** k
         return res
 
-    def en_powers(self, n_vectors):
+    def en_powers(self, n_vectors: np.ndarray):
+        """Powers of e-n distances
+        :param n_vectors: e-n vectors - array(natom, nelec, 3)
+        :return: powers of e-n distances - array(natom, nelec, max_en_order, channel)
+        """
         res = np.zeros((n_vectors.shape[1], n_vectors.shape[0], self.linear_parameters.shape[1], self.linear_parameters.shape[0]))
-        if self.ee_basis_parameters:
-            a = self.en_basis_parameters[channel].get('a')
-            b = self.en_basis_parameters[channel].get('b')
         for i in range(n_vectors.shape[1]):
             for j in range(n_vectors.shape[0]):
                 r = np.linalg.norm(n_vectors[j, i])
                 for k in range(self.linear_parameters.shape[1]):
-                    for l in range(self.linear_parameters.shape[0]):
+                    for channel in range(self.linear_parameters.shape[0]):
+                        if self.ee_basis_parameters:
+                            a = self.en_basis_parameters[channel].get('a')
+                            b = self.en_basis_parameters[channel].get('b')
                         if self.en_basis_type[0] == 'natural power':
                             res[i, j, k, l] = r ** k
                         elif self.en_basis_type[0] == 'r/(r^b+a) power':
@@ -85,9 +95,10 @@ class Gjastrow:
                             res[i, j, k, l] = (1/(r + a)) ** k
         return res
 
-    def term_2_0(self, e_powers, e_vectors) -> float:
+    def term_2_0(self, e_powers: np.ndarray, e_vectors: np.ndarray) -> float:
         """Jastrow term rank [2, 0]
-        :param e_powers: electrons coordinates
+        :param e_powers: powers of e-e distances
+        :param e_vectors: e-e vectors
         :return:
         """
         res = 0.0
@@ -119,7 +130,7 @@ class Gjastrow:
                         pass
         return res
 
-    def value(self, e_vectors, n_vectors):
+    def value(self, e_vectors, n_vectors) -> float:
         """Jastrow
         :param e_vectors: electrons coordinates
         :param n_vectors: nucleus coordinates
@@ -131,7 +142,7 @@ class Gjastrow:
 
         return self.term_2_0(e_powers, e_vectors)
 
-    def gradient(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
+    def gradient(self, e_vectors, n_vectors) -> np.ndarray:
         """Gradient w.r.t. e-coordinates.
         :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
@@ -155,7 +166,7 @@ class Gjastrow:
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
 
-    def laplacian(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
+    def laplacian(self, e_vectors, n_vectors) -> float:
         """Laplacian w.r.t. e-coordinates.
         :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)

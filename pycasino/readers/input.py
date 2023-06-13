@@ -17,6 +17,7 @@ class Input:
         self.cusp_threshold = 1e-7
         self.cusp_info = False
         self.use_gpcc = None
+        self.use_jastrow = self.use_gjastrow = False
         self.opt_jastrow = self.opt_backflow = False
         self.nucleus_gf_mods = True
         self.alimit = 0.5

@@ -188,18 +188,18 @@ class Gjastrow:
         self.ee_constants, self.en_constants = self.get_constants(terms)
 
         for i, term in enumerate(terms):
-            self.ee_basis_parameters, self.en_basis_parameters = self.get_basis_parameters(term)
-            self.ee_cutoff_parameters, self.en_cutoff_parameters = self.get_cutoff_parameters(term)
-            self.linear_parameters = self.get_linear_parameters(term)
-            for j, channel in enumerate(term['Linear parameters']):
-                ch1, ch2 = channel[8:].split('-')
-                G = 1/4 if ch1 == ch2 else 1/2
-                if self.linear_parameters[j, 0]:
-                    continue
-                if self.ee_cutoff_type[i] == 'polynomial':
-                    C = self.ee_cutoff_parameters[j]['L'] / self.ee_constants[i]['C']
-                    self.linear_parameters[j, 0] = C * (self.linear_parameters[j, 1] - G)
-                elif self.ee_cutoff_type[i] == 'alt polynomial':
-                    C = self.ee_cutoff_parameters[j]['L'] / self.ee_constants[i]['C']
-                    self.linear_parameters[j, 0] = C * (self.linear_parameters[j, 1] - G/(-self.ee_cutoff_parameters[j]['L'])**self.ee_constants[i]['C'])
-            # self.e_permutation = np.zeros((0,))
+            if term['Rank'] == [2, 0]:
+                self.ee_basis_parameters, self.en_basis_parameters = self.get_basis_parameters(term)
+                self.ee_cutoff_parameters, self.en_cutoff_parameters = self.get_cutoff_parameters(term)
+                self.linear_parameters = self.get_linear_parameters(term)
+                for j, channel in enumerate(term['Linear parameters']):
+                    ch1, ch2 = channel[8:].split('-')
+                    G = 1/4 if ch1 == ch2 else 1/2
+                    if self.linear_parameters[j, 0]:
+                        continue
+                    if self.ee_cutoff_type[i] == 'polynomial':
+                        C = self.ee_cutoff_parameters[j]['L'] / self.ee_constants[i]['C']
+                        self.linear_parameters[j, 0] = C * (self.linear_parameters[j, 1] - G)
+                    elif self.ee_cutoff_type[i] == 'alt polynomial':
+                        C = self.ee_cutoff_parameters[j]['L'] / self.ee_constants[i]['C']
+                        self.linear_parameters[j, 0] = C * (self.linear_parameters[j, 1] - G/(-self.ee_cutoff_parameters[j]['L'])**self.ee_constants[i]['C'])
