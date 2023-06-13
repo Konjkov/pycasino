@@ -158,6 +158,7 @@ class Casino:
             self.config.wfn.mo_up, self.config.wfn.mo_down, self.config.mdet.permutation_up, self.config.mdet.permutation_down, self.config.mdet.coeff, cusp
         )
 
+        jastrow = None
         if self.config.jastrow:
             if self.config.input.use_jastrow:
                 jastrow = Jastrow(
@@ -180,8 +181,6 @@ class Casino:
                     self.config.jastrow.ee_cutoff_parameters, self.config.jastrow.en_cutoff_parameters,
                     self.config.jastrow.linear_parameters
                 )
-        else:
-            jastrow = None
 
         if self.config.backflow:
             backflow = Backflow(

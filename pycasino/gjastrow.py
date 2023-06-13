@@ -62,13 +62,13 @@ class Gjastrow:
                             a = self.ee_basis_parameters[channel].get('a')
                             b = self.ee_basis_parameters[channel].get('b')
                         if self.ee_basis_type[0] == 'natural power':
-                            res[i, j, k, l] = r ** k
+                            res[i, j, k, channel] = r ** k
                         elif self.ee_basis_type[0] == 'r/(r^b+a) power':
-                            res[i, j, k, l] = (r/(r**b + a)) ** k
+                            res[i, j, k, channel] = (r/(r**b + a)) ** k
                         elif self.ee_basis_type[0] == 'r/(r+a) power':
-                            res[i, j, k, l] = (r/(r + a)) ** k
+                            res[i, j, k, channel] = (r/(r + a)) ** k
                         elif self.ee_basis_type[0] == '1/(r+a) power':
-                            res[i, j, k, l] = (1/(r + a)) ** k
+                            res[i, j, k, channel] = (1/(r + a)) ** k
         return res
 
     def en_powers(self, n_vectors: np.ndarray):
@@ -86,13 +86,13 @@ class Gjastrow:
                             a = self.en_basis_parameters[channel].get('a')
                             b = self.en_basis_parameters[channel].get('b')
                         if self.en_basis_type[0] == 'natural power':
-                            res[i, j, k, l] = r ** k
+                            res[i, j, k, channel] = r ** k
                         elif self.en_basis_type[0] == 'r/(r^b+a) power':
-                            res[i, j, k, l] = (r/(r**b + a)) ** k
+                            res[i, j, k, channel] = (r/(r**b + a)) ** k
                         elif self.en_basis_type[0] == 'r/(r+a) power':
-                            res[i, j, k, l] = (r/(r + a)) ** k
+                            res[i, j, k, channel] = (r/(r + a)) ** k
                         elif self.en_basis_type[0] == '1/(r+a) power':
-                            res[i, j, k, l] = (1/(r + a)) ** k
+                            res[i, j, k, channel] = (1/(r + a)) ** k
         return res
 
     def term_2_0(self, e_powers: np.ndarray, e_vectors: np.ndarray) -> float:
@@ -108,6 +108,7 @@ class Gjastrow:
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):
                 r = np.linalg.norm(e_vectors[i, j])
+                # FIXME: it's not a channel
                 channel = int(i >= self.neu) + int(j >= self.neu)
                 L = self.ee_cutoff_parameters[channel]['L']
                 L_hard = self.ee_cutoff_parameters[channel].get('L_hard')
@@ -146,9 +147,9 @@ class Gjastrow:
         """Gradient w.r.t. e-coordinates.
         :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        :return: partial derivatives of displacements of electrons shape = (nelec * 3, nelec * 3)
+        :return: partial derivatives of displacements of electrons shape = (nelec * 3)
         """
-        res = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
+        res = np.zeros(shape=(self.neu + self.ned, 3))
 
         for i in range(self.neu + self.ned):
             for j in range(3):

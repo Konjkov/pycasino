@@ -53,6 +53,9 @@
 # path='tests/stowfn/Kr/HF/QZ4P/CBCS/Jastrow/'
 # path='tests/stowfn/O3/HF/QZ4P/CBCS/Jastrow/'
 
+# path='tests/stowfn/He/HF/QZ4P/CBCS/Gjastrow/'
+# path='tests/stowfn/Be/HF/QZ4P/CBCS/Gjastrow/'
+
 # path='tests/stowfn/He/HF/QZ4P/CBCS/Backflow/'
 # path='tests/stowfn/Be/HF/QZ4P/CBCS/Backflow/'
 # path='tests/stowfn/N/HF/QZ4P/CBCS/Backflow/'

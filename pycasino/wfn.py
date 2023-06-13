@@ -3,6 +3,7 @@ import numba as nb
 
 from slater import Slater
 from jastrow import Jastrow
+from gjastrow import Gjastrow
 from backflow import Backflow
 
 spec = [
@@ -13,6 +14,7 @@ spec = [
     ('nuclear_repulsion', nb.float64),
     ('slater', Slater.class_type.instance_type),
     ('jastrow', nb.optional(Jastrow.class_type.instance_type)),
+    ('gjastrow', nb.optional(Gjastrow.class_type.instance_type)),
     ('backflow', nb.optional(Backflow.class_type.instance_type)),
 ]
 
@@ -77,6 +79,8 @@ class Wfn:
         e_vectors, n_vectors = self._relative_coordinates(r_e)
         if self.jastrow is not None:
             res *= np.exp(self.jastrow.value(e_vectors, n_vectors))
+        if self.gjastrow is not None:
+            res *= np.exp(self.gjastrow.value(e_vectors, n_vectors))
         if self.backflow is not None:
             n_vectors = self.backflow.value(e_vectors, n_vectors) + n_vectors
         res *= self.slater.value(n_vectors)
