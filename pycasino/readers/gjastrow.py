@@ -43,10 +43,7 @@ class Gjastrow:
         return [term for key, term in self._jastrow_data.items() if key.startswith('TERM')]
 
     def get_rank(self, terms):
-        return (
-            nb.typed.List([term['Rank'][0] for term in terms]),
-            nb.typed.List([term['Rank'][1] for term in terms])
-        )
+        return np.array([term['Rank'] for term in terms])
 
     def get_rules(self, terms):
         return [term['Rules'] or list() for term in terms]
@@ -99,38 +96,37 @@ class Gjastrow:
                 en_constants.append(dict_to_typed_dict({}))
         return ee_constants, en_constants
 
-    def get_basis_parameters(self, term) -> Tuple[nb.typed.List, nb.typed.List]:
+    def get_basis_parameters(self, terms) -> Tuple[nb.typed.List, nb.typed.List]:
         """Load basis parameters into 1-dimensional array.
         """
-        e_rank, n_rank = term['Rank']
         ee_term_parameters = nb.typed.List.empty_list(parameters_type)
         en_term_parameters = nb.typed.List.empty_list(parameters_type)
-        if e_rank > 1:
-            # FIXME: 'e-e basis', Type: natural power, Order: 8
-            for channel in self.get(term, 'e-e basis', 'Parameters') or []:
-                ee_term_parameters.append(
-                    dict_to_typed_dict(
-                        {parameter: self.get(term, 'e-e basis', 'Parameters', channel, parameter)[0]
-                         for parameter in self.get(term, 'e-e basis', 'Parameters', channel)}
+        for term in terms:
+            e_rank, n_rank = term['Rank']
+            if e_rank > 1:
+                for channel in self.get(term, 'e-e basis', 'Parameters') or []:
+                    ee_term_parameters.append(
+                        dict_to_typed_dict(
+                            {parameter: self.get(term, 'e-e basis', 'Parameters', channel, parameter)[0]
+                             for parameter in self.get(term, 'e-e basis', 'Parameters', channel)}
+                        )
                     )
-                )
-        if n_rank > 0:
-            for channel in self.get(term, 'e-n basis', 'Parameters') or []:
-                en_term_parameters.append(
-                    dict_to_typed_dict(
-                        {parameter: self.get(term, 'e-n basis', 'Parameters', channel, parameter)[0]
-                         for parameter in self.get(term, 'e-n basis', 'Parameters', channel)}
+            if n_rank > 0:
+                for channel in self.get(term, 'e-n basis', 'Parameters') or []:
+                    en_term_parameters.append(
+                        dict_to_typed_dict(
+                            {parameter: self.get(term, 'e-n basis', 'Parameters', channel, parameter)[0]
+                             for parameter in self.get(term, 'e-n basis', 'Parameters', channel)}
+                        )
                     )
-                )
         return ee_term_parameters, en_term_parameters
 
-    def get_cutoff_parameters(self, term) -> Tuple[nb.typed.List, nb.typed.List]:
+    def get_cutoff_parameters(self, terms) -> Tuple[nb.typed.List, nb.typed.List]:
         """Load cutoff parameters into 1-dimensional array.
         """
-        e_rank, n_rank = term['Rank']
         ee_term_parameters = nb.typed.List.empty_list(parameters_type)
         en_term_parameters = nb.typed.List.empty_list(parameters_type)
-        if e_rank > 1:
+        for term in terms:
             for channel in self.get(term, 'e-e cutoff', 'Parameters') or []:
                 ee_term_parameters.append(
                     dict_to_typed_dict(
@@ -138,7 +134,6 @@ class Gjastrow:
                          for parameter in self.get(term, 'e-e cutoff', 'Parameters', channel)}
                     )
                 )
-        if n_rank > 0:
             for channel in self.get(term, 'e-n cutoff', 'Parameters') or []:
                 en_term_parameters.append(
                     dict_to_typed_dict(
@@ -148,25 +143,29 @@ class Gjastrow:
                 )
         return ee_term_parameters, en_term_parameters
 
-    def get_linear_parameters(self, term):
+    def get_linear_parameters(self, terms):
         """Load linear parameters into multidimensional array.
         """
-        e_rank, n_rank = term['Rank']
-        linear_parameters = term['Linear parameters']
-        dims = [len(linear_parameters)]
-        if e_rank > 1:
-            e_order = self.get(term, 'e-e basis', 'Order')
-            dims += [e_order] * (e_rank * (e_rank-1) // 2)
-        if n_rank > 0:
-            n_order = self.get(term, 'e-n basis', 'Order')
-            dims += [n_order] * (e_rank * n_rank)
+        ee_linear_parameters = nb.typed.List.empty_list(parameters_type)
+        en_linear_parameters = nb.typed.List.empty_list(parameters_type)
+        for term in terms:
+            if term['Rank'] == [2, 0]:
+                e_rank, n_rank = term['Rank']
+                linear_parameters = term['Linear parameters']
+                dims = [len(linear_parameters)]
+                if e_rank > 1:
+                    e_order = self.get(term, 'e-e basis', 'Order')
+                    dims += [e_order] * (e_rank * (e_rank-1) // 2)
+                if n_rank > 0:
+                    n_order = self.get(term, 'e-n basis', 'Order')
+                    dims += [n_order] * (e_rank * n_rank)
 
-        res = np.zeros(dims, np.float)
-        for i, channel in enumerate(linear_parameters.values()):
-            for key, val in channel.items():
-                j = tuple(map(lambda x: x-1, map(int, key.split('_')[1].split(','))))
-                res[i, j] = val[0]
-        return res
+                res = np.zeros(dims, dtype=np.float)
+                for i, channel in enumerate(linear_parameters.values()):
+                    for key, val in channel.items():
+                        j = tuple(map(lambda x: x-1, map(int, key.split('_')[1].split(','))))
+                        res[i, j] = val[0]
+                return res
 
     def __init__(self):
         """init method"""
@@ -179,20 +178,20 @@ class Gjastrow:
         with open(file_path, 'r') as f:
             self._jastrow_data = safe_load(f)['JASTROW']
 
-        terms = self.get_terms()
+        self.terms = self.get_terms()
+        self.rank = self.get_rank(self.terms)  # list of list
+        self.rules = self.get_rules(self.terms)  # list of list
+        self.ee_cusp = self.get_ee_cusp(self.terms)  # list of bool
+        self.ee_basis_type, self.en_basis_type = self.get_basis_type(self.terms)  # list of str
+        self.ee_cutoff_type, self.en_cutoff_type = self.get_cutoff_type(self.terms)  # list of str
+        self.ee_constants, self.en_constants = self.get_constants(self.terms)  # list of dict
+        self.ee_basis_parameters, self.en_basis_parameters = self.get_basis_parameters(self.terms)  # list of ???
+        self.ee_cutoff_parameters, self.en_cutoff_parameters = self.get_cutoff_parameters(self.terms)
+        print(self.ee_cutoff_parameters, self.en_cutoff_parameters)
+        self.linear_parameters = self.get_linear_parameters(self.terms)
 
-        self.rules = self.get_rules(terms)
-        self.ee_cusp = self.get_ee_cusp(terms)
-        self.e_rank, self.n_rank = self.get_rank(terms)
-        self.ee_basis_type, self.en_basis_type = self.get_basis_type(terms)
-        self.ee_cutoff_type, self.en_cutoff_type = self.get_cutoff_type(terms)
-        self.ee_constants, self.en_constants = self.get_constants(terms)
-
-        for i, term in enumerate(terms):
+        for i, term in enumerate(self.terms):
             if term['Rank'] == [2, 0]:
-                self.ee_basis_parameters, self.en_basis_parameters = self.get_basis_parameters(term)
-                self.ee_cutoff_parameters, self.en_cutoff_parameters = self.get_cutoff_parameters(term)
-                self.linear_parameters = self.get_linear_parameters(term)
                 for j, channel in enumerate(term['Linear parameters']):
                     ch1, ch2 = channel[8:].split('-')
                     G = 1/4 if ch1 == ch2 else 1/2
