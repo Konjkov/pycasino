@@ -8,8 +8,7 @@ linear_parameters_type = nb.float64[:, :]
 spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
-    ('e_rank', nb.types.ListType(nb.int64)),
-    ('n_rank', nb.types.ListType(nb.int64)),
+    ('rank', nb.int64[:, :]),
     ('ee_basis_type', nb.types.ListType(nb.types.unicode_type)),
     ('en_basis_type', nb.types.ListType(nb.types.unicode_type)),
     ('ee_cutoff_type', nb.types.ListType(nb.types.unicode_type)),
@@ -28,13 +27,12 @@ spec = [
 class Gjastrow:
 
     def __init__(
-            self, neu, ned, e_rank, n_rank, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type,
+            self, neu, ned, rank, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type,
             ee_constants, en_constants, ee_basis_parameters, en_basis_parameters, ee_cutoff_parameters,
             en_cutoff_parameters, linear_parameters):
         self.neu = neu
         self.ned = ned
-        self.e_rank = e_rank
-        self.n_rank = n_rank
+        self.rank = rank
         self.ee_basis_type = ee_basis_type
         self.en_basis_type = en_basis_type
         self.ee_cutoff_type = ee_cutoff_type

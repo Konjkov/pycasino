@@ -23,7 +23,7 @@ disclamer = """
 
     Main Author : V.V. Konjkov
  ------------------------------------------------------------------------------
-""" # created with art python pakage
+""" # created with art python package
 
 
 class StreamToLogger:

@@ -124,24 +124,31 @@ class Gjastrow:
     def get_cutoff_parameters(self, terms) -> Tuple[nb.typed.List, nb.typed.List]:
         """Load cutoff parameters into 1-dimensional array.
         """
-        ee_term_parameters = nb.typed.List.empty_list(parameters_type)
-        en_term_parameters = nb.typed.List.empty_list(parameters_type)
+        ee_cutoff_parameters = nb.typed.List.empty_list(parameters_type)
+        en_cutoff_parameters = nb.typed.List.empty_list(parameters_type)
         for term in terms:
-            for channel in self.get(term, 'e-e cutoff', 'Parameters') or []:
-                ee_term_parameters.append(
-                    dict_to_typed_dict(
-                        {parameter: self.get(term, 'e-e cutoff', 'Parameters', channel, parameter)[0]
-                         for parameter in self.get(term, 'e-e cutoff', 'Parameters', channel)}
+            e_rank, n_rank = term['Rank']
+            if e_rank > 1 and self.get(term, 'e-e cutoff'):
+                for channel in self.get(term, 'e-e cutoff', 'Parameters') or []:
+                    ee_cutoff_parameters.append(
+                        dict_to_typed_dict(
+                            {parameter: self.get(term, 'e-e cutoff', 'Parameters', channel, parameter)[0]
+                             for parameter in self.get(term, 'e-e cutoff', 'Parameters', channel)}
+                        )
                     )
-                )
-            for channel in self.get(term, 'e-n cutoff', 'Parameters') or []:
-                en_term_parameters.append(
-                    dict_to_typed_dict(
-                        {parameter: self.get(term, 'e-n cutoff', 'Parameters', channel, parameter)[0]
-                         for parameter in self.get(term, 'e-n cutoff', 'Parameters', channel)}
+            else:
+                ee_cutoff_parameters.append(dict_to_typed_dict({}))
+            if n_rank > 0 and self.get(term, 'e-n cutoff'):
+                for channel in self.get(term, 'e-n cutoff', 'Parameters') or []:
+                    en_cutoff_parameters.append(
+                        dict_to_typed_dict(
+                            {parameter: self.get(term, 'e-n cutoff', 'Parameters', channel, parameter)[0]
+                             for parameter in self.get(term, 'e-n cutoff', 'Parameters', channel)}
+                        )
                     )
-                )
-        return ee_term_parameters, en_term_parameters
+            else:
+                en_cutoff_parameters.append(dict_to_typed_dict({}))
+        return ee_cutoff_parameters, en_cutoff_parameters
 
     def get_linear_parameters(self, terms):
         """Load linear parameters into multidimensional array.
@@ -186,8 +193,7 @@ class Gjastrow:
         self.ee_cutoff_type, self.en_cutoff_type = self.get_cutoff_type(self.terms)  # list of str
         self.ee_constants, self.en_constants = self.get_constants(self.terms)  # list of dict
         self.ee_basis_parameters, self.en_basis_parameters = self.get_basis_parameters(self.terms)  # list of ???
-        self.ee_cutoff_parameters, self.en_cutoff_parameters = self.get_cutoff_parameters(self.terms)
-        print(self.ee_cutoff_parameters, self.en_cutoff_parameters)
+        self.ee_cutoff_parameters, self.en_cutoff_parameters = self.get_cutoff_parameters(self.terms)  # list of dict
         self.linear_parameters = self.get_linear_parameters(self.terms)
 
         for i, term in enumerate(self.terms):
