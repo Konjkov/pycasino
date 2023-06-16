@@ -9,6 +9,7 @@ spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
     ('rank', nb.int64[:, :]),
+    ('cusp', nb.boolean[:, :]),
     ('ee_basis_type', nb.types.ListType(nb.types.unicode_type)),
     ('en_basis_type', nb.types.ListType(nb.types.unicode_type)),
     ('ee_cutoff_type', nb.types.ListType(nb.types.unicode_type)),
@@ -27,12 +28,13 @@ spec = [
 class Gjastrow:
 
     def __init__(
-            self, neu, ned, rank, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type,
+            self, neu, ned, rank, cusp, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type,
             ee_constants, en_constants, ee_basis_parameters, en_basis_parameters, ee_cutoff_parameters,
             en_cutoff_parameters, linear_parameters):
         self.neu = neu
         self.ned = ned
         self.rank = rank
+        self.cusp = cusp
         self.ee_basis_type = ee_basis_type
         self.en_basis_type = en_basis_type
         self.ee_cutoff_type = ee_cutoff_type
@@ -108,6 +110,7 @@ class Gjastrow:
                 r = np.linalg.norm(e_vectors[i, j])
                 # FIXME: it's not a channel
                 channel = int(i >= self.neu) + int(j >= self.neu)
+                channel = 0
                 L = self.ee_cutoff_parameters[channel]['L']
                 L_hard = self.ee_cutoff_parameters[channel].get('L_hard')
 

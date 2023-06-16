@@ -1,7 +1,6 @@
 import os
 
 from collections import ChainMap
-from typing import Tuple, Dict
 
 import numpy as np
 import numba as nb
@@ -39,73 +38,59 @@ class Gjastrow:
                 return ''
         return res
 
-    def get_terms(self):
-        return [term for key, term in self._jastrow_data.items() if key.startswith('TERM')]
+    def get_terms(self, jastrow_data):
+        """Load terms."""
+        self.terms = [term for key, term in jastrow_data.items() if key.startswith('TERM')]
 
-    def get_rank(self, terms):
-        return np.array([term['Rank'] for term in terms])
+    def get_rank(self):
+        """Load terms rank."""
+        self.rank = np.array([term['Rank'] for term in self.terms])
 
-    def get_rules(self, terms):
-        return [term['Rules'] or list() for term in terms]
+    def get_rules(self):
+        """Load terms rules."""
+        self.rules = [term['Rules'] or list() for term in self.terms]
 
-    def get_ee_cusp(self, terms):
-        """Load e-e cusp.
-        """
-        ee_cusp = nb.typed.List.empty_list(nb.types.boolean)
-        for term in terms:
+    def get_cusp(self):
+        """Load cusp."""
+        self.cusp = np.array(
+            [[term.get('e-e cusp') == 'T', term.get('e-n cusp') == 'T'] for term in self.terms]
+        )
+
+    def get_basis_type(self):
+        """Load basis type."""
+        for term in self.terms:
             e_rank, n_rank = term['Rank']
-            ee_cusp.append(e_rank > 1 and term.get('e-e cusp') == 'T')
-        return ee_cusp
+            self.ee_basis_type.append(self.get(term, 'e-e basis', 'Type') if e_rank > 1 else '')
+            self.en_basis_type.append(self.get(term, 'e-n basis', 'Type') if n_rank > 0 else '')
 
-    def get_basis_type(self, terms) -> Tuple[nb.typed.List, nb.typed.List]:
-        """Load basis type.
-        """
-        ee_basis_type = nb.typed.List.empty_list(nb.types.unicode_type)
-        en_basis_type = nb.typed.List.empty_list(nb.types.unicode_type)
-        for term in terms:
+    def get_cutoff_type(self):
+        """Load cutoff type."""
+        for term in self.terms:
             e_rank, n_rank = term['Rank']
-            ee_basis_type.append(self.get(term, 'e-e basis', 'Type') if e_rank > 1 else '')
-            en_basis_type.append(self.get(term, 'e-n basis', 'Type') if n_rank > 0 else '')
-        return ee_basis_type, en_basis_type
+            self.ee_cutoff_type.append(self.get(term, 'e-e cutoff', 'Type') if e_rank > 1 else '')
+            self.en_cutoff_type.append(self.get(term, 'e-n cutoff', 'Type') if n_rank > 0 else '')
 
-    def get_cutoff_type(self, terms) -> Tuple[nb.typed.List, nb.typed.List]:
-        """Load cutoff type.
-        """
-        e_cutoff_type = nb.typed.List.empty_list(nb.types.unicode_type)
-        n_cutoff_type = nb.typed.List.empty_list(nb.types.unicode_type)
-        for term in terms:
-            e_rank, n_rank = term['Rank']
-            e_cutoff_type.append(self.get(term, 'e-e cutoff', 'Type') if e_rank > 1 else '')
-            n_cutoff_type.append(self.get(term, 'e-n cutoff', 'Type') if n_rank > 0 else '')
-        return e_cutoff_type, n_cutoff_type
-
-    def get_constants(self, terms) -> Tuple[nb.typed.List, nb.typed.List]:
+    def get_constants(self):
         """Load truncation constant.
         """
-        ee_constants = nb.typed.List.empty_list(parameters_type)
-        en_constants = nb.typed.List.empty_list(parameters_type)
-        for term in terms:
+        for term in self.terms:
             e_rank, n_rank = term['Rank']
             if e_rank > 1 and term.get('e-e cutoff'):
-                ee_constants.append(dict_to_typed_dict(self.get(term, 'e-e cutoff', 'Constants')))
+                self.ee_constants.append(dict_to_typed_dict(self.get(term, 'e-e cutoff', 'Constants')))
             else:
-                ee_constants.append(dict_to_typed_dict({}))
+                self.ee_constants.append(dict_to_typed_dict({}))
             if n_rank > 0 and term.get('e-n cutoff'):
-                en_constants.append(dict_to_typed_dict(self.get(term, 'e-n cutoff', 'Constants')))
+                self.en_constants.append(dict_to_typed_dict(self.get(term, 'e-n cutoff', 'Constants')))
             else:
-                en_constants.append(dict_to_typed_dict({}))
-        return ee_constants, en_constants
+                self.en_constants.append(dict_to_typed_dict({}))
 
-    def get_basis_parameters(self, terms) -> Tuple[nb.typed.List, nb.typed.List]:
-        """Load basis parameters into 1-dimensional array.
-        """
-        ee_term_parameters = nb.typed.List.empty_list(parameters_type)
-        en_term_parameters = nb.typed.List.empty_list(parameters_type)
-        for term in terms:
+    def get_basis_parameters(self):
+        """Load basis parameters into 1-dimensional array."""
+        for term in self.terms:
             e_rank, n_rank = term['Rank']
             if e_rank > 1:
                 for channel in self.get(term, 'e-e basis', 'Parameters') or []:
-                    ee_term_parameters.append(
+                    self.ee_basis_parameters.append(
                         dict_to_typed_dict(
                             {parameter: self.get(term, 'e-e basis', 'Parameters', channel, parameter)[0]
                              for parameter in self.get(term, 'e-e basis', 'Parameters', channel)}
@@ -113,49 +98,43 @@ class Gjastrow:
                     )
             if n_rank > 0:
                 for channel in self.get(term, 'e-n basis', 'Parameters') or []:
-                    en_term_parameters.append(
+                    self.en_basis_parameters.append(
                         dict_to_typed_dict(
                             {parameter: self.get(term, 'e-n basis', 'Parameters', channel, parameter)[0]
                              for parameter in self.get(term, 'e-n basis', 'Parameters', channel)}
                         )
                     )
-        return ee_term_parameters, en_term_parameters
 
-    def get_cutoff_parameters(self, terms) -> Tuple[nb.typed.List, nb.typed.List]:
+    def get_cutoff_parameters(self):
         """Load cutoff parameters into 1-dimensional array.
         """
-        ee_cutoff_parameters = nb.typed.List.empty_list(parameters_type)
-        en_cutoff_parameters = nb.typed.List.empty_list(parameters_type)
-        for term in terms:
+        for term in self.terms:
             e_rank, n_rank = term['Rank']
             if e_rank > 1 and self.get(term, 'e-e cutoff'):
                 for channel in self.get(term, 'e-e cutoff', 'Parameters') or []:
-                    ee_cutoff_parameters.append(
+                    self.ee_cutoff_parameters.append(
                         dict_to_typed_dict(
                             {parameter: self.get(term, 'e-e cutoff', 'Parameters', channel, parameter)[0]
                              for parameter in self.get(term, 'e-e cutoff', 'Parameters', channel)}
                         )
                     )
             else:
-                ee_cutoff_parameters.append(dict_to_typed_dict({}))
+                self.ee_cutoff_parameters.append(dict_to_typed_dict({}))
             if n_rank > 0 and self.get(term, 'e-n cutoff'):
                 for channel in self.get(term, 'e-n cutoff', 'Parameters') or []:
-                    en_cutoff_parameters.append(
+                    self.en_cutoff_parameters.append(
                         dict_to_typed_dict(
                             {parameter: self.get(term, 'e-n cutoff', 'Parameters', channel, parameter)[0]
                              for parameter in self.get(term, 'e-n cutoff', 'Parameters', channel)}
                         )
                     )
             else:
-                en_cutoff_parameters.append(dict_to_typed_dict({}))
-        return ee_cutoff_parameters, en_cutoff_parameters
+                self.en_cutoff_parameters.append(dict_to_typed_dict({}))
 
-    def get_linear_parameters(self, terms):
+    def get_linear_parameters(self):
         """Load linear parameters into multidimensional array.
         """
-        ee_linear_parameters = nb.typed.List.empty_list(parameters_type)
-        en_linear_parameters = nb.typed.List.empty_list(parameters_type)
-        for term in terms:
+        for term in self.terms:
             if term['Rank'] == [2, 0]:
                 e_rank, n_rank = term['Rank']
                 linear_parameters = term['Linear parameters']
@@ -167,35 +146,32 @@ class Gjastrow:
                     n_order = self.get(term, 'e-n basis', 'Order')
                     dims += [n_order] * (e_rank * n_rank)
 
-                res = np.zeros(dims, dtype=np.float)
+                self.linear_parameters = np.zeros(dims, dtype=np.float)
                 for i, channel in enumerate(linear_parameters.values()):
                     for key, val in channel.items():
                         j = tuple(map(lambda x: x-1, map(int, key.split('_')[1].split(','))))
-                        res[i, j] = val[0]
-                return res
+                        self.linear_parameters[i, j] = val[0]
 
     def __init__(self):
         """init method"""
+        self.terms = []
+        self.rank = np.zeros(shape=(0, 2))
+        self.rules = []
+        self.cusp = np.zeros(shape=(0, 2))
+        self.ee_basis_type = nb.typed.List.empty_list(nb.types.unicode_type)
+        self.en_basis_type = nb.typed.List.empty_list(nb.types.unicode_type)
+        self.ee_cutoff_type = nb.typed.List.empty_list(nb.types.unicode_type)
+        self.en_cutoff_type = nb.typed.List.empty_list(nb.types.unicode_type)
+        self.ee_constants = nb.typed.List.empty_list(parameters_type)
+        self.en_constants = nb.typed.List.empty_list(parameters_type)
+        self.ee_basis_parameters = nb.typed.List.empty_list(parameters_type)
+        self.en_basis_parameters = nb.typed.List.empty_list(parameters_type)
+        self.ee_cutoff_parameters = nb.typed.List.empty_list(parameters_type)
+        self.en_cutoff_parameters = nb.typed.List.empty_list(parameters_type)
+        self.linear_parameters = None
 
-    def read(self, base_path):
-        file_path = os.path.join(base_path, 'parameters.casl')
-        if not os.path.isfile(file_path):
-            return
-
-        with open(file_path, 'r') as f:
-            self._jastrow_data = safe_load(f)['JASTROW']
-
-        self.terms = self.get_terms()
-        self.rank = self.get_rank(self.terms)  # list of list
-        self.rules = self.get_rules(self.terms)  # list of list
-        self.ee_cusp = self.get_ee_cusp(self.terms)  # list of bool
-        self.ee_basis_type, self.en_basis_type = self.get_basis_type(self.terms)  # list of str
-        self.ee_cutoff_type, self.en_cutoff_type = self.get_cutoff_type(self.terms)  # list of str
-        self.ee_constants, self.en_constants = self.get_constants(self.terms)  # list of dict
-        self.ee_basis_parameters, self.en_basis_parameters = self.get_basis_parameters(self.terms)  # list of ???
-        self.ee_cutoff_parameters, self.en_cutoff_parameters = self.get_cutoff_parameters(self.terms)  # list of dict
-        self.linear_parameters = self.get_linear_parameters(self.terms)
-
+    def fix_terns(self):
+        """Fix dependent parameters."""
         for i, term in enumerate(self.terms):
             if term['Rank'] == [2, 0]:
                 for j, channel in enumerate(term['Linear parameters']):
@@ -209,3 +185,22 @@ class Gjastrow:
                     elif self.ee_cutoff_type[i] == 'alt polynomial':
                         C = self.ee_cutoff_parameters[j]['L'] / self.ee_constants[i]['C']
                         self.linear_parameters[j, 0] = C * (self.linear_parameters[j, 1] - G/(-self.ee_cutoff_parameters[j]['L'])**self.ee_constants[i]['C'])
+
+    def read(self, base_path):
+        file_path = os.path.join(base_path, 'parameters.casl')
+        if not os.path.isfile(file_path):
+            return
+
+        with open(file_path, 'r') as f:
+            jastrow_data = safe_load(f)['JASTROW']
+            self.get_terms(jastrow_data)
+            self.get_rank()
+            self.get_rules()
+            self.get_cusp()
+            self.get_basis_type()
+            self.get_cutoff_type()
+            self.get_constants()
+            self.get_basis_parameters()
+            self.get_cutoff_parameters()
+            self.get_linear_parameters()
+            self.fix_terns()

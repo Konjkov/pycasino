@@ -158,7 +158,7 @@ class Casino:
             self.config.wfn.mo_up, self.config.wfn.mo_down, self.config.mdet.permutation_up, self.config.mdet.permutation_down, self.config.mdet.coeff, cusp
         )
 
-        jastrow = None
+        jastrow = gjastrow = None
         if self.config.jastrow:
             if self.config.input.use_jastrow:
                 jastrow = Jastrow(
@@ -172,8 +172,7 @@ class Casino:
                 )
             elif self.config.input.use_gjastrow:
                 gjastrow = Gjastrow(
-                    self.config.input.neu, self.config.input.ned,
-                    self.config.jastrow.e_rank, self.config.jastrow.n_rank,
+                    self.config.input.neu, self.config.input.ned, self.config.jastrow.rank, self.config.jastrow.cusp,
                     self.config.jastrow.ee_basis_type, self.config.jastrow.en_basis_type,
                     self.config.jastrow.ee_cutoff_type, self.config.jastrow.en_cutoff_type,
                     self.config.jastrow.ee_constants, self.config.jastrow.en_constants,
