@@ -531,9 +531,27 @@ class Slater:
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
 
-            # tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) * tr(A^-1 * dA/dz)
-            # res_grad = np.concatenate((res_grad_u.ravel(), res_grad_d.ravel()))
-            # tress += c * np.expand_dims(res_grad, (1, 2)) * np.expand_dims(res_grad, (0, 2)) * np.expand_dims(res_grad, (0, 1))
+            # tr(A^-1 @ d²A/dxdydz)
+            res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
+            for r1 in range(3):
+                for r2 in range(3):
+                    for r3 in range(3):
+                        for ne in range(self.neu):
+                            res_u[ne, r1, ne, r2, ne, r3] = res_tress_u[ne, r1, r2, r3]
+            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3, self.neu * 3)
+
+            # tr(A^-1 @ d²A/dxdydz)
+            res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
+            for r1 in range(3):
+                for r2 in range(3):
+                    for r3 in range(3):
+                        for ne in range(self.ned):
+                            res_d[ne, r1, ne, r2, ne, r3] = res_tress_d[ne, r1, r2, r3]
+            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3, self.ned * 3)
+
+            # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) ⊗ tr(A^-1 * dA/dz)
+            res_grad = np.concatenate((res_grad_u.ravel(), res_grad_d.ravel()))
+            tress += c * np.expand_dims(np.outer(res_grad, res_grad), 2) * res_grad
 
         return tress / val
 
