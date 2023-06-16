@@ -178,7 +178,7 @@ class Casino:
                     self.config.jastrow.ee_constants, self.config.jastrow.en_constants,
                     self.config.jastrow.ee_basis_parameters, self.config.jastrow.en_basis_parameters,
                     self.config.jastrow.ee_cutoff_parameters, self.config.jastrow.en_cutoff_parameters,
-                    self.config.jastrow.linear_parameters
+                    self.config.jastrow.linear_parameters, self.config.jastrow.linear_parameters_shape,
                 )
 
         if self.config.backflow:

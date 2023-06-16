@@ -1,9 +1,10 @@
 from numpy_config import np, delta
 import numba as nb
 
+shape_type = nb.types.ListType(nb.int64)
+linear_parameters_type = nb.float64[:]
 constants_type = nb.types.DictType(nb.types.unicode_type, nb.float64)
 parameters_type = nb.types.ListType(nb.types.DictType(nb.types.unicode_type, nb.float64))
-linear_parameters_type = nb.float64[:, :]
 
 spec = [
     ('neu', nb.int64),
@@ -20,7 +21,8 @@ spec = [
     ('en_basis_parameters', parameters_type),
     ('ee_cutoff_parameters', parameters_type),
     ('en_cutoff_parameters', parameters_type),
-    ('linear_parameters', linear_parameters_type),
+    ('linear_parameters', nb.types.ListType(linear_parameters_type)),
+    ('linear_parameters_shape', nb.types.ListType(shape_type)),
 ]
 
 
@@ -30,7 +32,8 @@ class Gjastrow:
     def __init__(
             self, neu, ned, rank, cusp, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type,
             ee_constants, en_constants, ee_basis_parameters, en_basis_parameters, ee_cutoff_parameters,
-            en_cutoff_parameters, linear_parameters):
+            en_cutoff_parameters, linear_parameters, linear_parameters_shape
+    ):
         self.neu = neu
         self.ned = ned
         self.rank = rank
@@ -46,13 +49,16 @@ class Gjastrow:
         self.ee_cutoff_parameters = ee_cutoff_parameters
         self.en_cutoff_parameters = en_cutoff_parameters
         self.linear_parameters = linear_parameters
+        self.linear_parameters_shape = linear_parameters_shape
 
     def ee_powers(self, e_vectors: np.ndarray):
         """Powers of e-e distances
         :param e_vectors: e-e vectors - array(nelec, nelec, 3)
         :return: powers of e-e distances - array(nelec, nelec, max_ee_order, channel)
         """
-        res = np.zeros((e_vectors.shape[0], e_vectors.shape[1], self.linear_parameters.shape[1], self.linear_parameters.shape[0]))
+        shape = self.linear_parameters_shape[0]
+        linear_parameters = np.reshape(self.linear_parameters[0], shape)
+        res = np.zeros((e_vectors.shape[0], e_vectors.shape[1], linear_parameters.shape[1], linear_parameters.shape[0]))
         for i in range(e_vectors.shape[0] - 1):
             for j in range(i + 1, e_vectors.shape[1]):
                 r = np.linalg.norm(e_vectors[i, j])
@@ -76,7 +82,9 @@ class Gjastrow:
         :param n_vectors: e-n vectors - array(natom, nelec, 3)
         :return: powers of e-n distances - array(natom, nelec, max_en_order, channel)
         """
-        res = np.zeros((n_vectors.shape[1], n_vectors.shape[0], self.linear_parameters.shape[1], self.linear_parameters.shape[0]))
+        shape = self.linear_parameters_shape[0]
+        linear_parameters = np.reshape(self.linear_parameters[0], shape)
+        res = np.zeros((n_vectors.shape[1], n_vectors.shape[0], linear_parameters.shape[1], linear_parameters.shape[0]))
         for i in range(n_vectors.shape[1]):
             for j in range(n_vectors.shape[0]):
                 r = np.linalg.norm(n_vectors[j, i])
@@ -103,7 +111,8 @@ class Gjastrow:
         """
         res = 0.0
 
-        p = self.linear_parameters
+        shape = self.linear_parameters_shape[0]
+        p = np.reshape(self.linear_parameters[0], shape)
         C = self.ee_constants[0]['C']  # FIXME: first term hardcoded
         for i in range(e_powers.shape[0] - 1):
             for j in range(i + 1, e_powers.shape[1]):

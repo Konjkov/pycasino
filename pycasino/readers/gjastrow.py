@@ -14,7 +14,9 @@ def dict_to_typed_dict(_dict, _type=nb.types.float64):
     return result
 
 
+shape_type = nb.types.ListType(nb.int64)
 parameters_type = nb.types.DictType(nb.types.unicode_type, nb.types.float64)
+linear_parameters_type = nb.float64[:]
 
 
 class Gjastrow:
@@ -25,6 +27,25 @@ class Gjastrow:
     P. López Ríos, P. Seth, N. D. Drummond, and R. J. Needs
     Phys. Rev. E 86, 036703
     """
+
+    def __init__(self):
+        """init method"""
+        self.terms = []
+        self.rank = np.zeros(shape=(0, 2))
+        self.rules = []
+        self.cusp = np.zeros(shape=(0, 2))
+        self.ee_basis_type = nb.typed.List.empty_list(nb.types.unicode_type)
+        self.en_basis_type = nb.typed.List.empty_list(nb.types.unicode_type)
+        self.ee_cutoff_type = nb.typed.List.empty_list(nb.types.unicode_type)
+        self.en_cutoff_type = nb.typed.List.empty_list(nb.types.unicode_type)
+        self.ee_constants = nb.typed.List.empty_list(parameters_type)
+        self.en_constants = nb.typed.List.empty_list(parameters_type)
+        self.ee_basis_parameters = nb.typed.List.empty_list(parameters_type)
+        self.en_basis_parameters = nb.typed.List.empty_list(parameters_type)
+        self.ee_cutoff_parameters = nb.typed.List.empty_list(parameters_type)
+        self.en_cutoff_parameters = nb.typed.List.empty_list(parameters_type)
+        self.linear_parameters = nb.typed.List.empty_list(linear_parameters_type)
+        self.linear_parameters_shape = nb.typed.List.empty_list(shape_type)
 
     def get(self, term, *args):
         def list_or_dict(node):
@@ -132,59 +153,42 @@ class Gjastrow:
                 self.en_cutoff_parameters.append(dict_to_typed_dict({}))
 
     def get_linear_parameters(self):
-        """Load linear parameters into multidimensional array.
-        """
+        """Load linear parameters into multidimensional array."""
         for term in self.terms:
-            if term['Rank'] == [2, 0]:
-                e_rank, n_rank = term['Rank']
-                linear_parameters = term['Linear parameters']
-                dims = [len(linear_parameters)]
-                if e_rank > 1:
-                    e_order = self.get(term, 'e-e basis', 'Order')
-                    dims += [e_order] * (e_rank * (e_rank-1) // 2)
-                if n_rank > 0:
-                    n_order = self.get(term, 'e-n basis', 'Order')
-                    dims += [n_order] * (e_rank * n_rank)
+            e_rank, n_rank = term['Rank']
+            linear_parameters_data = term['Linear parameters']
+            channels = len(linear_parameters_data)
+            shape = [channels]
+            if e_rank > 1:
+                e_order = self.get(term, 'e-e basis', 'Order')
+                shape += [e_order] * (e_rank * (e_rank-1) // 2)
+            if n_rank > 0:
+                n_order = self.get(term, 'e-n basis', 'Order')
+                shape += [n_order] * (e_rank * n_rank)
 
-                self.linear_parameters = np.zeros(dims, dtype=np.float)
-                for i, channel in enumerate(linear_parameters.values()):
-                    for key, val in channel.items():
-                        j = tuple(map(lambda x: x-1, map(int, key.split('_')[1].split(','))))
-                        self.linear_parameters[i, j] = val[0]
-
-    def __init__(self):
-        """init method"""
-        self.terms = []
-        self.rank = np.zeros(shape=(0, 2))
-        self.rules = []
-        self.cusp = np.zeros(shape=(0, 2))
-        self.ee_basis_type = nb.typed.List.empty_list(nb.types.unicode_type)
-        self.en_basis_type = nb.typed.List.empty_list(nb.types.unicode_type)
-        self.ee_cutoff_type = nb.typed.List.empty_list(nb.types.unicode_type)
-        self.en_cutoff_type = nb.typed.List.empty_list(nb.types.unicode_type)
-        self.ee_constants = nb.typed.List.empty_list(parameters_type)
-        self.en_constants = nb.typed.List.empty_list(parameters_type)
-        self.ee_basis_parameters = nb.typed.List.empty_list(parameters_type)
-        self.en_basis_parameters = nb.typed.List.empty_list(parameters_type)
-        self.ee_cutoff_parameters = nb.typed.List.empty_list(parameters_type)
-        self.en_cutoff_parameters = nb.typed.List.empty_list(parameters_type)
-        self.linear_parameters = None
+            self.linear_parameters_shape.append(nb.typed.List(shape))
+            linear_parameters = np.zeros(shape=shape, dtype=float)
+            for i, channel in enumerate(linear_parameters_data.values()):
+                for key, val in channel.items():
+                    j = tuple(map(lambda x: x-1, map(int, key.split('_')[1].split(','))))
+                    linear_parameters[i, j] = val[0]
+            self.linear_parameters.append(linear_parameters.ravel())
 
     def fix_terns(self):
         """Fix dependent parameters."""
+        # FIXME: not works
         for i, term in enumerate(self.terms):
-            if term['Rank'] == [2, 0]:
-                for j, channel in enumerate(term['Linear parameters']):
-                    ch1, ch2 = channel[8:].split('-')
-                    G = 1/4 if ch1 == ch2 else 1/2
-                    if self.linear_parameters[j, 0]:
-                        continue
-                    if self.ee_cutoff_type[i] == 'polynomial':
-                        C = self.ee_cutoff_parameters[j]['L'] / self.ee_constants[i]['C']
-                        self.linear_parameters[j, 0] = C * (self.linear_parameters[j, 1] - G)
-                    elif self.ee_cutoff_type[i] == 'alt polynomial':
-                        C = self.ee_cutoff_parameters[j]['L'] / self.ee_constants[i]['C']
-                        self.linear_parameters[j, 0] = C * (self.linear_parameters[j, 1] - G/(-self.ee_cutoff_parameters[j]['L'])**self.ee_constants[i]['C'])
+            for j, channel in enumerate(term['Linear parameters']):
+                ch1, ch2 = channel[8:].split('-')
+                G = 1/4 if ch1 == ch2 else 1/2
+                if self.linear_parameters[j, 0]:
+                    continue
+                if self.ee_cutoff_type[i] == 'polynomial':
+                    C = self.ee_cutoff_parameters[j]['L'] / self.ee_constants[i]['C']
+                    self.linear_parameters[j, 0] = C * (self.linear_parameters[j, 1] - G)
+                elif self.ee_cutoff_type[i] == 'alt polynomial':
+                    C = self.ee_cutoff_parameters[j]['L'] / self.ee_constants[i]['C']
+                    self.linear_parameters[j, 0] = C * (self.linear_parameters[j, 1] - G/(-self.ee_cutoff_parameters[j]['L'])**self.ee_constants[i]['C'])
 
     def read(self, base_path):
         file_path = os.path.join(base_path, 'parameters.casl')
@@ -203,4 +207,4 @@ class Gjastrow:
             self.get_basis_parameters()
             self.get_cutoff_parameters()
             self.get_linear_parameters()
-            self.fix_terns()
+            # self.fix_terns()
