@@ -10,7 +10,7 @@ np.random.seed(31415926)
 
 # https://scicomp.stackexchange.com/questions/14355/choosing-epsilons
 # delta = np.sqrt(sys.float_info.epsilon)
-delta = np.finfo(np.float).eps ** (1/2)
-delta_3 = np.finfo(np.float).eps ** (1/4)
+delta = np.finfo(np.float64).eps ** (1/2)
+delta_3 = np.finfo(np.float64).eps ** (1/4)
 
 # np.show_config()

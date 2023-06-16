@@ -118,8 +118,8 @@ class Gwfn(FortranFile):
                     self.mo_up = np.array(mo_up).reshape((self.nbasis_functions, self.nbasis_functions))
                     self.mo_down = np.copy(self.mo_up)
 
-        self.orbital_types = np.full((self._nprimitives,), GAUSSIAN_TYPE, np.int)
-        self.slater_orders = np.zeros((self._nprimitives, ), np.int)
+        self.orbital_types = np.full((self._nprimitives,), GAUSSIAN_TYPE, np.int64)
+        self.slater_orders = np.zeros((self._nprimitives, ), np.int64)
         self.remove_premultiplied_factor()
 
     def remove_premultiplied_factor(self):
@@ -244,9 +244,9 @@ class Stowfn(FortranFile):
                 else:
                     self.mo_down = np.copy(self.mo_up)
 
-        self.orbital_types = np.full((self._nshell,), SLATER_TYPE, np.int)
-        self.primitives = np.ones((self._nshell,), np.int)
-        self.coefficients = np.ones((self._nshell,), np.float)
+        self.orbital_types = np.full((self._nshell,), SLATER_TYPE, np.int64)
+        self.primitives = np.ones((self._nshell,), np.int64)
+        self.coefficients = np.ones((self._nshell,), np.float64)
         self.normalize_orbitals()
 
     def normalize_orbitals(self):

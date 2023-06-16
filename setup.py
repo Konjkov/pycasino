@@ -10,18 +10,18 @@ setup(
     license='BSD 2-clause',
     packages=['pycasino'],
     install_requires=[
-        'pyblock==0.6.0',
-        'numba==0.56.4',
+        'numba==0.57.0',
         'numba-mpi==0.30',
+        'pyblock==0.6.0',
         'pandas==1.4.3',  # for pyblock
         'scipy==1.10.1',
-        'sympy==1.11.1',
+        'sympy==1.12.0',
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License',
         'Operating System :: POSIX :: Linux',
-        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.10',
     ],
 )

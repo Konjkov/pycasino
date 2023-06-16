@@ -136,6 +136,8 @@ class Casino:
         else:
             self.logger.level = logging.ERROR
 
+        self.logger.info(disclamer)
+
         if self.config.input.cusp_correction:
             cusp_factory = CuspFactory(
                 self.config.input.neu, self.config.input.ned, self.config.wfn.mo_up, self.config.wfn.mo_down,
@@ -294,7 +296,6 @@ class Casino:
         """Run Casino workflow.
         """
         start = default_timer()
-        self.logger.info(disclamer)
         if self.config.input.runtype == 'vmc':
             self.logger.info(
                 ' ====================================\n'
