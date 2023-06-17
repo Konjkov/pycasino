@@ -127,7 +127,7 @@ class Casino:
         self.config = CasinoConfig(config_path)
         self.config.read()
         self.neu, self.ned = self.config.input.neu, self.config.input.ned
-        self.logger = logging.getLogger('vmc')
+        self.logger = logging.getLogger('pycasino')
         self.root = self.mpi_comm.rank == 0
         if self.root:
             # to redirect scipy.optimize stdout to log-file
@@ -137,6 +137,11 @@ class Casino:
             self.logger.level = logging.ERROR
 
         self.logger.info(disclamer)
+
+        if self.mpi_comm.size > 1:
+            self.logger.info(' Running in parallel using %i MPI processes.\n', self.mpi_comm.size)
+        else:
+            self.logger.info(' Sequential run: not using MPI.\n')
 
         if self.config.input.cusp_correction:
             cusp_factory = CuspFactory(
