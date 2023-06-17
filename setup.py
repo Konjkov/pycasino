@@ -8,7 +8,7 @@ setup(
     author='Vladimir Konkov',
     author_email='Konjkov.VV@gmail.com',
     license='BSD 2-clause',
-    packages=['pycasino'],
+    packages=['pycasino', 'pycasino/readers'],
     install_requires=[
         'numba==0.57.0',
         'numba-mpi==0.30',
