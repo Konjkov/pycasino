@@ -8,7 +8,7 @@ setup(
     author='Vladimir Konkov',
     author_email='Konjkov.VV@gmail.com',
     license='BSD 2-clause',
-    packages=['pycasino', 'pycasino/readers'],
+    packages=['pycasino', 'pycasino.readers', 'sympy_utils'],
     install_requires=[
         'numba==0.57.0',
         'numba-mpi==0.30',
@@ -22,6 +22,12 @@ setup(
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License',
         'Operating System :: POSIX :: Linux',
+        'Programming Language :: Python',
         'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Topic :: Software Development',
+        'Topic :: Scientific/Engineering',
     ],
+    platforms=['Linux', 'Unix'],
+    python_requires='>=3.10'
 )

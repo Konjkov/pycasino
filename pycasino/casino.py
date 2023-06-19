@@ -7,6 +7,7 @@ from timeit import default_timer
 from numpy_config import np
 from mpi4py import MPI
 import scipy as sp
+import numba as nb
 from scipy.optimize import least_squares, minimize, curve_fit, minimize_scalar, OptimizeWarning
 import matplotlib.pyplot as plt
 
@@ -138,6 +139,11 @@ class Casino:
 
         self.logger.info(disclamer)
 
+        self.logger.info(
+            f' Python {sys.version}\n'
+            f' Numba {nb.__version__}\n'
+            f' Numpy {np.__version__}\n'
+        )
         if self.mpi_comm.size > 1:
             self.logger.info(' Running in parallel using %i MPI processes.\n', self.mpi_comm.size)
         else:
