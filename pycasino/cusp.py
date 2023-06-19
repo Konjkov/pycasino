@@ -603,6 +603,12 @@ class CuspFactory:
         self.eta = self.eta_data()
         self.unrestricted = unrestricted
         self.logger = logger
+        self.logger.info(
+            ' Gaussian cusp correction\n'
+            ' ========================\n\n'
+            ' Verbose print out flagged (turn off with cusp_info : F)\n'
+        )
+
 
     def phi(self, rc):
         """Wfn of single electron of s-orbitals on each atom"""
@@ -890,11 +896,6 @@ class CuspFactory:
         this may produce a lot of output.
         :return:
         """
-        self.logger.info(
-            ' Gaussian cusp correction\n'
-            ' ========================\n\n'
-            'Verbose print out flagged (turn off with cusp_info : F)\n'
-        )
         for i in range(2) if self.unrestricted else range(1):
             if self.unrestricted:
                 if i == 0:
@@ -916,6 +917,7 @@ class CuspFactory:
                     )
                     if self.orb_mask[atom][orb]:
                         sign = 'positive' if self.orbital_sign[atom][orb] else 'negative'
+                        z_eff = self.atom_charges[atom] * (1 + self.eta[atom][orb] / self.phi_0[atom][orb])
                         self.logger.info(
                             f' Sign of orbital at nucleus                : {sign}\n'
                             f' Cusp radius (au)                          : {self.rc[atom][orb]:16.12f}\n'
@@ -923,7 +925,7 @@ class CuspFactory:
                             f' Value of s part of orbital at nucleus     : {self.phi_0[atom][orb]:16.12f}\n'
                             f' Optimum corrected s orbital at nucleus    : {self.phi_tilde_0[atom][orb]:16.12f}\n'
                             f' Maximum deviation from ideal local energy : {self.energy_diff_max[atom][orb]:16.12f}\n'
-                            f' Effective nuclear charge                  : {self.atom_charges[atom]:16.12f}\n'
+                            f' Effective nuclear charge                  : {z_eff:16.12f}\n'
                         )
                     else:
                         self.logger.info(
