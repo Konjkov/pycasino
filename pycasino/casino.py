@@ -1,26 +1,25 @@
-#!/usr/bin/env python3
 import os
 import sys
 import warnings
 import argparse
 from timeit import default_timer
-from numpy_config import np
+from pycasino.numpy_config import np
 from mpi4py import MPI
 import scipy as sp
 import numba as nb
 from scipy.optimize import least_squares, minimize, curve_fit, minimize_scalar, OptimizeWarning
 import matplotlib.pyplot as plt
 
-from cusp import CuspFactory
-from slater import Slater
-from jastrow import Jastrow
-from gjastrow import Gjastrow
-from backflow import Backflow
-from markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
-from wfn import Wfn
-from readers.casino import CasinoConfig
-from sem import correlated_sem
-from logger import disclamer, logging, StreamToLogger
+from pycasino.cusp import CuspFactory
+from pycasino.slater import Slater
+from pycasino.jastrow import Jastrow
+from pycasino.gjastrow import Gjastrow
+from pycasino.backflow import Backflow
+from pycasino.markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
+from pycasino.wfn import Wfn
+from pycasino.readers.casino import CasinoConfig
+from pycasino.sem import correlated_sem
+from pycasino.logger import disclamer, logging, StreamToLogger
 
 
 # @nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
@@ -940,7 +939,7 @@ class Casino:
     vmc_energy_minimization = vmc_energy_minimization_linear_method
 
 
-if __name__ == '__main__':
+def main():
 
     parser = argparse.ArgumentParser(
         description="This script run CASINO workflow.",

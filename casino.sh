@@ -107,7 +107,7 @@
 # path='tests/stowfn/He/HF/QZ4P/CBCS/Backflow_emin/'
 # path='tests/stowfn/Be/HF/QZ4P/CBCS/Backflow_emin/'
 
-# python pycasino/casino.py $path
-# mpiexec python pycasino/casino.py $path
+# casino $path
+# mpiexec casino $path
 
-# pycasino/profiling.py
+# casino_profiling.py

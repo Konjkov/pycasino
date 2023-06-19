@@ -1,9 +1,9 @@
-from numpy_config import np
+from pycasino.numpy_config import np
 from math import erfc
 import numba as nb
 import numba_mpi as nb_mpi
 
-from wfn import Wfn
+from pycasino.wfn import Wfn
 
 vmc_spec = [
     ('r_e', nb.float64[:, :]),

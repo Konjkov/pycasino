@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from numpy_config import np, delta
+from pycasino.numpy_config import np, delta
 
 
 class Slater(ABC):

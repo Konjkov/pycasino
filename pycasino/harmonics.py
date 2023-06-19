@@ -1,4 +1,4 @@
-from numpy_config import np
+from pycasino.numpy_config import np
 import numba as nb
 
 

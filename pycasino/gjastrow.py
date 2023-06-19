@@ -1,4 +1,4 @@
-from numpy_config import np, delta
+from pycasino.numpy_config import np, delta
 import numba as nb
 
 shape_type = nb.types.ListType(nb.int64)

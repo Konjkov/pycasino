@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 import numba as nb
-from readers.numerical import rref
+from pycasino.readers.numerical import rref
 
 labels_type = nb.int64[:]
 mu_parameters_type = nb.float64[:, :]

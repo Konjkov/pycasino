@@ -2,8 +2,8 @@
 
 from timeit import default_timer
 from numba.core.runtime import rtsys
-from logger import logging
-from casino import Casino
+from pycasino.logger import logging
+from pycasino.casino import Casino
 
 
 logger = logging.getLogger('vmc')

@@ -1,11 +1,11 @@
-from numpy_config import np, delta, delta_3
+from pycasino.numpy_config import np, delta, delta_3
 import numba as nb
 
-from logger import logging
-from readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
-from cusp import Cusp
-from harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
-from overload import random_step
+from pycasino.logger import logging
+from pycasino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
+from pycasino.cusp import Cusp
+from pycasino.harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
+from pycasino.overload import random_step
 
 logger = logging.getLogger('vmc')
 

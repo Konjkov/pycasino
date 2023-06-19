@@ -29,5 +29,9 @@ setup(
         'Topic :: Scientific/Engineering',
     ],
     platforms=['Linux', 'Unix'],
-    python_requires='>=3.10'
+    python_requires='>=3.10',
+    # https://python-packaging.readthedocs.io/en/latest/command-line-scripts.html
+    entry_points = {
+        'console_scripts': ['pycasino=pycasino.casino:main'],
+    }
 )

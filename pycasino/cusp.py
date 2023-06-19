@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-from numpy_config import np
+from pycasino.numpy_config import np
 import numba as nb
 from scipy.optimize import minimize
 from numpy.polynomial.polynomial import polyval
 
-from harmonics import angular_part
-from readers.casino import CasinoConfig
-from overload import random_step
+from pycasino.harmonics import angular_part
+from pycasino.readers.casino import CasinoConfig
+from pycasino.overload import random_step
 
 
 cusp_spec = [

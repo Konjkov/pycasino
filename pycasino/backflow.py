@@ -1,9 +1,9 @@
-from numpy_config import np, delta
+from pycasino.numpy_config import np, delta
 import numba as nb
 
-from readers.numerical import rref
-from readers.backflow import construct_c_matrix
-from overload import random_step, block_diag
+from pycasino.readers.numerical import rref
+from pycasino.readers.backflow import construct_c_matrix
+from pycasino.overload import random_step, block_diag
 
 
 labels_type = nb.int64[:]
