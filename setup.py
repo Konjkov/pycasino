@@ -10,12 +10,15 @@ setup(
     license='BSD 2-clause',
     packages=['pycasino', 'pycasino.readers', 'sympy_utils'],
     install_requires=[
-        'numba>=0.57.0',
+        'numba==0.57.0',
         'numba-mpi==0.30',
         'pyblock==0.6.0',
+        'numpy==1.24.3',
         'scipy==1.10.1',
         'sympy==1.12.0',
         'pyyaml==6.0.0',  # for gjastrow loader
+        'matplotlib==3.5.2',
+        'pandas==2.0.2'   # for pyblock
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
