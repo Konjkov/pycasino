@@ -9,6 +9,7 @@ from pycasino.overload import random_step
 
 logger = logging.getLogger('vmc')
 
+cach_type = nb.types.Tuple([nb.float64[:, :], nb.float64[:, :]])
 
 slater_spec = [
     ('neu', nb.int64),
@@ -29,6 +30,7 @@ slater_spec = [
     ('cusp', nb.optional(Cusp.class_type.instance_type)),
     ('norm', nb.float64),
     ('parameters_projector', nb.float64[:, :]),
+    ('value_matrix_cach', nb.types.DictType(nb.float64, cach_type)),
 ]
 
 
@@ -73,6 +75,7 @@ class Slater:
         self.det_coeff = coeff
         self.cusp = cusp
         self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
+        self.value_matrix_cach = nb.typed.Dict.empty(nb.float64, cach_type)
 
     def value_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
         """Value matrix.
@@ -80,6 +83,10 @@ class Slater:
         :param n_vectors: electron-nuclei array(nelec, natom, 3)
         :return: array(up_orbitals, up_electrons), array(down_orbitals, down_electrons)
         """
+        res = self.value_matrix_cach.get(n_vectors.sum(), None)
+        if res is not None:
+            return res
+
         orbital = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
         for i in range(self.neu + self.ned):
             p = ao = 0
@@ -109,6 +116,7 @@ class Slater:
             cusp_value_u, cusp_value_d = self.cusp.value(n_vectors)
             wfn_u += cusp_value_u
             wfn_d += cusp_value_d
+        self.value_matrix_cach = {n_vectors.sum(): (wfn_u, wfn_d)}
         return wfn_u, wfn_d
 
     def gradient_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
