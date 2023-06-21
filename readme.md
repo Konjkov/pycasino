@@ -21,7 +21,7 @@ list of supported keywords in input file:
 optimization
 8. VMC_NBLOCK number of blocks into which the total VMC run is divided post-equilibration
 9. OPT_CYCLES Number of optimization+VMC cycles to perform.
-10. OPT_METHOD Optimization method to use: ‘varmin’), ‘emin’
+10. OPT_METHOD Optimization method to use: ‘varmin’, ‘emin’
 11. DMC_TARGET WEIGHT Target number of configurations in DMC
 12. DMC_EQUIL NSTEP Number of DMC steps in equilibration
 13. DMC_STATS NSTEP Number of DMC steps in statistics accumulation
