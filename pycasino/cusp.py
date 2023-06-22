@@ -605,8 +605,8 @@ class CuspFactory:
         self.logger = logger
         self.logger.info(
             ' Gaussian cusp correction\n'
-            ' ========================\n\n'
-            ' Verbose print out flagged (turn off with cusp_info : F)\n'
+            ' ========================\n'
+            ' Activated.\n'
         )
 
 
@@ -896,6 +896,9 @@ class CuspFactory:
         this may produce a lot of output.
         :return:
         """
+        self.logger.info(
+            ' Verbose print out flagged (turn off with cusp_info : F)\n'
+        )
         for i in range(2) if self.unrestricted else range(1):
             if self.unrestricted:
                 if i == 0:
