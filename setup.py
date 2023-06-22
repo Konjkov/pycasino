@@ -10,7 +10,7 @@ setup(
     license='BSD 2-clause',
     packages=['pycasino', 'pycasino.readers', 'sympy_utils'],
     install_requires=[
-        'numba==0.57.0',
+        'numba==0.57.1',
         'numba-mpi==0.30',
         'pyblock==0.6.0',
         'numpy==1.24.3',
