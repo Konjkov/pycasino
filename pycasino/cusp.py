@@ -569,7 +569,7 @@ class Cusp:
 class CuspFactory:
 
     def __init__(
-            self, neu, ned, mo_up, mo_down, permutation_up, permutation_down,
+            self, neu, ned, cusp_threshold, mo_up, mo_down, permutation_up, permutation_down,
             first_shells, shell_moments, primitives, coefficients, exponents, atom_positions, atom_charges, unrestricted,
             logger
     ):
@@ -587,7 +587,7 @@ class CuspFactory:
         self.exponents = exponents
         self.atom_positions = atom_positions
         self.atom_charges = atom_charges
-        self.cusp_threshold = 1e-7  # FIXME: take from config
+        self.cusp_threshold = cusp_threshold
         self.phi_0, _, _ = self.phi(np.zeros(shape=(self.atom_positions.shape[0], self.mo.shape[0])))
         self.orb_mask = np.abs(self.phi_0) > self.cusp_threshold
         self.beta = np.array([3.25819, -15.0126, 33.7308, -42.8705, 31.2276, -12.1316, 1.94692])
@@ -1212,7 +1212,7 @@ if __name__ == '__main__':
         config.read()
 
         cusp = CuspFactory(
-            config.input.neu, config.input.ned, config.wfn.mo_up, config.wfn.mo_down,
+            config.input.neu, config.input.ned, config.input.cusp_threshold, config.wfn.mo_up, config.wfn.mo_down,
             config.mdet.permutation_up, config.mdet.permutation_down,
             config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
             config.wfn.coefficients, config.wfn.exponents,

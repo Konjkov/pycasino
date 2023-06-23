@@ -20,7 +20,6 @@ class Input:
         self.use_gpcc = None
         self.use_jastrow = self.use_gjastrow = False
         self.opt_jastrow = self.opt_backflow = False
-        self.nucleus_gf_mods = True
         self.alimit = 0.5
 
     def read(self, base_path):
@@ -98,6 +97,8 @@ class Input:
                     self.vm_reweight = read_bool(line)
                 elif line.startswith('cusp_correction'):
                     self.cusp_correction = read_bool(line)
+                elif line.startswith('cusp_threshold'):
+                    self.cusp_threshold = read_float(line)
                 elif line.startswith('cusp_info'):
                     self.cusp_info = read_bool(line)
                 elif line.startswith('nucleus_gf_mods'):

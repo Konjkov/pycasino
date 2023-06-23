@@ -7,7 +7,7 @@ setup(
     url='https://github.com/Konjkov/pycasino',
     author='Vladimir Konkov',
     author_email='Konjkov.VV@gmail.com',
-    license='BSD 2-clause',
+    license='MIT',
     packages=['pycasino', 'pycasino.readers', 'sympy_utils'],
     install_requires=[
         'numba==0.57.1',
