@@ -1,4 +1,4 @@
-# Pycasino python quantum package
+# Python quantum package
 
 The Pycasino program implements some of the methods from the well-known Casino program.
 (available on site https://vallico.net/casinoqmc/)
