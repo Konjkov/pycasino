@@ -12,6 +12,7 @@ The Pycasino program implements some of the methods from the well-known Casino p
 7. support VMC and DMC energy calculation, varmin and emin optimization
 
 List of supported keywords in input file:
+
 General (system-dependent) keywords:
 * NEU, NED Number of electrons of up and down spin
 * RUNTYPE Type of QMC calculation: ‘vmc’, ‘vmc_dmc’, ‘vmc_opt’
