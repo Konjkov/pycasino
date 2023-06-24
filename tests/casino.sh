@@ -18,6 +18,7 @@
 # path='gwfn/Ar/HF/cc-pVQZ/CBCS/Jastrow/'
 # path='gwfn/Kr/HF/cc-pVQZ/CBCS/Jastrow/'
 # path='gwfn/O3/HF/cc-pVQZ/CBCS/Jastrow/'
+# path='gwfn/B2H6/HF/cc-pVQZ/CBCS/Jastrow/'
 
 # path='gwfn/He/HF/cc-pVQZ/CBCS/Backflow/'
 # path='gwfn/Be/HF/cc-pVQZ/CBCS/Backflow/'
