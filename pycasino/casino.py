@@ -150,7 +150,7 @@ class Casino:
 
         if self.config.input.cusp_correction:
             cusp_factory = CuspFactory(
-                self.config.input.neu, self.config.input.ned, self.config.wfn.mo_up, self.config.wfn.mo_down,
+                self.config.input.neu, self.config.input.ned, self.config.input.cusp_threshold, self.config.wfn.mo_up, self.config.wfn.mo_down,
                 self.config.mdet.permutation_up, self.config.mdet.permutation_down,
                 self.config.wfn.first_shells, self.config.wfn.shell_moments, self.config.wfn.primitives,
                 self.config.wfn.coefficients, self.config.wfn.exponents,
@@ -288,11 +288,7 @@ class Casino:
                     f' ydata: {ydata}\n'
                     f' set step size to approximate'
                 )
-        step_size = self.mpi_comm.bcast(step_size)
-        self.logger.info(
-            f'Optimized step size: {step_size:.5f}\n'
-        )
-        self.vmc_markovchain.step_size = step_size
+        self.vmc_markovchain.step_size = self.mpi_comm.bcast(step_size)
 
     @property
     def decorr_period(self):
@@ -386,7 +382,15 @@ class Casino:
             f' =====================\n'
         )
         self.equilibrate(self.config.input.vmc_equil_nstep)
-        self.optimize_vmc_step(1000)
+
+        if self.config.input.dtvmc:
+            self.vmc_markovchain.step_size = np.sqrt(3 * self.config.input.dtvmc)
+        else:
+            self.optimize_vmc_step(1000)
+        self.logger.info(
+            f'Optimized step size: {self.vmc_markovchain.step_size:.5f}\n'
+            f'DTVMC: {(self.vmc_markovchain.step_size**2)/3:.5f}\n'
+        )
 
         steps = self.config.input.vmc_nstep
         nblock = self.config.input.vmc_nblock

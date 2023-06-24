@@ -11,6 +11,7 @@ class Input:
         self.limdmc = 4
         self.vmc_decorr_period = 3
         self.vm_reweight = False
+        self.dtvmc = None
         self.ebest_av_window = 25
         self.nucleus_gf_mods = True
         self.cusp_correction = None
@@ -19,7 +20,6 @@ class Input:
         self.use_gpcc = None
         self.use_jastrow = self.use_gjastrow = False
         self.opt_jastrow = self.opt_backflow = False
-        self.nucleus_gf_mods = True
         self.alimit = 0.5
 
     def read(self, base_path):
@@ -87,6 +87,8 @@ class Input:
                     self.dmc_stats_nblock = read_int(line)
                 elif line.startswith('dtdmc'):
                     self.dtdmc = read_float(line)
+                elif line.startswith('dtvmc'):
+                    self.dtvmc = read_float(line)
                 elif line.startswith('dmc_target_weight'):
                     self.dmc_target_weight = read_float(line)
                 elif line.startswith('vmc_decorr_period'):
@@ -95,6 +97,8 @@ class Input:
                     self.vm_reweight = read_bool(line)
                 elif line.startswith('cusp_correction'):
                     self.cusp_correction = read_bool(line)
+                elif line.startswith('cusp_threshold'):
+                    self.cusp_threshold = read_float(line)
                 elif line.startswith('cusp_info'):
                     self.cusp_info = read_bool(line)
                 elif line.startswith('nucleus_gf_mods'):

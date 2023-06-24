@@ -19,9 +19,9 @@ disclamer = """
  .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
 
                           Python Quantum Package
-                   v0.1.0 [Konjkov Vladimir] (30 August 2023)
+                   v0.1.0 [Konkov Vladimir] (30 August 2023)
 
-    Main Author : V.V. Konjkov
+    Main Author : V.V. Konkov
  ------------------------------------------------------------------------------
 """ # created with art python package
 
