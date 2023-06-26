@@ -9,6 +9,8 @@ from pycasino.overload import random_step
 
 logger = logging.getLogger('vmc')
 
+value_matrix_res_type = nb.types.Tuple([nb.float64[:, :], nb.float64[:, :]])
+gradient_matrix_res_type = nb.types.Tuple([nb.float64[:, :, :], nb.float64[:, :, :]])
 
 slater_spec = [
     ('neu', nb.int64),
@@ -29,6 +31,10 @@ slater_spec = [
     ('cusp', nb.optional(Cusp.class_type.instance_type)),
     ('norm', nb.float64),
     ('parameters_projector', nb.float64[:, :]),
+    ('value_matrix_arg', nb.float64[:, :, :]),
+    ('value_matrix_res', value_matrix_res_type),
+    ('gradient_matrix_arg', nb.float64[:, :, :]),
+    ('gradient_matrix_res', gradient_matrix_res_type),
 ]
 
 
@@ -73,13 +79,22 @@ class Slater:
         self.det_coeff = coeff
         self.cusp = cusp
         self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
+        self.value_matrix_arg = np.zeros(shape=(1, neu + ned, 3))
+        self.value_matrix_res = (np.zeros(shape=(neu, neu)), np.zeros(shape=(ned, ned)))
+        self.gradient_matrix_arg = np.zeros(shape=(1, neu + ned, 3))
+        self.gradient_matrix_res = (np.zeros(shape=(neu, neu, 3)), np.zeros(shape=(ned, ned, 3)))
 
-    def value_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
+    def value_matrix(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Value matrix.
         Atomic orbitals for every electron
-        :param n_vectors: electron-nuclei array(nelec, natom, 3)
+        :param n_vectors: electron-nuclei array(natom, nelec, 3)
         :return: array(up_orbitals, up_electrons), array(down_orbitals, down_electrons)
         """
+        if np.allclose(self.gradient_matrix_arg, n_vectors, rtol=1.e-5, atol=1.e-8, equal_nan=False):
+            return self.value_matrix_res
+        else:
+            self.value_matrix_arg = n_vectors
+
         orbital = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
         for i in range(self.neu + self.ned):
             p = ao = 0
@@ -109,13 +124,19 @@ class Slater:
             cusp_value_u, cusp_value_d = self.cusp.value(n_vectors)
             wfn_u += cusp_value_u
             wfn_d += cusp_value_d
+        self.value_matrix_res = (wfn_u, wfn_d)
         return wfn_u, wfn_d
 
-    def gradient_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
+    def gradient_matrix(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Gradient matrix.
         :param n_vectors: electron-nuclei - array(natom, nelec, 3)
         :return: array(up_orbitals, up_electrons, 3), array(down_orbitals, down_electrons, 3)
         """
+        if np.allclose(self.gradient_matrix_arg, n_vectors, rtol=1.e-5, atol=1.e-8, equal_nan=False):
+            return self.gradient_matrix_res
+        else:
+            self.gradient_matrix_arg = n_vectors
+
         orbital = np.zeros(shape=(self.neu + self.ned, 3, self.nbasis_functions))
         for i in range(self.neu + self.ned):
             p = ao = 0
@@ -156,9 +177,10 @@ class Slater:
             cusp_gradient_u, cusp_gradient_d = self.cusp.gradient(n_vectors)
             grad_u += cusp_gradient_u
             grad_d += cusp_gradient_d
+        self.gradient_matrix_res = (grad_u, grad_d)
         return grad_u, grad_d
 
-    def laplacian_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
+    def laplacian_matrix(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Laplacian matrix.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :return: array(up_orbitals, up_electrons), array(down_orbitals, down_electrons)
@@ -198,7 +220,7 @@ class Slater:
             lap_d += cusp_laplacian_d
         return lap_u, lap_d
 
-    def hessian_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
+    def hessian_matrix(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Hessian matrix.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :return: array(up_orbitals, up_electrons, 3, 3), array(down_orbitals, down_electrons, 3, 3)
@@ -268,7 +290,7 @@ class Slater:
             hess_d += cusp_hessian_d
         return hess_u, hess_d
 
-    def tressian_matrix(self, n_vectors: np.ndarray) -> np.ndarray:
+    def tressian_matrix(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Tressian matrix.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :return: array(up_orbitals, up_electrons, 3, 3, 3), array(down_orbitals, down_electrons, 3, 3, 3)

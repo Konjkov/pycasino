@@ -142,6 +142,7 @@ class Casino:
             f' Python {sys.version}\n'
             f' Numba {nb.__version__}\n'
             f' Numpy {np.__version__}\n'
+            f' Scipy {sp.__version__}\n'
         )
         if self.mpi_comm.size > 1:
             self.logger.info(' Running in parallel using %i MPI processes.\n', self.mpi_comm.size)
