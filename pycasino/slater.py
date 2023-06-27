@@ -31,9 +31,9 @@ slater_spec = [
     ('cusp', nb.optional(Cusp.class_type.instance_type)),
     ('norm', nb.float64),
     ('parameters_projector', nb.float64[:, :]),
-    ('value_matrix_arg', nb.float64[:, :, :]),
+    ('value_matrix_arg', nb.float64[:, :]),
     ('value_matrix_res', value_matrix_res_type),
-    ('gradient_matrix_arg', nb.float64[:, :, :]),
+    ('gradient_matrix_arg', nb.float64[:, :]),
     ('gradient_matrix_res', gradient_matrix_res_type),
 ]
 
@@ -78,10 +78,10 @@ class Slater:
         self.permutation_down = permutation_down
         self.det_coeff = coeff
         self.cusp = cusp
-        self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
-        self.value_matrix_arg = np.zeros(shape=(1, neu + ned, 3))
+        self.norm = np.exp(-(np.math.lgamma(neu + 1) + np.math.lgamma(ned + 1)) / (neu + ned) / 2)
+        self.value_matrix_arg = np.zeros(shape=(neu + ned, 3))
         self.value_matrix_res = (np.zeros(shape=(neu, neu)), np.zeros(shape=(ned, ned)))
-        self.gradient_matrix_arg = np.zeros(shape=(1, neu + ned, 3))
+        self.gradient_matrix_arg = np.zeros(shape=(neu + ned, 3))
         self.gradient_matrix_res = (np.zeros(shape=(neu, neu, 3)), np.zeros(shape=(ned, ned, 3)))
 
     def value_matrix(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -90,10 +90,10 @@ class Slater:
         :param n_vectors: electron-nuclei array(natom, nelec, 3)
         :return: array(up_orbitals, up_electrons), array(down_orbitals, down_electrons)
         """
-        if np.allclose(self.gradient_matrix_arg, n_vectors, rtol=1.e-5, atol=1.e-8, equal_nan=False):
+        if np.allclose(self.gradient_matrix_arg, n_vectors[0], rtol=1.e-5, atol=1.e-8, equal_nan=False):
             return self.value_matrix_res
         else:
-            self.value_matrix_arg = n_vectors
+            self.value_matrix_arg = n_vectors[0]
 
         orbital = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
         for i in range(self.neu + self.ned):
@@ -132,10 +132,10 @@ class Slater:
         :param n_vectors: electron-nuclei - array(natom, nelec, 3)
         :return: array(up_orbitals, up_electrons, 3), array(down_orbitals, down_electrons, 3)
         """
-        if np.allclose(self.gradient_matrix_arg, n_vectors, rtol=1.e-5, atol=1.e-8, equal_nan=False):
+        if np.allclose(self.gradient_matrix_arg, n_vectors[0], rtol=1.e-5, atol=1.e-8, equal_nan=False):
             return self.gradient_matrix_res
         else:
-            self.gradient_matrix_arg = n_vectors
+            self.gradient_matrix_arg = n_vectors[0]
 
         orbital = np.zeros(shape=(self.neu + self.ned, 3, self.nbasis_functions))
         for i in range(self.neu + self.ned):
