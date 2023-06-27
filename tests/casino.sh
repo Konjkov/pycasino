@@ -46,6 +46,14 @@
 # path='stowfn/Kr/HF/QZ4P/CBCS/Slater/'
 # path='stowfn/O3/HF/QZ4P/CBCS/Slater/'
 
+# path='stowfn/He/HF/QZ4P/EBES/Slater/'
+# path='stowfn/Be/HF/QZ4P/EBES/Slater/'
+# path='stowfn/N/HF/QZ4P/EBES/Slater/'
+# path='stowfn/Ne/HF/QZ4P/EBES/Slater/'
+# path='stowfn/Ar/HF/QZ4P/EBES/Slater/'
+# path='stowfn/Kr/HF/QZ4P/EBES/Slater/'
+# path='stowfn/O3/HF/QZ4P/EBES/Slater/'
+
 # path='stowfn/He/HF/QZ4P/CBCS/Jastrow/'
 # path='stowfn/Be/HF/QZ4P/CBCS/Jastrow/'
 # path='stowfn/N/HF/QZ4P/CBCS/Jastrow/'

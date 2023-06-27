@@ -248,11 +248,17 @@ class Casino:
         step_size = self.approximate_step_size
         for x in range(4 * n):
             self.vmc_markovchain.step_size = step_size * (x + 1) / n
-            condition, _ = self.vmc_markovchain.random_walk(1000000)
+            condition, _ = self.vmc_markovchain.random_walk(1000000, 1)
             acc_ration = condition.mean()
-            self.logger.info(
-                'step_size * electrons = %.5f, acc_ration = %.5f', self.vmc_markovchain.step_size * (self.neu + self.ned), acc_ration
-            )
+            if self.config.input.vmc_method == 1:
+                acc_ration /= (self.neu + self.ned)
+                self.logger.info(
+                    'step_size * ln(electrons) = %.5f, acc_ratio = %.5f', self.vmc_markovchain.step_size / step_size, acc_ration
+                )
+            elif self.config.input.vmc_method == 3:
+                self.logger.info(
+                    'step_size * electrons = %.5f, acc_ratio = %.5f', self.vmc_markovchain.step_size / step_size, acc_ration
+                )
 
     def optimize_vmc_step(self, steps):
         """Optimize vmc step size."""
@@ -261,9 +267,11 @@ class Casino:
         step_size = self.approximate_step_size
         for i in range(1, xdata.size):
             self.vmc_markovchain.step_size = step_size * xdata[i]
-            condition, position = self.vmc_markovchain.random_walk(steps)
-            acc_rate = condition.mean()
-            ydata[i] = self.mpi_comm.allreduce(acc_rate) / self.mpi_comm.size
+            condition, position = self.vmc_markovchain.random_walk(steps, 1)
+            acc_ration = condition.mean()
+            if self.config.input.vmc_method == 1:
+                acc_ration /= (self.neu + self.ned)
+            ydata[i] = self.mpi_comm.allreduce(acc_ration) / self.mpi_comm.size
 
         def f(ts, a, ts0):
             """Dependence of the acceptance probability on the step size in CBCS case looks like:
@@ -371,7 +379,7 @@ class Casino:
         :param steps: burn-in period
         :return:
         """
-        condition, _ = self.vmc_markovchain.random_walk(steps)
+        condition, _ = self.vmc_markovchain.random_walk(steps, self.decorr_period)
         self.logger.info(
             f'Running VMC equilibration ({steps} moves).'
         )

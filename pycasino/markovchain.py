@@ -7,7 +7,7 @@ from pycasino.wfn import Wfn
 
 vmc_spec = [
     ('r_e', nb.float64[:, :]),
-    ('cond', nb.boolean),
+    ('cond', nb.int64),
     ('step_size', nb.float64),
     ('wfn', Wfn.class_type.instance_type),
     ('probability_density', nb.float64),
@@ -59,7 +59,7 @@ class VMCMarkovChain:
         :return:
         """
         self.r_e = r_e
-        self.cond = False
+        self.cond = 0
         self.step_size = step_size
         self.wfn = wfn
         self.probability_density = self.wfn.value(self.r_e) ** 2
@@ -70,23 +70,25 @@ class VMCMarkovChain:
         """
         ne = self.wfn.neu + self.wfn.ned
 
-        next_state = self.r_e + self.step_size * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-        next_probability_density = self.wfn.value(next_state) ** 2
+        next_r_e = self.r_e + self.step_size * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
+        next_probability_density = self.wfn.value(next_r_e) ** 2
         self.cond = next_probability_density / self.probability_density > np.random.random()
         if self.cond:
-            self.r_e, self.probability_density = next_state, next_probability_density
+            self.r_e, self.probability_density = next_r_e, next_probability_density
 
     def gibbs_random_step(self):
         """Simple random walker with electron-by-electron sampling (EBES)
         """
         ne = self.wfn.neu + self.wfn.ned
-
-        next_r_e = np.copy(self.r_e)
-        next_r_e[np.random.randint(ne)] += self.step_size * np.random.uniform(-1, 1, 3)
-        next_probability_density = self.wfn.value(next_r_e) ** 2
-        self.cond = next_probability_density / self.probability_density > np.random.random()
-        if self.cond:
-            self.r_e, self.probability_density = next_r_e, next_probability_density
+        self.cond = 0
+        for i in range(ne):
+            next_r_e = np.copy(self.r_e)
+            next_r_e[i] += self.step_size * np.random.uniform(-1, 1, 3)
+            next_probability_density = self.wfn.value(next_r_e) ** 2
+            cond = next_probability_density / self.probability_density > np.random.random()
+            self.cond += cond
+            if cond:
+                self.r_e, self.probability_density = next_r_e, next_probability_density
 
     def biased_random_step(self):
         """Biased random walker with diffusion-drift proposed step
@@ -126,7 +128,7 @@ class VMCMarkovChain:
         """
         raise NotImplementedError
 
-    def random_walk(self, steps, decorr_period=1):
+    def random_walk(self, steps, decorr_period):
         """Metropolis-Hastings random walk.
         :param steps: number of steps to walk
         :param decorr_period: decorrelation period
@@ -134,14 +136,14 @@ class VMCMarkovChain:
         """
         # reset if parameters changed
         self.probability_density = self.wfn.value(self.r_e) ** 2
-        condition = np.empty(shape=(steps, ), dtype=np.bool_)
+        condition = np.empty(shape=(steps, ), dtype=np.int64)
         position = np.empty(shape=(steps, ) + self.r_e.shape)
 
         for i in range(steps):
-            cond = False
+            cond = 0
             for _ in range(decorr_period):
-                self.simple_random_step()
-                cond |= self.cond
+                self.gibbs_random_step()
+                cond += self.cond
             condition[i], position[i] = cond, self.r_e
 
         return condition, position
