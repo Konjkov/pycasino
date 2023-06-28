@@ -32,7 +32,7 @@ slater_spec = [
     ('norm', nb.float64),
     ('parameters_projector', nb.float64[:, :]),
     ('value_matrix_arg', nb.float64[:, :]),
-    ('value_matrix_res', value_matrix_res_type),
+    ('value_orbitals', nb.float64[:, :]),
     ('gradient_matrix_arg', nb.float64[:, :]),
     ('gradient_matrix_res', gradient_matrix_res_type),
 ]
@@ -79,8 +79,8 @@ class Slater:
         self.det_coeff = coeff
         self.cusp = cusp
         self.norm = np.exp(-(np.math.lgamma(neu + 1) + np.math.lgamma(ned + 1)) / (neu + ned) / 2)
-        self.value_matrix_arg = np.zeros(shape=(neu + ned, 3))
-        self.value_matrix_res = (np.zeros(shape=(neu, neu)), np.zeros(shape=(ned, ned)))
+        self.value_matrix_arg = 1 / np.zeros(shape=(neu + ned, 3))
+        self.value_orbitals = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
         self.gradient_matrix_arg = np.zeros(shape=(neu + ned, 3))
         self.gradient_matrix_res = (np.zeros(shape=(neu, neu, 3)), np.zeros(shape=(ned, ned, 3)))
 
@@ -90,13 +90,10 @@ class Slater:
         :param n_vectors: electron-nuclei array(natom, nelec, 3)
         :return: array(up_orbitals, up_electrons), array(down_orbitals, down_electrons)
         """
-        if np.allclose(self.gradient_matrix_arg, n_vectors[0], rtol=1.e-5, atol=1.e-8, equal_nan=False):
-            return self.value_matrix_res
-        else:
-            self.value_matrix_arg = n_vectors[0]
-
-        orbital = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
         for i in range(self.neu + self.ned):
+            if np.allclose(self.value_matrix_arg[i], n_vectors[0, i], rtol=1.e-5, atol=1.e-8, equal_nan=False):
+                continue
+            self.value_matrix_arg[i] = n_vectors[0, i]
             p = ao = 0
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
@@ -114,17 +111,16 @@ class Slater:
                             radial_1 += r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r)
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
-                        orbital[i, ao+m] = angular_1[l*l+m] * radial_1
+                        self.value_orbitals[i, ao+m] = angular_1[l*l+m] * radial_1
                     ao += 2*l+1
 
-        ao_value = self.norm * orbital
+        ao_value = self.norm * self.value_orbitals
         wfn_u = self.mo_up @ ao_value[:self.neu].T
         wfn_d = self.mo_down @ ao_value[self.neu:].T
         if self.cusp is not None:
             cusp_value_u, cusp_value_d = self.cusp.value(n_vectors)
             wfn_u += cusp_value_u
             wfn_d += cusp_value_d
-        self.value_matrix_res = (wfn_u, wfn_d)
         return wfn_u, wfn_d
 
     def gradient_matrix(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
