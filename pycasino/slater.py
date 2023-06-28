@@ -128,7 +128,7 @@ class Slater:
         :param n_vectors: electron-nuclei - array(natom, nelec, 3)
         :return: array(up_orbitals, up_electrons, 3), array(down_orbitals, down_electrons, 3)
         """
-        if np.linalg.norm(self.value_matrix_arg - n_vectors[0]) < 1e-5:
+        if np.linalg.norm(self.gradient_matrix_arg - n_vectors[0]) < 1e-5:
             return self.gradient_matrix_res
         else:
             self.gradient_matrix_arg = n_vectors[0]
