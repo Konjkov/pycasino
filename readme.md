@@ -1,7 +1,6 @@
 # Python quantum package
 
-The Pycasino program implements some of the methods from the well-known Casino program.
-(available on site https://vallico.net/casinoqmc/)
+The Pycasino program implements some of the methods from the well-known [Casino](https://vallico.net/casinoqmc/) program.
 
 1. supported orbital file formats:gwfn.data, stowfn.data
 2. using multi-determinant expansions
