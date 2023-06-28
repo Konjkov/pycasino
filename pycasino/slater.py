@@ -91,7 +91,7 @@ class Slater:
         :return: array(up_orbitals, up_electrons), array(down_orbitals, down_electrons)
         """
         for i in range(self.neu + self.ned):
-            if np.allclose(self.value_matrix_arg[i], n_vectors[0, i], rtol=1.e-5, atol=1.e-8, equal_nan=False):
+            if np.linalg.norm(self.value_matrix_arg[i] - n_vectors[0, i]) < 1e-5:
                 continue
             self.value_matrix_arg[i] = n_vectors[0, i]
             p = ao = 0
@@ -128,7 +128,7 @@ class Slater:
         :param n_vectors: electron-nuclei - array(natom, nelec, 3)
         :return: array(up_orbitals, up_electrons, 3), array(down_orbitals, down_electrons, 3)
         """
-        if np.allclose(self.gradient_matrix_arg, n_vectors[0], rtol=1.e-5, atol=1.e-8, equal_nan=False):
+        if np.linalg.norm(self.value_matrix_arg - n_vectors[0]) < 1e-5:
             return self.gradient_matrix_res
         else:
             self.gradient_matrix_arg = n_vectors[0]
