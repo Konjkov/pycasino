@@ -142,7 +142,7 @@ class VMCMarkovChain:
         for i in range(steps):
             cond = 0
             for _ in range(decorr_period):
-                self.gibbs_random_step()
+                self.simple_random_step()
                 cond += self.cond
             condition[i], position[i] = cond, self.r_e
 
