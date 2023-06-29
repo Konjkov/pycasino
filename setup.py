@@ -11,7 +11,7 @@ setup(
     packages=['pycasino', 'pycasino.readers', 'sympy_utils'],
     install_requires=[
         'numba==0.57.1',
-        'numba-mpi==0.30',
+        'numba-mpi==0.34',
         'pyblock==0.6.0',
         'numpy==1.24.3',
         'scipy==1.10.1',

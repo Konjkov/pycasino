@@ -424,13 +424,8 @@ class DMCMarkovChain:
         rank = nb_mpi.rank()
         walkers = np.zeros(shape=(nb_mpi.size(),), dtype=np.int64)
         walkers[rank] = len(self.energy_list)
-        if rank == 0:
-            for source in range(1, nb_mpi.size()):
-                nb_mpi.recv(walkers[source:source+1], source=source)
-        else:
-            nb_mpi.send(walkers[rank:rank+1], dest=0)
-        nb_mpi.bcast(walkers, root=0)
-
+        # FIXME: use MPI_IN_PLACE
+        nb_mpi.allgather(walkers[rank:rank+1], walkers, 1)
         self.efficiency_list.append(walkers.mean() / np.max(walkers))
         walkers = (walkers - walkers.mean()).astype(np.int64)
         self.ntransfers_tot += np.abs(walkers).sum() // 2
