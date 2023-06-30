@@ -570,8 +570,6 @@ class Casino:
         scale = np.sqrt(2) / np.sqrt(steps - 1)
         # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
-        # Jastrow + backflow without cutoff optimized = all = 1.000
-        # self.check_d1(100)
 
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
