@@ -570,7 +570,6 @@ class Casino:
         scale = np.sqrt(2) / np.sqrt(steps - 1)
         # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
-        steps_eff = self.mpi_comm.allreduce(condition.sum())
         # Jastrow + backflow without cutoff optimized = all = 1.000
         # self.check_d1(100)
 
@@ -596,14 +595,16 @@ class Casino:
 
         x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         res = least_squares(
-            fun, x0=x0, jac=jac, method='trf', ftol=1/np.sqrt(steps_eff-1),
-            tr_solver='exact', verbose=self.root and verbose
+            fun, x0=x0, jac=jac, method='trf', ftol=2/np.sqrt(steps-1),
+            tr_solver='exact', max_nfev=self.config.input.opt_maxeval, verbose=self.root and verbose
         )
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        self.logger.info('Jacobian matrix at the solution:')
-        self.logger.info(res.jac.mean(axis=0))
+        self.logger.info(
+            f'Jacobian matrix at the solution:'
+            f'{res.jac.mean(axis=0)}\n'
+        )
 
     def vmc_reweighted_variance_minimization(self, steps, opt_jastrow, opt_backflow, verbose=2):
         """Minimize vmc reweighted variance.
@@ -619,7 +620,6 @@ class Casino:
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
-        steps_eff = self.mpi_comm.allreduce(condition.sum())
         wfn_0 = np.empty(shape=(steps,))
         wfn_0_part = vmc_observable(condition, position, self.wfn.value)
         self.mpi_comm.Allgather(wfn_0_part, wfn_0)
@@ -685,14 +685,16 @@ class Casino:
 
         x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         res = least_squares(
-            fun, x0=x0, jac=jac, method='trf', ftol=1/np.sqrt(steps_eff-1),
-            tr_solver='exact', verbose=self.root and verbose
+            fun, x0=x0, jac=jac, method='trf', ftol=2/np.sqrt(steps-1),
+            tr_solver='exact', max_nfev=self.config.input.opt_maxeval, verbose=self.root and verbose
         )
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        self.logger.info('Jacobian matrix at the solution:')
-        self.logger.info(res.jac.mean(axis=0))
+        self.logger.info(
+            f'Jacobian matrix at the solution:'
+            f'{res.jac.mean(axis=0)}\n'
+        )
 
     def vmc_energy_minimization_newton(self, steps, opt_jastrow, opt_backflow):
         """Minimize vmc energy by Newton or gradient descent methods.

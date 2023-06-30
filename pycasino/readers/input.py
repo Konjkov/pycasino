@@ -20,6 +20,8 @@ class Input:
         self.use_gpcc = None
         self.use_jastrow = self.use_gjastrow = False
         self.opt_jastrow = self.opt_backflow = False
+        self.opt_maxeval = 40
+        self.opt_noctf_cycles = 0
         self.alimit = 0.5
 
     def read(self, base_path):
@@ -67,6 +69,10 @@ class Input:
                     self.opt_method = read_str(line)
                 elif line.startswith('opt_cycles'):
                     self.opt_cycles = read_int(line)
+                elif line.startswith('opt_maxeval'):
+                    self.opt_maxeval = read_int(line)
+                elif line.startswith('opt_noctf_cyclesl'):
+                    self.opt_noctf_cycles = read_int(line)
                 elif line.startswith('opt_jastrow'):
                     self.opt_jastrow = self.use_jastrow = read_bool(line)
                 elif line.startswith('opt_backflow'):
