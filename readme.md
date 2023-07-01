@@ -25,7 +25,7 @@ The Pycasino program implements some of the methods from the well-known [Casino]
 * **VMC_DECORR_PERIOD** Number of steps between VMC energy-evaluation moves.
 * **VMC_NCONFIG_WRITE** Number of VMC configurations stored for later use in DMC or optimization
 * **VMC_NBLOCK** number of blocks into which the total VMC run is divided post-equilibration
-* **DTVMC VMC** time step (size of trial steps in random walk)
+* **DTVMC** VMC time step (size of trial steps in random walk)
 * **VMC_METHOD** (1) - EBES (work in progress), (3) - CBCS.
 
 ### Optimization keywords:

@@ -10,6 +10,7 @@ vmc_spec = [
     ('cond', nb.int64),
     ('step_size', nb.float64),
     ('wfn', Wfn.class_type.instance_type),
+    ('method', nb.int64),
     ('probability_density', nb.float64),
 ]
 
@@ -51,25 +52,33 @@ def laplace_multivariate_distribution(zeta):
 @nb.experimental.jitclass(vmc_spec)
 class VMCMarkovChain:
 
-    def __init__(self, r_e, step_size, wfn):
+    def __init__(self, r_e, step_size, wfn, method):
         """Markov chain Monte Carlo.
         :param r_e: initial position
         :param step_size: time step size
         :param wfn: instance of Wfn class
+        :param method: vmc method: (1) - EBES (work in progress), (3) - CBCS.
         :return:
         """
         self.r_e = r_e
         self.cond = 0
         self.step_size = step_size
         self.wfn = wfn
+        self.method = method
         self.probability_density = self.wfn.value(self.r_e) ** 2
+
+    def random_step(self):
+        """Wrapper"""
+        if self.method == 1:
+            self.gibbs_random_step()
+        elif self.method == 3:
+            self.simple_random_step()
 
     def simple_random_step(self):
         """Simple random walker with random N-dim square proposal density in
         configuration-by-configuration sampling (CBCS).
         """
         ne = self.wfn.neu + self.wfn.ned
-
         next_r_e = self.r_e + self.step_size * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
         next_probability_density = self.wfn.value(next_r_e) ** 2
         self.cond = next_probability_density / self.probability_density > np.random.random()
@@ -97,13 +106,12 @@ class VMCMarkovChain:
         where D is diffusion constant = 1/2
         """
         ne = self.wfn.neu + self.wfn.ned
-
         v_forth = self.wfn.drift_velocity(self.r_e)
-        move = np.sqrt(self.step) * np.random.normal(0, 1, ne * 3) + self.step_size * v_forth
+        move = np.sqrt(self.step_size) * np.random.normal(0, 1, ne * 3) + self.step_size * v_forth
         next_r_e = self.r_e + move.reshape((ne, 3))
         next_probability_density = self.wfn.value(next_r_e) ** 2
         green_forth = np.exp(-np.sum((next_r_e.ravel() - self.r_e.ravel() - self.step_size * v_forth) ** 2) / 2 / self.step_size)
-        green_back = np.exp(-np.sum((self.r_e.ravel() - next_r_e.ravel() - self.step_size * self.drift_velocity(next_r_e)) ** 2) / 2 / self.step_size)
+        green_back = np.exp(-np.sum((self.r_e.ravel() - next_r_e.ravel() - self.step_size * self.wfn.drift_velocity(next_r_e)) ** 2) / 2 / self.step_size)
         self.cond = (green_back * next_probability_density) / (green_forth * self.probability_density) > np.random.random()
         if self.cond:
             self.r_e, self.probability_density = next_r_e, next_probability_density
@@ -142,7 +150,7 @@ class VMCMarkovChain:
         for i in range(steps):
             cond = 0
             for _ in range(decorr_period):
-                self.simple_random_step()
+                self.random_step()
                 cond += self.cond
             condition[i], position[i] = cond, self.r_e
 
@@ -173,6 +181,7 @@ energy_type = nb.types.float64
 r_e_type = nb.types.float64[:, :]
 velocity_type = nb.types.float64[:]
 dmc_spec = [
+    ('method', nb.int64),
     ('alimit', nb.float64),
     ('step_size', nb.float64),
     ('step_eff', nb.float64),
@@ -194,16 +203,18 @@ dmc_spec = [
 @nb.experimental.jitclass(dmc_spec)
 class DMCMarkovChain:
 
-    def __init__(self, r_e_list, alimit, nucleus_gf_mods, step_size, target_weight, wfn):
+    def __init__(self, r_e_list, alimit, nucleus_gf_mods, step_size, target_weight, wfn, method):
         """Markov chain Monte Carlo.
         :param r_e_list: initial positions of walkers
         :param alimit: parameter required by DMC drift-velocity- and energy-limiting schemes
         :param step_size: time step size
         :param target_weight: target weight of walkers
         :param wfn: instance of Wfn class
+        :param method: dmc method: (1) - EBES (work in progress), (2) - CBCS.
         :return:
         """
         self.wfn = wfn
+        self.method = method
         self.alimit = alimit
         self.step_size = step_size
         self.target_weight = target_weight
@@ -228,6 +239,10 @@ class DMCMarkovChain:
         self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) / self.step_eff
         self.ntransfers_tot = 0
         self.efficiency_list = nb.typed.List.empty_list(efficiency_type)
+
+    def random_step(self):
+        """Wrapper"""
+        self.all_electrons_random_step()
 
     def alimit_vector(self, r_e, velocity):
         """Parameter required by DMC drift-velocity- and energy-limiting schemes
@@ -328,8 +343,8 @@ class DMCMarkovChain:
             gf_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
         return next_r_e, gf_forth, gf_back, next_velocity, velocity_ratio
 
-    def random_step(self):
-        """DMC random step"""
+    def all_electrons_random_step(self):
+        """CBCS random step"""
         sum_acceptance_probability = 0
         next_r_e_list = nb.typed.List.empty_list(r_e_type)
         next_wfn_value_list = nb.typed.List.empty_list(wfn_value_type)

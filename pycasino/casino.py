@@ -215,8 +215,7 @@ class Casino:
 
         self.vmc_markovchain = VMCMarkovChain(
             self.initial_position(self.config.wfn.atom_positions, self.config.wfn.atom_charges),
-            self.approximate_step_size,
-            self.wfn
+            self.approximate_step_size, self.wfn, self.config.input.vmc_method
         )
 
     def initial_position(self, atom_positions, atom_charges):
@@ -238,6 +237,8 @@ class Casino:
         elif self.config.input.vmc_method == 3:
             # CBCS
             return 1 / (self.neu + self.ned)
+        elif self.config.input.vmc_method == 4:
+            return 1 / (self.neu + self.ned)
         else:
             # wrong method
             return 0
@@ -245,20 +246,15 @@ class Casino:
     def vmc_step_graph(self):
         """Acceptance probability vs step size to plot a graph."""
         n = 5
-        step_size = self.approximate_step_size
+        approximate_step_size = self.approximate_step_size
         for x in range(4 * n):
-            self.vmc_markovchain.step_size = step_size * (x + 1) / n
+            self.vmc_markovchain.step_size = approximate_step_size * (x + 1) / n
             condition, _ = self.vmc_markovchain.random_walk(1000000, 1)
             acc_ration = condition.mean()
-            if self.config.input.vmc_method == 1:
-                acc_ration /= (self.neu + self.ned)
-                self.logger.info(
-                    'step_size * ln(electrons) = %.5f, acc_ratio = %.5f', self.vmc_markovchain.step_size / step_size, acc_ration
-                )
-            elif self.config.input.vmc_method == 3:
-                self.logger.info(
-                    'step_size * electrons = %.5f, acc_ratio = %.5f', self.vmc_markovchain.step_size / step_size, acc_ration
-                )
+            acc_ration /= (self.neu + self.ned)
+            self.logger.info(
+                'step_size / approximate_step_size  = %.5f, acc_ratio = %.5f', self.vmc_markovchain.step_size / approximate_step_size, acc_ration
+            )
 
     def optimize_vmc_step(self, steps):
         """Optimize vmc step size."""
@@ -363,7 +359,8 @@ class Casino:
             r_e_list = position[-self.config.input.vmc_nconfig_write // self.mpi_comm.size:]
             self.dmc_markovchain = DMCMarkovChain(
                 r_e_list, self.config.input.alimit, self.config.input.nucleus_gf_mods,
-                self.config.input.dtdmc, self.config.input.dmc_target_weight, self.wfn
+                self.config.input.dtdmc, self.config.input.dmc_target_weight, self.wfn,
+                self.config.input.dmc_method
             )
             self.dmc_energy_equilibration()
             self.dmc_energy_accumulation()
