@@ -7,7 +7,7 @@ The Pycasino program implements some of the methods from the well-known [Casino]
 1. supported orbital file formats:gwfn.data, stowfn.data
 2. using multi-determinant expansions
 3. capable of doing 3-term Jastrow factor and 3-term Backflow
-4. support only configuration-by-configuration sampling (CBCS)
+4. configuration-by-configuration sampling (CBCS) and electron-by-electron sampling (EBES)
 5. partial Ma CUSP correction (no rc optimization yet)
 6. use only MPI parallelization
 7. support VMC and DMC energy calculation, varmin and emin optimization
@@ -29,12 +29,11 @@ The Pycasino program implements some of the methods from the well-known [Casino]
 * **VMC_METHOD** (1) - EBES (work in progress), (3) - CBCS.
 
 ### Optimization keywords:
-* **OPT_CYCLES** Number of optimization+VMC cycles to perform.
+* **OPT_CYCLES** Number of optimization VMC cycles to perform.
 * **OPT_METHOD** Optimization method to use: ‘varmin’, ‘emin’
 * **OPT_JASTROW** Optimize the Jastrow factor in wave-function optimization.
 * **OPT_BACKFLOW** Optimize backflow parameters in wave-function optimization.
 * **OPT_DET_COEFF** Optimize the coefficients of the determinants in wave-function optimization.
-* **OPT_CYCLES** Number of cycles of configuration generation and optimization to be carried out if runtype=‘vmc_opt’
 * **OPT_MAXEVAL** Maximum number of evaluations of the variance during variance minimization (default 50).
 * **VM_REWEIGHT** If set then the reweighted variance-minimization algorithm will be used, else the unreweighted algorithm will be used.
 Unreweighted variance minimization is recommended.
@@ -43,11 +42,14 @@ Unreweighted variance minimization is recommended.
 * **DMC_TARGET_WEIGHT** Target number of configurations in DMC
 * **DMC_EQUIL_NSTEP** Number of DMC steps in equilibration
 * **DMC_STATS_NSTEP** Number of DMC steps in statistics accumulation
+* **DMC EQUIL NBLOCK** Number of blocks into which the DMC equilibration phase is divided
+* **DMC STATS NBLOCK** Number of blocks into which the DMC statistics accumulation phase is divided.
 * **DTDMC** DMC time step
 * **DMC_METHOD** (1) - EBES (work in progress), (2) - CBCS.
 * **LIMDMC** Set modifications to Green’s function in DMC. Only (4) Umrigar mods to drift velocity, Zen–Sorella–Alfè mods to energy
 * **ALIMIT** Parameter required by DMC drift-velocity- and energy-limiting schemes.
 * **NUCLEUS_GF_MODS** This keyword is the switch for enabling the use of the modifications to the DMC Green’s function for the presence of bare nuclei
+* **EBEST_AV_WINDOW** Averaging window for calculating the ground-state energy during equilibration (work in progress).
 
 ### WFN definition keywords:
 * **BACKFLOW** Turns on backflow corrections. Backflow parameters are read from correlation.data

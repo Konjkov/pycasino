@@ -6,113 +6,76 @@ class Input:
 
     def __init__(self):
         """Default values"""
-        self.vmc_method = 1
-        self.dmc_method = 1
-        self.limdmc = 4
-        self.vmc_decorr_period = 3
-        self.vm_reweight = False
-        self.dtvmc = None
-        self.ebest_av_window = 25
-        self.nucleus_gf_mods = True
-        self.cusp_correction = None
-        self.cusp_threshold = 1e-7
-        self.cusp_info = False
-        self.use_gpcc = None
-        self.use_jastrow = self.use_gjastrow = False
-        self.opt_jastrow = self.opt_backflow = False
-        self.opt_maxeval = 40
-        self.opt_noctf_cycles = 0
-        self.alimit = 0.5
+        self.lines = []
+
+    def read_bool(self, keyword, value=None):
+        for line in self.lines:
+            if line.startswith(keyword):
+                value = line.split(':')[1].strip() == 'T'
+        setattr(self, keyword, value)
+
+    def read_int(self, keyword, value=None):
+        for line in self.lines:
+            if line.startswith(keyword):
+                value = int(line.split(':')[1].strip())
+        setattr(self, keyword, value)
+
+    def read_float(self, keyword, value=None):
+        for line in self.lines:
+            if line.startswith(keyword):
+                value = float(line.split(':')[1].strip())
+        setattr(self, keyword, value)
+
+    def read_str(self, keyword, value=None):
+        for line in self.lines:
+            if line.startswith(keyword):
+                value = str(line.split(':')[1].strip())
+        setattr(self, keyword, value)
 
     def read(self, base_path):
-        def read_bool(line):
-            return line.split(':')[1].strip() == 'T'
-
-        def read_int(line):
-            return int(line.split(':')[1].strip())
-
-        def read_float(line):
-            return float(line.split(':')[1].strip())
-
-        def read_str(line):
-            return str(line.split(':')[1].strip())
-
-        file_path = os.path.join(base_path, 'input')
-        with open(file_path, 'r') as f:
-            for line in f:
-                # remove comments
-                line = line.partition('#')[0].strip()
-                if not line:
-                    continue
-                if line.startswith('neu'):
-                    self.neu = read_int(line)
-                elif line.startswith('ned'):
-                    self.ned = read_int(line)
-                elif line.startswith('vmc_equil_nstep'):
-                    self.vmc_equil_nstep = read_int(line)
-                elif line.startswith('vmc_nstep'):
-                    self.vmc_nstep = read_int(line)
-                elif line.startswith('vmc_nblock'):
-                    self.vmc_nblock = read_int(line)
-                elif line.startswith('atom_basis_type'):
-                    self.atom_basis_type = read_str(line)
-                elif line.startswith('use_jastrow'):
-                    self.use_jastrow = read_bool(line)
-                elif line.startswith('use_gjastrow'):
-                    self.use_gjastrow = read_bool(line)
-                elif line.startswith('backflow'):
-                    self.backflow = read_bool(line)
-                elif line.startswith('runtype'):
-                    self.runtype = read_str(line)
-                elif line.startswith('opt_method'):
-                    self.opt_jastrow = self.use_jastrow = True
-                    self.opt_method = read_str(line)
-                elif line.startswith('opt_cycles'):
-                    self.opt_cycles = read_int(line)
-                elif line.startswith('opt_maxeval'):
-                    self.opt_maxeval = read_int(line)
-                elif line.startswith('opt_noctf_cyclesl'):
-                    self.opt_noctf_cycles = read_int(line)
-                elif line.startswith('opt_jastrow'):
-                    self.opt_jastrow = self.use_jastrow = read_bool(line)
-                elif line.startswith('opt_backflow'):
-                    self.opt_backflow = read_bool(line)
-                elif line.startswith('vmc_method'):
-                    self.vmc_method = read_int(line)
-                elif line.startswith('vmc_nconfig_write'):
-                    self.vmc_nconfig_write = read_int(line)
-                elif line.startswith('dmc_method'):
-                    self.dmc_method = read_int(line)
-                elif line.startswith('dmc_equil_nstep'):
-                    self.dmc_equil_nstep = read_int(line)
-                elif line.startswith('dmc_equil_nblock'):
-                    self.dmc_equil_nblock = read_int(line)
-                elif line.startswith('dmc_stats_nstep'):
-                    self.dmc_stats_nstep = read_int(line)
-                elif line.startswith('dmc_stats_nblock'):
-                    self.dmc_stats_nblock = read_int(line)
-                elif line.startswith('dtdmc'):
-                    self.dtdmc = read_float(line)
-                elif line.startswith('dtvmc'):
-                    self.dtvmc = read_float(line)
-                elif line.startswith('dmc_target_weight'):
-                    self.dmc_target_weight = read_float(line)
-                elif line.startswith('vmc_decorr_period'):
-                    self.vmc_decorr_period = read_int(line)
-                elif line.startswith('vm_reweight'):
-                    self.vm_reweight = read_bool(line)
-                elif line.startswith('cusp_correction'):
-                    self.cusp_correction = read_bool(line)
-                elif line.startswith('cusp_threshold'):
-                    self.cusp_threshold = read_float(line)
-                elif line.startswith('cusp_info'):
-                    self.cusp_info = read_bool(line)
-                elif line.startswith('nucleus_gf_mods'):
-                    self.nucleus_gf_mods = read_bool(line)
-                elif line.startswith('alimit'):
-                    self.alimit = read_float(line)
-        if self.cusp_correction is None:
-            if self.atom_basis_type == 'gaussian':
-                self.cusp_correction = True
-            if self.atom_basis_type == 'slater-type':
-                self.cusp_correction = False
+        self.file_path = os.path.join(base_path, 'input')
+        with open(self.file_path, 'r') as f:
+            # remove comments
+            self.lines = [line.partition('#')[0].strip() for line in f if line.partition('#')[0].strip()]
+        # General keywords
+        self.read_int('neu')
+        self.read_int('ned')
+        self.read_str('atom_basis_type')
+        self.read_str('runtype')
+        # VMC keywords
+        self.read_int('vmc_equil_nstep')
+        self.read_int('vmc_nstep')
+        self.read_int('vmc_decorr_period', 3)
+        self.read_int('vmc_nblock')
+        self.read_int('vmc_nconfig_write')
+        self.read_float('dtvmc')
+        self.read_int('vmc_method', 1)
+        # Optimization keywords
+        self.read_int('opt_cycles')
+        self.read_str('opt_method')
+        self.read_bool('opt_jastrow', bool(self.opt_method))
+        self.read_bool('opt_backflow', False)
+        self.read_bool('opt_det_coeff', False)
+        self.read_int('opt_maxeval', 40)
+        # self.read_int('opt_noctf_cycles', 0)
+        self.read_bool('vm_reweight', False)
+        # DMC keywords
+        self.read_float('dmc_target_weight')
+        self.read_int('dmc_equil_nstep')
+        self.read_int('dmc_stats_nstep')
+        self.read_int('dmc_equil_nblock')
+        self.read_int('dmc_stats_nblock')
+        self.read_float('dtdmc')
+        self.read_int('dmc_method', 1)
+        self.read_int('limdmct', 4)
+        self.read_float('alimit', 0.5)
+        self.read_bool('nucleus_gf_mods', True)
+        self.read_int('ebest_av_window', 25)
+        # WFN definition keywords
+        self.read_bool('backflow', self.opt_backflow)
+        self.read_bool('use_jastrow', self.opt_jastrow)
+        self.read_bool('use_gjastrow', False)
+        # Cusp correction keywords
+        self.read_bool('cusp_correction', self.atom_basis_type == 'gaussian')
+        self.read_float('cusp_threshold', 1e-7)
+        self.read_bool('cusp_info', False)
