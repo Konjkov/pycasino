@@ -52,12 +52,12 @@ class Input:
         self.read_int('vmc_method', 1)
         # Optimization keywords
         self.read_int('opt_cycles')
-        self.read_int('opt_method')
-        self.read_bool('opt_jastrow', False)
+        self.read_str('opt_method')
+        self.read_bool('opt_jastrow', bool(self.opt_method))
         self.read_bool('opt_backflow', False)
         self.read_bool('opt_det_coeff', False)
         self.read_int('opt_maxeval', 40)
-        self.read_int('opt_noctf_cycles', 0)
+        # self.read_int('opt_noctf_cycles', 0)
         self.read_bool('vm_reweight', False)
         # DMC keywords
         self.read_float('dmc_target_weight')
