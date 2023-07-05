@@ -57,7 +57,7 @@ Unreweighted variance minimization is recommended.
 * **USE_GJASTROW** Use gjastrow Jastrow factor. This Jastrow factor is defined in a parameters.casl file (work in progress).
 
 ### Cusp correction keywords:
-* **CUSP_CORRECTION** When expanded in a basis set of Gaussian functions, the electron–nucleus cusp that should be present
-in all-electron calculations is not represented correctly.
+* **CUSP_CORRECTION**  When the cusp correction flag is activated, the s-type Gaussian basis functions centred on each atom are replaced
+within a small sphere by a function which ensures that the electron–nucleus cusp condition is obeyed.
 * **CUSP_INFO** If set then information about precisely how this is done will be printed to the log-file.
-* **CUSP_THRESHOLD** If the magnitude of the s component of a Gaussian orbital is less than this threshold then it will not be cusp corrected.
+* **CUSP_THRESHOLD** If the magnitude of the s-component of a Gaussian orbital is less than this threshold then it will not be cusp corrected.
