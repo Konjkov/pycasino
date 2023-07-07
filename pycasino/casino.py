@@ -317,7 +317,19 @@ class Casino:
         elif self.config.input.runtype == 'vmc_opt':
             if self.root:
                 self.config.write('.', 0)
+            # make cut-off fixed on 1-st iteration
+            u_cutoff_optimizable = self.wfn.jastrow.u_cutoff_optimizable
+            self.wfn.jastrow.u_cutoff_optimizable = False
+            chi_cutoff_optimizable = self.wfn.jastrow.chi_cutoff_optimizable.copy()
+            self.wfn.jastrow.chi_cutoff_optimizable[:] = False
+            f_cutoff_optimizable = self.wfn.jastrow.f_cutoff_optimizable.copy()
+            self.wfn.jastrow.f_cutoff_optimizable[:] = False
             for i in range(self.config.input.opt_cycles):
+                if i > 0:
+                    # make cut-off optimizable on next iterations
+                    self.wfn.jastrow.u_cutoff_optimizable = u_cutoff_optimizable
+                    self.wfn.jastrow.chi_cutoff_optimizable[:] = chi_cutoff_optimizable[:]
+                    self.wfn.jastrow.f_cutoff_optimizable[:] = f_cutoff_optimizable[:]
                 self.vmc_energy_accumulation()
                 self.logger.info(
                     f' ==========================================\n'
@@ -597,7 +609,7 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
         self.logger.info(
-            f'Jacobian matrix at the solution:'
+            f'Jacobian matrix at the solution:\n'
             f'{res.jac.mean(axis=0)}\n'
         )
 
@@ -687,7 +699,7 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
         self.logger.info(
-            f'Jacobian matrix at the solution:'
+            f'Jacobian matrix at the solution:\n'
             f'{res.jac.mean(axis=0)}\n'
         )
 
