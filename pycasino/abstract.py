@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from pycasino.numpy_config import np, delta
 
 
-class Slater(ABC):
+class AbstractSlater:
 
     def __init__(self, neu, ned):
         """
@@ -12,7 +12,7 @@ class Slater(ABC):
         self.neu = neu
         self.ned = ned
 
-    @abstractmethod
+    # @abstractmethod
     def value(self, n_vectors: np.ndarray) -> float:
         """Value φ(r)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
@@ -51,7 +51,7 @@ class Slater(ABC):
         return res / delta / delta / val
 
     def hessian(self, n_vectors: np.ndarray) -> np.ndarray:
-        """"Hessian H(φ(r))/φ(r) w.r.t. e-coordinates.
+        """Hessian H(φ(r))/φ(r) w.r.t. e-coordinates.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :return:
         """
@@ -86,22 +86,22 @@ class Slater(ABC):
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / delta / 4 / val
 
-    @abstractmethod
+    # @abstractmethod
     def tressian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Third-order partial derivatives T(φ(r))/φ(r) w.r.t. e-coordinates.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
 
-    @abstractmethod
+    # @abstractmethod
     def get_parameters(self) -> np.ndarray:
         """Get parameters"""
 
-    @abstractmethod
+    # @abstractmethod
     def set_parameters(self, parameters: np.ndarray):
         """Set parameters"""
 
 
-class Jastrow(ABC):
+class AbstractJastrow:
 
     def __init__(self, neu, ned):
         """
@@ -111,7 +111,7 @@ class Jastrow(ABC):
         self.neu = neu
         self.ned = ned
 
-    @abstractmethod
+    # @abstractmethod
     def value(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> float:
         """Value
         :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
@@ -163,16 +163,16 @@ class Jastrow(ABC):
 
         return res / delta / delta
 
-    @abstractmethod
+    # @abstractmethod
     def get_parameters(self) -> np.ndarray:
         """Get parameters"""
 
-    @abstractmethod
+    # @abstractmethod
     def set_parameters(self, parameters: np.ndarray):
         """Set parameters"""
 
 
-class Backflow(ABC):
+class AbstractBackflow:
 
     def __init__(self, neu, ned):
         """
@@ -182,7 +182,7 @@ class Backflow(ABC):
         self.neu = neu
         self.ned = ned
 
-    @abstractmethod
+    # @abstractmethod
     def value(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
         """Value"""
 
@@ -233,10 +233,10 @@ class Backflow(ABC):
 
         return res.ravel() / delta / delta
 
-    @abstractmethod
+    # @abstractmethod
     def get_parameters(self) -> np.ndarray:
         """Get parameters"""
 
-    @abstractmethod
+    # @abstractmethod
     def set_parameters(self, parameters: np.ndarray):
         """Set parameters"""

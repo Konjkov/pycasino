@@ -1,5 +1,7 @@
-from pycasino.numpy_config import np, delta
+from pycasino.numpy_config import np
 import numba as nb
+
+from pycasino.abstract import AbstractJastrow
 
 shape_type = nb.types.ListType(nb.int64)
 linear_parameters_type = nb.float64[:]
@@ -27,7 +29,7 @@ spec = [
 
 
 @nb.experimental.jitclass(spec)
-class Gjastrow:
+class Gjastrow(AbstractJastrow):
 
     def __init__(
             self, neu, ned, rank, cusp, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type,
@@ -152,50 +154,3 @@ class Gjastrow:
         n_powers = self.en_powers(n_vectors)
 
         return self.term_2_0(e_powers, e_vectors)
-
-    def gradient(self, e_vectors, n_vectors) -> np.ndarray:
-        """Gradient w.r.t. e-coordinates.
-        :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
-        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        :return: partial derivatives of displacements of electrons shape = (nelec * 3)
-        """
-        res = np.zeros(shape=(self.neu + self.ned, 3))
-
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-                res[i, j] -= self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
-                res[i, j] += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-
-        return res.reshape((self.neu + self.ned) * 3) / delta / 2
-
-    def laplacian(self, e_vectors, n_vectors) -> float:
-        """Laplacian w.r.t. e-coordinates.
-        :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
-        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        :return: vector laplacian shape = (nelec * 3)
-        """
-        res = -6 * (self.neu + self.ned) * self.value(e_vectors, n_vectors)
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-                res += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
-                res += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-
-        return res / delta / delta

@@ -1,6 +1,7 @@
 from pycasino.numpy_config import np, delta, delta_3
 import numba as nb
 
+from pycasino.abstract import AbstractSlater
 from pycasino.logger import logging
 from pycasino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from pycasino.cusp import Cusp
@@ -39,7 +40,7 @@ slater_spec = [
 
 
 @nb.experimental.jitclass(slater_spec)
-class Slater:
+class Slater(AbstractSlater):
 
     def __init__(
             self, neu, ned,
@@ -91,7 +92,8 @@ class Slater:
         :return: array(up_orbitals, up_electrons), array(down_orbitals, down_electrons)
         """
         for i in range(self.neu + self.ned):
-            if np.linalg.norm(self.value_matrix_arg[i] - n_vectors[0, i]) < 1e-5:
+            # interferes with Finite difference method
+            if np.linalg.norm(self.value_matrix_arg[i] - n_vectors[0, i]) < 1e-15:
                 continue
             self.value_matrix_arg[i] = n_vectors[0, i]
             p = ao = 0
@@ -128,7 +130,8 @@ class Slater:
         :param n_vectors: electron-nuclei - array(natom, nelec, 3)
         :return: array(up_orbitals, up_electrons, 3), array(down_orbitals, down_electrons, 3)
         """
-        if np.linalg.norm(self.gradient_matrix_arg - n_vectors[0]) < 1e-5:
+        # interferes with Finite difference method
+        if np.linalg.norm(self.gradient_matrix_arg - n_vectors[0]) < 1e-15:
             return self.gradient_matrix_res
         else:
             self.gradient_matrix_arg = n_vectors[0]
@@ -637,74 +640,6 @@ class Slater:
             self.det_coeff[1:] = parameters[:self.det_coeff.size-1]
             self.fix_det_coeff_parameters()
             return parameters[self.det_coeff.shape[0]-1:]
-
-    def numerical_gradient(self, n_vectors: np.ndarray) -> float:
-        """Numerical gradient w.r.t. e-coordinates
-        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        """
-        val = self.value(n_vectors)
-        res = np.zeros(shape=(self.neu + self.ned, 3))
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                n_vectors[:, i, j] -= delta
-                res[i, j] -= self.value(n_vectors)
-                n_vectors[:, i, j] += 2 * delta
-                res[i, j] += self.value(n_vectors)
-                n_vectors[:, i, j] -= delta
-
-        return res.ravel() / delta / 2 / val
-
-    def numerical_laplacian(self, n_vectors: np.ndarray) -> float:
-        """Numerical laplacian w.r.t. e-coordinates
-        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        """
-        val = self.value(n_vectors)
-        res = - 6 * (self.neu + self.ned) * val
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                n_vectors[:, i, j] -= delta
-                res += self.value(n_vectors)
-                n_vectors[:, i, j] += 2 * delta
-                res += self.value(n_vectors)
-                n_vectors[:, i, j] -= delta
-
-        return res / delta / delta / val
-
-    def numerical_hessian(self, n_vectors: np.ndarray) -> np.ndarray:
-        """Numerical hessian w.r.t. e-coordinates
-        :param n_vectors: e-n vectors
-        :return:
-        """
-        val = self.value(n_vectors)
-        res = -2 * val * np.eye((self.neu + self.ned) * 3).reshape(self.neu + self.ned, 3, self.neu + self.ned, 3)
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                n_vectors[:, i, j] -= 2 * delta
-                res[i, j, i, j] += self.value(n_vectors)
-                n_vectors[:, i, j] += 4 * delta
-                res[i, j, i, j] += self.value(n_vectors)
-                n_vectors[:, i, j] -= 2 * delta
-
-        for i1 in range(self.neu + self.ned):
-            for j1 in range(3):
-                for i2 in range(i1 + 1):
-                    for j2 in range(3):
-                        if i1 == i2 and j1 >= j2:
-                            continue
-                        n_vectors[:, i1, j1] -= delta
-                        n_vectors[:, i2, j2] -= delta
-                        res[i1, j1, i2, j2] += self.value(n_vectors)
-                        n_vectors[:, i1, j1] += 2 * delta
-                        res[i1, j1, i2, j2] -= self.value(n_vectors)
-                        n_vectors[:, i2, j2] += 2 * delta
-                        res[i1, j1, i2, j2] += self.value(n_vectors)
-                        n_vectors[:, i1, j1] -= 2 * delta
-                        res[i1, j1, i2, j2] -= self.value(n_vectors)
-                        n_vectors[:, i1, j1] += delta
-                        n_vectors[:, i2, j2] -= delta
-                        res[i2, j2, i1, j1] = res[i1, j1, i2, j2]
-
-        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / delta / 4 / val
 
     def numerical_tressian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Numerical tressian w.r.t. e-coordinates

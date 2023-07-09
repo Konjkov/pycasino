@@ -1,6 +1,7 @@
 from pycasino.numpy_config import np, delta
 import numba as nb
 
+from pycasino.abstract import AbstractJastrow
 from pycasino.readers.numerical import rref
 from pycasino.readers.jastrow import construct_a_matrix
 from pycasino.overload import random_step, block_diag
@@ -45,7 +46,7 @@ spec = [
 
 
 @nb.experimental.jitclass(spec)
-class Jastrow:
+class Jastrow(AbstractJastrow):
 
     def __init__(
         self, neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutoff,
@@ -545,53 +546,6 @@ class Jastrow:
             self.chi_term_laplacian(n_powers) +
             self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
         )
-
-    def numerical_gradient(self, e_vectors, n_vectors) -> np.ndarray:
-        """Jastrow numerical gradient w.r.t. e-coordinates
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return:
-        """
-        res = np.zeros(shape=(self.neu + self.ned, 3))
-
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-                res[i, j] -= self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
-                res[i, j] += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-
-        return res.ravel() / delta / 2
-
-    def numerical_laplacian(self, e_vectors, n_vectors) -> float:
-        """Jastrow numerical laplacian w.r.t. e-coordinates
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return:
-        """
-        res = -6 * (self.neu + self.ned) * self.value(e_vectors, n_vectors)
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-                res += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
-                res += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-
-        return res / delta / delta
 
     def fix_u_parameters(self):
         """Fix u-term dependent parameters."""
