@@ -260,7 +260,7 @@ class Jastrow:
         return res
 
     def u_term_gradient(self, e_powers, e_vectors) -> np.ndarray:
-        """Jastrow u-term gradient with respect to a e-coordinates
+        """Jastrow u-term gradient w.r.t. a e-coordinates
         :param e_powers: powers of e-e distances
         :param e_vectors: e-e vectors
         :return:
@@ -295,7 +295,7 @@ class Jastrow:
         return res.ravel()
 
     def chi_term_gradient(self, n_powers, n_vectors) -> np.ndarray:
-        """Jastrow chi-term gradient with respect to a e-coordinates
+        """Jastrow chi-term gradient w.r.t. a e-coordinates
         :param n_powers: powers of e-n distances
         :param n_vectors: e-n vectors
         :return:
@@ -323,7 +323,7 @@ class Jastrow:
         return res.ravel()
 
     def f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
-        """Jastrow f-term gradient with respect to a e-coordinates
+        """Jastrow f-term gradient w.r.t. a e-coordinates
         :param e_powers: powers of e-e distances
         :param n_powers: powers of e-n distances
         :param e_vectors: e-e vectors
@@ -367,7 +367,7 @@ class Jastrow:
         return res.ravel()
 
     def u_term_laplacian(self, e_powers) -> float:
-        """Jastrow u-term laplacian with respect to e-coordinates
+        """Jastrow u-term laplacian w.r.t. e-coordinates
         :param e_powers: powers of e-e distances
         :return:
         """
@@ -402,7 +402,7 @@ class Jastrow:
         return 2 * res
 
     def chi_term_laplacian(self, n_powers) -> float:
-        """Jastrow chi-term laplacian with respect to e-coordinates
+        """Jastrow chi-term laplacian w.r.t. e-coordinates
         :param n_powers: powers of e-n distances
         :return:
         """
@@ -432,7 +432,7 @@ class Jastrow:
         return res
 
     def f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors) -> float:
-        """Jastrow f-term laplacian with respect to e-coordinates
+        """Jastrow f-term laplacian w.r.t. e-coordinates
         f-term is a product of two spherically symmetric functions f(r_eI) and g(r_ee) so using
             ∇²(f*g) = ∇²(f)*g + 2*∇(f)*∇(g) + f*∇²(g)
         then Laplace operator of spherically symmetric function (in 3-D space) is
@@ -655,8 +655,7 @@ class Jastrow:
                         temp += 1
 
     def get_parameters_mask(self) -> np.ndarray:
-        """Mask of each variable.
-        """
+        """Mask optimizable variable."""
         res = []
         if self.u_cutoff:
             if self.u_cutoff_optimizable:
@@ -729,7 +728,7 @@ class Jastrow:
         return np.array(scale)
 
     def get_parameters_constraints(self):
-        """Returns parameters in the following order
+        """Returns parameters constraints in the following order
         u-cutoff, u-linear parameters,
         for every chi-set: chi-cutoff, chi-linear parameters,
         for every f-set: f-cutoff, f-linear parameters.

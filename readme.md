@@ -7,7 +7,7 @@ The Pycasino program implements some of the methods from the well-known [Casino]
 1. supported orbital file formats:gwfn.data, stowfn.data
 2. using multi-determinant expansions
 3. capable of doing 3-term Jastrow factor and 3-term Backflow
-4. configuration-by-configuration sampling (CBCS) and electron-by-electron sampling (EBES)
+4. configuration-by-configuration (CBCS) and electron-by-electron (EBES) sampling
 5. partial Ma CUSP correction (no rc optimization yet)
 6. use only MPI parallelization
 7. support VMC and DMC energy calculation, varmin and emin optimization
