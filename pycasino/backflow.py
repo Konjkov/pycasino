@@ -1,6 +1,7 @@
 from pycasino.numpy_config import np, delta
 import numba as nb
 
+from pycasino.abstract import AbstractBackflow
 from pycasino.readers.numerical import rref
 from pycasino.readers.backflow import construct_c_matrix
 from pycasino.overload import random_step, block_diag
@@ -53,7 +54,7 @@ spec = [
 
 
 @nb.experimental.jitclass(spec)
-class Backflow:
+class Backflow(AbstractBackflow):
 
     def __init__(
         self, neu, ned, trunc, eta_parameters, eta_parameters_optimizable, eta_cutoff,
@@ -755,53 +756,6 @@ class Backflow:
         )
 
         return laplacian, gradient, value
-
-    def numerical_gradient(self, e_vectors, n_vectors):
-        """Numerical gradient with respect to a e-coordinates
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return: partial derivatives of displacements of electrons - array(nelec * 3, nelec * 3)
-        """
-        res = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3))
-
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-                res[:, :, i, j] -= self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
-                res[:, :, i, j] += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-
-        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
-
-    def numerical_laplacian(self, e_vectors, n_vectors):
-        """Numerical laplacian with respect to a e-coordinates
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return: vector laplacian - array(nelec * 3)
-        """
-        res = -6 * (self.neu + self.ned) * self.value(e_vectors, n_vectors)
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-                res += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
-                res += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
-
-        return res.ravel() / delta / delta
 
     def fix_eta_parameters(self):
         """Fix eta-term dependent parameters"""
