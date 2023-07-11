@@ -689,7 +689,7 @@ class Jastrow(AbstractJastrow):
         :return:
         """
         a_list = []
-        b_list = []
+        b_list = [0.0]
 
         if self.u_cutoff:
             # a0*C - a1*L = gamma/(-L)**(C-1) after differentiation
@@ -699,38 +699,36 @@ class Jastrow(AbstractJastrow):
             u_matrix[0, 1] = -self.u_cutoff
 
             u_spin_deps = self.u_parameters.shape[1]
+            c = 1 / (-self.u_cutoff) ** (self.trunc - 1)
             if u_spin_deps == 3:
-                u_b = [1/4, 1/2, 1/4]
+                u_b = [c/4, c/2, c/4]
                 if self.neu < 2:
-                    u_b = [1/2, 1/4]
+                    u_b = [c/2, c/4]
                     u_spin_deps -= 1
                 if self.neu + self.ned < 2:
-                    u_b = [1/4, 1/4]
+                    u_b = [c/4, c/4]
                     u_spin_deps -= 1
                 if self.ned < 2:
-                    u_b = [1/4, 1/2]
+                    u_b = [c/4, c/2]
                     u_spin_deps -= 1
             elif u_spin_deps == 2:
-                u_b = [1/4, 1/2]
+                u_b = [c/4, c/2]
                 if self.neu < 2 and self.ned < 2:
                     u_spin_deps -= 1
-                    u_b = [1/2]
+                    u_b = [c/2]
                 if self.neu + self.ned < 2:
                     u_spin_deps -= 1
-                    u_b = [1/4]
+                    u_b = [c/4]
             else:
                 # FIXME: u_spin_deps == 1
-                u_b = [1/4]
+                u_b = [c/4]
 
-            u_list = []
-            for spin_dep in range(u_spin_deps):
-                u_list.append(u_matrix)
-                b_list.append(u_b[spin_dep] / (-self.u_cutoff) ** (self.trunc - 1))
-
-            u_block = block_diag(u_list)
+            u_block = block_diag([u_matrix] * u_spin_deps)
             if self.u_cutoff_optimizable:
                 a_list.append(np.zeros(shape=(0, 1)))
+                # u_block = np.hstack((np.zeros(shape=(1, u_spin_deps)), u_block))
             a_list.append(u_block)
+            b_list += u_b
 
         for chi_parameters, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters, self.chi_cutoff, self.chi_cutoff_optimizable):
             # a0*C - a1*L = -Z/(-L)**(C-1) or 0 if cusp imposed by WFN
@@ -746,15 +744,12 @@ class Jastrow(AbstractJastrow):
                 if self.ned < 1:
                     chi_spin_deps -= 1
 
-            chi_list = []
-            for spin_dep in range(chi_spin_deps):
-                chi_list.append(chi_matrix)
-                b_list.append(0)
-
-            chi_block = block_diag(chi_list)
+            chi_block = block_diag([chi_matrix] * chi_spin_deps)
             if chi_cutoff_optimizable:
-                chi_block = np.hstack((np.zeros(shape=(1, chi_spin_deps)), chi_block))
+                a_list.append(np.zeros(shape=(0, 1)))
+                # chi_block = np.hstack((np.zeros(shape=(1, chi_spin_deps)), chi_block))
             a_list.append(chi_block)
+            b_list += [0] * chi_spin_deps
 
         for f_parameters, f_cutoff, f_cutoff_optimizable, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.f_cutoff_optimizable, self.no_dup_u_term, self.no_dup_chi_term):
             f_en_order = f_parameters.shape[0] - 1
@@ -776,17 +771,14 @@ class Jastrow(AbstractJastrow):
                 if self.ned < 2:
                     f_spin_deps -= 1
 
-            f_list = []
-            for spin_dep in range(f_spin_deps):
-                f_list.append(f_matrix)
-                b_list += [0] * f_constrains_size
-
-            f_block = block_diag(f_list)
+            f_block = block_diag([f_matrix] * f_spin_deps)
             if f_cutoff_optimizable:
                 a_list.append(np.zeros(shape=(0, 1)))
+                # f_block = np.hstack((np.zeros(shape=(1, f_constrains_size * f_spin_deps)), f_block))
             a_list.append(f_block)
+            b_list += [0] * f_constrains_size * f_spin_deps
 
-        return block_diag(a_list), np.array(b_list)
+        return block_diag(a_list), np.array(b_list[1:])
 
     def set_parameters_projector(self):
         """Get Projector matrix"""
@@ -946,13 +938,13 @@ class Jastrow(AbstractJastrow):
             if self.chi_cutoff_optimizable[i]:
                 n += 1
                 self.chi_cutoff[i] -= delta
-                # self.fix_chi_parameters()
+                self.fix_chi_parameters()
                 res[n] -= self.chi_term(n_powers) / delta / 2
                 self.chi_cutoff[i] += 2 * delta
-                # self.fix_chi_parameters()
+                self.fix_chi_parameters()
                 res[n] += self.chi_term(n_powers) / delta / 2
                 self.chi_cutoff[i] -= delta
-                # self.fix_chi_parameters()
+                self.fix_chi_parameters()
 
             L = self.chi_cutoff[i]
             for j2 in range(chi_parameters.shape[1]):
@@ -1087,13 +1079,13 @@ class Jastrow(AbstractJastrow):
             if self.chi_cutoff_optimizable[i]:
                 n += 1
                 self.chi_cutoff[i] -= delta
-                # self.fix_chi_parameters()
+                self.fix_chi_parameters()
                 res[n] -= self.chi_term_gradient(n_powers, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
                 self.chi_cutoff[i] += 2 * delta
-                # self.fix_chi_parameters()
+                self.fix_chi_parameters()
                 res[n] += self.chi_term_gradient(n_powers, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
                 self.chi_cutoff[i] -= delta
-                # self.fix_chi_parameters()
+                self.fix_chi_parameters()
 
             L = self.chi_cutoff[i]
             for j2 in range(chi_parameters.shape[1]):
@@ -1243,13 +1235,13 @@ class Jastrow(AbstractJastrow):
             if self.chi_cutoff_optimizable[i]:
                 n += 1
                 self.chi_cutoff[i] -= delta
-                # self.fix_chi_parameters()
+                self.fix_chi_parameters()
                 res[n] -= self.chi_term_laplacian(n_powers) / delta / 2
                 self.chi_cutoff[i] += 2 * delta
-                # self.fix_chi_parameters()
+                self.fix_chi_parameters()
                 res[n] += self.chi_term_laplacian(n_powers) / delta / 2
                 self.chi_cutoff[i] -= delta
-                # self.fix_chi_parameters()
+                self.fix_chi_parameters()
 
             L = self.chi_cutoff[i]
             for j2 in range(chi_parameters.shape[1]):
