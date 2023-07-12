@@ -1,4 +1,4 @@
-from pycasino.numpy_config import np
+from pycasino.config import np
 import numba as nb
 
 from pycasino.abstract import AbstractJastrow

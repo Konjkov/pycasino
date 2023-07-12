@@ -1,4 +1,4 @@
-from pycasino.numpy_config import np, delta
+from pycasino.config import np, delta
 import numba as nb
 
 from pycasino.slater import Slater

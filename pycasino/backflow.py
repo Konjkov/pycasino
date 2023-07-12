@@ -1,4 +1,4 @@
-from pycasino.numpy_config import np, delta
+from pycasino.config import np, delta
 import numba as nb
 
 from pycasino.abstract import AbstractBackflow
@@ -957,9 +957,6 @@ class Backflow(AbstractBackflow):
                     a_list.append(eta_matrix)
 
         for mu_parameters, mu_cutoff, mu_cutoff_optimizable in zip(self.mu_parameters, self.mu_cutoff, self.mu_cutoff_optimizable):
-            if mu_cutoff_optimizable:
-                a_list.append(np.zeros(shape=(0, 1)))
-
             mu_matrix = np.zeros(shape=(2, mu_parameters.shape[0]))
             mu_matrix[0, 0] = 1
             mu_matrix[1, 0] = self.trunc
@@ -972,9 +969,12 @@ class Backflow(AbstractBackflow):
                 if self.ned < 1:
                     mu_spin_deps -= 1
 
-            for spin_dep in range(mu_spin_deps):
-                a_list.append(mu_matrix)
-                b_list += [0] * 2
+            mu_block = block_diag([mu_matrix] * mu_spin_deps)
+            if mu_cutoff_optimizable:
+                # mu_block = np.hstack((np.zeors(2 * mu_spin_deps, 1), mu_block))
+                a_list.append(np.zeros(shape=(0, 1)))
+            a_list.append(mu_block)
+            b_list += [0] * 2 * mu_spin_deps
 
         for phi_parameters, theta_parameters, phi_cutoff, phi_cutoff_optimizable, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cutoff_optimizable, self.phi_cusp, self.phi_irrotational):
             if phi_cutoff_optimizable:

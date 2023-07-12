@@ -1,4 +1,4 @@
-from pycasino.numpy_config import np, delta, delta_3
+from pycasino.config import np, delta, delta_3
 import numba as nb
 
 from pycasino.abstract import AbstractSlater

@@ -3,7 +3,7 @@ import sys
 import warnings
 import argparse
 from timeit import default_timer
-from pycasino.numpy_config import np
+from pycasino.config import np
 from mpi4py import MPI
 import scipy as sp
 import numba as nb

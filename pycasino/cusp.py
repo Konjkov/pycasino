@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from pycasino.numpy_config import np
+from pycasino.config import np
 import numba as nb
 from scipy.optimize import minimize
 from numpy.polynomial.polynomial import polyval

@@ -14,3 +14,7 @@ delta = np.finfo(np.float64).eps ** (1/2)
 delta_3 = np.finfo(np.float64).eps ** (1/4)
 
 # np.show_config()
+
+# os.environ['NUMBA_CAPTURED_ERRORS'] = 'new_style'
+# os.environ['NUMBA_DEBUG_CACHE'] = '1'
+os.environ['NUMBA_NUM_THREADS'] = '1'

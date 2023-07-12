@@ -1,4 +1,4 @@
-from pycasino.numpy_config import np
+from pycasino.config import np
 from math import erfc
 import numba as nb
 import numba_mpi as nb_mpi
