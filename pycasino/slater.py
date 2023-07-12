@@ -3,13 +3,10 @@ import numba as nb
 
 from pycasino import delta, delta_3
 from pycasino.abstract import AbstractSlater
-from pycasino.logger import logging
 from pycasino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from pycasino.cusp import Cusp
 from pycasino.harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
 from pycasino.overload import random_step
-
-logger = logging.getLogger('vmc')
 
 value_matrix_res_type = nb.types.Tuple([nb.float64[:, :], nb.float64[:, :]])
 gradient_matrix_res_type = nb.types.Tuple([nb.float64[:, :, :], nb.float64[:, :, :]])
