@@ -1,9 +1,8 @@
 import os
-
-from collections import ChainMap
-
 import numpy as np
 import numba as nb
+
+from collections import ChainMap
 from yaml import safe_load
 
 

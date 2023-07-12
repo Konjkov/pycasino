@@ -1,5 +1,6 @@
+import numpy as np
 from abc import ABC, abstractmethod
-from pycasino.numpy_config import np, delta
+from pycasino import delta
 
 
 class AbstractSlater:

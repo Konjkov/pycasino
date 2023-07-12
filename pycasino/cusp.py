@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from pycasino.numpy_config import np
+import numpy as np
 import numba as nb
 from scipy.optimize import minimize
 from numpy.polynomial.polynomial import polyval
@@ -603,7 +603,7 @@ class CuspFactory:
         self.eta = self.eta_data()
         self.unrestricted = unrestricted
         self.logger = logger
-        self.logger.info(
+        self.logger and self.logger.info(
             ' Gaussian cusp correction\n'
             ' ========================\n'
             ' Activated.\n'
@@ -1206,7 +1206,7 @@ if __name__ == '__main__':
     """
 
     for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
-        path = f'test/gwfn/{mol}/HF/cc-pVQZ/CBCS/Slater/'
+        path = f'../tests/gwfn/{mol}/HF/cc-pVQZ/CBCS/Slater/'
 
         config = CasinoConfig(path)
         config.read()
@@ -1216,7 +1216,7 @@ if __name__ == '__main__':
             config.mdet.permutation_up, config.mdet.permutation_down,
             config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
             config.wfn.coefficients, config.wfn.exponents,
-            config.wfn.atom_positions, config.wfn.atom_charges,
+            config.wfn.atom_positions, config.wfn.atom_charges, config.wfn.unrestricted,
             None
         ).create(casino_rc=True, casino_phi_tilde_0=False)
 

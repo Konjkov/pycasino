@@ -1,7 +1,8 @@
 import os
+import numpy as np
+
 from math import factorial, pi, sqrt
 
-import numpy as np
 
 GAUSSIAN_TYPE = 0
 SLATER_TYPE = 1
