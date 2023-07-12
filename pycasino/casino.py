@@ -3,13 +3,14 @@ import sys
 import warnings
 import argparse
 from timeit import default_timer
-from pycasino.config import np
 from mpi4py import MPI
+import numpy as np
 import scipy as sp
 import numba as nb
 from scipy.optimize import least_squares, minimize, curve_fit, minimize_scalar, OptimizeWarning
 import matplotlib.pyplot as plt
 
+from pycasino import delta
 from pycasino.cusp import CuspFactory
 from pycasino.slater import Slater
 from pycasino.jastrow import Jastrow

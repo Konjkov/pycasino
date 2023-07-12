@@ -1,6 +1,7 @@
-from pycasino.config import np, delta, delta_3
+import numpy as np
 import numba as nb
 
+from pycasino import delta, delta_3
 from pycasino.abstract import AbstractSlater
 from pycasino.logger import logging
 from pycasino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE

@@ -1,6 +1,7 @@
-from pycasino.config import np, delta
+import numpy as np
 import numba as nb
 
+from pycasino import delta
 from pycasino.abstract import AbstractJastrow
 from pycasino.readers.numerical import rref
 from pycasino.readers.jastrow import construct_a_matrix

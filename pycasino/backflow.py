@@ -1,6 +1,7 @@
-from pycasino.config import np, delta
+import numpy as np
 import numba as nb
 
+from pycasino import delta
 from pycasino.abstract import AbstractBackflow
 from pycasino.readers.numerical import rref
 from pycasino.readers.backflow import construct_c_matrix

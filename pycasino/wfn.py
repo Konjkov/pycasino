@@ -1,6 +1,7 @@
-from pycasino.config import np, delta
+import numpy as np
 import numba as nb
 
+from pycasino import delta
 from pycasino.slater import Slater
 from pycasino.jastrow import Jastrow
 from pycasino.backflow import Backflow

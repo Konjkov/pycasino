@@ -1,8 +1,8 @@
-from pycasino.config import np
-from math import erfc
+import numpy as np
 import numba as nb
 import numba_mpi as nb_mpi
 
+from math import erfc
 from pycasino.wfn import Wfn
 
 vmc_spec = [

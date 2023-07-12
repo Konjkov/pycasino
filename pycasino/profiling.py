@@ -177,7 +177,7 @@ if __name__ == '__main__':
      jastrow gradient     6377.9
     """
     for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
-        path = f'tests/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
+        path = f'../tests/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
         logger.info('%s:', mol)
         profiler = Profiler(path)
         profiler.slater_profiling()
@@ -218,7 +218,7 @@ if __name__ == '__main__':
      cusp hessian        115.4
     """
     for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
-        path = f'tests/gwfn/{mol}/HF/cc-pVQZ/CBCS/Jastrow/'
+        path = f'../tests/gwfn/{mol}/HF/cc-pVQZ/CBCS/Jastrow/'
         logger.info('%s:', mol)
         profiler = Profiler(path)
         profiler.cusp_profiling()
@@ -236,7 +236,7 @@ if __name__ == '__main__':
      slater hessian       1197.0
     """
     for method in ('HF', 'MP2-CASSCF(2.4)'):
-        path = f'tests/gwfn/Be/{method}/cc-pVQZ/CBCS/Jastrow/'
+        path = f'../tests/gwfn/Be/{method}/cc-pVQZ/CBCS/Jastrow/'
         logger.info('%s:', method)
         profiler = Profiler(path)
         profiler.slater_profiling()
