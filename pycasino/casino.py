@@ -1,16 +1,15 @@
 import os
 import sys
+import logging
 import warnings
 import argparse
 from timeit import default_timer
 from mpi4py import MPI
 import numpy as np
 import scipy as sp
-import numba as nb
 from scipy.optimize import least_squares, minimize, curve_fit, minimize_scalar, OptimizeWarning
 import matplotlib.pyplot as plt
 
-from pycasino import delta
 from pycasino.cusp import CuspFactory
 from pycasino.slater import Slater
 from pycasino.jastrow import Jastrow
@@ -20,7 +19,8 @@ from pycasino.markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
 from pycasino.wfn import Wfn
 from pycasino.readers.casino import CasinoConfig
 from pycasino.sem import correlated_sem
-from pycasino.logger import disclamer, logging, StreamToLogger
+
+logger = logging.getLogger(__name__)
 
 
 # @nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
@@ -125,30 +125,10 @@ class Casino:
         :param config_path: path to config file
         """
         self.mpi_comm = MPI.COMM_WORLD
+        self.root = self.mpi_comm.rank == 0
         self.config = CasinoConfig(config_path)
         self.config.read()
         self.neu, self.ned = self.config.input.neu, self.config.input.ned
-        self.logger = logging.getLogger('pycasino')
-        self.root = self.mpi_comm.rank == 0
-        if self.root:
-            # to redirect scipy.optimize stdout to log-file
-            sys.stdout = StreamToLogger(self.logger, logging.INFO)
-            # sys.stderr = StreamToLogger(self.logger, logging.ERROR)
-        else:
-            self.logger.level = logging.ERROR
-
-        self.logger.info(disclamer)
-
-        self.logger.info(
-            f' Python {sys.version}\n'
-            f' Numba {nb.__version__}\n'
-            f' Numpy {np.__version__}\n'
-            f' Scipy {sp.__version__}\n'
-        )
-        if self.mpi_comm.size > 1:
-            self.logger.info(' Running in parallel using %i MPI processes.\n', self.mpi_comm.size)
-        else:
-            self.logger.info(' Sequential run: not using MPI.\n')
 
         if self.config.input.cusp_correction:
             cusp_factory = CuspFactory(
@@ -157,7 +137,6 @@ class Casino:
                 self.config.wfn.first_shells, self.config.wfn.shell_moments, self.config.wfn.primitives,
                 self.config.wfn.coefficients, self.config.wfn.exponents,
                 self.config.wfn.atom_positions, self.config.wfn.atom_charges, self.config.wfn.unrestricted,
-                self.logger
             )
             cusp = cusp_factory.create()
             if self.config.input.cusp_info:
@@ -253,7 +232,7 @@ class Casino:
             condition, _ = self.vmc_markovchain.random_walk(1000000, 1)
             acc_ration = condition.mean()
             acc_ration /= (self.neu + self.ned)
-            self.logger.info(
+            logger.info(
                 'step_size / approximate_step_size  = %.5f, acc_ratio = %.5f', self.vmc_markovchain.step_size / approximate_step_size, acc_ration
             )
 
@@ -280,7 +259,7 @@ class Casino:
             """
             return (np.exp(a/ts0) - 1) / (np.exp(a/ts0) + np.exp(ts/ts0) - 2)
 
-        self.logger.info(
+        logger.info(
             f'Performing time-step optimization.'
         )
         if self.root:
@@ -289,7 +268,7 @@ class Casino:
                 popt, pcov = curve_fit(f, xdata, ydata)
                 step_size *= popt[0]
             except OptimizeWarning:
-                self.logger.info(
+                logger.info(
                     f' time-step optimization failed for.\n'
                     f' ydata: {ydata}\n'
                     f' set step size to approximate'
@@ -309,7 +288,7 @@ class Casino:
         """
         start = default_timer()
         if self.config.input.runtype == 'vmc':
-            self.logger.info(
+            logger.info(
                 ' ====================================\n'
                 ' PERFORMING A SINGLE VMC CALCULATION.\n'
                 ' ====================================\n\n'
@@ -332,7 +311,7 @@ class Casino:
                     self.wfn.jastrow.chi_cutoff_optimizable[:] = chi_cutoff_optimizable[:]
                     self.wfn.jastrow.f_cutoff_optimizable[:] = f_cutoff_optimizable[:]
                 self.vmc_energy_accumulation()
-                self.logger.info(
+                logger.info(
                     f' ==========================================\n'
                     f' PERFORMING OPTIMIZATION CALCULATION No. {i+1}.\n'
                     f' ==========================================\n\n'
@@ -363,7 +342,7 @@ class Casino:
                     self.config.write('.', i + 1)
             self.vmc_energy_accumulation()
         elif self.config.input.runtype == 'vmc_dmc':
-            self.logger.info(
+            logger.info(
                  ' ======================================================\n'
                  ' PERFORMING A VMC CONFIGURATION-GENERATION CALCULATION.\n'
                  ' ======================================================\n\n'
@@ -379,7 +358,7 @@ class Casino:
             self.dmc_energy_accumulation()
 
         stop = default_timer()
-        self.logger.info(
+        logger.info(
             f' =========================================================================\n\n'
             f' Total PyCasino real time : : :    {stop - start:.4f}'
         )
@@ -390,13 +369,13 @@ class Casino:
         :return:
         """
         condition, _ = self.vmc_markovchain.random_walk(steps, self.decorr_period)
-        self.logger.info(
+        logger.info(
             f'Running VMC equilibration ({steps} moves).'
         )
 
     def vmc_energy_accumulation(self):
         """VMC energy accumulation"""
-        self.logger.info(
+        logger.info(
             f' BEGIN VMC CALCULATION\n'
             f' =====================\n'
         )
@@ -406,7 +385,7 @@ class Casino:
             self.vmc_markovchain.step_size = np.sqrt(3 * self.config.input.dtvmc)
         else:
             self.optimize_vmc_step(1000)
-        self.logger.info(
+        logger.info(
             f'Optimized step size: {self.vmc_markovchain.step_size:.5f}\n'
             f'DTVMC: {(self.vmc_markovchain.step_size**2)/3:.5f}\n'
         )
@@ -417,7 +396,7 @@ class Casino:
         energy_block_mean = np.zeros(shape=(nblock,))
         energy_block_sem = np.zeros(shape=(nblock,))
         energy_block_var = np.zeros(shape=(nblock,))
-        self.logger.info(
+        logger.info(
             f'Starting VMC.\n'
         )
         for i in range(nblock):
@@ -433,7 +412,7 @@ class Casino:
                     correlated_sem(block_energy.reshape(self.mpi_comm.size, steps // nblock // self.mpi_comm.size)[j]) for j in range(self.mpi_comm.size)
                 ]) / np.sqrt(self.mpi_comm.size)
             block_stop = default_timer()
-            self.logger.info(
+            logger.info(
                 f' =========================================================================\n'
                 f' In block : {i + 1}\n'
                 f'  Number of VMC steps           = {steps // nblock}\n\n'
@@ -445,7 +424,7 @@ class Casino:
                 f'  Standard error                        +/-       {0:18.12f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
-        self.logger.info(
+        logger.info(
             f' =========================================================================\n'
             f' FINAL RESULT:\n\n'
             f'  VMC energy (au)    Standard error      Correction for serial correlation\n\n'
@@ -456,7 +435,7 @@ class Casino:
 
     def dmc_energy_equilibration(self):
         """DMC energy equilibration"""
-        self.logger.info(
+        logger.info(
             f' *     *     *     *     *     *     *     *     *     *     *     *\n\n'
             f' ===========================================\n'
             f' PERFORMING A DMC EQUILIBRATION CALCULATION.\n'
@@ -475,7 +454,7 @@ class Casino:
             block_start = default_timer()
             energy = self.dmc_markovchain.random_walk(steps // nblock)
             block_stop = default_timer()
-            self.logger.info(
+            logger.info(
                 f' =========================================================================\n'
                 f' In block : {i + 1}\n\n'
                 f' Number of moves in block                 : {steps // nblock}\n'
@@ -488,7 +467,7 @@ class Casino:
 
     def dmc_energy_accumulation(self):
         """DMC energy accumulation"""
-        self.logger.info(
+        logger.info(
             f' *     *     *     *     *     *     *     *     *     *     *     *\n\n'
             f' =====================================================\n'
             f' PERFORMING A DMC STATISTICS-ACCUMULATION CALCULATION.\n'
@@ -511,7 +490,7 @@ class Casino:
             energy[block_steps * i:block_steps * (i + 1)] = self.dmc_markovchain.random_walk(block_steps)
             energy_mean = energy[:block_steps * (i + 1)].mean()
             block_stop = default_timer()
-            self.logger.info(
+            logger.info(
                 f' =========================================================================\n'
                 f' In block : {i + 1}\n\n'
                 f' Number of moves in block                 : {block_steps}\n'
@@ -521,7 +500,7 @@ class Casino:
                 f' New best estimate of effective time step : {self.dmc_markovchain.step_eff:.8f}\n\n'
                 f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
             )
-        self.logger.info(
+        logger.info(
             f'Mixed estimators of the energies at the end of the run\n'
             f'------------------------------------------------------\n\n'
             f'Total energy                 =       {energy.mean():.12f} +/- {correlated_sem(energy):.12f}\n'
@@ -530,7 +509,7 @@ class Casino:
     def distribution(self, energy):
         """Test whether energy distribution differs from a normal one."""
         from scipy import stats
-        self.logger.info(f'skew = {stats.skewtest(energy)}, kurtosis = {stats.kurtosistest(energy)}')
+        logger.info(f'skew = {stats.skewtest(energy)}, kurtosis = {stats.kurtosistest(energy)}')
         plt.hist(
             energy,
             bins='auto',
@@ -548,21 +527,21 @@ class Casino:
         for cond, pos in zip(condition, position):
             if cond:
                 e_vectors, n_vectors = self.wfn._relative_coordinates(pos)
-                self.logger.info(
+                logger.info(
                     self.wfn.slater.hessian_derivatives(n_vectors) /
                     (self.wfn.slater.numerical_tressian(n_vectors) - np.expand_dims(self.wfn.slater.hessian(n_vectors), 2) * self.wfn.slater.gradient(n_vectors))
                 )
-                self.logger.info(self.wfn.slater.tressian(n_vectors) / self.wfn.slater.numerical_tressian(n_vectors))
+                logger.info(self.wfn.slater.tressian(n_vectors) / self.wfn.slater.numerical_tressian(n_vectors))
                 if self.wfn.jastrow is not None:
-                    self.logger.info(self.wfn.jastrow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.value_parameters_numerical_d1(e_vectors, n_vectors, False))
-                    self.logger.info(self.wfn.jastrow.gradient_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False))
-                    self.logger.info(self.wfn.jastrow.laplacian_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.laplacian_parameters_numerical_d1(e_vectors, n_vectors, False))
+                    logger.info(self.wfn.jastrow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.value_parameters_numerical_d1(e_vectors, n_vectors, False))
+                    logger.info(self.wfn.jastrow.gradient_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False))
+                    logger.info(self.wfn.jastrow.laplacian_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.laplacian_parameters_numerical_d1(e_vectors, n_vectors, False))
                 if self.wfn.backflow is not None:
-                    self.logger.info(self.wfn.backflow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.backflow.value_parameters_numerical_d1(e_vectors, n_vectors, False))
-                    self.logger.info(self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.gradient_parameters_d1(e_vectors, n_vectors)[0][:, :, 1] / self.wfn.backflow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False)[:, :, 1])
-                    self.logger.info(self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.laplacian_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.laplacian_parameters_numerical_d1(e_vectors, n_vectors, False))
-                self.logger.info(self.wfn.value_parameters_d1(pos, opt_jastrow, opt_backflow) / self.wfn.value_parameters_numerical_d1(pos, opt_jastrow, opt_backflow))
-                self.logger.info(self.wfn.energy_parameters_d1(pos, opt_jastrow, opt_backflow) / self.wfn.energy_parameters_numerical_d1(pos, opt_jastrow, opt_backflow))
+                    logger.info(self.wfn.backflow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.backflow.value_parameters_numerical_d1(e_vectors, n_vectors, False))
+                    logger.info(self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.gradient_parameters_d1(e_vectors, n_vectors)[0][:, :, 1] / self.wfn.backflow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False)[:, :, 1])
+                    logger.info(self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.laplacian_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.laplacian_parameters_numerical_d1(e_vectors, n_vectors, False))
+                logger.info(self.wfn.value_parameters_d1(pos, opt_jastrow, opt_backflow) / self.wfn.value_parameters_numerical_d1(pos, opt_jastrow, opt_backflow))
+                logger.info(self.wfn.energy_parameters_d1(pos, opt_jastrow, opt_backflow) / self.wfn.energy_parameters_numerical_d1(pos, opt_jastrow, opt_backflow))
 
     def vmc_unreweighted_variance_minimization(self, steps, opt_jastrow, opt_backflow, verbose=2):
         """Minimize vmc unreweighted variance.
@@ -596,7 +575,7 @@ class Casino:
             self.mpi_comm.Allgather(energy_gradient_part, energy_gradient)
             return scale * (energy_gradient - energy_gradient.mean(axis=0))
 
-        self.logger.info(
+        logger.info(
             ' Optimization start\n'
             ' =================='
         )
@@ -609,7 +588,7 @@ class Casino:
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        self.logger.info(
+        logger.info(
             f'Jacobian matrix at the solution:\n'
             f'{res.jac.mean(axis=0)}\n'
         )
@@ -686,7 +665,7 @@ class Casino:
                 np.expand_dims((energy - mean_energy), 1) * (mean_wfn_gradient * weights.sum() - half_ddof_gradient) / (weights.sum() - ddof)
             ) * np.sqrt(np.expand_dims(weights, 1) / (weights.sum() - ddof))
 
-        self.logger.info(
+        logger.info(
             ' Optimization start\n'
             ' =================='
         )
@@ -699,7 +678,7 @@ class Casino:
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
-        self.logger.info(
+        logger.info(
             f'Jacobian matrix at the solution:\n'
             f'{res.jac.mean(axis=0)}\n'
         )
@@ -765,7 +744,7 @@ class Casino:
             self.mpi_comm.Bcast(energy_hessian)
             return energy_hessian * np.outer(scale, scale)
 
-        self.logger.info(
+        logger.info(
             ' Optimization start\n'
             ' =================='
         )
@@ -773,8 +752,8 @@ class Casino:
         x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale
         options = dict(disp=self.root, initial_trust_radius=1, max_trust_radius=10)
         res = minimize(fun, x0=x0, method='trust-exact', jac=jac, hess=hess, options=options)
-        self.logger.info('Scaled Jacobian matrix at the solution:')
-        self.logger.info(res.jac / scale)
+        logger.info('Scaled Jacobian matrix at the solution:')
+        logger.info(res.jac / scale)
         parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
@@ -808,7 +787,7 @@ class Casino:
         # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
 
-        self.logger.info(
+        logger.info(
             ' Optimization start\n'
             ' =================='
         )
@@ -832,7 +811,7 @@ class Casino:
             energy_0 = energy.mean()
             energy_sem = energy.std() / np.sqrt(steps)
             S = overlap_matrix(wfn_gradient)
-            self.logger.info(f'S is positive definite: {np.all(np.linalg.eigvals(S) > 0)}')
+            logger.info(f'S is positive definite: {np.all(np.linalg.eigvals(S) > 0)}')
             H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
             if sparse:
                 # get normalized right eigenvector corresponding to the eigenvalue
@@ -843,8 +822,8 @@ class Casino:
             eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
             idx = eigvals.argmin()
             eigval, eigvector = eigvals[idx], eigvectors[:, idx]
-            self.logger.info(f'E lin {eigval} dE {eigval - energy_0}')
-            self.logger.info(f'eigvector[0] {eigvector[0]}')
+            logger.info(f'E lin {eigval} dE {eigval - energy_0}')
+            logger.info(f'eigvector[0] {eigvector[0]}')
             dp = eigvector[1:] / eigvector[0]
 
         self.mpi_comm.Bcast(dp)
@@ -866,13 +845,13 @@ class Casino:
                 break
             energy_alpha = f(alpha)
             emin_error = (energy_alpha - alpha * (eigval - energy_0) - energy_0) / energy_sem
-            self.logger.info(f'step data: E({alpha:.4f}) = {energy_alpha:.8f} differ by {emin_error:.4f} sigma_E(0) from linear')
+            logger.info(f'step data: E({alpha:.4f}) = {energy_alpha:.8f} differ by {emin_error:.4f} sigma_E(0) from linear')
             if emin_error < 3:
                 break
         if parameters.all():
-            self.logger.info(f'alpha {alpha}\ndelta p / p\n{alpha * dp / parameters}\n')
+            logger.info(f'alpha {alpha}\ndelta p / p\n{alpha * dp / parameters}\n')
         else:
-            self.logger.info(f'alpha {alpha}\ndelta p\n{alpha * dp}\n')
+            logger.info(f'alpha {alpha}\ndelta p\n{alpha * dp}\n')
         parameters += alpha * dp
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
@@ -936,7 +915,7 @@ class Casino:
             self.mpi_comm.Bcast(H)
             return np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]
 
-        self.logger.info(
+        logger.info(
             ' Optimization start\n'
             ' =================='
         )
@@ -953,8 +932,8 @@ class Casino:
 
         options = dict(disp=self.root, eps=1/epsilon(parameters))
         res = minimize(fun, x0=parameters, method='Newton-CG', jac=jac, hess=hess, options=options)
-        self.logger.info('Scaled Jacobian matrix at the solution:')
-        self.logger.info(res.jac)
+        logger.info('Scaled Jacobian matrix at the solution:')
+        logger.info(res.jac)
         parameters = res.x
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)

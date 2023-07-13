@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 
+import logging
 import numpy as np
 import numba as nb
+
 from scipy.optimize import minimize
 from numpy.polynomial.polynomial import polyval
-
 from pycasino.harmonics import angular_part
 from pycasino.readers.casino import CasinoConfig
 from pycasino.overload import random_step
 
+logger = logging.getLogger(__name__)
 
 cusp_spec = [
     ('neu', nb.int64),
@@ -571,7 +573,6 @@ class CuspFactory:
     def __init__(
             self, neu, ned, cusp_threshold, mo_up, mo_down, permutation_up, permutation_down,
             first_shells, shell_moments, primitives, coefficients, exponents, atom_positions, atom_charges, unrestricted,
-            logger
     ):
         self.neu = neu
         self.ned = ned
@@ -602,8 +603,7 @@ class CuspFactory:
         # atoms, MO - contribution from Gaussians on other nuclei
         self.eta = self.eta_data()
         self.unrestricted = unrestricted
-        self.logger = logger
-        self.logger and self.logger.info(
+        logger.info(
             ' Gaussian cusp correction\n'
             ' ========================\n'
             ' Activated.\n'
@@ -896,32 +896,26 @@ class CuspFactory:
         this may produce a lot of output.
         :return:
         """
-        self.logger.info(
+        logger.info(
             ' Verbose print out flagged (turn off with cusp_info : F)\n'
         )
         for i in range(2) if self.unrestricted else range(1):
             if self.unrestricted:
                 if i == 0:
-                    self.logger.info(
-                        ' UP SPIN\n'
-                    )
+                    logger.info(' UP SPIN\n')
                 else:
-                    self.logger.info(
-                        ' DOWN SPIN\n'
-                    )
+                    logger.info(' DOWN SPIN\n')
             else:
-                self.logger.info(
-                    ' Spin restricted calculation.\n'
-                )
+                logger.info(' Spin restricted calculation.\n')
             for atom in range(self.atom_positions.shape[0]):
                 for orb in range(self.orbitals_up) if i == 0 else range(self.orbitals_up, self.orbitals_up + self.orbitals_down):
-                    self.logger.info(
+                    logger.info(
                         f' Orbital {orb + 1 if i == 0 else orb + 1 - self.orbitals_up} at position of ion {atom + 1}'
                     )
                     if self.orb_mask[atom][orb]:
                         sign = 'positive' if self.orbital_sign[atom][orb] else 'negative'
                         z_eff = self.atom_charges[atom] * (1 + self.eta[atom][orb] / self.phi_0[atom][orb])
-                        self.logger.info(
+                        logger.info(
                             f' Sign of orbital at nucleus                : {sign}\n'
                             f' Cusp radius (au)                          : {self.rc[atom][orb]:16.12f}\n'
                             f' Value of uncorrected orbital at nucleus   : {(self.phi_0 + self.eta)[atom][orb]:16.12f}\n'
@@ -931,11 +925,9 @@ class CuspFactory:
                             f' Effective nuclear charge                  : {z_eff:16.12f}\n'
                         )
                     else:
-                        self.logger.info(
-                            ' Orbital s component effectively zero at this nucleus.\n'
-                        )
+                        logger.info(' Orbital s component effectively zero at this nucleus.\n')
         nonzero_index = np.nonzero(self.orb_mask)
-        self.logger.info(
+        logger.info(
             f' Maximum deviation from ideal (averaged over orbitals) : {np.mean(self.energy_diff_max[nonzero_index]):16.12f}.\n'
         )
 
@@ -1217,7 +1209,6 @@ if __name__ == '__main__':
             config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
             config.wfn.coefficients, config.wfn.exponents,
             config.wfn.atom_positions, config.wfn.atom_charges, config.wfn.unrestricted,
-            None
         ).create(casino_rc=True, casino_phi_tilde_0=False)
 
         cusp_test = TestCuspFactory(

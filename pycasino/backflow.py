@@ -3,9 +3,8 @@ import numba as nb
 
 from pycasino import delta
 from pycasino.abstract import AbstractBackflow
-from pycasino.readers.numerical import rref
 from pycasino.readers.backflow import construct_c_matrix
-from pycasino.overload import random_step, block_diag
+from pycasino.overload import random_step, block_diag, rref
 
 
 labels_type = nb.int64[:]

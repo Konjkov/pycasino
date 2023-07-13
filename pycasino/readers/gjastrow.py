@@ -190,6 +190,7 @@ class Gjastrow:
                     self.linear_parameters[j, 0] = C * (self.linear_parameters[j, 1] - G/(-self.ee_cutoff_parameters[j]['L'])**self.ee_constants[i]['C'])
 
     def read(self, base_path):
+        """Read Gjastrow config from file"""
         file_path = os.path.join(base_path, 'parameters.casl')
         if not os.path.isfile(file_path):
             return
@@ -207,3 +208,6 @@ class Gjastrow:
             self.get_cutoff_parameters()
             self.get_linear_parameters()
             # self.fix_terns()
+
+    def write(self):
+        """Write Gjastrow config to file"""
