@@ -3,7 +3,8 @@ import numpy as np
 import numba as nb
 
 from collections import ChainMap
-from yaml import safe_load
+from yaml import dump, safe_load, Dumper
+from yaml.events import SequenceEndEvent
 
 
 def dict_to_typed_dict(_dict, _type=nb.types.float64):
@@ -11,6 +12,19 @@ def dict_to_typed_dict(_dict, _type=nb.types.float64):
     for k, v in _dict.items():
         result[k] = v
     return result
+
+
+class CaslDumper(Dumper):
+
+    def expect_block_sequence_item(self, first=False):
+        if not first and isinstance(self.event, SequenceEndEvent):
+            self.indent = self.indents.pop()
+            self.state = self.states.pop()
+        else:
+            self.write_indent()
+            self.write_indicator(u' ', True, indention=True)
+            self.states.append(self.expect_block_sequence_item)
+            self.expect_node(sequence=True)
 
 
 shape_type = nb.types.ListType(nb.int64)
@@ -209,5 +223,33 @@ class Gjastrow:
             self.get_linear_parameters()
             # self.fix_terns()
 
-    def write(self):
+    def write(self, base_path, version):
         """Write Gjastrow config to file"""
+        casl = {
+            'JASTROW': {
+                'Title': 'no title given',
+                'TERM 1': {
+                    'Rules': ['1-1=2-2'],
+                    'e-e basis': [{'Type': 'natural power'}, {'Order': 2}],
+                    'e-e cusp': 'T',
+                    'e-e cutoff': [{'Type': 'alt polynomial'}],
+                    'Rank': [2, 0]
+                },
+                'TERM 2': {
+                    'Rules': ['Z', '1=2'],
+                    'e-n basis': [{'Type': 'natural power'}, {'Order': 2}],
+                    'e-n cutoff': [{'Type': 'alt polynomial'}],
+                    'Rank': [1, 1]
+                },
+                'TERM 3': {
+                    'Rules': ['Z', '1=2'],
+                    'e-e basis': [{'Type': 'natural power'}, {'Order': 4}],
+                    'e-n basis': [{'Type': 'natural power'}, {'Order': 4}],
+                    'e-n cutoff': [{'Type': 'alt polynomial'}],
+                    'Rank': [2, 1]
+                }
+            }
+        }
+        file_path = os.path.join(base_path, f'parameters.{version}.casl')
+        with open(file_path, 'w') as f:
+            dump(casl, f, default_flow_style=False, Dumper=CaslDumper)

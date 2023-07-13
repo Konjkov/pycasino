@@ -163,16 +163,17 @@ class Casino:
                     self.config.jastrow.f_parameters, self.config.jastrow.f_parameters_optimizable, self.config.jastrow.f_cutoff, self.config.jastrow.f_labels,
                     self.config.jastrow.no_dup_u_term, self.config.jastrow.no_dup_chi_term
                 )
-            # elif self.config.input.use_gjastrow:
-            #     gjastrow = Gjastrow(
-            #         self.config.input.neu, self.config.input.ned, self.config.jastrow.rank, self.config.jastrow.cusp,
-            #         self.config.jastrow.ee_basis_type, self.config.jastrow.en_basis_type,
-            #         self.config.jastrow.ee_cutoff_type, self.config.jastrow.en_cutoff_type,
-            #         self.config.jastrow.ee_constants, self.config.jastrow.en_constants,
-            #         self.config.jastrow.ee_basis_parameters, self.config.jastrow.en_basis_parameters,
-            #         self.config.jastrow.ee_cutoff_parameters, self.config.jastrow.en_cutoff_parameters,
-            #         self.config.jastrow.linear_parameters, self.config.jastrow.linear_parameters_shape,
-            #     )
+            elif self.config.input.use_gjastrow:
+                self.config.jastrow.write('.', 0)
+                # gjastrow = Gjastrow(
+                #     self.config.input.neu, self.config.input.ned, self.config.jastrow.rank, self.config.jastrow.cusp,
+                #     self.config.jastrow.ee_basis_type, self.config.jastrow.en_basis_type,
+                #     self.config.jastrow.ee_cutoff_type, self.config.jastrow.en_cutoff_type,
+                #     self.config.jastrow.ee_constants, self.config.jastrow.en_constants,
+                #     self.config.jastrow.ee_basis_parameters, self.config.jastrow.en_basis_parameters,
+                #     self.config.jastrow.ee_cutoff_parameters, self.config.jastrow.en_cutoff_parameters,
+                #     self.config.jastrow.linear_parameters, self.config.jastrow.linear_parameters_shape,
+                # )
 
         if self.config.backflow:
             backflow = Backflow(

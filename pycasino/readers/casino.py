@@ -31,13 +31,13 @@ class CasinoConfig:
         elif self.input.atom_basis_type == 'slater-type':
             self.wfn = Stowfn()
         self.mdet = Mdet(self.input.neu, self.input.ned)
-        if getattr(self.input, 'use_gjastrow', False):
+        if self.input.use_gjastrow:
             self.jastrow = Gjastrow()
-        elif getattr(self.input, 'use_jastrow', False):
+        elif self.input.use_jastrow:
             self.jastrow = Jastrow()
         else:
             self.jastrow = None
-        if getattr(self.input, 'backflow', False):
+        if self.input.backflow:
             self.backflow = Backflow()
         else:
             self.backflow = None
@@ -58,7 +58,10 @@ class CasinoConfig:
         # if self.wfn:
         #     self.wfn.write()
         if self.jastrow:
-            correlation_data += self.jastrow.write()
+            if self.input.use_gjastrow:
+                self.jastrow.write(base_path, version)
+            else:
+                correlation_data += self.jastrow.write()
         if self.backflow:
             correlation_data += self.backflow.write()
         if self.mdet:
