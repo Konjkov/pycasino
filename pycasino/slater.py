@@ -30,10 +30,6 @@ slater_spec = [
     ('cusp', nb.optional(Cusp.class_type.instance_type)),
     ('norm', nb.float64),
     ('parameters_projector', nb.float64[:, :]),
-    ('value_matrix_arg', nb.float64[:, :]),
-    ('value_orbitals', nb.float64[:, :]),
-    ('gradient_matrix_arg', nb.float64[:, :]),
-    ('gradient_matrix_res', gradient_matrix_res_type),
 ]
 
 
@@ -78,22 +74,14 @@ class Slater(AbstractSlater):
         self.det_coeff = coeff
         self.cusp = cusp
         self.norm = np.exp(-(np.math.lgamma(neu + 1) + np.math.lgamma(ned + 1)) / (neu + ned) / 2)
-        self.value_matrix_arg = 1 / np.zeros(shape=(neu + ned, 3))
-        self.value_orbitals = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
-        self.gradient_matrix_arg = np.zeros(shape=(neu + ned, 3))
-        self.gradient_matrix_res = (np.zeros(shape=(neu, neu, 3)), np.zeros(shape=(ned, ned, 3)))
 
     def value_matrix(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Value matrix.
-        Atomic orbitals for every electron
         :param n_vectors: electron-nuclei array(natom, nelec, 3)
         :return: array(up_orbitals, up_electrons), array(down_orbitals, down_electrons)
         """
+        orbitals = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
         for i in range(self.neu + self.ned):
-            # interferes with Finite difference method
-            if np.linalg.norm(self.value_matrix_arg[i] - n_vectors[0, i]) < 1e-15:
-                continue
-            self.value_matrix_arg[i] = n_vectors[0, i]
             p = ao = 0
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
@@ -111,10 +99,10 @@ class Slater(AbstractSlater):
                             radial_1 += r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r)
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
-                        self.value_orbitals[i, ao+m] = angular_1[l*l+m] * radial_1
+                        orbitals[i, ao+m] = angular_1[l*l+m] * radial_1
                     ao += 2*l+1
 
-        ao_value = self.norm * self.value_orbitals
+        ao_value = self.norm * orbitals
         wfn_u = self.mo_up @ ao_value[:self.neu].T
         wfn_d = self.mo_down @ ao_value[self.neu:].T
         if self.cusp is not None:
@@ -128,12 +116,6 @@ class Slater(AbstractSlater):
         :param n_vectors: electron-nuclei - array(natom, nelec, 3)
         :return: array(up_orbitals, up_electrons, 3), array(down_orbitals, down_electrons, 3)
         """
-        # interferes with Finite difference method
-        if np.linalg.norm(self.gradient_matrix_arg - n_vectors[0]) < 1e-15:
-            return self.gradient_matrix_res
-        else:
-            self.gradient_matrix_arg = n_vectors[0]
-
         orbital = np.zeros(shape=(self.neu + self.ned, 3, self.nbasis_functions))
         for i in range(self.neu + self.ned):
             p = ao = 0
@@ -174,7 +156,6 @@ class Slater(AbstractSlater):
             cusp_gradient_u, cusp_gradient_d = self.cusp.gradient(n_vectors)
             grad_u += cusp_gradient_u
             grad_d += cusp_gradient_d
-        self.gradient_matrix_res = (grad_u, grad_d)
         return grad_u, grad_d
 
     def laplacian_matrix(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -464,19 +445,19 @@ class Slater(AbstractSlater):
             val += c
 
             # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
-            temp_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
+            matrix_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
             res_u = np.zeros(shape=(self.neu, 3, self.neu, 3))
             for r1 in range(3):
                 for r2 in range(3):
-                    res_u[:, r1, :, r2] = np.diag(tr_hess_u[:, r1, r2]) - temp_grad_u[:, :, r1].T * temp_grad_u[:, :, r2]
+                    res_u[:, r1, :, r2] = np.diag(tr_hess_u[:, r1, r2]) - matrix_grad_u[:, :, r1].T * matrix_grad_u[:, :, r2]
             hess[:self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3)
 
             # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
-            temp_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
+            matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3))
             for r1 in range(3):
                 for r2 in range(3):
-                    res_d[:, r1, :, r2] = np.diag(tr_hess_d[:, r1, r2]) - temp_grad_d[:, :, r1].T * temp_grad_d[:, :, r2]
+                    res_d[:, r1, :, r2] = np.diag(tr_hess_d[:, r1, r2]) - matrix_grad_d[:, :, r1].T * matrix_grad_d[:, :, r2]
             hess[self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3)
 
             # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
@@ -550,23 +531,38 @@ class Slater(AbstractSlater):
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
 
+            # - np.tr(res_grad_u * res_hess_u) - np.tr(res_grad_u) * np.tr(res_grad_u * res_grad_u)
+            matrix_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
             res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
-            for r1 in range(3):
-                for r2 in range(3):
-                    for r3 in range(3):
-                        # tr(A^-1 @ d²A/dxdydz)
-                        for ne in range(self.neu):
-                            res_u[ne, r1, ne, r2, ne, r3] = tr_tress_u[ne, r1, r2, r3]
+            # tr(A^-1 @ d²A/dxdydz)
+            for e1 in range(self.neu):
+                for r1 in range(3):
+                    for r2 in range(3):
+                        for r3 in range(3):
+                            res_u[e1, r1, e1, r2, e1, r3] = tr_tress_u[e1, r1, r2, r3]
+            # tr(A^-1 * dA/dx) * tr(A^-1 * d²A/dydz) + tr(A^-1 * dA/dy) * tr(A^-1 * d²A/dxdz) + tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy)
+            for e1 in range(self.neu):
+                for e2 in range(self.neu):
+                    res_u[e1, :, e1, :, e2, :] += np.expand_dims(tr_hess_u[e1], 2) * tr_grad_u[e2]
+                    res_u[e1, :, e2, :, e1, :] += np.expand_dims(tr_hess_u[e1], 1) * np.expand_dims(tr_grad_u[e2], 1)
+                    res_u[e2, :, e1, :, e1, :] += tr_hess_u[e1] * np.expand_dims(np.expand_dims(tr_grad_u[e2], 1), 2)
             tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3, self.neu * 3)
 
-            # np.tr(res_grad_u) * np.tr(res_hess_u) - np.tr(res_grad_u * res_hess_u) - np.tr(res_grad_u) * np.tr(res_grad_u * res_grad_u) +
+            # - np.tr(res_grad_d * res_hess_d) - np.tr(res_grad_d) * np.tr(res_grad_d * res_grad_d)
+            matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
-            for r1 in range(3):
-                for r2 in range(3):
-                    for r3 in range(3):
-                        # tr(A^-1 @ d²A/dxdydz)
-                        for ne in range(self.ned):
-                            res_d[ne, r1, ne, r2, ne, r3] = tr_tress_d[ne, r1, r2, r3]
+            # tr(A^-1 @ d²A/dxdydz)
+            for e1 in range(self.ned):
+                for r1 in range(3):
+                    for r2 in range(3):
+                        for r3 in range(3):
+                            res_d[e1, r1, e1, r2, e1, r3] = tr_tress_d[e1, r1, r2, r3]
+            # tr(A^-1 * dA/dx) * tr(A^-1 * d²A/dydz) + tr(A^-1 * dA/dy) * tr(A^-1 * d²A/dxdz) + tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy)
+            for e1 in range(self.ned):
+                for e2 in range(self.ned):
+                    res_d[e1, :, e1, :, e2, :] += np.expand_dims(tr_hess_d[e1], 2) * tr_grad_d[e2]
+                    res_d[e1, :, e2, :, e1, :] += np.expand_dims(tr_hess_d[e1], 1) * np.expand_dims(tr_grad_d[e2], 1)
+                    res_d[e2, :, e1, :, e1, :] += tr_hess_d[e1] * np.expand_dims(np.expand_dims(tr_grad_d[e2], 1), 2)
             tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3, self.ned * 3)
 
             # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) ⊗ tr(A^-1 * dA/dz)
