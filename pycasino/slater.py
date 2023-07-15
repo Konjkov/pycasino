@@ -507,13 +507,15 @@ class Slater(AbstractSlater):
                 for r2 in range(3):
                     res_u[:, r1, :, r2] = np.diag(tr_hess_u[:, r1, r2]) - matrix_grad_u[:, :, r1].T * matrix_grad_u[:, :, r2]
             tmp_hess_u += res_u.reshape(self.neu * 3, self.neu * 3)
-
             # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
             tmp_hess_u += np.outer(tr_grad_u.ravel(), tr_grad_u.ravel())
-
-            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * np.expand_dims(tmp_hess_u, 2) * tr_grad_u.ravel()
-            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * np.expand_dims(tmp_hess_u, 1) * np.expand_dims(tr_grad_u.ravel(), 1)
-            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * tmp_hess_u * np.expand_dims(np.expand_dims(tr_grad_u.ravel(), 1), 2)
+            # tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy
+            tr_hess_tr_grad_u = np.expand_dims(tmp_hess_u, 2) * tr_grad_u.ravel()
+            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * tr_hess_tr_grad_u
+            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * tr_hess_tr_grad_u.T
+            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * tr_hess_tr_grad_u.T.T
+            # - tr(A^-1 * dA/dx ⊗ A^-1 * d²A/dydz) - tr(A^-1 * dA/dy ⊗ A^-1 * dA²/dxdz) - tr(A^-1 * dA/dz ⊗ A^-1 * d²A/dxdy)
+            # FIXME: not implemented
 
             # tr(A^-1 @ d²A/dxdydz)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
@@ -532,13 +534,15 @@ class Slater(AbstractSlater):
                 for r2 in range(3):
                     res_d[:, r1, :, r2] = np.diag(tr_hess_d[:, r1, r2]) - matrix_grad_d[:, :, r1].T * matrix_grad_d[:, :, r2]
             tmp_hess_d += c * res_d.reshape(self.ned * 3, self.ned * 3)
-
             # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
             tmp_hess_d += np.outer(tr_grad_d.ravel(), tr_grad_d.ravel())
-
-            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * np.expand_dims(tmp_hess_d, 2) * tr_grad_d.ravel()
-            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * np.expand_dims(tmp_hess_d, 1) * np.expand_dims(tr_grad_d.ravel(), 1)
-            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * tmp_hess_d * np.expand_dims(np.expand_dims(tr_grad_d.ravel(), 1), 2)
+            # tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy
+            tr_hess_tr_grad_d = np.expand_dims(tmp_hess_d, 2) * tr_grad_d.ravel()
+            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * tr_hess_tr_grad_d
+            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * tr_hess_tr_grad_d.T
+            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * tr_hess_tr_grad_d.T.T
+            # - tr(A^-1 * dA/dx ⊗ A^-1 * d²A/dydz) - tr(A^-1 * dA/dy ⊗ A^-1 * dA²/dxdz) - tr(A^-1 * dA/dz ⊗ A^-1 * d²A/dxdy)
+            # FIXME: not implemented
 
         return tress / val
 
