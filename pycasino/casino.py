@@ -696,7 +696,6 @@ class Casino:
         :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
-        :param exact: exact or dogleg trust region optimization
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
@@ -759,7 +758,7 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
-    def vmc_energy_minimization_linear_method(self, steps, opt_jastrow, opt_backflow, verbose=3):
+    def vmc_energy_minimization_linear_method(self, steps, opt_jastrow, opt_backflow):
         """Minimize vmc energy by linear method.
         Another way to energy-optimize linear parameters of wfn is to diagonalize the Hamiltonian
         in the variational space that they define, leading to a generalized eigenvalue equation.
@@ -776,11 +775,6 @@ class Casino:
         :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
-        :param verbose:
-            0 : no message printing.
-            1 : non-convergence notification messages only.
-            2 : print a message on convergence too.
-            3 : print iteration results.
         """
         sparse = True
         steps = steps // self.mpi_comm.size * self.mpi_comm.size

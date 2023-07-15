@@ -468,47 +468,6 @@ class Slater(AbstractSlater):
 
     def tressian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Tressian Tress(φ)/φ w.r.t e-coordinates.
-        https://math.stackexchange.com/questions/890552/nth-derivative-of-determinant-wrt-matrix?rq=1
-        d³ln(det(A))/dxdydz = 1/det(A) * (
-            d(det(A))/dz * tr(A^-1 * d²A/dxdy) + det(A) * d(tr(A^-1 * d²A/dxdy))/dz
-            d(det(A))/dz * tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) + det(A) * d(tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy))/dz -
-            d(det(A))/dz * tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy) - det(A) * d(tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy))/dz
-        ) = 1/det(A) * (
-            det(A) * tr(A^-1 * dA/dz) ⊗ tr(A^-1 * d²A/dxdy) + det(A) * d(tr(A^-1 * d²A/dxdy))/dz
-            det(A) * tr(A^-1 * dA/dz) ⊗ tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) + det(A) * d(tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy))/dz -
-            det(A) * tr(A^-1 * dA/dz) ⊗ tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy) - det(A) * d(tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy))/dz
-        ) = (
-            tr(A^-1 * dA/dz) ⊗ tr(A^-1 * d²A/dxdy) + tr(d(A^-1 * d²A/dxdy)/dz)
-            tr(A^-1 * dA/dz) ⊗ tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) + tr(d(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)/dz) -
-            tr(A^-1 * dA/dz) ⊗ tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy) - tr(d(A^-1 * dA/dx ⊗ A^-1 * dA/dy)/dz)
-        ) = (
-            tr(A^-1 * dA/dz) ⊗ tr(A^-1 * d²A/dxdy) + tr(d(A^-1)/dz ⊗ d²A/dxdy) + tr(A^-1 * d³A/dxdydz) +
-            tr(A^-1 * dA/dz) ⊗ tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) + tr(d(A^-1 * dA/dx)/dz * tr(A^-1 * dA/dy) + tr(A^-1 * dA/dx) ⊗ tr(d(A^-1 * dA/dy)/dz) -
-            tr(A^-1 * dA/dz) ⊗ tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy) - tr(A^-1 * dA/dx ⊗ d(A^-1 * dA/dy)/dz) - tr(d(A^-1 * dA/dx)/dz ⊗ A^-1 * dA/dy)
-        ) = (
-            tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dz * A^-1 * d²A/dxdy) + tr(A^-1 * d³A/dxdydz) +
-            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) +
-            tr(d(A^-1)/dz * dA/dx * tr(A^-1 * dA/dy) + tr(A^-1 * d²A/dxdz) * tr(A^-1 * dA/dy) +
-            tr(A^-1 * dA/dx) * tr(d(A^-1)/dz * dA/dy) + tr(A^-1 * dA/dx) * tr(A^-1 * d²A/dydz) -
-            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx * A^-1 * dA/dy) -
-            tr(A^-1 * dA/dx * A^-1 * d²A/dydz) - tr(A^-1 * dA/dx * d(A^-1)/dz * dA/dy) -
-            tr(d(A^-1)/dz * dA/dx * A^-1 * dA/dy) - tr(A^-1 * dA²/dxdz * A^-1 * dA/dy)
-        ) = (
-            tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dz * A^-1 * d²A/dxdy) + tr(A^-1 * d³A/dxdydz) +
-            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) -
-            tr(A^-1 * dA/dz * A^-1 * dA/dx) * tr(A^-1 * dA/dy) + tr(A^-1 * d²A/dxdz) * tr(A^-1 * dA/dy) -
-            tr(A^-1 * dA/dx) * tr(A^-1 * dA/dz * A^-1 * dA/dy) + tr(A^-1 * dA/dx) * tr(A^-1 * d²A/dydz) -
-            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx * A^-1 * dA/dy) -
-            tr(A^-1 * dA/dx * A^-1 * d²A/dydz) + tr(A^-1 * dA/dx * A^-1 * dA/dz * A^-1 * dA/dy) +
-            tr(A^-1 * dA/dz * A^-1 * dA/dx * A^-1 * dA/dy) - tr(A^-1 * dA²/dxdz * A^-1 * dA/dy)
-        ) = (
-            tr(A^-1 * d³A/dxdydz) +
-            tr(A^-1 * dA/dx) * tr(A^-1 * d²A/dydz) - tr(A^-1 * dA/dx * A^-1 * d²A/dydz) - tr(A^-1 * dA/dx) * tr(A^-1 * dA/dz * A^-1 * dA/dy) +
-            tr(A^-1 * dA/dy) * tr(A^-1 * d²A/dxdz) - tr(A^-1 * dA²/dxdz * A^-1 * dA/dy) - tr(A^-1 * dA/dy) * tr(A^-1 * dA/dz * A^-1 * dA/dx) +
-            tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dz * A^-1 * d²A/dxdy) - tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx * A^-1 * dA/dy) +
-            tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) * tr(A^-1 * dA/dz) +
-            tr(A^-1 * dA/dx * A^-1 * dA/dz * A^-1 * dA/dy) + tr(A^-1 * dA/dz * A^-1 * dA/dx * A^-1 * dA/dy)
-        )
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         wfn_u, wfn_d = self.value_matrix(n_vectors)
@@ -531,43 +490,55 @@ class Slater(AbstractSlater):
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
 
-            # - np.tr(res_grad_u * res_hess_u) - np.tr(res_grad_u) * np.tr(res_grad_u * res_grad_u)
-            matrix_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
-            res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
             # tr(A^-1 @ d²A/dxdydz)
+            res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
             for e1 in range(self.neu):
                 for r1 in range(3):
                     for r2 in range(3):
                         for r3 in range(3):
                             res_u[e1, r1, e1, r2, e1, r3] = tr_tress_u[e1, r1, r2, r3]
-            # tr(A^-1 * dA/dx) * tr(A^-1 * d²A/dydz) + tr(A^-1 * dA/dy) * tr(A^-1 * d²A/dxdz) + tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy)
-            for e1 in range(self.neu):
-                for e2 in range(self.neu):
-                    res_u[e1, :, e1, :, e2, :] += np.expand_dims(tr_hess_u[e1], 2) * tr_grad_u[e2]
-                    res_u[e1, :, e2, :, e1, :] += np.expand_dims(tr_hess_u[e1], 1) * np.expand_dims(tr_grad_u[e2], 1)
-                    res_u[e2, :, e1, :, e1, :] += tr_hess_u[e1] * np.expand_dims(np.expand_dims(tr_grad_u[e2], 1), 2)
             tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3, self.neu * 3)
 
-            # - np.tr(res_grad_d * res_hess_d) - np.tr(res_grad_d) * np.tr(res_grad_d * res_grad_d)
-            matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
-            res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
+            # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
+            tmp_hess_u = np.zeros(shape=(self.neu * 3, self.neu * 3))
+            matrix_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
+            res_u = np.zeros(shape=(self.neu, 3, self.neu, 3))
+            for r1 in range(3):
+                for r2 in range(3):
+                    res_u[:, r1, :, r2] = np.diag(tr_hess_u[:, r1, r2]) - matrix_grad_u[:, :, r1].T * matrix_grad_u[:, :, r2]
+            tmp_hess_u += res_u.reshape(self.neu * 3, self.neu * 3)
+
+            # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
+            tmp_hess_u += np.outer(tr_grad_u.ravel(), tr_grad_u.ravel())
+
+            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * np.expand_dims(tmp_hess_u, 2) * tr_grad_u.ravel()
+            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * np.expand_dims(tmp_hess_u, 1) * np.expand_dims(tr_grad_u.ravel(), 1)
+            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * tmp_hess_u * np.expand_dims(np.expand_dims(tr_grad_u.ravel(), 1), 2)
+
             # tr(A^-1 @ d²A/dxdydz)
+            res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
             for e1 in range(self.ned):
                 for r1 in range(3):
                     for r2 in range(3):
                         for r3 in range(3):
                             res_d[e1, r1, e1, r2, e1, r3] = tr_tress_d[e1, r1, r2, r3]
-            # tr(A^-1 * dA/dx) * tr(A^-1 * d²A/dydz) + tr(A^-1 * dA/dy) * tr(A^-1 * d²A/dxdz) + tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy)
-            for e1 in range(self.ned):
-                for e2 in range(self.ned):
-                    res_d[e1, :, e1, :, e2, :] += np.expand_dims(tr_hess_d[e1], 2) * tr_grad_d[e2]
-                    res_d[e1, :, e2, :, e1, :] += np.expand_dims(tr_hess_d[e1], 1) * np.expand_dims(tr_grad_d[e2], 1)
-                    res_d[e2, :, e1, :, e1, :] += tr_hess_d[e1] * np.expand_dims(np.expand_dims(tr_grad_d[e2], 1), 2)
             tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3, self.ned * 3)
 
-            # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) ⊗ tr(A^-1 * dA/dz)
-            tr_grad = np.concatenate((tr_grad_u.ravel(), tr_grad_d.ravel()))
-            tress += c * np.expand_dims(np.outer(tr_grad, tr_grad), 2) * tr_grad
+            tmp_hess_d = np.zeros(shape=(self.ned * 3, self.ned * 3))
+            # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
+            matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
+            res_d = np.zeros(shape=(self.ned, 3, self.ned, 3))
+            for r1 in range(3):
+                for r2 in range(3):
+                    res_d[:, r1, :, r2] = np.diag(tr_hess_d[:, r1, r2]) - matrix_grad_d[:, :, r1].T * matrix_grad_d[:, :, r2]
+            tmp_hess_d += c * res_d.reshape(self.ned * 3, self.ned * 3)
+
+            # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
+            tmp_hess_d += np.outer(tr_grad_d.ravel(), tr_grad_d.ravel())
+
+            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * np.expand_dims(tmp_hess_d, 2) * tr_grad_d.ravel()
+            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * np.expand_dims(tmp_hess_d, 1) * np.expand_dims(tr_grad_d.ravel(), 1)
+            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * tmp_hess_d * np.expand_dims(np.expand_dims(tr_grad_d.ravel(), 1), 2)
 
         return tress / val
 
