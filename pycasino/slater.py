@@ -1,7 +1,7 @@
 import numpy as np
 import numba as nb
 
-from pycasino import delta, delta_3
+from pycasino import delta, delta_2, delta_3
 from pycasino.abstract import AbstractSlater
 from pycasino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from pycasino.cusp import Cusp
@@ -490,59 +490,70 @@ class Slater(AbstractSlater):
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
 
-            # tr(A^-1 @ d²A/dxdydz)
-            res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
-            for e1 in range(self.neu):
-                for r1 in range(3):
-                    for r2 in range(3):
-                        for r3 in range(3):
-                            res_u[e1, r1, e1, r2, e1, r3] = tr_tress_u[e1, r1, r2, r3]
-            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3, self.neu * 3)
-
+            hess = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
             # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
-            tmp_hess_u = np.zeros(shape=(self.neu * 3, self.neu * 3))
             matrix_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
             res_u = np.zeros(shape=(self.neu, 3, self.neu, 3))
             for r1 in range(3):
                 for r2 in range(3):
                     res_u[:, r1, :, r2] = np.diag(tr_hess_u[:, r1, r2]) - matrix_grad_u[:, :, r1].T * matrix_grad_u[:, :, r2]
-            tmp_hess_u += res_u.reshape(self.neu * 3, self.neu * 3)
-            # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
-            tmp_hess_u += np.outer(tr_grad_u.ravel(), tr_grad_u.ravel())
-            # tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy
-            tr_hess_tr_grad_u = np.expand_dims(tmp_hess_u, 2) * tr_grad_u.ravel()
-            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * tr_hess_tr_grad_u
-            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * tr_hess_tr_grad_u.T
-            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * tr_hess_tr_grad_u.T.T
-            # - tr(A^-1 * dA/dx ⊗ A^-1 * d²A/dydz) - tr(A^-1 * dA/dy ⊗ A^-1 * dA²/dxdz) - tr(A^-1 * dA/dz ⊗ A^-1 * d²A/dxdy)
-            # FIXME: not implemented
+            hess[:self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3)
 
-            # tr(A^-1 @ d²A/dxdydz)
-            res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
-            for e1 in range(self.ned):
-                for r1 in range(3):
-                    for r2 in range(3):
-                        for r3 in range(3):
-                            res_d[e1, r1, e1, r2, e1, r3] = tr_tress_d[e1, r1, r2, r3]
-            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3, self.ned * 3)
-
-            tmp_hess_d = np.zeros(shape=(self.ned * 3, self.ned * 3))
             # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
             matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3))
             for r1 in range(3):
                 for r2 in range(3):
                     res_d[:, r1, :, r2] = np.diag(tr_hess_d[:, r1, r2]) - matrix_grad_d[:, :, r1].T * matrix_grad_d[:, :, r2]
-            tmp_hess_d += c * res_d.reshape(self.ned * 3, self.ned * 3)
+            hess[self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3)
+
             # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
-            tmp_hess_d += np.outer(tr_grad_d.ravel(), tr_grad_d.ravel())
+            tr_grad = np.concatenate((tr_grad_u.ravel(), tr_grad_d.ravel()))
+            hess += c * np.outer(tr_grad, tr_grad)
             # tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy
-            tr_hess_tr_grad_d = np.expand_dims(tmp_hess_d, 2) * tr_grad_d.ravel()
-            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * tr_hess_tr_grad_d
-            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * tr_hess_tr_grad_d.T
-            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * tr_hess_tr_grad_d.T.T
+            tress += c * (
+                tr_grad * np.expand_dims(hess, 2)  +
+                np.expand_dims(tr_grad, 1) * np.expand_dims(hess, 1)  +
+                np.expand_dims(np.expand_dims(tr_grad, 1), 2) * hess
+            )
+            # tr(A^-1 @ d²A/dxdydz)
+            res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
+            for r1 in range(3):
+                for r2 in range(3):
+                    for r3 in range(3):
+                        for e1 in range(self.neu):
+                            res_u[e1, r1, e1, r2, e1, r3] = tr_tress_u[e1, r1, r2, r3]
+            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3, self.neu * 3)
+            # tr(A^-1 @ d²A/dxdydz)
+            res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
+            for r1 in range(3):
+                for r2 in range(3):
+                    for r3 in range(3):
+                        for e1 in range(self.ned):
+                            res_d[e1, r1, e1, r2, e1, r3] = tr_tress_d[e1, r1, r2, r3]
+            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3, self.ned * 3)
             # - tr(A^-1 * dA/dx ⊗ A^-1 * d²A/dydz) - tr(A^-1 * dA/dy ⊗ A^-1 * dA²/dxdz) - tr(A^-1 * dA/dz ⊗ A^-1 * d²A/dxdy)
-            # FIXME: not implemented
+            res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
+            matrix_hess_u = (inv_wfn_u @ hess_u[self.permutation_down[i]].reshape(self.neu, self.neu * 9)).reshape(self.neu, self.neu, 3, 3)
+            for r1 in range(3):
+                for r2 in range(3):
+                    for r3 in range(3):
+                        for e1 in range(self.neu):
+                            res_u[:, r1, e1, r2, e1, r3] -= matrix_grad_u[e1, :, r1] * matrix_hess_u[:, e1, r2, r3]
+                            res_u[e1, r2, :, r1, e1, r3] -= matrix_grad_u[e1, :, r1] * matrix_hess_u[:, e1, r2, r3]
+                            res_u[e1, r3, e1, r2, :, r1] -= matrix_grad_u[e1, :, r1] * matrix_hess_u[:, e1, r2, r3]
+            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3, self.neu * 3)
+            res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
+            # - tr(A^-1 * dA/dx ⊗ A^-1 * d²A/dydz) - tr(A^-1 * dA/dy ⊗ A^-1 * dA²/dxdz) - tr(A^-1 * dA/dz ⊗ A^-1 * d²A/dxdy)
+            matrix_hess_d = (inv_wfn_d @ hess_d[self.permutation_down[i]].reshape(self.ned, self.ned * 9)).reshape(self.ned, self.ned, 3, 3)
+            for r1 in range(3):
+                for r2 in range(3):
+                    for r3 in range(3):
+                        for e1 in range(self.ned):
+                            res_d[:, r1, e1, r2, e1, r3] -= matrix_grad_d[e1, :, r1] * matrix_hess_d[:, e1, r2, r3]
+                            res_d[e1, r2, :, r1, e1, r3] -= matrix_grad_d[e1, :, r1] * matrix_hess_d[:, e1, r2, r3]
+                            res_d[e1, r3, e1, r2, :, r1] -= matrix_grad_d[e1, :, r1] * matrix_hess_d[:, e1, r2, r3]
+            tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3, self.ned * 3)
 
         return tress / val
 
