@@ -497,7 +497,7 @@ class Slater(AbstractSlater):
             for r1 in range(3):
                 for r2 in range(3):
                     res_u[:, r1, :, r2] = np.diag(tr_hess_u[:, r1, r2]) - matrix_grad_u[:, :, r1].T * matrix_grad_u[:, :, r2]
-            hess[:self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3)
+            hess[:self.neu * 3, :self.neu * 3] += res_u.reshape(self.neu * 3, self.neu * 3)
 
             # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
             matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
@@ -505,15 +505,15 @@ class Slater(AbstractSlater):
             for r1 in range(3):
                 for r2 in range(3):
                     res_d[:, r1, :, r2] = np.diag(tr_hess_d[:, r1, r2]) - matrix_grad_d[:, :, r1].T * matrix_grad_d[:, :, r2]
-            hess[self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3)
+            hess[self.neu * 3:, self.neu * 3:] += res_d.reshape(self.ned * 3, self.ned * 3)
 
             # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
             tr_grad = np.concatenate((tr_grad_u.ravel(), tr_grad_d.ravel()))
-            hess += c * np.outer(tr_grad, tr_grad)
+            hess += np.outer(tr_grad, tr_grad)
             # tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy
             tress += c * (
-                tr_grad * np.expand_dims(hess, 2)  +
-                np.expand_dims(tr_grad, 1) * np.expand_dims(hess, 1)  +
+                tr_grad * np.expand_dims(hess, 2) +
+                np.expand_dims(tr_grad, 1) * np.expand_dims(hess, 1) +
                 np.expand_dims(np.expand_dims(tr_grad, 1), 2) * hess
             )
             # tr(A^-1 @ d²A/dxdydz)
