@@ -19,7 +19,7 @@ class AbstractSlater:
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
 
-    def gradient(self, n_vectors: np.ndarray) -> np.ndarray:
+    def numerical_gradient(self, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient ∇φ(r)/φ(r) w.r.t. e-coordinates.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
@@ -35,7 +35,7 @@ class AbstractSlater:
 
         return res.ravel() / delta / 2 / val
 
-    def laplacian(self, n_vectors: np.ndarray) -> float:
+    def numerical_laplacian(self, n_vectors: np.ndarray) -> float:
         """Laplacian Δφ(r)/φ(r) w.r.t. e-coordinates.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
@@ -51,7 +51,7 @@ class AbstractSlater:
 
         return res / delta / delta / val
 
-    def hessian(self, n_vectors: np.ndarray) -> np.ndarray:
+    def numerical_hessian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Hessian H(φ(r))/φ(r) w.r.t. e-coordinates.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :return:
@@ -88,7 +88,7 @@ class AbstractSlater:
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta_2 / delta_2 / 4 / val
 
     # @abstractmethod
-    def tressian(self, n_vectors: np.ndarray) -> np.ndarray:
+    def numerical_tressian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Third-order partial derivatives T(φ(r))/φ(r) w.r.t. e-coordinates.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
@@ -166,7 +166,7 @@ class AbstractJastrow:
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
 
-    def gradient(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
+    def numerical_gradient(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient w.r.t. e-coordinates.
         :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
@@ -189,7 +189,7 @@ class AbstractJastrow:
 
         return res.ravel() / delta / 2
 
-    def laplacian(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> float:
+    def numerical_laplacian(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> float:
         """Laplacian w.r.t. e-coordinates.
         :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
@@ -234,7 +234,7 @@ class AbstractBackflow:
     def value(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
         """Value"""
 
-    def gradient(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
+    def numerical_gradient(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient w.r.t. e-coordinates.
         :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
@@ -258,7 +258,7 @@ class AbstractBackflow:
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
 
-    def laplacian(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
+    def numerical_laplacian(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
         """Laplacian w.r.t. e-coordinates.
         :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)

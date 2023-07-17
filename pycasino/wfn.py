@@ -133,8 +133,7 @@ class Wfn:
 
         if self.backflow is not None:
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
-            s_g = self.slater.gradient(b_v + n_vectors)
-            s_h = self.slater.hessian(b_v + n_vectors)
+            s_h, s_g = self.slater.hessian(b_v + n_vectors)
             s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
             if self.jastrow is not None:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
@@ -275,8 +274,7 @@ class Wfn:
             # backflow parameters part
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
             b_l_d1, b_g_d1, b_v_d1 = self.backflow.laplacian_parameters_d1(e_vectors, n_vectors)
-            s_g = self.slater.gradient(b_v + n_vectors)
-            s_h = self.slater.hessian(b_v + n_vectors)
+            s_h, s_g = self.slater.hessian(b_v + n_vectors)
             s_g_d1 = b_v_d1 @ (s_h - np.outer(s_g, s_g))  # as hessian is d²ln(phi)/dxdy
             s_h_coordinates_d1 = self.slater.hessian_derivatives(b_v + n_vectors)  # d(d²ln(phi)/dxdy)/dz
             # s_h_coordinates_d1 = self.slater.numerical_tressian(b_v + n_vectors) - np.expand_dims(self.slater.hessian(b_v + n_vectors), 2) * self.slater.gradient(b_v + n_vectors)
