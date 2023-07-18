@@ -691,9 +691,9 @@ class Slater(AbstractSlater):
         res = np.zeros(shape=(self.det_coeff.size, (self.neu + self.ned) * 3 * (self.neu + self.ned) * 3))
         for i in range(self.det_coeff.size):
             self.det_coeff[i] -= delta
-            res[i] -= self.hessian(n_vectors).ravel()
+            res[i] -= self.hessian(n_vectors)[0].ravel()
             self.det_coeff[i] += 2 * delta
-            res[i] += self.hessian(n_vectors).ravel()
+            res[i] += self.hessian(n_vectors)[0].ravel()
             self.det_coeff[i] -= delta
         return (self.parameters_projector.T @ (res / delta / 2)).reshape(-1, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
