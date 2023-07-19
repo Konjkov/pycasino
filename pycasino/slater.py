@@ -468,7 +468,7 @@ class Slater(AbstractSlater):
 
         return hess / val, grad / val
 
-    def tressian(self, n_vectors: np.ndarray) -> np.ndarray:
+    def old_tressian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Tressian Tress(φ)/φ w.r.t e-coordinates.
          d³ln(det(A))/dxdydz = (
             tr(A^-1 * d³A/dxdydz) +
@@ -563,6 +563,34 @@ class Slater(AbstractSlater):
             tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3, self.ned * 3)
 
         return tress / val
+
+    def tressian(self, n_vectors: np.ndarray) -> np.ndarray:
+        """Tressian or numerical third partial derivatives with respect to e-coordinates
+        d³ln(det(A))/dxdydz = 1/det(A) * (
+            d(det(A))/dz * tr(A^-1 * d²A/dxdy) + det(A) * d(tr(A^-1 * d²A/dxdy))/dz
+            d(det(A))/dz * tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) + det(A) * d(tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy))/dz -
+            d(det(A))/dz * tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy) - det(A) * d(tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy))/dz
+        )
+        :param n_vectors: e-n vectors
+        :return:
+        """
+        res = np.zeros(shape=(self.neu + self.ned, 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
+
+        for i in range(self.neu + self.ned):
+            for j in range(3):
+                n_vectors[:, i, j] -= delta
+                wfn_u, wfn_d = self.value_matrix(n_vectors)
+                val = np.linalg.det(wfn_u[self.permutation_up[0]]) * np.linalg.det(wfn_d[self.permutation_down[0]])
+                res[i, j] -= self.hessian(n_vectors)[0] * val
+                n_vectors[:, i, j] += 2 * delta
+                wfn_u, wfn_d = self.value_matrix(n_vectors)
+                val = np.linalg.det(wfn_u[self.permutation_up[0]]) * np.linalg.det(wfn_d[self.permutation_down[0]])
+                res[i, j] += self.hessian(n_vectors)[0] * val
+                n_vectors[:, i, j] -= delta
+
+        wfn_u, wfn_d = self.value_matrix(n_vectors)
+        val = np.linalg.det(wfn_u[self.permutation_up[0]]) * np.linalg.det(wfn_d[self.permutation_down[0]])
+        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2 / val
 
     def fix_det_coeff_parameters(self):
         """Fix dependent parameters."""
