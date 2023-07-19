@@ -414,7 +414,7 @@ class Slater(AbstractSlater):
 
         return lap / val
 
-    def hessian(self, n_vectors: np.ndarray) -> np.ndarray:
+    def hessian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Hessian H(φ)/φ w.r.t e-coordinates.
         d²ln(det(A))/dxdy = (
             tr(A^-1 @ d²A/dxdy) +
@@ -561,34 +561,38 @@ class Slater(AbstractSlater):
             for r1 in range(3):
                 for r2 in range(3):
                     for r3 in range(3):
-                        for e1 in range(self.neu):
-                            res_u[e1, r1, e1, r2, e1, r3] = tr_tress_u[e1, r1, r2, r3]
+                        for e in range(self.neu):
+                            res_u[e, r1, e, r2, e, r3] = tr_tress_u[e, r1, r2, r3]
             tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3, self.neu * 3)
             # tr(A^-1 @ d²A/dxdydz)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
             for r1 in range(3):
                 for r2 in range(3):
                     for r3 in range(3):
-                        for e1 in range(self.ned):
-                            res_d[e1, r1, e1, r2, e1, r3] = tr_tress_d[e1, r1, r2, r3]
+                        for e in range(self.ned):
+                            res_d[e, r1, e, r2, e, r3] = tr_tress_d[e, r1, r2, r3]
             tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3, self.ned * 3)
-            # - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz)
+            # - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx)
             res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
-            matrix_hess_u = (inv_wfn_u @ hess_u[self.permutation_down[i]].reshape(self.neu, self.neu * 9)).reshape(self.neu, self.neu, 3, 3)
+            matrix_hess_u = (inv_wfn_u @ hess_u[self.permutation_up[i]].reshape(self.neu, self.neu * 9)).reshape(self.neu, self.neu, 3, 3)
             for r1 in range(3):
                 for r2 in range(3):
                     for r3 in range(3):
-                        for e1 in range(self.neu):
-                            res_u[e1, r1, e1, r2, :, r3] -= matrix_hess_u[:, e1, r1, r2] * matrix_grad_u[e1, :, r3]
+                        for e in range(self.neu):
+                            res_u[e, r1, e, r2, :, r3] -= matrix_hess_u[:, e, r1, r2] * matrix_grad_u[e, :, r3]
+                            # res_u[e, r1, :, r2, e, r3] -= matrix_hess_u[:, e, r1, r3] * matrix_grad_u[e, :, r2]
+                            # res_u[:, r1, e, r2, e, r3] -= matrix_hess_u[:, e, r2, r3] * matrix_grad_u[e, :, r1]
             tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3, self.neu * 3)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
-            # - tr(A^-1 * dA/dx ⊗ A^-1 * d²A/dydz) - tr(A^-1 * dA/dy ⊗ A^-1 * dA²/dxdz) - tr(A^-1 * dA/dz ⊗ A^-1 * d²A/dxdy)
+            # - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx)
             matrix_hess_d = (inv_wfn_d @ hess_d[self.permutation_down[i]].reshape(self.ned, self.ned * 9)).reshape(self.ned, self.ned, 3, 3)
             for r1 in range(3):
                 for r2 in range(3):
                     for r3 in range(3):
-                        for e1 in range(self.ned):
-                            res_d[e1, r1, e1, r2, :, r3] -= matrix_hess_d[:, e1, r1, r2] * matrix_grad_d[e1, :, r3]
+                        for e in range(self.ned):
+                            res_d[e, r1, e, r2, :, r3] -= matrix_hess_d[:, e, r1, r2] * matrix_grad_d[e, :, r3]
+                            # res_d[e, r1, :, r2, e, r3] -= matrix_hess_d[:, e, r1, r3] * matrix_grad_d[e, :, r2]
+                            # res_d[:, r1, e, r2, e, r3] -= matrix_hess_d[:, e, r2, r3] * matrix_grad_d[e, :, r1]
             tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3, self.ned * 3)
 
             for ne in range(self.neu + self.ned):
