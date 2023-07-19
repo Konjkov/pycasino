@@ -576,6 +576,7 @@ class Slater(AbstractSlater):
         """
         wfn_u, wfn_d = self.value_matrix(n_vectors)
         grad_u, grad_d = self.gradient_matrix(n_vectors)
+        hess_u, hess_d = self.hessian_matrix(n_vectors)
         val = 0
         tress = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         for i in range(self.det_coeff.size):
@@ -583,23 +584,49 @@ class Slater(AbstractSlater):
             inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
             tr_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_grad_d = (inv_wfn_d * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
+            tr_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
+            tr_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
 
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
 
+            hess = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
+            # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
+            matrix_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
+            res_u = np.zeros(shape=(self.neu, 3, self.neu, 3))
+            for r1 in range(3):
+                for r2 in range(3):
+                    res_u[:, r1, :, r2] = np.diag(tr_hess_u[:, r1, r2]) - matrix_grad_u[:, :, r1].T * matrix_grad_u[:, :, r2]
+            hess[:self.neu * 3, :self.neu * 3] += res_u.reshape(self.neu * 3, self.neu * 3)
+
+            # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
+            matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
+            res_d = np.zeros(shape=(self.ned, 3, self.ned, 3))
+            for r1 in range(3):
+                for r2 in range(3):
+                    res_d[:, r1, :, r2] = np.diag(tr_hess_d[:, r1, r2]) - matrix_grad_d[:, :, r1].T * matrix_grad_d[:, :, r2]
+            hess[self.neu * 3:, self.neu * 3:] += res_d.reshape(self.ned * 3, self.ned * 3)
+
+            # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
             tr_grad = np.concatenate((tr_grad_u.ravel(), tr_grad_d.ravel()))
-            hess = self.hessian(n_vectors)[0]
-            tress += tr_grad * np.expand_dims(hess, 2)
+            hess += np.outer(tr_grad, tr_grad)
+
+            # tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy
+            tress += c * (
+                tr_grad * np.expand_dims(hess, 2)
+                # np.expand_dims(tr_grad, 1) * np.expand_dims(hess, 1) +
+                # np.expand_dims(np.expand_dims(tr_grad, 1), 2) * hess
+            )
 
             for ne in range(self.neu + self.ned):
                 for ri in range(3):
                     n_vectors[:, ne, ri] -= delta
-                    tress[:, :, ne * 3 + ri] -= self.hessian(n_vectors)[0] / delta / 2
+                    tress[:, :, ne * 3 + ri] -= c * self.hessian(n_vectors)[0] / delta / 2
                     n_vectors[:, ne, ri] += 2 * delta
-                    tress[:, :, ne * 3 + ri] += self.hessian(n_vectors)[0] / delta / 2
+                    tress[:, :, ne * 3 + ri] += c * self.hessian(n_vectors)[0] / delta / 2
                     n_vectors[:, ne, ri] -= delta
 
-        return tress
+        return tress / val
 
     def fix_det_coeff_parameters(self):
         """Fix dependent parameters."""
