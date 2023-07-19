@@ -563,7 +563,7 @@ class Slater(AbstractSlater):
                     for r3 in range(3):
                         for e in range(self.neu):
                             res_u[e, r1, e, r2, e, r3] = tr_tress_u[e, r1, r2, r3]
-            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3, self.neu * 3)
+            tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3)
             # tr(A^-1 @ d²A/dxdydz)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
             for r1 in range(3):
