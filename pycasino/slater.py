@@ -614,10 +614,9 @@ class Slater(AbstractSlater):
 
     def tressian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Tressian or numerical third partial derivatives with respect to e-coordinates
-        d³ln(det(A))/dxdydz = 1/det(A) * (
-            d(det(A))/dz * tr(A^-1 * d²A/dxdy) + det(A) * d(tr(A^-1 * d²A/dxdy))/dz
-            d(det(A))/dz * tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) + det(A) * d(tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy))/dz -
-            d(det(A))/dz * tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy) - det(A) * d(tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy))/dz
+        d³ln(det(A))/dxdydz = (
+            tr(A^-1 * dA/dz) ⊗ Hessian_xy +
+            d Hessian_xy/dz
         )
         :param n_vectors: e-n vectors
         :return:
@@ -625,6 +624,7 @@ class Slater(AbstractSlater):
         wfn_u, wfn_d = self.value_matrix(n_vectors)
         grad_u, grad_d = self.gradient_matrix(n_vectors)
         hess_u, hess_d = self.hessian_matrix(n_vectors)
+        # tress_u, tress_d = self.tressian_matrix(n_vectors)
         val = 0
         tress = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         for i in range(self.det_coeff.size):
@@ -634,6 +634,8 @@ class Slater(AbstractSlater):
             tr_grad_d = (inv_wfn_d * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
             tr_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
+            # tr_tress_u = (inv_wfn_u * tress_u[self.permutation_down[i]].T).T.sum(axis=0)
+            # tr_tress_d = (inv_wfn_d * tress_d[self.permutation_down[i]].T).T.sum(axis=0)
 
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
@@ -646,7 +648,6 @@ class Slater(AbstractSlater):
                 for r2 in range(3):
                     res_u[:, r1, :, r2] = np.diag(tr_hess_u[:, r1, r2]) - matrix_grad_u[:, :, r1].T * matrix_grad_u[:, :, r2]
             hess[:self.neu * 3, :self.neu * 3] += res_u.reshape(self.neu * 3, self.neu * 3)
-
             # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
             matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3))
@@ -654,17 +655,31 @@ class Slater(AbstractSlater):
                 for r2 in range(3):
                     res_d[:, r1, :, r2] = np.diag(tr_hess_d[:, r1, r2]) - matrix_grad_d[:, :, r1].T * matrix_grad_d[:, :, r2]
             hess[self.neu * 3:, self.neu * 3:] += res_d.reshape(self.ned * 3, self.ned * 3)
-
             # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
             tr_grad = np.concatenate((tr_grad_u.ravel(), tr_grad_d.ravel()))
             hess += np.outer(tr_grad, tr_grad)
-
             # tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy
             tress += c * (
                 tr_grad * np.expand_dims(hess, 2)
                 # np.expand_dims(tr_grad, 1) * np.expand_dims(hess, 1) +
                 # np.expand_dims(np.expand_dims(tr_grad, 1), 2) * hess
             )
+            # # tr(A^-1 @ d²A/dxdydz)
+            # res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
+            # for r1 in range(3):
+            #     for r2 in range(3):
+            #         for r3 in range(3):
+            #             for e1 in range(self.neu):
+            #                 res_u[e1, r1, e1, r2, e1, r3] = tr_tress_u[e1, r1, r2, r3]
+            # tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3, self.neu * 3)
+            # # tr(A^-1 @ d²A/dxdydz)
+            # res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
+            # for r1 in range(3):
+            #     for r2 in range(3):
+            #         for r3 in range(3):
+            #             for e1 in range(self.ned):
+            #                 res_d[e1, r1, e1, r2, e1, r3] = tr_tress_d[e1, r1, r2, r3]
+            # tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3, self.ned * 3)
 
             for ne in range(self.neu + self.ned):
                 for ri in range(3):
