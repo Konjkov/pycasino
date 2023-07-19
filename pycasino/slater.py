@@ -585,8 +585,6 @@ class Slater(AbstractSlater):
 
         inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
         inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
-        tr_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
-        tr_grad_d = (inv_wfn_d * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
         tr_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
         tr_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
 
@@ -606,17 +604,15 @@ class Slater(AbstractSlater):
                 res_d[:, r1, :, r2] = np.diag(tr_hess_d[:, r1, r2]) - matrix_grad_d[:, :, r1].T * matrix_grad_d[:, :, r2]
         hess[self.neu * 3:, self.neu * 3:] += res_d.reshape(self.ned * 3, self.ned * 3)
 
-        # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
-        tr_grad = np.concatenate((tr_grad_u.ravel(), tr_grad_d.ravel()))
-        hess += np.outer(tr_grad, tr_grad)
-
         return hess
 
     def tressian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Tressian or numerical third partial derivatives with respect to e-coordinates
         d³ln(det(A))/dxdydz = (
-            tr(A^-1 * dA/dz) ⊗ Hessian_xy +
-            d Hessian_xy/dz
+            tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy) -
+            2 * tr(A^-1 • dA/dy) ⊗ tr(A^-1 • dA/dz) ⊗ tr(A^-1 • dA/dx) +
+            dtr(A^-1 • d²A/dxdy)/dz +
+            dtr(A^-1 • dA/dx ⊗ A^-1 • dA/dy)/dz
         )
         :param n_vectors: e-n vectors
         :return:
@@ -660,9 +656,9 @@ class Slater(AbstractSlater):
             hess += np.outer(tr_grad, tr_grad)
             # tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy
             tress += c * (
-                tr_grad * np.expand_dims(hess, 2)
-                # np.expand_dims(tr_grad, 1) * np.expand_dims(hess, 1) +
-                # np.expand_dims(np.expand_dims(tr_grad, 1), 2) * hess
+                tr_grad * np.expand_dims(hess, 2) +
+                np.expand_dims(tr_grad, 1) * np.expand_dims(hess, 1) +
+                np.expand_dims(np.expand_dims(tr_grad, 1), 2) * hess
             )
             # # tr(A^-1 @ d²A/dxdydz)
             # res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
@@ -688,6 +684,8 @@ class Slater(AbstractSlater):
                     n_vectors[:, ne, ri] += 2 * delta
                     tress[:, :, ne * 3 + ri] += c * self.partial_hessian(n_vectors, i) / delta / 2
                     n_vectors[:, ne, ri] -= delta
+
+            tress -= 2 * c * tr_grad * np.expand_dims(np.outer(tr_grad, tr_grad), 2)
 
         return tress / val
 
