@@ -274,10 +274,9 @@ class Wfn:
             # backflow parameters part
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
             b_l_d1, b_g_d1, b_v_d1 = self.backflow.laplacian_parameters_d1(e_vectors, n_vectors)
-            s_h, s_g = self.slater.hessian(b_v + n_vectors)
+            s_t, s_h, s_g = self.slater.tressian(b_v + n_vectors)
             s_g_d1 = b_v_d1 @ (s_h - np.outer(s_g, s_g))  # as hessian is d²ln(phi)/dxdy
-            s_h_coordinates_d1 = self.slater.hessian_derivatives(b_v + n_vectors)  # d(d²ln(phi)/dxdy)/dz
-            # s_h_coordinates_d1 = self.slater.tressian(b_v + n_vectors) - np.expand_dims(s_h, 2) * s_g
+            s_h_coordinates_d1 = s_t - np.expand_dims(np.expand_dims(s_g, 1), 2) * s_h  # d(d²ln(phi)/dydz)/dx
             s_h_d1 = (
                 b_v_d1 @ s_h_coordinates_d1.reshape(s_h_coordinates_d1.shape[0], -1)
             ).reshape(b_v_d1.shape[0], s_h_coordinates_d1.shape[1], s_h_coordinates_d1.shape[2])
