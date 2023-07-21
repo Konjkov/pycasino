@@ -1,7 +1,7 @@
 import numpy as np
 import numba as nb
 
-from pycasino import delta, delta_3
+from pycasino import delta, delta_2, delta_3
 from pycasino.abstract import AbstractSlater
 from pycasino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from pycasino.cusp import Cusp
@@ -30,10 +30,6 @@ slater_spec = [
     ('cusp', nb.optional(Cusp.class_type.instance_type)),
     ('norm', nb.float64),
     ('parameters_projector', nb.float64[:, :]),
-    ('value_matrix_arg', nb.float64[:, :]),
-    ('value_orbitals', nb.float64[:, :]),
-    ('gradient_matrix_arg', nb.float64[:, :]),
-    ('gradient_matrix_res', gradient_matrix_res_type),
 ]
 
 
@@ -78,22 +74,14 @@ class Slater(AbstractSlater):
         self.det_coeff = coeff
         self.cusp = cusp
         self.norm = np.exp(-(np.math.lgamma(neu + 1) + np.math.lgamma(ned + 1)) / (neu + ned) / 2)
-        self.value_matrix_arg = 1 / np.zeros(shape=(neu + ned, 3))
-        self.value_orbitals = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
-        self.gradient_matrix_arg = np.zeros(shape=(neu + ned, 3))
-        self.gradient_matrix_res = (np.zeros(shape=(neu, neu, 3)), np.zeros(shape=(ned, ned, 3)))
 
     def value_matrix(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Value matrix.
-        Atomic orbitals for every electron
         :param n_vectors: electron-nuclei array(natom, nelec, 3)
         :return: array(up_orbitals, up_electrons), array(down_orbitals, down_electrons)
         """
+        orbitals = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
         for i in range(self.neu + self.ned):
-            # interferes with Finite difference method
-            if np.linalg.norm(self.value_matrix_arg[i] - n_vectors[0, i]) < 1e-15:
-                continue
-            self.value_matrix_arg[i] = n_vectors[0, i]
             p = ao = 0
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
@@ -111,10 +99,10 @@ class Slater(AbstractSlater):
                             radial_1 += r**self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r)
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
-                        self.value_orbitals[i, ao+m] = angular_1[l*l+m] * radial_1
+                        orbitals[i, ao+m] = angular_1[l*l+m] * radial_1
                     ao += 2*l+1
 
-        ao_value = self.norm * self.value_orbitals
+        ao_value = self.norm * orbitals
         wfn_u = self.mo_up @ ao_value[:self.neu].T
         wfn_d = self.mo_down @ ao_value[self.neu:].T
         if self.cusp is not None:
@@ -128,12 +116,6 @@ class Slater(AbstractSlater):
         :param n_vectors: electron-nuclei - array(natom, nelec, 3)
         :return: array(up_orbitals, up_electrons, 3), array(down_orbitals, down_electrons, 3)
         """
-        # interferes with Finite difference method
-        if np.linalg.norm(self.gradient_matrix_arg - n_vectors[0]) < 1e-15:
-            return self.gradient_matrix_res
-        else:
-            self.gradient_matrix_arg = n_vectors[0]
-
         orbital = np.zeros(shape=(self.neu + self.ned, 3, self.nbasis_functions))
         for i in range(self.neu + self.ned):
             p = ao = 0
@@ -174,7 +156,6 @@ class Slater(AbstractSlater):
             cusp_gradient_u, cusp_gradient_d = self.cusp.gradient(n_vectors)
             grad_u += cusp_gradient_u
             grad_d += cusp_gradient_d
-        self.gradient_matrix_res = (grad_u, grad_d)
         return grad_u, grad_d
 
     def laplacian_matrix(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -398,15 +379,15 @@ class Slater(AbstractSlater):
         wfn_u, wfn_d = self.value_matrix(n_vectors)
         grad_u, grad_d = self.gradient_matrix(n_vectors)
         val = 0.0
-        grad = np.zeros(shape=(self.neu + self.ned, 3))
+        grad = np.zeros(shape=(self.neu + self.ned) * 3)
         for i in range(self.det_coeff.size):
             tr_grad_u = (np.linalg.inv(wfn_u[self.permutation_up[i]]) * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_grad_d = (np.linalg.inv(wfn_d[self.permutation_down[i]]) * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
-            grad += c * np.concatenate((tr_grad_u, tr_grad_d))
+            grad += c * np.concatenate((tr_grad_u.ravel(), tr_grad_d.ravel()))
 
-        return grad.ravel() / val
+        return grad / val
 
     def laplacian(self, n_vectors: np.ndarray) -> float:
         """Scalar laplacian Δφ/φ w.r.t e-coordinates.
@@ -433,7 +414,7 @@ class Slater(AbstractSlater):
 
         return lap / val
 
-    def hessian(self, n_vectors: np.ndarray) -> np.ndarray:
+    def hessian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Hessian H(φ)/φ w.r.t e-coordinates.
         d²ln(det(A))/dxdy = (
             tr(A^-1 @ d²A/dxdy) +
@@ -450,6 +431,7 @@ class Slater(AbstractSlater):
         grad_u, grad_d = self.gradient_matrix(n_vectors)
         hess_u, hess_d = self.hessian_matrix(n_vectors)
         val = 0
+        grad = np.zeros(shape=(self.neu + self.ned) * 3)
         hess = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         for i in range(self.det_coeff.size):
 
@@ -464,116 +446,176 @@ class Slater(AbstractSlater):
             val += c
 
             # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
-            temp_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
+            matrix_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
             res_u = np.zeros(shape=(self.neu, 3, self.neu, 3))
             for r1 in range(3):
                 for r2 in range(3):
-                    res_u[:, r1, :, r2] = np.diag(tr_hess_u[:, r1, r2]) - temp_grad_u[:, :, r1].T * temp_grad_u[:, :, r2]
+                    res_u[:, r1, :, r2] = np.diag(tr_hess_u[:, r1, r2]) - matrix_grad_u[:, :, r1].T * matrix_grad_u[:, :, r2]
             hess[:self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3)
 
             # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
-            temp_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
+            matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3))
             for r1 in range(3):
                 for r2 in range(3):
-                    res_d[:, r1, :, r2] = np.diag(tr_hess_d[:, r1, r2]) - temp_grad_d[:, :, r1].T * temp_grad_d[:, :, r2]
+                    res_d[:, r1, :, r2] = np.diag(tr_hess_d[:, r1, r2]) - matrix_grad_d[:, :, r1].T * matrix_grad_d[:, :, r2]
             hess[self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3)
 
             # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
             tr_grad = np.concatenate((tr_grad_u.ravel(), tr_grad_d.ravel()))
             hess += c * np.outer(tr_grad, tr_grad)
+            grad += c * tr_grad
 
-        return hess / val
+        return hess / val, grad / val
 
-    def tressian(self, n_vectors: np.ndarray) -> np.ndarray:
-        """Tressian Tress(φ)/φ w.r.t e-coordinates.
-        https://math.stackexchange.com/questions/890552/nth-derivative-of-determinant-wrt-matrix?rq=1
-        d³ln(det(A))/dxdydz = 1/det(A) * (
-            d(det(A))/dz * tr(A^-1 * d²A/dxdy) + det(A) * d(tr(A^-1 * d²A/dxdy))/dz
-            d(det(A))/dz * tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) + det(A) * d(tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy))/dz -
-            d(det(A))/dz * tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy) - det(A) * d(tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy))/dz
-        ) = 1/det(A) * (
-            det(A) * tr(A^-1 * dA/dz) ⊗ tr(A^-1 * d²A/dxdy) + det(A) * d(tr(A^-1 * d²A/dxdy))/dz
-            det(A) * tr(A^-1 * dA/dz) ⊗ tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) + det(A) * d(tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy))/dz -
-            det(A) * tr(A^-1 * dA/dz) ⊗ tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy) - det(A) * d(tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy))/dz
-        ) = (
-            tr(A^-1 * dA/dz) ⊗ tr(A^-1 * d²A/dxdy) + tr(d(A^-1 * d²A/dxdy)/dz)
-            tr(A^-1 * dA/dz) ⊗ tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) + tr(d(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)/dz) -
-            tr(A^-1 * dA/dz) ⊗ tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy) - tr(d(A^-1 * dA/dx ⊗ A^-1 * dA/dy)/dz)
-        ) = (
-            tr(A^-1 * dA/dz) ⊗ tr(A^-1 * d²A/dxdy) + tr(d(A^-1)/dz ⊗ d²A/dxdy) + tr(A^-1 * d³A/dxdydz) +
-            tr(A^-1 * dA/dz) ⊗ tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) + tr(d(A^-1 * dA/dx)/dz * tr(A^-1 * dA/dy) + tr(A^-1 * dA/dx) ⊗ tr(d(A^-1 * dA/dy)/dz) -
-            tr(A^-1 * dA/dz) ⊗ tr(A^-1 * dA/dx ⊗ A^-1 * dA/dy) - tr(A^-1 * dA/dx ⊗ d(A^-1 * dA/dy)/dz) - tr(d(A^-1 * dA/dx)/dz ⊗ A^-1 * dA/dy)
-        ) = (
-            tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dz * A^-1 * d²A/dxdy) + tr(A^-1 * d³A/dxdydz) +
-            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) +
-            tr(d(A^-1)/dz * dA/dx * tr(A^-1 * dA/dy) + tr(A^-1 * d²A/dxdz) * tr(A^-1 * dA/dy) +
-            tr(A^-1 * dA/dx) * tr(d(A^-1)/dz * dA/dy) + tr(A^-1 * dA/dx) * tr(A^-1 * d²A/dydz) -
-            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx * A^-1 * dA/dy) -
-            tr(A^-1 * dA/dx * A^-1 * d²A/dydz) - tr(A^-1 * dA/dx * d(A^-1)/dz * dA/dy) -
-            tr(d(A^-1)/dz * dA/dx * A^-1 * dA/dy) - tr(A^-1 * dA²/dxdz * A^-1 * dA/dy)
-        ) = (
-            tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dz * A^-1 * d²A/dxdy) + tr(A^-1 * d³A/dxdydz) +
-            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) -
-            tr(A^-1 * dA/dz * A^-1 * dA/dx) * tr(A^-1 * dA/dy) + tr(A^-1 * d²A/dxdz) * tr(A^-1 * dA/dy) -
-            tr(A^-1 * dA/dx) * tr(A^-1 * dA/dz * A^-1 * dA/dy) + tr(A^-1 * dA/dx) * tr(A^-1 * d²A/dydz) -
-            tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx * A^-1 * dA/dy) -
-            tr(A^-1 * dA/dx * A^-1 * d²A/dydz) + tr(A^-1 * dA/dx * A^-1 * dA/dz * A^-1 * dA/dy) +
-            tr(A^-1 * dA/dz * A^-1 * dA/dx * A^-1 * dA/dy) - tr(A^-1 * dA²/dxdz * A^-1 * dA/dy)
-        ) = (
-            tr(A^-1 * d³A/dxdydz) +
-            tr(A^-1 * dA/dx) * tr(A^-1 * d²A/dydz) - tr(A^-1 * dA/dx * A^-1 * d²A/dydz) - tr(A^-1 * dA/dx) * tr(A^-1 * dA/dz * A^-1 * dA/dy) +
-            tr(A^-1 * dA/dy) * tr(A^-1 * d²A/dxdz) - tr(A^-1 * dA²/dxdz * A^-1 * dA/dy) - tr(A^-1 * dA/dy) * tr(A^-1 * dA/dz * A^-1 * dA/dx) +
-            tr(A^-1 * dA/dz) * tr(A^-1 * d²A/dxdy) - tr(A^-1 * dA/dz * A^-1 * d²A/dxdy) - tr(A^-1 * dA/dz) * tr(A^-1 * dA/dx * A^-1 * dA/dy) +
-            tr(A^-1 * dA/dx) * tr(A^-1 * dA/dy) * tr(A^-1 * dA/dz) +
-            tr(A^-1 * dA/dx * A^-1 * dA/dz * A^-1 * dA/dy) + tr(A^-1 * dA/dz * A^-1 * dA/dx * A^-1 * dA/dy)
-        )
+    def partial_hessian(self, n_vectors: np.ndarray, i) -> np.ndarray:
+        """Hessian H(φ)/φ w.r.t e-coordinates.
+        https://math.stackexchange.com/questions/2325807/second-derivative-of-a-determinant
+        in case of x and y is a coordinates of different electrons first term is zero
+        in other case a sum of last two terms is zero.
+        Also using np.trace(A @ B) = np.sum(A * B.T) and np.trace(A ⊗ B) = np.trace(A) @ np.trace(B)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+        """
+        wfn_u, wfn_d = self.value_matrix(n_vectors)
+        grad_u, grad_d = self.gradient_matrix(n_vectors)
+
+        hess = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
+
+        inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
+        inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
+
+        # - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
+        matrix_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
+        res_u = np.zeros(shape=(self.neu, 3, self.neu, 3))
+        for r1 in range(3):
+            for r2 in range(3):
+                res_u[:, r1, :, r2] = - matrix_grad_u[:, :, r1].T * matrix_grad_u[:, :, r2]
+        hess[:self.neu * 3, :self.neu * 3] += res_u.reshape(self.neu * 3, self.neu * 3)
+
+        # - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
+        matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
+        res_d = np.zeros(shape=(self.ned, 3, self.ned, 3))
+        for r1 in range(3):
+            for r2 in range(3):
+                res_d[:, r1, :, r2] = - matrix_grad_d[:, :, r1].T * matrix_grad_d[:, :, r2]
+        hess[self.neu * 3:, self.neu * 3:] += res_d.reshape(self.ned * 3, self.ned * 3)
+
+        return hess
+
+    def tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Tressian or numerical third partial derivatives with respect to e-coordinates
+        d³ln(det(A))/dxdydz = (
+            tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy) +
+            - 2 * tr(A^-1 • dA/dy) ⊗ tr(A^-1 • dA/dz) ⊗ tr(A^-1 • dA/dx) +
+            - tr(A^-1 • dA/dz ⊗ A^-1 • d²A/dxdy) + tr(A^-1 • d²A/dxdydz) +
+            - dtr(A^-1 • dA/dx ⊗ A^-1 • dA/dy)/dz
+        )
+        :param n_vectors: e-n vectors
+        :return:
         """
         wfn_u, wfn_d = self.value_matrix(n_vectors)
         grad_u, grad_d = self.gradient_matrix(n_vectors)
         hess_u, hess_d = self.hessian_matrix(n_vectors)
         tress_u, tress_d = self.tressian_matrix(n_vectors)
         val = 0
+        grad = np.zeros(shape=(self.neu + self.ned) * 3)
+        hess = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         tress = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         for i in range(self.det_coeff.size):
-
             inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
             inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
             tr_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_grad_d = (inv_wfn_d * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
             tr_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
-            tr_tress_u = (inv_wfn_u * tress_u[self.permutation_down[i]].T).T.sum(axis=0)
+            tr_tress_u = (inv_wfn_u * tress_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_tress_d = (inv_wfn_d * tress_d[self.permutation_down[i]].T).T.sum(axis=0)
 
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
 
+            partial_hess = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
+            # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
+            matrix_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
+            res_u = np.zeros(shape=(self.neu, 3, self.neu, 3))
+            for r1 in range(3):
+                for r2 in range(3):
+                    res_u[:, r1, :, r2] = np.diag(tr_hess_u[:, r1, r2]) - matrix_grad_u[:, :, r1].T * matrix_grad_u[:, :, r2]
+            partial_hess[:self.neu * 3, :self.neu * 3] += res_u.reshape(self.neu * 3, self.neu * 3)
+            # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
+            matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
+            res_d = np.zeros(shape=(self.ned, 3, self.ned, 3))
+            for r1 in range(3):
+                for r2 in range(3):
+                    res_d[:, r1, :, r2] = np.diag(tr_hess_d[:, r1, r2]) - matrix_grad_d[:, :, r1].T * matrix_grad_d[:, :, r2]
+            partial_hess[self.neu * 3:, self.neu * 3:] += res_d.reshape(self.ned * 3, self.ned * 3)
+            # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
+            tr_grad = np.concatenate((tr_grad_u.ravel(), tr_grad_d.ravel()))
+            partial_hess += np.outer(tr_grad, tr_grad)
+            # tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy
+            tress += c * (
+                tr_grad * np.expand_dims(partial_hess, 2) +
+                np.expand_dims(tr_grad, 1) * np.expand_dims(partial_hess, 1) +
+                np.expand_dims(np.expand_dims(tr_grad, 1), 2) * partial_hess
+            )
+            hess += c * partial_hess
+            grad += c * tr_grad
+            # tr(A^-1 @ d²A/dxdydz) - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx)
             res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
+            matrix_hess_u = (inv_wfn_u @ hess_u[self.permutation_up[i]].reshape(self.neu, self.neu * 9)).reshape(self.neu, self.neu, 3, 3)
             for r1 in range(3):
                 for r2 in range(3):
                     for r3 in range(3):
-                        # tr(A^-1 @ d²A/dxdydz)
-                        for ne in range(self.neu):
-                            res_u[ne, r1, ne, r2, ne, r3] = tr_tress_u[ne, r1, r2, r3]
+                        for e in range(self.neu):
+                            res_u[e, r1, e, r2, e, r3] += tr_tress_u[e, r1, r2, r3]
+                            res_u[e, r1, e, r2, :, r3] -= matrix_hess_u[:, e, r1, r2] * matrix_grad_u[e, :, r3]
+                            # res_u[e, r1, :, r2, e, r3] -= matrix_hess_u[:, e, r1, r3] * matrix_grad_u[e, :, r2]
+                            # res_u[:, r1, e, r2, e, r3] -= matrix_hess_u[:, e, r2, r3] * matrix_grad_u[e, :, r1]
             tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3, self.neu * 3)
-
-            # np.tr(res_grad_u) * np.tr(res_hess_u) - np.tr(res_grad_u * res_hess_u) - np.tr(res_grad_u) * np.tr(res_grad_u * res_grad_u) +
+            # tr(A^-1 @ d²A/dxdydz) - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
+            matrix_hess_d = (inv_wfn_d @ hess_d[self.permutation_down[i]].reshape(self.ned, self.ned * 9)).reshape(self.ned, self.ned, 3, 3)
             for r1 in range(3):
                 for r2 in range(3):
                     for r3 in range(3):
-                        # tr(A^-1 @ d²A/dxdydz)
-                        for ne in range(self.ned):
-                            res_d[ne, r1, ne, r2, ne, r3] = tr_tress_d[ne, r1, r2, r3]
+                        for e in range(self.ned):
+                            res_d[e, r1, e, r2, e, r3] += tr_tress_d[e, r1, r2, r3]
+                            res_d[e, r1, e, r2, :, r3] -= matrix_hess_d[:, e, r1, r2] * matrix_grad_d[e, :, r3]
+                            # res_d[e, r1, :, r2, e, r3] -= matrix_hess_d[:, e, r1, r3] * matrix_grad_d[e, :, r2]
+                            # res_d[:, r1, e, r2, e, r3] -= matrix_hess_d[:, e, r2, r3] * matrix_grad_d[e, :, r1]
             tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3, self.ned * 3)
 
-            # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) ⊗ tr(A^-1 * dA/dz)
-            tr_grad = np.concatenate((tr_grad_u.ravel(), tr_grad_d.ravel()))
-            tress += c * np.expand_dims(np.outer(tr_grad, tr_grad), 2) * tr_grad
+            for ne in range(self.neu + self.ned):
+                for ri in range(3):
+                    n_vectors[:, ne, ri] -= delta
+                    tress[:, :, ne * 3 + ri] -= c * self.partial_hessian(n_vectors, i) / delta / 2
+                    n_vectors[:, ne, ri] += 2 * delta
+                    tress[:, :, ne * 3 + ri] += c * self.partial_hessian(n_vectors, i) / delta / 2
+                    n_vectors[:, ne, ri] -= delta
 
-        return tress / val
+            tress -= 2 * c * tr_grad * np.expand_dims(np.outer(tr_grad, tr_grad), 2)
+
+        return tress / val, hess / val, grad / val
+
+    def tressian_v2(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Tressian or numerical third partial derivatives with respect to e-coordinates
+        d³ln(det(A))/dxdydz
+        :param n_vectors: e-n vectors
+        :return:
+        """
+        hess, grad = self.hessian(n_vectors)
+        # d(d²ln(phi)/dydz)/dx
+        res = np.zeros(shape=(self.neu + self.ned, 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
+        for i in range(self.neu + self.ned):
+            for j in range(3):
+                n_vectors[:, i, j] -= delta
+                res[i, j] -= self.hessian(n_vectors)[0]
+                n_vectors[:, i, j] += 2 * delta
+                res[i, j] += self.hessian(n_vectors)[0]
+                n_vectors[:, i, j] -= delta
+        hess_div = res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
+        tress = hess_div + np.expand_dims(np.expand_dims(grad, 1), 2) * hess
+        return tress, hess, grad
 
     def fix_det_coeff_parameters(self):
         """Fix dependent parameters."""
@@ -639,76 +681,6 @@ class Slater(AbstractSlater):
             self.fix_det_coeff_parameters()
             return parameters[self.det_coeff.shape[0]-1:]
 
-    def numerical_tressian(self, n_vectors: np.ndarray) -> np.ndarray:
-        """Numerical tressian w.r.t. e-coordinates
-        :param n_vectors: e-n vectors
-        :return:
-        """
-        val = self.value(n_vectors)
-        res = np.zeros(shape=(self.neu + self.ned, 3, self.neu + self.ned, 3, self.neu + self.ned, 3))
-
-        for i1 in range(self.neu + self.ned):
-            for j1 in range(3):
-                for i2 in range(self.neu + self.ned):
-                    for j2 in range(3):
-                        for i3 in range(self.neu + self.ned):
-                            for j3 in range(3):
-                                n_vectors[:, i1, j1] -= delta_3
-                                n_vectors[:, i2, j2] -= delta_3
-                                n_vectors[:, i3, j3] -= delta_3
-                                # (-1, -1, -1)
-                                res[i1, j1, i2, j2, i3, j3] -= self.value(n_vectors)
-                                n_vectors[:, i1, j1] += 2 * delta_3
-                                # ( 1, -1, -1)
-                                res[i1, j1, i2, j2, i3, j3] += self.value(n_vectors)
-                                n_vectors[:, i2, j2] += 2 * delta_3
-                                # ( 1,  1, -1)
-                                res[i1, j1, i2, j2, i3, j3] -= self.value(n_vectors)
-                                n_vectors[:, i1, j1] -= 2 * delta_3
-                                # (-1,  1, -1)
-                                res[i1, j1, i2, j2, i3, j3] += self.value(n_vectors)
-                                n_vectors[:, i2, j2] -= 2 * delta_3
-                                n_vectors[:, i3, j3] += 2 * delta_3
-                                # (-1, -1,  1)
-                                res[i1, j1, i2, j2, i3, j3] += self.value(n_vectors)
-                                n_vectors[:, i1, j1] += 2 * delta_3
-                                # ( 1, -1,  1)
-                                res[i1, j1, i2, j2, i3, j3] -= self.value(n_vectors)
-                                n_vectors[:, i2, j2] += 2 * delta_3
-                                # ( 1,  1,  1)
-                                res[i1, j1, i2, j2, i3, j3] += self.value(n_vectors)
-                                n_vectors[:, i1, j1] -= 2 * delta_3
-                                # (-1,  1,  1)
-                                res[i1, j1, i2, j2, i3, j3] -= self.value(n_vectors)
-                                n_vectors[:, i1, j1] += delta_3
-                                n_vectors[:, i2, j2] -= delta_3
-                                n_vectors[:, i3, j3] -= delta_3
-
-                                # res[i1, j1, i3, j3, i2, j2] = res[i1, j1, i2, j2, i3, j3]
-                                # res[i2, j2, i1, j1, i3, j3] = res[i1, j1, i2, j2, i3, j3]
-                                # res[i2, j2, i3, j3, i1, j1] = res[i1, j1, i2, j2, i3, j3]
-                                # res[i3, j3, i1, j1, i2, j2] = res[i1, j1, i2, j2, i3, j3]
-                                # res[i3, j3, i2, j2, i1, j1] = res[i1, j1, i2, j2, i3, j3]
-
-        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta_3 / delta_3 / delta_3 / 8 / val
-
-    def hessian_derivatives(self, n_vectors: np.ndarray) -> np.ndarray:
-        """Tressian or numerical third partial derivatives with respect to e-coordinates
-        :param n_vectors: e-n vectors
-        :return:
-        """
-        res = np.zeros(shape=(self.neu + self.ned, 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
-
-        for i in range(self.neu + self.ned):
-            for j in range(3):
-                n_vectors[:, i, j] -= delta
-                res[i, j] -= self.hessian(n_vectors)
-                n_vectors[:, i, j] += 2 * delta
-                res[i, j] += self.hessian(n_vectors)
-                n_vectors[:, i, j] -= delta
-
-        return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
-
     def value_parameters_d1(self, n_vectors: np.ndarray) -> np.ndarray:
         """First derivatives of logarithm wfn w.r.t the parameters
         :param n_vectors: e-n vectors
@@ -755,9 +727,9 @@ class Slater(AbstractSlater):
         res = np.zeros(shape=(self.det_coeff.size, (self.neu + self.ned) * 3 * (self.neu + self.ned) * 3))
         for i in range(self.det_coeff.size):
             self.det_coeff[i] -= delta
-            res[i] -= self.hessian(n_vectors).ravel()
+            res[i] -= self.hessian(n_vectors)[0].ravel()
             self.det_coeff[i] += 2 * delta
-            res[i] += self.hessian(n_vectors).ravel()
+            res[i] += self.hessian(n_vectors)[0].ravel()
             self.det_coeff[i] -= delta
         return (self.parameters_projector.T @ (res / delta / 2)).reshape(-1, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
@@ -788,3 +760,17 @@ class Slater(AbstractSlater):
             r_e = r_initial + random_step(dr, self.neu + self.ned)
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.hessian(n_vectors)
+
+    def profile_tressian(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.tressian(n_vectors)
+
+    def profile_tressian_v2(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.tressian_v2(n_vectors)

@@ -1963,3 +1963,26 @@ class Backflow(AbstractBackflow):
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.laplacian(e_vectors, n_vectors)
 
+    def profile_value_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.value_parameters_d1(e_vectors, n_vectors)
+
+    def profile_gradient_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.gradient_parameters_d1(e_vectors, n_vectors)
+
+    def profile_laplacian_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.laplacian_parameters_d1(e_vectors, n_vectors)
