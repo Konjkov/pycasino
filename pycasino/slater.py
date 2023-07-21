@@ -760,3 +760,17 @@ class Slater(AbstractSlater):
             r_e = r_initial + random_step(dr, self.neu + self.ned)
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.hessian(n_vectors)
+
+    def profile_tressian(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.tressian(n_vectors)
+
+    def profile_tressian_v2(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.tressian_v2(n_vectors)

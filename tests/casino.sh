@@ -37,5 +37,3 @@
 
 # pycasino $path
 # mpiexec pycasino $path
-
-# pycasino_profiling.py
