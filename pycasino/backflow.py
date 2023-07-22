@@ -924,9 +924,6 @@ class Backflow(AbstractBackflow):
         b_list = []
 
         if self.eta_cutoff.any():
-            if self.eta_cutoff_optimizable.any():
-                a_list.append(np.zeros(shape=(0, self.eta_cutoff_optimizable.sum())))
-
             eta_spin_deps = [0]
             if self.eta_parameters.shape[1] == 2:
                 eta_spin_deps = [0, 1]
@@ -943,43 +940,55 @@ class Backflow(AbstractBackflow):
                 if self.ned < 2:
                     eta_spin_deps = [x for x in eta_spin_deps if x != 2]
 
+            eta_list = []
+            eta_cutoff_len = 0
             for spin_dep in eta_spin_deps:
                 # e-e term is affected by constraints only for like-spin electrons
                 if spin_dep in (0, 2):
                     eta_matrix = np.zeros(shape=(1, self.eta_parameters.shape[0]))
                     eta_matrix[0, 0] = self.trunc
                     eta_matrix[0, 1] = -self.eta_cutoff[spin_dep]
-                    a_list.append(eta_matrix)
+                    eta_list.append(eta_matrix)
                     b_list.append(0)
+                    eta_cutoff_len += 1
                 else:
                     # no constrains
                     eta_matrix = np.zeros(shape=(0, self.eta_parameters.shape[0]))
-                    a_list.append(eta_matrix)
+                    eta_list.append(eta_matrix)
+            eta_block = block_diag(eta_list)
+            if self.eta_cutoff_optimizable.any():
+                eta_block = np.hstack((np.zeros(shape=(eta_cutoff_len, self.eta_cutoff_optimizable.sum())), eta_block))
+            a_list.append(eta_block)
 
         for mu_parameters, mu_cutoff, mu_cutoff_optimizable in zip(self.mu_parameters, self.mu_cutoff, self.mu_cutoff_optimizable):
+            # d0 = 0
+            # d0*C - d1*L = 0
+            # -d1 * dL + С * dd0 - L * dd1 = 0
             mu_matrix = np.zeros(shape=(2, mu_parameters.shape[0]))
             mu_matrix[0, 0] = 1
             mu_matrix[1, 0] = self.trunc
             mu_matrix[1, 1] = -mu_cutoff
 
-            mu_spin_deps = mu_parameters.shape[1]
-            if mu_spin_deps == 2:
+            if mu_parameters.shape[1] == 2:
+                mu_spin_deps = [0, 1]
+                mu_cutoff_matrix = [0, mu_parameters[0, 1], 0, mu_parameters[1, 1]]
                 if self.neu < 1:
-                    mu_spin_deps -= 1
+                    mu_spin_deps = [1]
+                    mu_cutoff_matrix = [0, mu_parameters[1, 1]]
                 if self.ned < 1:
-                    mu_spin_deps -= 1
+                    mu_spin_deps = [0]
+                    mu_cutoff_matrix = [0, mu_parameters[0, 1]]
+            else:
+                mu_spin_deps = [0]
+                mu_cutoff_matrix = [0, mu_parameters[0, 1]]
 
-            mu_block = block_diag([mu_matrix] * mu_spin_deps)
+            mu_block = block_diag([mu_matrix] * len(mu_spin_deps))
             if mu_cutoff_optimizable:
-                # mu_block = np.hstack((np.zeors(2 * mu_spin_deps, 1), mu_block))
-                a_list.append(np.zeros(shape=(0, 1)))
+                mu_block = np.hstack((- np.array(mu_cutoff_matrix).reshape(-1, 1), mu_block))
             a_list.append(mu_block)
-            b_list += [0] * 2 * mu_spin_deps
+            b_list += [0] * 2 * len(mu_spin_deps)
 
         for phi_parameters, theta_parameters, phi_cutoff, phi_cutoff_optimizable, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cutoff_optimizable, self.phi_cusp, self.phi_irrotational):
-            if phi_cutoff_optimizable:
-                a_list.append(np.zeros(shape=(0, 1)))
-
             phi_spin_deps = [0]
             if phi_parameters.shape[3] == 2:
                 phi_spin_deps = [0, 1]
@@ -996,11 +1005,19 @@ class Backflow(AbstractBackflow):
                 if self.ned < 2:
                     phi_spin_deps = [x for x in phi_spin_deps if x != 2]
 
+            phi_list = []
+            phi_cutoff_len = 0
             for spin_dep in phi_spin_deps:
                 phi_matrix = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
                 phi_constrains_size, phi_parameters_size = phi_matrix.shape
-                a_list.append(phi_matrix)
+                phi_list.append(phi_matrix)
                 b_list += [0] * phi_constrains_size
+                phi_cutoff_len += phi_constrains_size
+
+            phi_block = block_diag(phi_list)
+            if phi_cutoff_optimizable:
+                phi_block = np.hstack((np.zeros(shape=(phi_cutoff_len, 1)), phi_block))
+            a_list.append(phi_block)
 
         if self.ae_cutoff_optimizable.any():
             a_list.append(np.zeros(shape=(0, self.ae_cutoff_optimizable.sum())))
@@ -1195,13 +1212,10 @@ class Backflow(AbstractBackflow):
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                self.fix_mu_parameters()
                 res[n] -= self.mu_term(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] += 2 * delta
-                self.fix_mu_parameters()
                 res[n] += self.mu_term(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] -= delta
-                self.fix_mu_parameters()
 
             L = self.mu_cutoff[i]
             for j2 in range(mu_parameters.shape[1]):
@@ -1376,13 +1390,10 @@ class Backflow(AbstractBackflow):
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                self.fix_mu_parameters()
                 res[n] -= self.mu_term_gradient(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] += 2 * delta
-                self.fix_mu_parameters()
                 res[n] += self.mu_term_gradient(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] -= delta
-                self.fix_mu_parameters()
 
             L = self.mu_cutoff[i]
             for j2 in range(mu_parameters.shape[1]):
@@ -1577,13 +1588,10 @@ class Backflow(AbstractBackflow):
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                self.fix_mu_parameters()
                 res[n] -= self.mu_term_laplacian(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] += 2 * delta
-                self.fix_mu_parameters()
                 res[n] += self.mu_term_laplacian(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] -= delta
-                self.fix_mu_parameters()
 
             L = self.mu_cutoff[i]
             for j2 in range(mu_parameters.shape[1]):
