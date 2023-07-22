@@ -3,8 +3,58 @@ import numba as nb
 
 from pycasino import delta
 from pycasino.abstract import AbstractJastrow
-from pycasino.readers.jastrow import construct_a_matrix
 from pycasino.overload import random_step, block_diag, rref
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def construct_a_matrix(trunc, f_en_order, f_ee_order, f_cutoff, no_dup_u_term, no_dup_chi_term):
+    """A-matrix has the following rows:
+    (2 * f_en_order + 1) constraints imposed to satisfy electron–electron no-cusp condition.
+    (f_en_order + f_ee_order + 1) constraints imposed to satisfy electron–nucleus no-cusp condition.
+    (f_ee_order + 1) constraints imposed to prevent duplication of u-term
+    (f_en_order + 1) constraints imposed to prevent duplication of chi-term
+    copy-paste from /CASINO/src/pjastrow.f90 SUBROUTINE construct_A
+    """
+    ee_constrains = 2 * f_en_order + 1
+    en_constrains = f_en_order + f_ee_order + 1
+    no_dup_u_constrains = f_ee_order + 1
+    no_dup_chi_constrains = f_en_order + 1
+
+    n_constraints = ee_constrains + en_constrains
+    if no_dup_u_term:
+        n_constraints += no_dup_u_constrains
+    if no_dup_chi_term:
+        n_constraints += no_dup_chi_constrains
+
+    parameters_size = (f_en_order + 1) * (f_en_order + 2) * (f_ee_order + 1) // 2
+    a = np.zeros(shape=(n_constraints, parameters_size))
+    p = 0
+    for n in range(f_ee_order + 1):
+        for m in range(f_en_order + 1):
+            for l in range(m, f_en_order + 1):
+                if n == 1:
+                    if l == m:
+                        a[l + m, p] = 1
+                    else:
+                        a[l + m, p] = 2
+                if m == 1:
+                    a[l + n + ee_constrains, p] = -f_cutoff
+                elif m == 0:
+                    a[l + n + ee_constrains, p] = trunc
+                    if l == 1:
+                        a[n + ee_constrains, p] = -f_cutoff
+                    elif l == 0:
+                        a[n + ee_constrains, p] = trunc
+                    if no_dup_u_term:
+                        if l == 0:
+                            a[n + ee_constrains + en_constrains, p] = 1
+                        if no_dup_chi_term and n == 0:
+                            a[l + ee_constrains + en_constrains + no_dup_u_constrains, p] = 1
+                    else:
+                        if no_dup_chi_term and n == 0:
+                            a[l + ee_constrains + en_constrains, p] = 1
+                p += 1
+    return a
 
 
 labels_type = nb.int64[:]

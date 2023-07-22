@@ -924,6 +924,7 @@ class Backflow(AbstractBackflow):
         b_list = []
 
         if self.eta_cutoff.any():
+            # c0*C - c1*L = 0 only for like-spin electrons
             eta_spin_deps = [0]
             if self.eta_parameters.shape[1] == 2:
                 eta_spin_deps = [0, 1]
@@ -941,7 +942,7 @@ class Backflow(AbstractBackflow):
                     eta_spin_deps = [x for x in eta_spin_deps if x != 2]
 
             eta_list = []
-            eta_cutoff_len = 0
+            eta_cutoff_matrix= []
             for spin_dep in eta_spin_deps:
                 # e-e term is affected by constraints only for like-spin electrons
                 if spin_dep in (0, 2):
@@ -950,14 +951,19 @@ class Backflow(AbstractBackflow):
                     eta_matrix[0, 1] = -self.eta_cutoff[spin_dep]
                     eta_list.append(eta_matrix)
                     b_list.append(0)
-                    eta_cutoff_len += 1
+                    for _ in range(self.eta_cutoff_optimizable.sum()):
+                        eta_cutoff_matrix.append(self.eta_parameters[1, spin_dep])
                 else:
                     # no constrains
                     eta_matrix = np.zeros(shape=(0, self.eta_parameters.shape[0]))
                     eta_list.append(eta_matrix)
             eta_block = block_diag(eta_list)
             if self.eta_cutoff_optimizable.any():
-                eta_block = np.hstack((np.zeros(shape=(eta_cutoff_len, self.eta_cutoff_optimizable.sum())), eta_block))
+                eta_block = np.hstack((
+                    # FIXME: check if two Cut-off radii
+                    - np.array(eta_cutoff_matrix).reshape(-1, self.eta_cutoff_optimizable.sum()),
+                    eta_block
+                ))
             a_list.append(eta_block)
 
         for mu_parameters, mu_cutoff, mu_cutoff_optimizable in zip(self.mu_parameters, self.mu_cutoff, self.mu_cutoff_optimizable):
@@ -971,19 +977,20 @@ class Backflow(AbstractBackflow):
 
             if mu_parameters.shape[1] == 2:
                 mu_spin_deps = [0, 1]
-                mu_cutoff_matrix = [0, mu_parameters[0, 1], 0, mu_parameters[1, 1]]
+                mu_cutoff_matrix = [0, mu_parameters[1, 0], 0, mu_parameters[1, 1]]
                 if self.neu < 1:
                     mu_spin_deps = [1]
-                    mu_cutoff_matrix = [0, mu_parameters[1, 1]]
+                    mu_cutoff_matrix = [0, mu_parameters[1, 0]]
                 if self.ned < 1:
                     mu_spin_deps = [0]
-                    mu_cutoff_matrix = [0, mu_parameters[0, 1]]
+                    mu_cutoff_matrix = [0, mu_parameters[1, 1]]
             else:
                 mu_spin_deps = [0]
                 mu_cutoff_matrix = [0, mu_parameters[0, 1]]
 
             mu_block = block_diag([mu_matrix] * len(mu_spin_deps))
             if mu_cutoff_optimizable:
+                # does not matter for AE atoms
                 mu_block = np.hstack((- np.array(mu_cutoff_matrix).reshape(-1, 1), mu_block))
             a_list.append(mu_block)
             b_list += [0] * 2 * len(mu_spin_deps)
@@ -1165,13 +1172,10 @@ class Backflow(AbstractBackflow):
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                self.fix_eta_parameters()
                 res[n] -= self.eta_term(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] += 2 * delta
-                self.fix_eta_parameters()
                 res[n] += self.eta_term(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] -= delta
-                self.fix_eta_parameters()
 
         for j2 in range(self.eta_parameters.shape[1]):
             for j1 in range(self.eta_parameters.shape[0]):
@@ -1338,13 +1342,10 @@ class Backflow(AbstractBackflow):
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                self.fix_eta_parameters()
                 res[n] -= self.eta_term_gradient(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] += 2 * delta
-                self.fix_eta_parameters()
                 res[n] += self.eta_term_gradient(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] -= delta
-                self.fix_eta_parameters()
 
         for j2 in range(self.eta_parameters.shape[1]):
             for j1 in range(self.eta_parameters.shape[0]):
@@ -1537,13 +1538,10 @@ class Backflow(AbstractBackflow):
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                self.fix_eta_parameters()
                 res[n] -= self.eta_term_laplacian(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] += 2 * delta
-                self.fix_eta_parameters()
                 res[n] += self.eta_term_laplacian(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] -= delta
-                self.fix_eta_parameters()
 
         for j2 in range(self.eta_parameters.shape[1]):
             for j1 in range(self.eta_parameters.shape[0]):
