@@ -385,10 +385,7 @@ class Jastrow:
 
     def f_parameters_independent(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
         """Mask dependent parameters in f-term."""
-        f_en_order = f_parameters.shape[0] - 1
-        f_ee_order = f_parameters.shape[2] - 1
-
-        a = construct_a_matrix(self.trunc, f_en_order, f_ee_order, f_cutoff, no_dup_u_term, no_dup_chi_term)
+        a, _ = construct_a_matrix(self.trunc, f_parameters, f_cutoff, 0, no_dup_u_term, no_dup_chi_term)
 
         _, pivot_positions = rref(a)
 
@@ -443,7 +440,7 @@ class Jastrow:
             f_ee_order = f_parameters.shape[2] - 1
             f_spin_dep = f_parameters.shape[3] - 1
 
-            a = construct_a_matrix(self.trunc, f_en_order, f_ee_order, L, no_dup_u_term, no_dup_chi_term)
+            a, _ = construct_a_matrix(self.trunc, f_parameters, L, 0, no_dup_u_term, no_dup_chi_term)
             a, pivot_positions = rref(a)
             # remove zero-rows
             a = a[:pivot_positions.size, :]
