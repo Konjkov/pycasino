@@ -1154,17 +1154,17 @@ class Backflow(AbstractBackflow):
                     phi_spin_deps = [x for x in phi_spin_deps if x != 2]
 
             phi_list = []
-            phi_cutoff_len = 0
+            phi_cutoff_matrix = np.zeros(0)
             for spin_dep in phi_spin_deps:
                 phi_matrix, cutoff_constraints = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
                 phi_constrains_size, phi_parameters_size = phi_matrix.shape
                 phi_list.append(phi_matrix)
+                phi_cutoff_matrix = np.concatenate((phi_cutoff_matrix, cutoff_constraints))
                 b_list += [0] * phi_constrains_size
-                phi_cutoff_len += phi_constrains_size
 
             phi_block = block_diag(phi_list)
             if phi_cutoff_optimizable:
-                phi_block = np.hstack((np.zeros(shape=(phi_cutoff_len, 1)), phi_block))
+                phi_block = np.hstack((phi_cutoff_matrix.reshape(-1, 1), phi_block))
             a_list.append(phi_block)
 
         if self.ae_cutoff_optimizable.any():

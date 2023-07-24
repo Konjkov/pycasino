@@ -43,12 +43,12 @@ def construct_a_matrix(trunc, f_parameters, f_cutoff, spin_dep, no_dup_u_term, n
                         a[l + m, p] = 2
                 if m == 1:
                     a[l + n + ee_constrains, p] = -f_cutoff
-                    # cutoff_constraints[l + n + ee_constrains] -= f_parameters[l, m, n, spin_dep]
+                    cutoff_constraints[l + n + ee_constrains] -= f_parameters[l, m, n, spin_dep]
                 elif m == 0:
                     a[l + n + ee_constrains, p] = trunc
                     if l == 1:
                         a[n + ee_constrains, p] = -f_cutoff
-                        # cutoff_constraints[l + n + ee_constrains] -= f_parameters[l, m, n, spin_dep]
+                        cutoff_constraints[n + ee_constrains] -= f_parameters[l, m, n, spin_dep]
                     elif l == 0:
                         a[n + ee_constrains, p] = trunc
                     if no_dup_u_term:
@@ -833,8 +833,8 @@ class Jastrow(AbstractJastrow):
 
             f_list = []
             f_cutoff_matrix = np.zeros(0)
-            for spn_dep in f_spin_deps:
-                f_matrix, cutoff_constraints = construct_a_matrix(self.trunc, f_parameters, f_cutoff, spn_dep, no_dup_u_term, no_dup_chi_term)
+            for spin_dep in f_spin_deps:
+                f_matrix, cutoff_constraints = construct_a_matrix(self.trunc, f_parameters, f_cutoff, spin_dep, no_dup_u_term, no_dup_chi_term)
                 f_constrains_size, f_parameters_size = f_matrix.shape
                 f_list.append(f_matrix)
                 f_cutoff_matrix = np.concatenate((f_cutoff_matrix, cutoff_constraints))
@@ -1043,13 +1043,10 @@ class Jastrow(AbstractJastrow):
             if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta
-                self.fix_f_parameters()
                 res[n] -= self.f_term(e_powers, n_powers) / delta / 2
                 self.f_cutoff[i] += 2 * delta
-                self.fix_f_parameters()
                 res[n] += self.f_term(e_powers, n_powers) / delta / 2
                 self.f_cutoff[i] -= delta
-                self.fix_f_parameters()
 
             L = self.f_cutoff[i]
             for j4 in range(f_parameters.shape[3]):
@@ -1180,13 +1177,10 @@ class Jastrow(AbstractJastrow):
             if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta
-                self.fix_f_parameters()
                 res[n] -= self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
                 self.f_cutoff[i] += 2 * delta
-                self.fix_f_parameters()
                 res[n] += self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
                 self.f_cutoff[i] -= delta
-                self.fix_f_parameters()
 
             L = self.f_cutoff[i]
             for j4 in range(f_parameters.shape[3]):
@@ -1332,13 +1326,10 @@ class Jastrow(AbstractJastrow):
             if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta
-                self.fix_f_parameters()
                 res[n] -= self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
                 self.f_cutoff[i] += 2 * delta
-                self.fix_f_parameters()
                 res[n] += self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
                 self.f_cutoff[i] -= delta
-                self.fix_f_parameters()
 
             L = self.f_cutoff[i]
             for j4 in range(f_parameters.shape[3]):
