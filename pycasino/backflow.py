@@ -7,7 +7,7 @@ from pycasino.overload import random_step, block_diag, rref
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def construct_c_matrix(trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
+def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
     """C-matrix has the following rows:
     ...
     copy-paste from /CASINO/src/pbackflow.f90 SUBROUTINE construct_C
@@ -64,6 +64,7 @@ def construct_c_matrix(trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, ph
                     c[k + l + offset, p] = 1
                 if l == 0:
                     c[k + m + offset + ee_constrains + 2 * en_constrains, p] = -trunc / phi_cutoff
+                    cutoff_constraints[k + m + offset + ee_constrains + 2 * en_constrains] += trunc * theta_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
                     if m > 0:
                         c[k + m - 1 + offset + ee_constrains + 4 * en_constrains - 1, p] = m
                 elif l == 1:
@@ -96,6 +97,7 @@ def construct_c_matrix(trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, ph
                                 c[n, p + nphi - 2 * inc_k + inc_m] = -(m + 1)
                             if k > 0:
                                 c[n, p + nphi - inc_k + inc_m] = phi_cutoff * (m + 1)
+                                cutoff_constraints[n] += (m + 1) * phi_parameters[k, l, m, spin_dep]
                     else:
                         if m > 0 and k < phi_en_order:
                             c[n, p + inc_k - inc_m] = k + 1
@@ -111,6 +113,7 @@ def construct_c_matrix(trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, ph
                     c[n, p] = trunc + k
                     if k < phi_en_order:
                         c[n, p + inc_k] = -phi_cutoff * (k + 1)
+                        # cutoff_constraints[n] -= (k + 1) * phi_parameters[k + 1, l, m - 1, spin_dep]
                     p += 1
                     n += 1
             # ...for k=N_eN+1...
@@ -119,6 +122,7 @@ def construct_c_matrix(trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, ph
                 for l in range(phi_parameters.shape[1]):
                     c[n, p + nphi + inc_m] = -(m + 1)
                     c[n, p + nphi + inc_k + inc_m] = phi_cutoff * (m + 1)
+                    # cutoff_constraints[n] += (m + 1) * theta_parameters[k - 1, l, m + 1, spin_dep]
                     p += inc_l
                     n += 1
             # ...and for k=N_eN+2.
@@ -917,7 +921,7 @@ class Backflow(AbstractBackflow):
         """Fix phi-term dependent parameters"""
         for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cusp, self.phi_irrotational):
             for spin_dep in range(phi_parameters.shape[3]):
-                c, _ = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+                c, _ = construct_c_matrix(self.trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
                 c, pivot_positions = rref(c)
                 c = c[:pivot_positions.size, :]
 
@@ -1156,7 +1160,7 @@ class Backflow(AbstractBackflow):
             phi_list = []
             phi_cutoff_matrix = np.zeros(0)
             for spin_dep in phi_spin_deps:
-                phi_matrix, cutoff_constraints = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+                phi_matrix, cutoff_constraints = construct_c_matrix(self.trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
                 phi_constrains_size, phi_parameters_size = phi_matrix.shape
                 phi_list.append(phi_matrix)
                 phi_cutoff_matrix = np.concatenate((phi_cutoff_matrix, cutoff_constraints))
@@ -1406,13 +1410,10 @@ class Backflow(AbstractBackflow):
             if self.phi_cutoff_optimizable[i]:
                 n += 1
                 self.phi_cutoff[i] -= delta
-                self.fix_phi_parameters()
                 res[n] -= self.phi_term(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] += 2 * delta
-                self.fix_phi_parameters()
                 res[n] += self.phi_term(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] -= delta
-                self.fix_phi_parameters()
 
             L = self.phi_cutoff[i]
             for j4 in range(phi_parameters.shape[3]):
@@ -1583,13 +1584,10 @@ class Backflow(AbstractBackflow):
             if self.phi_cutoff_optimizable[i]:
                 n += 1
                 self.phi_cutoff[i] -= delta
-                self.fix_phi_parameters()
                 res[n] -= self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] += 2 * delta
-                self.fix_phi_parameters()
                 res[n] += self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] -= delta
-                self.fix_phi_parameters()
 
             L = self.phi_cutoff[i]
             for j4 in range(phi_parameters.shape[3]):
@@ -1779,13 +1777,10 @@ class Backflow(AbstractBackflow):
             if self.phi_cutoff_optimizable[i]:
                 n += 1
                 self.phi_cutoff[i] -= delta
-                self.fix_phi_parameters()
                 res[n] -= self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] += 2 * delta
-                self.fix_phi_parameters()
                 res[n] += self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] -= delta
-                self.fix_phi_parameters()
 
             L = self.phi_cutoff[i]
             for j4 in range(phi_parameters.shape[3]):
