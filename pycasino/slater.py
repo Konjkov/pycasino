@@ -513,7 +513,7 @@ class Slater(AbstractSlater):
             tr(A^-1 • d²A/dxdydz) +
             tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy) -
             tr(A^-1 • d²A/dxdy ⊗ A^-1 • dA/dz) - tr(A^-1 • d²A/dxdz ⊗ A^-1 • dA/dy) - tr(A^-1 • d²A/dydz ⊗ A^-1 • dA/dx) +
-            tr( A^-1 • dA/dx ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dz) + tr(A^-1 • dA/dz ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dx) -
+            tr(A^-1 • dA/dx ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dz) + tr(A^-1 • dA/dz ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dx) -
             2 * tr(A^-1 • dA/dx) ⊗ tr(A^-1 • dA/dy) ⊗ tr(A^-1 • dA/dz)
         )
         :param n_vectors: e-n vectors
