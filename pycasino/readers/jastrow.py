@@ -4,6 +4,7 @@ import os
 
 import numpy as np
 import numba as nb
+from pycasino.jastrow import construct_a_matrix
 from pycasino.overload import rref
 
 labels_type = nb.int64[:]
@@ -101,57 +102,6 @@ START SET {n_set}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
   {f_parameters}
  END SET {n_set}"""
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def construct_a_matrix(trunc, f_en_order, f_ee_order, f_cutoff, no_dup_u_term, no_dup_chi_term):
-    """A-matrix has the following rows:
-    (2 * f_en_order + 1) constraints imposed to satisfy electron–electron no-cusp condition.
-    (f_en_order + f_ee_order + 1) constraints imposed to satisfy electron–nucleus no-cusp condition.
-    (f_ee_order + 1) constraints imposed to prevent duplication of u-term
-    (f_en_order + 1) constraints imposed to prevent duplication of chi-term
-    copy-paste from /CASINO/src/pjastrow.f90 SUBROUTINE construct_A
-    """
-    ee_constrains = 2 * f_en_order + 1
-    en_constrains = f_en_order + f_ee_order + 1
-    no_dup_u_constrains = f_ee_order + 1
-    no_dup_chi_constrains = f_en_order + 1
-
-    n_constraints = ee_constrains + en_constrains
-    if no_dup_u_term:
-        n_constraints += no_dup_u_constrains
-    if no_dup_chi_term:
-        n_constraints += no_dup_chi_constrains
-
-    parameters_size = (f_en_order + 1) * (f_en_order + 2) * (f_ee_order + 1) // 2
-    a = np.zeros(shape=(n_constraints, parameters_size))
-    p = 0
-    for n in range(f_ee_order + 1):
-        for m in range(f_en_order + 1):
-            for l in range(m, f_en_order + 1):
-                if n == 1:
-                    if l == m:
-                        a[l + m, p] = 1
-                    else:
-                        a[l + m, p] = 2
-                if m == 1:
-                    a[l + n + ee_constrains, p] = -f_cutoff
-                elif m == 0:
-                    a[l + n + ee_constrains, p] = trunc
-                    if l == 1:
-                        a[n + ee_constrains, p] = -f_cutoff
-                    elif l == 0:
-                        a[n + ee_constrains, p] = trunc
-                    if no_dup_u_term:
-                        if l == 0:
-                            a[n + ee_constrains + en_constrains, p] = 1
-                        if no_dup_chi_term and n == 0:
-                            a[l + ee_constrains + en_constrains + no_dup_u_constrains, p] = 1
-                    else:
-                        if no_dup_chi_term and n == 0:
-                            a[l + ee_constrains + en_constrains, p] = 1
-                p += 1
-    return a
 
 
 class Jastrow:
@@ -435,10 +385,7 @@ class Jastrow:
 
     def f_parameters_independent(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
         """Mask dependent parameters in f-term."""
-        f_en_order = f_parameters.shape[0] - 1
-        f_ee_order = f_parameters.shape[2] - 1
-
-        a = construct_a_matrix(self.trunc, f_en_order, f_ee_order, f_cutoff, no_dup_u_term, no_dup_chi_term)
+        a, _ = construct_a_matrix(self.trunc, f_parameters, f_cutoff, 0, no_dup_u_term, no_dup_chi_term)
 
         _, pivot_positions = rref(a)
 
@@ -493,7 +440,7 @@ class Jastrow:
             f_ee_order = f_parameters.shape[2] - 1
             f_spin_dep = f_parameters.shape[3] - 1
 
-            a = construct_a_matrix(self.trunc, f_en_order, f_ee_order, L, no_dup_u_term, no_dup_chi_term)
+            a, _ = construct_a_matrix(self.trunc, f_parameters, L, 0, no_dup_u_term, no_dup_chi_term)
             a, pivot_positions = rref(a)
             # remove zero-rows
             a = a[:pivot_positions.size, :]

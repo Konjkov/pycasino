@@ -3,8 +3,153 @@ import numba as nb
 
 from pycasino import delta
 from pycasino.abstract import AbstractBackflow
-from pycasino.readers.backflow import construct_c_matrix
 from pycasino.overload import random_step, block_diag, rref
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
+    """C-matrix has the following rows:
+    ...
+    copy-paste from /CASINO/src/pbackflow.f90 SUBROUTINE construct_C
+    """
+    phi_en_order = phi_parameters.shape[0] - 1
+    phi_ee_order = phi_parameters.shape[2] - 1
+
+    ee_constrains = 2 * phi_en_order + 1
+    en_constrains = phi_en_order + phi_ee_order + 1
+
+    offset = 0
+    phi_constraints = 6 * en_constrains - 2
+    if phi_cusp and spin_dep in (0, 2):
+        phi_constraints += ee_constrains
+        offset += ee_constrains
+
+    theta_constraints = 5 * en_constrains + ee_constrains - 2
+    n_constraints = phi_constraints + theta_constraints
+    if phi_irrotational:
+        n_constraints += ((phi_en_order + 3) * (phi_ee_order + 2) - 4) * (phi_en_order + 1)
+        if trunc == 0:
+            n_constraints -= (phi_en_order + 1) * (phi_ee_order + 1)
+
+    parameters_size = 2 * (phi_parameters.shape[0] * phi_parameters.shape[1] * phi_parameters.shape[2])
+    c = np.zeros((n_constraints, parameters_size))
+    cutoff_constraints = np.zeros(shape=(n_constraints, ))
+    p = 0
+    # Do Phi bit of the constraint matrix.
+    for m in range(phi_parameters.shape[2]):
+        for l in range(phi_parameters.shape[1]):
+            for k in range(phi_parameters.shape[0]):
+                if phi_cusp and spin_dep in (0, 2):  # e-e cusp
+                    if m == 1:
+                        c[k + l, p] = 1
+                if l == 0:
+                    c[k + m + offset + en_constrains, p] = 1
+                    if m > 0:
+                        c[k + m - 1 + offset + 5 * en_constrains - 1, p] = m
+                elif l == 1:
+                    c[k + m + offset + 3 * en_constrains, p] = 1
+                if k == 0:
+                    c[l + m + offset, p] = 1
+                    if m > 0:
+                        c[l + m - 1 + offset + 4 * en_constrains, p] = m
+                elif k == 1:
+                    c[l + m + offset + 2 * en_constrains, p] = 1
+                p += 1
+    # Do Theta bit of the constraint matrix.
+    offset = phi_constraints
+    for m in range(phi_parameters.shape[2]):
+        for l in range(phi_parameters.shape[1]):
+            for k in range(phi_parameters.shape[0]):
+                if m == 1:
+                    c[k + l + offset, p] = 1
+                if l == 0:
+                    c[k + m + offset + ee_constrains + 2 * en_constrains, p] = -trunc / phi_cutoff
+                    cutoff_constraints[k + m + offset + ee_constrains + 2 * en_constrains] += trunc * theta_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
+                    if m > 0:
+                        c[k + m - 1 + offset + ee_constrains + 4 * en_constrains - 1, p] = m
+                elif l == 1:
+                    c[k + m + offset + ee_constrains + 2 * en_constrains, p] = 1
+                if k == 0:
+                    c[l + m + offset + ee_constrains, p] = 1
+                    if m > 0:
+                        c[l + m - 1 + offset + ee_constrains + 3 * en_constrains, p] = m
+                elif k == 1:
+                    c[l + m + offset + ee_constrains + en_constrains, p] = 1
+                p += 1
+    # Do irrotational bit of the constraint matrix.
+    n = phi_constraints + theta_constraints
+    if phi_irrotational:
+        p = 0
+        inc_k = 1
+        inc_l = inc_k * (phi_en_order + 1)
+        inc_m = inc_l * (phi_en_order + 1)
+        nphi = inc_m * (phi_ee_order + 1)
+        for m in range(phi_parameters.shape[2]):
+            for l in range(phi_parameters.shape[1]):
+                for k in range(phi_parameters.shape[0]):
+                    if trunc > 0:
+                        if m > 0:
+                            c[n, p - inc_m] = trunc + k
+                            if k < phi_en_order:
+                                c[n, p + inc_k - inc_m] = -phi_cutoff * (k + 1)
+                        if m < phi_ee_order:
+                            if k > 1:
+                                c[n, p + nphi - 2 * inc_k + inc_m] = -(m + 1)
+                            if k > 0:
+                                c[n, p + nphi - inc_k + inc_m] = phi_cutoff * (m + 1)
+                                cutoff_constraints[n] += (m + 1) * phi_parameters[k, l, m, spin_dep]
+                    else:
+                        if m > 0 and k < phi_en_order:
+                            c[n, p + inc_k - inc_m] = k + 1
+                        if k > 0 and m < phi_ee_order:
+                            c[n, p + nphi - inc_k + inc_m] = -(m + 1)
+                    p += 1
+                    n += 1
+        if trunc > 0:
+            # Same as above, for m=N_ee+1...
+            p = phi_ee_order * (phi_en_order + 1) ** 2
+            for l in range(phi_parameters.shape[1]):
+                for k in range(phi_parameters.shape[0]):
+                    c[n, p] = trunc + k
+                    if k < phi_en_order:
+                        c[n, p + inc_k] = -phi_cutoff * (k + 1)
+                        # cutoff_constraints[n] -= (k + 1) * phi_parameters[k + 1, l, m - 1, spin_dep]
+                    p += 1
+                    n += 1
+            # ...for k=N_eN+1...
+            p = phi_en_order - 1
+            for m in range(phi_parameters.shape[2] - 1):
+                for l in range(phi_parameters.shape[1]):
+                    c[n, p + nphi + inc_m] = -(m + 1)
+                    c[n, p + nphi + inc_k + inc_m] = phi_cutoff * (m + 1)
+                    # cutoff_constraints[n] += (m + 1) * theta_parameters[k - 1, l, m + 1, spin_dep]
+                    p += inc_l
+                    n += 1
+            # ...and for k=N_eN+2.
+            p = phi_en_order
+            for m in range(phi_parameters.shape[2] - 1):
+                for l in range(phi_parameters.shape[1]):
+                    c[n, p + nphi + inc_m] = -(m + 1)
+                    p += inc_l
+                    n += 1
+        else:
+            # Same as above, for m=N_ee+1...
+            p = phi_ee_order * (phi_en_order + 1) ** 2
+            for l in range(phi_parameters.shape[1]):
+                for k in range(phi_parameters.shape[0] - 1):
+                    c[n, p + inc_k] = 1  # just zeroes the corresponding param
+                    p += 1
+                    n += 1
+            # ...and for k=N_eN+1.
+            p = phi_en_order - 1
+            for m in range(phi_parameters.shape[2] - 1):
+                for l in range(phi_parameters.shape[1]):
+                    c[n, p + nphi + inc_m] = 1  # just zeroes the corresponding param
+                    p += inc_l
+                    n += 1
+
+    assert n == n_constraints
+    return c, cutoff_constraints
 
 
 labels_type = nb.int64[:]
@@ -776,7 +921,7 @@ class Backflow(AbstractBackflow):
         """Fix phi-term dependent parameters"""
         for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cusp, self.phi_irrotational):
             for spin_dep in range(phi_parameters.shape[3]):
-                c = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+                c, _ = construct_c_matrix(self.trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
                 c, pivot_positions = rref(c)
                 c = c[:pivot_positions.size, :]
 
@@ -924,9 +1069,7 @@ class Backflow(AbstractBackflow):
         b_list = []
 
         if self.eta_cutoff.any():
-            if self.eta_cutoff_optimizable.any():
-                a_list.append(np.zeros(shape=(0, self.eta_cutoff_optimizable.sum())))
-
+            # c0*C - c1*L = 0 only for like-spin electrons
             eta_spin_deps = [0]
             if self.eta_parameters.shape[1] == 2:
                 eta_spin_deps = [0, 1]
@@ -943,43 +1086,61 @@ class Backflow(AbstractBackflow):
                 if self.ned < 2:
                     eta_spin_deps = [x for x in eta_spin_deps if x != 2]
 
+            eta_list = []
+            eta_cutoff_matrix= []
             for spin_dep in eta_spin_deps:
                 # e-e term is affected by constraints only for like-spin electrons
                 if spin_dep in (0, 2):
                     eta_matrix = np.zeros(shape=(1, self.eta_parameters.shape[0]))
                     eta_matrix[0, 0] = self.trunc
                     eta_matrix[0, 1] = -self.eta_cutoff[spin_dep]
-                    a_list.append(eta_matrix)
+                    eta_list.append(eta_matrix)
                     b_list.append(0)
+                    for _ in range(self.eta_cutoff_optimizable.sum()):
+                        eta_cutoff_matrix.append(self.eta_parameters[1, spin_dep])
                 else:
                     # no constrains
                     eta_matrix = np.zeros(shape=(0, self.eta_parameters.shape[0]))
-                    a_list.append(eta_matrix)
+                    eta_list.append(eta_matrix)
+            eta_block = block_diag(eta_list)
+            if self.eta_cutoff_optimizable.any():
+                eta_block = np.hstack((
+                    # FIXME: check if two Cut-off radii
+                    - np.array(eta_cutoff_matrix).reshape(-1, self.eta_cutoff_optimizable.sum()),
+                    eta_block
+                ))
+            a_list.append(eta_block)
 
         for mu_parameters, mu_cutoff, mu_cutoff_optimizable in zip(self.mu_parameters, self.mu_cutoff, self.mu_cutoff_optimizable):
+            # d0 = 0
+            # d0*C - d1*L = 0
+            # -d1 * dL + С * dd0 - L * dd1 = 0
             mu_matrix = np.zeros(shape=(2, mu_parameters.shape[0]))
             mu_matrix[0, 0] = 1
             mu_matrix[1, 0] = self.trunc
             mu_matrix[1, 1] = -mu_cutoff
 
-            mu_spin_deps = mu_parameters.shape[1]
-            if mu_spin_deps == 2:
+            if mu_parameters.shape[1] == 2:
+                mu_spin_deps = [0, 1]
+                mu_cutoff_matrix = [0, mu_parameters[1, 0], 0, mu_parameters[1, 1]]
                 if self.neu < 1:
-                    mu_spin_deps -= 1
+                    mu_spin_deps = [1]
+                    mu_cutoff_matrix = [0, mu_parameters[1, 0]]
                 if self.ned < 1:
-                    mu_spin_deps -= 1
+                    mu_spin_deps = [0]
+                    mu_cutoff_matrix = [0, mu_parameters[1, 1]]
+            else:
+                mu_spin_deps = [0]
+                mu_cutoff_matrix = [0, mu_parameters[0, 1]]
 
-            mu_block = block_diag([mu_matrix] * mu_spin_deps)
+            mu_block = block_diag([mu_matrix] * len(mu_spin_deps))
             if mu_cutoff_optimizable:
-                # mu_block = np.hstack((np.zeors(2 * mu_spin_deps, 1), mu_block))
-                a_list.append(np.zeros(shape=(0, 1)))
+                # does not matter for AE atoms
+                mu_block = np.hstack((- np.array(mu_cutoff_matrix).reshape(-1, 1), mu_block))
             a_list.append(mu_block)
-            b_list += [0] * 2 * mu_spin_deps
+            b_list += [0] * 2 * len(mu_spin_deps)
 
         for phi_parameters, theta_parameters, phi_cutoff, phi_cutoff_optimizable, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cutoff_optimizable, self.phi_cusp, self.phi_irrotational):
-            if phi_cutoff_optimizable:
-                a_list.append(np.zeros(shape=(0, 1)))
-
             phi_spin_deps = [0]
             if phi_parameters.shape[3] == 2:
                 phi_spin_deps = [0, 1]
@@ -996,11 +1157,19 @@ class Backflow(AbstractBackflow):
                 if self.ned < 2:
                     phi_spin_deps = [x for x in phi_spin_deps if x != 2]
 
+            phi_list = []
+            phi_cutoff_matrix = np.zeros(0)
             for spin_dep in phi_spin_deps:
-                phi_matrix = construct_c_matrix(self.trunc, phi_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+                phi_matrix, cutoff_constraints = construct_c_matrix(self.trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
                 phi_constrains_size, phi_parameters_size = phi_matrix.shape
-                a_list.append(phi_matrix)
+                phi_list.append(phi_matrix)
+                phi_cutoff_matrix = np.concatenate((phi_cutoff_matrix, cutoff_constraints))
                 b_list += [0] * phi_constrains_size
+
+            phi_block = block_diag(phi_list)
+            if phi_cutoff_optimizable:
+                phi_block = np.hstack((phi_cutoff_matrix.reshape(-1, 1), phi_block))
+            a_list.append(phi_block)
 
         if self.ae_cutoff_optimizable.any():
             a_list.append(np.zeros(shape=(0, self.ae_cutoff_optimizable.sum())))
@@ -1148,13 +1317,10 @@ class Backflow(AbstractBackflow):
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                self.fix_eta_parameters()
                 res[n] -= self.eta_term(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] += 2 * delta
-                self.fix_eta_parameters()
                 res[n] += self.eta_term(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] -= delta
-                self.fix_eta_parameters()
 
         for j2 in range(self.eta_parameters.shape[1]):
             for j1 in range(self.eta_parameters.shape[0]):
@@ -1195,13 +1361,10 @@ class Backflow(AbstractBackflow):
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                self.fix_mu_parameters()
                 res[n] -= self.mu_term(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] += 2 * delta
-                self.fix_mu_parameters()
                 res[n] += self.mu_term(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] -= delta
-                self.fix_mu_parameters()
 
             L = self.mu_cutoff[i]
             for j2 in range(mu_parameters.shape[1]):
@@ -1247,13 +1410,10 @@ class Backflow(AbstractBackflow):
             if self.phi_cutoff_optimizable[i]:
                 n += 1
                 self.phi_cutoff[i] -= delta
-                self.fix_phi_parameters()
                 res[n] -= self.phi_term(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] += 2 * delta
-                self.fix_phi_parameters()
                 res[n] += self.phi_term(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] -= delta
-                self.fix_phi_parameters()
 
             L = self.phi_cutoff[i]
             for j4 in range(phi_parameters.shape[3]):
@@ -1324,13 +1484,10 @@ class Backflow(AbstractBackflow):
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                self.fix_eta_parameters()
                 res[n] -= self.eta_term_gradient(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] += 2 * delta
-                self.fix_eta_parameters()
                 res[n] += self.eta_term_gradient(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] -= delta
-                self.fix_eta_parameters()
 
         for j2 in range(self.eta_parameters.shape[1]):
             for j1 in range(self.eta_parameters.shape[0]):
@@ -1376,13 +1533,10 @@ class Backflow(AbstractBackflow):
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                self.fix_mu_parameters()
                 res[n] -= self.mu_term_gradient(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] += 2 * delta
-                self.fix_mu_parameters()
                 res[n] += self.mu_term_gradient(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] -= delta
-                self.fix_mu_parameters()
 
             L = self.mu_cutoff[i]
             for j2 in range(mu_parameters.shape[1]):
@@ -1430,13 +1584,10 @@ class Backflow(AbstractBackflow):
             if self.phi_cutoff_optimizable[i]:
                 n += 1
                 self.phi_cutoff[i] -= delta
-                self.fix_phi_parameters()
                 res[n] -= self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] += 2 * delta
-                self.fix_phi_parameters()
                 res[n] += self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] -= delta
-                self.fix_phi_parameters()
 
             L = self.phi_cutoff[i]
             for j4 in range(phi_parameters.shape[3]):
@@ -1526,13 +1677,10 @@ class Backflow(AbstractBackflow):
             if self.eta_cutoff_optimizable[i]:
                 n += 1
                 self.eta_cutoff[i] -= delta
-                self.fix_eta_parameters()
                 res[n] -= self.eta_term_laplacian(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] += 2 * delta
-                self.fix_eta_parameters()
                 res[n] += self.eta_term_laplacian(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] -= delta
-                self.fix_eta_parameters()
 
         for j2 in range(self.eta_parameters.shape[1]):
             for j1 in range(self.eta_parameters.shape[0]):
@@ -1577,13 +1725,10 @@ class Backflow(AbstractBackflow):
             if self.mu_cutoff_optimizable[i]:
                 n += 1
                 self.mu_cutoff[i] -= delta
-                self.fix_mu_parameters()
                 res[n] -= self.mu_term_laplacian(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] += 2 * delta
-                self.fix_mu_parameters()
                 res[n] += self.mu_term_laplacian(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] -= delta
-                self.fix_mu_parameters()
 
             L = self.mu_cutoff[i]
             for j2 in range(mu_parameters.shape[1]):
@@ -1632,13 +1777,10 @@ class Backflow(AbstractBackflow):
             if self.phi_cutoff_optimizable[i]:
                 n += 1
                 self.phi_cutoff[i] -= delta
-                self.fix_phi_parameters()
                 res[n] -= self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] += 2 * delta
-                self.fix_phi_parameters()
                 res[n] += self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] -= delta
-                self.fix_phi_parameters()
 
             L = self.phi_cutoff[i]
             for j4 in range(phi_parameters.shape[3]):

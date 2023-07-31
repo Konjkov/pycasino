@@ -3,8 +3,64 @@ import numba as nb
 
 from pycasino import delta
 from pycasino.abstract import AbstractJastrow
-from pycasino.readers.jastrow import construct_a_matrix
 from pycasino.overload import random_step, block_diag, rref
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def construct_a_matrix(trunc, f_parameters, f_cutoff, spin_dep, no_dup_u_term, no_dup_chi_term):
+    """A-matrix has the following rows:
+    (2 * f_en_order + 1) constraints imposed to satisfy electron–electron no-cusp condition.
+    (f_en_order + f_ee_order + 1) constraints imposed to satisfy electron–nucleus no-cusp condition.
+    (f_ee_order + 1) constraints imposed to prevent duplication of u-term
+    (f_en_order + 1) constraints imposed to prevent duplication of chi-term
+    copy-paste from /CASINO/src/pjastrow.f90 SUBROUTINE construct_A
+    """
+    f_en_order = f_parameters.shape[0] - 1
+    f_ee_order = f_parameters.shape[2] - 1
+    ee_constrains = 2 * f_en_order + 1
+    en_constrains = f_en_order + f_ee_order + 1
+    no_dup_u_constrains = f_ee_order + 1
+    no_dup_chi_constrains = f_en_order + 1
+
+    n_constraints = ee_constrains + en_constrains
+    if no_dup_u_term:
+        n_constraints += no_dup_u_constrains
+    if no_dup_chi_term:
+        n_constraints += no_dup_chi_constrains
+
+    parameters_size = (f_en_order + 1) * (f_en_order + 2) * (f_ee_order + 1) // 2
+    a = np.zeros(shape=(n_constraints, parameters_size))
+    # cutoff constraints column for projector matrix
+    cutoff_constraints = np.zeros(shape=(n_constraints, ))
+    p = 0
+    for n in range(f_ee_order + 1):
+        for m in range(f_en_order + 1):
+            for l in range(m, f_en_order + 1):
+                if n == 1:
+                    if l == m:
+                        a[l + m, p] = 1
+                    else:
+                        a[l + m, p] = 2
+                if m == 1:
+                    a[l + n + ee_constrains, p] = -f_cutoff
+                    cutoff_constraints[l + n + ee_constrains] -= f_parameters[l, m, n, spin_dep]
+                elif m == 0:
+                    a[l + n + ee_constrains, p] = trunc
+                    if l == 1:
+                        a[n + ee_constrains, p] = -f_cutoff
+                        cutoff_constraints[n + ee_constrains] -= f_parameters[l, m, n, spin_dep]
+                    elif l == 0:
+                        a[n + ee_constrains, p] = trunc
+                    if no_dup_u_term:
+                        if l == 0:
+                            a[n + ee_constrains + en_constrains, p] = 1
+                        if no_dup_chi_term and n == 0:
+                            a[l + ee_constrains + en_constrains + no_dup_u_constrains, p] = 1
+                    else:
+                        if no_dup_chi_term and n == 0:
+                            a[l + ee_constrains + en_constrains, p] = 1
+                p += 1
+    return a, cutoff_constraints
 
 
 labels_type = nb.int64[:]
@@ -93,10 +149,7 @@ class Jastrow(AbstractJastrow):
     def check_constraint(self):
         """"""
         for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
-            f_en_order = f_parameters.shape[0] - 1
-            f_ee_order = f_parameters.shape[2] - 1
-
-            a = construct_a_matrix(self.trunc, f_en_order, f_ee_order, L, no_dup_u_term, no_dup_chi_term)
+            a, _ = construct_a_matrix(self.trunc, f_parameters, L, 0, no_dup_u_term, no_dup_chi_term)
             for k in range(f_parameters.shape[3]):
                 x = []
                 for n in range(f_parameters.shape[2]):
@@ -580,7 +633,7 @@ class Jastrow(AbstractJastrow):
             f_ee_order = f_parameters.shape[2] - 1
             f_spin_dep = f_parameters.shape[3] - 1
 
-            a = construct_a_matrix(self.trunc, f_en_order, f_ee_order, L, no_dup_u_term, no_dup_chi_term)
+            a, _ = construct_a_matrix(self.trunc, f_parameters, L, 0, no_dup_u_term, no_dup_chi_term)
             a, pivot_positions = rref(a)
             # remove zero-rows
             a = a[:pivot_positions.size, :]
@@ -761,30 +814,35 @@ class Jastrow(AbstractJastrow):
             b_list += [0] * len(chi_spin_deps)
 
         for f_parameters, f_cutoff, f_cutoff_optimizable, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.f_cutoff_optimizable, self.no_dup_u_term, self.no_dup_chi_term):
-            f_en_order = f_parameters.shape[0] - 1
-            f_ee_order = f_parameters.shape[2] - 1
-            f_matrix = construct_a_matrix(self.trunc, f_en_order, f_ee_order, f_cutoff, no_dup_u_term, no_dup_chi_term)
-            f_constrains_size, f_parameters_size = f_matrix.shape
-
-            f_spin_deps = f_parameters.shape[3]
-            if f_spin_deps == 2:
-                if self.neu < 2 and self.ned < 2:
-                    f_spin_deps -= 1
-                if self.neu + self.ned < 2:
-                    f_spin_deps -= 1
-            elif f_spin_deps == 3:
+            if f_parameters.shape[3] == 3:
+                f_spin_deps = [0, 1, 2]
                 if self.neu < 2:
-                    f_spin_deps -= 1
+                    f_spin_deps = [x for x in f_spin_deps if x != 0]
                 if self.neu + self.ned < 2:
-                    f_spin_deps -= 1
+                    f_spin_deps = [x for x in f_spin_deps if x != 1]
                 if self.ned < 2:
-                    f_spin_deps -= 1
+                    f_spin_deps = [x for x in f_spin_deps if x != 2]
+            elif f_parameters.shape[3] == 2:
+                f_spin_deps = [0, 1]
+                if self.neu < 2 and self.ned < 2:
+                    f_spin_deps = [x for x in f_spin_deps if x != 0]
+                if self.neu + self.ned < 2:
+                    f_spin_deps = [x for x in f_spin_deps if x != 1]
+            else:
+                f_spin_deps = [0]
 
-            f_block = block_diag([f_matrix] * f_spin_deps)
+            f_list = []
+            f_cutoff_matrix = np.zeros(0)
+            for spin_dep in f_spin_deps:
+                f_matrix, cutoff_constraints = construct_a_matrix(self.trunc, f_parameters, f_cutoff, spin_dep, no_dup_u_term, no_dup_chi_term)
+                f_constrains_size, f_parameters_size = f_matrix.shape
+                f_list.append(f_matrix)
+                f_cutoff_matrix = np.concatenate((f_cutoff_matrix, cutoff_constraints))
+            f_block = block_diag(f_list)
             if f_cutoff_optimizable:
-                f_block = np.hstack((np.zeros(shape=(f_constrains_size * f_spin_deps, 1)), f_block))
+                f_block = np.hstack((f_cutoff_matrix.reshape(-1, 1), f_block))
             a_list.append(f_block)
-            b_list += [0] * f_constrains_size * f_spin_deps
+            b_list += [0] * f_constrains_size * len(f_spin_deps)
 
         return block_diag(a_list), np.array(b_list[1:])
 
@@ -985,13 +1043,10 @@ class Jastrow(AbstractJastrow):
             if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta
-                self.fix_f_parameters()
                 res[n] -= self.f_term(e_powers, n_powers) / delta / 2
                 self.f_cutoff[i] += 2 * delta
-                self.fix_f_parameters()
                 res[n] += self.f_term(e_powers, n_powers) / delta / 2
                 self.f_cutoff[i] -= delta
-                self.fix_f_parameters()
 
             L = self.f_cutoff[i]
             for j4 in range(f_parameters.shape[3]):
@@ -1122,13 +1177,10 @@ class Jastrow(AbstractJastrow):
             if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta
-                self.fix_f_parameters()
                 res[n] -= self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
                 self.f_cutoff[i] += 2 * delta
-                self.fix_f_parameters()
                 res[n] += self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
                 self.f_cutoff[i] -= delta
-                self.fix_f_parameters()
 
             L = self.f_cutoff[i]
             for j4 in range(f_parameters.shape[3]):
@@ -1274,13 +1326,10 @@ class Jastrow(AbstractJastrow):
             if self.f_cutoff_optimizable[i]:
                 n += 1
                 self.f_cutoff[i] -= delta
-                self.fix_f_parameters()
                 res[n] -= self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
                 self.f_cutoff[i] += 2 * delta
-                self.fix_f_parameters()
                 res[n] += self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
                 self.f_cutoff[i] -= delta
-                self.fix_f_parameters()
 
             L = self.f_cutoff[i]
             for j4 in range(f_parameters.shape[3]):

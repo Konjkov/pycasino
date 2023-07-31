@@ -528,9 +528,8 @@ class Casino:
         for cond, pos in zip(condition, position):
             if cond:
                 e_vectors, n_vectors = self.wfn._relative_coordinates(pos)
-                s_t, s_h, s_g = self.wfn.slater.tressian(n_vectors)
-                logger.info(self.wfn.slater.hessian_derivatives(n_vectors) / (s_t - np.expand_dims(np.expand_dims(s_g, 1), 2) * s_h))
-                logger.info(self.wfn.slater.tressian(n_vectors) / self.wfn.slater.numerical_tressian(n_vectors))
+                logger.info(self.wfn.slater.tressian(n_vectors)[0] / self.wfn.slater.tressian_v2(n_vectors)[0])
+                logger.info(self.wfn.slater.tressian(n_vectors)[0] / self.wfn.slater.numerical_tressian(n_vectors))
                 if self.wfn.jastrow is not None:
                     logger.info(self.wfn.jastrow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.value_parameters_numerical_d1(e_vectors, n_vectors, False))
                     logger.info(self.wfn.jastrow.gradient_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False))
