@@ -473,12 +473,6 @@ class Slater(AbstractSlater):
         d³ln(det(A))/dxdydz = (
             tr(A^-1 • d²A/dxdydz)
             + tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy)
-            - tr(A^-1 • dA/dz ⊗ A^-1 • d²A/dxdy)
-            - tr(d(A^-1 • dA/dx)/dz ⊗ A^-1 • dA/dy) - tr(A^-1 • dA/dx ⊗ d(A^-1 • dA/dy)/dz)
-            - 2 * tr(A^-1 • dA/dy) ⊗ tr(A^-1 • dA/dz) ⊗ tr(A^-1 • dA/dx)
-        ) = (
-            tr(A^-1 • d²A/dxdydz)
-            + tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy)
             - tr(A^-1 • d²A/dxdy ⊗ A^-1 • dA/dz) - tr(A^-1 • d²A/dxdz ⊗ A^-1 • dA/dy) - tr(A^-1 • d²A/dydz ⊗ A^-1 • dA/dx)
             + tr(A^-1 • dA/dx ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dz) + tr(A^-1 • dA/dz ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dx)
             - 2 * tr(A^-1 • dA/dx) ⊗ tr(A^-1 • dA/dy) ⊗ tr(A^-1 • dA/dz)
@@ -536,18 +530,9 @@ class Slater(AbstractSlater):
             # tr(A^-1 @ d²A/dxdydz) - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx) +
             # tr( A^-1 • dA/dx ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dz) + tr(A^-1 • dA/dz ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dx)
             matrix_grad_u_dz = np.zeros(shape=(self.neu, self.neu, 3, self.neu, 3))
-            for neu in range(self.neu):
-                for r1 in range(3):
-                    n_vectors[:, neu, r1] -= delta
-                    _wfn_u, _wfn_d = self.value_matrix(n_vectors)
-                    _inv_wfn_u = np.linalg.inv(_wfn_u[self.permutation_up[i]])
-                    matrix_grad_u_dz[:, :, :, neu, r1] -= (_inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
-                    n_vectors[:, neu, r1] += 2 * delta
-                    _wfn_u, _wfn_d = self.value_matrix(n_vectors)
-                    _inv_wfn_u = np.linalg.inv(_wfn_u[self.permutation_up[i]])
-                    matrix_grad_u_dz[:, :, :, neu, r1] += (_inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
-                    n_vectors[:, neu, r1] -= delta
-            matrix_grad_u_dz /= delta * 2
+            for r1 in range(3):
+                for r2 in range(3):
+                    matrix_grad_u_dz[:, :, r1, :, r2] = - np.expand_dims(matrix_grad_u[:, :, r1].T, 0) * np.expand_dims(matrix_grad_u[:, :, r2], 1)
             res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
             matrix_hess_u = (inv_wfn_u @ hess_u[self.permutation_up[i]].reshape(self.neu, self.neu * 9)).reshape(self.neu, self.neu, 3, 3)
             for r1 in range(3):
@@ -573,18 +558,9 @@ class Slater(AbstractSlater):
             # tr(A^-1 @ d²A/dxdydz) - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx) +
             # tr( A^-1 • dA/dx ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dz) + tr(A^-1 • dA/dz ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dx)
             matrix_grad_d_dz = np.zeros(shape=(self.ned, self.ned, 3, self.ned, 3))
-            for ned in range(self.ned):
-                for r1 in range(3):
-                    n_vectors[:, self.neu + ned, r1] -= delta
-                    _wfn_u, _wfn_d = self.value_matrix(n_vectors)
-                    _inv_wfn_d = np.linalg.inv(_wfn_d[self.permutation_down[i]])
-                    matrix_grad_d_dz[:, :, :, ned, r1] -= (_inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
-                    n_vectors[:, self.neu + ned, r1] += 2 * delta
-                    _wfn_u, _wfn_d = self.value_matrix(n_vectors)
-                    _inv_wfn_d = np.linalg.inv(_wfn_d[self.permutation_down[i]])
-                    matrix_grad_d_dz[:, :, :, ned, r1] += (_inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
-                    n_vectors[:, self.neu + ned, r1] -= delta
-            matrix_grad_d_dz /= delta * 2
+            for r1 in range(3):
+                for r2 in range(3):
+                    matrix_grad_d_dz[:, :, r1, :, r2] = - np.expand_dims(matrix_grad_d[:, :, r1].T, 0) * np.expand_dims(matrix_grad_d[:, :, r2], 1)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
             matrix_hess_d = (inv_wfn_d @ hess_d[self.permutation_down[i]].reshape(self.ned, self.ned * 9)).reshape(self.ned, self.ned, 3, 3)
             for r1 in range(3):
