@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 from sympy import *
 
-# ∇(jastrow(x-x0, y-y0, z-z0) = ∇(jastrow(x, y, z) - нужно доказательство!!!
-# ∇²(jastrow(x-x0, y-y0, z-z0) = ∇²(jastrow(x, y, z) - нужно доказательство!!!
+# ∇(jastrow(x-x0, y-y0, z-z0) = ∇(jastrow(x, y, z)
+# ∇²(jastrow(x-x0, y-y0, z-z0) = ∇²(jastrow(x, y, z)
 
 r, L, C = symbols('r L C')
 
