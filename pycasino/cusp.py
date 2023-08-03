@@ -6,6 +6,7 @@ import numba as nb
 
 from scipy.optimize import minimize
 from numpy.polynomial.polynomial import polyval
+from pycasino.abstract import AbstractCusp
 from pycasino.harmonics import angular_part
 from pycasino.readers.casino import CasinoConfig
 from pycasino.overload import random_step
@@ -32,7 +33,7 @@ cusp_spec = [
 
 
 @nb.experimental.jitclass(cusp_spec)
-class Cusp:
+class Cusp(AbstractCusp):
     """
     Scheme for adding electron–nucleus cusps to Gaussian orbitals
     A. Ma, M. D. Towler, N. D. Drummond, and R. J. Needs
