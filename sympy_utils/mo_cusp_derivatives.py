@@ -3,15 +3,21 @@ from sympy import *
 
 r, alpha, alpha_0, alpha_1, alpha_2, alpha_3, alpha_4, c = symbols('r alpha alpha_0 alpha_1 alpha_2 alpha_3 alpha_4 c')
 
+# for cusp part
+
 cusp = exp(alpha_0 + alpha_1 * r + alpha_2 * r**2 + alpha_3 * r**3 + alpha_4 * r**4)
 
 substitutions = {-2*alpha: c, 4*alpha**2: c**2}
 
-print(simplify(diff(cusp, r)))
+print(simplify(diff(cusp, r)/cusp))
 
-print(simplify(diff(r**2 * diff(cusp, r), r)/r**2))
+print(simplify(diff(r**2 * diff(cusp, r), r)/r**2/cusp))
 
-print(simplify(diff(diff(cusp, r), r)))
+print(simplify(diff(diff(cusp, r), r)/cusp))
+
+print(simplify(diff(diff(diff(cusp, r), r), r)/cusp))
+
+# for s part of gaussian
 
 gauss = exp(-alpha * r**2)
 

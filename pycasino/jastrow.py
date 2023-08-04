@@ -3,7 +3,7 @@ import numba as nb
 
 from pycasino import delta
 from pycasino.abstract import AbstractJastrow
-from pycasino.overload import random_step, block_diag, rref
+from pycasino.overload import block_diag, rref
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -1495,51 +1495,3 @@ class Jastrow(AbstractJastrow):
             self.set_parameters(parameters, all_parameters)
 
         return res / delta / 2
-
-    def profile_value(self, dr, steps, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.value(e_vectors, n_vectors)
-
-    def profile_gradient(self, dr, steps, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.gradient(e_vectors, n_vectors)
-
-    def profile_laplacian(self, dr, steps, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.laplacian(e_vectors, n_vectors)
-
-    def profile_value_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.value_parameters_d1(e_vectors, n_vectors)
-
-    def profile_gradient_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.gradient_parameters_d1(e_vectors, n_vectors)
-
-    def profile_laplacian_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.laplacian_parameters_d1(e_vectors, n_vectors)

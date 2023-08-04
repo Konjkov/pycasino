@@ -1,6 +1,125 @@
 import numpy as np
 from abc import ABC, abstractmethod
 from pycasino import delta, delta_2, delta_3
+from pycasino.overload import random_step
+
+
+class AbstractCusp:
+
+    def __init__(self, neu, ned, orbitals_up, orbitals_down):
+        """
+        :param neu: number of up electrons
+        :param ned: number of down electrons
+        """
+        self.neu = neu
+        self.ned = ned
+        self.orbitals_up = orbitals_up
+        self.orbitals_down = orbitals_down
+
+    # @abstractmethod
+    def value(self, n_vectors: np.ndarray):
+        """Value φ(r)
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+        """
+
+    # @abstractmethod
+    def numerical_gradient(self, n_vectors: np.ndarray):
+        """Cusp part of gradient"""
+        gradient = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3))
+        for j in range(3):
+            n_vectors[:, :, j] -= delta
+            value = self.value(n_vectors)
+            gradient[:self.orbitals_up, :self.neu, j] -= value[0]
+            gradient[self.orbitals_up:, self.neu:, j] -= value[1]
+            n_vectors[:, :, j] += 2 * delta
+            value = self.value(n_vectors)
+            gradient[:self.orbitals_up, :self.neu, j] += value[0]
+            gradient[self.orbitals_up:, self.neu:, j] += value[1]
+            n_vectors[:, :, j] -= delta
+
+        return gradient[:self.orbitals_up, :self.neu] / delta / 2, gradient[self.orbitals_up:, self.neu:] / delta / 2
+
+    # @abstractmethod
+    def numerical_laplacian(self, n_vectors: np.ndarray):
+        """Cusp part of laplacian"""
+        laplacian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned))
+        value = self.value(n_vectors)
+        laplacian[:self.orbitals_up, :self.neu] -= 6 * value[0]
+        laplacian[self.orbitals_up:, self.neu:] -= 6 * value[1]
+        for j in range(3):
+            n_vectors[:, :, j] -= delta
+            value = self.value(n_vectors)
+            laplacian[:self.orbitals_up, :self.neu] += value[0]
+            laplacian[self.orbitals_up:, self.neu:] += value[1]
+            n_vectors[:, :, j] += 2 * delta
+            value = self.value(n_vectors)
+            laplacian[:self.orbitals_up, :self.neu] += value[0]
+            laplacian[self.orbitals_up:, self.neu:] += value[1]
+            n_vectors[:, :, j] -= delta
+
+        return laplacian[:self.orbitals_up, :self.neu] / delta / delta, laplacian[self.orbitals_up:, self.neu:] / delta / delta
+
+    # @abstractmethod
+    def numerical_hessian(self, n_vectors: np.ndarray):
+        """Cusp part of hessian"""
+        hessian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3, 3))
+        for j in range(3):
+            n_vectors[:, :, j] -= 2 * delta_2
+            value = self.value(n_vectors)
+            hessian[:self.orbitals_up, :self.neu, j, j] -= value[0]
+            hessian[self.orbitals_up:, self.neu:, j, j] -= value[1]
+            n_vectors[:, :, j] += 4 * delta_2
+            value = self.value(n_vectors)
+            hessian[:self.orbitals_up, :self.neu, j, j] += value[0]
+            hessian[self.orbitals_up:, self.neu:, j, j] += value[1]
+            n_vectors[:, :, j] -= 2 * delta_2
+
+        return hessian[:self.orbitals_up, :self.neu] / delta_2 / delta_2 / 4, hessian[self.orbitals_up:, self.neu:] / delta_2 / delta_2 / 4
+
+    # @abstractmethod
+    def numerical_tressian(self, n_vectors: np.ndarray):
+        """Cusp part of tressian"""
+        tressian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3, 3, 3))
+        for j in range(3):
+            n_vectors[:, :, j] -= 2 * delta_3
+            value = self.value(n_vectors)
+            tressian[:self.orbitals_up, :self.neu, j, j, j] -= value[0]
+            tressian[self.orbitals_up:, self.neu:, j, j, j] -= value[1]
+            n_vectors[:, :, j] += 4 * delta_3
+            value = self.value(n_vectors)
+            tressian[:self.orbitals_up, :self.neu, j, j, j] += value[0]
+            tressian[self.orbitals_up:, self.neu:, j, j, j] += value[1]
+            n_vectors[:, :, j] -= 2 * delta_3
+
+        return tressian[:self.orbitals_up, :self.neu] / delta_3 / delta_3 / delta_3 / 8, tressian[self.orbitals_up:, self.neu:] / delta_3 / delta_3 / delta_3 / 8
+
+    def profile_value(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.value(n_vectors)
+
+    def profile_gradient(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.gradient(n_vectors)
+
+    def profile_laplacian(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.laplacian(n_vectors)
+
+    def profile_hessian(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.hessian(n_vectors)
 
 
 class AbstractSlater:
@@ -140,13 +259,47 @@ class AbstractSlater:
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta_3 / delta_3 / delta_3 / 8 / val
 
-    # @abstractmethod
-    def get_parameters(self) -> np.ndarray:
-        """Get parameters"""
+    def profile_value(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.value(n_vectors)
 
-    # @abstractmethod
-    def set_parameters(self, parameters: np.ndarray):
-        """Set parameters"""
+    def profile_gradient(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.gradient(n_vectors)
+
+    def profile_laplacian(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.laplacian(n_vectors)
+
+    def profile_hessian(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.hessian(n_vectors)
+
+    def profile_tressian(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.tressian(n_vectors)
+
+    def profile_tressian_v2(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.tressian_v2(n_vectors)
 
 
 class AbstractJastrow:
@@ -211,13 +364,53 @@ class AbstractJastrow:
 
         return res / delta / delta
 
-    # @abstractmethod
-    def get_parameters(self) -> np.ndarray:
-        """Get parameters"""
+    def profile_value(self, dr, steps, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.value(e_vectors, n_vectors)
 
-    # @abstractmethod
-    def set_parameters(self, parameters: np.ndarray):
-        """Set parameters"""
+    def profile_gradient(self, dr, steps, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.gradient(e_vectors, n_vectors)
+
+    def profile_laplacian(self, dr, steps, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.laplacian(e_vectors, n_vectors)
+
+    def profile_value_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.value_parameters_d1(e_vectors, n_vectors)
+
+    def profile_gradient_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.gradient_parameters_d1(e_vectors, n_vectors)
+
+    def profile_laplacian_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.laplacian_parameters_d1(e_vectors, n_vectors)
 
 
 class AbstractBackflow:
@@ -281,10 +474,50 @@ class AbstractBackflow:
 
         return res.ravel() / delta / delta
 
-    # @abstractmethod
-    def get_parameters(self) -> np.ndarray:
-        """Get parameters"""
+    def profile_value(self, dr, steps, atom_positions, r_initial):
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.value(e_vectors, n_vectors)
 
-    # @abstractmethod
-    def set_parameters(self, parameters: np.ndarray):
-        """Set parameters"""
+    def profile_gradient(self, dr, steps, atom_positions, r_initial):
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.gradient(e_vectors, n_vectors)
+
+    def profile_laplacian(self, dr, steps, atom_positions, r_initial):
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.laplacian(e_vectors, n_vectors)
+
+    def profile_value_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.value_parameters_d1(e_vectors, n_vectors)
+
+    def profile_gradient_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.gradient_parameters_d1(e_vectors, n_vectors)
+
+    def profile_laplacian_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.laplacian_parameters_d1(e_vectors, n_vectors)

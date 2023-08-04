@@ -6,7 +6,6 @@ from pycasino.abstract import AbstractSlater
 from pycasino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from pycasino.cusp import Cusp
 from pycasino.harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
-from pycasino.overload import random_step
 
 value_matrix_res_type = nb.types.Tuple([nb.float64[:, :], nb.float64[:, :]])
 gradient_matrix_res_type = nb.types.Tuple([nb.float64[:, :, :], nb.float64[:, :, :]])
@@ -469,7 +468,7 @@ class Slater(AbstractSlater):
         return hess / val, grad / val
 
     def tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Tressian or numerical third partial derivatives with respect to e-coordinates
+        """Tressian or numerical third partial derivatives w.r.t. e-coordinates
         d³ln(det(A))/dxdydz = (
             tr(A^-1 • d²A/dxdydz)
             + tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy)
@@ -527,61 +526,50 @@ class Slater(AbstractSlater):
             )
             hess += c * partial_hess
             grad += c * tr_grad
-            # tr(A^-1 @ d²A/dxdydz) - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx) +
-            # tr( A^-1 • dA/dx ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dz) + tr(A^-1 • dA/dz ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dx)
-            matrix_grad_u_dz = np.zeros(shape=(self.neu, self.neu, 3, self.neu, 3))
-            for r1 in range(3):
-                for r2 in range(3):
-                    matrix_grad_u_dz[:, :, r1, :, r2] = - np.expand_dims(matrix_grad_u[:, :, r1].T, 0) * np.expand_dims(matrix_grad_u[:, :, r2], 1)
+
             res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
             matrix_hess_u = (inv_wfn_u @ hess_u[self.permutation_up[i]].reshape(self.neu, self.neu * 9)).reshape(self.neu, self.neu, 3, 3)
             for r1 in range(3):
                 for r2 in range(3):
                     for r3 in range(3):
-                        # res_u[:, r1, :, r2, :, r3] += (
-                        #     np.expand_dims(matrix_grad_u[:, :, r1], 0) *
-                        #     np.expand_dims(matrix_grad_u[:, :, r2].T, 1) *
-                        #     np.expand_dims(matrix_grad_u[:, :, r3], 2)
-                        # ) + (
-                        #     np.expand_dims(matrix_grad_u[:, :, r1].T, 2) *
-                        #     np.expand_dims(matrix_grad_u[:, :, r2], 1) *
-                        #     np.expand_dims(matrix_grad_u[:, :, r3].T, 0)
-                        # )
-                        res_u[:, r1, :, r2, :, r3] -= np.expand_dims(matrix_grad_u[:, :, r1].T, 2) * matrix_grad_u_dz[:, :, r2, :, r3]
+                        # tr( A^-1 • dA/dx ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dz) + tr(A^-1 • dA/dz ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dx)
+                        res_u[:, r1, :, r2, :, r3] += (
+                            np.expand_dims(matrix_grad_u[:, :, r2].T, 0) *
+                            np.expand_dims(matrix_grad_u[:, :, r3], 1) *
+                            np.expand_dims(matrix_grad_u[:, :, r1].T, 2)
+                        ) + (
+                            np.expand_dims(matrix_grad_u[:, :, r3], 0) *
+                            np.expand_dims(matrix_grad_u[:, :, r1].T, 1) *
+                            np.expand_dims(matrix_grad_u[:, :, r2], 2)
+                        )
+                        # - tr(A^-1 @ d²A/dxdydz) - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx)
                         for e in range(self.neu):
                             res_u[e, r1, e, r2, e, r3] += tr_tress_u[e, r1, r2, r3]
                             res_u[e, r1, e, r2, :, r3] -= matrix_hess_u[:, e, r1, r2] * matrix_grad_u[e, :, r3]
                             res_u[e, r1, :, r2, e, r3] -= matrix_hess_u[:, e, r1, r3] * matrix_grad_u[e, :, r2]
                             res_u[:, r1, e, r2, e, r3] -= matrix_hess_u[:, e, r2, r3] * matrix_grad_u[e, :, r1]
-                            res_u[:, r1, :, r2, e, r3] -= matrix_grad_u_dz[:, :, r1, e, r3].T * matrix_grad_u[:, :, r2]
             tress[:self.neu * 3, :self.neu * 3, :self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3, self.neu * 3)
-            # tr(A^-1 @ d²A/dxdydz) - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx) +
-            # tr( A^-1 • dA/dx ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dz) + tr(A^-1 • dA/dz ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dx)
-            matrix_grad_d_dz = np.zeros(shape=(self.ned, self.ned, 3, self.ned, 3))
-            for r1 in range(3):
-                for r2 in range(3):
-                    matrix_grad_d_dz[:, :, r1, :, r2] = - np.expand_dims(matrix_grad_d[:, :, r1].T, 0) * np.expand_dims(matrix_grad_d[:, :, r2], 1)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
             matrix_hess_d = (inv_wfn_d @ hess_d[self.permutation_down[i]].reshape(self.ned, self.ned * 9)).reshape(self.ned, self.ned, 3, 3)
             for r1 in range(3):
                 for r2 in range(3):
                     for r3 in range(3):
-                        # res_d[:, r1, :, r2, :, r3] += (
-                        #     np.expand_dims(matrix_grad_d[:, :, r1], 0) *
-                        #     np.expand_dims(matrix_grad_d[:, :, r2].T, 1) *
-                        #     np.expand_dims(matrix_grad_d[:, :, r3], 2)
-                        # ) + (
-                        #     np.expand_dims(matrix_grad_d[:, :, r1].T, 2) *
-                        #     np.expand_dims(matrix_grad_d[:, :, r2], 1) *
-                        #     np.expand_dims(matrix_grad_d[:, :, r3].T, 0)
-                        # )
-                        res_d[:, r1, :, r2, :, r3] -= np.expand_dims(matrix_grad_d[:, :, r1].T, 2) * matrix_grad_d_dz[:, :, r2, :, r3]
+                        # tr( A^-1 • dA/dx ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dz) + tr(A^-1 • dA/dz ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dx)
+                        res_d[:, r1, :, r2, :, r3] += (
+                            np.expand_dims(matrix_grad_d[:, :, r2].T, 0) *
+                            np.expand_dims(matrix_grad_d[:, :, r3], 1) *
+                            np.expand_dims(matrix_grad_d[:, :, r1].T, 2)
+                        ) + (
+                            np.expand_dims(matrix_grad_d[:, :, r3], 0) *
+                            np.expand_dims(matrix_grad_d[:, :, r1].T, 1) *
+                            np.expand_dims(matrix_grad_d[:, :, r2], 2)
+                        )
+                        # - tr(A^-1 @ d²A/dxdydz) - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx)
                         for e in range(self.ned):
                             res_d[e, r1, e, r2, e, r3] += tr_tress_d[e, r1, r2, r3]
                             res_d[e, r1, e, r2, :, r3] -= matrix_hess_d[:, e, r1, r2] * matrix_grad_d[e, :, r3]
                             res_d[e, r1, :, r2, e, r3] -= matrix_hess_d[:, e, r1, r3] * matrix_grad_d[e, :, r2]
                             res_d[:, r1, e, r2, e, r3] -= matrix_hess_d[:, e, r2, r3] * matrix_grad_d[e, :, r1]
-                            res_d[:, r1, :, r2, e, r3] -= matrix_grad_d_dz[:, :, r1, e, r3].T * matrix_grad_d[:, :, r2]
             tress[self.neu * 3:, self.neu * 3:, self.neu * 3:] += c * res_d.reshape(self.ned * 3, self.ned * 3, self.ned * 3)
             # 2 * tr(A^-1 • dA/dx) ⊗ tr(A^-1 • dA/dy) ⊗ tr(A^-1 • dA/dz)
             tress -= 2 * c * tr_grad * np.expand_dims(np.outer(tr_grad, tr_grad), 2)
@@ -723,45 +711,3 @@ class Slater(AbstractSlater):
             res[i] += self.hessian(n_vectors)[0].ravel()
             self.det_coeff[i] -= delta
         return (self.parameters_projector.T @ (res / delta / 2)).reshape(-1, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
-
-    def profile_value(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.value(n_vectors)
-
-    def profile_gradient(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.gradient(n_vectors)
-
-    def profile_laplacian(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.laplacian(n_vectors)
-
-    def profile_hessian(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.hessian(n_vectors)
-
-    def profile_tressian(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.tressian(n_vectors)
-
-    def profile_tressian_v2(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.tressian_v2(n_vectors)

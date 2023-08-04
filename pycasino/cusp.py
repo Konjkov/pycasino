@@ -6,9 +6,9 @@ import numba as nb
 
 from scipy.optimize import minimize
 from numpy.polynomial.polynomial import polyval
+from pycasino.abstract import AbstractCusp
 from pycasino.harmonics import angular_part
 from pycasino.readers.casino import CasinoConfig
-from pycasino.overload import random_step
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ cusp_spec = [
 
 
 @nb.experimental.jitclass(cusp_spec)
-class Cusp:
+class Cusp(AbstractCusp):
     """
     Scheme for adding electron–nucleus cusps to Gaussian orbitals
     A. Ma, M. D. Towler, N. D. Drummond, and R. J. Needs
@@ -95,6 +95,62 @@ class Cusp:
         self.coefficients = coefficients
         self.exponents = exponents
 
+    def exp(self, atom, orbital, r) -> float:
+        """Exponent part"""
+        return self.orbital_sign[atom, orbital] * np.exp(
+            # FIXME: use polyval(r, self.alpha[:, atom, i])
+            self.alpha[0, atom, orbital] +
+            self.alpha[1, atom, orbital] * r +
+            self.alpha[2, atom, orbital] * r ** 2 +
+            self.alpha[3, atom, orbital] * r ** 3 +
+            self.alpha[4, atom, orbital] * r ** 4
+        )
+
+    def diff_1(self, atom, orbital, r) -> float:
+        """f`(r) / r"""
+        return (
+            self.alpha[1, atom, orbital] +
+            2 * self.alpha[2, atom, orbital] * r +
+            3 * self.alpha[3, atom, orbital] * r ** 2 +
+            4 * self.alpha[4, atom, orbital] * r ** 3
+        ) / r
+
+    def diff_2(self, atom, orbital, r) -> float:
+        """f``(r) / r²"""
+        return (
+            2 * self.alpha[2, atom, orbital] +
+            6 * self.alpha[3, atom, orbital] * r +
+            12 * self.alpha[4, atom, orbital] * r ** 2 +
+            (
+                self.alpha[1, atom, orbital] +
+                2 * self.alpha[2, atom, orbital] * r +
+                3 * self.alpha[3, atom, orbital] * r ** 2 +
+                4 * self.alpha[4, atom, orbital] * r ** 3
+            ) ** 2
+        ) / r ** 2
+
+    def diff_3(self, atom, orbital, r) -> float:
+        """f```(r) / r³"""
+        return (
+            6 * self.alpha[3, atom, orbital] +
+            24 * self.alpha[4, atom, orbital] * r +
+            6 * (
+                self.alpha[2, atom, orbital] +
+                3 * self.alpha[3, atom, orbital] * r +
+                6 * self.alpha[4, atom, orbital] * r ** 2
+            ) * (
+                self.alpha[1, atom, orbital] +
+                2 * self.alpha[2, atom, orbital] * r +
+                3 * self.alpha[3, atom, orbital] * r ** 2 +
+                4 * self.alpha[4, atom, orbital] * r ** 3
+            ) + (
+                self.alpha[1, atom, orbital] +
+                2 * self.alpha[2, atom, orbital] * r +
+                3 * self.alpha[3, atom, orbital] * r ** 2 +
+                4 * self.alpha[4, atom, orbital] * r ** 3
+            ) ** 3
+        ) / r ** 3
+
     def value(self, n_vectors: np.ndarray):
         """Cusp correction for s-part of orbitals."""
         value = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned))
@@ -105,14 +161,7 @@ class Cusp:
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.rc[atom, i]:
-                        value[i, j] = self.orbital_sign[atom, i] * np.exp(
-                            # FIXME: use polyval(r, self.alpha[:, atom, i])
-                            self.alpha[0, atom, i] +
-                            self.alpha[1, atom, i] * r +
-                            self.alpha[2, atom, i] * r ** 2 +
-                            self.alpha[3, atom, i] * r ** 3 +
-                            self.alpha[4, atom, i] * r ** 4
-                        ) + self.shift[atom, i]
+                        value[i, j] = self.exp(atom, i, r) + self.shift[atom, i]
                     # FIXME: if s-орбитали contribution < cusp_threshold = 1e-7
                     s_part = 0.0
                     for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
@@ -133,13 +182,7 @@ class Cusp:
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.rc[atom, i]:
-                        value[i, j] = self.orbital_sign[atom, i] * np.exp(
-                            self.alpha[0, atom, i] +
-                            self.alpha[1, atom, i] * r +
-                            self.alpha[2, atom, i] * r ** 2 +
-                            self.alpha[3, atom, i] * r ** 3 +
-                            self.alpha[4, atom, i] * r ** 4
-                        ) + self.shift[atom, i]
+                        value[i, j] = self.exp(atom, i, r) + self.shift[atom, i]
 
                     s_part = 0.0
                     for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
@@ -157,7 +200,7 @@ class Cusp:
 
     def gradient(self, n_vectors: np.ndarray):
         """Cusp part of gradient
-        df(r)/dxi = f`(r) * xi / r
+        df(r)/dx = ri * f`(r) / r
         """
         gradient = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3))
         for i in range(self.orbitals_up):
@@ -167,18 +210,7 @@ class Cusp:
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.rc[atom, i]:
-                        gradient[i, j] = self.orbital_sign[atom, i] * (
-                            self.alpha[1, atom, i] +
-                            2 * self.alpha[2, atom, i] * r +
-                            3 * self.alpha[3, atom, i] * r ** 2 +
-                            4 * self.alpha[4, atom, i] * r ** 3
-                        ) * np.exp(
-                            self.alpha[0, atom, i] +
-                            self.alpha[1, atom, i] * r +
-                            self.alpha[2, atom, i] * r ** 2 +
-                            self.alpha[3, atom, i] * r ** 3 +
-                            self.alpha[4, atom, i] * r ** 4
-                        ) * n_vectors[atom, j] / r
+                        gradient[i, j] = self.diff_1(atom, i, r) * self.exp(atom, i, r) * n_vectors[atom, j]
 
                     s_part = 0.0
                     for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
@@ -201,18 +233,7 @@ class Cusp:
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.rc[atom, i]:
-                        gradient[i, j] = self.orbital_sign[atom, i] * (
-                            self.alpha[1, atom, i] +
-                            2 * self.alpha[2, atom, i] * r +
-                            3 * self.alpha[3, atom, i] * r ** 2 +
-                            4 * self.alpha[4, atom, i] * r ** 3
-                        ) * np.exp(
-                            self.alpha[0, atom, i] +
-                            self.alpha[1, atom, i] * r +
-                            self.alpha[2, atom, i] * r ** 2 +
-                            self.alpha[3, atom, i] * r ** 3 +
-                            self.alpha[4, atom, i] * r ** 4
-                        ) * n_vectors[atom, j] / r
+                        gradient[i, j] = self.diff_1(atom, i, r) * self.exp(atom, i, r) * n_vectors[atom, j]
 
                     s_part = 0.0
                     for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
@@ -232,7 +253,8 @@ class Cusp:
 
     def laplacian(self, n_vectors: np.ndarray):
         """Cusp part of laplacian
-        ∇²(f(r)) = d²f(r)/dr² + 2/r * df(r)/dr
+        https://math.stackexchange.com/questions/1048973/laplacian-of-a-radial-function
+        ∇²(f(r)) = f``(r) + 2 * f`(r) / r
         """
         laplacian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned))
         for i in range(self.orbitals_up):
@@ -242,20 +264,7 @@ class Cusp:
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.rc[atom, i]:
-                        laplacian[i, j] = self.orbital_sign[atom, i] * (
-                            2 * self.alpha[1, atom, i] +
-                            4 * self.alpha[2, atom, i] * r +
-                            6 * self.alpha[3, atom, i] * r**2 +
-                            8 * self.alpha[4, atom, i] * r**3 +
-                            2 * r * (self.alpha[2, atom, i] + 3 * self.alpha[3, atom, i] * r + 6 * self.alpha[4, atom, i] * r**2) +
-                            r * (self.alpha[1, atom, i] + 2 * self.alpha[2, atom, i] * r + 3 * self.alpha[3, atom, i] * r**2 + 4 * self.alpha[4, atom, i] * r**3)**2
-                        ) * np.exp(
-                            self.alpha[0, atom, i] +
-                            self.alpha[1, atom, i] * r +
-                            self.alpha[2, atom, i] * r ** 2 +
-                            self.alpha[3, atom, i] * r ** 3 +
-                            self.alpha[4, atom, i] * r ** 4
-                        ) / r
+                        laplacian[i, j] = (2 * self.diff_1(atom, i, r) + self.diff_2(atom, i, r) * r ** 2) * self.exp(atom, i, r)
 
                     s_part = 0.0
                     for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
@@ -278,20 +287,7 @@ class Cusp:
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.rc[atom, i]:
-                        laplacian[i, j] = self.orbital_sign[atom, i] * (
-                            2 * self.alpha[1, atom, i] +
-                            4 * self.alpha[2, atom, i] * r +
-                            6 * self.alpha[3, atom, i] * r**2 +
-                            8 * self.alpha[4, atom, i] * r**3 +
-                            2 * r * (self.alpha[2, atom, i] + 3 * self.alpha[3, atom, i] * r + 6 * self.alpha[4, atom, i] * r**2) +
-                            r * (self.alpha[1, atom, i] + 2 * self.alpha[2, atom, i] * r + 3 * self.alpha[3, atom, i] * r**2 + 4 * self.alpha[4, atom, i] * r**3)**2
-                        ) * np.exp(
-                            self.alpha[0, atom, i] +
-                            self.alpha[1, atom, i] * r +
-                            self.alpha[2, atom, i] * r ** 2 +
-                            self.alpha[3, atom, i] * r ** 3 +
-                            self.alpha[4, atom, i] * r ** 4
-                        ) / r
+                        laplacian[i, j] = (2 * self.diff_1(atom, i, r) + self.diff_2(atom, i, r) * r ** 2) * self.exp(atom, i, r)
 
                     s_part = 0.0
                     for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
@@ -312,8 +308,7 @@ class Cusp:
     def hessian(self, n_vectors: np.ndarray):
         """Cusp part of hessian
         https://sunlimingbit.wordpress.com/2018/09/23/hessian-of-radial-functions/
-        d²f(r)/dxixj = f``(r) * xi xj / r² + f`(r)(δij / r - xi xj / r**3) =
-        (f``(r) / r² - f`(r) / r**3) xi xj + f`(r) * δij / r
+        d²f(r)/dxdy = ri ⊗ rj * f``(r) / r² + (δij - ri ⊗ rj / r²) * f`(r) / r
         """
         hessian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3, 3))
         for i in range(self.orbitals_up):
@@ -323,32 +318,10 @@ class Cusp:
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.rc[atom, i]:
-                        diff_1 = (
-                            self.alpha[1, atom, i] +
-                            2 * self.alpha[2, atom, i] * r +
-                            3 * self.alpha[3, atom, i] * r ** 2 +
-                            4 * self.alpha[4, atom, i] * r ** 3
-                        )
-                        diff_2 = (
-                            2 * self.alpha[2, atom, i] +
-                            6 * self.alpha[3, atom, i] * r +
-                            12 * self.alpha[4, atom, i] * r ** 2 + (
-                                self.alpha[1, atom, i] +
-                                2 * self.alpha[2, atom, i] * r +
-                                3 * self.alpha[3, atom, i] * r ** 2 +
-                                4 * self.alpha[4, atom, i] * r ** 3
-                            ) ** 2
-                        )
-                        hessian[i, j, :, :] = self.orbital_sign[atom, i] * (
-                            diff_2 * np.outer(n_vectors[atom, j], n_vectors[atom, j]) / r ** 2 +
-                            diff_1 * (np.eye(3) / r - np.outer(n_vectors[atom, j], n_vectors[atom, j]) / r ** 3)
-                        ) * np.exp(
-                            self.alpha[0, atom, i] +
-                            self.alpha[1, atom, i] * r +
-                            self.alpha[2, atom, i] * r ** 2 +
-                            self.alpha[3, atom, i] * r ** 3 +
-                            self.alpha[4, atom, i] * r ** 4
-                        )
+                        ri_rj = np.outer(n_vectors[atom, j], n_vectors[atom, j])
+                        hessian[i, j, :, :] = (
+                            self.diff_2(atom, i, r) * ri_rj + self.diff_1(atom, i, r) * (np.eye(3) - ri_rj / r ** 2)
+                        ) * self.exp(atom, i, r)
                     s_part = np.zeros(shape=(3, 3))
                     for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
                         l = self.shell_moments[nshell]
@@ -371,32 +344,10 @@ class Cusp:
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.rc[atom, i]:
-                        diff_1 = (
-                            self.alpha[1, atom, i] +
-                            2 * self.alpha[2, atom, i] * r +
-                            3 * self.alpha[3, atom, i] * r ** 2 +
-                            4 * self.alpha[4, atom, i] * r ** 3
-                        )
-                        diff_2 = (
-                            2 * self.alpha[2, atom, i] +
-                            6 * self.alpha[3, atom, i] * r +
-                            12 * self.alpha[4, atom, i] * r ** 2 + (
-                                self.alpha[1, atom, i] +
-                                2 * self.alpha[2, atom, i] * r +
-                                3 * self.alpha[3, atom, i] * r ** 2 +
-                                4 * self.alpha[4, atom, i] * r ** 3
-                            ) ** 2
-                        )
-                        hessian[i, j, :, :] = self.orbital_sign[atom, i] * (
-                            diff_2 * np.outer(n_vectors[atom, j], n_vectors[atom, j]) / r ** 2 +
-                            diff_1 * (np.eye(3) / r - np.outer(n_vectors[atom, j], n_vectors[atom, j]) / r ** 3)
-                        ) * np.exp(
-                            self.alpha[0, atom, i] +
-                            self.alpha[1, atom, i] * r +
-                            self.alpha[2, atom, i] * r ** 2 +
-                            self.alpha[3, atom, i] * r ** 3 +
-                            self.alpha[4, atom, i] * r ** 4
-                        )
+                        ri_rj = np.outer(n_vectors[atom, j], n_vectors[atom, j])
+                        hessian[i, j, :, :] = (
+                            self.diff_2(atom, i, r) * ri_rj + self.diff_1(atom, i, r) * (np.eye(3) - ri_rj / r ** 2)
+                        ) * self.exp(atom, i, r)
 
                     s_part = np.zeros(shape=(3, 3))
                     for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
@@ -416,7 +367,11 @@ class Cusp:
         return hessian[:self.orbitals_up, :self.neu], hessian[self.orbitals_up:, self.neu:]
 
     def tressian(self, n_vectors: np.ndarray):
-        """Cusp part of tressian"""
+        """Cusp part of tressian
+        d³f(r)/dxdydz = ri ⊗ rj ⊗ rk * f```(r) / r³ +
+        (δik ⊗ rj + δjk ⊗ ri + δij ⊗ rk - 3 * ri ⊗ rj ⊗ rk / r²) * f``(r) / r² +
+        (3 * ri ⊗ rj ⊗ rk / r**4 - δij ⊗ rk / r² - δik ⊗ rj / r² - δjk ⊗ ri / r²) * f`(r) / r
+        """
         tressian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3, 3, 3))
 
         for i in range(self.orbitals_up):
@@ -426,16 +381,17 @@ class Cusp:
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.rc[atom, i]:
-                        tressian[i, j, :, :, :] = self.orbital_sign[atom, i] * (
-                            # FIXME:
-                            1
-                        ) * np.exp(
-                            self.alpha[0, atom, i] +
-                            self.alpha[1, atom, i] * r +
-                            self.alpha[2, atom, i] * r ** 2 +
-                            self.alpha[3, atom, i] * r ** 3 +
-                            self.alpha[4, atom, i] * r ** 4
+                        kroneker = (
+                            np.expand_dims(np.eye(3), 2) * n_vectors[atom, j] +
+                            np.expand_dims(np.eye(3), 1) * np.expand_dims(n_vectors[atom, j], 1) +
+                            np.expand_dims(np.eye(3), 0) * np.expand_dims(np.expand_dims(n_vectors[atom, j], 1), 2)
                         )
+                        ri_rj_rk = np.expand_dims(np.outer(n_vectors[atom, j], n_vectors[atom, j]), 2) * n_vectors[atom, j]
+                        tressian[i, j, :, :, :] = (
+                            self.diff_3(atom, i, r) * ri_rj_rk +
+                            self.diff_2(atom, i, r) * (kroneker - 3 * ri_rj_rk / r ** 2) +
+                            self.diff_1(atom, i, r) * (3 * ri_rj_rk / r ** 2 - kroneker) / r ** 2
+                        ) * self.exp(atom, i, r)
 
                     s_part = np.zeros(shape=(3, 3, 3))
                     for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
@@ -485,16 +441,17 @@ class Cusp:
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
                     if r < self.rc[atom, i]:
-                        tressian[i, j, :, :, :] = self.orbital_sign[atom, i] * (
-                            # FIXME:
-                            1
-                        ) * np.exp(
-                            self.alpha[0, atom, i] +
-                            self.alpha[1, atom, i] * r +
-                            self.alpha[2, atom, i] * r ** 2 +
-                            self.alpha[3, atom, i] * r ** 3 +
-                            self.alpha[4, atom, i] * r ** 4
+                        kroneker = (
+                            np.expand_dims(np.eye(3), 2) * n_vectors[atom, j] +
+                            np.expand_dims(np.eye(3), 1) * np.expand_dims(n_vectors[atom, j], 1) +
+                            np.expand_dims(np.eye(3), 0) * np.expand_dims(np.expand_dims(n_vectors[atom, j], 1), 2)
                         )
+                        ri_rj_rk = np.expand_dims(np.outer(n_vectors[atom, j], n_vectors[atom, j]), 2) * n_vectors[atom, j]
+                        tressian[i, j, :, :, :] = (
+                            self.diff_3(atom, i, r) * ri_rj_rk +
+                            self.diff_2(atom, i, r) * (kroneker - 3 * ri_rj_rk / r ** 2) +
+                            self.diff_1(atom, i, r) * (3 * ri_rj_rk / r ** 2 - kroneker) / r ** 2
+                        ) * self.exp(atom, i, r)
 
                     s_part = np.zeros(shape=(3, 3, 3))
                     for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
@@ -538,34 +495,6 @@ class Cusp:
                     tressian[i, j] -= s_part * self.norm
 
         return tressian[:self.orbitals_up, :self.neu], tressian[self.orbitals_up:, self.neu:]
-
-    def profile_value(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.value(n_vectors)
-
-    def profile_gradient(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.gradient(n_vectors)
-
-    def profile_laplacian(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.laplacian(n_vectors)
-
-    def profile_hessian(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.hessian(n_vectors)
 
 
 class CuspFactory:
