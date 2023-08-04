@@ -468,7 +468,7 @@ class Slater(AbstractSlater):
         return hess / val, grad / val
 
     def tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Tressian or numerical third partial derivatives with respect to e-coordinates
+        """Tressian or numerical third partial derivatives w.r.t. e-coordinates
         d³ln(det(A))/dxdydz = (
             tr(A^-1 • d²A/dxdydz)
             + tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy)

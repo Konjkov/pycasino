@@ -107,14 +107,14 @@ class Profiler(Casino):
         logger.info(' jastrow value parameters d1       %8.1f', (end - start))
 
         start = default_timer()
-        self.wfn.jastrow.profile_laplacian_parameters_d1(self.dr, self.steps // 10, self.atom_positions, self.r_e)
+        self.wfn.jastrow.profile_laplacian_parameters_d1(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
-        logger.info(' jastrow laplacian parameters d1   %8.1f', (end - start) * 10)
+        logger.info(' jastrow laplacian parameters d1   %8.1f', (end - start))
 
         start = default_timer()
-        self.wfn.jastrow.profile_gradient_parameters_d1(self.dr, self.steps // 10, self.atom_positions, self.r_e)
+        self.wfn.jastrow.profile_gradient_parameters_d1(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
-        logger.info(' jastrow gradient parameters d1    %8.1f', (end - start) *10)
+        logger.info(' jastrow gradient parameters d1    %8.1f', (end - start))
 
     def backflow_profiling(self):
 
@@ -160,7 +160,7 @@ class Profiler(Casino):
 
 if __name__ == '__main__':
     """Profiling"""
-    for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
+    for mol in ('He', 'He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
         path = f'../tests/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
         logger.info('%s:', mol)
         profiler = Profiler(path)
