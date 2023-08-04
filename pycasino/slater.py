@@ -6,7 +6,6 @@ from pycasino.abstract import AbstractSlater
 from pycasino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from pycasino.cusp import Cusp
 from pycasino.harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
-from pycasino.overload import random_step
 
 value_matrix_res_type = nb.types.Tuple([nb.float64[:, :], nb.float64[:, :]])
 gradient_matrix_res_type = nb.types.Tuple([nb.float64[:, :, :], nb.float64[:, :, :]])
@@ -712,45 +711,3 @@ class Slater(AbstractSlater):
             res[i] += self.hessian(n_vectors)[0].ravel()
             self.det_coeff[i] -= delta
         return (self.parameters_projector.T @ (res / delta / 2)).reshape(-1, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
-
-    def profile_value(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.value(n_vectors)
-
-    def profile_gradient(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.gradient(n_vectors)
-
-    def profile_laplacian(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.laplacian(n_vectors)
-
-    def profile_hessian(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.hessian(n_vectors)
-
-    def profile_tressian(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.tressian(n_vectors)
-
-    def profile_tressian_v2(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.tressian_v2(n_vectors)

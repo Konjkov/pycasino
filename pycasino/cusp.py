@@ -9,7 +9,6 @@ from numpy.polynomial.polynomial import polyval
 from pycasino.abstract import AbstractCusp
 from pycasino.harmonics import angular_part
 from pycasino.readers.casino import CasinoConfig
-from pycasino.overload import random_step
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +95,7 @@ class Cusp(AbstractCusp):
         self.coefficients = coefficients
         self.exponents = exponents
 
-    def exp(self, atom, orbital, r):
+    def exp(self, atom, orbital, r) -> float:
         """Exponent part"""
         return self.orbital_sign[atom, orbital] * np.exp(
             # FIXME: use polyval(r, self.alpha[:, atom, i])
@@ -107,7 +106,7 @@ class Cusp(AbstractCusp):
             self.alpha[4, atom, orbital] * r ** 4
         )
 
-    def diff_1(self, atom, orbital, r):
+    def diff_1(self, atom, orbital, r) -> float:
         """f`(r) / r"""
         return (
             self.alpha[1, atom, orbital] +
@@ -116,7 +115,7 @@ class Cusp(AbstractCusp):
             4 * self.alpha[4, atom, orbital] * r ** 3
         ) / r
 
-    def diff_2(self, atom, orbital, r):
+    def diff_2(self, atom, orbital, r) -> float:
         """f``(r) / r²"""
         return (
             2 * self.alpha[2, atom, orbital] +
@@ -130,7 +129,7 @@ class Cusp(AbstractCusp):
             ) ** 2
         ) / r ** 2
 
-    def diff_3(self, atom, orbital, r):
+    def diff_3(self, atom, orbital, r) -> float:
         """f```(r) / r³"""
         return (
             6 * self.alpha[3, atom, orbital] +
@@ -254,6 +253,7 @@ class Cusp(AbstractCusp):
 
     def laplacian(self, n_vectors: np.ndarray):
         """Cusp part of laplacian
+        https://math.stackexchange.com/questions/1048973/laplacian-of-a-radial-function
         ∇²(f(r)) = f``(r) + 2 * f`(r) / r
         """
         laplacian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned))
@@ -495,34 +495,6 @@ class Cusp(AbstractCusp):
                     tressian[i, j] -= s_part * self.norm
 
         return tressian[:self.orbitals_up, :self.neu], tressian[self.orbitals_up:, self.neu:]
-
-    def profile_value(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.value(n_vectors)
-
-    def profile_gradient(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.gradient(n_vectors)
-
-    def profile_laplacian(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.laplacian(n_vectors)
-
-    def profile_hessian(self, dr, steps: int, atom_positions, r_initial) -> None:
-        """auxiliary code"""
-        for _ in range(steps):
-            r_e = r_initial + random_step(dr, self.neu + self.ned)
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-            self.hessian(n_vectors)
 
 
 class CuspFactory:
