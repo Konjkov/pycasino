@@ -47,32 +47,61 @@ class AbstractCusp:
         laplacian[:self.orbitals_up, :self.neu] -= 6 * value[0]
         laplacian[self.orbitals_up:, self.neu:] -= 6 * value[1]
         for j in range(3):
-            n_vectors[:, :, j] -= delta
+            n_vectors[:, :, j] -= delta_2
             value = self.value(n_vectors)
             laplacian[:self.orbitals_up, :self.neu] += value[0]
             laplacian[self.orbitals_up:, self.neu:] += value[1]
-            n_vectors[:, :, j] += 2 * delta
+            n_vectors[:, :, j] += 2 * delta_2
             value = self.value(n_vectors)
             laplacian[:self.orbitals_up, :self.neu] += value[0]
             laplacian[self.orbitals_up:, self.neu:] += value[1]
-            n_vectors[:, :, j] -= delta
+            n_vectors[:, :, j] -= delta_2
 
-        return laplacian[:self.orbitals_up, :self.neu] / delta / delta, laplacian[self.orbitals_up:, self.neu:] / delta / delta
+        return laplacian[:self.orbitals_up, :self.neu] / delta_2 / delta_2, laplacian[self.orbitals_up:, self.neu:] / delta_2 / delta_2
 
     # @abstractmethod
     def numerical_hessian(self, n_vectors: np.ndarray):
         """Cusp part of hessian"""
         hessian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3, 3))
         for j in range(3):
+            value = self.value(n_vectors)
+            hessian[:self.orbitals_up, :self.neu, j, j] -= 2 * value[0]
+            hessian[self.orbitals_up:, self.neu:, j, j] -= 2 * value[1]
             n_vectors[:, :, j] -= 2 * delta_2
             value = self.value(n_vectors)
-            hessian[:self.orbitals_up, :self.neu, j, j] -= value[0]
-            hessian[self.orbitals_up:, self.neu:, j, j] -= value[1]
+            hessian[:self.orbitals_up, :self.neu, j, j] += value[0]
+            hessian[self.orbitals_up:, self.neu:, j, j] += value[1]
             n_vectors[:, :, j] += 4 * delta_2
             value = self.value(n_vectors)
             hessian[:self.orbitals_up, :self.neu, j, j] += value[0]
             hessian[self.orbitals_up:, self.neu:, j, j] += value[1]
             n_vectors[:, :, j] -= 2 * delta_2
+
+        for j1 in range(3):
+                for j2 in range(3):
+                    if j1 >= j2:
+                        continue
+                    n_vectors[:, :, j1] -= delta_2
+                    n_vectors[:, :, j2] -= delta_2
+                    value = self.value(n_vectors)
+                    hessian[:self.orbitals_up, :self.neu, j1, j2] += value[0]
+                    hessian[self.orbitals_up:, self.neu:, j1, j2] += value[1]
+                    n_vectors[:, :, j1] += 2 * delta_2
+                    value = self.value(n_vectors)
+                    hessian[:self.orbitals_up, :self.neu, j1, j2] -= value[0]
+                    hessian[self.orbitals_up:, self.neu:, j1, j2] -= value[1]
+                    n_vectors[:, :, j2] += 2 * delta_2
+                    value = self.value(n_vectors)
+                    hessian[:self.orbitals_up, :self.neu, j1, j2] += value[0]
+                    hessian[self.orbitals_up:, self.neu:, j1, j2] += value[1]
+                    n_vectors[:, :, j1] -= 2 * delta_2
+                    value = self.value(n_vectors)
+                    hessian[:self.orbitals_up, :self.neu, j1, j2] -= value[0]
+                    hessian[self.orbitals_up:, self.neu:, j1, j2] -= value[1]
+                    n_vectors[:, :, j1] += delta_2
+                    n_vectors[:, :, j2] -= delta_2
+                    hessian[:self.orbitals_up, :self.neu, j2, j1] = hessian[:self.orbitals_up, :self.neu, j1, j2]
+                    hessian[self.orbitals_up:, self.neu:, j2, j1] = hessian[self.orbitals_up:, self.neu:, j1, j2]
 
         return hessian[:self.orbitals_up, :self.neu] / delta_2 / delta_2 / 4, hessian[self.orbitals_up:, self.neu:] / delta_2 / delta_2 / 4
 
@@ -80,16 +109,55 @@ class AbstractCusp:
     def numerical_tressian(self, n_vectors: np.ndarray):
         """Cusp part of tressian"""
         tressian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3, 3, 3))
-        for j in range(3):
-            n_vectors[:, :, j] -= 2 * delta_3
-            value = self.value(n_vectors)
-            tressian[:self.orbitals_up, :self.neu, j, j, j] -= value[0]
-            tressian[self.orbitals_up:, self.neu:, j, j, j] -= value[1]
-            n_vectors[:, :, j] += 4 * delta_3
-            value = self.value(n_vectors)
-            tressian[:self.orbitals_up, :self.neu, j, j, j] += value[0]
-            tressian[self.orbitals_up:, self.neu:, j, j, j] += value[1]
-            n_vectors[:, :, j] -= 2 * delta_3
+        for j1 in range(3):
+            for j2 in range(3):
+                for j3 in range(3):
+                    n_vectors[:, :, j1] -= delta_3
+                    n_vectors[:, :, j2] -= delta_3
+                    n_vectors[:, :, j3] -= delta_3
+                    # (-1, -1, -1)
+                    value = self.value(n_vectors)
+                    tressian[:self.orbitals_up, :self.neu, j1, j2, j3] -= value[0]
+                    tressian[self.orbitals_up:, self.neu:, j1, j2, j3] -= value[1]
+                    n_vectors[:, :, j1] += 2 * delta_3
+                    # ( 1, -1, -1)
+                    value = self.value(n_vectors)
+                    tressian[:self.orbitals_up, :self.neu, j1, j2, j3] += value[0]
+                    tressian[self.orbitals_up:, self.neu:, j1, j2, j3] += value[1]
+                    n_vectors[:, :, j2] += 2 * delta_3
+                    # ( 1,  1, -1)
+                    value = self.value(n_vectors)
+                    tressian[:self.orbitals_up, :self.neu, j1, j2, j3] -= value[0]
+                    tressian[self.orbitals_up:, self.neu:, j1, j2, j3] -= value[1]
+                    n_vectors[:, :, j1] -= 2 * delta_3
+                    # (-1,  1, -1)
+                    value = self.value(n_vectors)
+                    tressian[:self.orbitals_up, :self.neu, j1, j2, j3] += value[0]
+                    tressian[self.orbitals_up:, self.neu:, j1, j2, j3] += value[1]
+                    n_vectors[:, :, j2] -= 2 * delta_3
+                    n_vectors[:, :, j3] += 2 * delta_3
+                    # (-1, -1,  1)
+                    value = self.value(n_vectors)
+                    tressian[:self.orbitals_up, :self.neu, j1, j2, j3] += value[0]
+                    tressian[self.orbitals_up:, self.neu:, j1, j2, j3] += value[1]
+                    n_vectors[:, :, j1] += 2 * delta_3
+                    # ( 1, -1,  1)
+                    value = self.value(n_vectors)
+                    tressian[:self.orbitals_up, :self.neu, j1, j2, j3] -= value[0]
+                    tressian[self.orbitals_up:, self.neu:, j1, j2, j3] -= value[1]
+                    n_vectors[:, :, j2] += 2 * delta_3
+                    # ( 1,  1,  1)
+                    value = self.value(n_vectors)
+                    tressian[:self.orbitals_up, :self.neu, j1, j2, j3] += value[0]
+                    tressian[self.orbitals_up:, self.neu:, j1, j2, j3] += value[1]
+                    n_vectors[:, :, j1] -= 2 * delta_3
+                    # (-1,  1,  1)
+                    value = self.value(n_vectors)
+                    tressian[:self.orbitals_up, :self.neu, j1, j2, j3] -= value[0]
+                    tressian[self.orbitals_up:, self.neu:, j1, j2, j3] -= value[1]
+                    n_vectors[:, :, j1] += delta_3
+                    n_vectors[:, :, j2] -= delta_3
+                    n_vectors[:, :, j3] -= delta_3
 
         return tressian[:self.orbitals_up, :self.neu] / delta_3 / delta_3 / delta_3 / 8, tressian[self.orbitals_up:, self.neu:] / delta_3 / delta_3 / delta_3 / 8
 
