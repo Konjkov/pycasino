@@ -317,8 +317,8 @@ class Cusp(AbstractCusp):
                 for atom in range(n_vectors.shape[0]):
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
+                    ri_rj = np.outer(n_vectors[atom, j], n_vectors[atom, j])
                     if r < self.rc[atom, i]:
-                        ri_rj = np.outer(n_vectors[atom, j], n_vectors[atom, j])
                         hessian[i, j, :, :] = (
                             self.diff_2(atom, i, r) * ri_rj + self.diff_1(atom, i, r) * (np.eye(3) - ri_rj / r ** 2)
                         ) * self.exp(atom, i, r)
@@ -331,7 +331,7 @@ class Cusp(AbstractCusp):
                                 alpha = self.exponents[p + primitive]
                                 exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                                 c = -2 * alpha
-                                s_part += (np.outer(n_vectors[atom, j], n_vectors[atom, j]) * c + np.eye(3)) * c * exponent * self.mo[i, ao]
+                                s_part += (ri_rj * c + np.eye(3)) * c * exponent * self.mo[i, ao]
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
                     # subtract uncusped s-part
@@ -343,8 +343,8 @@ class Cusp(AbstractCusp):
                 for atom in range(n_vectors.shape[0]):
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
+                    ri_rj = np.outer(n_vectors[atom, j], n_vectors[atom, j])
                     if r < self.rc[atom, i]:
-                        ri_rj = np.outer(n_vectors[atom, j], n_vectors[atom, j])
                         hessian[i, j, :, :] = (
                             self.diff_2(atom, i, r) * ri_rj + self.diff_1(atom, i, r) * (np.eye(3) - ri_rj / r ** 2)
                         ) * self.exp(atom, i, r)
@@ -358,7 +358,7 @@ class Cusp(AbstractCusp):
                                 alpha = self.exponents[p + primitive]
                                 exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                                 c = -2 * alpha
-                                s_part += (np.outer(n_vectors[atom, j], n_vectors[atom, j]) * c + np.eye(3)) * c * exponent * self.mo[i, ao]
+                                s_part += (ri_rj * c + np.eye(3)) * c * exponent * self.mo[i, ao]
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
                     # subtract uncusped s-part
@@ -380,13 +380,13 @@ class Cusp(AbstractCusp):
                 for atom in range(n_vectors.shape[0]):
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
+                    ri_rj_rk = np.expand_dims(np.outer(n_vectors[atom, j], n_vectors[atom, j]), 2) * n_vectors[atom, j]
+                    kroneker = (
+                        np.expand_dims(np.eye(3), 2) * n_vectors[atom, j] +
+                        np.expand_dims(np.eye(3), 1) * np.expand_dims(n_vectors[atom, j], 1) +
+                        np.expand_dims(np.eye(3), 0) * np.expand_dims(np.expand_dims(n_vectors[atom, j], 1), 2)
+                    )
                     if r < self.rc[atom, i]:
-                        kroneker = (
-                            np.expand_dims(np.eye(3), 2) * n_vectors[atom, j] +
-                            np.expand_dims(np.eye(3), 1) * np.expand_dims(n_vectors[atom, j], 1) +
-                            np.expand_dims(np.eye(3), 0) * np.expand_dims(np.expand_dims(n_vectors[atom, j], 1), 2)
-                        )
-                        ri_rj_rk = np.expand_dims(np.outer(n_vectors[atom, j], n_vectors[atom, j]), 2) * n_vectors[atom, j]
                         tressian[i, j, :, :, :] = (
                             self.diff_3(atom, i, r) * ri_rj_rk +
                             self.diff_2(atom, i, r) * (kroneker - 3 * ri_rj_rk / r ** 2) +
@@ -402,36 +402,9 @@ class Cusp(AbstractCusp):
                                 alpha = self.exponents[p + primitive]
                                 exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                                 c = -2 * alpha
-                                s_part[0, 0, 0] += (x * x * x * c ** 3 + 3 * x * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[1, 1, 1] += (y * y * y * c ** 3 + 3 * y * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[2, 2, 2] += (z * z * z * c ** 3 + 3 * z * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[0, 1, 1] += (x * y * y * c ** 3 + x * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[0, 0, 1] += (x * x * y * c ** 3 + y * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[0, 0, 2] += (x * x * z * c ** 3 + z * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[0, 2, 2] += (x * z * z * c ** 3 + x * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[1, 1, 2] += (y * y * z * c ** 3 + z * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[1, 2, 2] += (y * z * z * c ** 3 + y * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[0, 1, 2] += x * y * z * c ** 3 * exponent * self.mo[i, ao]
-                                s_part[0, 1, 0] += s_part[0, 0, 1]
-                                s_part[0, 2, 0] += s_part[0, 0, 2]
-                                s_part[0, 2, 1] += s_part[0, 1, 2]
-                                s_part[1, 0, 0] += s_part[0, 0, 1]
-                                s_part[1, 0, 1] += s_part[0, 1, 1]
-                                s_part[1, 0, 2] += s_part[0, 1, 2]
-                                s_part[1, 1, 0] += s_part[0, 1, 1]
-                                s_part[1, 2, 0] += s_part[0, 1, 2]
-                                s_part[1, 2, 1] += s_part[1, 1, 2]
-                                s_part[2, 0, 0] += s_part[0, 0, 2]
-                                s_part[2, 0, 1] += s_part[0, 1, 2]
-                                s_part[2, 0, 2] += s_part[0, 2, 2]
-                                s_part[2, 1, 0] += s_part[0, 1, 2]
-                                s_part[2, 1, 1] += s_part[1, 1, 2]
-                                s_part[2, 1, 2] += s_part[1, 2, 2]
-                                s_part[2, 2, 0] += s_part[0, 2, 2]
-                                s_part[2, 2, 1] += s_part[1, 2, 2]
+                                s_part += (ri_rj_rk * c + kroneker) * c ** 2 * exponent * self.mo[i, ao]
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
-                    # subtract uncusped s-part
                     tressian[i, j] -= s_part * self.norm
 
         for i in range(self.orbitals_up, self.orbitals_up + self.orbitals_down):
@@ -440,13 +413,13 @@ class Cusp(AbstractCusp):
                 for atom in range(n_vectors.shape[0]):
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
-                    if r < self.rc[atom, i]:
-                        kroneker = (
+                    ri_rj_rk = np.expand_dims(np.outer(n_vectors[atom, j], n_vectors[atom, j]), 2) * n_vectors[atom, j]
+                    kroneker = (
                             np.expand_dims(np.eye(3), 2) * n_vectors[atom, j] +
                             np.expand_dims(np.eye(3), 1) * np.expand_dims(n_vectors[atom, j], 1) +
                             np.expand_dims(np.eye(3), 0) * np.expand_dims(np.expand_dims(n_vectors[atom, j], 1), 2)
-                        )
-                        ri_rj_rk = np.expand_dims(np.outer(n_vectors[atom, j], n_vectors[atom, j]), 2) * n_vectors[atom, j]
+                    )
+                    if r < self.rc[atom, i]:
                         tressian[i, j, :, :, :] = (
                             self.diff_3(atom, i, r) * ri_rj_rk +
                             self.diff_2(atom, i, r) * (kroneker - 3 * ri_rj_rk / r ** 2) +
@@ -462,33 +435,7 @@ class Cusp(AbstractCusp):
                                 alpha = self.exponents[p + primitive]
                                 exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                                 c = -2 * alpha
-                                s_part[0, 0, 0] += (x * x * x * c ** 3 + 3 * x * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[1, 1, 1] += (y * y * y * c ** 3 + 3 * y * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[2, 2, 2] += (z * z * z * c ** 3 + 3 * z * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[0, 1, 1] += (x * y * y * c ** 3 + x * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[0, 0, 1] += (x * x * y * c ** 3 + y * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[0, 0, 2] += (x * x * z * c ** 3 + z * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[0, 2, 2] += (x * z * z * c ** 3 + x * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[1, 1, 2] += (y * y * z * c ** 3 + z * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[1, 2, 2] += (y * z * z * c ** 3 + y * c ** 2) * exponent * self.mo[i, ao]
-                                s_part[0, 1, 2] += x * y * z * c ** 3 * exponent * self.mo[i, ao]
-                                s_part[0, 1, 0] += s_part[0, 0, 1]
-                                s_part[0, 2, 0] += s_part[0, 0, 2]
-                                s_part[0, 2, 1] += s_part[0, 1, 2]
-                                s_part[1, 0, 0] += s_part[0, 0, 1]
-                                s_part[1, 0, 1] += s_part[0, 1, 1]
-                                s_part[1, 0, 2] += s_part[0, 1, 2]
-                                s_part[1, 1, 0] += s_part[0, 1, 1]
-                                s_part[1, 2, 0] += s_part[0, 1, 2]
-                                s_part[1, 2, 1] += s_part[1, 1, 2]
-                                s_part[2, 0, 0] += s_part[0, 0, 2]
-                                s_part[2, 0, 1] += s_part[0, 1, 2]
-                                s_part[2, 0, 2] += s_part[0, 2, 2]
-                                s_part[2, 1, 0] += s_part[0, 1, 2]
-                                s_part[2, 1, 1] += s_part[1, 1, 2]
-                                s_part[2, 1, 2] += s_part[1, 2, 2]
-                                s_part[2, 2, 0] += s_part[0, 2, 2]
-                                s_part[2, 2, 1] += s_part[1, 2, 2]
+                                s_part += (ri_rj_rk * c + kroneker) * c ** 2 * exponent * self.mo[i, ao]
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
                     # subtract uncusped s-part

@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(
-    name='pycasino',
+    name='casino',
     version='0.1.0',
     description='Quantum Monte Carlo Python package',
     url='https://github.com/Konjkov/pycasino',
@@ -11,8 +11,8 @@ setup(
     packages=['pycasino', 'pycasino.readers', 'sympy_utils'],
     install_requires=[
         'numba==0.57.1',
-        'numba-mpi==0.34',
-        'pyblock==0.6.0',
+        'numba-mpi>=0.34',
+        'pyblock>=0.6.0',
         'numpy==1.24.3',
         'scipy==1.10.1',
         'sympy==1.12.0',
