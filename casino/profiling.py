@@ -3,7 +3,7 @@ import logging
 
 from timeit import default_timer
 from numba.core.runtime import rtsys
-from pycasino.casino import Casino
+from casino.pycasino import Casino
 
 
 logger = logging.getLogger(__name__)

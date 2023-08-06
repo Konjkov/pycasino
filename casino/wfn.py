@@ -1,10 +1,10 @@
 import numpy as np
 import numba as nb
 
-from pycasino import delta
-from pycasino.slater import Slater
-from pycasino.jastrow import Jastrow
-from pycasino.backflow import Backflow
+from casino import delta
+from casino.slater import Slater
+from casino.jastrow import Jastrow
+from casino.backflow import Backflow
 
 spec = [
     ('neu', nb.int64),

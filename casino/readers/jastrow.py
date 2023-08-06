@@ -4,8 +4,8 @@ import os
 
 import numpy as np
 import numba as nb
-from pycasino.jastrow import construct_a_matrix
-from pycasino.overload import rref
+from casino.jastrow import construct_a_matrix
+from casino.overload import rref
 
 labels_type = nb.int64[:]
 chi_parameters_type = nb.float64[:, :]

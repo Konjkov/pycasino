@@ -1,9 +1,9 @@
 import numpy as np
 import numba as nb
 
-from pycasino import delta
-from pycasino.abstract import AbstractJastrow
-from pycasino.overload import block_diag, rref
+from casino import delta
+from casino.abstract import AbstractJastrow
+from casino.overload import block_diag, rref
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)

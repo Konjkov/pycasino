@@ -1,7 +1,7 @@
 import numpy as np
 import numba as nb
 
-from pycasino.abstract import AbstractJastrow
+from casino.abstract import AbstractJastrow
 
 shape_type = nb.types.ListType(nb.int64)
 linear_parameters_type = nb.float64[:]

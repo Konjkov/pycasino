@@ -10,15 +10,15 @@ import scipy as sp
 from scipy.optimize import least_squares, minimize, curve_fit, minimize_scalar, OptimizeWarning
 import matplotlib.pyplot as plt
 
-from pycasino.cusp import CuspFactory
-from pycasino.slater import Slater
-from pycasino.jastrow import Jastrow
-from pycasino.gjastrow import Gjastrow
-from pycasino.backflow import Backflow
-from pycasino.markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
-from pycasino.wfn import Wfn
-from pycasino.readers.casino import CasinoConfig
-from pycasino.sem import correlated_sem
+from casino.cusp import CuspFactory
+from casino.slater import Slater
+from casino.jastrow import Jastrow
+from casino.gjastrow import Gjastrow
+from casino.backflow import Backflow
+from casino.markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
+from casino.wfn import Wfn
+from casino.readers.casino import CasinoConfig
+from casino.sem import correlated_sem
 
 logger = logging.getLogger(__name__)
 

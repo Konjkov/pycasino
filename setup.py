@@ -8,7 +8,7 @@ setup(
     author='Vladimir Konkov',
     author_email='Konjkov.VV@gmail.com',
     license='MIT',
-    packages=['pycasino', 'pycasino.readers', 'sympy_utils'],
+    packages=['casino', 'casino.readers'],
     install_requires=[
         'numba==0.57.1',
         'numba-mpi>=0.34',
@@ -35,6 +35,6 @@ setup(
     python_requires='>=3.10',
     # https://python-packaging.readthedocs.io/en/latest/command-line-scripts.html
     entry_points = {
-        'console_scripts': ['pycasino=pycasino.casino:main'],
+        'console_scripts': ['pycasino=casino.pycasino:main'],
     }
 )

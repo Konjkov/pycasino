@@ -6,9 +6,9 @@ import numba as nb
 
 from scipy.optimize import minimize
 from numpy.polynomial.polynomial import polyval
-from pycasino.abstract import AbstractCusp
-from pycasino.harmonics import angular_part
-from pycasino.readers.casino import CasinoConfig
+from casino.abstract import AbstractCusp
+from casino.harmonics import angular_part
+from casino.readers.casino import CasinoConfig
 
 logger = logging.getLogger(__name__)
 
@@ -381,7 +381,7 @@ class Cusp(AbstractCusp):
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
                     ri_rj_rk = np.expand_dims(np.outer(n_vectors[atom, j], n_vectors[atom, j]), 2) * n_vectors[atom, j]
-                    kroneker = (
+                    kronecker = (
                         np.expand_dims(np.eye(3), 2) * n_vectors[atom, j] +
                         np.expand_dims(np.eye(3), 1) * np.expand_dims(n_vectors[atom, j], 1) +
                         np.expand_dims(np.eye(3), 0) * np.expand_dims(np.expand_dims(n_vectors[atom, j], 1), 2)
@@ -389,8 +389,8 @@ class Cusp(AbstractCusp):
                     if r < self.rc[atom, i]:
                         tressian[i, j, :, :, :] = (
                             self.diff_3(atom, i, r) * ri_rj_rk +
-                            self.diff_2(atom, i, r) * (kroneker - 3 * ri_rj_rk / r ** 2) +
-                            self.diff_1(atom, i, r) * (3 * ri_rj_rk / r ** 2 - kroneker) / r ** 2
+                            self.diff_2(atom, i, r) * (kronecker - 3 * ri_rj_rk / r ** 2) +
+                            self.diff_1(atom, i, r) * (3 * ri_rj_rk / r ** 2 - kronecker) / r ** 2
                         ) * self.exp(atom, i, r)
 
                     s_part = np.zeros(shape=(3, 3, 3))
@@ -402,7 +402,7 @@ class Cusp(AbstractCusp):
                                 alpha = self.exponents[p + primitive]
                                 exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                                 c = -2 * alpha
-                                s_part += (ri_rj_rk * c + kroneker) * c ** 2 * exponent * self.mo[i, ao]
+                                s_part += (ri_rj_rk * c + kronecker) * c ** 2 * exponent * self.mo[i, ao]
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
                     tressian[i, j] -= s_part * self.norm
@@ -414,7 +414,7 @@ class Cusp(AbstractCusp):
                     x, y, z = n_vectors[atom, j]
                     r = np.sqrt(x * x + y * y + z * z)
                     ri_rj_rk = np.expand_dims(np.outer(n_vectors[atom, j], n_vectors[atom, j]), 2) * n_vectors[atom, j]
-                    kroneker = (
+                    kronecker = (
                             np.expand_dims(np.eye(3), 2) * n_vectors[atom, j] +
                             np.expand_dims(np.eye(3), 1) * np.expand_dims(n_vectors[atom, j], 1) +
                             np.expand_dims(np.eye(3), 0) * np.expand_dims(np.expand_dims(n_vectors[atom, j], 1), 2)
@@ -422,8 +422,8 @@ class Cusp(AbstractCusp):
                     if r < self.rc[atom, i]:
                         tressian[i, j, :, :, :] = (
                             self.diff_3(atom, i, r) * ri_rj_rk +
-                            self.diff_2(atom, i, r) * (kroneker - 3 * ri_rj_rk / r ** 2) +
-                            self.diff_1(atom, i, r) * (3 * ri_rj_rk / r ** 2 - kroneker) / r ** 2
+                            self.diff_2(atom, i, r) * (kronecker - 3 * ri_rj_rk / r ** 2) +
+                            self.diff_1(atom, i, r) * (3 * ri_rj_rk / r ** 2 - kronecker) / r ** 2
                         ) * self.exp(atom, i, r)
 
                     s_part = np.zeros(shape=(3, 3, 3))
@@ -435,7 +435,7 @@ class Cusp(AbstractCusp):
                                 alpha = self.exponents[p + primitive]
                                 exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                                 c = -2 * alpha
-                                s_part += (ri_rj_rk * c + kroneker) * c ** 2 * exponent * self.mo[i, ao]
+                                s_part += (ri_rj_rk * c + kronecker) * c ** 2 * exponent * self.mo[i, ao]
                         p += self.primitives[nshell]
                         ao += 2 * l + 1
                     # subtract uncusped s-part

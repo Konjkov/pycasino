@@ -1,11 +1,11 @@
 import os
 
-from pycasino.readers.input import Input
-from pycasino.readers.wfn import Gwfn, Stowfn
-from pycasino.readers.jastrow import Jastrow
-from pycasino.readers.gjastrow import Gjastrow
-from pycasino.readers.mdet import Mdet
-from pycasino.readers.backflow import Backflow
+from casino.readers.input import Input
+from casino.readers.wfn import Gwfn, Stowfn
+from casino.readers.jastrow import Jastrow
+from casino.readers.gjastrow import Gjastrow
+from casino.readers.mdet import Mdet
+from casino.readers.backflow import Backflow
 
 correlation_data_template = """\
  START HEADER

@@ -60,7 +60,7 @@ from mpi4py import MPI
 
 if MPI.COMM_WORLD.rank == 0:
     # to redirect scipy.optimize stdout to log-file
-    from pycasino.loggers import StreamToLogger
+    from casino.loggers import StreamToLogger
     sys.stdout = StreamToLogger(logger, logging.INFO)
     # sys.stderr = StreamToLogger(self.logger, logging.ERROR)
 else:

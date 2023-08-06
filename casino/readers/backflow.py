@@ -4,8 +4,8 @@ import os
 
 import numpy as np
 import numba as nb
-from pycasino.backflow import construct_c_matrix
-from pycasino.overload import rref
+from casino.backflow import construct_c_matrix
+from casino.overload import rref
 
 labels_type = nb.int64[:]
 mu_parameters_type = nb.float64[:, :]
