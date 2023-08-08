@@ -1616,6 +1616,11 @@ class Backflow(AbstractBackflow):
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
+                            outer_vec_1 = np.outer(r_ee_vec, r_e1I_vec)
+                            outer_vec_2 = np.outer(r_ee_vec, r_ee_vec)
+                            outer_vec_3 = np.outer(r_e1I_vec, r_e1I_vec)
+                            outer_vec_4 = np.outer(r_ee_vec, r_e2I_vec)
+                            outer_vec_5 = np.outer(r_e1I_vec, r_e2I_vec)
                             for j4 in range(phi_parameters.shape[3]):
                                 dn = np.sum(phi_parameters_available[:, :, :, j4])
                                 for j3 in range(phi_parameters.shape[2]):
@@ -1624,22 +1629,22 @@ class Backflow(AbstractBackflow):
                                             if phi_parameters_available[j1, j2, j3, j4]:
                                                 n += 1
                                                 if phi_set == j4:
-                                                    poly = n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
-                                                    res[n, ae_cutoff_condition, e1, :, e1, :] += cutoff * (
-                                                        (j1 - cutoff_diff_e1I) * np.outer(r_ee_vec, r_e1I_vec) / r_e1I**2 +
-                                                        j3 * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 + np.eye(3)
+                                                    poly = cutoff * n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
+                                                    res[n, ae_cutoff_condition, e1, :, e1, :] += (
+                                                        (j1 - cutoff_diff_e1I) * outer_vec_1 / r_e1I**2 +
+                                                        j3 * outer_vec_2 / r_ee**2 + np.eye(3)
                                                     ) * poly
-                                                    res[n + dn, ae_cutoff_condition, e1, :, e1, :] += cutoff * (
-                                                        (j1 - cutoff_diff_e1I) * np.outer(r_e1I_vec, r_e1I_vec) / r_e1I**2 +
-                                                        j3 * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2 + np.eye(3)
+                                                    res[n + dn, ae_cutoff_condition, e1, :, e1, :] += (
+                                                        (j1 - cutoff_diff_e1I) * outer_vec_3 / r_e1I**2 +
+                                                        j3 * outer_vec_1.T / r_ee**2 + np.eye(3)
                                                     ) * poly
-                                                    res[n, ae_cutoff_condition, e1, :, e2, :] += cutoff * (
-                                                        (j2 - cutoff_diff_e2I) * np.outer(r_ee_vec, r_e2I_vec) / r_e2I**2 -
-                                                        j3 * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 - np.eye(3)
+                                                    res[n, ae_cutoff_condition, e1, :, e2, :] += (
+                                                        (j2 - cutoff_diff_e2I) * outer_vec_4 / r_e2I**2 -
+                                                        j3 * outer_vec_2 / r_ee**2 - np.eye(3)
                                                     ) * poly
-                                                    res[n + dn, ae_cutoff_condition, e1, :, e2, :] += cutoff * (
-                                                        (j2 - cutoff_diff_e2I) * np.outer(r_e1I_vec, r_e2I_vec) / r_e2I**2 -
-                                                        j3 * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2
+                                                    res[n + dn, ae_cutoff_condition, e1, :, e2, :] += (
+                                                        (j2 - cutoff_diff_e2I) * outer_vec_5 / r_e2I**2 -
+                                                        j3 * outer_vec_1.T / r_ee**2
                                                     ) * poly
                                 n += dn
 
