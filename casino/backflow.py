@@ -1322,17 +1322,18 @@ class Backflow(AbstractBackflow):
                 res[n] += self.eta_term(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] -= delta
 
-        for j2 in range(self.eta_parameters.shape[1]):
-            for j1 in range(self.eta_parameters.shape[0]):
-                if self.eta_parameters_available[j1, j2]:
-                    n += 1
-                    for e1 in range(1, self.neu + self.ned):
-                        for e2 in range(e1):
-                            r_vec = e_vectors[e1, e2]
-                            r = e_powers[e1, e2, 1]
-                            eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.eta_parameters.shape[1]
-                            L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
-                            if r < L:
+        for e1 in range(1, self.neu + self.ned):
+            for e2 in range(e1):
+                n = self.eta_cutoff_optimizable.sum() - 1
+                r = e_powers[e1, e2, 1]
+                eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.eta_parameters.shape[1]
+                L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
+                if r < L:
+                    r_vec = e_vectors[e1, e2]
+                    for j2 in range(self.eta_parameters.shape[1]):
+                        for j1 in range(self.eta_parameters.shape[0]):
+                            if self.eta_parameters_available[j1, j2]:
+                                n += 1
                                 if eta_set == j2:
                                     bf = (1 - r / L) ** C * e_powers[e1, e2, j1] * r_vec
                                     res[n, ae_cutoff_condition, e1] += bf
@@ -1367,22 +1368,23 @@ class Backflow(AbstractBackflow):
                 self.mu_cutoff[i] -= delta
 
             L = self.mu_cutoff[i]
-            for j2 in range(mu_parameters.shape[1]):
-                for j1 in range(mu_parameters.shape[0]):
-                    if mu_parameters_available[j1, j2]:
-                        n += 1
-                        for label in mu_labels:
-                            for e1 in range(self.neu + self.ned):
-                                r_vec = n_vectors[label, e1]
-                                r = n_powers[label, e1, 1]
-                                if r < L:
-                                    mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
+            for label in mu_labels:
+                for e1 in range(self.neu + self.ned):
+                    n = int(self.mu_cutoff_optimizable[i]) - 1
+                    r = n_powers[label, e1, 1]
+                    if r < L:
+                        r_vec = n_vectors[label, e1]
+                        # cutoff_condition
+                        # 0: AE cutoff definitely not applied
+                        # 1: AE cutoff maybe applied
+                        ae_cutoff_condition = int(r > self.ae_cutoff[label])
+                        mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
+                        for j2 in range(mu_parameters.shape[1]):
+                            for j1 in range(mu_parameters.shape[0]):
+                                if mu_parameters_available[j1, j2]:
+                                    n += 1
                                     if mu_set == j2:
                                         poly = n_powers[label, e1, j1]
-                                        # cutoff_condition
-                                        # 0: AE cutoff definitely not applied
-                                        # 1: AE cutoff maybe applied
-                                        ae_cutoff_condition = int(r > self.ae_cutoff[label])
                                         res[n, ae_cutoff_condition, e1] += poly * (1 - r / L) ** C * r_vec
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
@@ -1416,34 +1418,35 @@ class Backflow(AbstractBackflow):
                 self.phi_cutoff[i] -= delta
 
             L = self.phi_cutoff[i]
-            for j4 in range(phi_parameters.shape[3]):
-                dn = np.sum(phi_parameters_available[:, :, :, j4])
-                for j3 in range(phi_parameters.shape[2]):
-                    for j2 in range(phi_parameters.shape[1]):
-                        for j1 in range(phi_parameters.shape[0]):
-                            if phi_parameters_available[j1, j2, j3, j4]:
-                                n += 1
-                                for label in phi_labels:
-                                    for e1 in range(self.neu + self.ned):
-                                        for e2 in range(self.neu + self.ned):
-                                            if e1 == e2:
-                                                continue
-                                            r_e1I_vec = n_vectors[label, e1]
-                                            r_ee_vec = e_vectors[e1, e2]
-                                            r_e1I = n_powers[label, e1, 1]
-                                            r_e2I = n_powers[label, e2, 1]
-                                            if r_e1I < L and r_e2I < L:
-                                                phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
+            for label in phi_labels:
+                for e1 in range(self.neu + self.ned):
+                    for e2 in range(self.neu + self.ned):
+                        if e1 == e2:
+                            continue
+                        n = int(self.phi_cutoff_optimizable[i]) - 1
+                        r_e1I = n_powers[label, e1, 1]
+                        r_e2I = n_powers[label, e2, 1]
+                        if r_e1I < L and r_e2I < L:
+                            r_e1I_vec = n_vectors[label, e1]
+                            r_ee_vec = e_vectors[e1, e2]
+                            # cutoff_condition
+                            # 0: AE cutoff definitely not applied
+                            # 1: AE cutoff maybe applied
+                            ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
+                            cutoff = (1 - r_e1I / L) ** C * (1 - r_e2I / L) ** C
+                            phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
+                            for j4 in range(phi_parameters.shape[3]):
+                                dn = np.sum(phi_parameters_available[:, :, :, j4])
+                                for j3 in range(phi_parameters.shape[2]):
+                                    for j2 in range(phi_parameters.shape[1]):
+                                        for j1 in range(phi_parameters.shape[0]):
+                                            if phi_parameters_available[j1, j2, j3, j4]:
+                                                n += 1
                                                 if phi_set == j4:
                                                     poly = n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
-                                                    # cutoff_condition
-                                                    # 0: AE cutoff definitely not applied
-                                                    # 1: AE cutoff maybe applied
-                                                    ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
-                                                    cutoff = (1 - r_e1I/L)**C * (1 - r_e2I/L)**C
                                                     res[n, ae_cutoff_condition, e1] += cutoff * poly * r_ee_vec
                                                     res[n + dn, ae_cutoff_condition, e1] += cutoff * poly * r_e1I_vec
-                n += dn
+                                n += dn
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
@@ -1489,21 +1492,24 @@ class Backflow(AbstractBackflow):
                 res[n] += self.eta_term_gradient(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] -= delta
 
-        for j2 in range(self.eta_parameters.shape[1]):
-            for j1 in range(self.eta_parameters.shape[0]):
-                if self.eta_parameters_available[j1, j2]:
-                    n += 1
-                    for e1 in range(1, self.neu + self.ned):
-                        for e2 in range(e1):
-                            r_vec = e_vectors[e1, e2]
-                            r = e_powers[e1, e2, 1]
-                            eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.eta_parameters.shape[1]
-                            L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
-                            if r < L:
+        for e1 in range(1, self.neu + self.ned):
+            for e2 in range(e1):
+                n = self.eta_cutoff_optimizable.sum() - 1
+                r = e_powers[e1, e2, 1]
+                eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.eta_parameters.shape[1]
+                L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
+                if r < L:
+                    r_vec = e_vectors[e1, e2]
+                    cutoff = (1 - r / L) ** C
+                    outer_vec = np.outer(r_vec, r_vec)
+                    for j2 in range(self.eta_parameters.shape[1]):
+                        for j1 in range(self.eta_parameters.shape[0]):
+                            if self.eta_parameters_available[j1, j2]:
+                                n += 1
                                 if eta_set == j2:
-                                    poly = e_powers[e1, e2, j1]
-                                    bf = (1 - r/L)**C * (
-                                            (j1 / r - C / (L - r)) * np.outer(r_vec, r_vec) / r + np.eye(3)
+                                    poly = cutoff * e_powers[e1, e2, j1]
+                                    bf = (
+                                        (j1 / r - C / (L - r)) * outer_vec / r + np.eye(3)
                                     ) * poly
                                     res[n, ae_cutoff_condition, e1, :, e1, :] += bf
                                     res[n, ae_cutoff_condition, e1, :, e2, :] -= bf
@@ -1539,24 +1545,27 @@ class Backflow(AbstractBackflow):
                 self.mu_cutoff[i] -= delta
 
             L = self.mu_cutoff[i]
-            for j2 in range(mu_parameters.shape[1]):
-                for j1 in range(mu_parameters.shape[0]):
-                    if mu_parameters_available[j1, j2]:
-                        n += 1
-                        for label in mu_labels:
-                            for e1 in range(self.neu + self.ned):
-                                r_vec = n_vectors[label, e1]
-                                r = n_powers[label, e1, 1]
-                                if r < L:
-                                    mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
+            for label in mu_labels:
+                for e1 in range(self.neu + self.ned):
+                    n = int(self.mu_cutoff_optimizable[i]) - 1
+                    r = n_powers[label, e1, 1]
+                    if r < L:
+                        r_vec = n_vectors[label, e1]
+                        # cutoff_condition
+                        # 0: AE cutoff definitely not applied
+                        # 1: AE cutoff maybe applied
+                        ae_cutoff_condition = int(r > self.ae_cutoff[label])
+                        mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
+                        cutoff = (1 - r / L) ** C
+                        outer_vec = np.outer(r_vec, r_vec)
+                        for j2 in range(mu_parameters.shape[1]):
+                            for j1 in range(mu_parameters.shape[0]):
+                                if mu_parameters_available[j1, j2]:
+                                    n += 1
                                     if mu_set == j2:
-                                        poly = n_powers[label, e1, j1]
-                                        # cutoff_condition
-                                        # 0: AE cutoff definitely not applied
-                                        # 1: AE cutoff maybe applied
-                                        ae_cutoff_condition = int(r > self.ae_cutoff[label])
-                                        res[n, ae_cutoff_condition, e1, :, e1, :] += (1 - r / L) ** C * (
-                                            (j1 / r - C / (L - r)) * np.outer(r_vec, r_vec) / r + np.eye(3)
+                                        poly = cutoff * n_powers[label, e1, j1]
+                                        res[n, ae_cutoff_condition, e1, :, e1, :] += (
+                                            (j1 / r - C / (L - r)) * outer_vec / r + np.eye(3)
                                         ) * poly
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
@@ -1590,52 +1599,58 @@ class Backflow(AbstractBackflow):
                 self.phi_cutoff[i] -= delta
 
             L = self.phi_cutoff[i]
-            for j4 in range(phi_parameters.shape[3]):
-                dn = np.sum(phi_parameters_available[:, :, :, j4])
-                for j3 in range(phi_parameters.shape[2]):
-                    for j2 in range(phi_parameters.shape[1]):
-                        for j1 in range(phi_parameters.shape[0]):
-                            if phi_parameters_available[j1, j2, j3, j4]:
-                                n += 1
-                                for label in phi_labels:
-                                    for e1 in range(self.neu + self.ned):
-                                        for e2 in range(self.neu + self.ned):
-                                            if e1 == e2:
-                                                continue
-                                            r_e1I_vec = n_vectors[label, e1]
-                                            r_e2I_vec = n_vectors[label, e2]
-                                            r_ee_vec = e_vectors[e1, e2]
-                                            r_e1I = n_powers[label, e1, 1]
-                                            r_e2I = n_powers[label, e2, 1]
-                                            r_ee = e_powers[e1, e2, 1]
-                                            if r_e1I < L and r_e2I < L:
-                                                phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
+            for label in phi_labels:
+                for e1 in range(self.neu + self.ned):
+                    for e2 in range(self.neu + self.ned):
+                        if e1 == e2:
+                            continue
+                        n = int(self.phi_cutoff_optimizable[i]) - 1
+                        r_e1I = n_powers[label, e1, 1]
+                        r_e2I = n_powers[label, e2, 1]
+                        if r_e1I < L and r_e2I < L:
+                            r_ee = e_powers[e1, e2, 1]
+                            r_e1I_vec = n_vectors[label, e1]
+                            r_e2I_vec = n_vectors[label, e2]
+                            r_ee_vec = e_vectors[e1, e2]
+                            cutoff = (1 - r_e1I / L) ** C * (1 - r_e2I / L) ** C
+                            cutoff_diff_e1I = C * r_e1I / (L - r_e1I)
+                            cutoff_diff_e2I = C * r_e2I / (L - r_e2I)
+                            # cutoff_condition
+                            # 0: AE cutoff definitely not applied
+                            # 1: AE cutoff maybe applied
+                            ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
+                            phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
+                            vec_1 = np.outer(r_ee_vec, r_e1I_vec)
+                            vec_2 = np.outer(r_ee_vec, r_ee_vec)
+                            vec_3 = np.outer(r_e1I_vec, r_e1I_vec)
+                            vec_4 = np.outer(r_ee_vec, r_e2I_vec)
+                            vec_5 = np.outer(r_e1I_vec, r_e2I_vec)
+                            for j4 in range(phi_parameters.shape[3]):
+                                dn = np.sum(phi_parameters_available[:, :, :, j4])
+                                for j3 in range(phi_parameters.shape[2]):
+                                    for j2 in range(phi_parameters.shape[1]):
+                                        for j1 in range(phi_parameters.shape[0]):
+                                            if phi_parameters_available[j1, j2, j3, j4]:
+                                                n += 1
                                                 if phi_set == j4:
-                                                    # cutoff_condition
-                                                    # 0: AE cutoff definitely not applied
-                                                    # 1: AE cutoff maybe applied
-                                                    ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
-                                                    cutoff = (1 - r_e1I/L)**C * (1 - r_e2I/L)**C
-                                                    cutoff_diff_e1I = C * r_e1I / (L - r_e1I)
-                                                    cutoff_diff_e2I = C * r_e2I / (L - r_e2I)
-                                                    poly = n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
-                                                    res[n, ae_cutoff_condition, e1, :, e1, :] += cutoff * (
-                                                        (j1 - cutoff_diff_e1I) * np.outer(r_ee_vec, r_e1I_vec) / r_e1I**2 +
-                                                        j3 * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 + np.eye(3)
+                                                    poly = cutoff * n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
+                                                    res[n, ae_cutoff_condition, e1, :, e1, :] += (
+                                                        (j1 - cutoff_diff_e1I) * vec_1 / r_e1I**2 +
+                                                        j3 * vec_2 / r_ee**2 + np.eye(3)
                                                     ) * poly
-                                                    res[n + dn, ae_cutoff_condition, e1, :, e1, :] += cutoff * (
-                                                        (j1 - cutoff_diff_e1I) * np.outer(r_e1I_vec, r_e1I_vec) / r_e1I**2 +
-                                                        j3 * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2 + np.eye(3)
+                                                    res[n + dn, ae_cutoff_condition, e1, :, e1, :] += (
+                                                        (j1 - cutoff_diff_e1I) * vec_3 / r_e1I**2 +
+                                                        j3 * vec_1.T / r_ee**2 + np.eye(3)
                                                     ) * poly
-                                                    res[n, ae_cutoff_condition, e1, :, e2, :] += cutoff * (
-                                                        (j2 - cutoff_diff_e2I) * np.outer(r_ee_vec, r_e2I_vec) / r_e2I**2 -
-                                                        j3 * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 - np.eye(3)
+                                                    res[n, ae_cutoff_condition, e1, :, e2, :] += (
+                                                        (j2 - cutoff_diff_e2I) * vec_4 / r_e2I**2 -
+                                                        j3 * vec_2 / r_ee**2 - np.eye(3)
                                                     ) * poly
-                                                    res[n + dn, ae_cutoff_condition, e1, :, e2, :] += cutoff * (
-                                                        (j2 - cutoff_diff_e2I) * np.outer(r_e1I_vec, r_e2I_vec) / r_e2I**2 -
-                                                        j3 * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2
+                                                    res[n + dn, ae_cutoff_condition, e1, :, e2, :] += (
+                                                        (j2 - cutoff_diff_e2I) * vec_5 / r_e2I**2 -
+                                                        j3 * vec_1.T / r_ee**2
                                                     ) * poly
-                n += dn
+                                n += dn
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
@@ -1682,20 +1697,21 @@ class Backflow(AbstractBackflow):
                 res[n] += self.eta_term_laplacian(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.eta_cutoff[i] -= delta
 
-        for j2 in range(self.eta_parameters.shape[1]):
-            for j1 in range(self.eta_parameters.shape[0]):
-                if self.eta_parameters_available[j1, j2]:
-                    n += 1
-                    for e1 in range(1, self.neu + self.ned):
-                        for e2 in range(e1):
-                            r_vec = e_vectors[e1, e2]
-                            r = e_powers[e1, e2, 1]
-                            eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.eta_parameters.shape[1]
-                            L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
-                            if r < L:
+        for e1 in range(1, self.neu + self.ned):
+            for e2 in range(e1):
+                n = self.eta_cutoff_optimizable.sum() - 1
+                r = e_powers[e1, e2, 1]
+                eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.eta_parameters.shape[1]
+                L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
+                if r < L:
+                    r_vec = e_vectors[e1, e2]
+                    for j2 in range(self.eta_parameters.shape[1]):
+                        for j1 in range(self.eta_parameters.shape[0]):
+                            if self.eta_parameters_available[j1, j2]:
+                                n += 1
                                 if eta_set == j2:
                                     poly = e_powers[e1, e2, j1]
-                                    bf = 2 * (1 - r / L) ** C * (
+                                    bf = 2 * (1 - r/L) ** C * (
                                         4 * (j1 / r - C / (L - r)) +
                                         r * (C * (C - 1) / (L - r) ** 2 - 2 * C / (L - r) * j1 / r + j1 * (j1 - 1) / r**2)
                                     ) * r_vec * poly / r
@@ -1731,25 +1747,26 @@ class Backflow(AbstractBackflow):
                 self.mu_cutoff[i] -= delta
 
             L = self.mu_cutoff[i]
-            for j2 in range(mu_parameters.shape[1]):
-                for j1 in range(mu_parameters.shape[0]):
-                    if mu_parameters_available[j1, j2]:
-                        n += 1
-                        for label in mu_labels:
-                            for e1 in range(self.neu + self.ned):
-                                r_vec = n_vectors[label, e1]
-                                r = n_powers[label, e1, 1]
-                                if r < L:
-                                    mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
+            for label in mu_labels:
+                for e1 in range(self.neu + self.ned):
+                    n = int(self.mu_cutoff_optimizable[i]) - 1
+                    r = n_powers[label, e1, 1]
+                    if r < L:
+                        r_vec = n_vectors[label, e1]
+                        # cutoff_condition
+                        # 0: AE cutoff definitely not applied
+                        # 1: AE cutoff maybe applied
+                        ae_cutoff_condition = int(r > self.ae_cutoff[label])
+                        mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
+                        for j2 in range(mu_parameters.shape[1]):
+                            for j1 in range(mu_parameters.shape[0]):
+                                if mu_parameters_available[j1, j2]:
+                                    n += 1
                                     if mu_set == j2:
                                         poly = n_powers[label, e1, j1]
-                                        # cutoff_condition
-                                        # 0: AE cutoff definitely not applied
-                                        # 1: AE cutoff maybe applied
-                                        ae_cutoff_condition = int(r > self.ae_cutoff[label])
-                                        res[n, ae_cutoff_condition, e1] += (1 - r / L) ** C * (
+                                        res[n, ae_cutoff_condition, e1] += (1 - r/L)**C * (
                                             4 * (j1 / r - C / (L - r)) +
-                                            r * (C * (C - 1) / (L - r) ** 2 - 2 * C / (L - r) * j1 / r + j1 * (j1 - 1) / r**2)
+                                            r * (C * (C - 1) / (L - r)**2 - 2 * C/(L - r) * j1 / r + j1 * (j1 - 1) / r**2)
                                         ) * r_vec * poly / r
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
@@ -1783,31 +1800,41 @@ class Backflow(AbstractBackflow):
                 self.phi_cutoff[i] -= delta
 
             L = self.phi_cutoff[i]
-            for j4 in range(phi_parameters.shape[3]):
-                dn = np.sum(phi_parameters_available[:, :, :, j4])
-                for j3 in range(phi_parameters.shape[2]):
-                    for j2 in range(phi_parameters.shape[1]):
-                        for j1 in range(phi_parameters.shape[0]):
-                            if phi_parameters_available[j1, j2, j3, j4]:
-                                n += 1
-                                for label in phi_labels:
-                                    for e1 in range(self.neu + self.ned):
-                                        for e2 in range(self.neu + self.ned):
-                                            if e1 == e2:
-                                                continue
-                                            r_e1I_vec = n_vectors[label, e1]
-                                            r_e2I_vec = n_vectors[label, e2]
-                                            r_ee_vec = e_vectors[e1, e2]
-                                            r_e1I = n_powers[label, e1, 1]
-                                            r_e2I = n_powers[label, e2, 1]
-                                            r_ee = e_powers[e1, e2, 1]
-                                            if r_e1I < L and r_e2I < L:
-                                                phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
+            for label in phi_labels:
+                for e1 in range(self.neu + self.ned):
+                    for e2 in range(self.neu + self.ned):
+                        if e1 == e2:
+                            continue
+                        n = int(self.phi_cutoff_optimizable[i]) - 1
+                        r_e1I = n_powers[label, e1, 1]
+                        r_e2I = n_powers[label, e2, 1]
+                        if r_e1I < L and r_e2I < L:
+                            r_e1I_vec = n_vectors[label, e1]
+                            r_e2I_vec = n_vectors[label, e2]
+                            r_ee_vec = e_vectors[e1, e2]
+                            r_ee = e_powers[e1, e2, 1]
+                            cutoff = (1 - r_e1I / L) ** C * (1 - r_e2I / L) ** C
+                            cutoff_diff_e1I = C * r_e1I / (L - r_e1I)
+                            cutoff_diff_e2I = C * r_e2I / (L - r_e2I)
+                            cutoff_diff_e1I_2 = C * (C - 1) * r_e1I ** 2 / (L - r_e1I) ** 2
+                            cutoff_diff_e2I_2 = C * (C - 1) * r_e2I ** 2 / (L - r_e2I) ** 2
+                            # cutoff_condition
+                            # 0: AE cutoff definitely not applied
+                            # 1: AE cutoff maybe applied
+                            ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
+                            phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
+                            vec_1 = r_ee_vec * (r_ee_vec @ r_e1I_vec)
+                            vec_2 = r_ee_vec * (r_ee_vec @ r_e2I_vec)
+                            vec_3 = r_e1I_vec * (r_e1I_vec @ r_ee_vec)
+                            vec_4 = r_e1I_vec * (r_e2I_vec @ r_ee_vec)
+                            for j4 in range(phi_parameters.shape[3]):
+                                dn = np.sum(phi_parameters_available[:, :, :, j4])
+                                for j3 in range(phi_parameters.shape[2]):
+                                    for j2 in range(phi_parameters.shape[1]):
+                                        for j1 in range(phi_parameters.shape[0]):
+                                            if phi_parameters_available[j1, j2, j3, j4]:
+                                                n += 1
                                                 if phi_set == j4:
-                                                    cutoff_diff_e1I = C * r_e1I / (L - r_e1I)
-                                                    cutoff_diff_e2I = C * r_e2I / (L - r_e2I)
-                                                    cutoff_diff_e1I_2 = C * (C - 1) * r_e1I ** 2 / (L - r_e1I) ** 2
-                                                    cutoff_diff_e2I_2 = C * (C - 1) * r_e2I ** 2 / (L - r_e2I) ** 2
                                                     phi_diff_1 = (
                                                         (j1 - cutoff_diff_e1I) / r_e1I**2 +
                                                         (j2 - cutoff_diff_e2I) / r_e2I**2 +
@@ -1821,8 +1848,8 @@ class Backflow(AbstractBackflow):
                                                     phi_dot_product = (
                                                         (j1 - cutoff_diff_e1I) * r_e1I_vec / r_e1I**2 -
                                                         (j2 - cutoff_diff_e2I) * r_e2I_vec / r_e2I**2 +
-                                                        (j1 - cutoff_diff_e1I) * j3 * r_ee_vec * (r_ee_vec @ r_e1I_vec) / r_e1I**2 / r_ee**2 -
-                                                        (j2 - cutoff_diff_e2I) * j3 * r_ee_vec * (r_ee_vec @ r_e2I_vec) / r_e2I**2 / r_ee**2
+                                                        (j1 - cutoff_diff_e1I) * j3 * vec_1 / r_e1I**2 / r_ee**2 -
+                                                        (j2 - cutoff_diff_e2I) * j3 * vec_2 / r_e2I**2 / r_ee**2
                                                     )
                                                     theta_diff_1 = (
                                                         2 * (j1 - cutoff_diff_e1I) / r_e1I**2 +
@@ -1835,23 +1862,18 @@ class Backflow(AbstractBackflow):
                                                         2 * j3 * (j3 - 1) / r_ee**2
                                                     )
                                                     theta_dot_product = (
-                                                        (j1 - cutoff_diff_e1I) * r_e1I_vec * (r_e1I_vec @ r_ee_vec) / r_e1I**2 -
-                                                        (j2 - cutoff_diff_e2I) * r_e1I_vec * (r_e2I_vec @ r_ee_vec) / r_e2I**2 +
+                                                        (j1 - cutoff_diff_e1I) * vec_3 / r_e1I**2 -
+                                                        (j2 - cutoff_diff_e2I) * vec_4 / r_e2I**2 +
                                                         r_ee_vec
                                                     ) * j3 / r_ee**2
-                                                    # cutoff_condition
-                                                    # 0: AE cutoff definitely not applied
-                                                    # 1: AE cutoff maybe applied
-                                                    ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
-                                                    cutoff = (1 - r_e1I/L)**C * (1 - r_e2I/L)**C
-                                                    poly = n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
-                                                    res[n, ae_cutoff_condition, e1] += cutoff * (
+                                                    poly = cutoff * n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
+                                                    res[n, ae_cutoff_condition, e1] += (
                                                         (phi_diff_2 + 2 * phi_diff_1) * r_ee_vec + 2 * phi_dot_product
                                                     ) * poly
-                                                    res[n + dn, ae_cutoff_condition, e1] += cutoff * (
+                                                    res[n + dn, ae_cutoff_condition, e1] += (
                                                         (theta_diff_2 + 2 * theta_diff_1) * r_e1I_vec + 2 * theta_dot_product
                                                     ) * poly
-                n += dn
+                                n += dn
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
