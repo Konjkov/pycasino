@@ -1589,6 +1589,7 @@ class Backflow(AbstractBackflow):
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3, (self.neu + self.ned), 3))
 
         n = -1
+        eye = np.eye(3)
         for i, (phi_parameters, phi_parameters_available, theta_parameters, theta_parameters_available, phi_labels) in enumerate(zip(self.phi_parameters, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_available, self.phi_labels)):
             if self.phi_cutoff_optimizable[i]:
                 n += 1
@@ -1620,11 +1621,6 @@ class Backflow(AbstractBackflow):
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
-                            vec_1 = np.outer(r_ee_vec, r_e1I_vec)
-                            vec_2 = np.outer(r_ee_vec, r_ee_vec)
-                            vec_3 = np.outer(r_e1I_vec, r_e1I_vec)
-                            vec_4 = np.outer(r_ee_vec, r_e2I_vec)
-                            vec_5 = np.outer(r_e1I_vec, r_e2I_vec)
                             for j4 in range(phi_parameters.shape[3]):
                                 dn = np.sum(phi_parameters_available[:, :, :, j4])
                                 for j3 in range(phi_parameters.shape[2]):
@@ -1634,22 +1630,24 @@ class Backflow(AbstractBackflow):
                                                 n += 1
                                                 if phi_set == j4:
                                                     poly = cutoff * n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
-                                                    res[n, ae_cutoff_condition, e1, :, e1, :] += (
-                                                        (j1 - cutoff_diff_e1I) * vec_1 / r_e1I**2 +
-                                                        j3 * vec_2 / r_ee**2 + np.eye(3)
-                                                    ) * poly
-                                                    res[n + dn, ae_cutoff_condition, e1, :, e1, :] += (
-                                                        (j1 - cutoff_diff_e1I) * vec_3 / r_e1I**2 +
-                                                        j3 * vec_1.T / r_ee**2 + np.eye(3)
-                                                    ) * poly
-                                                    res[n, ae_cutoff_condition, e1, :, e2, :] += (
-                                                        (j2 - cutoff_diff_e2I) * vec_4 / r_e2I**2 -
-                                                        j3 * vec_2 / r_ee**2 - np.eye(3)
-                                                    ) * poly
-                                                    res[n + dn, ae_cutoff_condition, e1, :, e2, :] += (
-                                                        (j2 - cutoff_diff_e2I) * vec_5 / r_e2I**2 -
-                                                        j3 * vec_1.T / r_ee**2
-                                                    ) * poly
+                                                    for t1 in range(3):
+                                                        for t2 in range(3):
+                                                            res[n, ae_cutoff_condition, e1, t1, e1, t2] += (
+                                                                (j1 - cutoff_diff_e1I) * r_ee_vec[t1] * r_e1I_vec[t2] / r_e1I**2 +
+                                                                j3 * r_ee_vec[t1] * r_ee_vec[t2] / r_ee**2 + eye[t1, t2]
+                                                            ) * poly
+                                                            res[n + dn, ae_cutoff_condition, e1, t1, e1, t2] += (
+                                                                (j1 - cutoff_diff_e1I) * r_e1I_vec[t1] * r_e1I_vec[t2] / r_e1I**2 +
+                                                                j3 * r_ee_vec[t2] * r_e1I_vec[t1] / r_ee**2 + eye[t1, t2]
+                                                            ) * poly
+                                                            res[n, ae_cutoff_condition, e1, t1, e2, t2] += (
+                                                                (j2 - cutoff_diff_e2I) * r_ee_vec[t1] * r_e2I_vec[t2] / r_e2I**2 -
+                                                                j3 * r_ee_vec[t1] * r_ee_vec[t2] / r_ee**2 - eye[t1, t2]
+                                                            ) * poly
+                                                            res[n + dn, ae_cutoff_condition, e1, t1, e2, t2] += (
+                                                                (j2 - cutoff_diff_e2I) * r_e1I_vec[t1] * r_e2I_vec[t2] / r_e2I**2 -
+                                                                j3 * r_ee_vec[t2] * r_e1I_vec[t1] / r_ee**2
+                                                            ) * poly
                                 n += dn
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
