@@ -1213,19 +1213,21 @@ class Jastrow(AbstractJastrow):
                                             if f_parameters_available[j1, j2, j3, j4]:
                                                 n += 1
                                                 if f_set == j4:
-                                                    poly = cutoff * n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
-                                                    e1_gradient = r_e1I_vec * (C / (r_e1I - L) + j1 / r_e1I)
-                                                    e2_gradient = r_e2I_vec * (C / (r_e2I - L) + j2 / r_e2I)
-                                                    ee_gradient = r_ee_vec * j3 / r_ee
-                                                    res[n, e1, :] += (e1_gradient + ee_gradient) * poly
-                                                    res[n, e2, :] += (e2_gradient - ee_gradient) * poly
+                                                    poly_1 = cutoff * n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
+                                                    poly_2 = cutoff * n_powers[label, e1, j2] * n_powers[label, e2, j1] * e_powers[e1, e2, j3]
+                                                    # workaround to not create temporary 1-d numpy array
+                                                    for t1 in range(3):
+                                                        e1_gradient = r_e1I_vec[t1] * (C / (r_e1I - L) + j1 / r_e1I)
+                                                        e2_gradient = r_e2I_vec[t1] * (C / (r_e2I - L) + j2 / r_e2I)
+                                                        ee_gradient = r_ee_vec[t1] * j3 / r_ee
+                                                        res[n, e1, t1] += (e1_gradient + ee_gradient) * poly_1
+                                                        res[n, e2, t1] += (e2_gradient - ee_gradient) * poly_1
 
-                                                    if j1 != j2:
-                                                        poly = cutoff * n_powers[label, e1, j2] * n_powers[label, e2, j1] * e_powers[e1, e2, j3]
-                                                        e1_gradient = r_e1I_vec * (C / (r_e1I - L) + j2 / r_e1I)
-                                                        e2_gradient = r_e2I_vec * (C / (r_e2I - L) + j1 / r_e2I)
-                                                        res[n, e1, :] += (e1_gradient + ee_gradient) * poly
-                                                        res[n, e2, :] += (e2_gradient - ee_gradient) * poly
+                                                        if j1 != j2:
+                                                            e1_gradient = r_e1I_vec[t1] * (C / (r_e1I - L) + j2 / r_e1I)
+                                                            e2_gradient = r_e2I_vec[t1] * (C / (r_e2I - L) + j1 / r_e2I)
+                                                            res[n, e1, t1] += (e1_gradient + ee_gradient) * poly_2
+                                                            res[n, e2, t1] += (e2_gradient - ee_gradient) * poly_2
 
         return res.reshape(size, (self.neu + self.ned) * 3)
 
