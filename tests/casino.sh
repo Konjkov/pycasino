@@ -8,6 +8,7 @@
 # operation="Jastrow_varmin"
 # operation="Jastrow_emin"
 # operation="Backflow_varmin"
+# operation="Backflow_emin"
 # operation="Jastrow_dmc"
 # operation="Backflow_dmc"
 
@@ -31,9 +32,6 @@
 
 # path="stowfn/He/HF/QZ4P/${method}/Gjastrow/"
 # path="stowfn/Be/HF/QZ4P/${method}/Gjastrow/"
-
-# path="stowfn/He/HF/QZ4P/${method}/Backflow_emin/"
-# path="stowfn/Be/HF/QZ4P/${method}/Backflow_emin/"
 
 # pycasino $path
 # mpiexec pycasino $path
