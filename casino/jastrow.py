@@ -600,6 +600,13 @@ class Jastrow(AbstractJastrow):
             self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
         )
 
+    def fix_u_parameters_for_emin(self):
+        """Fix u-term dependent parameters for CASINO emin."""
+        C = self.trunc
+        L = self.u_cutoff
+        Gamma = 1 / np.array([4, 2, 4][:self.u_parameters.shape[1]])
+        self.u_parameters[0] = -L * Gamma / (-L) ** C / C
+
     def fix_u_parameters(self):
         """Fix u-term dependent parameters."""
         C = self.trunc
@@ -662,7 +669,7 @@ class Jastrow(AbstractJastrow):
                         temp += 1
 
     def get_parameters_mask(self) -> np.ndarray:
-        """Mask optimizable variable."""
+        """Mask optimizable parameters."""
         res = []
         if self.u_cutoff:
             if self.u_cutoff_optimizable:
