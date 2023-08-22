@@ -201,9 +201,6 @@ class Jastrow:
                                     if u_parameters_independent[l, i]:
                                         self.u_parameters[l, i], self.u_parameters_optimizable[l, i] = self.read_parameter()
                         except ValueError:
-                            # e-e cusp condition for CASINO emin
-                            # for i in range(u_spin_dep+1):
-                            #     self.u_parameters[0, i] = -self.u_cutoff[0]['value'] / np.array([4, 2, 4])[i] / (-self.u_cutoff[0]['value']) ** self.trunc / self.trunc
                             u_term = False
                             self.u_parameters_optimizable = u_parameters_independent
                     elif line.startswith('END SET'):
