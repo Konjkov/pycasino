@@ -779,10 +779,11 @@ class Casino:
         :param opt_backflow: optimize backflow parameters
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
+        # CASINO variant
+        # parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        # if not parameters.all():
+        #     self.wfn.jastrow.set_u_parameters_for_emin()
         # not starting from HF distribution
-        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        if not parameters.all():
-            self.wfn.jastrow.set_u_parameters_for_emin()
         parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         self.wfn.set_parameters(parameters)
         # FIXME: reuse from vmc_energy_accumulation run
