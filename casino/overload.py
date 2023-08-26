@@ -20,7 +20,7 @@ def block_diag(res_list):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def rref(a, tol=1e-12):
+def rref(a: np.ndarray, tol=1e-12):
     """
     Construct RREF matrix which:
     1. All the rows consisting entirely of zeros are at the bottom

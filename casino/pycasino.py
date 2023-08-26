@@ -8,6 +8,7 @@ from mpi4py import MPI
 import numpy as np
 import scipy as sp
 from scipy.optimize import least_squares, minimize, curve_fit, minimize_scalar, OptimizeWarning
+from scipy.sparse.linalg import ArpackNoConvergence
 import matplotlib.pyplot as plt
 
 from casino.cusp import CuspFactory
@@ -777,11 +778,13 @@ class Casino:
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         """
-        sparse = True
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        self.wfn.jastrow.fix_u_parameters_for_emin()
-        self.wfn.set_parameters(self.wfn.get_parameters(opt_jastrow, opt_backflow), opt_jastrow, opt_backflow)
-        # starting from HF distribution
+        # not starting from HF distribution
+        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        if not parameters.all():
+            self.wfn.jastrow.set_u_parameters_for_emin()
+        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        self.wfn.set_parameters(parameters)
         # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
 
@@ -790,7 +793,6 @@ class Casino:
             ' =================='
         )
 
-        parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
         energy_part = vmc_observable(condition, position, self.wfn.energy)
         energy = np.empty(shape=(steps,)) if self.root else None
@@ -812,46 +814,44 @@ class Casino:
             logger.info(f'S is positive definite: {np.all(np.linalg.eigvals(S) > 0)}')
             H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
             # stabilization
-            H[1:, 1:] += np.eye(parameters.size)
-            if sparse:
+            H[1:, 1:] -= H[0, 0] * np.eye(parameters.size)
+            try:
                 # get normalized right eigenvector corresponding to the eigenvalue
                 eigvals, eigvectors = sp.sparse.linalg.eigs(A=H, k=1, M=S, v0=S[0], which='SR')
-            else:
+            except ArpackNoConvergence:
                 eigvals, eigvectors = sp.linalg.eig(H, S)
             # since imaginary parts only arise from statistical noise, discard them
             eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
             idx = eigvals.argmin()
             eigval, eigvector = eigvals[idx], eigvectors[:, idx]
-            logger.info(f'E_0 {energy_0} E_lin {eigval} dE {eigval - energy_0}')
-            logger.info(f'eigvector[0] {eigvector[0]}')
+            logger.info(f'E_0 {energy_0:.8f} E_lin {eigval:.8f} dE {eigval - energy_0:.8f}')
+            logger.info(f'eigvector[0] {eigvector[0]:.8f}')
             # uniform rescaling of normalized eigvector
             # in case ξ = 0 is equivalent to multiplying by eigvector[0]
             # in case ξ = 1 is equivalent to dividing by eigvector[0]
-            dp = eigvector[1:] * eigvector[0]
+            dp = eigvector[1:] / eigvector[0]
 
         self.mpi_comm.Bcast(dp)
 
-        # def f(alpha):
-        #     self.wfn.set_parameters(parameters + alpha * dp, opt_jastrow, opt_backflow)
-        #     try:
-        #         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
-        #         energy_mean = vmc_observable(condition, position, self.wfn.energy).mean()
-        #     except ZeroDivisionError:
-        #         energy_mean = 0
-        #     return self.mpi_comm.allreduce(energy_mean) / self.mpi_comm.size
-        #
-        # eigval = self.mpi_comm.bcast(eigval)
-        # energy_0 = self.mpi_comm.bcast(energy_0)
-        # energy_sem = self.mpi_comm.bcast(energy_sem)
-        # for alpha in (1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0):
-        #     if alpha == 0:
-        #         break
-        #     energy_alpha = f(alpha)
-        #     emin_error = (energy_alpha - alpha * (eigval - energy_0) - energy_0) / energy_sem
-        #     logger.info(f'step data: E({alpha:.4f}) = {energy_alpha:.8f} differ by {emin_error:.4f} sigma_E(0) from linear')
-        #     if emin_error < 3:
-        #         break
-        alpha = 1
+        def f(alpha):
+            self.wfn.set_parameters(parameters + alpha * dp, opt_jastrow, opt_backflow)
+            try:
+                condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
+                energy_mean = vmc_observable(condition, position, self.wfn.energy).mean()
+            except ZeroDivisionError:
+                energy_mean = 0
+            return self.mpi_comm.allreduce(energy_mean) / self.mpi_comm.size
+
+        eigval = self.mpi_comm.bcast(eigval)
+        energy_0 = self.mpi_comm.bcast(energy_0)
+        energy_sem = self.mpi_comm.bcast(energy_sem)
+        for alpha in (1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1):
+            energy_alpha = f(alpha)
+            emin_error = (energy_alpha - alpha * (eigval - energy_0) - energy_0) / energy_sem
+            logger.info(f'step data: E({alpha:.4f}) = {energy_alpha:.8f} differ by {emin_error:.4f} sigma_E(0) from linear')
+            if emin_error < 3:
+                break
+        # alpha = 1
         if parameters.all():
             logger.info(f'alpha {alpha}\ndelta p / p\n{alpha * dp / parameters}\n')
         else:

@@ -416,9 +416,9 @@ class Slater(AbstractSlater):
     def hessian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Hessian H(φ)/φ w.r.t e-coordinates.
         d²ln(det(A))/dxdy = (
-            tr(A^-1 @ d²A/dxdy) +
-            tr(A^-1 @ dA/dx) ⊗ tr(A^-1 @ dA/dy) -
-            tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
+            tr(A^-1 • d²A/dxdy) +
+            tr(A^-1 • dA/dx) ⊗ tr(A^-1 • dA/dy) -
+            tr(A^-1 • dA/dx ⊗ A^-1 • dA/dy)
         )
         https://math.stackexchange.com/questions/2325807/second-derivative-of-a-determinant
         in case of x and y is a coordinates of different electrons first term is zero
@@ -471,7 +471,7 @@ class Slater(AbstractSlater):
         """Tressian or numerical third partial derivatives w.r.t. e-coordinates
         d³ln(det(A))/dxdydz = (
             tr(A^-1 • d²A/dxdydz)
-            + tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy)
+            + tr(A^-1 • dA/dx) ⊗ Hessian_yz + tr(A^-1 • dA/dy) ⊗ Hessian_xz + tr(A^-1 • dA/dz) ⊗ Hessian_xy)
             - tr(A^-1 • d²A/dxdy ⊗ A^-1 • dA/dz) - tr(A^-1 • d²A/dxdz ⊗ A^-1 • dA/dy) - tr(A^-1 • d²A/dydz ⊗ A^-1 • dA/dx)
             + tr(A^-1 • dA/dx ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dz) + tr(A^-1 • dA/dz ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dx)
             - 2 * tr(A^-1 • dA/dx) ⊗ tr(A^-1 • dA/dy) ⊗ tr(A^-1 • dA/dz)

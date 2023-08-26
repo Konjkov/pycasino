@@ -207,6 +207,7 @@ class Backflow(AbstractBackflow):
         phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable,
         phi_cutoff, phi_cusp, phi_labels, phi_irrotational, ae_cutoff, ae_cutoff_optimizable
     ):
+        """Backflow trasformation."""
         self.neu = neu
         self.ned = ned
         self.trunc = trunc
