@@ -577,7 +577,7 @@ class Slater(AbstractSlater):
         return tress / val, hess / val, grad / val
 
     def tressian_v2(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Tressian or numerical third partial derivatives with respect to e-coordinates
+        """Tressian or numerical third partial derivatives w.r.t. e-coordinates
         d³ln(det(A))/dxdydz
         :param n_vectors: e-n vectors
         :return:
@@ -661,7 +661,7 @@ class Slater(AbstractSlater):
             return parameters[self.det_coeff.shape[0]-1:]
 
     def value_parameters_d1(self, n_vectors: np.ndarray) -> np.ndarray:
-        """First derivatives of logarithm wfn w.r.t the parameters
+        """First derivatives of logarithm wfn w.r.t. the parameters
         :param n_vectors: e-n vectors
         """
         res = np.zeros(shape=(self.det_coeff.size, ))
@@ -674,7 +674,7 @@ class Slater(AbstractSlater):
         return self.parameters_projector.T @ (res / delta / 2 / self.value(n_vectors))
 
     def gradient_parameters_d1(self, n_vectors: np.ndarray) -> np.ndarray:
-        """First derivatives of gradient w.r.t the parameters
+        """First derivatives of gradient w.r.t. the parameters
         :param n_vectors: e-n vectors
         """
         res = np.zeros(shape=(self.det_coeff.size, (self.neu + self.ned) * 3))
@@ -687,7 +687,7 @@ class Slater(AbstractSlater):
         return self.parameters_projector.T @ (res / delta / 2)
 
     def laplacian_parameters_d1(self, n_vectors: np.ndarray) -> np.ndarray:
-        """First derivatives of laplacian w.r.t the parameters
+        """First derivatives of laplacian w.r.t. the parameters
         :param n_vectors: e-n vectors
         """
         res = np.zeros(shape=(self.det_coeff.size, ))
@@ -700,7 +700,7 @@ class Slater(AbstractSlater):
         return self.parameters_projector.T @ (res / delta / 2)
 
     def hessian_parameters_d1(self, n_vectors: np.ndarray) -> np.ndarray:
-        """First derivatives of hessian w.r.t the parameters
+        """First derivatives of hessian w.r.t. the parameters
         :param n_vectors: e-n vectors
         """
         res = np.zeros(shape=(self.det_coeff.size, (self.neu + self.ned) * 3 * (self.neu + self.ned) * 3))

@@ -32,6 +32,26 @@ class Input:
                 value = str(line.split(':')[1].strip())
         setattr(self, keyword, value)
 
+    def read_block(self, keyword, value=None):
+        value = value or []
+        block_start = False
+        for line in self.lines:
+            if line.startswith(f'%block {keyword}'):
+                block_start = True
+                continue
+            if line.startswith(f'%endblock {keyword}'):
+                block_start = False
+                break
+            if block_start:
+                block_line = dict()
+                for i, token in enumerate(line.split()):
+                    if i == 0:
+                        continue
+                    k, v = token.split('=')
+                    block_line[k] = v
+                value.append(block_line)
+        setattr(self, keyword, value)
+
     def read(self, base_path):
         self.file_path = os.path.join(base_path, 'input')
         with open(self.file_path, 'r') as f:
@@ -55,8 +75,10 @@ class Input:
         self.read_str('opt_method')
         self.read_bool('opt_jastrow', bool(self.opt_method))
         self.read_bool('opt_backflow', False)
+        self.read_bool('opt_orbitals', False)
         self.read_bool('opt_det_coeff', False)
         self.read_int('opt_maxeval', 40)
+        self.read_block('opt_plan')
         # self.read_int('opt_noctf_cycles', 0)
         self.read_bool('vm_reweight', False)
         # DMC keywords
