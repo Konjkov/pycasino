@@ -109,6 +109,7 @@ class Jastrow(AbstractJastrow):
         chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_labels, chi_cusp,
         f_parameters, f_parameters_optimizable, f_cutoff, f_labels, no_dup_u_term, no_dup_chi_term
     ):
+        """Jastrow term."""
         self.neu = neu
         self.ned = ned
         self.trunc = trunc
@@ -600,8 +601,8 @@ class Jastrow(AbstractJastrow):
             self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
         )
 
-    def fix_u_parameters_for_emin(self):
-        """Fix u-term dependent parameters for CASINO emin."""
+    def set_u_parameters_for_emin(self):
+        """Set u-term dependent parameters for CASINO emin."""
         C = self.trunc
         L = self.u_cutoff
         Gamma = 1 / np.array([4, 2, 4][:self.u_parameters.shape[1]])

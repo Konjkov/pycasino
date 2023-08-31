@@ -416,9 +416,9 @@ class Slater(AbstractSlater):
     def hessian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Hessian H(φ)/φ w.r.t e-coordinates.
         d²ln(det(A))/dxdy = (
-            tr(A^-1 @ d²A/dxdy) +
-            tr(A^-1 @ dA/dx) ⊗ tr(A^-1 @ dA/dy) -
-            tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
+            tr(A^-1 • d²A/dxdy) +
+            tr(A^-1 • dA/dx) ⊗ tr(A^-1 • dA/dy) -
+            tr(A^-1 • dA/dx ⊗ A^-1 • dA/dy)
         )
         https://math.stackexchange.com/questions/2325807/second-derivative-of-a-determinant
         in case of x and y is a coordinates of different electrons first term is zero
@@ -471,7 +471,7 @@ class Slater(AbstractSlater):
         """Tressian or numerical third partial derivatives w.r.t. e-coordinates
         d³ln(det(A))/dxdydz = (
             tr(A^-1 • d²A/dxdydz)
-            + tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy)
+            + tr(A^-1 • dA/dx) ⊗ Hessian_yz + tr(A^-1 • dA/dy) ⊗ Hessian_xz + tr(A^-1 • dA/dz) ⊗ Hessian_xy)
             - tr(A^-1 • d²A/dxdy ⊗ A^-1 • dA/dz) - tr(A^-1 • d²A/dxdz ⊗ A^-1 • dA/dy) - tr(A^-1 • d²A/dydz ⊗ A^-1 • dA/dx)
             + tr(A^-1 • dA/dx ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dz) + tr(A^-1 • dA/dz ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dx)
             - 2 * tr(A^-1 • dA/dx) ⊗ tr(A^-1 • dA/dy) ⊗ tr(A^-1 • dA/dz)
@@ -577,7 +577,7 @@ class Slater(AbstractSlater):
         return tress / val, hess / val, grad / val
 
     def tressian_v2(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Tressian or numerical third partial derivatives with respect to e-coordinates
+        """Tressian or numerical third partial derivatives w.r.t. e-coordinates
         d³ln(det(A))/dxdydz
         :param n_vectors: e-n vectors
         :return:
@@ -661,7 +661,7 @@ class Slater(AbstractSlater):
             return parameters[self.det_coeff.shape[0]-1:]
 
     def value_parameters_d1(self, n_vectors: np.ndarray) -> np.ndarray:
-        """First derivatives of logarithm wfn w.r.t the parameters
+        """First derivatives of logarithm wfn w.r.t. the parameters
         :param n_vectors: e-n vectors
         """
         res = np.zeros(shape=(self.det_coeff.size, ))
@@ -674,7 +674,7 @@ class Slater(AbstractSlater):
         return self.parameters_projector.T @ (res / delta / 2 / self.value(n_vectors))
 
     def gradient_parameters_d1(self, n_vectors: np.ndarray) -> np.ndarray:
-        """First derivatives of gradient w.r.t the parameters
+        """First derivatives of gradient w.r.t. the parameters
         :param n_vectors: e-n vectors
         """
         res = np.zeros(shape=(self.det_coeff.size, (self.neu + self.ned) * 3))
@@ -687,7 +687,7 @@ class Slater(AbstractSlater):
         return self.parameters_projector.T @ (res / delta / 2)
 
     def laplacian_parameters_d1(self, n_vectors: np.ndarray) -> np.ndarray:
-        """First derivatives of laplacian w.r.t the parameters
+        """First derivatives of laplacian w.r.t. the parameters
         :param n_vectors: e-n vectors
         """
         res = np.zeros(shape=(self.det_coeff.size, ))
@@ -700,7 +700,7 @@ class Slater(AbstractSlater):
         return self.parameters_projector.T @ (res / delta / 2)
 
     def hessian_parameters_d1(self, n_vectors: np.ndarray) -> np.ndarray:
-        """First derivatives of hessian w.r.t the parameters
+        """First derivatives of hessian w.r.t. the parameters
         :param n_vectors: e-n vectors
         """
         res = np.zeros(shape=(self.det_coeff.size, (self.neu + self.ned) * 3 * (self.neu + self.ned) * 3))

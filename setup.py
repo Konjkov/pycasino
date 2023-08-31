@@ -13,12 +13,12 @@ setup(
         'numba==0.57.1',
         'numba-mpi>=0.34',
         'pyblock>=0.6.0',
-        'numpy==1.24.3',
-        'scipy==1.10.1',
-        'sympy==1.12.0',
-        'pyyaml==6.0.0',  # for gjastrow loader
-        'matplotlib==3.5.2',
-        'pandas==2.0.2'   # for pyblock
+        'numpy>=1.24.3',
+        'scipy>=1.10.1',
+        'sympy>=1.12.0',
+        'pyyaml>=6.0.0',  # for gjastrow loader
+        'matplotlib>=3.5.2',
+        'pandas>=2.0.2'   # for pyblock
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
