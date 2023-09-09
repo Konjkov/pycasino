@@ -5,6 +5,7 @@ import warnings
 import argparse
 from timeit import default_timer
 from mpi4py import MPI
+import numba as nb
 import numpy as np
 import scipy as sp
 from scipy.optimize import least_squares, minimize, curve_fit, minimize_scalar, OptimizeWarning
@@ -77,18 +78,13 @@ def energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient
     return A + B + D
 
 
-# @nb.njit(nogil=True, parallel=False, cache=True)
+@nb.njit(nogil=True, parallel=False, cache=True)
 def overlap_matrix(wfn_gradient):
-    """Symmetric overlap matrix S"""
-    size = wfn_gradient.shape[1] + 1
-    S = np.zeros(shape=(size, size),)
-    S[0, 0] = 1
-    # numba doesn't support kwarg for mean
-    mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
-    S[1:, 1:] = (
-        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2), axis=0) -
-        np.outer(mean_wfn_gradient, mean_wfn_gradient)
-    )
+    """Symmetric overlap matrix S.
+    Cov(x1 + x2, y1 + y2) = Cov(x1, y1) + Cov(x1, y2) + Cov(x2, y1) + Cov(x2, y2)
+    """
+    S = np.eye(wfn_gradient.shape[1] + 1)
+    S[1:, 1:] = np.cov(wfn_gradient.T, ddof=0)
     return S
 
 
@@ -313,18 +309,10 @@ class Casino:
                     opt_method = self.config.input.opt_plan[i].get('method', self.config.input.opt_method)
                     opt_jastrow = self.config.input.opt_plan[i].get('jastrow', self.config.input.opt_jastrow)
                     opt_backflow = self.config.input.opt_plan[i].get('backflow', self.config.input.opt_backflow)
-                    if self.config.input.opt_plan[i].get('fix_cutoffs', False):
-                        u_cutoff_optimizable = self.wfn.jastrow.u_cutoff_optimizable
-                        chi_cutoff_optimizable = self.wfn.jastrow.chi_cutoff_optimizable.copy()
-                        f_cutoff_optimizable = self.wfn.jastrow.f_cutoff_optimizable.copy()
-                        self.wfn.jastrow.u_cutoff_optimizable = False
-                        self.wfn.jastrow.chi_cutoff_optimizable[:] = False
-                        self.wfn.jastrow.f_cutoff_optimizable[:] = False
-                    elif i > 0 and self.config.input.opt_plan[i - 1].get('fix_cutoffs', False):
-                        # if in the previous cycle we fix_cutoff, restore the old conditions
-                        self.wfn.jastrow.u_cutoff_optimizable = u_cutoff_optimizable
-                        self.wfn.jastrow.chi_cutoff_optimizable[:] = chi_cutoff_optimizable[:]
-                        self.wfn.jastrow.f_cutoff_optimizable[:] = f_cutoff_optimizable[:]
+                    if self.wfn.jastrow:
+                        self.wfn.jastrow.cutoffs_optimizable = not self.config.input.opt_plan[i].get('fix_cutoffs', False)
+                    if self.wfn.backflow:
+                        self.wfn.backflow.cutoffs_optimizable = not self.config.input.opt_plan[i].get('fix_cutoffs', False)
                 self.vmc_energy_accumulation()
                 logger.info(
                     f' ==========================================\n'
@@ -805,13 +793,9 @@ class Casino:
         energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
         energy_gradient = np.empty(shape=(steps, parameters.size)) if self.root else None
         self.mpi_comm.Gather(energy_gradient_part, energy_gradient)
-        eigval = None
-        energy_0 = None
-        energy_sem = None
         dp = np.empty_like(parameters)
         if self.root:
             energy_0 = energy.mean()
-            energy_sem = energy.std() / np.sqrt(steps)
             S = overlap_matrix(wfn_gradient)
             logger.info(f'S is positive definite: {np.all(np.linalg.eigvals(S) > 0)}')
             H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
@@ -831,34 +815,15 @@ class Casino:
             # uniform rescaling of normalized eigvector
             # in case ξ = 0 is equivalent to multiplying by eigvector[0]
             # in case ξ = 1 is equivalent to dividing by eigvector[0]
-            dp = eigvector[1:] / eigvector[0]
+            dp = eigvector[1:] * eigvector[0]
 
         self.mpi_comm.Bcast(dp)
 
-        def f(alpha):
-            self.wfn.set_parameters(parameters + alpha * dp, opt_jastrow, opt_backflow)
-            try:
-                condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
-                energy_mean = vmc_observable(condition, position, self.wfn.energy).mean()
-            except ZeroDivisionError:
-                energy_mean = 0
-            return self.mpi_comm.allreduce(energy_mean) / self.mpi_comm.size
-
-        eigval = self.mpi_comm.bcast(eigval)
-        energy_0 = self.mpi_comm.bcast(energy_0)
-        energy_sem = self.mpi_comm.bcast(energy_sem)
-        for alpha in (1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1):
-            energy_alpha = f(alpha)
-            emin_error = (energy_alpha - alpha * (eigval - energy_0) - energy_0) / energy_sem
-            logger.info(f'step data: E({alpha:.4f}) = {energy_alpha:.8f} differ by {emin_error:.4f} sigma_E(0) from linear')
-            if emin_error < 3:
-                break
-        # alpha = 1
         if parameters.all():
-            logger.info(f'alpha {alpha}\ndelta p / p\n{alpha * dp / parameters}\n')
+            logger.info(f'delta p / p\n{dp / parameters}\n')
         else:
-            logger.info(f'alpha {alpha}\ndelta p\n{alpha * dp}\n')
-        parameters += alpha * dp
+            logger.info(f'delta p\n{dp}\n')
+        parameters += dp
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 

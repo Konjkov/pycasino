@@ -98,6 +98,7 @@ spec = [
     ('no_dup_u_term', nb.boolean[:]),
     ('no_dup_chi_term', nb.boolean[:]),
     ('parameters_projector', nb.float64[:, :]),
+    ('cutoffs_optimizable', nb.boolean),
 ]
 
 
@@ -145,6 +146,7 @@ class Jastrow(AbstractJastrow):
         self.chi_cusp = chi_cusp
         self.no_dup_u_term = no_dup_u_term
         self.no_dup_chi_term = no_dup_chi_term
+        self.cutoffs_optimizable = True
         self.fix_optimizable()
 
     def check_constraint(self):
@@ -673,7 +675,7 @@ class Jastrow(AbstractJastrow):
         """Mask optimizable parameters."""
         res = []
         if self.u_cutoff:
-            if self.u_cutoff_optimizable:
+            if self.u_cutoff_optimizable and self.cutoffs_optimizable:
                 res.append(1)
             for j2 in range(self.u_parameters.shape[1]):
                 for j1 in range(self.u_parameters.shape[0]):
@@ -682,7 +684,7 @@ class Jastrow(AbstractJastrow):
 
         if self.chi_cutoff.any():
             for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
-                if chi_cutoff_optimizable:
+                if chi_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
                 for j2 in range(chi_parameters.shape[1]):
                     for j1 in range(chi_parameters.shape[0]):
@@ -691,7 +693,7 @@ class Jastrow(AbstractJastrow):
 
         if self.f_cutoff.any():
             for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available):
-                if f_cutoff_optimizable:
+                if f_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
                 for j4 in range(f_parameters.shape[3]):
                     for j3 in range(f_parameters.shape[2]):
@@ -713,7 +715,7 @@ class Jastrow(AbstractJastrow):
         scale = []
         ne = self.neu + self.ned
         if self.u_cutoff:
-            if self.u_cutoff_optimizable:
+            if self.u_cutoff_optimizable and self.cutoffs_optimizable:
                 scale.append(1)
             for j2 in range(self.u_parameters.shape[1]):
                 for j1 in range(self.u_parameters.shape[0]):
@@ -722,7 +724,7 @@ class Jastrow(AbstractJastrow):
 
         if self.chi_cutoff.any():
             for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
-                if chi_cutoff_optimizable:
+                if chi_cutoff_optimizable and self.cutoffs_optimizable:
                     scale.append(1)
                 for j2 in range(chi_parameters.shape[1]):
                     for j1 in range(chi_parameters.shape[0]):
@@ -731,7 +733,7 @@ class Jastrow(AbstractJastrow):
 
         if self.f_cutoff.any():
             for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available):
-                if f_cutoff_optimizable:
+                if f_cutoff_optimizable and self.cutoffs_optimizable:
                     scale.append(1)
                 for j4 in range(f_parameters.shape[3]):
                     for j3 in range(f_parameters.shape[2]):
@@ -788,7 +790,7 @@ class Jastrow(AbstractJastrow):
                 u_spin_deps = [0]
 
             u_block = block_diag([u_matrix] * len(u_spin_deps))
-            if self.u_cutoff_optimizable:
+            if self.u_cutoff_optimizable and self.cutoffs_optimizable:
                 u_block = np.hstack((
                     -((1 - self.trunc) * np.array(u_b) / self.u_cutoff + self.u_parameters[1, np.array(u_spin_deps)]).reshape(-1, 1),
                     u_block
@@ -813,7 +815,7 @@ class Jastrow(AbstractJastrow):
                 chi_spin_deps = [0]
 
             chi_block = block_diag([chi_matrix] * len(chi_spin_deps))
-            if chi_cutoff_optimizable:
+            if chi_cutoff_optimizable and self.cutoffs_optimizable:
                 chi_block = np.hstack((
                     -chi_parameters[1, np.array(chi_spin_deps)].reshape(-1, 1),
                     chi_block
@@ -847,7 +849,7 @@ class Jastrow(AbstractJastrow):
                 f_list.append(f_matrix)
                 f_cutoff_matrix = np.concatenate((f_cutoff_matrix, cutoff_constraints))
             f_block = block_diag(f_list)
-            if f_cutoff_optimizable:
+            if f_cutoff_optimizable and self.cutoffs_optimizable:
                 f_block = np.hstack((f_cutoff_matrix.reshape(-1, 1), f_block))
             a_list.append(f_block)
             b_list += [0] * f_constrains_size * len(f_spin_deps)
@@ -871,7 +873,7 @@ class Jastrow(AbstractJastrow):
         """
         res = []
         if self.u_cutoff:
-            if self.u_cutoff_optimizable:
+            if self.u_cutoff_optimizable and self.cutoffs_optimizable:
                 res.append(self.u_cutoff)
             for j2 in range(self.u_parameters.shape[1]):
                 for j1 in range(self.u_parameters.shape[0]):
@@ -880,7 +882,7 @@ class Jastrow(AbstractJastrow):
 
         if self.chi_cutoff.any():
             for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
-                if chi_cutoff_optimizable:
+                if chi_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(chi_cutoff)
                 for j2 in range(chi_parameters.shape[1]):
                     for j1 in range(chi_parameters.shape[0]):
@@ -889,7 +891,7 @@ class Jastrow(AbstractJastrow):
 
         if self.f_cutoff.any():
             for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available):
-                if f_cutoff_optimizable:
+                if f_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(f_cutoff)
                 for j4 in range(f_parameters.shape[3]):
                     for j3 in range(f_parameters.shape[2]):
@@ -911,7 +913,7 @@ class Jastrow(AbstractJastrow):
         """
         n = 0
         if self.u_cutoff:
-            if self.u_cutoff_optimizable:
+            if self.u_cutoff_optimizable and self.cutoffs_optimizable:
                 self.u_cutoff = parameters[n]
                 n += 1
             for j2 in range(self.u_parameters.shape[1]):
@@ -924,7 +926,7 @@ class Jastrow(AbstractJastrow):
 
         if self.chi_cutoff.any():
             for i, (chi_parameters, chi_parameters_optimizable, chi_cutoff_optimizable, chi_parameters_available) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff_optimizable, self.chi_parameters_available)):
-                if chi_cutoff_optimizable:
+                if chi_cutoff_optimizable and self.cutoffs_optimizable:
                     # Sequence type is a pointer, but numeric type is not.
                     self.chi_cutoff[i] = parameters[n]
                     n += 1
@@ -938,7 +940,7 @@ class Jastrow(AbstractJastrow):
 
         if self.f_cutoff.any():
             for i, (f_parameters, f_parameters_optimizable, f_cutoff_optimizable, f_parameters_available) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff_optimizable, self.f_parameters_available)):
-                if f_cutoff_optimizable:
+                if f_cutoff_optimizable and self.cutoffs_optimizable:
                     # Sequence types is a pointer, but numeric types is not.
                     self.f_cutoff[i] = parameters[n]
                     n += 1
@@ -963,11 +965,11 @@ class Jastrow(AbstractJastrow):
 
         C = self.trunc
         L = self.u_cutoff
-        size = self.u_parameters_available.sum() + self.u_cutoff_optimizable
+        size = self.u_parameters_available.sum() + (self.u_cutoff_optimizable and self.cutoffs_optimizable)
         res = np.zeros(shape=(size,))
 
         n = -1
-        if self.u_cutoff_optimizable:
+        if self.u_cutoff_optimizable and self.cutoffs_optimizable:
             n += 1
             self.u_cutoff -= delta
             res[n] -= self.u_term(e_powers) / delta / 2
@@ -977,7 +979,7 @@ class Jastrow(AbstractJastrow):
 
         for e1 in range(1, self.neu + self.ned):
             for e2 in range(e1):
-                n = int(self.u_cutoff_optimizable) - 1
+                n = int(self.u_cutoff_optimizable and self.cutoffs_optimizable) - 1
                 r = e_powers[e1, e2, 1]
                 cutoff = (r - L) ** C
                 if r < self.u_cutoff:
@@ -1000,7 +1002,7 @@ class Jastrow(AbstractJastrow):
 
         C = self.trunc
         size = sum([
-            chi_parameters_available.sum() + chi_cutoff_optimizable
+            chi_parameters_available.sum() + (chi_cutoff_optimizable and self.cutoffs_optimizable)
             for chi_parameters_available, chi_cutoff_optimizable
             in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
         ])
@@ -1008,7 +1010,7 @@ class Jastrow(AbstractJastrow):
 
         n = -1
         for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)):
-            if self.chi_cutoff_optimizable[i]:
+            if self.chi_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.chi_cutoff[i] -= delta
                 res[n] -= self.chi_term(n_powers) / delta / 2
@@ -1019,7 +1021,7 @@ class Jastrow(AbstractJastrow):
             L = self.chi_cutoff[i]
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
-                    n = int(self.chi_cutoff_optimizable[i]) - 1
+                    n = int(self.chi_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
                     r = n_powers[label, e1, 1]
                     cutoff = (r - L) ** C
                     if r < L:
@@ -1043,7 +1045,7 @@ class Jastrow(AbstractJastrow):
 
         C = self.trunc
         size = sum([
-            f_parameters_available.sum() + f_cutoff_optimizable
+            f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
             for f_parameters_available, f_cutoff_optimizable
             in zip(self.f_parameters_available, self.f_cutoff_optimizable)
         ])
@@ -1052,7 +1054,7 @@ class Jastrow(AbstractJastrow):
         n = -1
 
         for i, (f_parameters, f_parameters_available, f_labels) in enumerate(zip(self.f_parameters, self.f_parameters_available, self.f_labels)):
-            if self.f_cutoff_optimizable[i]:
+            if self.f_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.f_cutoff[i] -= delta
                 res[n] -= self.f_term(e_powers, n_powers) / delta / 2
@@ -1064,7 +1066,7 @@ class Jastrow(AbstractJastrow):
             for label in f_labels:
                 for e1 in range(1, self.neu + self.ned):
                     for e2 in range(e1):
-                        n = int(self.f_cutoff_optimizable[i]) - 1
+                        n = int(self.f_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
                         r_e1I = n_powers[label, e1, 1]
                         r_e2I = n_powers[label, e2, 1]
                         if r_e1I < L and r_e2I < L:
@@ -1095,11 +1097,11 @@ class Jastrow(AbstractJastrow):
 
         C = self.trunc
         L = self.u_cutoff
-        size = self.u_parameters_available.sum() + self.u_cutoff_optimizable
+        size = self.u_parameters_available.sum() + (self.u_cutoff_optimizable and self.cutoffs_optimizable)
         res = np.zeros(shape=(size, (self.neu + self.ned), 3))
 
         n = -1
-        if self.u_cutoff_optimizable:
+        if self.u_cutoff_optimizable and self.cutoffs_optimizable:
             n += 1
             self.u_cutoff -= delta
             res[n] -= self.u_term_gradient(e_powers, e_vectors).reshape((self.neu + self.ned), 3) / delta / 2
@@ -1109,7 +1111,7 @@ class Jastrow(AbstractJastrow):
 
         for e1 in range(1, self.neu + self.ned):
             for e2 in range(e1):
-                n = int(self.u_cutoff_optimizable) - 1
+                n = int(self.u_cutoff_optimizable and self.cutoffs_optimizable) - 1
                 r = e_powers[e1, e2, 1]
                 if r < self.u_cutoff:
                     r_vec = e_vectors[e1, e2] / r
@@ -1138,7 +1140,7 @@ class Jastrow(AbstractJastrow):
 
         C = self.trunc
         size = sum([
-            chi_parameters_available.sum() + chi_cutoff_optimizable
+            chi_parameters_available.sum() + (chi_cutoff_optimizable and self.cutoffs_optimizable)
             for chi_parameters_available, chi_cutoff_optimizable
             in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
         ])
@@ -1146,7 +1148,7 @@ class Jastrow(AbstractJastrow):
 
         n = -1
         for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)):
-            if self.chi_cutoff_optimizable[i]:
+            if self.chi_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.chi_cutoff[i] -= delta
                 res[n] -= self.chi_term_gradient(n_powers, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
@@ -1157,7 +1159,7 @@ class Jastrow(AbstractJastrow):
             L = self.chi_cutoff[i]
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
-                    n = int(self.chi_cutoff_optimizable[i]) - 1
+                    n = int(self.chi_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
                     r = n_powers[label, e1, 1]
                     if r < L:
                         r_vec = n_vectors[label, e1] / r
@@ -1184,7 +1186,7 @@ class Jastrow(AbstractJastrow):
 
         C = self.trunc
         size = sum([
-            f_parameters_available.sum() + f_cutoff_optimizable
+            f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
             for f_parameters_available, f_cutoff_optimizable
             in zip(self.f_parameters_available, self.f_cutoff_optimizable)
         ])
@@ -1192,7 +1194,7 @@ class Jastrow(AbstractJastrow):
 
         n = -1
         for i, (f_parameters, f_parameters_available, f_labels) in enumerate(zip(self.f_parameters, self.f_parameters_available, self.f_labels)):
-            if self.f_cutoff_optimizable[i]:
+            if self.f_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.f_cutoff[i] -= delta
                 res[n] -= self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
@@ -1204,7 +1206,7 @@ class Jastrow(AbstractJastrow):
             for label in f_labels:
                 for e1 in range(1, self.neu + self.ned):
                     for e2 in range(e1):
-                        n = int(self.f_cutoff_optimizable[i]) - 1
+                        n = int(self.f_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
                         r_e1I = n_powers[label, e1, 1]
                         r_e2I = n_powers[label, e2, 1]
                         r_ee = e_powers[e1, e2, 1]
@@ -1249,11 +1251,11 @@ class Jastrow(AbstractJastrow):
 
         C = self.trunc
         L = self.u_cutoff
-        size = self.u_parameters_available.sum() + self.u_cutoff_optimizable
+        size = self.u_parameters_available.sum() + (self.u_cutoff_optimizable and self.cutoffs_optimizable)
         res = np.zeros(shape=(size, ))
 
         n = -1
-        if self.u_cutoff_optimizable:
+        if self.u_cutoff_optimizable and self.cutoffs_optimizable:
             n += 1
             self.u_cutoff -= delta
             res[n] -= self.u_term_laplacian(e_powers) / delta / 2
@@ -1263,7 +1265,7 @@ class Jastrow(AbstractJastrow):
 
         for e1 in range(1, self.neu + self.ned):
             for e2 in range(e1):
-                n = int(self.u_cutoff_optimizable) - 1
+                n = int(self.u_cutoff_optimizable and self.cutoffs_optimizable) - 1
                 r = e_powers[e1, e2, 1]
                 if r < self.u_cutoff:
                     u_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.u_parameters.shape[1]
@@ -1292,7 +1294,7 @@ class Jastrow(AbstractJastrow):
 
         C = self.trunc
         size = sum([
-            chi_parameters_available.sum() + chi_cutoff_optimizable
+            chi_parameters_available.sum() + (chi_cutoff_optimizable and self.cutoffs_optimizable)
             for chi_parameters_available, chi_cutoff_optimizable
             in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
         ])
@@ -1300,7 +1302,7 @@ class Jastrow(AbstractJastrow):
 
         n = -1
         for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)):
-            if self.chi_cutoff_optimizable[i]:
+            if self.chi_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.chi_cutoff[i] -= delta
                 res[n] -= self.chi_term_laplacian(n_powers) / delta / 2
@@ -1311,7 +1313,7 @@ class Jastrow(AbstractJastrow):
             L = self.chi_cutoff[i]
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
-                    n = int(self.chi_cutoff_optimizable[i]) - 1
+                    n = int(self.chi_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
                     r = n_powers[label, e1, 1]
                     if r < L:
                         chi_set = int(e1 >= self.neu) % chi_parameters.shape[1]
@@ -1339,7 +1341,7 @@ class Jastrow(AbstractJastrow):
             return np.zeros((0, ))
 
         size = sum([
-            f_parameters_available.sum() + f_cutoff_optimizable
+            f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
             for f_parameters_available, f_cutoff_optimizable
             in zip(self.f_parameters_available, self.f_cutoff_optimizable)
         ])
@@ -1348,7 +1350,7 @@ class Jastrow(AbstractJastrow):
         n = -1
         C = self.trunc
         for i, (f_parameters, f_parameters_available, f_labels) in enumerate(zip(self.f_parameters, self.f_parameters_available, self.f_labels)):
-            if self.f_cutoff_optimizable[i]:
+            if self.f_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.f_cutoff[i] -= delta
                 res[n] -= self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
@@ -1360,7 +1362,7 @@ class Jastrow(AbstractJastrow):
             for label in f_labels:
                 for e1 in range(1, self.neu + self.ned):
                     for e2 in range(e1):
-                        n = int(self.f_cutoff_optimizable[i]) - 1
+                        n = int(self.f_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
                         r_e1I_vec = n_vectors[label, e1]
                         r_e2I_vec = n_vectors[label, e2]
                         r_ee_vec = e_vectors[e1, e2]

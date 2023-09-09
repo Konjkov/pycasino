@@ -5,6 +5,8 @@ from casino import delta
 from casino.abstract import AbstractBackflow
 from casino.overload import block_diag, rref
 
+eye3 = np.eye(3)
+
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
@@ -195,6 +197,7 @@ spec = [
     ('ae_cutoff', nb.float64[:]),
     ('ae_cutoff_optimizable', nb.boolean[:]),
     ('parameters_projector', nb.float64[:, :]),
+    ('cutoffs_optimizable', nb.boolean),
 ]
 
 
@@ -249,6 +252,7 @@ class Backflow(AbstractBackflow):
         ))
         self.ae_cutoff = ae_cutoff
         self.ae_cutoff_optimizable = ae_cutoff_optimizable
+        self.cutoffs_optimizable = True
         self.fix_optimizable()
 
     def fix_optimizable(self):
@@ -426,7 +430,7 @@ class Backflow(AbstractBackflow):
                         for k in range(parameters.shape[0]):
                             poly += parameters[k, mu_set] * n_powers[label, e1, k]
                         # cutoff_condition
-                        # 0: AE cutoff definitely not applied
+                        # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         res[ae_cutoff_condition, e1] += poly * (1 - r/L) ** C * r_vec
@@ -465,7 +469,7 @@ class Backflow(AbstractBackflow):
                                         phi_poly += phi_parameters[k, l, m, phi_set] * poly
                                         theta_poly += theta_parameters[k, l, m, phi_set] * poly
                             # cutoff_condition
-                            # 0: AE cutoff definitely not applied
+                            # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             res[ae_cutoff_condition, e1] += (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * (phi_poly * r_ee_vec + theta_poly * r_e1I_vec)
@@ -499,7 +503,7 @@ class Backflow(AbstractBackflow):
                         poly_diff += p * k
 
                     bf = (1 - r/L)**C * (
-                        (poly_diff - C*r/(L - r)*poly) * np.outer(r_vec, r_vec)/r**2 + poly * np.eye(3)
+                        (poly_diff - C*r/(L - r)*poly) * np.outer(r_vec, r_vec)/r**2 + poly * eye3
                     )
                     res[ae_cutoff_condition, e1, :, e1, :] += bf
                     res[ae_cutoff_condition, e1, :, e2, :] -= bf
@@ -532,11 +536,11 @@ class Backflow(AbstractBackflow):
                             poly += p
                             poly_diff += k * p
                         # cutoff_condition
-                        # 0: AE cutoff definitely not applied
+                        # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         res[ae_cutoff_condition, e1, :, e1, :] += (1 - r/L)**C * (
-                            (poly_diff - C*r/(L - r)*poly) * np.outer(r_vec, r_vec)/r**2 + poly * np.eye(3)
+                            (poly_diff - C*r/(L - r)*poly) * np.outer(r_vec, r_vec)/r**2 + poly * eye3
                         )
 
         return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
@@ -586,19 +590,19 @@ class Backflow(AbstractBackflow):
                                         phi_poly_diff_ee += poly_diff_ee * phi_p
                                         theta_poly_diff_ee += poly_diff_ee * theta_p
                             # cutoff_condition
-                            # 0: AE cutoff definitely not applied
+                            # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             cutoff = (1-r_e1I/L) ** C * (1-r_e2I/L) ** C
                             res[ae_cutoff_condition, e1, :, e1, :] += cutoff * (
                                 (phi_poly_diff_e1I - C*r_e1I/(L - r_e1I)*phi_poly) * np.outer(r_ee_vec, r_e1I_vec)/r_e1I**2 +
-                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 + phi_poly * np.eye(3) +
+                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 + phi_poly * eye3 +
                                 (theta_poly_diff_e1I - C*r_e1I/(L - r_e1I) * theta_poly) * np.outer(r_e1I_vec, r_e1I_vec)/r_e1I**2 +
-                                theta_poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2 + theta_poly * np.eye(3)
+                                theta_poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2 + theta_poly * eye3
                             )
                             res[ae_cutoff_condition, e1, :, e2, :] += cutoff * (
                                 (phi_poly_diff_e2I - C*r_e2I/(L - r_e2I)*phi_poly) * np.outer(r_ee_vec, r_e2I_vec)/r_e2I**2 -
-                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 - phi_poly * np.eye(3) +
+                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 - phi_poly * eye3 +
                                 (theta_poly_diff_e2I - C*r_e2I/(L - r_e2I) * theta_poly) * np.outer(r_e1I_vec, r_e2I_vec) / r_e2I**2 -
                                 theta_poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2
                             )
@@ -670,7 +674,7 @@ class Backflow(AbstractBackflow):
                             poly_diff += k * p
                             poly_diff_2 += k * (k-1) * p
                         # cutoff_condition
-                        # 0: AE cutoff definitely not applied
+                        # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         res[ae_cutoff_condition, e1] += (1 - r/L)**C * (
@@ -786,7 +790,7 @@ class Backflow(AbstractBackflow):
                                 theta_poly_diff_ee * r_ee_vec
                             ) / r_ee**2
                             # cutoff_condition
-                            # 0: AE cutoff definitely not applied
+                            # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             res[ae_cutoff_condition, e1] += (1-r_e1I/L)**C * (1-r_e2I/L)**C * (
@@ -970,7 +974,7 @@ class Backflow(AbstractBackflow):
         res = []
         if self.eta_cutoff.any():
             for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
-                if eta_cutoff_optimizable:
+                if eta_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
             for j2 in range(self.eta_parameters.shape[1]):
                 for j1 in range(self.eta_parameters.shape[0]):
@@ -979,7 +983,7 @@ class Backflow(AbstractBackflow):
 
         if self.mu_cutoff.any():
             for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_parameters_available) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_parameters_available)):
-                if mu_cutoff_optimizable:
+                if mu_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
                 for j2 in range(mu_parameters.shape[1]):
                     for j1 in range(mu_parameters.shape[0]):
@@ -988,7 +992,7 @@ class Backflow(AbstractBackflow):
 
         if self.phi_cutoff.any():
             for i, (phi_parameters, phi_parameters_optimizable, phi_parameters_available, theta_parameters_optimizable, theta_parameters_available, phi_cutoff, phi_cutoff_optimizable) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.phi_parameters_available, self.theta_parameters_optimizable, self.theta_parameters_available, self.phi_cutoff, self.phi_cutoff_optimizable)):
-                if phi_cutoff_optimizable:
+                if phi_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
                 for j4 in range(phi_parameters.shape[3]):
                     for j3 in range(phi_parameters.shape[2]):
@@ -1004,7 +1008,7 @@ class Backflow(AbstractBackflow):
                                     res.append(theta_parameters_optimizable[j1, j2, j3, j4])
 
         for ae_cutoff_optimizable in self.ae_cutoff_optimizable:
-            if ae_cutoff_optimizable:
+            if ae_cutoff_optimizable and self.cutoffs_optimizable:
                 res.append(1)
 
         return np.array(res)
@@ -1020,7 +1024,7 @@ class Backflow(AbstractBackflow):
         res = []
         if self.eta_cutoff.any():
             for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
-                if eta_cutoff_optimizable:
+                if eta_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
             for j2 in range(self.eta_parameters.shape[1]):
                 for j1 in range(self.eta_parameters.shape[0]):
@@ -1029,7 +1033,7 @@ class Backflow(AbstractBackflow):
 
         if self.mu_cutoff.any():
             for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_parameters_available) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_parameters_available)):
-                if mu_cutoff_optimizable:
+                if mu_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
                 for j2 in range(mu_parameters.shape[1]):
                     for j1 in range(mu_parameters.shape[0]):
@@ -1038,7 +1042,7 @@ class Backflow(AbstractBackflow):
 
         if self.phi_cutoff.any():
             for i, (phi_parameters, phi_parameters_optimizable, phi_parameters_available, theta_parameters_optimizable, theta_parameters_available, phi_cutoff, phi_cutoff_optimizable) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.phi_parameters_available, self.theta_parameters_optimizable, self.theta_parameters_available, self.phi_cutoff, self.phi_cutoff_optimizable)):
-                if phi_cutoff_optimizable:
+                if phi_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
                 for j4 in range(phi_parameters.shape[3]):
                     for j3 in range(phi_parameters.shape[2]):
@@ -1054,7 +1058,7 @@ class Backflow(AbstractBackflow):
                                     res.append(1)
 
         for ae_cutoff_optimizable in self.ae_cutoff_optimizable:
-            if ae_cutoff_optimizable:
+            if ae_cutoff_optimizable and self.cutoffs_optimizable:
                 res.append(1)
 
         return np.array(res)
@@ -1104,7 +1108,7 @@ class Backflow(AbstractBackflow):
                     eta_matrix = np.zeros(shape=(0, self.eta_parameters.shape[0]))
                     eta_list.append(eta_matrix)
             eta_block = block_diag(eta_list)
-            if self.eta_cutoff_optimizable.any():
+            if self.eta_cutoff_optimizable.any() and self.cutoffs_optimizable:
                 eta_block = np.hstack((
                     # FIXME: check if two Cut-off radii
                     - np.array(eta_cutoff_matrix).reshape(-1, self.eta_cutoff_optimizable.sum()),
@@ -1135,7 +1139,7 @@ class Backflow(AbstractBackflow):
                 mu_cutoff_matrix = [0, mu_parameters[0, 1]]
 
             mu_block = block_diag([mu_matrix] * len(mu_spin_deps))
-            if mu_cutoff_optimizable:
+            if mu_cutoff_optimizable and self.cutoffs_optimizable:
                 # does not matter for AE atoms
                 mu_block = np.hstack((- np.array(mu_cutoff_matrix).reshape(-1, 1), mu_block))
             a_list.append(mu_block)
@@ -1168,11 +1172,11 @@ class Backflow(AbstractBackflow):
                 b_list += [0] * phi_constrains_size
 
             phi_block = block_diag(phi_list)
-            if phi_cutoff_optimizable:
+            if phi_cutoff_optimizable and self.cutoffs_optimizable:
                 phi_block = np.hstack((phi_cutoff_matrix.reshape(-1, 1), phi_block))
             a_list.append(phi_block)
 
-        if self.ae_cutoff_optimizable.any():
+        if self.ae_cutoff_optimizable.any() and self.cutoffs_optimizable:
             a_list.append(np.zeros(shape=(0, self.ae_cutoff_optimizable.sum())))
 
         return block_diag(a_list), np.array(b_list)
@@ -1196,7 +1200,7 @@ class Backflow(AbstractBackflow):
         res = []
         if self.eta_cutoff.any():
             for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
-                if eta_cutoff_optimizable:
+                if eta_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(eta_cutoff)
             for j2 in range(self.eta_parameters.shape[1]):
                 for j1 in range(self.eta_parameters.shape[0]):
@@ -1205,7 +1209,7 @@ class Backflow(AbstractBackflow):
 
         if self.mu_cutoff.any():
             for mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_parameters_available in zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_parameters_available):
-                if mu_cutoff_optimizable:
+                if mu_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(mu_cutoff)
                 for j2 in range(mu_parameters.shape[1]):
                     for j1 in range(mu_parameters.shape[0]):
@@ -1214,7 +1218,7 @@ class Backflow(AbstractBackflow):
 
         if self.phi_cutoff.any():
             for phi_parameters, phi_parameters_optimizable, phi_parameters_available, theta_parameters, theta_parameters_optimizable, theta_parameters_available, phi_cutoff, phi_cutoff_optimizable in zip(self.phi_parameters, self.phi_parameters_optimizable, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_optimizable, self.theta_parameters_available, self.phi_cutoff, self.phi_cutoff_optimizable):
-                if phi_cutoff_optimizable:
+                if phi_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(phi_cutoff)
                 for j4 in range(phi_parameters.shape[3]):
                     for j3 in range(phi_parameters.shape[2]):
@@ -1230,7 +1234,7 @@ class Backflow(AbstractBackflow):
                                     res.append(theta_parameters[j1, j2, j3, j4])
 
         for i, ae_cutoff_optimizable in enumerate(self.ae_cutoff_optimizable):
-            if ae_cutoff_optimizable:
+            if ae_cutoff_optimizable and self.cutoffs_optimizable:
                 res.append(self.ae_cutoff[i])
 
         return np.array(res)
@@ -1247,7 +1251,7 @@ class Backflow(AbstractBackflow):
         n = 0
         if self.eta_cutoff.any():
             for j1 in range(self.eta_cutoff.shape[0]):
-                if self.eta_cutoff_optimizable[j1]:
+                if self.eta_cutoff_optimizable[j1] and self.cutoffs_optimizable:
                     self.eta_cutoff[j1] = parameters[n]
                     n += 1
             for j2 in range(self.eta_parameters.shape[1]):
@@ -1260,7 +1264,7 @@ class Backflow(AbstractBackflow):
 
         if self.mu_cutoff.any():
             for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff_optimizable, mu_parameters_available) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff_optimizable, self.mu_parameters_available)):
-                if mu_cutoff_optimizable:
+                if mu_cutoff_optimizable and self.cutoffs_optimizable:
                     self.mu_cutoff[i] = parameters[n]
                     n += 1
                 for j2 in range(mu_parameters.shape[1]):
@@ -1273,7 +1277,7 @@ class Backflow(AbstractBackflow):
 
         if self.phi_cutoff.any():
             for i, (phi_parameters, phi_parameters_optimizable, phi_parameters_available, theta_parameters, theta_parameters_optimizable, phi_cutoff_optimizable, theta_parameters_available) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_optimizable, self.phi_cutoff_optimizable, self.theta_parameters_available)):
-                if phi_cutoff_optimizable:
+                if phi_cutoff_optimizable and self.cutoffs_optimizable:
                     self.phi_cutoff[i] = parameters[n]
                     n += 1
                 for j4 in range(phi_parameters.shape[3]):
@@ -1294,7 +1298,7 @@ class Backflow(AbstractBackflow):
                 self.fix_phi_parameters()
 
         for i, cutoff_optimizable in enumerate(self.ae_cutoff_optimizable):
-            if cutoff_optimizable:
+            if cutoff_optimizable and self.cutoffs_optimizable:
                 self.ae_cutoff[i] = parameters[n]
                 n += 1
 
@@ -1310,12 +1314,12 @@ class Backflow(AbstractBackflow):
         if not self.eta_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
 
-        size = self.eta_parameters_available.sum() + self.eta_cutoff_optimizable.sum()
+        size = self.eta_parameters_available.sum() + (self.cutoffs_optimizable and self.eta_cutoff_optimizable.sum())
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3))
 
         n = -1
         for i in range(self.eta_cutoff.shape[0]):
-            if self.eta_cutoff_optimizable[i]:
+            if self.eta_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.eta_cutoff[i] -= delta
                 res[n] -= self.eta_term(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
@@ -1325,7 +1329,7 @@ class Backflow(AbstractBackflow):
 
         for e1 in range(1, self.neu + self.ned):
             for e2 in range(e1):
-                n = self.eta_cutoff_optimizable.sum() - 1
+                n = (self.cutoffs_optimizable and self.eta_cutoff_optimizable.sum()) - 1
                 r = e_powers[e1, e2, 1]
                 eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.eta_parameters.shape[1]
                 L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
@@ -1352,7 +1356,7 @@ class Backflow(AbstractBackflow):
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
 
         size = sum([
-            mu_parameters_available.sum() + mu_cutoff_optimizable
+            mu_parameters_available.sum() + (mu_cutoff_optimizable and self.cutoffs_optimizable)
             for mu_parameters_available, mu_cutoff_optimizable
             in zip(self.mu_parameters_available, self.mu_cutoff_optimizable)
         ])
@@ -1360,7 +1364,7 @@ class Backflow(AbstractBackflow):
 
         n = -1
         for i, (mu_parameters, mu_parameters_available, mu_labels) in enumerate(zip(self.mu_parameters, self.mu_parameters_available, self.mu_labels)):
-            if self.mu_cutoff_optimizable[i]:
+            if self.mu_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.mu_cutoff[i] -= delta
                 res[n] -= self.mu_term(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
@@ -1371,12 +1375,12 @@ class Backflow(AbstractBackflow):
             L = self.mu_cutoff[i]
             for label in mu_labels:
                 for e1 in range(self.neu + self.ned):
-                    n = int(self.mu_cutoff_optimizable[i]) - 1
+                    n = int(self.mu_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
                     r = n_powers[label, e1, 1]
                     if r < L:
                         r_vec = n_vectors[label, e1]
                         # cutoff_condition
-                        # 0: AE cutoff definitely not applied
+                        # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
@@ -1402,7 +1406,7 @@ class Backflow(AbstractBackflow):
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
 
         size = sum([
-            phi_parameters_available.sum() + theta_parameters_available.sum() + phi_cutoff_optimizable
+            phi_parameters_available.sum() + theta_parameters_available.sum() + (phi_cutoff_optimizable and self.cutoffs_optimizable)
             for phi_parameters_available, theta_parameters_available, phi_cutoff_optimizable
             in zip(self.phi_parameters_available, self.theta_parameters_available, self.phi_cutoff_optimizable)
         ])
@@ -1410,7 +1414,7 @@ class Backflow(AbstractBackflow):
 
         n = -1
         for i, (phi_parameters, phi_parameters_available, theta_parameters, theta_parameters_available, phi_labels) in enumerate(zip(self.phi_parameters, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_available, self.phi_labels)):
-            if self.phi_cutoff_optimizable[i]:
+            if self.phi_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.phi_cutoff[i] -= delta
                 res[n] -= self.phi_term(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
@@ -1424,14 +1428,14 @@ class Backflow(AbstractBackflow):
                     for e2 in range(self.neu + self.ned):
                         if e1 == e2:
                             continue
-                        n = int(self.phi_cutoff_optimizable[i]) - 1
+                        n = int(self.phi_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
                         r_e1I = n_powers[label, e1, 1]
                         r_e2I = n_powers[label, e2, 1]
                         if r_e1I < L and r_e2I < L:
                             r_e1I_vec = n_vectors[label, e1]
                             r_ee_vec = e_vectors[e1, e2]
                             # cutoff_condition
-                            # 0: AE cutoff definitely not applied
+                            # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             cutoff = (1 - r_e1I / L) ** C * (1 - r_e2I / L) ** C
@@ -1456,11 +1460,11 @@ class Backflow(AbstractBackflow):
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
-        size = self.ae_cutoff_optimizable.sum()
+        size = self.cutoffs_optimizable and self.ae_cutoff_optimizable.sum()
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3))
         n = -1
         for i in range(n_vectors.shape[0]):
-            if self.ae_cutoff_optimizable[i]:
+            if self.ae_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 Lg = self.ae_cutoff[i]
                 for j in range(self.neu + self.ned):
@@ -1480,12 +1484,12 @@ class Backflow(AbstractBackflow):
         if not self.eta_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
 
-        size = self.eta_parameters_available.sum() + self.eta_cutoff_optimizable.sum()
+        size = self.eta_parameters_available.sum() + (self.cutoffs_optimizable and self.eta_cutoff_optimizable.sum())
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3, (self.neu + self.ned), 3))
 
         n = -1
         for i in range(self.eta_cutoff.shape[0]):
-            if self.eta_cutoff_optimizable[i]:
+            if self.eta_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.eta_cutoff[i] -= delta
                 res[n] -= self.eta_term_gradient(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
@@ -1495,7 +1499,7 @@ class Backflow(AbstractBackflow):
 
         for e1 in range(1, self.neu + self.ned):
             for e2 in range(e1):
-                n = self.eta_cutoff_optimizable.sum() - 1
+                n = (self.cutoffs_optimizable and self.eta_cutoff_optimizable.sum()) - 1
                 r = e_powers[e1, e2, 1]
                 eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.eta_parameters.shape[1]
                 L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
@@ -1510,7 +1514,7 @@ class Backflow(AbstractBackflow):
                                 if eta_set == j2:
                                     poly = cutoff * e_powers[e1, e2, j1]
                                     bf = (
-                                        (j1 / r - C / (L - r)) * outer_vec / r + np.eye(3)
+                                        (j1 / r - C / (L - r)) * outer_vec / r + eye3
                                     ) * poly
                                     res[n, ae_cutoff_condition, e1, :, e1, :] += bf
                                     res[n, ae_cutoff_condition, e1, :, e2, :] -= bf
@@ -1529,7 +1533,7 @@ class Backflow(AbstractBackflow):
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
 
         size = sum([
-            mu_parameters_available.sum() + mu_cutoff_optimizable
+            mu_parameters_available.sum() + (mu_cutoff_optimizable and self.cutoffs_optimizable)
             for mu_parameters_available, mu_cutoff_optimizable
             in zip(self.mu_parameters_available, self.mu_cutoff_optimizable)
         ])
@@ -1537,7 +1541,7 @@ class Backflow(AbstractBackflow):
 
         n = -1
         for i, (mu_parameters, mu_parameters_available, mu_labels) in enumerate(zip(self.mu_parameters, self.mu_parameters_available, self.mu_labels)):
-            if self.mu_cutoff_optimizable[i]:
+            if self.mu_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.mu_cutoff[i] -= delta
                 res[n] -= self.mu_term_gradient(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
@@ -1548,12 +1552,12 @@ class Backflow(AbstractBackflow):
             L = self.mu_cutoff[i]
             for label in mu_labels:
                 for e1 in range(self.neu + self.ned):
-                    n = int(self.mu_cutoff_optimizable[i]) - 1
+                    n = int(self.mu_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
                     r = n_powers[label, e1, 1]
                     if r < L:
                         r_vec = n_vectors[label, e1]
                         # cutoff_condition
-                        # 0: AE cutoff definitely not applied
+                        # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
@@ -1566,7 +1570,7 @@ class Backflow(AbstractBackflow):
                                     if mu_set == j2:
                                         poly = cutoff * n_powers[label, e1, j1]
                                         res[n, ae_cutoff_condition, e1, :, e1, :] += (
-                                            (j1 / r - C / (L - r)) * outer_vec / r + np.eye(3)
+                                            (j1 / r - C / (L - r)) * outer_vec / r + eye3
                                         ) * poly
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
@@ -1583,16 +1587,15 @@ class Backflow(AbstractBackflow):
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
 
         size = sum([
-            phi_parameters_available.sum() + theta_parameters_available.sum() + phi_cutoff_optimizable
+            phi_parameters_available.sum() + theta_parameters_available.sum() + (phi_cutoff_optimizable and self.cutoffs_optimizable)
             for phi_parameters_available, theta_parameters_available, phi_cutoff_optimizable
             in zip(self.phi_parameters_available, self.theta_parameters_available, self.phi_cutoff_optimizable)
         ])
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3, (self.neu + self.ned), 3))
 
         n = -1
-        eye = np.eye(3)
         for i, (phi_parameters, phi_parameters_available, theta_parameters, theta_parameters_available, phi_labels) in enumerate(zip(self.phi_parameters, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_available, self.phi_labels)):
-            if self.phi_cutoff_optimizable[i]:
+            if self.phi_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.phi_cutoff[i] -= delta
                 res[n] -= self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
@@ -1606,7 +1609,7 @@ class Backflow(AbstractBackflow):
                     for e2 in range(self.neu + self.ned):
                         if e1 == e2:
                             continue
-                        n = int(self.phi_cutoff_optimizable[i]) - 1
+                        n = int(self.phi_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
                         r_e1I = n_powers[label, e1, 1]
                         r_e2I = n_powers[label, e2, 1]
                         if r_e1I < L and r_e2I < L:
@@ -1618,7 +1621,7 @@ class Backflow(AbstractBackflow):
                             cutoff_diff_e1I = C * r_e1I / (L - r_e1I)
                             cutoff_diff_e2I = C * r_e2I / (L - r_e2I)
                             # cutoff_condition
-                            # 0: AE cutoff definitely not applied
+                            # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
@@ -1635,15 +1638,15 @@ class Backflow(AbstractBackflow):
                                                         for t2 in range(3):
                                                             res[n, ae_cutoff_condition, e1, t1, e1, t2] += (
                                                                 (j1 - cutoff_diff_e1I) * r_ee_vec[t1] * r_e1I_vec[t2] / r_e1I**2 +
-                                                                j3 * r_ee_vec[t1] * r_ee_vec[t2] / r_ee**2 + eye[t1, t2]
+                                                                j3 * r_ee_vec[t1] * r_ee_vec[t2] / r_ee**2 + eye3[t1, t2]
                                                             ) * poly
                                                             res[n + dn, ae_cutoff_condition, e1, t1, e1, t2] += (
                                                                 (j1 - cutoff_diff_e1I) * r_e1I_vec[t1] * r_e1I_vec[t2] / r_e1I**2 +
-                                                                j3 * r_ee_vec[t2] * r_e1I_vec[t1] / r_ee**2 + eye[t1, t2]
+                                                                j3 * r_ee_vec[t2] * r_e1I_vec[t1] / r_ee**2 + eye3[t1, t2]
                                                             ) * poly
                                                             res[n, ae_cutoff_condition, e1, t1, e2, t2] += (
                                                                 (j2 - cutoff_diff_e2I) * r_ee_vec[t1] * r_e2I_vec[t2] / r_e2I**2 -
-                                                                j3 * r_ee_vec[t1] * r_ee_vec[t2] / r_ee**2 - eye[t1, t2]
+                                                                j3 * r_ee_vec[t1] * r_ee_vec[t2] / r_ee**2 - eye3[t1, t2]
                                                             ) * poly
                                                             res[n + dn, ae_cutoff_condition, e1, t1, e2, t2] += (
                                                                 (j2 - cutoff_diff_e2I) * r_e1I_vec[t1] * r_e2I_vec[t2] / r_e2I**2 -
@@ -1658,11 +1661,11 @@ class Backflow(AbstractBackflow):
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
-        size = self.ae_cutoff_optimizable.sum()
+        size = self.cutoffs_optimizable and self.ae_cutoff_optimizable.sum()
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3, self.neu + self.ned, 3))
         n = -1
         for i in range(n_vectors.shape[0]):
-            if self.ae_cutoff_optimizable[i]:
+            if self.ae_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 Lg = self.ae_cutoff[i]
                 for j in range(self.neu + self.ned):
@@ -1683,12 +1686,12 @@ class Backflow(AbstractBackflow):
         if not self.eta_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
 
-        size = self.eta_parameters_available.sum() + self.eta_cutoff_optimizable.sum()
+        size = self.eta_parameters_available.sum() + (self.cutoffs_optimizable and self.eta_cutoff_optimizable.sum())
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3))
 
         n = -1
         for i in range(self.eta_cutoff.shape[0]):
-            if self.eta_cutoff_optimizable[i]:
+            if self.eta_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.eta_cutoff[i] -= delta
                 res[n] -= self.eta_term_laplacian(e_powers, e_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
@@ -1698,7 +1701,7 @@ class Backflow(AbstractBackflow):
 
         for e1 in range(1, self.neu + self.ned):
             for e2 in range(e1):
-                n = self.eta_cutoff_optimizable.sum() - 1
+                n = (self.cutoffs_optimizable and self.eta_cutoff_optimizable.sum()) - 1
                 r = e_powers[e1, e2, 1]
                 eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.eta_parameters.shape[1]
                 L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
@@ -1729,7 +1732,7 @@ class Backflow(AbstractBackflow):
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
 
         size = sum([
-            mu_parameters_available.sum() + mu_cutoff_optimizable
+            mu_parameters_available.sum() + (mu_cutoff_optimizable and self.cutoffs_optimizable)
             for mu_parameters_available, mu_cutoff_optimizable
             in zip(self.mu_parameters_available, self.mu_cutoff_optimizable)
         ])
@@ -1737,7 +1740,7 @@ class Backflow(AbstractBackflow):
 
         n = -1
         for i, (mu_parameters, mu_parameters_available, mu_labels) in enumerate(zip(self.mu_parameters, self.mu_parameters_available, self.mu_labels)):
-            if self.mu_cutoff_optimizable[i]:
+            if self.mu_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.mu_cutoff[i] -= delta
                 res[n] -= self.mu_term_laplacian(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
@@ -1748,12 +1751,12 @@ class Backflow(AbstractBackflow):
             L = self.mu_cutoff[i]
             for label in mu_labels:
                 for e1 in range(self.neu + self.ned):
-                    n = int(self.mu_cutoff_optimizable[i]) - 1
+                    n = int(self.mu_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
                     r = n_powers[label, e1, 1]
                     if r < L:
                         r_vec = n_vectors[label, e1]
                         # cutoff_condition
-                        # 0: AE cutoff definitely not applied
+                        # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
@@ -1782,7 +1785,7 @@ class Backflow(AbstractBackflow):
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
 
         size = sum([
-            phi_parameters_available.sum() + theta_parameters_available.sum() + phi_cutoff_optimizable
+            phi_parameters_available.sum() + theta_parameters_available.sum() + (phi_cutoff_optimizable and self.cutoffs_optimizable)
             for phi_parameters_available, theta_parameters_available, phi_cutoff_optimizable
             in zip(self.phi_parameters_available, self.theta_parameters_available, self.phi_cutoff_optimizable)
         ])
@@ -1790,7 +1793,7 @@ class Backflow(AbstractBackflow):
 
         n = -1
         for i, (phi_parameters, phi_parameters_available, theta_parameters, theta_parameters_available, phi_labels) in enumerate(zip(self.phi_parameters, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_available, self.phi_labels)):
-            if self.phi_cutoff_optimizable[i]:
+            if self.phi_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.phi_cutoff[i] -= delta
                 res[n] -= self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
@@ -1804,7 +1807,7 @@ class Backflow(AbstractBackflow):
                     for e2 in range(self.neu + self.ned):
                         if e1 == e2:
                             continue
-                        n = int(self.phi_cutoff_optimizable[i]) - 1
+                        n = int(self.phi_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
                         r_e1I = n_powers[label, e1, 1]
                         r_e2I = n_powers[label, e2, 1]
                         if r_e1I < L and r_e2I < L:
@@ -1818,7 +1821,7 @@ class Backflow(AbstractBackflow):
                             cutoff_diff_e1I_2 = C * (C - 1) * r_e1I ** 2 / (L - r_e1I) ** 2
                             cutoff_diff_e2I_2 = C * (C - 1) * r_e2I ** 2 / (L - r_e2I) ** 2
                             # cutoff_condition
-                            # 0: AE cutoff definitely not applied
+                            # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
@@ -1881,11 +1884,11 @@ class Backflow(AbstractBackflow):
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
-        size = self.ae_cutoff_optimizable.sum()
+        size = self.cutoffs_optimizable and self.ae_cutoff_optimizable.sum()
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3))
         n = -1
         for i in range(n_vectors.shape[0]):
-            if self.ae_cutoff_optimizable[i]:
+            if self.ae_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 Lg = self.ae_cutoff[i]
                 for j in range(self.neu + self.ned):
