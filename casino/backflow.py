@@ -5,6 +5,8 @@ from casino import delta
 from casino.abstract import AbstractBackflow
 from casino.overload import block_diag, rref
 
+eye3 = np.eye(3)
+
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
@@ -428,7 +430,7 @@ class Backflow(AbstractBackflow):
                         for k in range(parameters.shape[0]):
                             poly += parameters[k, mu_set] * n_powers[label, e1, k]
                         # cutoff_condition
-                        # 0: AE cutoff definitely not applied
+                        # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         res[ae_cutoff_condition, e1] += poly * (1 - r/L) ** C * r_vec
@@ -467,7 +469,7 @@ class Backflow(AbstractBackflow):
                                         phi_poly += phi_parameters[k, l, m, phi_set] * poly
                                         theta_poly += theta_parameters[k, l, m, phi_set] * poly
                             # cutoff_condition
-                            # 0: AE cutoff definitely not applied
+                            # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             res[ae_cutoff_condition, e1] += (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * (phi_poly * r_ee_vec + theta_poly * r_e1I_vec)
@@ -501,7 +503,7 @@ class Backflow(AbstractBackflow):
                         poly_diff += p * k
 
                     bf = (1 - r/L)**C * (
-                        (poly_diff - C*r/(L - r)*poly) * np.outer(r_vec, r_vec)/r**2 + poly * np.eye(3)
+                        (poly_diff - C*r/(L - r)*poly) * np.outer(r_vec, r_vec)/r**2 + poly * eye3
                     )
                     res[ae_cutoff_condition, e1, :, e1, :] += bf
                     res[ae_cutoff_condition, e1, :, e2, :] -= bf
@@ -534,11 +536,11 @@ class Backflow(AbstractBackflow):
                             poly += p
                             poly_diff += k * p
                         # cutoff_condition
-                        # 0: AE cutoff definitely not applied
+                        # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         res[ae_cutoff_condition, e1, :, e1, :] += (1 - r/L)**C * (
-                            (poly_diff - C*r/(L - r)*poly) * np.outer(r_vec, r_vec)/r**2 + poly * np.eye(3)
+                            (poly_diff - C*r/(L - r)*poly) * np.outer(r_vec, r_vec)/r**2 + poly * eye3
                         )
 
         return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
@@ -588,19 +590,19 @@ class Backflow(AbstractBackflow):
                                         phi_poly_diff_ee += poly_diff_ee * phi_p
                                         theta_poly_diff_ee += poly_diff_ee * theta_p
                             # cutoff_condition
-                            # 0: AE cutoff definitely not applied
+                            # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             cutoff = (1-r_e1I/L) ** C * (1-r_e2I/L) ** C
                             res[ae_cutoff_condition, e1, :, e1, :] += cutoff * (
                                 (phi_poly_diff_e1I - C*r_e1I/(L - r_e1I)*phi_poly) * np.outer(r_ee_vec, r_e1I_vec)/r_e1I**2 +
-                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 + phi_poly * np.eye(3) +
+                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 + phi_poly * eye3 +
                                 (theta_poly_diff_e1I - C*r_e1I/(L - r_e1I) * theta_poly) * np.outer(r_e1I_vec, r_e1I_vec)/r_e1I**2 +
-                                theta_poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2 + theta_poly * np.eye(3)
+                                theta_poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2 + theta_poly * eye3
                             )
                             res[ae_cutoff_condition, e1, :, e2, :] += cutoff * (
                                 (phi_poly_diff_e2I - C*r_e2I/(L - r_e2I)*phi_poly) * np.outer(r_ee_vec, r_e2I_vec)/r_e2I**2 -
-                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 - phi_poly * np.eye(3) +
+                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 - phi_poly * eye3 +
                                 (theta_poly_diff_e2I - C*r_e2I/(L - r_e2I) * theta_poly) * np.outer(r_e1I_vec, r_e2I_vec) / r_e2I**2 -
                                 theta_poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2
                             )
@@ -672,7 +674,7 @@ class Backflow(AbstractBackflow):
                             poly_diff += k * p
                             poly_diff_2 += k * (k-1) * p
                         # cutoff_condition
-                        # 0: AE cutoff definitely not applied
+                        # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         res[ae_cutoff_condition, e1] += (1 - r/L)**C * (
@@ -788,7 +790,7 @@ class Backflow(AbstractBackflow):
                                 theta_poly_diff_ee * r_ee_vec
                             ) / r_ee**2
                             # cutoff_condition
-                            # 0: AE cutoff definitely not applied
+                            # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             res[ae_cutoff_condition, e1] += (1-r_e1I/L)**C * (1-r_e2I/L)**C * (
@@ -1378,7 +1380,7 @@ class Backflow(AbstractBackflow):
                     if r < L:
                         r_vec = n_vectors[label, e1]
                         # cutoff_condition
-                        # 0: AE cutoff definitely not applied
+                        # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
@@ -1433,7 +1435,7 @@ class Backflow(AbstractBackflow):
                             r_e1I_vec = n_vectors[label, e1]
                             r_ee_vec = e_vectors[e1, e2]
                             # cutoff_condition
-                            # 0: AE cutoff definitely not applied
+                            # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             cutoff = (1 - r_e1I / L) ** C * (1 - r_e2I / L) ** C
@@ -1512,7 +1514,7 @@ class Backflow(AbstractBackflow):
                                 if eta_set == j2:
                                     poly = cutoff * e_powers[e1, e2, j1]
                                     bf = (
-                                        (j1 / r - C / (L - r)) * outer_vec / r + np.eye(3)
+                                        (j1 / r - C / (L - r)) * outer_vec / r + eye3
                                     ) * poly
                                     res[n, ae_cutoff_condition, e1, :, e1, :] += bf
                                     res[n, ae_cutoff_condition, e1, :, e2, :] -= bf
@@ -1555,7 +1557,7 @@ class Backflow(AbstractBackflow):
                     if r < L:
                         r_vec = n_vectors[label, e1]
                         # cutoff_condition
-                        # 0: AE cutoff definitely not applied
+                        # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
@@ -1568,7 +1570,7 @@ class Backflow(AbstractBackflow):
                                     if mu_set == j2:
                                         poly = cutoff * n_powers[label, e1, j1]
                                         res[n, ae_cutoff_condition, e1, :, e1, :] += (
-                                            (j1 / r - C / (L - r)) * outer_vec / r + np.eye(3)
+                                            (j1 / r - C / (L - r)) * outer_vec / r + eye3
                                         ) * poly
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
@@ -1592,7 +1594,6 @@ class Backflow(AbstractBackflow):
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3, (self.neu + self.ned), 3))
 
         n = -1
-        eye = np.eye(3)
         for i, (phi_parameters, phi_parameters_available, theta_parameters, theta_parameters_available, phi_labels) in enumerate(zip(self.phi_parameters, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_available, self.phi_labels)):
             if self.phi_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
@@ -1620,7 +1621,7 @@ class Backflow(AbstractBackflow):
                             cutoff_diff_e1I = C * r_e1I / (L - r_e1I)
                             cutoff_diff_e2I = C * r_e2I / (L - r_e2I)
                             # cutoff_condition
-                            # 0: AE cutoff definitely not applied
+                            # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
@@ -1637,15 +1638,15 @@ class Backflow(AbstractBackflow):
                                                         for t2 in range(3):
                                                             res[n, ae_cutoff_condition, e1, t1, e1, t2] += (
                                                                 (j1 - cutoff_diff_e1I) * r_ee_vec[t1] * r_e1I_vec[t2] / r_e1I**2 +
-                                                                j3 * r_ee_vec[t1] * r_ee_vec[t2] / r_ee**2 + eye[t1, t2]
+                                                                j3 * r_ee_vec[t1] * r_ee_vec[t2] / r_ee**2 + eye3[t1, t2]
                                                             ) * poly
                                                             res[n + dn, ae_cutoff_condition, e1, t1, e1, t2] += (
                                                                 (j1 - cutoff_diff_e1I) * r_e1I_vec[t1] * r_e1I_vec[t2] / r_e1I**2 +
-                                                                j3 * r_ee_vec[t2] * r_e1I_vec[t1] / r_ee**2 + eye[t1, t2]
+                                                                j3 * r_ee_vec[t2] * r_e1I_vec[t1] / r_ee**2 + eye3[t1, t2]
                                                             ) * poly
                                                             res[n, ae_cutoff_condition, e1, t1, e2, t2] += (
                                                                 (j2 - cutoff_diff_e2I) * r_ee_vec[t1] * r_e2I_vec[t2] / r_e2I**2 -
-                                                                j3 * r_ee_vec[t1] * r_ee_vec[t2] / r_ee**2 - eye[t1, t2]
+                                                                j3 * r_ee_vec[t1] * r_ee_vec[t2] / r_ee**2 - eye3[t1, t2]
                                                             ) * poly
                                                             res[n + dn, ae_cutoff_condition, e1, t1, e2, t2] += (
                                                                 (j2 - cutoff_diff_e2I) * r_e1I_vec[t1] * r_e2I_vec[t2] / r_e2I**2 -
@@ -1755,7 +1756,7 @@ class Backflow(AbstractBackflow):
                     if r < L:
                         r_vec = n_vectors[label, e1]
                         # cutoff_condition
-                        # 0: AE cutoff definitely not applied
+                        # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         mu_set = int(e1 >= self.neu) % mu_parameters.shape[1]
@@ -1820,7 +1821,7 @@ class Backflow(AbstractBackflow):
                             cutoff_diff_e1I_2 = C * (C - 1) * r_e1I ** 2 / (L - r_e1I) ** 2
                             cutoff_diff_e2I_2 = C * (C - 1) * r_e2I ** 2 / (L - r_e2I) ** 2
                             # cutoff_condition
-                            # 0: AE cutoff definitely not applied
+                            # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]

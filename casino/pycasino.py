@@ -5,6 +5,7 @@ import warnings
 import argparse
 from timeit import default_timer
 from mpi4py import MPI
+import numba as nb
 import numpy as np
 import scipy as sp
 from scipy.optimize import least_squares, minimize, curve_fit, minimize_scalar, OptimizeWarning
@@ -77,18 +78,13 @@ def energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient
     return A + B + D
 
 
-# @nb.njit(nogil=True, parallel=False, cache=True)
+@nb.njit(nogil=True, parallel=False, cache=True)
 def overlap_matrix(wfn_gradient):
-    """Symmetric overlap matrix S"""
-    size = wfn_gradient.shape[1] + 1
-    S = np.zeros(shape=(size, size),)
-    S[0, 0] = 1
-    # numba doesn't support kwarg for mean
-    mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
-    S[1:, 1:] = (
-        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2), axis=0) -
-        np.outer(mean_wfn_gradient, mean_wfn_gradient)
-    )
+    """Symmetric overlap matrix S.
+    Cov(x1 + x2, y1 + y2) = Cov(x1, y1) + Cov(x1, y2) + Cov(x2, y1) + Cov(x2, y2)
+    """
+    S = np.eye(wfn_gradient.shape[1] + 1)
+    S[1:, 1:] = np.cov(wfn_gradient.T, ddof=0)
     return S
 
 
@@ -819,7 +815,7 @@ class Casino:
             # uniform rescaling of normalized eigvector
             # in case ξ = 0 is equivalent to multiplying by eigvector[0]
             # in case ξ = 1 is equivalent to dividing by eigvector[0]
-            dp = eigvector[1:] / eigvector[0]
+            dp = eigvector[1:] * eigvector[0]
 
         self.mpi_comm.Bcast(dp)
 

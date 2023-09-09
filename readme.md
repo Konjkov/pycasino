@@ -4,7 +4,7 @@ The Pycasino program implements some of the methods from the well-known [Casino]
 
 ## Basic functionality
 
-1. supported orbital file formats:gwfn.data, stowfn.data
+1. supported orbital file formats: gwfn.data, stowfn.data
 2. using multi-determinant expansions
 3. capable of doing 3-term Jastrow factor and 3-term Backflow
 4. configuration-by-configuration (CBCS) and electron-by-electron (EBES) sampling
@@ -16,8 +16,8 @@ The Pycasino program implements some of the methods from the well-known [Casino]
 
 ### General keywords:
 * **NEU**, **NED** Number of electrons of up and down spin
-* **RUNTYPE** Type of QMC calculation: ‘vmc’, ‘vmc_dmc’, ‘vmc_opt’
-* **ATOM_BASIS_TYPE** The type of orbitals to be used: ‘gaussian’, ‘slater-type‘
+* **RUNTYPE** Type of QMC calculation: vmc, vmc_dmc, vmc_opt
+* **ATOM_BASIS_TYPE** The type of orbitals to be used: gaussian, slater-type
 
 ### VMC keywords:
 * **VMC_EQUIL_NSTEP** Number of equilibration steps
@@ -35,6 +35,7 @@ The Pycasino program implements some of the methods from the well-known [Casino]
 * **OPT_BACKFLOW** Optimize backflow parameters in wave-function optimization.
 * **OPT_DET_COEFF** Optimize the coefficients of the determinants in wave-function optimization.
 * **OPT_MAXEVAL** Maximum number of evaluations of the variance during variance minimization (default 50).
+* **OPT_PLAN** Allows specifying different parameters for each optimization cycle.
 * **VM_REWEIGHT** If set then the reweighted variance-minimization algorithm will be used, else the unreweighted algorithm will be used.
 Unreweighted variance minimization is recommended.
 
