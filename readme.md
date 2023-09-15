@@ -30,7 +30,7 @@ The Pycasino program implements some of the methods from the well-known [Casino]
 
 ### Optimization keywords:
 * **OPT_CYCLES** Number of optimization VMC cycles to perform.
-* **OPT_METHOD** Optimization method to use: ‘varmin’, ‘emin’
+* **OPT_METHOD** Optimization method to use: varmin, emin
 * **OPT_JASTROW** Optimize the Jastrow factor in wave-function optimization.
 * **OPT_BACKFLOW** Optimize backflow parameters in wave-function optimization.
 * **OPT_DET_COEFF** Optimize the coefficients of the determinants in wave-function optimization.
@@ -54,7 +54,7 @@ Unreweighted variance minimization is recommended.
 
 ### WFN definition keywords:
 * **BACKFLOW** Turns on backflow corrections. Backflow parameters are read from correlation.data
-* **USE_JASTROW**  Use a wave function of the Slater-Jastrow form. The Jastrow factor is read from the ‘JASTROW’ block in correlation.data
+* **USE_JASTROW**  Use a wave function of the Slater-Jastrow form. The Jastrow factor is read from correlation.data
 * **USE_GJASTROW** Use gjastrow Jastrow factor. This Jastrow factor is defined in a parameters.casl file (work in progress).
 
 ### Cusp correction keywords:

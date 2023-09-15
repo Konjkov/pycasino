@@ -594,17 +594,19 @@ class Backflow(AbstractBackflow):
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             cutoff = (1-r_e1I/L) ** C * (1-r_e2I/L) ** C
+                            r_ee_r_ee = np.outer(r_ee_vec, r_ee_vec)
+                            r_ee_r_e1I = np.outer(r_ee_vec, r_e1I_vec)
                             res[ae_cutoff_condition, e1, :, e1, :] += cutoff * (
-                                (phi_poly_diff_e1I - C*r_e1I/(L - r_e1I)*phi_poly) * np.outer(r_ee_vec, r_e1I_vec)/r_e1I**2 +
-                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 + phi_poly * eye3 +
+                                (phi_poly_diff_e1I - C*r_e1I/(L - r_e1I)*phi_poly) * r_ee_r_e1I/r_e1I**2 +
+                                phi_poly_diff_ee * r_ee_r_ee / r_ee**2 + phi_poly * eye3 +
                                 (theta_poly_diff_e1I - C*r_e1I/(L - r_e1I) * theta_poly) * np.outer(r_e1I_vec, r_e1I_vec)/r_e1I**2 +
-                                theta_poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2 + theta_poly * eye3
+                                theta_poly_diff_ee * r_ee_r_e1I.T / r_ee**2 + theta_poly * eye3
                             )
                             res[ae_cutoff_condition, e1, :, e2, :] += cutoff * (
                                 (phi_poly_diff_e2I - C*r_e2I/(L - r_e2I)*phi_poly) * np.outer(r_ee_vec, r_e2I_vec)/r_e2I**2 -
-                                phi_poly_diff_ee * np.outer(r_ee_vec, r_ee_vec) / r_ee**2 - phi_poly * eye3 +
+                                phi_poly_diff_ee * r_ee_r_ee / r_ee**2 - phi_poly * eye3 +
                                 (theta_poly_diff_e2I - C*r_e2I/(L - r_e2I) * theta_poly) * np.outer(r_e1I_vec, r_e2I_vec) / r_e2I**2 -
-                                theta_poly_diff_ee * np.outer(r_e1I_vec, r_ee_vec) / r_ee**2
+                                theta_poly_diff_ee * r_ee_r_e1I.T / r_ee**2
                             )
 
         return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
@@ -1372,10 +1374,11 @@ class Backflow(AbstractBackflow):
                 res[n] += self.mu_term(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] -= delta
 
+            n_start = n
             L = self.mu_cutoff[i]
             for label in mu_labels:
                 for e1 in range(self.neu + self.ned):
-                    n = int(self.mu_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
+                    n = n_start
                     r = n_powers[label, e1, 1]
                     if r < L:
                         r_vec = n_vectors[label, e1]
@@ -1422,13 +1425,14 @@ class Backflow(AbstractBackflow):
                 res[n] += self.phi_term(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] -= delta
 
+            n_start = n
             L = self.phi_cutoff[i]
             for label in phi_labels:
                 for e1 in range(self.neu + self.ned):
                     for e2 in range(self.neu + self.ned):
                         if e1 == e2:
                             continue
-                        n = int(self.phi_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
+                        n = n_start
                         r_e1I = n_powers[label, e1, 1]
                         r_e2I = n_powers[label, e2, 1]
                         if r_e1I < L and r_e2I < L:
@@ -1549,10 +1553,11 @@ class Backflow(AbstractBackflow):
                 res[n] += self.mu_term_gradient(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] -= delta
 
+            n_start = n
             L = self.mu_cutoff[i]
             for label in mu_labels:
                 for e1 in range(self.neu + self.ned):
-                    n = int(self.mu_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
+                    n = n_start
                     r = n_powers[label, e1, 1]
                     if r < L:
                         r_vec = n_vectors[label, e1]
@@ -1603,13 +1608,14 @@ class Backflow(AbstractBackflow):
                 res[n] += self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] -= delta
 
+            n_start = n
             L = self.phi_cutoff[i]
             for label in phi_labels:
                 for e1 in range(self.neu + self.ned):
                     for e2 in range(self.neu + self.ned):
                         if e1 == e2:
                             continue
-                        n = int(self.phi_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
+                        n = n_start
                         r_e1I = n_powers[label, e1, 1]
                         r_e2I = n_powers[label, e2, 1]
                         if r_e1I < L and r_e2I < L:
@@ -1748,10 +1754,11 @@ class Backflow(AbstractBackflow):
                 res[n] += self.mu_term_laplacian(n_powers, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.mu_cutoff[i] -= delta
 
+            n_start = n
             L = self.mu_cutoff[i]
             for label in mu_labels:
                 for e1 in range(self.neu + self.ned):
-                    n = int(self.mu_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
+                    n = n_start
                     r = n_powers[label, e1, 1]
                     if r < L:
                         r_vec = n_vectors[label, e1]
@@ -1801,13 +1808,14 @@ class Backflow(AbstractBackflow):
                 res[n] += self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors).reshape(2, (self.neu + self.ned), 3) / delta / 2
                 self.phi_cutoff[i] -= delta
 
+            n_start = n
             L = self.phi_cutoff[i]
             for label in phi_labels:
                 for e1 in range(self.neu + self.ned):
                     for e2 in range(self.neu + self.ned):
                         if e1 == e2:
                             continue
-                        n = int(self.phi_cutoff_optimizable[i] and self.cutoffs_optimizable) - 1
+                        n = n_start
                         r_e1I = n_powers[label, e1, 1]
                         r_e2I = n_powers[label, e2, 1]
                         if r_e1I < L and r_e2I < L:
@@ -1827,8 +1835,8 @@ class Backflow(AbstractBackflow):
                             phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[3]
                             vec_1 = r_ee_vec * (r_ee_vec @ r_e1I_vec)
                             vec_2 = r_ee_vec * (r_ee_vec @ r_e2I_vec)
-                            vec_3 = r_e1I_vec * (r_e1I_vec @ r_ee_vec)
-                            vec_4 = r_e1I_vec * (r_e2I_vec @ r_ee_vec)
+                            vec_3 = r_e1I_vec * (r_ee_vec @ r_e1I_vec)
+                            vec_4 = r_e1I_vec * (r_ee_vec @ r_e2I_vec)
                             for j4 in range(phi_parameters.shape[3]):
                                 dn = np.sum(phi_parameters_available[:, :, :, j4])
                                 for j3 in range(phi_parameters.shape[2]):
