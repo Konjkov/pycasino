@@ -542,7 +542,7 @@ class Slater(AbstractSlater):
                             np.expand_dims(matrix_grad_u[:, :, r1].T, 1) *
                             np.expand_dims(matrix_grad_u[:, :, r2], 2)
                         )
-                        # - tr(A^-1 @ d³A/dxdydz) - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx)
+                        # tr(A^-1 @ d³A/dxdydz) - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx)
                         for e in range(self.neu):
                             res_u[e, r1, e, r2, e, r3] += tr_tress_u[e, r1, r2, r3]
                             res_u[e, r1, e, r2, :, r3] -= matrix_hess_u[:, e, r1, r2] * matrix_grad_u[e, :, r3]
@@ -564,7 +564,7 @@ class Slater(AbstractSlater):
                             np.expand_dims(matrix_grad_d[:, :, r1].T, 1) *
                             np.expand_dims(matrix_grad_d[:, :, r2], 2)
                         )
-                        # - tr(A^-1 @ d²A/dxdydz) - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx)
+                        # tr(A^-1 @ d³A/dxdydz) - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx)
                         for e in range(self.ned):
                             res_d[e, r1, e, r2, e, r3] += tr_tress_d[e, r1, r2, r3]
                             res_d[e, r1, e, r2, :, r3] -= matrix_hess_d[:, e, r1, r2] * matrix_grad_d[e, :, r3]

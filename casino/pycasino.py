@@ -768,6 +768,7 @@ class Casino:
         :param opt_backflow: optimize backflow parameters
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
+        scale = 1  # self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
         # CASINO variant
         # parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         # if not parameters.all():
@@ -796,10 +797,11 @@ class Casino:
         dp = np.empty_like(parameters)
         if self.root:
             energy_0 = energy.mean()
-            S = overlap_matrix(wfn_gradient)
+            S = overlap_matrix(wfn_gradient * scale)
             logger.info(f'S is positive definite: {np.all(np.linalg.eigvals(S) > 0)}')
-            H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient)
+            H = hamiltonian_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
             # stabilization
+            logger.info(f'Stabilization: {-H[0, 0]}')
             H[1:, 1:] -= H[0, 0] * np.eye(parameters.size)
             try:
                 # get normalized right eigenvector corresponding to the eigenvalue
@@ -815,7 +817,7 @@ class Casino:
             # uniform rescaling of normalized eigvector
             # in case ξ = 0 is equivalent to multiplying by eigvector[0]
             # in case ξ = 1 is equivalent to dividing by eigvector[0]
-            dp = eigvector[1:] * eigvector[0]
+            dp = eigvector[1:] * eigvector[0] * scale
 
         self.mpi_comm.Bcast(dp)
 

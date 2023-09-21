@@ -35,7 +35,7 @@ cusp_spec = [
 class Cusp(AbstractCusp):
     """
     Scheme for adding electron–nucleus cusps to Gaussian orbitals
-    A. Ma, M. D. Towler, N. D. Drummond, and R. J. Needs
+    A. Ma, M. D. Towler, N. D. Drummond and R. J. Needs
 
     An orbital, psi, expanded in a Gaussian basis set can be written as:
 

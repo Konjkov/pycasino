@@ -60,5 +60,5 @@ Unreweighted variance minimization is recommended.
 ### Cusp correction keywords:
 * **CUSP_CORRECTION**  When the cusp correction flag is activated, the s-type Gaussian basis functions centred on each atom are replaced
 within a small sphere by a function which ensures that the electron–nucleus cusp condition is obeyed.
-* **CUSP_INFO** If set then information about precisely how this is done will be printed to the log-file.
+* **CUSP_INFO** If set then information about how cusp correction is done will be printed to the log-file.
 * **CUSP_THRESHOLD** If the magnitude of the s-component of a Gaussian orbital is less than this threshold then it will not be cusp corrected.

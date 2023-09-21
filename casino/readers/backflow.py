@@ -106,7 +106,7 @@ START SET {n_set}
 class Backflow:
     """Backflow reader from file.
     Inhomogeneous backflow transformations in quantum Monte Carlo.
-    P. Lopez Rıos, A. Ma, N. D. Drummond, M. D. Towler, and R. J. Needs
+    P. Lopez Rıos, A. Ma, N. D. Drummond, M. D. Towler and R. J. Needs
     """
 
     def read_bool(self):
@@ -252,7 +252,6 @@ class Backflow:
                                         mu_parameters[j, i], mu_parameters_optimizable[j, i] = self.read_parameter()
                         except ValueError:
                             mu_parameters_optimizable = mu_parameters_independent
-                        # self.mu_mask.append(mu_parameters_independent)
                         self.mu_parameters.append(mu_parameters)
                         self.mu_parameters_optimizable.append(mu_parameters_optimizable)
                     elif line.startswith('END SET'):
