@@ -30,7 +30,7 @@ The Pycasino program implements some of the methods from the well-known [Casino]
 
 ### Optimization keywords:
 * **OPT_CYCLES** Number of optimization VMC cycles to perform.
-* **OPT_METHOD** Optimization method to use: ‘varmin’, ‘emin’
+* **OPT_METHOD** Optimization method to use: varmin, emin
 * **OPT_JASTROW** Optimize the Jastrow factor in wave-function optimization.
 * **OPT_BACKFLOW** Optimize backflow parameters in wave-function optimization.
 * **OPT_DET_COEFF** Optimize the coefficients of the determinants in wave-function optimization.
@@ -54,11 +54,11 @@ Unreweighted variance minimization is recommended.
 
 ### WFN definition keywords:
 * **BACKFLOW** Turns on backflow corrections. Backflow parameters are read from correlation.data
-* **USE_JASTROW**  Use a wave function of the Slater-Jastrow form. The Jastrow factor is read from the ‘JASTROW’ block in correlation.data
+* **USE_JASTROW**  Use a wave function of the Slater-Jastrow form. The Jastrow factor is read from correlation.data
 * **USE_GJASTROW** Use gjastrow Jastrow factor. This Jastrow factor is defined in a parameters.casl file (work in progress).
 
 ### Cusp correction keywords:
 * **CUSP_CORRECTION**  When the cusp correction flag is activated, the s-type Gaussian basis functions centred on each atom are replaced
 within a small sphere by a function which ensures that the electron–nucleus cusp condition is obeyed.
-* **CUSP_INFO** If set then information about precisely how this is done will be printed to the log-file.
+* **CUSP_INFO** If set then information about how cusp correction is done will be printed to the log-file.
 * **CUSP_THRESHOLD** If the magnitude of the s-component of a Gaussian orbital is less than this threshold then it will not be cusp corrected.
