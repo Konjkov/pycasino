@@ -1,6 +1,7 @@
 import pyblock
 
 """
+https://stats.stackexchange.com/questions/459130/determining-standard-error-of-the-mean-from-a-correlated-stationary-time-series
 https://ljmartin.github.io/technical-notes/stats/estimators-autocorrelated/
 
 There are many different solutions to calculating the SEM for autocorrelated data. There's no "true"

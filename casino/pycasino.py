@@ -80,7 +80,8 @@ def energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 def overlap_matrix(wfn_gradient):
-    """Symmetric overlap matrix S.
+    """Overlap matrix S.
+    As any covariance matrix it is symmetric and positive semi-definite.
     Cov(x1 + x2, y1 + y2) = Cov(x1, y1) + Cov(x1, y2) + Cov(x2, y1) + Cov(x2, y2)
     """
     S = np.eye(wfn_gradient.shape[1] + 1)
@@ -94,16 +95,16 @@ def hamiltonian_matrix(wfn_gradient, energy, energy_gradient):
     size = wfn_gradient.shape[1] + 1
     H = np.zeros(shape=(size, size))
     mean_energy = np.mean(energy)
+    mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
+    mean_energy_gradient = np.mean(energy_gradient, axis=0)
+    mean_wfn_gradient_energy = np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0)
     H[0, 0] = mean_energy
     H[1:, 0] = (
         # numba doesn't support kwarg for mean
         np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0) -
-        np.mean(wfn_gradient, axis=0) * mean_energy
+        mean_wfn_gradient * mean_energy
     )
-    H[0, 1:] = H[1:, 0] + np.mean(energy_gradient, axis=0)
-    mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
-    mean_energy_gradient = np.mean(energy_gradient, axis=0)
-    mean_wfn_gradient_energy = np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0)
+    H[0, 1:] = H[1:, 0] + mean_energy_gradient
     H[1:, 1:] = (
         np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy, (1, 2)), axis=0) -
         np.outer(mean_wfn_gradient, mean_wfn_gradient_energy) -
@@ -689,10 +690,20 @@ class Casino:
         :param opt_backflow: optimize backflow parameters
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
-        self.wfn.set_parameters(self.wfn.get_parameters(opt_jastrow, opt_backflow), opt_jastrow, opt_backflow)
+        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        self.wfn.set_parameters(x0, opt_jastrow, opt_backflow)
         # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
+        # set scale
+        scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
+        # self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
+        # wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+        # wfn_gradient = np.empty(shape=(steps, x0.size)) if self.root else None
+        # self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
+        # scale = 1 / np.var(wfn_gradient, axis=0) if self.root else np.empty(shape=(x0.size,))
+        # self.mpi_comm.Bcast(scale)
+        logger.info('Scale:')
+        logger.info(scale)
 
         def fun(x, *args):
             """For Nelder-Mead, Powell, COBYLA and those listed in jac and hess methods."""
@@ -740,9 +751,8 @@ class Casino:
             ' =================='
         )
 
-        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow) / scale
         options = dict(disp=self.root, initial_trust_radius=1, max_trust_radius=10)
-        res = minimize(fun, x0=x0, method='trust-exact', jac=jac, hess=hess, options=options)
+        res = minimize(fun, x0=x0 / scale, method='trust-exact', jac=jac, hess=hess, options=options)
         logger.info('Scaled Jacobian matrix at the solution:')
         logger.info(res.jac / scale)
         parameters = res.x * scale
@@ -768,7 +778,6 @@ class Casino:
         :param opt_backflow: optimize backflow parameters
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        scale = 1  # self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
         # CASINO variant
         # parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         # if not parameters.all():
@@ -797,12 +806,16 @@ class Casino:
         dp = np.empty_like(parameters)
         if self.root:
             energy_0 = energy.mean()
+            # rescale parameters so that S is the Pearson correlation matrix
+            scale = 1 / np.std(wfn_gradient, axis=0)
             S = overlap_matrix(wfn_gradient * scale)
-            logger.info(f'S is positive definite: {np.all(np.linalg.eigvals(S) > 0)}')
+            logger.info(f'S min eigval: {np.min(np.linalg.eigvals(S))}')
             H = hamiltonian_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
-            # stabilization
-            logger.info(f'Stabilization: {-H[0, 0]}')
-            H[1:, 1:] -= H[0, 0] * np.eye(parameters.size)
+            # logger.info(f'epsilon: {np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]}')
+            # stabilization is order of SEM of energy
+            stabilization = 2 * energy.std() / np.sqrt(steps)
+            logger.info(f'Stabilization: {stabilization:.8f}')
+            H[1:, 1:] += stabilization * np.eye(parameters.size)
             try:
                 # get normalized right eigenvector corresponding to the eigenvalue
                 eigvals, eigvectors = sp.sparse.linalg.eigs(A=H, k=1, M=S, v0=S[0], which='SR')

@@ -10,7 +10,7 @@ setup(
     license='MIT',
     packages=['casino', 'casino.readers'],
     install_requires=[
-        'numba==0.57.1',
+        'numba==0.58.0',
         'numba-mpi>=0.34',
         'pyblock>=0.6.0',
         'numpy>=1.24.3',
