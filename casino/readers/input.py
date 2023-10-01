@@ -73,6 +73,7 @@ class Input:
         # Optimization keywords
         self.read_int('opt_cycles')
         self.read_str('opt_method')
+        self.read_str('emin_method', 'linear')
         self.read_bool('opt_jastrow', bool(self.opt_method))
         self.read_bool('opt_backflow', False)
         self.read_bool('opt_orbitals', False)

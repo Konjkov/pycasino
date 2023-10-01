@@ -310,7 +310,8 @@ class Jastrow:
             u_term = u_term_template.format(u_set=u_set)
 
         n_chi_set = 0
-        chi_term = chi_sets = ''
+        chi_term = ''
+        chi_sets = []
         for n_chi_set, (chi_labels, chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cusp) in enumerate(zip(self.chi_labels, self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cusp)):
             chi_parameters_list = []
             chi_parameters_independent = self.chi_parameters_independent(chi_parameters)
@@ -318,22 +319,24 @@ class Jastrow:
                 for m in range(chi_parameters.shape[0]):
                     if chi_parameters_independent[m, i]:
                         chi_parameters_list.append(f'{chi_parameters[m, i]: .16e}            {int(chi_parameters_optimizable[m, i])}       ! beta_{m},{i + 1},{n_chi_set + 1}')
-            chi_sets += chi_set_template.format(
-                n_set=n_chi_set + 1,
-                n_atoms=len(chi_labels),
-                chi_cusp=int(chi_cusp),
-                chi_labels=' '.join(['{}'.format(i + 1) for i in chi_labels]),
-                chi_order=chi_parameters.shape[0] - 1,
-                chi_spin_dep=chi_parameters.shape[1] - 1,
-                chi_cutoff=chi_cutoff['value'],
-                chi_cutoff_optimizable=int(chi_cutoff['optimizable']),
-                chi_parameters='\n  '.join(chi_parameters_list),
-            )
+            chi_sets.append(
+                chi_set_template.format(
+                    n_set=n_chi_set + 1,
+                    n_atoms=len(chi_labels),
+                    chi_cusp=int(chi_cusp),
+                    chi_labels=' '.join(['{}'.format(i + 1) for i in chi_labels]),
+                    chi_order=chi_parameters.shape[0] - 1,
+                    chi_spin_dep=chi_parameters.shape[1] - 1,
+                    chi_cutoff=chi_cutoff['value'],
+                    chi_cutoff_optimizable=int(chi_cutoff['optimizable']),
+                    chi_parameters='\n  '.join(chi_parameters_list),
+                ))
         if chi_sets:
-            chi_term = chi_term_template.format(n_chi_sets=n_chi_set + 1, chi_sets=chi_sets)
+            chi_term = chi_term_template.format(n_chi_sets=n_chi_set + 1, chi_sets='\n '.join(chi_sets))
 
         n_f_set = 0
-        f_term = f_sets = ''
+        f_term = ''
+        f_sets = []
         for n_f_set, (f_labels, f_parameters, f_parameters_optimizable, f_cutoff, no_dup_u_term, no_dup_chi_term) in enumerate(zip(self.f_labels, self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term)):
             f_parameters_list = []
             f_parameters_independent = self.f_parameters_independent(f_parameters, f_cutoff['value'], no_dup_u_term, no_dup_chi_term)
@@ -343,21 +346,22 @@ class Jastrow:
                         for l in range(f_parameters.shape[0]):
                             if f_parameters_independent[l, m, n, i]:
                                 f_parameters_list.append(f'{f_parameters[l, m, n, i]: .16e}            {int(f_parameters_optimizable[l, m, n, i])}       ! gamma_{l},{m},{n},{i + 1},{n_f_set + 1}')
-            f_sets += f_set_template.format(
-                n_set=n_f_set + 1,
-                n_atoms=len(f_labels),
-                f_labels=' '.join(['{}'.format(i + 1) for i in f_labels]),
-                no_dup_u_term=int(no_dup_u_term),
-                no_dup_chi_term=int(no_dup_chi_term),
-                f_en_order=f_parameters.shape[0] - 1,
-                f_ee_order=f_parameters.shape[2] - 1,
-                f_spin_dep=f_parameters.shape[3] - 1,
-                f_cutoff=f_cutoff['value'],
-                f_cutoff_optimizable=int(f_cutoff['optimizable']),
-                f_parameters='\n  '.join(f_parameters_list),
-            )
+            f_sets.append(
+                f_set_template.format(
+                    n_set=n_f_set + 1,
+                    n_atoms=len(f_labels),
+                    f_labels=' '.join(['{}'.format(i + 1) for i in f_labels]),
+                    no_dup_u_term=int(no_dup_u_term),
+                    no_dup_chi_term=int(no_dup_chi_term),
+                    f_en_order=f_parameters.shape[0] - 1,
+                    f_ee_order=f_parameters.shape[2] - 1,
+                    f_spin_dep=f_parameters.shape[3] - 1,
+                    f_cutoff=f_cutoff['value'],
+                    f_cutoff_optimizable=int(f_cutoff['optimizable']),
+                    f_parameters='\n  '.join(f_parameters_list),
+                ))
         if f_sets:
-            f_term = f_term_template.format(n_f_sets=n_f_set + 1, f_sets=f_sets)
+            f_term = f_term_template.format(n_f_sets=n_f_set + 1, f_sets='\n '.join(f_sets))
 
         jastrow = jastrow_template.format(
             title='no title given',

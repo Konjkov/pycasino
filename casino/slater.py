@@ -7,8 +7,6 @@ from casino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from casino.cusp import Cusp
 from casino.harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
 
-value_matrix_res_type = nb.types.Tuple([nb.float64[:, :], nb.float64[:, :]])
-gradient_matrix_res_type = nb.types.Tuple([nb.float64[:, :, :], nb.float64[:, :, :]])
 
 slater_spec = [
     ('neu', nb.int64),

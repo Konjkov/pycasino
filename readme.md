@@ -38,6 +38,7 @@ The Pycasino program implements some of the methods from the well-known [Casino]
 * **OPT_PLAN** Allows specifying different parameters for each optimization cycle.
 * **VM_REWEIGHT** If set then the reweighted variance-minimization algorithm will be used, else the unreweighted algorithm will be used.
 Unreweighted variance minimization is recommended.
+* **EMIN_METHOD** Energy minimization method to use: newton, linear (default), reconf.
 
 ### DMC keywords:
 * **DMC_TARGET_WEIGHT** Target number of configurations in DMC

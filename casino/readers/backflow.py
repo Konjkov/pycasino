@@ -340,7 +340,8 @@ class Backflow:
             eta_term = eta_term_template.format(eta_set=eta_set)
 
         n_mu_set = 0
-        mu_term = mu_sets = ''
+        mu_term = ''
+        mu_sets = []
         for n_mu_set, (mu_labels, mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cusp) in enumerate(zip(self.mu_labels, self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cusp)):
             mu_parameters_list = []
             mu_parameters_independent = self.mu_parameters_independent(mu_parameters)
@@ -348,22 +349,24 @@ class Backflow:
                 for j in range(mu_parameters.shape[0]):
                     if mu_parameters_independent[j, i]:
                         mu_parameters_list.append(f'{mu_parameters[j, i]: .16e}            {int(mu_parameters_optimizable[j, i])}       ! mu_{j},{i + 1}')
-            mu_sets += mu_set_template.format(
-                n_set=n_mu_set + 1,
-                n_atoms=len(mu_labels),
-                mu_cusp=int(mu_cusp),
-                mu_labels=' '.join(['{}'.format(i + 1) for i in mu_labels]),
-                mu_order=mu_parameters.shape[0] - 1,
-                mu_spin_dep=mu_parameters.shape[1] - 1,
-                mu_cutoff=mu_cutoff['value'],
-                mu_cutoff_optimizable=int(mu_cutoff['optimizable']),
-                mu_parameters='\n  '.join(mu_parameters_list),
-            )
+            mu_sets.append(
+                mu_set_template.format(
+                    n_set=n_mu_set + 1,
+                    n_atoms=len(mu_labels),
+                    mu_cusp=int(mu_cusp),
+                    mu_labels=' '.join(['{}'.format(i + 1) for i in mu_labels]),
+                    mu_order=mu_parameters.shape[0] - 1,
+                    mu_spin_dep=mu_parameters.shape[1] - 1,
+                    mu_cutoff=mu_cutoff['value'],
+                    mu_cutoff_optimizable=int(mu_cutoff['optimizable']),
+                    mu_parameters='\n  '.join(mu_parameters_list),
+                ))
         if mu_sets:
-            mu_term = mu_term_template.format(n_mu_sets=n_mu_set + 1, mu_sets=mu_sets)
+            mu_term = mu_term_template.format(n_mu_sets=n_mu_set + 1, mu_sets='\n '.join(mu_sets))
 
         n_phi_set = 0
-        phi_term = phi_sets = ''
+        phi_term = ''
+        phi_sets = []
         for n_phi_set, (phi_labels, phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable, phi_cutoff, phi_cusp, phi_irrotational) in enumerate(zip(self.phi_labels, self.phi_parameters, self.phi_parameters_optimizable, self.theta_parameters, self.theta_parameters_optimizable, self.phi_cutoff, self.phi_cusp, self.phi_irrotational)):
             phi_theta_parameters_list = []
             phi_parameters_independent, theta_parameters_independent = self.phi_theta_parameters_independent(phi_parameters, theta_parameters, phi_cutoff['value'], phi_cusp, phi_irrotational)
@@ -378,22 +381,23 @@ class Backflow:
                         for k in range(phi_parameters.shape[0]):
                             if theta_parameters_independent[k, l, m, i]:
                                 phi_theta_parameters_list.append(f'{theta_parameters[k, l, m, i]: .16e}            {int(theta_parameters_optimizable[k, l, m, i])}       ! theta_{k},{l},{m},{i + 1}')
-            phi_sets += phi_set_template.format(
-                n_set=n_phi_set + 1,
-                n_atoms=len(phi_labels),
-                phi_cusp=int(phi_cusp),
-                phi_labels=' '.join(['{}'.format(i + 1) for i in phi_labels]),
-                phi_en_order=phi_parameters.shape[0] - 1,
-                phi_ee_order=phi_parameters.shape[2] - 1,
-                phi_spin_dep=phi_parameters.shape[3] - 1,
-                # FIXME: 2=YES BUT NO SPIN-DEP
-                phi_cutoff=phi_cutoff['value'],
-                phi_cutoff_optimizable=int(phi_cutoff['optimizable']),
-                phi_irrotational=int(phi_irrotational),
-                phi_parameters='\n  '.join(phi_theta_parameters_list),
-            )
+            phi_sets.append(
+                phi_set_template.format(
+                    n_set=n_phi_set + 1,
+                    n_atoms=len(phi_labels),
+                    phi_cusp=int(phi_cusp),
+                    phi_labels=' '.join(['{}'.format(i + 1) for i in phi_labels]),
+                    phi_en_order=phi_parameters.shape[0] - 1,
+                    phi_ee_order=phi_parameters.shape[2] - 1,
+                    phi_spin_dep=phi_parameters.shape[3] - 1,
+                    # FIXME: 2=YES BUT NO SPIN-DEP
+                    phi_cutoff=phi_cutoff['value'],
+                    phi_cutoff_optimizable=int(phi_cutoff['optimizable']),
+                    phi_irrotational=int(phi_irrotational),
+                    phi_parameters='\n  '.join(phi_theta_parameters_list),
+                ))
         if phi_sets:
-            phi_term = phi_term_template.format(n_phi_sets=n_phi_set + 1, phi_sets=phi_sets)
+            phi_term = phi_term_template.format(n_phi_sets=n_phi_set + 1, phi_sets='\n '.join(phi_sets))
 
         ae_cutoff_list = []
         for i, (ae_cutoff, ae_cutoff_optimizable) in enumerate(zip(self.ae_cutoff, self.ae_cutoff_optimizable)):
