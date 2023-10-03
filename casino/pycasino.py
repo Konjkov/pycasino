@@ -314,7 +314,7 @@ class Casino:
                         self.wfn.jastrow.cutoffs_optimizable = not self.config.input.opt_plan[i].get('fix_cutoffs', False)
                     if self.wfn.backflow:
                         self.wfn.backflow.cutoffs_optimizable = not self.config.input.opt_plan[i].get('fix_cutoffs', False)
-                self.vmc_energy_accumulation()
+                condition, position = self.vmc_energy_accumulation()
                 logger.info(
                     f' ==========================================\n'
                     f' PERFORMING OPTIMIZATION CALCULATION No. {i+1}.\n'
@@ -387,47 +387,59 @@ class Casino:
             f'DTVMC: {(self.vmc_markovchain.step_size**2)/3:.5f}\n'
         )
 
-        steps = self.config.input.vmc_nstep
+        ne = self.neu + self.ned
         nblock = self.config.input.vmc_nblock
+        steps = self.config.input.vmc_nstep // nblock // self.mpi_comm.size * nblock * self.mpi_comm.size
+        nblock_steps = steps // nblock // self.mpi_comm.size
 
-        energy_block_mean = np.zeros(shape=(nblock,))
-        energy_block_sem = np.zeros(shape=(nblock,))
-        energy_block_var = np.zeros(shape=(nblock,))
         logger.info(
             f'Starting VMC.\n'
         )
+        condition = np.empty(shape=(nblock, nblock_steps), dtype=np.int64)
+        position = np.empty(shape=(nblock, nblock_steps, ne, 3))
+
+        double_size = MPI.DOUBLE.Get_size()
+        if self.root:
+            nbytes = steps * double_size
+        else:
+            nbytes = 0
+        energy_buf = MPI.Win.Allocate_shared(nbytes, double_size, comm=self.mpi_comm)
+        # create a numpy array whose data points to the shared mem
+        buf, _ = energy_buf.Shared_query(0)
+        energy = np.ndarray(buffer=buf, shape=(self.mpi_comm.size, nblock, nblock_steps))
+
         for i in range(nblock):
             block_start = default_timer()
-            block_energy = np.zeros(shape=(steps // nblock,))
-            condition, position = self.vmc_markovchain.random_walk(steps // nblock // self.mpi_comm.size, self.decorr_period)
-            energy = vmc_observable(condition, position, self.wfn.energy)
-            self.mpi_comm.Gather(energy, block_energy, root=0)
-            if self.mpi_comm.rank == 0:
-                energy_block_mean[i] = block_energy.mean()
-                energy_block_var[i] = block_energy.var()
-                energy_block_sem[i] = np.mean([
-                    correlated_sem(block_energy.reshape(self.mpi_comm.size, steps // nblock // self.mpi_comm.size)[j]) for j in range(self.mpi_comm.size)
-                ]) / np.sqrt(self.mpi_comm.size)
-            block_stop = default_timer()
+            condition[i], position[i] = self.vmc_markovchain.random_walk(nblock_steps, self.decorr_period)
+            energy[self.mpi_comm.rank, i] = vmc_observable(condition[i], position[i], self.wfn.energy)
+            # wait until all processes have written to the array
+            self.mpi_comm.Barrier()
+            if self.root:
+                energy_block_mean = np.mean(energy[:, i, :])
+                energy_block_var = np.var(energy[:, i, :])
+                energy_block_sem = np.mean(correlated_sem(energy[:, i, :])) / np.sqrt(self.mpi_comm.size)
+                block_stop = default_timer()
+                logger.info(
+                    f' =========================================================================\n'
+                    f' In block : {i + 1}\n'
+                    f'  Number of VMC steps           = {steps // nblock}\n\n'
+                    f'  Block average energies (au)\n\n'
+                    f'  Total energy                       (au) =       {energy_block_mean:18.12f}\n'
+                    f'  Standard error                        +/-       {energy_block_sem:18.12f}\n\n'
+                    f'  Constant energy contributions      (au) =       {self.wfn.nuclear_repulsion:18.12f}\n\n'
+                    f'  Variance of local energy           (au) =       {energy_block_var:18.12f}\n'
+                    f'  Standard error                        +/-       {0:18.12f}\n\n'
+                    f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
+                )
+        if self.root:
+            energy_sem = np.mean(correlated_sem(energy.reshape(self.mpi_comm.size, nblock * nblock_steps))) / np.sqrt(self.mpi_comm.size)
             logger.info(
                 f' =========================================================================\n'
-                f' In block : {i + 1}\n'
-                f'  Number of VMC steps           = {steps // nblock}\n\n'
-                f'  Block average energies (au)\n\n'
-                f'  Total energy                       (au) =       {energy_block_mean[i]:18.12f}\n'
-                f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
-                f'  Constant energy contributions      (au) =       {self.wfn.nuclear_repulsion:18.12f}\n\n'
-                f'  Variance of local energy           (au) =       {energy_block_var[i]:18.12f}\n'
-                f'  Standard error                        +/-       {0:18.12f}\n\n'
-                f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
+                f' FINAL RESULT:\n\n'
+                f'  VMC energy (au)    Standard error      Correction for serial correlation\n\n'
+                f' {energy.mean():.12f} +/- {energy_sem:.12f}      On-the-fly reblocking method\n\n'
+                f' Sample variance of E_L (au^2/sim.cell) : {energy.var():.12f}\n\n'
             )
-        logger.info(
-            f' =========================================================================\n'
-            f' FINAL RESULT:\n\n'
-            f'  VMC energy (au)    Standard error      Correction for serial correlation\n\n'
-            f' {energy_block_mean.mean():.12f} +/- {energy_block_sem.mean() / np.sqrt(nblock):.12f}      On-the-fly reblocking method\n\n'
-            f' Sample variance of E_L (au^2/sim.cell) : {energy_block_var.mean():.12f}\n\n'
-        )
         return condition, position
 
     def dmc_energy_equilibration(self):
