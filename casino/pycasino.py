@@ -87,34 +87,22 @@ def overlap_matrix(wfn_gradient):
     Cov(x1 + x2, y1 + y2) = Cov(x1, y1) + Cov(x1, y2) + Cov(x2, y1) + Cov(x2, y2)
     """
     S = np.eye(wfn_gradient.shape[1] + 1)
-    S[1:, 1:] = np.cov(wfn_gradient.T, ddof=0)
+    S[1:, 1:] = wfn_gradient.T @ wfn_gradient / wfn_gradient.shape[0]
     return S
 
 
 # @nb.njit(nogil=True, parallel=False, cache=True)
 def hamiltonian_matrix(wfn_gradient, energy, energy_gradient):
-    """Hamiltonian matrix H"""
+    """Hamiltonian matrix H.
+    <(X-<X>)(Y-<Y>)> = <XY> - <X><Y> = X.T @ Y / size
+    <(X-<X>)Z(Y-<Y>)> = <XYZ> - <XZ><Y> - <X><YZ> + <X><Y><Z> = X.T @ (Z * Y) / size
+    """
     size = wfn_gradient.shape[1] + 1
     H = np.zeros(shape=(size, size))
-    mean_energy = np.mean(energy)
-    mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
-    mean_energy_gradient = np.mean(energy_gradient, axis=0)
-    mean_wfn_gradient_energy = np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0)
-    H[0, 0] = mean_energy
-    H[1:, 0] = (
-        # numba doesn't support kwarg for mean
-        np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0) -
-        mean_wfn_gradient * mean_energy
-    )
-    H[0, 1:] = H[1:, 0] + mean_energy_gradient
-    H[1:, 1:] = (
-        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy, (1, 2)), axis=0) -
-        np.outer(mean_wfn_gradient, mean_wfn_gradient_energy) -
-        np.outer(mean_wfn_gradient_energy, mean_wfn_gradient) +
-        np.outer(mean_wfn_gradient, mean_wfn_gradient) * mean_energy +
-        np.mean(np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy_gradient, 1), axis=0) -
-        np.outer(mean_wfn_gradient, mean_energy_gradient)
-    )
+    H[0, 0] = np.mean(energy)
+    H[1:, 0] = wfn_gradient.T @ energy / wfn_gradient.shape[0]
+    H[0, 1:] = H[1:, 0] + np.mean(energy_gradient, axis=0)
+    H[1:, 1:] = wfn_gradient.T @ (np.expand_dims(energy, 1) * wfn_gradient + energy_gradient) / wfn_gradient.shape[0]
     return H
 
 
@@ -860,6 +848,7 @@ class Casino:
         dp = np.empty_like(x0)
         if self.root:
             energy_0 = energy.mean()
+            wfn_gradient -= np.mean(wfn_gradient, axis=0)
             # rescale parameters so that S is the Pearson correlation matrix
             scale = 1 / np.std(wfn_gradient, axis=0)
             S = overlap_matrix(wfn_gradient * scale)
@@ -867,7 +856,7 @@ class Casino:
             H = hamiltonian_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
             # logger.info(f'epsilon: {np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]}')
             # stabilization is order of SEM of energy
-            stabilization = 2 * energy.std() / np.sqrt(steps)
+            stabilization = energy.std() / np.sqrt(steps)
             logger.info(f'Stabilization: {stabilization:.8f}')
             H[1:, 1:] += stabilization * np.eye(x0.size)
             try:
@@ -903,79 +892,75 @@ class Casino:
         :param opt_backflow: optimize backflow parameters
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
+        start, stop = self.mpi_comm.rank * steps // self.mpi_comm.size, (self.mpi_comm.rank + 1) * steps // self.mpi_comm.size
         x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         self.wfn.set_parameters(x0, opt_jastrow, opt_backflow)
         # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
-        # set scale
-        self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
-        wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-        wfn_gradient = np.empty(shape=(steps, x0.size)) if self.root else None
-        self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
-        scale = 1 / np.std(wfn_gradient, axis=0) if self.root else np.empty(shape=(x0.size,))
-        self.mpi_comm.Bcast(scale)
-        logger.info('Scale:')
-        logger.info(scale)
-
-        def fun(x, *args):
-            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
-            energy_mean = vmc_observable(condition, position, self.wfn.energy).mean()
-            return self.mpi_comm.allreduce(energy_mean) / self.mpi_comm.size
-
-        def jac(x, *args):
-            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
-            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
-            energy_part = vmc_observable(condition, position, self.wfn.energy)
-            energy = np.empty(shape=(steps,)) if self.root else None
-            self.mpi_comm.Gather(energy_part, energy)
-            wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            wfn_gradient = np.empty(shape=(steps, x.size)) if self.root else None
-            self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
-            energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
-            energy_gradient = np.empty(shape=(steps, x.size)) if self.root else None
-            self.mpi_comm.Gather(energy_gradient_part, energy_gradient)
-            H = hamiltonian_matrix(wfn_gradient * scale, energy, energy_gradient * scale) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
-            self.mpi_comm.Bcast(H)
-            epsilon = np.mean(np.diag(H[1:, 1:]) - H[0, 0])
-            return H[1:, 0] / epsilon
-
-        def hess(x, *args):
-            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
-            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
-            wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            wfn_gradient = np.empty(shape=(steps, x.size)) if self.root else None
-            self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
-            S = overlap_matrix(wfn_gradient * scale) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
-            self.mpi_comm.Bcast(S)
-            return S[1:, 1:] * epsilon(x)
-
-        def epsilon(x, *args):
-            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
-            wfn_gradient_part = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            wfn_gradient = np.empty(shape=(steps, x.size)) if self.root else None
-            self.mpi_comm.Gather(wfn_gradient_part, wfn_gradient)
-            S = overlap_matrix(wfn_gradient * scale) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
-            self.mpi_comm.Bcast(S)
-            energy_part = vmc_observable(condition, position, self.wfn.energy)
-            energy = np.empty(shape=(steps,)) if self.root else None
-            self.mpi_comm.Gather(energy_part, energy)
-            energy_gradient_part = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
-            energy_gradient = np.empty(shape=(steps, x.size)) if self.root else None
-            self.mpi_comm.Gather(energy_gradient_part, energy_gradient)
-            H = hamiltonian_matrix(wfn_gradient * scale, energy, energy_gradient * scale) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
-            self.mpi_comm.Bcast(H)
-            return np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]
-
         logger.info(
             ' Optimization start\n'
             ' =================='
         )
+        energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=self.mpi_comm)
+        # create energy numpy array whose data points to the shared buffer
+        buffer, _ = energy_buffer.Shared_query(rank=0)
+        energy = np.ndarray(buffer=buffer, shape=(steps, ))
+        wfn_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=self.mpi_comm)
+        # create wfn_gradient numpy array whose data points to the shared buffer
+        buffer, _ = wfn_gradient_buffer.Shared_query(rank=0)
+        wfn_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
+        energy_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=self.mpi_comm)
+        # create energy_gradient numpy array whose data points to the shared buffer
+        buffer, _ = energy_gradient_buffer.Shared_query(rank=0)
+        energy_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
+
+        def fun(x, *args):
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
+            self.mpi_comm.Barrier()
+            return energy.mean()
+
+        def jac(x, *args):
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
+            energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
+            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+            self.mpi_comm.Barrier()
+            H = hamiltonian_matrix(wfn_gradient - np.mean(wfn_gradient, axis=0), energy, energy_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
+            self.mpi_comm.Bcast(H)
+            return H[1:, 0]
+
+        def hess(x, *args):
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
+            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            self.mpi_comm.Barrier()
+            S = overlap_matrix(wfn_gradient - np.mean(wfn_gradient, axis=0)) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
+            self.mpi_comm.Bcast(S)
+            return S[1:, 1:] * epsilon(x)
+
+        def epsilon(x, *args):
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
+            energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
+            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+            self.mpi_comm.Barrier()
+            S = overlap_matrix(wfn_gradient - np.mean(wfn_gradient, axis=0)) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
+            self.mpi_comm.Bcast(S)
+            H = hamiltonian_matrix(wfn_gradient - np.mean(wfn_gradient, axis=0), energy, energy_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
+            self.mpi_comm.Bcast(H)
+            return np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]
 
         options = dict(disp=self.root)
-        res = minimize(fun, x0=x0 / scale, method='Newton-CG', jac=jac, hess=hess, options=options)
-        logger.info('Scaled Jacobian matrix at the solution:')
+        res = minimize(fun, x0=x0, method='Newton-CG', jac=jac, hess=hess, options=options)
+        logger.info('Jacobian matrix at the solution:')
         logger.info(res.jac)
-        parameters = res.x * scale
+        parameters = res.x
+        energy_buffer.Free()
+        wfn_gradient_buffer.Free()
+        energy_gradient_buffer.Free()
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
