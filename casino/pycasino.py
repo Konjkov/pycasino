@@ -36,11 +36,10 @@ def energy_parameters_gradient(energy, wfn_gradient):
     :param wfn_gradient:
     :return:
     """
-    return 2 * (
-        # numba doesn't support kwarg for mean, but for sum does
-        np.mean(wfn_gradient * np.expand_dims(energy, 1), axis=0) -
-        np.mean(wfn_gradient, axis=0) * np.mean(energy)
-    )
+    size_0 = wfn_gradient.shape[0]
+    t1 = energy - np.mean(energy)
+    t2 = wfn_gradient - np.mean(wfn_gradient, axis=0)
+    return 2 * t2.T @ t1 / size_0
 
 
 # @nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
@@ -54,56 +53,54 @@ def energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient
     :param energy_gradient:
     :return:
     """
-    mean_energy = np.mean(energy)
-    mean_wfn_gradient = np.mean(wfn_gradient, axis=0)
-    A = 2 * (
-        np.mean(wfn_hessian * np.expand_dims(energy, (1, 2)), axis=0) -
-        np.mean(wfn_hessian, axis=0) * mean_energy -
-        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy, (1, 2)), axis=0) +
-        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2), axis=0) * mean_energy
-    )
-    t2 = wfn_gradient - mean_wfn_gradient
-    B = 4 * np.mean(
-        np.expand_dims(t2, 1) *
-        np.expand_dims(t2, 2) *
-        np.expand_dims(energy - mean_energy, (1, 2)),
-        axis=0
-    )
+    size_0 = wfn_gradient.shape[0]
+    t0 = wfn_hessian - np.expand_dims(wfn_gradient, 1) * np.expand_dims(wfn_gradient, 2)
+    t1 = energy - np.mean(energy)
+    t2 = wfn_gradient - np.mean(wfn_gradient, axis=0)
+    A = 2 * t0.T @ t1
+    B = 4 * t2.T @ (t2 * np.expand_dims(t1, 1))
     # Umrigar and Filippi
-    mean_energy_gradient = np.mean(energy_gradient, axis=0)
-    D = (
-        np.mean(np.expand_dims(wfn_gradient, 1) * np.expand_dims(energy_gradient, 2), axis=0) +
-        np.mean(np.expand_dims(wfn_gradient, 2) * np.expand_dims(energy_gradient, 1), axis=0) -
-        np.outer(mean_wfn_gradient, mean_energy_gradient) -
-        np.outer(mean_energy_gradient, mean_wfn_gradient)
-    )
-    return A + B + D
+    D = t2.T @ energy_gradient + energy_gradient.T @ t2
+    return (A + B + D) / size_0
 
 
-@nb.njit(nogil=True, parallel=False, cache=True)
+# @nb.njit(nogil=True, parallel=False, cache=True)
 def overlap_matrix(wfn_gradient):
     """Overlap matrix S.
     As any covariance matrix it is symmetric and positive semi-definite.
     Cov(x1 + x2, y1 + y2) = Cov(x1, y1) + Cov(x1, y2) + Cov(x2, y1) + Cov(x2, y2)
     """
-    S = np.eye(wfn_gradient.shape[1] + 1)
-    S[1:, 1:] = wfn_gradient.T @ wfn_gradient / wfn_gradient.shape[0]
-    return S
+    size_0 = wfn_gradient.shape[0]
+    size_1 = wfn_gradient.shape[1] + 1
+    extended_wfn_gradient = np.ones(shape=(size_0, size_1))
+    extended_wfn_gradient[:, 1:] = wfn_gradient - np.mean(wfn_gradient, axis=0)
+    return extended_wfn_gradient.T @ extended_wfn_gradient / size_0
 
 
 # @nb.njit(nogil=True, parallel=False, cache=True)
 def hamiltonian_matrix(wfn_gradient, energy, energy_gradient):
     """Hamiltonian matrix H.
     <(X-<X>)(Y-<Y>)> = <XY> - <X><Y> = X.T @ Y / size
-    <(X-<X>)Z(Y-<Y>)> = <XYZ> - <XZ><Y> - <X><YZ> + <X><Y><Z> = X.T @ (Z * Y) / size
+    <(X-<X>)Z(Y-<Y>)> = <XYZ> - <XZ><Y> - <X><YZ> + <X><Y><Z> = X.T @ diag(Z) @ Y / size
     """
-    size = wfn_gradient.shape[1] + 1
-    H = np.zeros(shape=(size, size))
-    H[0, 0] = np.mean(energy)
-    H[1:, 0] = wfn_gradient.T @ energy / wfn_gradient.shape[0]
-    H[0, 1:] = H[1:, 0] + np.mean(energy_gradient, axis=0)
-    H[1:, 1:] = wfn_gradient.T @ (np.expand_dims(energy, 1) * wfn_gradient + energy_gradient) / wfn_gradient.shape[0]
-    return H
+    size_0 = wfn_gradient.shape[0]
+    size_1 = wfn_gradient.shape[1] + 1
+    extended_wfn_gradient = np.ones(shape=(size_0, size_1))
+    extended_wfn_gradient[:, 1:] = wfn_gradient - np.mean(wfn_gradient, axis=0)
+    extended_energy_gradient = np.zeros(shape=(size_0, size_1))
+    extended_energy_gradient[:, 1:] = energy_gradient
+    return extended_wfn_gradient.T @ (np.expand_dims(energy, 1) * extended_wfn_gradient + extended_energy_gradient) / size_0
+
+
+def S_inv_H_matrix(wfn_gradient, energy, energy_gradient):
+    """S^-1 @ H"""
+    size_0 = wfn_gradient.shape[0]
+    size_1 = wfn_gradient.shape[1] + 1
+    extended_wfn_gradient = np.ones(shape=(size_0, size_1))
+    extended_wfn_gradient[:, 1:] = wfn_gradient - np.mean(wfn_gradient, axis=0)
+    extended_energy_gradient = np.zeros(shape=(size_0, size_1))
+    extended_energy_gradient[:, 1:] = energy_gradient
+    return sp.linalg.pinv(extended_wfn_gradient) @ (np.expand_dims(energy, 1) * extended_wfn_gradient + extended_energy_gradient)
 
 
 class Casino:
@@ -319,6 +316,10 @@ class Casino:
                     raise NotImplemented
                 elif opt_method == 'emin':
                     if self.config.input.emin_method == 'newton':
+                        if self.wfn.jastrow:
+                            self.wfn.jastrow.cutoffs_optimizable = False
+                        if self.wfn.backflow:
+                            self.wfn.backflow.cutoffs_optimizable = False
                         self.vmc_energy_minimization_newton(vmc_nconfig_write, opt_jastrow, opt_backflow)
                     elif self.config.input.emin_method == 'linear':
                         self.vmc_energy_minimization_linear_method(vmc_nconfig_write, opt_jastrow, opt_backflow)
@@ -809,10 +810,14 @@ class Casino:
         of the Rayleigh quotient are obtained as the eigenvectors e (eigenvalues λ(e)) of the corresponding generalized eigenproblem.
         If the second-order expansion of ψ(p) is not too small, this does not ensure the convergence in one step and may require uniformly rescaling
         of ∆p to stabilise iterative process.
+        One can introduce following approximation of S and H:
+            S = extended_wfn_gradient.T @ extended_wfn_gradient
+            H = extended_wfn_gradient.T @ diag(energy) @ extended_wfn_gradient - extended_wfn_gradient.T @ extended_energy_gradient
         :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         """
+        invert_S = True
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         start, stop = self.mpi_comm.rank * steps // self.mpi_comm.size, (self.mpi_comm.rank + 1) * steps // self.mpi_comm.size
         # CASINO variant
@@ -848,22 +853,26 @@ class Casino:
         dp = np.empty_like(x0)
         if self.root:
             energy_0 = energy.mean()
-            wfn_gradient -= np.mean(wfn_gradient, axis=0)
-            # rescale parameters so that S is the Pearson correlation matrix
-            scale = 1 / np.std(wfn_gradient, axis=0)
-            S = overlap_matrix(wfn_gradient * scale)
-            logger.info(f'S min eigval: {np.min(np.linalg.eigvals(S))}')
-            H = hamiltonian_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
-            # logger.info(f'epsilon: {np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]}')
-            # stabilization is order of SEM of energy
-            stabilization = energy.std() / np.sqrt(steps)
-            logger.info(f'Stabilization: {stabilization:.8f}')
-            H[1:, 1:] += stabilization * np.eye(x0.size)
-            try:
-                # get normalized right eigenvector corresponding to the eigenvalue
-                eigvals, eigvectors = sp.sparse.linalg.eigs(A=H, k=1, M=S, v0=S[0], which='SR')
-            except ArpackNoConvergence:
-                eigvals, eigvectors = sp.linalg.eig(H, S)
+            if invert_S:
+                scale = 1
+                S_inv_H = S_inv_H_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
+                eigvals, eigvectors = sp.linalg.eig(S_inv_H)
+            else:
+                # rescale parameters so that S is the Pearson correlation matrix
+                scale = 1 #/ np.std(wfn_gradient, axis=0)
+                S = overlap_matrix(wfn_gradient * scale)
+                logger.info(f'S min eigval: {np.min(np.linalg.eigvals(S))}')
+                H = hamiltonian_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
+                # logger.info(f'epsilon: {np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]}')
+                # stabilization is order of SEM of energy
+                stabilization = energy.std() / np.sqrt(steps)
+                logger.info(f'Stabilization: {stabilization:.8f}')
+                H[1:, 1:] += stabilization * np.eye(x0.size)
+                try:
+                    # get normalized right eigenvector corresponding to the eigenvalue
+                    eigvals, eigvectors = sp.sparse.linalg.eigs(A=H, k=1, M=S, v0=S[0], which='SR')
+                except ArpackNoConvergence:
+                    eigvals, eigvectors = sp.linalg.eig(H, S)
             # since imaginary parts only arise from statistical noise, discard them
             eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
             idx = eigvals.argmin()
@@ -927,7 +936,7 @@ class Casino:
             wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
             energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             self.mpi_comm.Barrier()
-            H = hamiltonian_matrix(wfn_gradient - np.mean(wfn_gradient, axis=0), energy, energy_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
+            H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
             self.mpi_comm.Bcast(H)
             return H[1:, 0]
 
@@ -936,7 +945,7 @@ class Casino:
             self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
             wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
             self.mpi_comm.Barrier()
-            S = overlap_matrix(wfn_gradient - np.mean(wfn_gradient, axis=0)) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
+            S = overlap_matrix(wfn_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
             self.mpi_comm.Bcast(S)
             return S[1:, 1:] * epsilon(x)
 
@@ -947,9 +956,9 @@ class Casino:
             wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
             energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             self.mpi_comm.Barrier()
-            S = overlap_matrix(wfn_gradient - np.mean(wfn_gradient, axis=0)) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
+            S = overlap_matrix(wfn_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
             self.mpi_comm.Bcast(S)
-            H = hamiltonian_matrix(wfn_gradient - np.mean(wfn_gradient, axis=0), energy, energy_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
+            H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
             self.mpi_comm.Bcast(H)
             return np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]
 
