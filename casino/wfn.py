@@ -5,6 +5,7 @@ from casino import delta
 from casino.slater import Slater
 from casino.jastrow import Jastrow
 from casino.backflow import Backflow
+from casino.overload import block_diag
 
 spec = [
     ('neu', nb.int64),
@@ -242,12 +243,19 @@ class Wfn:
 
     def value_parameters_d2(self, r_e, opt_jastrow=True, opt_backflow=True):
         """Second-order derivatives of the wave function value w.r.t parameters.
+        1/wfn * d²wfn/dp² - 1/wfn * dwfn/dp * 1/wfn * dwfn/dp
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         :return:
         """
-        return np.zeros(shape=(1, 1))
+        res = []
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        if self.jastrow is not None and opt_jastrow:
+            res.append(self.jastrow.value_parameters_d2(e_vectors, n_vectors))
+        if self.backflow is not None and opt_backflow:
+            raise NotImplementedError
+        return block_diag(res)
 
     def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
         """First-order derivatives of local energy w.r.t parameters.

@@ -1024,6 +1024,7 @@ class Backflow(AbstractBackflow):
         with dimensionless variables having only one dimensional parameter - cutoff length.
         """
         res = []
+        ne = self.neu + self.ned
         if self.eta_cutoff.any():
             for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
                 if eta_cutoff_optimizable and self.cutoffs_optimizable:
@@ -1031,7 +1032,7 @@ class Backflow(AbstractBackflow):
             for j2 in range(self.eta_parameters.shape[1]):
                 for j1 in range(self.eta_parameters.shape[0]):
                     if (self.eta_parameters_optimizable[j1, j2] or all_parameters) and self.eta_parameters_available[j1, j2]:
-                        res.append(1 / self.eta_cutoff[0] ** j1)
+                        res.append(2 / self.eta_cutoff[0] ** j1 / ne ** 2)
 
         if self.mu_cutoff.any():
             for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_parameters_available) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_parameters_available)):
@@ -1040,7 +1041,7 @@ class Backflow(AbstractBackflow):
                 for j2 in range(mu_parameters.shape[1]):
                     for j1 in range(mu_parameters.shape[0]):
                         if (mu_parameters_optimizable[j1, j2] or all_parameters) and mu_parameters_available[j1, j2]:
-                            res.append(1 / mu_cutoff ** j1)
+                            res.append(1 / mu_cutoff ** j1 / ne)
 
         if self.phi_cutoff.any():
             for i, (phi_parameters, phi_parameters_optimizable, phi_parameters_available, theta_parameters_optimizable, theta_parameters_available, phi_cutoff, phi_cutoff_optimizable) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.phi_parameters_available, self.theta_parameters_optimizable, self.theta_parameters_available, self.phi_cutoff, self.phi_cutoff_optimizable)):
@@ -1051,13 +1052,13 @@ class Backflow(AbstractBackflow):
                         for j2 in range(phi_parameters.shape[1]):
                             for j1 in range(phi_parameters.shape[0]):
                                 if (phi_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and phi_parameters_available[j1, j2, j3, j4]:
-                                    res.append(1 / phi_cutoff ** (j1 + j2 + j3))
+                                    res.append(2 / phi_cutoff ** (j1 + j2 + j3) / ne ** 3)
 
                     for j3 in range(phi_parameters.shape[2]):
                         for j2 in range(phi_parameters.shape[1]):
                             for j1 in range(phi_parameters.shape[0]):
                                 if (theta_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and theta_parameters_available[j1, j2, j3, j4]:
-                                    res.append(1 / phi_cutoff ** (j1 + j2 + j3))
+                                    res.append(2 / phi_cutoff ** (j1 + j2 + j3) / ne ** 3)
 
         for ae_cutoff_optimizable in self.ae_cutoff_optimizable:
             if ae_cutoff_optimizable and self.cutoffs_optimizable:
@@ -2049,3 +2050,76 @@ class Backflow(AbstractBackflow):
         ))
 
         return laplacian, gradient, value
+
+    def eta_term_d2(self, e_powers, e_vectors):
+        """Second derivatives of logarithm wfn w.r.t. eta-term parameters
+        :param e_vectors: e-e vectors
+        :param e_powers: powers of e-e distances
+        """
+        ae_cutoff_condition = 1
+        if not self.eta_cutoff.any():
+            return np.zeros(shape=(0, 0, 2, (self.neu + self.ned) * 3))
+
+        size = self.eta_parameters_available.sum() + (self.cutoffs_optimizable and self.eta_cutoff_optimizable.sum())
+        res = np.zeros(shape=(size, size, 2, (self.neu + self.ned), 3))
+        return res
+
+    def mu_term_d2(self, n_powers, n_vectors):
+        """Second derivatives of logarithm wfn w.r.t. mu-term parameters
+        :param n_vectors: e-n vectors
+        :param n_powers: powers of e-n distances
+        """
+        if not self.mu_cutoff.any():
+            return np.zeros(shape=(0, 0, 2, (self.neu + self.ned) * 3))
+
+        size = sum([
+            mu_parameters_available.sum() + (mu_cutoff_optimizable and self.cutoffs_optimizable)
+            for mu_parameters_available, mu_cutoff_optimizable
+            in zip(self.mu_parameters_available, self.mu_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size, size, 2, (self.neu + self.ned), 3))
+        return res
+
+    def phi_term_d2(self, e_powers, n_powers, e_vectors, n_vectors):
+        """Second derivatives of logarithm wfn w.r.t. phi-term parameters
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        :param e_powers: powers of e-e distances
+        :param n_powers: powers of e-n distances
+        """
+        if not self.phi_cutoff.any():
+            return np.zeros(shape=(0, 0, 2, (self.neu + self.ned) * 3))
+
+        size = sum([
+            phi_parameters_available.sum() + theta_parameters_available.sum() + (phi_cutoff_optimizable and self.cutoffs_optimizable)
+            for phi_parameters_available, theta_parameters_available, phi_cutoff_optimizable
+            in zip(self.phi_parameters_available, self.theta_parameters_available, self.phi_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size, size, 2, (self.neu + self.ned), 3))
+        return res
+
+    def ae_multiplier_d2(self, n_vectors, n_powers):
+        """Second derivatives of logarithm wfn w.r.t. ae_cutoff
+        :param n_vectors: e-n vectors
+        :param n_powers: powers of e-n distances
+        """
+        size = self.cutoffs_optimizable and self.ae_cutoff_optimizable.sum()
+        res = np.zeros(shape=(size, size, 2, (self.neu + self.ned), 3))
+
+        return res.reshape(size, size, 2, (self.neu + self.ned) * 3)
+
+    def value_parameters_d2(self, e_vectors, n_vectors) -> np.ndarray:
+        """Second derivatives backflow w.r.t the parameters
+        :param e_vectors: e-e vectors
+        :param n_vectors: e-n vectors
+        """
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
+
+        return self.parameters_projector.T @ block_diag((
+            np.sum(self.eta_term_parameters_d2(e_powers, e_vectors) * ae_multiplier, axis=2),
+            np.sum(self.mu_term_parameters_d2(n_powers, n_vectors) * ae_multiplier, axis=2),
+            np.sum(self.phi_term_parameters_d2(e_powers, n_powers, e_vectors, n_vectors) * ae_multiplier, axis=2),
+        )) @ self.parameters_projector
