@@ -315,10 +315,6 @@ class Casino:
                     raise NotImplemented
                 elif opt_method == 'emin':
                     if True or self.config.input.emin_method == 'newton':
-                        # if self.wfn.jastrow:
-                        #     self.wfn.jastrow.cutoffs_optimizable = False
-                        if self.wfn.backflow:
-                            self.wfn.backflow.cutoffs_optimizable = False
                         self.vmc_energy_minimization_newton(vmc_nconfig_write, opt_jastrow, opt_backflow)
                     elif self.config.input.emin_method == 'linear':
                         self.vmc_energy_minimization_linear_method(vmc_nconfig_write, opt_jastrow, opt_backflow)
@@ -788,7 +784,7 @@ class Casino:
         callback.iteration = 0
         logger.info(f'   Iteration     Total nfev        Energy             Grad norm')
         # options = dict(initial_trust_radius=0.1, max_trust_radius=1, eta=0.15, gtol=1e-3)  # default 1:1000:0.15:1e-4
-        options = dict(disp=self.root, scale=np.ones(shape=(x0.size, )), offset=np.zeros(shape=(x0.size, )))
+        options = dict(disp=self.root, scale=np.ones(shape=(x0.size, )), offset=np.zeros(shape=(x0.size, )), stepmx=1)
         res = minimize(fun, x0=x0 / scale, method='TNC', jac=jac, callback=callback, options=options)
         logger.info('Jacobian matrix at the solution:')
         logger.info(res.jac / scale)
