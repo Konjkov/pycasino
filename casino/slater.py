@@ -378,8 +378,8 @@ class Slater(AbstractSlater):
         val = 0.0
         grad = np.zeros(shape=(self.neu + self.ned) * 3)
         for i in range(self.det_coeff.size):
-            tr_grad_u = (np.linalg.inv(wfn_u[self.permutation_up[i]]) * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
-            tr_grad_d = (np.linalg.inv(wfn_d[self.permutation_down[i]]) * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
+            tr_grad_u = (np.linalg.pinv(wfn_u[self.permutation_up[i]]) * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
+            tr_grad_d = (np.linalg.pinv(wfn_d[self.permutation_down[i]]) * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             grad += c * np.concatenate((tr_grad_u.ravel(), tr_grad_d.ravel()))
@@ -403,8 +403,8 @@ class Slater(AbstractSlater):
         lap_u, lap_d = self.laplacian_matrix(n_vectors)
         val = lap = 0
         for i in range(self.det_coeff.size):
-            tr_lap_u = (np.linalg.inv(wfn_u[self.permutation_up[i]]) * lap_u[self.permutation_up[i]].T).sum()
-            tr_lap_d = (np.linalg.inv(wfn_d[self.permutation_down[i]]) * lap_d[self.permutation_down[i]].T).sum()
+            tr_lap_u = (np.linalg.pinv(wfn_u[self.permutation_up[i]]) * lap_u[self.permutation_up[i]].T).sum()
+            tr_lap_d = (np.linalg.pinv(wfn_d[self.permutation_down[i]]) * lap_d[self.permutation_down[i]].T).sum()
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             lap += c * (tr_lap_u + tr_lap_d)
@@ -432,8 +432,8 @@ class Slater(AbstractSlater):
         hess = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         for i in range(self.det_coeff.size):
 
-            inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
-            inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
+            inv_wfn_u = np.linalg.pinv(wfn_u[self.permutation_up[i]])
+            inv_wfn_d = np.linalg.pinv(wfn_d[self.permutation_down[i]])
             tr_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_grad_d = (inv_wfn_d * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
             tr_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
@@ -486,8 +486,8 @@ class Slater(AbstractSlater):
         hess = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         tress = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         for i in range(self.det_coeff.size):
-            inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
-            inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
+            inv_wfn_u = np.linalg.pinv(wfn_u[self.permutation_up[i]])
+            inv_wfn_d = np.linalg.pinv(wfn_d[self.permutation_down[i]])
             tr_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_grad_d = (inv_wfn_d * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
             tr_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)

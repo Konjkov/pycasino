@@ -27,42 +27,6 @@ logger = logging.getLogger(__name__)
 double_size = MPI.DOUBLE.Get_size()
 
 
-# @nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
-def energy_parameters_gradient(energy, wfn_gradient):
-    """Gradient estimator of local energy from
-    Optimization of quantum Monte Carlo wave functions by energy minimization.
-    Julien Toulouse, C. J. Umrigar
-    :param energy:
-    :param wfn_gradient:
-    :return:
-    """
-    size_0 = wfn_gradient.shape[0]
-    t1 = energy - np.mean(energy)
-    t2 = wfn_gradient - np.mean(wfn_gradient, axis=0)
-    return 2 * t2.T @ t1 / size_0
-
-
-# @nb.jit(nopython=True, nogil=True, parallel=False, cache=True)
-def energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient):
-    """Hessian estimators of local energy from
-    Optimization of quantum Monte Carlo wave functions by energy minimization.
-    Julien Toulouse, C. J. Umrigar
-    :param wfn_gradient:
-    :param wfn_hessian: wfn_hessian - np.outer(wfn_gradient, wfn_gradient)
-    :param energy:
-    :param energy_gradient:
-    :return:
-    """
-    size_0 = wfn_gradient.shape[0]
-    t1 = energy - np.mean(energy)
-    t2 = wfn_gradient - np.mean(wfn_gradient, axis=0)
-    A = 2 * wfn_hessian.T @ t1
-    B = 4 * t2.T @ (t2 * np.expand_dims(t1, 1))
-    # Umrigar and Filippi
-    half_D = t2.T @ energy_gradient
-    return (A + B + half_D + half_D.T) / size_0
-
-
 # @nb.njit(nogil=True, parallel=False, cache=True)
 def overlap_matrix(wfn_gradient):
     """Overlap matrix S.
@@ -314,7 +278,7 @@ class Casino:
                 elif opt_method == 'madmin':
                     raise NotImplemented
                 elif opt_method == 'emin':
-                    if True or self.config.input.emin_method == 'newton':
+                    if self.config.input.emin_method == 'newton':
                         self.vmc_energy_minimization_newton(vmc_nconfig_write, opt_jastrow, opt_backflow)
                     elif self.config.input.emin_method == 'linear':
                         self.vmc_energy_minimization_linear_method(vmc_nconfig_write, opt_jastrow, opt_backflow)
@@ -589,8 +553,7 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
         logger.info(
-            f'Jacobian matrix at the solution:\n'
-            f'{res.jac.mean(axis=0)}\n'
+            f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac.mean(axis=0)):.8f}\n'
         )
 
     def vmc_reweighted_variance_minimization(self, steps, opt_jastrow, opt_backflow, verbose=2):
@@ -693,11 +656,42 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
         logger.info(
-            f'Jacobian matrix at the solution:\n'
-            f'{res.jac.mean(axis=0)}\n'
+            f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac.mean(axis=0)):.8f}\n'
         )
 
-    def vmc_energy_minimization_newton(self, steps, opt_jastrow, opt_backflow):
+    def energy_parameters_gradient(self, data):
+        """Gradient estimator of local energy from
+        Optimization of quantum Monte Carlo wave functions by energy minimization.
+        Julien Toulouse, C. J. Umrigar
+        :param data: data structure
+        :return:
+        """
+        parameters_size = data['wfn_gradient_mean'].size
+        energy = data['energy'] - data['energy_mean']
+        wfn_gradient = data['wfn_gradient'] - data['wfn_gradient_mean']
+        jacobian = 2 * wfn_gradient.T @ energy / parameters_size
+        self.mpi_comm.Allreduce(MPI.IN_PLACE, jacobian)
+        return jacobian / self.mpi_comm.size
+
+    def energy_parameters_hessian(self, data):
+        """Hessian estimators of local energy from
+        Optimization of quantum Monte Carlo wave functions by energy minimization.
+        Julien Toulouse, C. J. Umrigar
+        :param data: data structure
+        :return:
+        """
+        parameters_size = data['wfn_gradient_mean'].size
+        energy = data['energy'] - data['energy_mean']
+        wfn_gradient = data['wfn_gradient'] - data['wfn_gradient_mean']
+        A = 2 * data['wfn_hessian'].T @ energy
+        B = 4 * wfn_gradient.T @ (wfn_gradient * np.expand_dims(energy, 1))
+        # Umrigar and Filippi
+        half_D = wfn_gradient.T @ data['energy_gradient']
+        hessian = (A + B + half_D + half_D.T) / parameters_size
+        self.mpi_comm.Allreduce(MPI.IN_PLACE, hessian)
+        return hessian / self.mpi_comm.size
+
+    def vmc_energy_minimization_newton(self, steps, opt_jastrow, opt_backflow, method='Newton-CG'):
         """Minimize vmc energy by Newton or gradient descent methods.
         For SJB wfn = exp(J(r)) * S(Bf(r))
             second derivatives by Jastrow parameters is:
@@ -709,9 +703,10 @@ class Casino:
         :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param method: type of solver
         """
+        data = dict()
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        start, stop = self.mpi_comm.rank * steps // self.mpi_comm.size, (self.mpi_comm.rank + 1) * steps // self.mpi_comm.size
         x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
         self.wfn.set_parameters(x0, opt_jastrow, opt_backflow)
         # FIXME: reuse from vmc_energy_accumulation run
@@ -720,30 +715,14 @@ class Casino:
             ' Optimization start\n'
             ' =================='
         )
-        energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=self.mpi_comm)
-        # create energy numpy array whose data points to the shared buffer
-        buffer, _ = energy_buffer.Shared_query(rank=0)
-        energy = np.ndarray(buffer=buffer, shape=(steps, ))
-        wfn_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=self.mpi_comm)
-        # create wfn_gradient numpy array whose data points to the shared buffer
-        buffer, _ = wfn_gradient_buffer.Shared_query(rank=0)
-        wfn_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
-        # wfn_hessian_buffer = MPI.Win.Allocate_shared(steps * x0.size * x0.size * double_size if self.root else 0, comm=self.mpi_comm)
-        # # create wfn_hessian numpy array whose data points to the shared buffer
-        # buffer, _ = wfn_hessian_buffer.Shared_query(rank=0)
-        # wfn_hessian = np.ndarray(buffer=buffer, shape=(steps, x0.size, x0.size))
-        # energy_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=self.mpi_comm)
-        # # create energy_gradient numpy array whose data points to the shared buffer
-        # buffer, _ = energy_gradient_buffer.Shared_query(rank=0)
-        # energy_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
-        # set scale
         scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
 
         def callback(x):
             """Log intermediate results"""
             # logger.info(x * scale)
-            jacobian = energy_parameters_gradient(energy, wfn_gradient) if self.root else np.empty(shape=(x.size,))
-            logger.info(f'     {callback.iteration:3d}            {callback.nfev:3d}        {energy.mean():.6e}         {sp.linalg.norm(jacobian * scale):.5e}')
+            energy_mean = data['energy_mean']
+            jacobian_norm = np.linalg.norm(self.energy_parameters_gradient(data) * scale)
+            logger.info(f'     {callback.iteration:3d}            {callback.nfev:3d}        {energy_mean:.6e}         {jacobian_norm:.5e}')
             # Sorry, but we need a pointer!
             callback.iteration += 1
 
@@ -751,48 +730,46 @@ class Casino:
             """For Nelder-Mead, Powell, COBYLA and those listed in jac and hess methods."""
             callback.nfev += 1
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
-            energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-            self.mpi_comm.Barrier()
-            return energy.mean()
+            data['energy'] = vmc_observable(condition, position, self.wfn.energy)
+            data['energy_mean'] = data['energy'].mean()
+            return self.mpi_comm.allreduce(data['energy_mean']) / self.mpi_comm.size
 
         def jac(x, *args):
             """Only for CG, BFGS, L-BFGS-B, TNC, SLSQP and those listed in hess method."""
             self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
             self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
-            # jac(x) call allways follows fun(x) call
-            # energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            self.mpi_comm.Barrier()
-            jacobian = energy_parameters_gradient(energy, wfn_gradient) if self.root else np.empty(shape=(x.size, ))
-            self.mpi_comm.Bcast(jacobian)
-            return jacobian * scale
+            data['energy'] = vmc_observable(condition, position, self.wfn.energy)
+            data['energy_mean'] = data['energy'].mean()
+            data['wfn_gradient'] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            data['wfn_gradient_mean'] = np.mean(data['wfn_gradient'], axis=0)
+            return self.energy_parameters_gradient(data) * scale
 
-        # def hess(x, *args):
-        #     """Only for Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact and trust-constr."""
-        #     self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
-        #     self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
-        #     energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-        #     wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-        #     wfn_hessian[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d2)
-        #     energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
-        #     self.mpi_comm.Barrier()
-        #     hessian = energy_parameters_hessian(wfn_gradient, wfn_hessian, energy, energy_gradient) if self.root else np.empty(shape=(x.size, x.size))
-        #     self.mpi_comm.Bcast(hessian)
-        #     return hessian * np.outer(scale, scale)
+        def hess(x, *args):
+            """Only for Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact and trust-constr."""
+            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
+            data['energy'] = vmc_observable(condition, position, self.wfn.energy)
+            data['energy_mean'] = data['energy'].mean()
+            data['wfn_gradient'] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            data['wfn_gradient_mean'] = np.mean(data['wfn_gradient'], axis=0)
+            data['wfn_hessian'] = vmc_observable(condition, position, self.wfn.value_parameters_d2)
+            data['energy_gradient'] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+            return self.energy_parameters_hessian(data) * np.outer(scale, scale)
 
         callback.nfev = 0
         callback.iteration = 0
+        logger.info(f'Optimization method: {method}')
         logger.info(f'   Iteration     Total nfev        Energy             Grad norm')
-        # options = dict(initial_trust_radius=0.1, max_trust_radius=1, eta=0.15, gtol=1e-3)  # default 1:1000:0.15:1e-4
-        options = dict(disp=self.root, scale=np.ones(shape=(x0.size, )), offset=np.zeros(shape=(x0.size, )), stepmx=1)
-        res = minimize(fun, x0=x0 / scale, method='TNC', jac=jac, callback=callback, options=options)
-        logger.info('Jacobian matrix at the solution:')
-        logger.info(res.jac / scale)
+        if method == 'TNC':
+            options = dict(disp=self.root, scale=np.ones(shape=(x0.size, )), offset=np.zeros(shape=(x0.size, )), stepmx=1)
+        elif method in ('dogleg', 'trust-ncg', 'trust-exact'):
+            # default 1:1000:0.15:1e-4
+            options = dict(initial_trust_radius=0.1, max_trust_radius=1, eta=0.15, gtol=1e-3)
+        else:
+            options = dict(disp=self.root)
+        res = minimize(fun, x0=x0 / scale, method=method, jac=jac, hess=hess, callback=callback, options=options)
+        logger.info(f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac):.8f}\n')
         parameters = res.x * scale
-        energy_buffer.Free()
-        wfn_gradient_buffer.Free()
-        # wfn_hessian_buffer.Free()
-        # energy_gradient_buffer.Free()
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
 
@@ -817,16 +794,19 @@ class Casino:
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         """
-        invert_S = True
+        invert_S = False
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         start, stop = self.mpi_comm.rank * steps // self.mpi_comm.size, (self.mpi_comm.rank + 1) * steps // self.mpi_comm.size
-        # CASINO variant
-        # parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        # if not parameters.all():
-        #     self.wfn.jastrow.set_u_parameters_for_emin()
-        # not starting from HF distribution
         x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        self.wfn.set_parameters(x0)
+        if x0.all():
+            self.wfn.set_parameters(x0)
+        else:
+            # CASINO variant
+            # self.wfn.jastrow.set_u_parameters_for_emin()
+            # not starting from HF distribution
+            # self.wfn.set_parameters(x0)
+            # starting from HF distribution
+            pass
         # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         logger.info(
@@ -853,21 +833,20 @@ class Casino:
         dp = np.empty_like(x0)
         if self.root:
             energy_0 = energy.mean()
+            sem = np.mean(correlated_sem(energy.reshape(self.mpi_comm.size, steps // self.mpi_comm.size))) / np.sqrt(self.mpi_comm.size)
             if invert_S:
                 scale = 1
                 S_inv_H = S_inv_H_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
                 eigvals, eigvectors = sp.linalg.eig(S_inv_H)
             else:
                 # rescale parameters so that S is the Pearson correlation matrix
-                scale = 1 #/ np.std(wfn_gradient, axis=0)
+                scale = 1 / np.std(wfn_gradient, axis=0)
                 S = overlap_matrix(wfn_gradient * scale)
-                logger.info(f'S min eigval: {np.min(np.linalg.eigvals(S))}')
                 H = hamiltonian_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
-                # logger.info(f'epsilon: {np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]}')
-                # stabilization is order of SEM of energy
-                stabilization = energy.std() / np.sqrt(steps)
-                logger.info(f'Stabilization: {stabilization:.8f}')
-                H[1:, 1:] += stabilization * np.eye(x0.size)
+                logger.info(f'epsilon:\n{np.sort(np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0])}')
+                stabilization = 1
+                logger.info(f'Stabilization: {stabilization:.1f} SEM')
+                H[1:, 1:] += stabilization * sem * np.eye(x0.size)
                 try:
                     # get normalized right eigenvector corresponding to the eigenvalue
                     eigvals, eigvectors = sp.sparse.linalg.eigs(A=H, k=1, M=S, v0=S[0], which='SR')
@@ -878,11 +857,16 @@ class Casino:
             idx = eigvals.argmin()
             eigval, eigvector = eigvals[idx], eigvectors[:, idx]
             logger.info(f'E_0 {energy_0:.8f} E_lin {eigval:.8f} dE {eigval - energy_0:.8f}')
-            logger.info(f'eigvector[0] {eigvector[0]:.8f}')
+            logger.info(f'eigvector[0] {np.abs(eigvector[0]):.8f}')
             # uniform rescaling of normalized eigvector
             # in case ξ = 0 is equivalent to multiplying by eigvector[0]
             # in case ξ = 1 is equivalent to dividing by eigvector[0]
-            dp = eigvector[1:] * eigvector[0] * scale
+            # as 1 / (1 + Q) = eigvector[0] ** 2
+            if x0.all():
+                dp = eigvector[1:] * eigvector[0] * scale
+            else:
+                self.wfn.set_parameters(x0)
+                dp = eigvector[1:] * eigvector[0] * scale
 
         energy_buffer.Free()
         wfn_gradient_buffer.Free()
