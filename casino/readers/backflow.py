@@ -406,7 +406,7 @@ class Backflow:
             title='no title given',
             trunc=self.trunc,
             terms=eta_term + mu_term + phi_term,
-            ae_cutoffs='\n  '.join(ae_cutoff_list),
+            ae_cutoffs='\n '.join(ae_cutoff_list),
         )
         return backflow
 
