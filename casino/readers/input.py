@@ -39,8 +39,7 @@ class Input:
             if line.startswith(f'%block {keyword}'):
                 block_start = True
                 continue
-            if line.startswith(f'%endblock {keyword}'):
-                block_start = False
+            elif line.startswith(f'%endblock {keyword}'):
                 break
             if block_start:
                 block_line = dict()

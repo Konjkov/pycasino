@@ -794,16 +794,19 @@ class Casino:
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         """
-        invert_S = True
+        invert_S = False
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         start, stop = self.mpi_comm.rank * steps // self.mpi_comm.size, (self.mpi_comm.rank + 1) * steps // self.mpi_comm.size
-        # CASINO variant
-        # parameters = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        # if not parameters.all():
-        #     self.wfn.jastrow.set_u_parameters_for_emin()
-        # not starting from HF distribution
         x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        self.wfn.set_parameters(x0)
+        if x0.all():
+            self.wfn.set_parameters(x0)
+        else:
+            # CASINO variant
+            # self.wfn.jastrow.set_u_parameters_for_emin()
+            # not starting from HF distribution
+            # self.wfn.set_parameters(x0)
+            # starting from HF distribution
+            pass
         # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         logger.info(
@@ -830,21 +833,20 @@ class Casino:
         dp = np.empty_like(x0)
         if self.root:
             energy_0 = energy.mean()
+            sem = np.mean(correlated_sem(energy.reshape(self.mpi_comm.size, steps // self.mpi_comm.size))) / np.sqrt(self.mpi_comm.size)
             if invert_S:
                 scale = 1
                 S_inv_H = S_inv_H_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
                 eigvals, eigvectors = sp.linalg.eig(S_inv_H)
             else:
                 # rescale parameters so that S is the Pearson correlation matrix
-                scale = 1 #/ np.std(wfn_gradient, axis=0)
+                scale = 1 / np.std(wfn_gradient, axis=0)
                 S = overlap_matrix(wfn_gradient * scale)
-                logger.info(f'S min eigval: {np.min(np.linalg.eigvals(S))}')
                 H = hamiltonian_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
-                # logger.info(f'epsilon: {np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]}')
-                # stabilization is order of SEM of energy
-                stabilization = energy.std() / np.sqrt(steps)
-                logger.info(f'Stabilization: {stabilization:.8f}')
-                H[1:, 1:] += stabilization * np.eye(x0.size)
+                logger.info(f'epsilon:\n{np.sort(np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0])}')
+                stabilization = 1
+                logger.info(f'Stabilization: {stabilization:.1f} SEM')
+                H[1:, 1:] += stabilization * sem * np.eye(x0.size)
                 try:
                     # get normalized right eigenvector corresponding to the eigenvalue
                     eigvals, eigvectors = sp.sparse.linalg.eigs(A=H, k=1, M=S, v0=S[0], which='SR')
@@ -855,11 +857,16 @@ class Casino:
             idx = eigvals.argmin()
             eigval, eigvector = eigvals[idx], eigvectors[:, idx]
             logger.info(f'E_0 {energy_0:.8f} E_lin {eigval:.8f} dE {eigval - energy_0:.8f}')
-            logger.info(f'eigvector[0] {eigvector[0]:.8f}')
+            logger.info(f'eigvector[0] {np.abs(eigvector[0]):.8f}')
             # uniform rescaling of normalized eigvector
             # in case ξ = 0 is equivalent to multiplying by eigvector[0]
             # in case ξ = 1 is equivalent to dividing by eigvector[0]
-            dp = eigvector[1:] * eigvector[0] * scale
+            # as 1 / (1 + Q) = eigvector[0] ** 2
+            if x0.all():
+                dp = eigvector[1:] * eigvector[0] * scale
+            else:
+                self.wfn.set_parameters(x0)
+                dp = eigvector[1:] * eigvector[0] * scale
 
         energy_buffer.Free()
         wfn_gradient_buffer.Free()
