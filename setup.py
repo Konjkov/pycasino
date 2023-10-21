@@ -10,11 +10,11 @@ setup(
     license='MIT',
     packages=['casino', 'casino.readers'],
     install_requires=[
-        'numba==0.58.0',
+        'numba>=0.58.0',
         'numba-mpi>=0.34',
         'pyblock>=0.6.0',
-        'numpy>=1.24.3',
-        'scipy>=1.10.1',
+        'numpy>=1.24.0',
+        'scipy>=1.10.0',
         'sympy>=1.12.0',
         'pyyaml>=6.0.0',  # for gjastrow loader
         'matplotlib>=3.5.2',

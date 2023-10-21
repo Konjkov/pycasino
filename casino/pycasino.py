@@ -553,7 +553,7 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
         logger.info(
-            f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac.mean(axis=0)):.8f}\n'
+            f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac.mean(axis=0)):.5e}\n'
         )
 
     def vmc_reweighted_variance_minimization(self, steps, opt_jastrow, opt_backflow, verbose=2):
@@ -656,7 +656,7 @@ class Casino:
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
         logger.info(
-            f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac.mean(axis=0)):.8f}\n'
+            f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac.mean(axis=0)):.5e}\n'
         )
 
     def energy_parameters_gradient(self, data):
@@ -768,7 +768,7 @@ class Casino:
         else:
             options = dict(disp=self.root)
         res = minimize(fun, x0=x0 / scale, method=method, jac=jac, hess=hess, callback=callback, options=options)
-        logger.info(f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac):.8f}\n')
+        logger.info(f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac):.5e}\n')
         parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
