@@ -843,7 +843,7 @@ class Casino:
                 scale = 1 / np.std(wfn_gradient, axis=0)
                 S = overlap_matrix(wfn_gradient * scale)
                 H = hamiltonian_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
-                logger.info(f'epsilon:\n{np.sort(np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0])}')
+                logger.info(f'epsilon:\n{np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]}')
                 stabilization = 1
                 logger.info(f'Stabilization: {stabilization:.1f} SEM')
                 H[1:, 1:] += stabilization * sem * np.eye(x0.size)
@@ -880,6 +880,20 @@ class Casino:
 
     def vmc_energy_minimization_stochastic_reconfiguration(self, steps, opt_jastrow, opt_backflow):
         """Minimize vmc energy by stochastic reconfiguration.
+        Stochastic Reconfiguration (SR) is a second-order optimization method. Instead of manipulating the gradients according to
+        their history, the SR algorithm manipulates the gradients according to the curvature of the energy landscape. It can
+        alternatively be viewed as stretching and squeezing the landscape itself, making it smoother or more isotropic in certain
+        areas. SR provides a more favorable terrain for finding the global minimum and improves the exploration of the parameter space.
+        SR reveals the following update rule for the parameters:
+                                        p <= η * S(p)^−1 · energy_gradient(p) / epsilon
+        as:
+            epsilon = Hii/Sii - H0
+            energy_gradient = wfn_gradient.T · energy
+            S = wfn_gradient.T @ wfn_gradient
+            diag(S) = np.std(wfn_gradient, axis=0) ** 2
+            pinv(A) = (A.T · A)^-1 · A.T
+                                        p <= η * pinv(wfn_gradient(p)) · energy(p)
+
         :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
@@ -911,6 +925,7 @@ class Casino:
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Barrier()
+            logger.info(f'energy: {energy.mean()}')
             return energy.mean()
 
         def jac(x, *args):
@@ -920,34 +935,20 @@ class Casino:
             wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
             energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             self.mpi_comm.Barrier()
-            H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
-            self.mpi_comm.Bcast(H)
-            return H[1:, 0]
-
-        def hess(x, *args):
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
-            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
-            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            if self.root:
+                energy[:] -= np.mean(energy)
+                wfn_gradient[:, :] -= np.mean(wfn_gradient, axis=0)
             self.mpi_comm.Barrier()
-            S = overlap_matrix(wfn_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
-            self.mpi_comm.Bcast(S)
-            return S[1:, 1:] * epsilon(x)
-
-        def epsilon(x, *args):
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
-            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
-            energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
-            self.mpi_comm.Barrier()
-            S = overlap_matrix(wfn_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
-            self.mpi_comm.Bcast(S)
-            H = hamiltonian_matrix(wfn_gradient, energy, energy_gradient) if self.root else np.empty(shape=(x.size + 1, x.size + 1))
-            self.mpi_comm.Bcast(H)
-            return np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]
+            S_diag = np.var(wfn_gradient, axis=0)
+            H_diag = np.mean(wfn_gradient * (np.expand_dims(energy, 1) * wfn_gradient), axis=0) + np.mean(wfn_gradient * energy_gradient, axis=0)
+            epsilon = H_diag / S_diag
+            logger.info(f'epsilon:\n{epsilon}')
+            stabilization = 1
+            logger.info(f'Stabilization: {stabilization:.1f}')
+            return (sp.linalg.pinv(wfn_gradient) @ energy) / (epsilon + stabilization)
 
         options = dict(disp=self.root)
-        res = minimize(fun, x0=x0, method='Newton-CG', jac=jac, hess=hess, options=options)
+        res = minimize(fun, x0=x0, method='CG', jac=jac, options=options)
         logger.info('Jacobian matrix at the solution:')
         logger.info(res.jac)
         parameters = res.x
