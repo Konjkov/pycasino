@@ -933,10 +933,21 @@ class Casino:
             self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
             energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
             wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
             self.mpi_comm.Barrier()
             if self.root:
                 energy[:] -= np.mean(energy)
+                wfn_gradient[:, :] -= np.mean(wfn_gradient, axis=0)
+            self.mpi_comm.Barrier()
+            return 2 * wfn_gradient.T @ energy / steps
+
+        def hess(x, *args):
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
+            energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
+            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+            self.mpi_comm.Barrier()
+            if self.root:
                 wfn_gradient[:, :] -= np.mean(wfn_gradient, axis=0)
             self.mpi_comm.Barrier()
             S_diag = np.var(wfn_gradient, axis=0)
@@ -945,10 +956,10 @@ class Casino:
             logger.info(f'epsilon:\n{epsilon}')
             stabilization = 1
             logger.info(f'Stabilization: {stabilization:.1f}')
-            return (sp.linalg.pinv(wfn_gradient) @ energy) / (epsilon + stabilization)
+            return wfn_gradient.T @ wfn_gradient * (epsilon + stabilization) / steps
 
         options = dict(disp=self.root)
-        res = minimize(fun, x0=x0, method='CG', jac=jac, options=options)
+        res = minimize(fun, x0=x0, method='Newton-CG', jac=jac, hess=hess, options=options)
         logger.info('Jacobian matrix at the solution:')
         logger.info(res.jac)
         parameters = res.x
