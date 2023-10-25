@@ -8,8 +8,7 @@ from mpi4py import MPI
 import numba as nb
 import numpy as np
 import scipy as sp
-from scipy.optimize import least_squares, minimize, curve_fit, minimize_scalar, OptimizeWarning
-from scipy.sparse.linalg import ArpackNoConvergence
+from scipy.optimize import least_squares, minimize, curve_fit, OptimizeWarning
 import matplotlib.pyplot as plt
 
 from casino.cusp import CuspFactory
@@ -837,24 +836,23 @@ class Casino:
             if invert_S:
                 scale = 1
                 S_inv_H = S_inv_H_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
+                stabilization = 1
+                logger.info(f'Stabilization: {stabilization:.1f}')
+                S_inv_H[1:, 1:] += stabilization * np.eye(x0.size)
                 eigvals, eigvectors = sp.linalg.eig(S_inv_H)
             else:
                 # rescale parameters so that S is the Pearson correlation matrix
                 scale = 1 / np.std(wfn_gradient, axis=0)
                 S = overlap_matrix(wfn_gradient * scale)
                 H = hamiltonian_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
-                logger.info(f'epsilon:\n{np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]}')
+                # logger.info(f'epsilon:\n{np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]}')
                 stabilization = 1
                 logger.info(f'Stabilization: {stabilization:.1f} SEM')
                 H[1:, 1:] += stabilization * sem * np.eye(x0.size)
-                try:
-                    # get normalized right eigenvector corresponding to the eigenvalue
-                    eigvals, eigvectors = sp.sparse.linalg.eigs(A=H, k=1, M=S, v0=S[0], which='SR')
-                except ArpackNoConvergence:
-                    eigvals, eigvectors = sp.linalg.eig(H, S)
+                eigvals, eigvectors = sp.linalg.eig(H, S)
             # since imaginary parts only arise from statistical noise, discard them
             eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
-            idx = eigvals.argmin()
+            idx = np.abs(eigvectors[0]).argmax()
             eigval, eigvector = eigvals[idx], eigvectors[:, idx]
             logger.info(f'E_0 {energy_0:.8f} E_lin {eigval:.8f} dE {eigval - energy_0:.8f}')
             logger.info(f'eigvector[0] {np.abs(eigvector[0]):.8f}')
@@ -868,15 +866,15 @@ class Casino:
                 self.wfn.set_parameters(x0)
                 dp = eigvector[1:] * eigvector[0] * scale
 
-        energy_buffer.Free()
-        wfn_gradient_buffer.Free()
-        energy_gradient_buffer.Free()
         self.mpi_comm.Bcast(dp)
         if x0.all():
             logger.info(f'delta p / p\n{dp / x0}\n')
         else:
             logger.info(f'delta p\n{dp}\n')
         self.wfn.set_parameters(x0 + dp, opt_jastrow, opt_backflow)
+        energy_buffer.Free()
+        wfn_gradient_buffer.Free()
+        energy_gradient_buffer.Free()
 
     def vmc_energy_minimization_stochastic_reconfiguration(self, steps, opt_jastrow, opt_backflow):
         """Minimize vmc energy by stochastic reconfiguration.
