@@ -4,7 +4,7 @@ setup(
     name='casino',
     version='0.1.0',
     description='Quantum Monte Carlo Python package',
-    data_files=[('', ['README.md'])])
+    data_files=[('', ['README.md'])],
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     url='https://github.com/Konjkov/pycasino',
