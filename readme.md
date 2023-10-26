@@ -1,4 +1,4 @@
-# Quantum monte carlo package
+# Quantum Monte Carlo package
 
 The Pycasino program implements some of the methods from the well-known [Casino](https://vallico.net/casinoqmc/) program.
 

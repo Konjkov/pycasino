@@ -4,6 +4,8 @@ setup(
     name='casino',
     version='0.1.0',
     description='Quantum Monte Carlo Python package',
+    long_description=open('readme.md').read(),
+    long_description_content_type='text/markdown',
     url='https://github.com/Konjkov/pycasino',
     author='Vladimir Konkov',
     author_email='Konjkov.VV@gmail.com',

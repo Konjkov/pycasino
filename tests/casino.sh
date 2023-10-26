@@ -33,5 +33,7 @@
 # path="stowfn/He/HF/QZ4P/${method}/Gjastrow/"
 # path="stowfn/Be/HF/QZ4P/${method}/Gjastrow/"
 
+# /usr/bin/time -v pycasino $path
 # pycasino $path
+# /usr/bin/time -v mpiexec pycasino $path
 # mpiexec pycasino $path
