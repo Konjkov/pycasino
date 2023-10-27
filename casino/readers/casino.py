@@ -6,6 +6,7 @@ from casino.readers.jastrow import Jastrow
 from casino.readers.gjastrow import Gjastrow
 from casino.readers.mdet import Mdet
 from casino.readers.backflow import Backflow
+from casino.readers.ppotential import PPotential
 
 correlation_data_template = """\
  START HEADER
@@ -41,6 +42,7 @@ class CasinoConfig:
             self.backflow = Backflow()
         else:
             self.backflow = None
+        self.ppotential = PPotential()
 
     def read(self):
         if self.wfn:
@@ -51,6 +53,8 @@ class CasinoConfig:
             self.jastrow.read(self.base_path)
         if self.backflow:
             self.backflow.read(self.base_path)
+        if self.ppotential:
+            self.ppotential.read(self.base_path)
 
     def write(self, base_path, version):
         correlation_data = correlation_data_template.format(title='no title given')

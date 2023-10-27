@@ -452,8 +452,8 @@ class CuspFactory:
     ):
         self.neu = neu
         self.ned = ned
-        self.orbitals_up = np.max(permutation_up) + 1
-        self.orbitals_down = np.max(permutation_down) + 1
+        self.orbitals_up = np.max(permutation_up) + 1 if neu else 0
+        self.orbitals_down = np.max(permutation_down) + 1 if ned else 0
         self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
         self.casino_norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.neu + 1)) / (self.neu + self.neu) / 2)
         self.mo = np.concatenate((mo_up[:self.orbitals_up], mo_down[:self.orbitals_down]))

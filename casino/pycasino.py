@@ -18,6 +18,7 @@ from casino.gjastrow import Gjastrow
 from casino.backflow import Backflow
 from casino.markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
 from casino.wfn import Wfn
+from casino.ppotential import PPotential
 from casino.readers.casino import CasinoConfig
 from casino.sem import correlated_sem
 
@@ -91,6 +92,8 @@ class Casino:
         else:
             cusp = None
 
+        ppotential = PPotential(self.config.input.neu, self.config.input.ned, self.config.ppotential.ppotential)
+
         slater = Slater(
             self.config.input.neu, self.config.input.ned,
             self.config.wfn.nbasis_functions, self.config.wfn.first_shells, self.config.wfn.orbital_types, self.config.wfn.shell_moments,
@@ -138,7 +141,7 @@ class Casino:
             backflow = None
 
         self.wfn = Wfn(
-            self.config.input.neu, self.config.input.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges, slater, jastrow, backflow
+            self.config.input.neu, self.config.input.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges, slater, jastrow, backflow, ppotential
         )
 
         self.vmc_markovchain = VMCMarkovChain(

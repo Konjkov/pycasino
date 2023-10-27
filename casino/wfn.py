@@ -6,6 +6,7 @@ from casino.slater import Slater
 from casino.jastrow import Jastrow
 from casino.backflow import Backflow
 from casino.overload import block_diag
+from casino.ppotential import PPotential
 
 spec = [
     ('neu', nb.int64),
@@ -16,13 +17,14 @@ spec = [
     ('slater', Slater.class_type.instance_type),
     ('jastrow', nb.optional(Jastrow.class_type.instance_type)),
     ('backflow', nb.optional(Backflow.class_type.instance_type)),
+    ('ppotential', nb.optional(PPotential.class_type.instance_type)),
 ]
 
 
 @nb.experimental.jitclass(spec)
 class Wfn:
 
-    def __init__(self, neu, ned, atom_positions, atom_charges, slater, jastrow, backflow):
+    def __init__(self, neu, ned, atom_positions, atom_charges, slater, jastrow, backflow, ppotential):
         """Wave function in general form.
         :param neu: number of up electrons
         :param ned: number of down electrons
@@ -31,6 +33,7 @@ class Wfn:
         :param slater: instance of Slater class
         :param jastrow: instance of Jastrow class
         :param backflow: instance of Backflow class
+        :param ppotential: instance of Pseudopotential class
         :return:
         """
         self.neu = neu
@@ -41,6 +44,7 @@ class Wfn:
         self.slater = slater
         self.jastrow = jastrow
         self.backflow = backflow
+        self.ppotential = ppotential
 
     def _relative_coordinates(self, r_e):
         """Get relative electron coordinates
@@ -59,15 +63,33 @@ class Wfn:
                 res += self.atom_charges[i] * self.atom_charges[j] / np.linalg.norm(self.atom_positions[i] - self.atom_positions[j])
         return res
 
-    def coulomb(self, e_vectors, n_vectors) -> float:
+    def coulomb(self, r_e) -> float:
         """Value of e-e and e-n coulomb interaction."""
         res = 0.0
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
         for i in range(n_vectors.shape[0]):
             for j in range(n_vectors.shape[1]):
                 res -= self.atom_charges[i] / np.linalg.norm(n_vectors[i, j])
         for i in range(e_vectors.shape[0] - 1):
             for j in range(i + 1, e_vectors.shape[1]):
                 res += 1 / np.linalg.norm(e_vectors[i, j])
+        if self.ppotential is not None:
+            value = self.value(r_e)
+            grid = self.ppotential.grid(n_vectors)
+            pp_value = self.ppotential.pp_value(n_vectors)
+            for atom in range(n_vectors.shape[0]):
+                for i in range(self.neu + self.ned):
+                    for q in range(4):
+                        r_e_hatch = grid[atom, i, q, 0] + self.atom_positions[0]
+                        cos_theta = r_e_hatch[i] @ r_e[i] / np.linalg.norm(r_e_hatch) / np.linalg.norm(r_e)
+                        value_ratio = self.value(r_e_hatch) / value
+                        for l in range(pp_value.shape[0]):
+                            legendre_polynomial = 1
+                            if l == 1:
+                                legendre_polynomial = cos_theta
+                            elif l == 2:
+                                legendre_polynomial = (3 * cos_theta**2 - 1) / 2
+                            res += pp_value[atom, i, l] * (2 * l + 1) * legendre_polynomial / 4 * value_ratio
         return res
 
     def value(self, r_e) -> float:
@@ -130,7 +152,7 @@ class Wfn:
 
         e_vectors, n_vectors = self._relative_coordinates(r_e)
 
-        res = self.coulomb(e_vectors, n_vectors) + self.nuclear_repulsion
+        res = self.coulomb(r_e) + self.nuclear_repulsion
 
         if self.backflow is not None:
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
