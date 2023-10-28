@@ -32,7 +32,7 @@ class PPotential:
                 r = np.linalg.norm(n_vectors[atom, i])
                 # self.ppotential[i-1] < r <= self.ppotential[i]
                 idx = np.searchsorted(self.ppotential[0], r)
-                value[atom, i] = self.ppotential[1:, idx]
+                value[atom, i] = self.ppotential[1:, idx] / r
         return value
 
     def grid(self, n_vectors: np.ndarray) -> np.ndarray:
@@ -48,3 +48,12 @@ class PPotential:
                 for q in range(4):
                     grid[atom, i, q, atom, i] = quadrature[q] * r / np.sqrt(3)
         return grid
+
+    def legendre_polynomial(self, l, x):
+        """legendre polynomial"""
+        if l == 0:
+            return 1
+        if l == 1:
+            return x
+        elif l == 2:
+            return (3 * x ** 2 - 1) / 2

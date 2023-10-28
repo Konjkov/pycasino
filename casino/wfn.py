@@ -74,6 +74,7 @@ class Wfn:
             for j in range(i + 1, e_vectors.shape[1]):
                 res += 1 / np.linalg.norm(e_vectors[i, j])
         if self.ppotential is not None:
+            A = 1 / 4
             value = self.value(r_e)
             grid = self.ppotential.grid(n_vectors)
             pp_value = self.ppotential.pp_value(n_vectors)
@@ -84,12 +85,7 @@ class Wfn:
                         cos_theta = r_e_hatch[i] @ r_e[i] / np.linalg.norm(r_e_hatch) / np.linalg.norm(r_e)
                         value_ratio = self.value(r_e_hatch) / value
                         for l in range(pp_value.shape[0]):
-                            legendre_polynomial = 1
-                            if l == 1:
-                                legendre_polynomial = cos_theta
-                            elif l == 2:
-                                legendre_polynomial = (3 * cos_theta**2 - 1) / 2
-                            res += pp_value[atom, i, l] * (2 * l + 1) * legendre_polynomial / 4 * value_ratio
+                            res += pp_value[atom, i, l] * (2 * l + 1) * self.ppotential.legendre_polynomial(l, cos_theta) * A * value_ratio
         return res
 
     def value(self, r_e) -> float:

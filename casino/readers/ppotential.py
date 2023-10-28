@@ -39,7 +39,7 @@ class PPotential:
                     elif line.startswith('Energy units (rydberg/hartree/ev)'):
                         units = self.read_str()[:-1]
                         if units == 'rydberg':
-                            scale = 2
+                            scale = 0.5
                         elif units == 'hartree':
                             scale = 1
                         elif units == 'ev':
