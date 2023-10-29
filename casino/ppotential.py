@@ -32,8 +32,9 @@ class PPotential:
                 r = np.linalg.norm(n_vectors[atom, i])
                 # self.ppotential[i-1] < r <= self.ppotential[i]
                 idx = np.searchsorted(self.ppotential[0], r)
-                charge[atom, i] = self.ppotential[1:, idx]
-        charge[:, :, :1] -= charge[:, :, 2]
+                didx = (r - self.ppotential[0, idx-1]) / (self.ppotential[0, idx] - self.ppotential[0, idx-1])
+                charge[atom, i] = self.ppotential[1:, idx-1] + (self.ppotential[1:, idx] - self.ppotential[1:, idx-1]) * didx
+        charge[:, :, :2] -= charge[:, :, 2]
         return charge
 
     def integration_grid(self, n_vectors: np.ndarray) -> np.ndarray:

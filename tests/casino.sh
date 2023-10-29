@@ -22,6 +22,14 @@
 # path="gwfn/O3/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/B2H6/HF/cc-pVQZ/${method}/${operation}/"
 
+# path="ppotential/H/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+# path="ppotential/B/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+# path="ppotential/C/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+# path="ppotential/N/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+# path="ppotential/O/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+# path="ppotential/F/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+# path="ppotential/Ne/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+
 # path="stowfn/He/HF/QZ4P/${method}/${operation}/"
 # path="stowfn/Be/HF/QZ4P/${method}/${operation}/"
 # path="stowfn/N/HF/QZ4P/${method}/${operation}/"
