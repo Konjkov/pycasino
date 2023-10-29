@@ -67,25 +67,27 @@ class Wfn:
         """Value of e-e and e-n coulomb interaction."""
         res = 0.0
         e_vectors, n_vectors = self._relative_coordinates(r_e)
-        for i in range(n_vectors.shape[0]):
-            for j in range(n_vectors.shape[1]):
-                res -= self.atom_charges[i] / np.linalg.norm(n_vectors[i, j])
+        # for i in range(n_vectors.shape[0]):
+        #     for j in range(n_vectors.shape[1]):
+        #         res -= self.atom_charges[i] / np.linalg.norm(n_vectors[i, j])
         for i in range(e_vectors.shape[0] - 1):
             for j in range(i + 1, e_vectors.shape[1]):
                 res += 1 / np.linalg.norm(e_vectors[i, j])
         if self.ppotential is not None:
             A = 1 / 4
             value = self.value(r_e)
-            grid = self.ppotential.grid(n_vectors)
-            pp_value = self.ppotential.pp_value(n_vectors)
-            for atom in range(n_vectors.shape[0]):
-                for i in range(self.neu + self.ned):
+            grid = self.ppotential.integration_grid(n_vectors)
+            charge = self.ppotential.pseudo_charge(n_vectors)
+            for i in range(n_vectors.shape[0]):
+                for j in range(self.neu + self.ned):
                     for q in range(4):
-                        r_e_hatch = grid[atom, i, q, 0] + self.atom_positions[0]
-                        cos_theta = r_e_hatch[i] @ r_e[i] / np.linalg.norm(r_e_hatch) / np.linalg.norm(r_e)
+                        r_e_hatch = grid[i, j, q, 0] + self.atom_positions[i]
+                        # FIXME: distance from the atom
+                        cos_theta = (r_e_hatch[j] @ r_e[j]) / (r_e[j] @ r_e[j])
                         value_ratio = self.value(r_e_hatch) / value
-                        for l in range(pp_value.shape[0]):
-                            res += pp_value[atom, i, l] * (2 * l + 1) * self.ppotential.legendre_polynomial(l, cos_theta) * A * value_ratio
+                        for l in range(1):
+                            res += charge[i, j, l] * (2 * l + 1) * self.ppotential.legendre_polynomial(l, cos_theta) * A * value_ratio / np.linalg.norm(n_vectors[i, j])
+                    res += charge[i, j, 2] / np.linalg.norm(n_vectors[i, j])
         return res
 
     def value(self, r_e) -> float:

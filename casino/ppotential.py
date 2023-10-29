@@ -22,20 +22,21 @@ class PPotential:
         self.ned = ned
         self.ppotential = ppotential
 
-    def pp_value(self, n_vectors: np.ndarray) -> np.ndarray:
-        """Value φ(r)
+    def pseudo_charge(self, n_vectors: np.ndarray) -> np.ndarray:
+        """Value φ(r) * r
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        value = np.zeros(shape=(n_vectors.shape[0], self.neu + self.ned, self.ppotential.shape[0]-1))
+        charge = np.zeros(shape=(n_vectors.shape[0], self.neu + self.ned, self.ppotential.shape[0]-1))
         for atom in range(n_vectors.shape[0]):
             for i in range(self.neu + self.ned):
                 r = np.linalg.norm(n_vectors[atom, i])
                 # self.ppotential[i-1] < r <= self.ppotential[i]
                 idx = np.searchsorted(self.ppotential[0], r)
-                value[atom, i] = self.ppotential[1:, idx] / r
-        return value
+                charge[atom, i] = self.ppotential[1:, idx]
+        charge[:, :, :1] -= charge[:, :, 2]
+        return charge
 
-    def grid(self, n_vectors: np.ndarray) -> np.ndarray:
+    def integration_grid(self, n_vectors: np.ndarray) -> np.ndarray:
         """nonlocal PP grid.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
@@ -44,6 +45,7 @@ class PPotential:
         quadrature = np.array([[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]])
         for atom in range(n_vectors.shape[0]):
             for i in range(self.neu + self.ned):
+                grid[atom, i] = n_vectors
                 r = np.linalg.norm(n_vectors[atom, i])
                 for q in range(4):
                     grid[atom, i, q, atom, i] = quadrature[q] * r / np.sqrt(3)
@@ -57,3 +59,7 @@ class PPotential:
             return x
         elif l == 2:
             return (3 * x ** 2 - 1) / 2
+        elif l == 3:
+            return (5 * x ** 2 - 3) * x / 2
+        elif l == 4:
+            return (35 * x ** 4 - 30 * x ** 2 + 3) / 8
