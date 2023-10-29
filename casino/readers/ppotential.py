@@ -18,6 +18,8 @@ class PPotential:
     def __init__(self):
         self.atomic_number = 0
         self.pseudo_charge = 0
+        self.vmc_nonlocal_grid = 0
+        self.dmc_nonlocal_grid = 0
         self.ppotential = np.zeros(shape=(0, 0), dtype=float)
 
     def read(self, base_path):
@@ -47,7 +49,7 @@ class PPotential:
                     elif line.startswith('Angular momentum of local component (0=s,1=p,2=d..)'):
                         max_angular_momentum = self.read_int()
                     elif line.startswith('NLRULE override (1) VMC/DMC (2) config gen (0 ==> input/default value)'):
-                        nonlocal_grid, _ = self.f.readline().split()
+                        self.vmc_nonlocal_grid, self.dmc_nonlocal_grid = map(int, self.f.readline().split())
                     elif line.startswith('Number of grid points'):
                         grid_points = self.read_int()
                     elif line.startswith('R(i) in atomic units'):
