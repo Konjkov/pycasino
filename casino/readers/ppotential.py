@@ -47,6 +47,7 @@ class PPotential:
                         elif units == 'ev':
                             scale = 27.2114079527
                     elif line.startswith('Angular momentum of local component (0=s,1=p,2=d..)'):
+                        # FIXME: local channel
                         max_angular_momentum = self.read_int()
                     elif line.startswith('NLRULE override (1) VMC/DMC (2) config gen (0 ==> input/default value)'):
                         self.vmc_nonlocal_grid, self.dmc_nonlocal_grid = map(int, self.f.readline().split())
