@@ -63,3 +63,6 @@ Unreweighted variance minimization is recommended.
 within a small sphere by a function which ensures that the electron–nucleus cusp condition is obeyed.
 * **CUSP_INFO** If set then information about how cusp correction is done will be printed to the log-file.
 * **CUSP_THRESHOLD** If the magnitude of the s-component of a Gaussian orbital is less than this threshold then it will not be cusp corrected.
+
+### Pseudopotential keywords:
+* **NON_LOCAL_GRID** Selects the grid for nonlocal integration, can take values between 1 and 7, the default being 4.

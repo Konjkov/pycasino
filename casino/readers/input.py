@@ -101,3 +101,5 @@ class Input:
         self.read_bool('cusp_correction', self.atom_basis_type == 'gaussian')
         self.read_float('cusp_threshold', 1e-7)
         self.read_bool('cusp_info', False)
+        # Pseudopotential keywords
+        self.read_bool('non_local_gris', 4)

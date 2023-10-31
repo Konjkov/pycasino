@@ -78,14 +78,11 @@ class Wfn:
             for i in range(n_vectors.shape[0]):
                 for j in range(self.neu + self.ned):
                     for q in range(Np):
+                        cos_theta = (grid[i, j, q, i, j] @ n_vectors[i, j]) / (n_vectors[i, j] @ n_vectors[i, j])
+                        value_ratio = self.value(grid[i, j, q, i] + self.atom_positions[i]) / value
                         weight = self.ppotential.weight[q]
-                        r_e_hatch = grid[i, j, q, i] + self.atom_positions[i]
-                        # FIXME: distance from the atom
-                        cos_theta = (r_e_hatch[j] @ r_e[j]) / (r_e[j] @ r_e[j])
-                        value_ratio = self.value(r_e_hatch) / value
-                        for l in range(2):
+                        for l in range(3):
                             res += charge[i, j, l] * (2 * l + 1) * self.ppotential.legendre_polynomial(l, cos_theta) * value_ratio / np.linalg.norm(n_vectors[i, j]) * weight
-                    res += charge[i, j, 2] / np.linalg.norm(n_vectors[i, j])
         else:
             for i in range(n_vectors.shape[0]):
                 for j in range(n_vectors.shape[1]):

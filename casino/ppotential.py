@@ -18,6 +18,7 @@ class PPotential:
 
     def __init__(self, neu, ned, vmc_nonlocal_grid, dmc_nonlocal_grid, ppotential):
         """Pseudopotential.
+        For more details https://vallico.net/casinoqmc/pplib/
         :param neu: number of up electrons
         :param ned: number of down electrons
         :param ppotential: pseudopotential
@@ -70,8 +71,11 @@ class PPotential:
             weight = [1 / 12] * 12
             quadrature = [
                 self.to_cartesian(0, 0), self.to_cartesian(np.pi, 0),
-                self.to_cartesian(c1, 0), self.to_cartesian(c1, 2 * np.pi/5), self.to_cartesian(c1, 4 * np.pi/5), self.to_cartesian(c1, 6 * np.pi/5), self.to_cartesian(c1, 8 * np.pi/5),
-                self.to_cartesian(c2, np.pi/5), self.to_cartesian(c2, 3 * np.pi/5), self.to_cartesian(c2, 5 * np.pi/5), self.to_cartesian(c2, 7 * np.pi/5), self.to_cartesian(c2, 9 * np.pi/5),
+                self.to_cartesian(c1, 0), self.to_cartesian(c2, np.pi/5),
+                self.to_cartesian(c1, 2 * np.pi/5), self.to_cartesian(c2, 3 * np.pi/5),
+                self.to_cartesian(c1, 4 * np.pi/5), self.to_cartesian(c2, 5 * np.pi/5),
+                self.to_cartesian(c1, 6 * np.pi/5), self.to_cartesian(c2, 7 * np.pi/5),
+                self.to_cartesian(c1, 8 * np.pi/5), self.to_cartesian(c2, 9 * np.pi/5)
             ]
         # logger.info(
         #      f'Non-local integration grids\n'
@@ -95,9 +99,9 @@ class PPotential:
     @staticmethod
     def rotation_marix(vec1, vec2):
         """Find the rotation matrix that aligns vec1 to vec2
-        :param vec1: A 3d "source" vector
-        :param vec2: A 3d "destination" vector
-        :return mat: A transform matrix (3x3) which when applied to vec1, aligns it with vec2.
+        :param vec1: source vector
+        :param vec2: destination vector
+        :return mat: vec2 = mat @ vec1
         """
         res = np.eye(3)
         a = vec1 / np.linalg.norm(vec1)
@@ -122,11 +126,10 @@ class PPotential:
         for atom in range(n_vectors.shape[0]):
             for i in range(self.neu + self.ned):
                 r = np.linalg.norm(n_vectors[atom, i])
-                # self.ppotential[i-1] < r <= self.ppotential[i]
+                # self.ppotential[0, i-1] < r <= self.ppotential[0, i]
                 idx = np.searchsorted(self.ppotential[0], r)
                 didx = (r - self.ppotential[0, idx-1]) / (self.ppotential[0, idx] - self.ppotential[0, idx-1])
                 charge[atom, i] = self.ppotential[1:, idx-1] + (self.ppotential[1:, idx] - self.ppotential[1:, idx-1]) * didx
-        charge[:, :, :2] -= charge[:, :, 2]
         return charge
 
     def integration_grid(self, n_vectors: np.ndarray) -> np.ndarray:

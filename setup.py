@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='casino',
-    version='0.1.0',
+    version='0.2.0',
     description='Quantum Monte Carlo Python package',
     data_files=[('', ['README.md'])],
     long_description=open('README.md').read(),
