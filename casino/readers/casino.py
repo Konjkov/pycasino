@@ -55,6 +55,7 @@ class CasinoConfig:
             self.backflow.read(self.base_path)
         if self.ppotential:
             self.ppotential.read(self.base_path)
+            # self.ppotential.read_ecp(self.base_path)
 
     def write(self, base_path, version):
         correlation_data = correlation_data_template.format(title='no title given')

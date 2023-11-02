@@ -23,9 +23,9 @@ class PPotential:
         self.ppotential = np.zeros(shape=(0, 0), dtype=float)
 
     @staticmethod
-    def atom_charge(symbol):
-        """Find atomic number from atomic symbol"""
-        periodic = ['X', 'H', 'He']
+    def nuclear_charge(symbol):
+        """Find nuclear charge from atomic symbol"""
+        periodic = ['H', 'He']
         periodic += ['Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne']
         periodic += ['Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar']
         periodic += ['K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr']
@@ -34,7 +34,7 @@ class PPotential:
         periodic += ['Fr', 'Ra', 'Ac', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og']
         periodic[58:58] = ['Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu']
         periodic[90:90] = ['Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr']
-        return periodic.index(symbol)
+        return periodic.index(symbol.capitalize()) + 1
 
     def read(self, base_path):
         """Read Pseudopotential from file."""
@@ -92,7 +92,7 @@ class PPotential:
                     if line.startswith('newecp'):
                         atom_symbol = line.split()[1]
                     elif line.startswith('N_core'):
-                        pseudo_charge = self.atom_charge(atom_symbol) - int(line.split()[1])
+                        pseudo_charge = self.nuclear_charge(atom_symbol) - int(line.split()[1])
                     elif line.startswith('lmax'):
                         l_max = line.split()[1]
                         l_max = dict(s=0, p=1, d=2)[l_max]
