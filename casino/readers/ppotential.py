@@ -22,20 +22,6 @@ class PPotential:
         self.dmc_nonlocal_grid = 0
         self.ppotential = np.zeros(shape=(0, 0), dtype=float)
 
-    @staticmethod
-    def nuclear_charge(symbol):
-        """Find nuclear charge from atomic symbol"""
-        periodic = ['H', 'He']
-        periodic += ['Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne']
-        periodic += ['Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar']
-        periodic += ['K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr']
-        periodic += ['Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I', 'Xe']
-        periodic += ['Cs', 'Ba', 'La', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn']
-        periodic += ['Fr', 'Ra', 'Ac', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og']
-        periodic[58:58] = ['Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu']
-        periodic[90:90] = ['Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr']
-        return periodic.index(symbol.capitalize()) + 1
-
     def read(self, base_path):
         """Read Pseudopotential from file."""
         for file_name in os.listdir(base_path):
@@ -76,45 +62,3 @@ class PPotential:
                         angular_momentum = int(line.split()[1][3])
                         for i in range(grid_points):
                             self.ppotential[angular_momentum+1, i] = self.read_float() * scale
-
-    def read_ecp(self, base_path):
-        """Read Pseudopotential from ORCA format file."""
-        for file_name in os.listdir(base_path):
-            if not file_name.endswith('_ecp.data'):
-                continue
-            file_path = os.path.join(base_path, file_name)
-            if not os.path.isfile(file_path):
-                return
-            with open(file_path, 'r') as f:
-                self.f = f
-                for line in f:
-                    line = line.strip()
-                    if line.startswith('newecp'):
-                        atom_symbol = line.split()[1]
-                    elif line.startswith('N_core'):
-                        pseudo_charge = self.nuclear_charge(atom_symbol) - int(line.split()[1])
-                    elif line.startswith('lmax'):
-                        l_max = line.split()[1]
-                        l_max = dict(s=0, p=1, d=2)[l_max]
-                        d = np.zeros(shape=(3, 8))
-                        n = np.zeros(shape=(3, 8))
-                        alpha = np.zeros(shape=(3, 8))
-                        for i in range(l_max):
-                            l, primitives = self.f.readline().split()
-                            l = dict(s=0, p=1, d=2)[l]
-                            for k in range(int(primitives)):
-                                _, alpha[l, k], d[l, k], n[l, k] = map(float, self.f.readline().split())
-
-        ppotential = np.empty_like(self.ppotential)
-        ppotential[0] = self.ppotential[0]
-        for l in range(1, self.ppotential.shape[0]):
-            for i in range(1, self.ppotential.shape[1]):
-                r = self.ppotential[0, i]
-                ppotential[l, i] = np.sum(d[l-1] * r ** (n[l-1] - 1) * np.exp(-alpha[l-1] * r**2))
-        ppotential[3] -= pseudo_charge
-        ppotential[1] += ppotential[3]
-        ppotential[2] += ppotential[3]
-        for l in range(1, self.ppotential.shape[0]):
-            for i in range(self.ppotential.shape[1]):
-                if l == 1:
-                    print(self.ppotential[l, i] / ppotential[l, i])
