@@ -42,7 +42,10 @@ class CasinoConfig:
             self.backflow = Backflow()
         else:
             self.backflow = None
-        self.ppotential = PPotential()
+        if self.input.ppotential:
+            self.ppotential = PPotential()
+        else:
+            self.ppotential = None
 
     def read(self):
         if self.wfn:

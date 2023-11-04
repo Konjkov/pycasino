@@ -92,10 +92,13 @@ class Casino:
         else:
             cusp = None
 
-        ppotential = PPotential(
-            self.config.input.neu, self.config.input.ned,
-            self.config.ppotential.vmc_nonlocal_grid, self.config.ppotential.dmc_nonlocal_grid, self.config.ppotential.ppotential
-        )
+        if self.config.ppotential:
+            ppotential = PPotential(
+                self.config.input.neu, self.config.input.ned,
+                self.config.ppotential.vmc_nonlocal_grid, self.config.ppotential.dmc_nonlocal_grid, self.config.ppotential.ppotential
+            )
+        else:
+            ppotential = None
 
         slater = Slater(
             self.config.input.neu, self.config.input.ned,

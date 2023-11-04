@@ -103,3 +103,8 @@ class Input:
         self.read_bool('cusp_info', False)
         # Pseudopotential keywords
         self.read_bool('non_local_gris', 4)
+
+        self.ppotential = False
+        for file_name in os.listdir(base_path):
+            if file_name.endswith('_pp.data'):
+                self.ppotential = True

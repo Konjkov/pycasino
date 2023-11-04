@@ -21,6 +21,8 @@ class PPotential:
         For more details https://vallico.net/casinoqmc/pplib/
         :param neu: number of up electrons
         :param ned: number of down electrons
+        :param vmc_nonlocal_grid:
+        :param dmc_nonlocal_grid:
         :param ppotential: pseudopotential
         """
         self.neu = neu
@@ -148,7 +150,7 @@ class PPotential:
         return grid
 
     def legendre_polynomial(self, l, x):
-        """legendre polynomial"""
+        """Legendre polynomial"""
         if l == 0:
             return 1
         if l == 1:
