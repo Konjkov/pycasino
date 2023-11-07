@@ -94,7 +94,7 @@ class Casino:
 
         if self.config.ppotential:
             ppotential = PPotential(
-                self.config.input.neu, self.config.input.ned,
+                self.config.input.neu, self.config.input.ned, self.config.wfn.atom_numbers,
                 self.config.ppotential.vmc_nonlocal_grid, self.config.ppotential.dmc_nonlocal_grid, self.config.ppotential.ppotential
             )
         else:

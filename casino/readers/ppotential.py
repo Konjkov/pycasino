@@ -1,6 +1,8 @@
 import os
-
 import numpy as np
+import numba as nb
+
+ppotential_type = nb.float64[:, :]
 
 
 class PPotential:
@@ -20,13 +22,14 @@ class PPotential:
         self.pseudo_charge = 0
         self.vmc_nonlocal_grid = 0
         self.dmc_nonlocal_grid = 0
-        self.ppotential = np.zeros(shape=(0, 0), dtype=float)
+        self.ppotential = nb.typed.Dict.empty(nb.types.unicode_type, ppotential_type)
 
     def read(self, base_path):
         """Read Pseudopotential from file."""
         for file_name in os.listdir(base_path):
             if not file_name.endswith('_pp.data'):
                 continue
+            pp_name = file_name.split('_')[0].capitalize()
             file_path = os.path.join(base_path, file_name)
             if not os.path.isfile(file_path):
                 return
@@ -47,18 +50,18 @@ class PPotential:
                         elif units == 'ev':
                             scale = 27.2114079527
                     elif line.startswith('Angular momentum of local component (0=s,1=p,2=d..)'):
-                        # FIXME: local channel
+                        # FIXME: local channel not max angular momentum
                         max_angular_momentum = self.read_int()
                     elif line.startswith('NLRULE override (1) VMC/DMC (2) config gen (0 ==> input/default value)'):
                         self.vmc_nonlocal_grid, self.dmc_nonlocal_grid = map(int, self.f.readline().split())
                     elif line.startswith('Number of grid points'):
                         grid_points = self.read_int()
                     elif line.startswith('R(i) in atomic units'):
-                        self.ppotential = np.zeros(shape=(max_angular_momentum+2, grid_points), dtype=float)
+                        self.ppotential[pp_name] = np.zeros(shape=(max_angular_momentum+2, grid_points), dtype=float)
                         for i in range(grid_points):
-                            self.ppotential[0, i] = self.read_float()
+                            self.ppotential[pp_name][0, i] = self.read_float()
                     elif line.startswith('r*potential'):
                         # take X from r*potential (L=X) in Ry
                         angular_momentum = int(line.split()[1][3])
                         for i in range(grid_points):
-                            self.ppotential[angular_momentum+1, i] = self.read_float() * scale
+                            self.ppotential[pp_name][angular_momentum+1, i] = self.read_float() * scale

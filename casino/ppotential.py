@@ -16,20 +16,33 @@ ppotential_spec = [
 @nb.experimental.jitclass(ppotential_spec)
 class PPotential:
 
-    def __init__(self, neu, ned, vmc_nonlocal_grid, dmc_nonlocal_grid, ppotential):
+    def __init__(self, neu, ned, atom_numbers, vmc_nonlocal_grid, dmc_nonlocal_grid, ppotential):
         """Pseudopotential.
         For more details https://vallico.net/casinoqmc/pplib/
         :param neu: number of up electrons
         :param ned: number of down electrons
+        :param atom_numbers:
         :param vmc_nonlocal_grid:
         :param dmc_nonlocal_grid:
         :param ppotential: pseudopotential
         """
+        periodic = ['', 'H', 'He']
+        periodic += ['Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne']
+        periodic += ['Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar']
+        periodic += ['K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr']
+        periodic += ['Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I', 'Xe']
+        periodic += ['Cs', 'Ba', 'La', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn']
+        periodic += ['Fr', 'Ra', 'Ac', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og']
+        periodic[58:58] = ['Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu']
+        periodic[90:90] = ['Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr']
         self.neu = neu
         self.ned = ned
         self.vmc_nonlocal_grid = vmc_nonlocal_grid or 4
         self.dmc_nonlocal_grid = dmc_nonlocal_grid or 4
-        self.ppotential = ppotential
+        for atom_number in atom_numbers:
+            pp = ppotential.get(periodic[atom_number])
+            if pp is not None:
+                self.ppotential = pp
         # Formulae from "Nonlocal pseudopotentials and diffusion monte carlo"
         # Lubos Mitas, Eric L. Shirley, David M. Ceperley J. Chem. Phys. 95, 3467 (1991).
         if self.vmc_nonlocal_grid == 1:

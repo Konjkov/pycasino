@@ -73,7 +73,7 @@ class Gwfn(FortranFile):
                 pos = self.read_floats(self._natoms * 3)
                 self.atom_positions = np.array(pos).reshape((self._natoms, 3))
             elif line.startswith('Atomic numbers for each atom'):
-                self.atom_numbers = self.read_ints(self._natoms)
+                self.atom_numbers = np.array(self.read_ints(self._natoms))
             elif line.startswith('Valence charges for each atom'):
                 self.atom_charges = np.array(self.read_floats(self._natoms))
             # BASIS SET
