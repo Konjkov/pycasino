@@ -13,14 +13,15 @@ periodic += ['Fr', 'Ra', 'Ac', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg', '
 periodic[58:58] = ['Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu']
 periodic[90:90] = ['Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr']
 
+
 header_template = """\
-DF Pseudopotential in real space for {symbol}
+Pseudopotential in real space for {symbol}
 Atomic number and pseudo-charge
 {atomic_number} {pseudo_charge}
 Energy units (rydberg/hartree/ev):
 rydberg
 Angular momentum of local component (0=s,1=p,2=d..)
-2
+{max_angular_momentum}
 NLRULE override (1) VMC/DMC (2) config gen (0 ==> input/default value)
 0 0
 Number of grid points
@@ -44,9 +45,9 @@ class PPotential:
         self.atom_symbol = ''
         self.pseudo_charge = 0
         self.atomic_number = 0
-        self.d = np.zeros(shape=(3, 8))
-        self.n = np.zeros(shape=(3, 8))
-        self.alpha = np.zeros(shape=(3, 8))
+        self.d = np.zeros(shape=(0, 0))
+        self.n = np.zeros(shape=(0, 0))
+        self.alpha = np.zeros(shape=(0, 0))
         self.ppotential = np.zeros(shape=(0, 0), dtype=float)
 
     def nuclear_charge(self):
@@ -87,6 +88,10 @@ class PPotential:
                 elif line.startswith('lmax'):
                     l_max = line.split()[1]
                     l_max = dict(s=0, p=1, d=2)[l_max]
+                    max_primitives = 4
+                    self.d = np.zeros(shape=(l_max + 1, max_primitives))
+                    self.n = np.zeros(shape=(l_max + 1, max_primitives))
+                    self.alpha = np.zeros(shape=(l_max + 1, max_primitives))
                     for i in range(l_max + 1):
                         l, primitives = self.f.readline().split()
                         l = dict(s=0, p=1, d=2)[l]
@@ -99,10 +104,9 @@ class PPotential:
         for l in range(1, self.ppotential.shape[0]):
             for i in range(self.ppotential.shape[1]):
                 r = self.ppotential[0, i]
-                self.ppotential[l, i] = np.sum(self.d[l-1] * r ** (self.n[l-1] - 1) * np.exp(-self.alpha[l-1] * r**2))
-        self.ppotential[3] -= self.pseudo_charge
-        self.ppotential[1] += self.ppotential[3]
-        self.ppotential[2] += self.ppotential[3]
+                self.ppotential[l, i] = np.nan_to_num(np.sum(self.d[l-1] * r ** (self.n[l-1] - 1) * np.exp(-self.alpha[l-1] * r**2)))
+        self.ppotential[-1] -= self.pseudo_charge
+        self.ppotential[1:-1] += self.ppotential[-1]
 
     def write(self):
         """Write Pseudopotential in CASINO format."""
@@ -111,6 +115,7 @@ class PPotential:
             n_grid=self.ppotential.shape[1],
             atomic_number=self.atomic_number,
             pseudo_charge=self.pseudo_charge,
+            max_angular_momentum=self.ppotential.shape[0] - 2
         )
         with open(f'{self.atom_symbol.lower()}_pp.data', 'w') as f:
             f.write(header)

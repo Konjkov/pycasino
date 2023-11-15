@@ -2,11 +2,11 @@
 # CASINO input file #
 #-------------------#
 
-# B2H6 molecule (ground state)
+# Be molecule (ground state)
 
 # SYSTEM
-neu               : 6              #*! Number of up electrons (Integer)
-ned               : 6              #*! Number of down electrons (Integer)
+neu               : 2              #*! Number of up electrons (Integer)
+ned               : 2              #*! Number of down electrons (Integer)
 periodic          : F              #*! Periodic boundary conditions (Boolean)
 atom_basis_type   : gaussian       #*! Basis set type (text)
 
@@ -25,5 +25,16 @@ vmc_decorr_period : 10             #*! VMC decorrelation period (0 - auto)
 writeout_vmc_hist : F              #*! Write vmc.hist file in VMC (Boolean)
 
 # OPTIMIZATION
-opt_method        : varmin         #*! Opt method (varmin/madmin/emin/...)
-opt_cycles        : 2              #*! Number of optimization cycles (Integer)
+opt_method        : emin           #*! Opt method (varmin/madmin/emin/...)
+opt_jastrow       : T              #*! Optimize Jastrow factor (Boolean)
+opt_backflow      : T              #*! Optimize backflow parameters (Boolean)
+%block opt_plan                    #*! Multi-cycle optimization plan (Block)
+1 method=varmin fix_cutoffs=T
+2
+3
+4
+%endblock opt_plan
+
+# GENERAL PARAMETERS
+use_jastrow       : T              #*! Use a Jastrow function (Boolean)
+backflow          : T              #*! Use backflow corrections (Boolean)

@@ -18,7 +18,9 @@ class PPotential:
 
     def __init__(self, neu, ned, atom_numbers, vmc_nonlocal_grid, dmc_nonlocal_grid, ppotential):
         """Pseudopotential.
-        For more details https://vallico.net/casinoqmc/pplib/
+        For more details
+        https://vallico.net/casinoqmc/pplib/
+        https://pseudopotentiallibrary.org/
         :param neu: number of up electrons
         :param ned: number of down electrons
         :param atom_numbers:
@@ -43,8 +45,14 @@ class PPotential:
             pp = ppotential.get(periodic[atom_number])
             if pp is not None:
                 self.ppotential = pp
-        # Formulae from "Nonlocal pseudopotentials and diffusion monte carlo"
-        # Lubos Mitas, Eric L. Shirley, David M. Ceperley J. Chem. Phys. 95, 3467 (1991).
+        self.weight = np.zeros(shape=(0, ), dtype=np.float64)
+        self.quadrature = np.zeros(shape=(0, 3), dtype=np.float64)
+        self.generate_quadratures()
+
+    def generate_quadratures(self):
+        """Formulae from "Nonlocal pseudopotentials and diffusion monte carlo"
+        Lubos Mitas, Eric L. Shirley, David M. Ceperley J. Chem. Phys. 95, 3467 (1991).
+        """
         if self.vmc_nonlocal_grid == 1:
             weight = [1.0]
             quadrature = [[1.0, 0.0, 0.0]]
@@ -92,6 +100,9 @@ class PPotential:
                 self.to_cartesian(c1, 6 * np.pi/5), self.to_cartesian(c2, 7 * np.pi/5),
                 self.to_cartesian(c1, 8 * np.pi/5), self.to_cartesian(c2, 9 * np.pi/5)
             ]
+        else:
+            weight = [0.0]
+            quadrature = [[0.0, 0.0, 0.0]]
         # logger.info(
         #      f'Non-local integration grids\n'
         #      f'===========================\n'
