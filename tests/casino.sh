@@ -31,6 +31,7 @@
 # path="ppotential_${PP}/O/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
 # path="ppotential_${PP}/F/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
 # path="ppotential_${PP}/Ne/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+# path="ppotential_${PP}/B2H6/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
 
 # path="stowfn/He/HF/QZ4P/${method}/${operation}/"
 # path="stowfn/Be/HF/QZ4P/${method}/${operation}/"

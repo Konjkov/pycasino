@@ -67,9 +67,11 @@ class Wfn:
         """Value of e-e and e-n coulomb interaction."""
         res = 0.0
         e_vectors, n_vectors = self._relative_coordinates(r_e)
+        # e-e coulomb interaction
         for i in range(e_vectors.shape[0] - 1):
             for j in range(i + 1, e_vectors.shape[1]):
                 res += 1 / np.linalg.norm(e_vectors[i, j])
+        # pseudopotential interaction
         if self.ppotential is not None:
             value = self.value(r_e)
             grid = self.ppotential.integration_grid(n_vectors)
@@ -81,8 +83,11 @@ class Wfn:
                         cos_theta = (grid[i, j, q, i, j] @ n_vectors[i, j]) / (n_vectors[i, j] @ n_vectors[i, j])
                         value_ratio = self.value(grid[i, j, q, i] + self.atom_positions[i]) / value
                         weight = self.ppotential.weight[q]
-                        for l in range(3):
-                            res += charge[i, j, l] * (2 * l + 1) * self.ppotential.legendre_polynomial(l, cos_theta) * value_ratio / np.linalg.norm(n_vectors[i, j]) * weight
+                        for l in range(2):
+                            res += (charge[i, j, l] - charge[i, j, 2]) * (2 * l + 1) * self.ppotential.legendre_polynomial(l, cos_theta) * value_ratio / np.linalg.norm(n_vectors[i, j]) * weight
+                    # local channel
+                    res += charge[i, j, 2] / np.linalg.norm(n_vectors[i, j])
+        # e-n coulomb interaction
         else:
             for i in range(n_vectors.shape[0]):
                 for j in range(n_vectors.shape[1]):
