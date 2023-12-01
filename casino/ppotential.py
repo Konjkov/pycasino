@@ -2,12 +2,14 @@ import numpy as np
 import numba as nb
 
 
+pp_type = nb.float64[:, :]
+
 ppotential_spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
     ('vmc_nonlocal_grid', nb.int64),
     ('dmc_nonlocal_grid', nb.int64),
-    ('ppotential', nb.float64[:, :]),
+    ('pp', nb.types.ListType(pp_type)),
     ('weight', nb.float64[:]),
     ('quadrature', nb.float64[:, :]),
 ]
@@ -26,7 +28,7 @@ class PPotential:
         :param atom_numbers:
         :param vmc_nonlocal_grid:
         :param dmc_nonlocal_grid:
-        :param ppotential: pseudopotential
+        :param ppotential: tabulated pseudopotential Casino style
         """
         periodic = ['', 'H', 'He']
         periodic += ['Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne']
@@ -39,12 +41,13 @@ class PPotential:
         periodic[90:90] = ['Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr']
         self.neu = neu
         self.ned = ned
+        self.pp = nb.typed.List.empty_list(pp_type)
         self.vmc_nonlocal_grid = vmc_nonlocal_grid or 4
         self.dmc_nonlocal_grid = dmc_nonlocal_grid or 4
         for atom_number in atom_numbers:
             pp = ppotential.get(periodic[atom_number])
             if pp is not None:
-                self.ppotential = pp
+                self.pp.append(pp)
         self.weight = np.zeros(shape=(0, ), dtype=np.float64)
         self.quadrature = np.zeros(shape=(0, 3), dtype=np.float64)
         self.generate_quadratures()
@@ -144,19 +147,21 @@ class PPotential:
             res += kmat + kmat @ kmat * (1 - c) / (s ** 2)
         return res
 
-    def pseudo_charge(self, n_vectors: np.ndarray) -> np.ndarray:
-        """Value φ(r) * r
+    def pseudo_potential(self, n_vectors: np.ndarray) -> np.ndarray:
+        """Value φ(r)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        charge = np.zeros(shape=(n_vectors.shape[0], self.neu + self.ned, self.ppotential.shape[0]-1))
+        # FIXME: ppotential should be the list (self.pp[0].shape[0]-1) = lmax)
+        ppotential = np.zeros(shape=(n_vectors.shape[0], self.neu + self.ned, self.pp[0].shape[0]-1))
         for atom in range(n_vectors.shape[0]):
+            atom_pp = self.pp[atom]
             for i in range(self.neu + self.ned):
                 r = np.linalg.norm(n_vectors[atom, i])
-                # self.ppotential[0, i-1] < r <= self.ppotential[0, i]
-                idx = np.searchsorted(self.ppotential[0], r)
-                didx = (r - self.ppotential[0, idx-1]) / (self.ppotential[0, idx] - self.ppotential[0, idx-1])
-                charge[atom, i] = self.ppotential[1:, idx-1] + (self.ppotential[1:, idx] - self.ppotential[1:, idx-1]) * didx
-        return charge
+                # atom_pp[0, i-1] < r <= atom_pp[0, i]
+                idx = np.searchsorted(atom_pp[0], r)
+                di_dx = (r - atom_pp[0, idx-1]) / (atom_pp[0, idx] - atom_pp[0, idx-1])
+                ppotential[atom, i] = (atom_pp[1:, idx-1] + (atom_pp[1:, idx] - atom_pp[1:, idx-1]) * di_dx) / r
+        return ppotential
 
     def integration_grid(self, n_vectors: np.ndarray) -> np.ndarray:
         """Nonlocal PP grid.
@@ -173,15 +178,17 @@ class PPotential:
                     grid[atom, i, q, atom, i] = rotation_marix @ self.quadrature[q] * r
         return grid
 
-    def legendre_polynomial(self, l, x):
-        """Legendre polynomial"""
+    def legendre(self, l, x):
+        """Legendre polynomial (2 * l + 1) times"""
+        res = (2 * l + 1)
         if l == 0:
-            return 1
-        if l == 1:
-            return x
+            res *= 1
+        elif l == 1:
+            res *= x
         elif l == 2:
-            return (3 * x ** 2 - 1) / 2
+            res *= (3 * x ** 2 - 1) / 2
         elif l == 3:
-            return (5 * x ** 2 - 3) * x / 2
+            res *= (5 * x ** 2 - 3) * x / 2
         elif l == 4:
-            return (35 * x ** 4 - 30 * x ** 2 + 3) / 8
+            res *= (35 * x ** 4 - 30 * x ** 2 + 3) / 8
+        return res

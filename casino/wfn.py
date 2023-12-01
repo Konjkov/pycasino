@@ -60,6 +60,7 @@ class Wfn:
         res = 0.0
         for i in range(self.atom_positions.shape[0] - 1):
             for j in range(i + 1, self.atom_positions.shape[0]):
+                # FIXME: use pseudocharge in self.atom_charges
                 res += self.atom_charges[i] * self.atom_charges[j] / np.linalg.norm(self.atom_positions[i] - self.atom_positions[j])
         return res
 
@@ -76,7 +77,7 @@ class Wfn:
             value = self.value(r_e)
             grid = self.ppotential.integration_grid(n_vectors)
             Np = grid.shape[2]
-            charge = self.ppotential.pseudo_charge(n_vectors)
+            potential = self.ppotential.pseudo_potential(n_vectors)
             for i in range(n_vectors.shape[0]):
                 for j in range(self.neu + self.ned):
                     for q in range(Np):
@@ -84,9 +85,9 @@ class Wfn:
                         value_ratio = self.value(grid[i, j, q, i] + self.atom_positions[i]) / value
                         weight = self.ppotential.weight[q]
                         for l in range(2):
-                            res += (charge[i, j, l] - charge[i, j, 2]) * (2 * l + 1) * self.ppotential.legendre_polynomial(l, cos_theta) * value_ratio / np.linalg.norm(n_vectors[i, j]) * weight
+                            res += (potential[i, j, l] - potential[i, j, 2]) * self.ppotential.legendre(l, cos_theta) * value_ratio * weight
                     # local channel
-                    res += charge[i, j, 2] / np.linalg.norm(n_vectors[i, j])
+                    res += potential[i, j, 2]
         # e-n coulomb interaction
         else:
             for i in range(n_vectors.shape[0]):
