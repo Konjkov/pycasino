@@ -147,7 +147,7 @@ class PPotential:
             res += kmat + kmat @ kmat * (1 - c) / (s ** 2)
         return res
 
-    def pseudo_potential(self, n_vectors: np.ndarray) -> np.ndarray:
+    def ppotential(self, n_vectors: np.ndarray) -> np.ndarray:
         """Value φ(r)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """

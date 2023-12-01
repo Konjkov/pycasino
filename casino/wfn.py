@@ -77,7 +77,7 @@ class Wfn:
             value = self.value(r_e)
             grid = self.ppotential.integration_grid(n_vectors)
             Np = grid.shape[2]
-            potential = self.ppotential.pseudo_potential(n_vectors)
+            potential = self.ppotential.ppotential(n_vectors)
             for i in range(n_vectors.shape[0]):
                 for j in range(self.neu + self.ned):
                     for q in range(Np):

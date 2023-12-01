@@ -2,6 +2,8 @@ import os
 import numpy as np
 import numba as nb
 
+atomic_number_type = nb.int64
+pseudo_charge_type = nb.float64
 ppotential_type = nb.float64[:, :]
 
 
@@ -18,10 +20,10 @@ class PPotential:
         return float(self.f.readline())
 
     def __init__(self):
-        self.atomic_number = 0
-        self.pseudo_charge = 0
         self.vmc_nonlocal_grid = 0
         self.dmc_nonlocal_grid = 0
+        self.atomic_number = nb.typed.Dict.empty(nb.types.unicode_type, atomic_number_type)
+        self.pseudo_charge = nb.typed.Dict.empty(nb.types.unicode_type, pseudo_charge_type)
         self.ppotential = nb.typed.Dict.empty(nb.types.unicode_type, ppotential_type)
 
     def read(self, base_path):
@@ -39,8 +41,8 @@ class PPotential:
                     line = line.strip()
                     if line.startswith('Atomic number and pseudo-charge'):
                         atomic_number, pseudo_charge = self.f.readline().split()
-                        self.atomic_number = int(atomic_number)
-                        self.pseudo_charge = float(pseudo_charge)
+                        self.atomic_number[pp_name] = int(atomic_number)
+                        self.pseudo_charge[pp_name] = float(pseudo_charge)
                     elif line.startswith('Energy units (rydberg/hartree/ev)'):
                         units = self.read_str()[:-1]
                         if units == 'rydberg':
