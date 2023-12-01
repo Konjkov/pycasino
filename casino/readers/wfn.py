@@ -4,8 +4,17 @@ import numpy as np
 from math import factorial, pi, sqrt
 
 
-GAUSSIAN_TYPE = 0
 SLATER_TYPE = 1
+GAUSSIAN_TYPE = 0
+periodic = ['', 'H', 'He']
+periodic += ['Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne']
+periodic += ['Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar']
+periodic += ['K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr']
+periodic += ['Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I', 'Xe']
+periodic += ['Cs', 'Ba', 'La', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn']
+periodic += ['Fr', 'Ra', 'Ac', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og']
+periodic[58:58] = ['Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu']
+periodic[90:90] = ['Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr']
 
 
 class FortranFile:
@@ -122,6 +131,64 @@ class Gwfn(FortranFile):
         self.orbital_types = np.full((self._nprimitives,), GAUSSIAN_TYPE, np.int64)
         self.slater_orders = np.zeros((self._nprimitives, ), np.int64)
         self.remove_premultiplied_factor()
+
+        # Read pseudopotential from files
+        self.is_pseudoatom = np.full_like(self.atom_numbers, False)
+        self.vmc_nonlocal_grid = np.zeros_like(self.atom_numbers)
+        self.dmc_nonlocal_grid = np.zeros_like(self.atom_numbers)
+        self.ppotential = [np.zeros(shape=(0,))] * self.atom_numbers.size
+
+        for file_name in os.listdir(base_path):
+            if not file_name.endswith('_pp.data'):
+                continue
+            pp_name = file_name.split('_')[0].capitalize()
+            file_path = os.path.join(base_path, file_name)
+            if not os.path.isfile(file_path):
+                continue
+            # FIXME: pp_name ends with number
+            try:
+                atomic_number = periodic.index(pp_name.capitalize())
+            except ValueError:
+                continue
+            ids = np.argwhere(self.atom_numbers == atomic_number)
+            if not ids.any():
+                continue
+            with open(file_path, 'r') as f:
+                self.f = f
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('Atomic number and pseudo-charge'):
+                        _atomic_number, pseudo_charge = self.f.readline().split()
+                        if atomic_number != int(_atomic_number):
+                            print(f'atomic_number from pp filename {atomic_number} don`t match content {_atomic_number}')
+                        self.atom_charges[ids] = float(pseudo_charge)
+                        self.is_pseudoatom[ids] = True
+                    elif line.startswith('Energy units (rydberg/hartree/ev)'):
+                        units = self.read_str()[:-1]
+                        if units == 'rydberg':
+                            scale = 0.5
+                        elif units == 'hartree':
+                            scale = 1
+                        elif units == 'ev':
+                            scale = 27.2114079527
+                    elif line.startswith('Angular momentum of local component (0=s,1=p,2=d..)'):
+                        # FIXME: local channel not max angular momentum
+                        max_angular_momentum = self.read_int()
+                    elif line.startswith('NLRULE override (1) VMC/DMC (2) config gen (0 ==> input/default value)'):
+                        self.vmc_nonlocal_grid[ids], self.dmc_nonlocal_grid[ids] = map(int, self.f.readline().split())
+                    elif line.startswith('Number of grid points'):
+                        grid_points = self.read_int()
+                    elif line.startswith('R(i) in atomic units'):
+                        ppotential = np.zeros(shape=(max_angular_momentum+2, grid_points), dtype=float)
+                        for i in range(grid_points):
+                            ppotential[0, i] = self.read_float()
+                    elif line.startswith('r*potential'):
+                        # take X from r*potential (L=X) in Ry
+                        angular_momentum = int(line.split()[1][3])
+                        for i in range(grid_points):
+                            ppotential[angular_momentum+1, i] = self.read_float() * scale
+            for idx in ids:
+                self.ppotential[idx[0]] = ppotential
 
     def remove_premultiplied_factor(self):
         """

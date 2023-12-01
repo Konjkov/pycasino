@@ -92,10 +92,10 @@ class Casino:
         else:
             cusp = None
 
-        if self.config.ppotential:
+        if self.config.wfn.is_pseudoatom.any():
             ppotential = PPotential(
-                self.config.input.neu, self.config.input.ned, self.config.wfn.atom_numbers,
-                self.config.ppotential.vmc_nonlocal_grid, self.config.ppotential.dmc_nonlocal_grid, self.config.ppotential.ppotential
+                self.config.input.neu, self.config.input.ned,
+                self.config.wfn.vmc_nonlocal_grid, self.config.wfn.dmc_nonlocal_grid, self.config.wfn.ppotential
             )
         else:
             ppotential = None

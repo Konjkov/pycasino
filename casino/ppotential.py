@@ -7,8 +7,8 @@ pp_type = nb.float64[:, :]
 ppotential_spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
-    ('vmc_nonlocal_grid', nb.int64),
-    ('dmc_nonlocal_grid', nb.int64),
+    ('vmc_nonlocal_grid', nb.int64[:]),
+    ('dmc_nonlocal_grid', nb.int64[:]),
     ('pp', nb.types.ListType(pp_type)),
     ('weight', nb.float64[:]),
     ('quadrature', nb.float64[:, :]),
@@ -18,36 +18,23 @@ ppotential_spec = [
 @nb.experimental.jitclass(ppotential_spec)
 class PPotential:
 
-    def __init__(self, neu, ned, atom_numbers, vmc_nonlocal_grid, dmc_nonlocal_grid, ppotential):
+    def __init__(self, neu, ned, vmc_nonlocal_grid, dmc_nonlocal_grid, ppotential):
         """Pseudopotential.
         For more details
         https://vallico.net/casinoqmc/pplib/
         https://pseudopotentiallibrary.org/
         :param neu: number of up electrons
         :param ned: number of down electrons
-        :param atom_numbers:
         :param vmc_nonlocal_grid:
         :param dmc_nonlocal_grid:
         :param ppotential: tabulated pseudopotential Casino style
         """
-        periodic = ['', 'H', 'He']
-        periodic += ['Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne']
-        periodic += ['Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar']
-        periodic += ['K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr']
-        periodic += ['Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I', 'Xe']
-        periodic += ['Cs', 'Ba', 'La', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn']
-        periodic += ['Fr', 'Ra', 'Ac', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og']
-        periodic[58:58] = ['Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu']
-        periodic[90:90] = ['Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr']
         self.neu = neu
         self.ned = ned
+        self.vmc_nonlocal_grid = vmc_nonlocal_grid
+        self.dmc_nonlocal_grid = dmc_nonlocal_grid
         self.pp = nb.typed.List.empty_list(pp_type)
-        self.vmc_nonlocal_grid = vmc_nonlocal_grid or 4
-        self.dmc_nonlocal_grid = dmc_nonlocal_grid or 4
-        for atom_number in atom_numbers:
-            pp = ppotential.get(periodic[atom_number])
-            if pp is not None:
-                self.pp.append(pp)
+        [self.pp.append(pp) for pp in ppotential]
         self.weight = np.zeros(shape=(0, ), dtype=np.float64)
         self.quadrature = np.zeros(shape=(0, 3), dtype=np.float64)
         self.generate_quadratures()
@@ -56,32 +43,34 @@ class PPotential:
         """Formulae from "Nonlocal pseudopotentials and diffusion monte carlo"
         Lubos Mitas, Eric L. Shirley, David M. Ceperley J. Chem. Phys. 95, 3467 (1991).
         """
-        if self.vmc_nonlocal_grid == 1:
+        # FIXME: different grids
+        vmc_nonlocal_grid = self.vmc_nonlocal_grid[0] or 4
+        if vmc_nonlocal_grid == 1:
             weight = [1.0]
             quadrature = [[1.0, 0.0, 0.0]]
-        elif self.vmc_nonlocal_grid == 2:
+        elif vmc_nonlocal_grid == 2:
             # Tetrahedron symmetry quadrature.
             q = 1 / np.sqrt(3)
             weight = [1 / 4] * 4
             quadrature = [[q, q, q], [q, -q, -q], [-q, q, -q], [-q, -q, q]]
-        elif self.vmc_nonlocal_grid in (3, 5, 6, 7):
+        elif vmc_nonlocal_grid in (3, 5, 6, 7):
             #  Octahedron symmetry quadratures.
             weight = [1 / 6] * 6
             quadrature = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]]
-            if self.vmc_nonlocal_grid >= 5:
+            if vmc_nonlocal_grid >= 5:
                 p = 1 / np.sqrt(3)
                 weight = [1 / 30] * 6 + [1 / 15] * 12
                 quadrature += [
                     [p, p, 0.0], [p, 0.0, p], [0.0, p, p], [-p, p, 0.0], [-p, 0.0, p], [0.0, -p, p],
                     [p, -p, 0.0], [p, 0.0, -p], [0.0, p, -p], [-p, -p, 0.0], [-p, 0.0, -p], [0.0, -p, -p]
                 ]
-            if self.vmc_nonlocal_grid >= 6:
+            if vmc_nonlocal_grid >= 6:
                 q = 1 / np.sqrt(3)
                 weight = [1 / 21] * 6 + [4 / 105] * 12 + [27 / 840] * 8
                 quadrature += [
                     [q, q, q], [q, q, -q], [q, -q, q], [q, -q, -q], [-q, q, q], [-q, q, -q], [-q, -q, q], [-q, -q, -q]
                 ]
-            if self.vmc_nonlocal_grid == 7:
+            if vmc_nonlocal_grid == 7:
                 r = 1 / np.sqrt(11)
                 s = 3 / np.sqrt(11)
                 weight = [4 / 315] * 6 + [64 / 2835] * 12 + [27 / 1280] * 8 + [146411 / 725760] * 24
@@ -90,7 +79,7 @@ class PPotential:
                     [r, s, r], [r, s, -r], [r, -s, r], [r, -s, -r], [-r, s, r], [-r, s, -r], [-r, -s, r], [-r, -s, -r],
                     [s, r, r], [s, r, -r], [s, -r, r], [s, -r, -r], [-s, r, r], [-s, r, -r], [-s, -r, r], [-s, -r, -r]
                 ]
-        elif self.vmc_nonlocal_grid == 4:
+        elif vmc_nonlocal_grid == 4:
             # Icosahedron symmetry quadratures.
             c1 = np.arctan(2)
             c2 = np.pi - np.arctan(2)
