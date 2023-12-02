@@ -118,6 +118,8 @@ class PPotential:
     @staticmethod
     def rotation_marix(vec1, vec2):
         """Find the rotation matrix that aligns vec1 to vec2
+        How to create random orthonormal matrix in python numpy
+        https://stackoverflow.com/questions/38426349/how-to-create-random-orthonormal-matrix-in-python-numpy/55289807
         :param vec1: source vector
         :param vec2: destination vector
         :return mat: vec2 = mat @ vec1
@@ -160,14 +162,12 @@ class PPotential:
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         z = np.array([0.0, 0.0, 1.0])
-        grid = np.zeros(shape=(n_vectors.shape[0], self.neu + self.ned, self.quadrature[0].shape[0]) + n_vectors.shape)
+        grid = np.zeros(shape=(n_vectors.shape[0], self.neu + self.ned, self.quadrature[0].shape[0], 3))
         for atom in range(n_vectors.shape[0]):
             for i in range(self.neu + self.ned):
-                grid[atom, i] = n_vectors
                 r = np.linalg.norm(n_vectors[atom, i])
                 rotation_marix = self.rotation_marix(z, n_vectors[atom, i])
-                for q in range(self.quadrature[atom].shape[0]):
-                    grid[atom, i, q, atom, i] = rotation_marix @ self.quadrature[atom][q] * r
+                grid[atom, i] = self.quadrature[atom] @ rotation_marix.T * r
         return grid
 
     def legendre(self, l, x):
