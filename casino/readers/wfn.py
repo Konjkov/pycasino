@@ -1,8 +1,11 @@
 import os
 import numpy as np
+import numba as nb
 
 from math import factorial, pi, sqrt
 
+
+ppotential_type = nb.float64[:, :]
 
 SLATER_TYPE = 1
 GAUSSIAN_TYPE = 0
@@ -136,7 +139,7 @@ class Gwfn(FortranFile):
         self.is_pseudoatom = np.full_like(self.atom_numbers, False)
         self.vmc_nonlocal_grid = np.zeros_like(self.atom_numbers)
         self.dmc_nonlocal_grid = np.zeros_like(self.atom_numbers)
-        self.ppotential = [np.zeros(shape=(0,))] * self.atom_numbers.size
+        ppotential_list = [np.zeros(shape=(0, 0))] * self.atom_numbers.size
 
         for file_name in os.listdir(base_path):
             if not file_name.endswith('_pp.data'):
@@ -151,8 +154,6 @@ class Gwfn(FortranFile):
             except ValueError:
                 continue
             ids = np.argwhere(self.atom_numbers == atomic_number)
-            if not ids.any():
-                continue
             with open(file_path, 'r') as f:
                 self.f = f
                 for line in f:
@@ -188,7 +189,9 @@ class Gwfn(FortranFile):
                         for i in range(grid_points):
                             ppotential[angular_momentum+1, i] = self.read_float() * scale
             for idx in ids:
-                self.ppotential[idx[0]] = ppotential
+                ppotential_list[idx[0]] = ppotential
+        self.ppotential = nb.typed.List.empty_list(ppotential_type)
+        [self.ppotential.append(pp) for pp in ppotential_list]
 
     def remove_premultiplied_factor(self):
         """
@@ -270,7 +273,7 @@ class Stowfn(FortranFile):
                 pos = self.read_floats(self._natoms * 3)
                 self.atom_positions = np.array(pos).reshape((self._natoms, 3))
             elif line.startswith('Atomic numbers for each atom'):
-                self._atom_numbers = self.read_ints(self._natoms)
+                self.atom_numbers = np.array(self.read_ints(self._natoms))
             elif line.startswith('Valence charges for each atom'):
                 self.atom_charges = np.array(self.read_floats(self._natoms))
             # BASIS SET
@@ -316,6 +319,9 @@ class Stowfn(FortranFile):
         self.primitives = np.ones((self._nshell,), np.int64)
         self.coefficients = np.ones((self._nshell,), np.float64)
         self.normalize_orbitals()
+
+        # Read pseudopotential from files
+        self.is_pseudoatom = np.full_like(self.atom_numbers, False)
 
     def normalize_orbitals(self):
         """
