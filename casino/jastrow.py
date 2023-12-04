@@ -838,6 +838,7 @@ class Jastrow(AbstractJastrow):
                 f_spin_deps = [0]
 
             f_list = []
+            f_constrains_size = 0
             f_cutoff_matrix = np.zeros(0)
             for spin_dep in f_spin_deps:
                 f_matrix, cutoff_constraints = construct_a_matrix(self.trunc, f_parameters, f_cutoff, spin_dep, no_dup_u_term, no_dup_chi_term)

@@ -84,7 +84,10 @@ class Wfn:
                         cos_theta = (grid[atom, j, q] @ n_vectors[atom, j]) / (n_vectors[atom, j] @ n_vectors[atom, j])
                         r_e_copy = r_e.copy()
                         r_e_copy[j] = grid[atom, j, q] + self.atom_positions[atom]
-                        value_ratio = self.value(r_e_copy) / value
+                        if value:
+                            value_ratio = self.value(r_e_copy) / value
+                        else:
+                            value_ratio = 1
                         weight = self.ppotential.weight[atom][q]
                         for l in range(2):
                             res += (potential[atom][j, l] - potential[atom][j, 2]) * self.ppotential.legendre(l, cos_theta) * value_ratio * weight

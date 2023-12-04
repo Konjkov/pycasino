@@ -152,8 +152,11 @@ class PPotential:
                 r = np.linalg.norm(n_vectors[atom, i])
                 # atom_pp[0, i-1] < r <= atom_pp[0, i]
                 idx = np.searchsorted(atom_pp[0], r)
-                di_dx = (r - atom_pp[0, idx-1]) / (atom_pp[0, idx] - atom_pp[0, idx-1])
-                ppotential[i] = (atom_pp[1:, idx-1] + (atom_pp[1:, idx] - atom_pp[1:, idx-1]) * di_dx) / r
+                if idx == 1:
+                    ppotential[i] = atom_pp[1:, idx] / atom_pp[0, idx]
+                else:
+                    di_dx = (r - atom_pp[0, idx-1]) / (atom_pp[0, idx] - atom_pp[0, idx-1])
+                    ppotential[i] = (atom_pp[1:, idx-1] + (atom_pp[1:, idx] - atom_pp[1:, idx-1]) * di_dx) / r
             res.append(ppotential)
         return res
 
