@@ -153,7 +153,7 @@ class Backflow:
         self.mu_cusp = np.zeros(0, dtype=bool)
         self.phi_cusp = np.zeros(0, dtype=bool)
         self.ae_cutoff = np.zeros(0)
-        self.ae_cutoff_optimizable = np.zeros(0)
+        self.ae_cutoff_optimizable = np.zeros(0, dtype=bool)
         self.phi_irrotational = np.zeros(0, dtype=bool)
 
     def read(self, base_path):
@@ -244,7 +244,7 @@ class Backflow:
                     elif line.startswith('Parameter values'):
                         mu_parameters = np.zeros((mu_order+1, mu_spin_dep+1), dtype=float)
                         mu_parameters_optimizable = np.zeros((mu_order + 1, mu_spin_dep + 1), dtype=bool)
-                        mu_parameters_independent = self.mu_parameters_independent(mu_parameters)
+                        mu_parameters_independent = self.mu_parameters_independent(mu_parameters, mu_cusp)
                         try:
                             for i in range(mu_spin_dep + 1):
                                 for j in range(mu_order + 1):
@@ -344,7 +344,7 @@ class Backflow:
         mu_sets = []
         for n_mu_set, (mu_labels, mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cusp) in enumerate(zip(self.mu_labels, self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cusp)):
             mu_parameters_list = []
-            mu_parameters_independent = self.mu_parameters_independent(mu_parameters)
+            mu_parameters_independent = self.mu_parameters_independent(mu_parameters, mu_cusp)
             for i in range(mu_parameters.shape[1]):
                 for j in range(mu_parameters.shape[0]):
                     if mu_parameters_independent[j, i]:
@@ -422,9 +422,12 @@ class Backflow:
         return mask
 
     @staticmethod
-    def mu_parameters_independent(parameters):
+    def mu_parameters_independent(parameters, mu_cusp):
         mask = np.ones(parameters.shape, bool)
-        mask[0:2] = False
+        if mu_cusp:
+            mask[0:2] = False
+        else:
+            mask[1] = False
         return mask
 
     def phi_theta_parameters_independent(self, phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational):
