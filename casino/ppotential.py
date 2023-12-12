@@ -116,28 +116,27 @@ class PPotential:
         return [x, y, z]
 
     @staticmethod
-    def rotation_marix(vec1, vec2):
-        """Find the rotation matrix that aligns vec1 to vec2
-        How to create random orthonormal matrix in python numpy
-        https://stackoverflow.com/questions/38426349/how-to-create-random-orthonormal-matrix-in-python-numpy/55289807
-        :param vec1: source vector
-        :param vec2: destination vector
-        :return mat: vec2 = mat @ vec1
+    def random_rotation_matrix():
+        """Creates a random rotation matrix.
+        Algorithm taken from "Fast Random Rotation Matrices" (James Avro, 1992):
+        https://doi.org/10.1016/B978-0-08-050755-2.50034-8
         """
-        res = np.eye(3)
-        a = vec1 / np.linalg.norm(vec1)
-        b = vec2 / np.linalg.norm(vec2)
-        v = np.cross(a, b)
-        if v.any():
-            c = a @ b
-            s = np.linalg.norm(v)
-            kmat = np.array([
-                [0, -v[2], v[1]],
-                [v[2], 0, -v[0]],
-                [-v[1], v[0], 0]
-            ])
-            res += kmat + kmat @ kmat * (1 - c) / (s ** 2)
-        return res
+        # FIXME: use sp.stats.special_ortho_group(3)
+        rand = np.random.uniform(0, 1, 3)
+        theta = rand[0] * 2.0 * np.pi
+        phi = rand[1] * 2.0 * np.pi
+        st = np.sin(theta)
+        ct = np.cos(theta)
+        # simple 2D rotation matrix with a random angle
+        R = np.array((
+            (ct, st, 0),
+            (-st, ct, 0),
+            (0, 0, 1)
+        ))
+        # Householder matrix
+        r = np.sqrt(rand[2])
+        v = np.array((np.sin(phi) * r, np.cos(phi) * r, np.sqrt(1 - rand[2])))
+        return (2 * np.outer(v, v) - np.eye(3)) @ R
 
     def get_ppotential(self, n_vectors: np.ndarray) -> np.ndarray:
         """Value φ(r)
@@ -164,12 +163,11 @@ class PPotential:
         """Nonlocal PP grid.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        z = np.array([0.0, 0.0, 1.0])
         grid = np.zeros(shape=(n_vectors.shape[0], self.neu + self.ned, self.quadrature[0].shape[0], 3))
         for atom in range(n_vectors.shape[0]):
             for i in range(self.neu + self.ned):
                 r = np.linalg.norm(n_vectors[atom, i])
-                rotation_marix = self.rotation_marix(z, n_vectors[atom, i])
+                rotation_marix = self.random_rotation_matrix()
                 grid[atom, i] = self.quadrature[atom] @ rotation_marix.T * r
         return grid
 
