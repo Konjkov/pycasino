@@ -19,7 +19,7 @@ from casino.backflow import Backflow
 from casino.markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
 from casino.wfn import Wfn
 from casino.ppotential import PPotential
-from casino.readers.casino import CasinoConfig
+from casino.readers.main import CasinoConfig
 from casino.sem import correlated_sem
 
 logger = logging.getLogger(__name__)

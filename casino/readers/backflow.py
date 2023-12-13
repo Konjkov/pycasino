@@ -120,7 +120,7 @@ class Backflow:
             parameter, mask, _, comment = self.f.readline().split()
             casino_index = list(map(int, comment.split('_')[1].split(',')))
             if index != casino_index:
-                print(index, casino_index)
+                print(f'{index}, {casino_index}')
         else:
             # https://www.python.org/dev/peps/pep-3132/
             parameter, mask, *_ = self.f.readline().split()
@@ -611,8 +611,10 @@ if __name__ == '__main__':
         '51', '52', '53', '54', '55',
     ):
         print(phi_term)
+        # Truncation order = 3; Type of e-N cusp conditions = 1; Irrotational Phi term = 0;
         # path = f'test/backflow/0_1_0/{phi_term}/correlation.out.1'
         # path = f'test/backflow/3_1_0/{phi_term}/correlation.out.1'
-        path = f'test/backflow/0_1_1/{phi_term}/correlation.out.1'
+        # path = f'test/backflow/0_1_1/{phi_term}/correlation.out.1'
         # path = f'test/backflow/3_1_1/{phi_term}/correlation.out.1'
+        path = f'test/backflow/3_0_1/{phi_term}/correlation.out.1'
         Backflow().read(path)

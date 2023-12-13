@@ -19,16 +19,26 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
 
     ee_constrains = 2 * phi_en_order + 1
     en_constrains = phi_en_order + phi_ee_order + 1
-
     offset = 0
-    phi_constraints = 6 * en_constrains - 2
-    if phi_cusp and spin_dep in (0, 2):
+    if phi_cusp:
+        # AE cusps: 6 * (ee + eN) - 8
+        phi_constraints = 6 * en_constrains - 2
+    else:
+        # PP cusps: 2 * (ee + eN) - 2
+        phi_constraints = 2 * en_constrains
+    if spin_dep in (0, 2):
+        # e-e cusps: 2 * eN - 1 from Theta, and same from some spin-deps of Phi
         phi_constraints += ee_constrains
         offset += ee_constrains
-
-    theta_constraints = 5 * en_constrains + ee_constrains - 2
+    if phi_cusp:
+        # AE cusps: 5 * (ee + eN) - 7
+        theta_constraints = 5 * en_constrains + ee_constrains - 2
+    else:
+        # PP cusps: ee + eN - 1
+        theta_constraints = en_constrains + ee_constrains
     n_constraints = phi_constraints + theta_constraints
     if phi_irrotational:
+        # ee * eN * eN + 2 * eN * (ee-1) + eN**2 constraints from Phi and Theta
         n_constraints += ((phi_en_order + 3) * (phi_ee_order + 2) - 4) * (phi_en_order + 1)
         if trunc == 0:
             n_constraints -= (phi_en_order + 1) * (phi_ee_order + 1)
@@ -41,21 +51,33 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
     for m in range(phi_parameters.shape[2]):
         for l in range(phi_parameters.shape[1]):
             for k in range(phi_parameters.shape[0]):
-                if phi_cusp and spin_dep in (0, 2):  # e-e cusp
+                if spin_dep in (0, 2):  # e-e cusp
                     if m == 1:
                         c[k + l, p] = 1
-                if l == 0:
-                    c[k + m + offset + en_constrains, p] = 1
-                    if m > 0:
-                        c[k + m - 1 + offset + 5 * en_constrains - 1, p] = m
-                elif l == 1:
-                    c[k + m + offset + 3 * en_constrains, p] = 1
-                if k == 0:
-                    c[l + m + offset, p] = 1
-                    if m > 0:
-                        c[l + m - 1 + offset + 4 * en_constrains, p] = m
-                elif k == 1:
-                    c[l + m + offset + 2 * en_constrains, p] = 1
+                if phi_cusp:
+                    if l == 0:  # 1b
+                        c[k + m + offset + en_constrains, p] = 1
+                        if m > 0:  # 3b
+                            c[k + m - 1 + offset + 5 * en_constrains - 1, p] = m
+                    elif l == 1:  # b2
+                        c[k + m + offset + 3 * en_constrains, p] = 1
+                    if k == 0:  # 1a
+                        c[l + m + offset, p] = 1
+                        if m > 0:  # 3a
+                            c[l + m - 1 + offset + 4 * en_constrains, p] = m
+                    elif k == 1:  # 2a
+                        c[l + m + offset + 2 * en_constrains, p] = 1
+                else:
+                    if l == 0:  # 1b
+                        c[k + m + offset + en_constrains, p] = -trunc / phi_cutoff
+                        cutoff_constraints[k + m + offset + en_constrains] += trunc * phi_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
+                    elif l == 1:  # 1b
+                        c[k + m + offset + en_constrains, p] = 1
+                    if k == 0:  # 1a
+                        c[l + m + offset, p] = -trunc / phi_cutoff
+                        cutoff_constraints[l + m + offset] += trunc * phi_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
+                    elif k == 1:  # 1a
+                        c[l + m + offset, p] = 1
                 p += 1
     # Do Theta bit of the constraint matrix.
     offset = phi_constraints
@@ -64,19 +86,26 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
             for k in range(phi_parameters.shape[0]):
                 if m == 1:
                     c[k + l + offset, p] = 1
-                if l == 0:
-                    c[k + m + offset + ee_constrains + 2 * en_constrains, p] = -trunc / phi_cutoff
-                    cutoff_constraints[k + m + offset + ee_constrains + 2 * en_constrains] += trunc * theta_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
-                    if m > 0:
-                        c[k + m - 1 + offset + ee_constrains + 4 * en_constrains - 1, p] = m
-                elif l == 1:
-                    c[k + m + offset + ee_constrains + 2 * en_constrains, p] = 1
-                if k == 0:
-                    c[l + m + offset + ee_constrains, p] = 1
-                    if m > 0:
-                        c[l + m - 1 + offset + ee_constrains + 3 * en_constrains, p] = m
-                elif k == 1:
-                    c[l + m + offset + ee_constrains + en_constrains, p] = 1
+                if phi_cusp:
+                    if l == 0:  # 2b
+                        c[k + m + offset + ee_constrains + 2 * en_constrains, p] = -trunc / phi_cutoff
+                        cutoff_constraints[k + m + offset + ee_constrains + 2 * en_constrains] += trunc * theta_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
+                        if m > 0:  # 3b
+                            c[k + m - 1 + offset + ee_constrains + 4 * en_constrains - 1, p] = m
+                    elif l == 1:  # 2b
+                        c[k + m + offset + ee_constrains + 2 * en_constrains, p] = 1
+                    if k == 0:  # 1a
+                        c[l + m + offset + ee_constrains, p] = 1
+                        if m > 0:  # 3a
+                            c[l + m - 1 + offset + ee_constrains + 3 * en_constrains, p] = m
+                    elif k == 1:  # 2a
+                        c[l + m + offset + ee_constrains + en_constrains, p] = 1
+                else:
+                    if l == 0:  # 1a
+                        c[k + m + offset + ee_constrains, p] = -trunc / phi_cutoff
+                        cutoff_constraints[l + m + offset + ee_constrains] += trunc * theta_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
+                    elif l == 1:  # 1a
+                        c[k + m + offset + ee_constrains, p] = 1
                 p += 1
     # Do irrotational bit of the constraint matrix.
     n = phi_constraints + theta_constraints
