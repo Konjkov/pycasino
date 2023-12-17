@@ -79,7 +79,8 @@ class Input:
         self.read_bool('opt_det_coeff', False)
         self.read_int('opt_maxeval', 40)
         self.read_block('opt_plan')
-        # self.read_int('opt_noctf_cycles', 0)
+        self.read_int('opt_noctf_cycles', 0)
+        self.read_bool('opt_fixnl', self.opt_method == 'varmin')
         self.read_bool('vm_reweight', False)
         # DMC keywords
         self.read_float('dmc_target_weight')
@@ -103,6 +104,8 @@ class Input:
         self.read_bool('cusp_info', False)
         # Pseudopotential keywords
         self.read_bool('non_local_gris', 4)
+        self.read_float('lcutofftol', 1e-5)
+        self.read_float('nlcutofftol', 1e-5)
 
         self.ppotential = False
         for file_name in os.listdir(base_path):

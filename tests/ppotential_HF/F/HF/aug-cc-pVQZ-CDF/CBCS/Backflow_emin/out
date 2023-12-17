@@ -1,0 +1,2901 @@
+CASINO v2.13.1087 [Mike Towler] (6 November 2023)
+Running on vladimir-Kubuntu [linuxpc-gcc-parallel.openblas]
+Binary compiled in opt mode
+Job started: Пт 15 дек 2023 14:12:23 +07
+ ------------------------------------------------------------------------------
+
+                   #####
+                  ##   ##    ##     ####   ##  #   ##   ####
+                  ##        ####   ##      ##  ##  ##  ##  ##
+                  ##       ##  ##   ####   ##  ### ##  ##  ##
+                  ##       ######      ##  ##  ## ###  ##  ##
+                  ##   ##  ##  ##  ##  ##  ##  ##  ##  ##  ##
+                   #####   ##  ##   ####   ##  ##   #   ####
+
+                              Quantum Monte Carlo
+               CASINO v2.13.1087 [Mike Towler] (6 November 2023)
+
+    Main Authors : R.J. Needs, M.D. Towler, N.D. Drummond, and P. Lopez Rios
+
+       Required citation in publications arising from the use of CASINO:
+     R.J. Needs, M.D. Towler, N.D. Drummond, P. Lopez Rios, and J.R. Trail,
+                       J. Chem. Phys. 152, 154106 (2020).
+                       https://doi.org/10.1063/1.5144288
+
+                 CASINO web page: https://vallico.net/casinoqmc
+
+                      Current contact: mdt26 at cantab.net
+
+ ------------------------------------------------------------------------------
+ Started 2023/12/15 14:12:23.865
+
+ Running in parallel using 4 MPI processes.
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  4
+ NED (num down spin electrons)            :  3
+ RUNTYPE (type of run)                    :  vmc_opt
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  T
+ BACKFLOW (use backflow corrections)      :  T
+ DBARRC (DBAR recalculation period)       :  100000
+ USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  T
+ MOLGSCREENING                            :  F
+ USE_DETLA (DLA approx. to NL PP)         :  F
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ ESUPERCELL                               :  F
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ CHECKPOINT (checkpointing level)         :  1
+ CHECKPOINT_NCPU (chkpnt group size)      :  4
+ CON_LOC (Dir to read/write config.*)     :  ./
+ RELATIVISTIC                             :  F
+
+ VMC/optimization input parameters
+ =================================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  1.0000E-02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  100000
+ VMC_NCONFIG_WRITE (num configs to write) :  100000
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  10
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+ OPT_CYCLES (num optimization cycles)     :  4
+ POSTFIT_VMC (perform post-fit VMC calc)  :  T
+ POSTFIT_KEEP_CFG (keep post-fit VMC cfgs):  F
+ OPT_NOCTF_CYCLES (fixed cutoff cycles)   :  0
+ OPT_INFO (information level)             :  2
+ OPT_JASTROW (opt Jastrow factor)         :  T
+ OPT_DET_COEFF (opt det coeffs)           :  F
+ OPT_ORBITALS (opt orbitals)              :  F
+ OPT_BACKFLOW (opt backflow params)       :  T
+ OPT_FIXNL (fix nonlocal energy)          :  T
+ OPT_MAXITER (max num iterations)         :  10
+ OPT_MAXEVAL (max num evaluations)        :  200
+ VM_SMOOTH_LIMITS (smooth limiting)       :  T
+ VM_REWEIGHT (reweighting)                :  F
+ VM_FILTER (filter outlying configs)      :  F
+ VM_USE_E_GUESS (use guess energy)        :  F
+ EMIN_XI_VALUE (xi parameter)             :  1.0
+
+ Particles
+ =========
+ Particle name                 Charge        Mass         Spin   Type
+ -------------------------------------------------------------------------
+ 1: Spin-up electron          -1.00000       1.0000000     0.5   Fermion
+ 2: Spin-down electron        -1.00000       1.0000000    -0.5   Fermion
+ -------------------------------------------------------------------------
+
+ Number of diffusion types : 2
+
+ Single-particle groupings
+ -------------------------
+ Spin dep. 0 : (1,2) [F] [E]
+ Spin dep. 1 : (1) (2)
+
+ NB, partitions defining spin-[F]amilies and [E]quivalent particles flagged.
+
+ Particle-pair groupings
+ -----------------------
+ Spin-pair dep. 0 : (1-1,1-2,2-2)
+ Spin-pair dep. 1 : (1-1,2-2) (1-2)
+ Spin-pair dep. 2 : (1-1) (1-2) (2-2)
+
+ Initialize random number generator
+ ==================================
+ Generator                                 :  RANLUX
+ RANLUX luxury level                       :  3
+ p value                                   :  223
+ Value of random seed on MPI process 0     :  16298748
+
+ Initialized with seed derived from timer.
+
+ Reading correlation.data
+ ========================
+ Header:
+   No title given.
+ Version of correlation.data : 1
+ A Jastrow factor is present in correlation.data.
+ A backflow function is present in correlation.data.
+
+ No multideterminant/excitation data supplied.
+ Using ground state defined in xwfn.data file.
+
+ Reading Gaussian wave function and associated data
+ ==================================================
+
+ Title: TITLE
+
+ Generating code                           :  molden2qmc version: 4.0.4
+ Method                                    :
+ DFT functional                            :
+ Periodicity                               :  0 (molecule)
+ Spin restricted?                          :  Yes
+
+ Total number of electrons                 :  7
+
+ Basis set information
+
+ Number of atoms                           :  1
+ Number of shells                          :  19
+ Number of basis fns                       :  79
+ Number of primitives                      :  37
+ Highest ang momentum                      :  5
+
+ Gaussian basis sets:
+ ------------------------------------------------------------------
+   Atom  x(au)  y(au)  z(au)    No. Type  Exponent    Coefficients
+ ------------------------------------------------------------------
+   1 F     0.000    0.000    0.000
+                             1-   1  s
+                                         7.490E+01    -4.478E-02
+                                         4.674E+01     2.442E-01
+                                         2.916E+01    -7.259E-01
+                                         1.820E+01     1.343E+00
+                                         1.137E+01    -1.125E+00
+                                         3.969E+00    -1.292E-01
+                                         2.042E+00     2.875E-01
+                                         9.104E-01     3.071E-01
+                                         4.103E-01     1.386E-01
+                                         1.815E-01     1.791E-02
+                             2-   4  p
+                                         6.732E+01    -3.051E-01
+                                         4.209E+01     1.202E+00
+                                         2.632E+01    -2.911E+00
+                                         1.619E+01     3.653E+00
+                                         5.977E+00     1.497E+00
+                                         2.909E+00     1.027E+00
+                                         1.438E+00     6.199E-01
+                                         6.805E-01     2.773E-01
+                                         3.050E-01     7.778E-02
+                                         1.280E-01     8.164E-03
+                             5-   5  s
+                                         2.330E+00     1.344E+00
+                             6-   6  s
+                                         8.357E-01     6.229E-01
+                             7-   7  s
+                                         2.997E-01     2.887E-01
+                             8-  10  p
+                                         1.785E+00     2.941E+00
+                            11-  13  p
+                                         6.091E-01     7.670E-01
+                            14-  16  p
+                                         2.078E-01     2.000E-01
+                            17-  21  d
+                                         4.825E+00     2.585E+01
+                            22-  26  d
+                                         1.673E+00     4.052E+00
+                            27-  31  d
+                                         5.803E-01     6.350E-01
+                            32-  38  f
+                                         3.501E+00     2.469E+01
+                            39-  45  f
+                                         1.138E+00     1.968E+00
+                            46-  54  g
+                                         2.367E+00     1.190E+01
+                            55-  55  s
+                                         1.244E-01     1.493E-01
+                            56-  58  p
+                                         6.950E-02     5.087E-02
+                            59-  63  d
+                                         1.974E-01     9.622E-02
+                            64-  70  f
+                                         4.419E-01     2.344E-01
+                            71-  79  g
+                                         9.089E-01     8.558E-01
+ ------------------------------------------------------------------
+ Single determinant :
+
+ Det 1 spin 1           : ground state
+ Det 1 spin 2           : ground state
+ Det 1 coefficient      : 1.00000000
+
+ Pseudopotentials
+ ================
+
+ Ion type 1, atomic no 9, file=f_pp.data
+ Title:  HF Pseudopotential in real space for F
+
+ Number of grid points                   :  1569
+ Pseudo-charge                           :  7.0
+ Local cutoff radius (au)                :  1.033464
+ Non-local cutoff radius (au)            :  1.033464
+ Local potential angular momentum        :  2
+ Deviation from z/r at cutoff radius     :  0.4285821792E-05
+ Non-local potential angular momentum    :  0
+ Deviation from vlocal at cutoff radius  :  0.6477962835E-05
+ Non-local potential angular momentum    :  1
+ Deviation from vlocal at cutoff radius  :  0.6477962835E-05
+
+ Geometry derived from information in gwfn.data
+ ==============================================
+
+ Simulation cell : Finite (atomic/molecular geometry)
+
+ Atom Atno  Type              Position (Cartesian au)
+ -------------------------------------------------------------
+    1   9   1         0.00000000     0.00000000     0.00000000
+
+
+ Expectation values
+ ==================
+ None requested.
+
+ Interactions
+ ============
+ Interaction type: Coulomb
+ System is aperiodic. Using 1/r only.
+
+ Jastrow factor
+ ==============
+ Reading Jastrow factor from correlation.data file.
+
+ Title: Be atom
+
+ Truncation order                   :  3
+
+ U term:
+  SET 1
+   Spherical harmonic l             :  0
+   Spherical harmonic m             :  0
+   Expansion order (N_u)            :  8
+   Spin dependence                  :  1
+   Cutoff             (optimizable) :  5.000000000000000E+00
+   Not all coefficients supplied: rest assumed to be zero.
+   No. of parameters in set         :  16
+   (In addition to the cutoff length.)
+
+ Chi term:
+  Number of sets                    :  1
+  SET 1:
+   Spherical harmonic l             :  0
+   Spherical harmonic m             :  0
+   Number of atoms in set           :  1
+   The atoms are:
+    1
+   Electron-nucleus cusp not imposed in Jastrow
+   Expansion order (N_chi)          :  8
+   Spin dependence                  :  0
+   Cutoff             (optimizable) :  4.000000000000000E+00
+   Not all coefficients supplied: rest assumed to be zero.
+   No. of parameters in set         :  8
+   (In addition to the cutoff length.)
+
+ F term:
+  Number of sets                    :  1
+  SET 1:
+   Number of atoms in set           :  1
+   The atoms are:
+    1
+   No constraints applied to avoid duplicating u.
+   No constraints applied to avoid duplicating chi.
+   Expansion order (N_f_eN)         :  3
+   Expansion order (N_f_ee)         :  3
+   Spin dependence                       :  1
+   Cutoff             (optimizable) :  4.000000000000000E+00
+   Not all coefficients supplied: rest assumed to be zero.
+   No. of parameters in set         :  52
+   (In addition to the cutoff length.)
+
+ Finished reading Jastrow factor from correlation.data.
+
+ Imposed symmetry and no-cusp constraints on gamma array.
+ Checked that gamma array satisfies its constraints.
+ Polynomials constructed.
+ Checked that cusp and cutoff conditions are satisfied.
+
+ Finished Jastrow setup.
+
+ Initial Jastrow set is empty.
+ Will not use a Jastrow factor until needed.
+
+ Backflow setup
+ ==============
+ Reading correlation.data file.
+
+ Backflow function:
+  Title:  No title given.
+  Truncation order       :  3
+  Discontinuities        :  None
+
+  Eta term:
+   Expansion order       :  9
+   Spin dependence       :  1
+   Cutoff for s=1 (fixd) :  5.000000000000
+   Cutoff for s=2 (fixd) :  5.000000000000
+   No. of free params    :  19 + 2 cut-off lengths
+   Unspecified params    :  Zeroed
+
+  Mu term:
+   Number of sets        :  1
+   Set 1
+    Atoms in set         :  1
+    The atoms are        :  1
+    Type of cusp conds.  :  PP / cuspless AE
+    Expansion order      :  9
+    Spin dependence      :  0
+    Cutoff       (fixed) :  4.000000000000
+    No. of free params   :  9 + cut-off length
+    Unspecified params   :  Zeroed
+   Completeness of mu    :  All atoms included
+
+  Phi term:
+   Number of sets        :  1
+   Set 1
+    Atoms in set         :  1
+    The atoms are        :  1
+    Type of cusp conds.  :  PP / cuspless AE
+    Irrotational constr. :  Not applied
+    Expansion order e-N  :  3
+    Expansion order e-e  :  3
+    Spin dependence      :  1
+    Cutoff       (fixed) :  4.000000000000
+    No. of free params   :  193 + cut-off length
+    Unspecified params   :  Zeroed
+   Completeness of Phi   :  All atoms included
+
+ Finished reading backflow functions from correlation.data.
+
+ Allocated work arrays, using 10.7 KiB.
+ Imposed e-e and e-N cusp conditions and checked them.
+
+ Finished backflow setup.
+
+ Initial backflow set is empty.
+ Will not use backflow until needed.
+
+ Non-local integration grids
+ ===========================
+ Ion type            :  1
+ Non-local grid no.  :  4
+ Lexact              :  5
+ Number of points    :  12
+
+
+ Setup complete.
+
+ Time taken in setup    : : :        0.0400
+
+ Writing parameters to correlation.out.0.
+
+ =========================================================
+ PERFORMING VMC CONFIGURATION-GENERATION CALCULATION No. 1
+ =========================================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  1.6813E-02
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio         (%)  =  50.0731
+ Diffusion constant  (Bohr^2)  = 6.1035E-03
+ Correlation time     (steps)  = 2.4672E+00 +- 4.3513E-02
+ Efficiency      (au^-2 s^-1)  = 2.1591E+03
+ No. of VMC steps per process  = 25000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -23.864403601027
+  Standard error                        +/-           0.006118537183
+
+  Kinetic energy KEI (used in Total) (au) =          18.456634512843
+  Standard error                        +/-           0.033893264317
+
+  Kinetic energy TI                  (au) =          18.222196816934
+  Standard error                        +/-           0.095474450191
+
+  Kinetic energy FISQ                (au) =          17.987759121025
+  Standard error                        +/-           0.184914263622
+
+  Potential energy                   (au) =         -42.321038113870
+  Standard error                        +/-           0.034462661254
+
+  e-e interaction                    (au) =          17.024924213571
+  Standard error                        +/-           0.012525492728
+
+  e-i interaction (local)            (au) =         -59.423065560230
+  Standard error                        +/-           0.036566817169
+
+  e-i interaction (non-local)        (au) =           0.077103232789
+  Standard error                        +/-           0.019107633273
+
+  Variance of local energy           (au) =           3.754452592230
+  Standard error                        +/-           0.113665916732
+
+  Maximum distance from origin       (au) =           7.038388662808
+
+
+ Time taken in block    : : :        5.0000
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -23.864403601027 +/- 0.006118537183      No correction
+ -23.864403601027 +/- 0.009610612272      Correlation time method
+ -23.864403601027 +/- 0.010582965723      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 3.754452592230
+
+ =========================================================================
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================
+ PERFORMING OPTIMIZATION CALCULATION No. 1
+ =========================================
+
+ Variance minimization configuration
+ ===================================
+
+ Random number generator reset to state in config.in.
+
+ Number of MPI processes                               : 4
+ Number of configurations per process                  : 25000
+ Total number of configurations                        : 100000
+
+ Optimization workspace:
+ -----------------------------------------------
+ Number of variable parameters  :            297
+ Number of configurations       :          25000
+ -----------------------------------------------
+ Electron positions             :       4.00 MiB
+ Other energy buffers           :        195 KiB
+ Local energies                 :        227 MiB
+ NL2SOL work array (real)       :        229 MiB
+ NL2SOL work array (int)        :       1.39 KiB
+ -----------------------------------------------
+ Total memory required          :        461 MiB
+ -----------------------------------------------
+
+ Optimization start
+ ==================
+
+ Optimization monitor :
+ ----------------------
+ Function evaluations : 1
+ NL2SOL iteration     : 0
+
+ Current parameters:
+ Be  0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00 Bm  0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+ BP  0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00 Ju  0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00 JX  0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00 Jf  0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00
+
+    Unreweighted variance of energy (a.u.)  :   1.361549E+00
+           Unreweighted mean energy (a.u.)  :  -2.413200E+01
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 8m25s remaining]
+ Done. [total CPU time: 10m53s]
+
+ Optimization monitor :
+ ----------------------
+ Function evaluations : 2
+ NL2SOL iteration     : 1
+
+ Current parameters:
+ Be  8.39109613E-03     1.96306000E-02    -2.88889007E-02     9.77273499E-03
+     5.81539196E-04    -7.63293531E-04     8.41213837E-05    -5.05227706E-06
+     1.61447447E-06     1.40578419E-01    -1.29000775E-01     7.18299697E-02
+    -3.28645462E-02     7.92538984E-03     1.40866183E-04    -4.53829858E-04
+     1.36052251E-04    -3.52998782E-05     4.39685959E-06 Bm  1.96359828E-02
+    -1.12565251E-01    -8.44924995E-02     1.41520303E-01    -1.52703357E-01
+     6.00834364E-02    -3.37021082E-03    -2.98676657E-03     3.96691315E-04
+ BP  1.18064448E-03    -1.15752568E-02     2.11707353E-01     1.19544790E-02
+    -5.27658580E-02    -7.83824136E-02     1.36484364E-03    -5.38135312E-02
+     2.45880773E-02    -1.44535572E-01     7.18274043E-02     1.37935948E-01
+     1.46023632E-01    -4.21974635E-02     6.82284546E-02    -2.94663665E-02
+     5.14700505E-02    -2.73066827E-02     4.72083269E-02    -1.23689676E-03
+    -6.62750649E-02     3.64200647E-02    -4.20487125E-02    -4.49830718E-02
+    -6.08985714E-02     5.06279746E-02     1.96692020E-02    -3.22048117E-02
+    -6.28439686E-03     2.52335561E-02    -1.77583693E-02    -1.06399795E-02
+    -3.73936772E-02     1.49618706E-02     2.95344977E-02    -9.28447404E-03
+     1.85293325E-02     2.92765318E-04     5.66504499E-03    -8.25689159E-03
+    -1.97969103E-03     4.64073779E-03     1.50725645E-03    -2.61816954E-03
+     5.21849634E-02     2.56308515E-01     1.03432208E-02     1.80957629E-02
+     1.38107045E-01    -3.68287336E-01     1.16080655E-02    -2.12315729E-01
+    -4.17042303E-02     3.51894369E-01    -6.87708195E-02    -7.72578214E-02
+    -2.25489956E-01     1.24121350E-01     7.05883625E-02     1.63876453E-01
+     2.91297694E-01    -1.18323866E-01    -2.18350344E-01     6.58708023E-02
+    -1.60886059E-01     1.58610533E-02     9.18422791E-02     1.69029101E-01
+     2.42345702E-01    -2.91815104E-03    -2.76772240E-01    -6.48536783E-02
+     5.71128751E-03    -1.10220365E-01    -8.06218507E-02     1.13159818E-01
+     1.00895315E-02     1.76064947E-02    -7.09592372E-02     1.03218225E-01
+    -3.68428834E-02     6.75187259E-02    -5.86133759E-02    -6.66433946E-02
+     1.21975628E-02     4.86331230E-02    -3.14354818E-02     4.20625795E-02
+     6.41454548E-03     3.32879145E-03    -8.10419407E-03    -6.09305610E-03
+    -1.84271678E-03    -2.91153527E-03    -4.65403911E-02     3.16141132E-02
+    -2.98803092E-02     2.22818823E-01    -2.01981587E-01    -3.44425187E-02
+     3.81875102E-03     4.86376984E-02     1.51018783E-01    -2.78423241E-02
+     4.55378494E-02     1.12167746E-02    -6.80100800E-02    -2.18209838E-03
+     6.54808940E-02     2.53277276E-02    -1.88932960E-01     1.63625845E-01
+     5.18004915E-03     1.87990927E-02    -4.09110243E-02    -8.28093637E-02
+     1.53349690E-02    -5.92837686E-04    -1.49986830E-02     4.66877347E-02
+     4.73526440E-02     6.03521543E-03    -5.47436003E-02     3.07274753E-03
+     1.23422291E-02    -4.01004449E-02     2.51433227E-03    -5.75426189E-03
+     1.22041167E-02     2.62337920E-02    -3.33329860E-02     2.38315544E-02
+     2.50598606E-03    -1.16603086E-02    -2.09330146E-02     1.08719809E-03
+     7.11920758E-03    -2.12766866E-03     2.37688237E-02    -2.52853782E-03
+     5.03701997E-05    -4.88191788E-03     3.49637652E-04     1.37820119E-03
+    -4.09787359E-02    -7.36776593E-02    -1.95503232E-01    -8.61734045E-02
+     4.26341993E-03    -1.75280156E-01     3.14269146E-01     2.04511643E-01
+     1.37299678E-01    -1.72982232E-01    -1.10394984E-02     3.36035088E-02
+     2.88304807E-01    -3.49388028E-01    -1.16449067E-01     6.46656699E-02
+    -5.43581850E-02    -1.43942376E-01     1.91364362E-01     1.28884011E-01
+    -2.05969496E-01     1.90956418E-02    -9.31571630E-02    -8.10074154E-02
+    -9.45052012E-02    -6.68414429E-03     2.50492090E-01     1.35279106E-01
+    -1.57107455E-02     4.51196973E-02    -3.13149830E-02     2.57217665E-02
+    -5.90994755E-02    -9.11911900E-04     3.38278051E-02     4.64616102E-02
+    -1.51599646E-02    -2.68401982E-02     1.31810566E-02     6.96330773E-03
+     1.95608798E-03    -2.56633488E-02    -4.18512795E-02    -6.71151787E-03
+    -1.29394397E-03     6.53646664E-03     5.22805509E-03     8.87667805E-03
+    -2.99883693E-04 Ju  3.66640811E-03     6.25039331E-04    -1.26820842E-03
+     5.68235143E-04     1.28920775E-04    -1.70992053E-04     4.71096373E-05
+    -4.01759241E-06     5.38537019E-03    -9.99364264E-04     2.02320232E-03
+    -1.72218810E-03     8.81249739E-04    -2.57302371E-04     3.89499420E-05
+    -2.29821615E-06 JX -5.65161961E-02    -2.70475097E-02     3.04417993E-02
+    -3.20979029E-02     2.15796759E-02    -8.05000046E-03     1.43679353E-03
+    -7.37765123E-05 Jf -4.98195643E-05     2.42080080E-06    -2.79831194E-04
+    -3.05510318E-04     2.53508122E-04    -5.95149632E-05     1.90228682E-04
+    -3.95563162E-04     4.16672871E-05    -1.86750284E-04     2.95178886E-04
+    -6.12296438E-06    -2.22576543E-04    -3.39719024E-05     2.20506813E-04
+    -1.34044864E-05    -1.19421346E-05     1.62616463E-05     2.90727167E-06
+    -5.44071635E-05     7.93858935E-05     5.85669067E-06     5.75035186E-06
+    -1.02801948E-05    -1.69364133E-06     3.43697030E-06    -4.82468577E-05
+     2.54734047E-05     8.23569735E-05    -2.79251460E-04     2.29162756E-05
+     1.13104767E-05    -2.74094559E-04     1.51204587E-04    -1.40641553E-04
+     1.20147011E-04    -2.29539921E-04     1.04494713E-06     1.50564977E-04
+    -1.00306643E-05    -9.91498786E-05     2.30219109E-05    -1.54214855E-05
+    -3.53472720E-05     9.20270429E-05     1.41913285E-06    -1.54253688E-04
+     2.74036534E-05    -9.94641831E-07    -1.10182564E-05    -3.71618476E-06
+     5.50077732E-06
+
+ Accepted step:
+    Unreweighted variance of energy (a.u.)  :   1.361549E+00 ->   2.296132E-01
+           Unreweighted mean energy (a.u.)  :  -2.413200E+01 ->  -2.406296E+01
+
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 10m14s remaining]
+ Done. [total CPU time: 10m3s]
+
+ Optimization monitor :
+ ----------------------
+ Function evaluations : 3
+ NL2SOL iteration     : 2
+
+ Current parameters:
+ Be  4.15100915E-03     4.11598592E-02    -6.56398382E-02     3.00960296E-02
+    -2.43839816E-03    -1.61239919E-03     4.19850954E-04    -4.19200958E-05
+     2.79326511E-06     1.62525157E-01    -1.60373021E-01     1.04542837E-01
+    -6.63855422E-02     2.66691288E-02    -3.99683765E-03    -9.79637650E-04
+     6.64760469E-04    -1.57890969E-04     1.47026590E-05 Bm  2.46207779E-02
+    -1.36509071E-01    -3.59880492E-02     2.24537792E-01    -3.13780761E-01
+     1.59184372E-01    -2.50126975E-02    -3.03641151E-03     7.69878237E-04
+ BP  4.45031732E-03     8.31648971E-04     4.66992190E-01     1.53568476E-02
+    -1.52465339E-01    -2.24017512E-01    -1.34853415E-02     2.14177699E-02
+     2.73803866E-02    -2.40286403E-01     8.94039604E-02     2.51861336E-01
+     3.42900806E-01    -7.26272752E-02     5.02295601E-03    -6.01366375E-02
+     1.16256306E-01    -6.11738440E-02     9.28485303E-02    -1.02014365E-02
+    -1.52592496E-02     4.65636915E-02    -8.80825382E-02    -9.31477118E-02
+    -1.71519660E-01     8.63315990E-02     4.02635043E-02    -3.45861145E-03
+    -1.90708628E-02     4.56456360E-02    -5.93523012E-02    -2.00516737E-02
+    -6.62728967E-02     6.15918261E-02     4.57475064E-02    -1.24445942E-02
+     3.79950142E-02    -1.07774201E-02     7.79353098E-03    -1.44630268E-02
+    -3.07764821E-03     3.16713256E-03     4.02673593E-03    -2.01519974E-03
+     7.80358396E-02     3.39020685E-01     1.47244212E-02     5.32924407E-02
+     1.78887586E-01    -4.93757015E-01     6.40872117E-02    -3.59972280E-01
+     8.79088148E-02     3.21896595E-01    -8.44472760E-02    -1.24690317E-01
+    -3.97669648E-01     2.17303460E-01     1.71799326E-02     3.48575402E-01
+     4.92867553E-01    -2.95422825E-01    -2.27816759E-01     6.60831140E-02
+    -2.14948123E-01    -1.05366747E-01     2.54758621E-01     2.68713729E-01
+     4.12631861E-01     1.56899010E-02    -5.48708593E-01    -1.66487679E-02
+     3.11724880E-02    -1.92811857E-01    -1.25857748E-01     2.02434065E-01
+    -2.18664707E-02     4.17359203E-02    -1.44818024E-01     2.33931912E-01
+    -4.85061256E-02     9.24366828E-02    -1.46824357E-01    -1.15314718E-01
+     1.63153873E-02     1.19748144E-01    -6.56456210E-02     6.76191213E-02
+     1.79951107E-02    -1.71163554E-03    -1.13096567E-02    -6.64574710E-03
+    -6.33999253E-03    -1.16747056E-02    -4.85797756E-02     2.10145166E-02
+    -3.22501524E-02     2.87234250E-01    -2.25144568E-01    -5.95379955E-02
+     2.43445843E-03     4.65016849E-02     1.95303946E-01    -2.51729713E-02
+     7.51585998E-02    -7.67914999E-03    -5.29442434E-02    -1.81598318E-02
+     6.76019791E-02     5.80943360E-02    -2.92409824E-01     2.07463173E-01
+     9.79212875E-03     4.95034932E-02    -4.92798457E-02    -1.35008443E-01
+     1.68127100E-02    -2.91622399E-02    -1.39262892E-02     7.79636653E-02
+     5.55832813E-02     1.51396451E-02    -6.18859074E-02    -6.92841490E-03
+     3.54924809E-02    -5.77786809E-02     1.37003737E-03    -1.83823360E-02
+     1.78492187E-02     5.67681608E-02    -5.44898892E-02     4.21658974E-02
+    -1.91450364E-02    -1.41594029E-02    -2.33472311E-02    -3.40247360E-04
+     1.66057349E-02     5.48790395E-04     2.15306511E-02    -9.64022292E-05
+    -7.06239115E-05    -3.49846852E-03    -5.27289561E-04     4.48351868E-04
+    -5.06911091E-02    -1.47643316E-01    -2.21407339E-01    -6.13810797E-02
+    -3.45868282E-02    -1.55105157E-01     3.19294444E-01     2.09023618E-01
+     2.28581864E-01    -2.28816070E-01    -8.76984931E-05     3.93677652E-02
+     4.08573946E-01    -4.19583370E-01    -2.49718916E-01     1.01145140E-01
+    -6.21849989E-02    -2.06296845E-01     2.03522038E-01     1.17760373E-01
+    -2.29669420E-01     7.56273210E-02    -1.32160630E-01    -1.24023915E-01
+    -2.42251085E-01    -2.33303347E-02     4.14384628E-01     1.85825688E-01
+    -2.04010046E-02     5.24135911E-02    -6.98306897E-02     5.49659990E-02
+    -5.62260294E-02    -5.00211256E-03     9.75767237E-02     1.58749469E-02
+    -3.69912163E-02    -1.46327222E-01     1.15664811E-01     3.18812421E-02
+     1.09840022E-03    -9.47543120E-04    -1.00700919E-01    -1.23280150E-03
+    -1.96169515E-03     8.29461788E-03     8.44650366E-03     6.64938833E-03
+     6.17259489E-04 Ju  2.82339608E-03     1.07254193E-03    -2.48163667E-03
+     1.55909258E-03    -1.44115463E-04    -1.91976892E-04     6.76939448E-05
+    -6.49677083E-06     4.88243177E-03    -1.13294877E-03     2.29581319E-03
+    -2.20421153E-03     1.32832915E-03    -4.79847249E-04     9.22472311E-05
+    -7.14512407E-06 JX -5.28754643E-02    -3.07986213E-02     4.74634710E-02
+    -6.41294922E-02     5.16216317E-02    -2.24465108E-02     4.80098917E-03
+    -3.72121241E-04 Jf -4.76220273E-05     2.38104105E-05    -4.26473277E-04
+    -3.33233293E-04     3.49323989E-04    -1.13723389E-04     2.52471687E-04
+    -8.10401552E-04     7.48491428E-05    -2.59342549E-04     4.83249667E-04
+    -4.92369110E-05    -5.16077998E-04    -7.02784589E-05     7.27134987E-04
+    -9.58187956E-05     1.35364212E-05     9.26248924E-06     1.04317696E-05
+    -1.13262965E-04     1.92224444E-04     2.92680491E-05     8.10333344E-06
+    -9.84415392E-05     1.82929868E-05    -2.99594947E-06    -5.73001166E-05
+     6.78887292E-05     5.67325594E-05    -3.96970369E-04     6.76579129E-05
+    -1.35379796E-05    -3.62755075E-04     1.40680435E-04    -1.37517482E-04
+     1.48252100E-04    -3.44031493E-04    -6.07939366E-05     3.41720663E-04
+    -8.77827502E-05    -2.51679588E-04     6.02448456E-05    -1.99228666E-05
+    -7.25974080E-05     1.84183738E-04    -3.12932270E-05    -3.87160771E-04
+     1.21316472E-04    -3.24808182E-06    -4.47689777E-05    -4.02868611E-06
+     5.98385937E-06
+
+ Accepted step:
+    Unreweighted variance of energy (a.u.)  :   2.296132E-01 ->   2.222136E-01
+           Unreweighted mean energy (a.u.)  :  -2.406296E+01 ->  -2.406627E+01
+
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 8m56s remaining]
+ Done. [total CPU time: 10m36s]
+
+ Optimization monitor :
+ ----------------------
+ Function evaluations : 4
+ NL2SOL iteration     : 3
+
+ Current parameters:
+ Be  3.14151376E-03     5.51017395E-02    -9.26463570E-02     4.90284761E-02
+    -7.79807009E-03    -1.54974124E-03     7.29939168E-04    -1.07980508E-04
+     7.19756237E-06     1.66147514E-01    -1.70179960E-01     1.23658495E-01
+    -9.12688563E-02     4.44098363E-02    -1.01687619E-02    -4.94598497E-04
+     9.93333942E-04    -2.56960607E-04     2.31963109E-05 Bm  2.82175029E-02
+    -1.38172128E-01    -9.30468504E-02     4.03449580E-01    -5.68911984E-01
+     3.33618088E-01    -8.31851984E-02     5.67152128E-03     3.49893135E-04
+ BP  5.26833064E-03    -4.66152797E-03     6.71987031E-01    -1.54649014E-02
+    -1.71798792E-01    -3.51814358E-01    -7.62384426E-03     6.87933377E-02
+     3.14813555E-02    -2.62274774E-01     9.41707302E-02     3.31766445E-01
+     4.89523473E-01    -9.54664358E-02    -6.86752977E-02    -7.76034890E-02
+     1.57894342E-01    -6.53662761E-02     1.12956713E-01    -3.35477500E-02
+     5.19772205E-02     6.06090405E-02    -1.01699409E-01    -1.46265729E-01
+    -2.29147963E-01     8.19054329E-02     6.06024129E-02     2.42244965E-02
+    -2.24653152E-02     6.23650792E-02    -1.01454036E-01    -1.62597165E-02
+    -9.02912079E-02     1.23819151E-01     2.87932072E-02    -1.20082752E-02
+     5.04021120E-02    -2.68956369E-02     1.29452484E-02    -1.36385340E-02
+    -3.58489388E-03     1.00356341E-03     4.31858239E-03    -3.09639997E-03
+     6.77603361E-02     2.72726817E-01     3.36925012E-02     8.62325204E-02
+     2.42971278E-01    -4.83882337E-01     7.23154924E-02    -4.49271885E-01
+     1.47643846E-01     3.01874923E-01    -9.42997179E-02    -1.20756845E-01
+    -4.23045592E-01     1.97883810E-01    -1.24220404E-01     4.12491836E-01
+     6.36101849E-01    -3.34308675E-01    -2.58385432E-01     5.33531614E-02
+    -1.87805291E-01    -2.05764486E-01     3.63549802E-01     2.18261219E-01
+     4.91620201E-01     3.14272686E-02    -6.93848755E-01     1.00769829E-01
+     3.61393835E-02    -2.51664867E-01    -1.58270556E-01     2.03204106E-01
+    -1.78956472E-02     5.75908635E-02    -1.91078101E-01     3.07962775E-01
+    -5.33122324E-02     1.28586479E-01    -2.22248433E-01    -1.22603009E-01
+     1.54432540E-02     1.41576366E-01    -5.76073992E-02     6.11004989E-02
+     3.01130325E-02    -6.24028387E-04    -1.33516698E-02    -5.10472518E-03
+    -1.03743662E-02    -1.72157745E-02    -3.54786626E-02     6.12620952E-03
+    -1.23177102E-02     2.68098458E-01    -2.14212703E-01    -9.05823959E-02
+     3.74442181E-02     3.34989124E-02     2.03746127E-01    -2.53577071E-02
+     8.54689746E-02    -4.63763774E-02    -1.62073362E-02    -1.86150651E-02
+     5.74939177E-02     1.03338313E-01    -3.49820779E-01     2.19034776E-01
+     2.46323294E-02     3.58806537E-02    -4.28917478E-02    -1.53169043E-01
+     2.52221549E-02    -4.16828258E-02     8.31080068E-04     8.05626723E-02
+     4.12996162E-02     2.15126144E-02    -6.27368390E-02    -3.33415292E-02
+     8.15530335E-02    -7.44837288E-02     4.46774643E-04    -2.31698711E-02
+     1.98102317E-02     6.39407170E-02    -5.72946719E-02     4.59524565E-02
+    -2.83062921E-02    -1.17526225E-02    -2.45386883E-02    -1.13294823E-03
+     1.98257914E-02     4.28901510E-03     1.50022749E-02     3.07868232E-03
+    -4.04180743E-04    -2.14944131E-03    -1.24731587E-03     2.84660561E-04
+    -5.71744711E-02    -2.04157793E-01    -2.52640219E-01    -4.84563381E-02
+    -3.60494465E-02    -1.41803591E-01     3.55051813E-01     1.91925722E-01
+     2.72406660E-01    -2.49139009E-01    -7.92199722E-03     4.22712607E-02
+     4.78763941E-01    -4.42237679E-01    -3.77711206E-01     9.28320230E-02
+    -4.06979697E-02    -2.24350477E-01     2.29475446E-01     1.04292441E-01
+    -2.44215402E-01     1.14108324E-01    -1.36982579E-01    -1.37339026E-01
+    -3.05957983E-01    -6.25588358E-02     4.70839944E-01     2.53582227E-01
+    -5.57422132E-02     9.26919966E-02    -9.83902776E-02     5.69508756E-02
+    -5.00391038E-02    -1.25057151E-02     1.42009426E-01    -7.88303247E-04
+    -5.56964145E-02    -2.27449487E-01     1.59270825E-01     6.63395270E-02
+     2.19799274E-03     3.00690559E-02    -1.35075530E-01    -5.44980566E-03
+    -7.90679706E-03     7.77047357E-03     1.20697238E-02     6.01505492E-03
+     2.42696389E-03 Ju  2.69790944E-03     1.40446970E-03    -3.37996634E-03
+     2.51254285E-03    -6.37026307E-04    -5.39678130E-05     4.75070557E-05
+    -5.30377487E-06     4.88418342E-03    -1.12162744E-03     2.26890369E-03
+    -2.17205744E-03     1.31442856E-03    -4.80889777E-04     9.37365272E-05
+    -7.33916716E-06 JX -5.27671464E-02    -3.41976832E-02     6.14644388E-02
+    -8.98499159E-02     7.66858606E-02    -3.53186127E-02     8.05928859E-03
+    -6.88574967E-04 Jf -4.89067826E-05     5.85171701E-05    -6.02326521E-04
+    -3.45555829E-04     4.70732386E-04    -1.77133534E-04     2.67496165E-04
+    -1.27019132E-03     9.44826886E-05    -3.17116499E-04     6.31304491E-04
+     3.41129809E-06    -8.62807757E-04    -8.91191746E-05     1.35456366E-03
+    -2.31744426E-04     6.25839596E-05     1.06115542E-05    -1.84006074E-07
+    -1.48738678E-04     2.99922780E-04     4.89294444E-05     8.54506013E-06
+    -2.04254093E-04     5.04980438E-05    -1.54263184E-05    -5.74936503E-05
+     1.01246012E-04    -6.88456087E-06    -4.52597322E-04     1.28729491E-04
+    -4.05797619E-05    -3.94303191E-04     2.77226751E-05    -1.26781698E-04
+     1.45444179E-04    -3.96919014E-04    -1.09904079E-04     4.93796301E-04
+    -1.88647977E-04    -3.78800900E-04     1.18556297E-04    -3.33044689E-05
+    -1.07223143E-04     2.69881562E-04    -7.34755032E-05    -5.91179462E-04
+     2.18461565E-04    -2.40414977E-06    -8.74721607E-05    -8.16173143E-06
+     8.89985962E-06
+
+ Accepted step:
+    Unreweighted variance of energy (a.u.)  :   2.222136E-01 ->   2.215148E-01
+           Unreweighted mean energy (a.u.)  :  -2.406627E+01 ->  -2.406649E+01
+
+
+ Writing parameters to correlation.out.1.
+
+ Current parameters:
+ Be  9.78299838E-04     6.54944116E-02    -1.12387780E-01     6.64730754E-02
+    -1.60894209E-02     7.24915098E-04     3.54503786E-04    -6.96391968E-05
+     5.12841218E-06     1.66985208E-01    -1.74443798E-01     1.37077500E-01
+    -1.14937240E-01     6.70116390E-02    -2.26273770E-02     3.58684635E-03
+     2.14614667E-04    -1.77707418E-04     1.98959677E-05 Bm  2.91922524E-02
+    -7.82195923E-02    -3.59700991E-01     9.55895546E-01    -1.20807385E+00
+     7.41389433E-01    -2.24320718E-01     3.02111132E-02    -1.30722110E-03
+ BP  6.48446889E-03    -3.03234713E-02     8.05071675E-01    -7.50998658E-02
+    -1.23342703E-01    -4.50244156E-01     3.17635859E-02     5.79045777E-02
+     4.67361535E-02    -2.30571276E-01     9.44409638E-02     3.69999809E-01
+     5.95498683E-01    -1.25362926E-01    -1.01793982E-01    -8.99532441E-02
+     1.82593683E-01    -2.64450356E-02     1.10969876E-01    -5.50276882E-02
+     8.26100501E-02     8.70149764E-02    -9.09085609E-02    -2.06713627E-01
+    -2.51059334E-01     7.55902523E-02     8.76612167E-02     3.19648414E-02
+    -2.34262382E-02     8.13826967E-02    -1.53433119E-01    -4.10830268E-03
+    -1.14376910E-01     2.11352059E-01    -1.66502183E-02    -9.50953300E-03
+     5.86345754E-02    -5.29602377E-02     3.18641561E-02    -1.48589565E-02
+    -3.72696127E-03    -1.24995534E-03     4.54272771E-03    -4.01028413E-03
+     3.50973467E-02     1.24706098E-01     4.77058712E-03     9.87058023E-02
+     3.53921000E-01    -4.03024614E-01     1.06482712E-01    -4.90508085E-01
+     1.34524725E-01     2.92357115E-01    -1.12577072E-01    -9.02880027E-02
+    -3.52108939E-01     1.44163345E-01    -3.78323796E-01     3.14921370E-01
+     7.23772851E-01    -2.59712690E-01    -2.80633422E-01     3.78975909E-02
+    -1.02027083E-01    -2.72619962E-01     4.40829652E-01     2.86979382E-02
+     4.73677310E-01     1.76168777E-02    -7.72308221E-01     3.55095279E-01
+     6.93804002E-02    -2.95201910E-01    -1.78696638E-01     1.27725302E-01
+    -2.48542350E-03     7.07079893E-02    -2.29290978E-01     3.56289904E-01
+    -6.58793415E-02     1.65144936E-01    -2.78278217E-01    -8.60357552E-02
+     1.25690880E-02     1.45537580E-01    -6.55245197E-02     3.51075561E-02
+     4.29471109E-02     1.54012037E-03    -4.00038177E-03    -3.72735679E-03
+    -1.42875287E-02    -3.76653351E-02     4.30283579E-02    -6.44546751E-02
+     6.62310960E-02     1.14167280E-01    -1.24745892E-01    -1.76237751E-01
+     1.53392316E-01    -1.43885505E-02     2.03908334E-01    -5.26862890E-02
+     1.06093698E-01    -1.54311696E-01     9.18570927E-02    -8.10969848E-03
+     2.35898834E-02     2.15698584E-01    -4.20873403E-01     1.99050824E-01
+     6.71197285E-02    -2.99415650E-02    -1.08871254E-02    -1.66903442E-01
+     5.08086980E-02    -4.80801400E-02     2.46761770E-02     6.92886362E-02
+    -6.46133679E-03     3.54182290E-02    -5.40140868E-02    -1.03354115E-01
+     1.77942769E-01    -9.96934738E-02    -5.64969023E-04    -2.29886843E-02
+     1.80373019E-02     6.61872559E-02    -6.46706128E-02     5.11915611E-02
+    -3.88314997E-02     9.52794044E-03    -3.14750250E-02    -2.19927439E-03
+     2.22882105E-02     7.40439354E-03     2.91703045E-03     8.79691076E-03
+    -6.66708921E-04    -4.85056415E-04    -2.13570950E-03     6.05907543E-04
+    -5.99179767E-02    -2.15295142E-01    -2.86784843E-01    -3.85490591E-02
+    -3.92067716E-02    -1.44197589E-01     3.96484363E-01     1.69491335E-01
+     3.19024263E-01    -2.77172076E-01    -1.36932457E-02     3.99463134E-02
+     5.02631359E-01    -4.45652913E-01    -4.42683301E-01     1.04771711E-01
+    -5.10197461E-03    -2.91400047E-01     2.88391189E-01     1.01553057E-01
+    -2.66431928E-01     1.30753587E-01    -1.36766688E-01    -1.27290784E-01
+    -3.14021722E-01    -1.19646884E-01     4.70317601E-01     3.39047124E-01
+    -1.24586234E-01     1.55612689E-01    -1.17670602E-01     7.01658615E-02
+    -5.71637667E-02    -2.10829213E-02     1.57820090E-01     9.75458541E-03
+    -7.54720100E-02    -2.54227431E-01     1.31272766E-01     1.14732957E-01
+     3.64720475E-03     4.64088080E-02    -1.41364226E-01    -1.54047257E-02
+    -1.61014962E-02     8.15902743E-03     1.03207175E-02     9.07034026E-03
+     4.14993022E-03 Ju  2.60626347E-03     1.67257150E-03    -3.91450523E-03
+     3.10540283E-03    -9.95978887E-04     6.83375927E-05     2.57828211E-05
+    -3.75931731E-06     4.88601005E-03    -1.10505487E-03     2.20046404E-03
+    -2.06587285E-03     1.23664710E-03    -4.51621740E-04     8.80981289E-05
+    -6.89364412E-06 JX -5.26844520E-02    -3.70784513E-02     7.40078210E-02
+    -1.13659064E-01     1.00347893E-01    -4.76779522E-02     1.12670227E-02
+    -1.01152456E-03 Jf -4.98310046E-05     9.79971192E-05    -7.95196991E-04
+    -3.52853094E-04     6.10837594E-04    -2.49666556E-04     2.65642210E-04
+    -1.75256399E-03     1.10241671E-04    -3.65075741E-04     7.56167095E-04
+     9.51552498E-05    -1.20472315E-03    -1.09163835E-04     1.99093338E-03
+    -3.77031399E-04     1.18145006E-04     1.31145627E-05    -1.27591957E-05
+    -1.77726351E-04     3.79768614E-04     7.53062482E-05     8.06680031E-06
+    -3.13239351E-04     8.47246741E-05    -2.93831083E-05    -5.75167020E-05
+     1.19860030E-04    -5.02079322E-05    -4.68016645E-04     1.63713521E-04
+    -5.65327374E-05    -4.12090430E-04    -6.04272776E-05    -1.19878609E-04
+     1.44722862E-04    -4.36396196E-04    -1.40364613E-04     5.98042749E-04
+    -2.62168030E-04    -4.57830430E-04     1.59981734E-04    -4.33514152E-05
+    -1.30223997E-04     3.27933432E-04    -1.01308210E-04    -7.36129348E-04
+     2.89972310E-04    -1.98051879E-06    -1.24002368E-04    -1.00228060E-05
+     1.08151571E-05
+
+ Accepted step:
+    Unreweighted variance of energy (a.u.)  :   2.215148E-01 ->   2.210630E-01
+           Unreweighted mean energy (a.u.)  :  -2.406649E+01 ->  -2.406656E+01
+
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 10m40s remaining]
+ Done. [total CPU time: 11m47s]
+
+ Optimization monitor :
+ ----------------------
+ Function evaluations : 6
+ NL2SOL iteration     : 4
+
+ Current parameters:
+ Be -3.12242151E-04     7.28928573E-02    -1.31494418E-01     8.90056049E-02
+    -3.10081550E-02     6.74232204E-03    -1.12394303E-03     1.34500207E-04
+    -7.00302251E-06     1.68504115E-01    -1.82266736E-01     1.62689055E-01
+    -1.65846436E-01     1.23344049E-01    -5.99040072E-02     1.87959138E-02
+    -3.52312207E-03     3.27726803E-04    -8.91040951E-06 Bm  2.85952062E-02
+     2.28474437E-02    -8.10828339E-01     1.85467534E+00    -2.20259470E+00
+     1.36043585E+00    -4.37241850E-01     6.76146137E-02    -3.90076526E-03
+ BP  7.11548068E-03    -7.22786782E-02     9.06993842E-01    -1.54494226E-01
+    -5.33118387E-02    -5.13162013E-01     9.85340138E-02     5.56272311E-03
+     6.22140565E-02    -1.70443928E-01     9.31941053E-02     3.88052370E-01
+     7.00790952E-01    -1.80194586E-01    -8.67625711E-02    -9.95742731E-02
+     2.03482533E-01     3.02604295E-02     1.06163895E-01    -9.20193494E-02
+     8.78716735E-02     1.20507029E-01    -7.94507973E-02    -2.39897924E-01
+    -2.84646858E-01     8.53042917E-02     1.19399531E-01     2.38507024E-02
+    -2.44198339E-02     9.87030484E-02    -2.04193984E-01     9.74842736E-03
+    -1.36308102E-01     3.01247205E-01    -6.73403092E-02    -7.31323271E-03
+     6.60631513E-02    -8.51850113E-02     5.99203525E-02    -1.93342684E-02
+    -3.68902918E-03    -3.07021097E-03     5.06267090E-03    -4.28256010E-03
+     1.26197644E-02     1.67145351E-02    -4.14175691E-02     1.13797287E-01
+     4.39647761E-01    -3.09561139E-01     1.17349180E-01    -5.32683470E-01
+     1.05514127E-01     3.01934415E-01    -1.27272599E-01    -7.26439737E-02
+    -3.06783527E-01     1.16813806E-01    -5.85498156E-01     1.73622521E-01
+     7.96493069E-01    -1.66651736E-01    -3.21188070E-01     2.15415999E-02
+    -3.87682010E-02    -3.15332858E-01     5.01997718E-01    -1.02402092E-01
+     4.26512412E-01    -1.82351207E-02    -8.39257351E-01     5.45101983E-01
+     1.41639581E-01    -3.30232114E-01    -1.96529467E-01     5.45627959E-02
+     1.83962389E-02     7.82667866E-02    -2.51075365E-01     3.95794677E-01
+    -8.68443348E-02     1.83785920E-01    -3.29755543E-01    -3.01245489E-02
+     1.00781844E-02     1.54370862E-01    -6.56518095E-02    -6.87333599E-03
+     5.51918292E-02     2.80996860E-03     4.23453464E-03    -1.03693671E-03
+    -1.72557382E-02    -9.74802134E-02     2.61687170E-01    -2.41416352E-01
+     2.61438042E-01    -2.83288926E-01     1.03505895E-01    -3.55001734E-01
+     4.01803102E-01    -1.20246379E-01     2.00746427E-01    -1.38327154E-01
+     1.63765436E-01    -4.01527339E-01     3.03136174E-01     1.81794779E-02
+    -4.79603019E-02     4.24891734E-01    -4.80115801E-01     1.14474175E-01
+     1.56764028E-01    -1.79815855E-01     6.37467277E-02    -1.93591384E-01
+     1.04995643E-01    -4.57525210E-02     5.14400651E-02     7.37745692E-02
+    -1.10574506E-01     6.92274533E-02    -2.26148284E-02    -2.54990431E-01
+     3.37644132E-01    -1.31602071E-01    -2.09760579E-04    -1.36758229E-02
+     9.07278228E-03     7.58221194E-02    -9.72887810E-02     6.97883436E-02
+    -6.10917991E-02     6.83046850E-02    -5.66338625E-02    -3.56970013E-03
+     2.57016700E-02     8.31958066E-03    -1.14885174E-02     1.66612529E-02
+    -8.41462692E-04     8.23688463E-04    -2.90725139E-03     7.29029084E-04
+    -6.71050615E-02    -2.13146197E-01    -3.50673680E-01    -2.35859467E-02
+    -5.35225723E-02    -1.46426911E-01     4.64136344E-01     1.39857105E-01
+     3.89303968E-01    -3.26195055E-01    -2.04554246E-02     4.35048008E-02
+     5.15363475E-01    -4.62118197E-01    -4.68532607E-01     1.06374874E-01
+     5.28466168E-02    -4.21626769E-01     4.01146434E-01     1.05059249E-01
+    -3.03992613E-01     1.53634098E-01    -1.40594877E-01    -8.01934045E-02
+    -3.49868403E-01    -2.03713545E-01     4.54025192E-01     4.16323863E-01
+    -1.71757943E-01     2.40474868E-01    -1.41930029E-01     1.12402200E-01
+    -9.64617248E-02    -2.82024234E-02     1.59527764E-01     4.34431390E-02
+    -1.07226805E-01    -2.54404564E-01     5.73519462E-02     1.89353600E-01
+     5.28323947E-03     5.54392453E-02    -1.32458264E-01    -3.66347642E-02
+    -2.60865121E-02     1.02016818E-02     2.79330113E-03     1.82017717E-02
+     5.33476518E-03 Ju  2.53295587E-03     1.81377328E-03    -4.20765926E-03
+     3.47472592E-03    -1.23491629E-03     1.54091482E-04     9.75575428E-06
+    -2.56451625E-06     4.86907521E-03    -1.08707607E-03     2.16755294E-03
+    -2.01454906E-03     1.20724217E-03    -4.44740631E-04     8.74646608E-05
+    -6.88226854E-06 JX -5.25443655E-02    -4.05047063E-02     8.91624905E-02
+    -1.41847230E-01     1.27915604E-01    -6.19720380E-02     1.49760628E-02
+    -1.38798757E-03 Jf -5.05287432E-05     1.40297559E-04    -9.49607236E-04
+    -3.81317126E-04     7.25138123E-04    -3.08372161E-04     2.45754293E-04
+    -2.10883653E-03     1.24407986E-04    -3.99559638E-04     8.30517334E-04
+     1.55234439E-04    -1.42134733E-03    -1.37024425E-04     2.40905656E-03
+    -4.68423465E-04     1.54345481E-04     6.88751546E-06    -3.68533591E-06
+    -2.04261483E-04     3.94912860E-04     1.10824575E-04     7.30959345E-06
+    -3.94419552E-04     1.08007451E-04    -3.87218572E-05    -5.75428440E-05
+     1.41402612E-04    -9.96532156E-05    -4.91195501E-04     2.04237343E-04
+    -7.38786567E-05    -4.28922416E-04    -1.54411212E-04    -1.12844368E-04
+     1.38882692E-04    -4.56824986E-04    -1.48849258E-04     6.52605521E-04
+    -3.14756777E-04    -4.80848256E-04     1.81498900E-04    -4.75470804E-05
+    -1.46296125E-04     3.68903954E-04    -1.22283437E-04    -8.36693726E-04
+     3.41188024E-04    -1.64991142E-06    -1.53819207E-04    -9.77225908E-06
+     1.14418106E-05
+
+ Accepted step:
+    Unreweighted variance of energy (a.u.)  :   2.210630E-01 ->   2.207306E-01
+           Unreweighted mean energy (a.u.)  :  -2.406656E+01 ->  -2.406658E+01
+
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 8m38s remaining]
+ Done. [total CPU time: 10m16s]
+
+ NL2SOL return code : 4
+ Relative function convergence.
+
+ Successful optimization: some degree of confidence in minimum.
+
+ Iterations           : 4
+ Function evaluations : 11
+ Variance reduced to  : 0.22073061E+00
+
+ Writing parameters to correlation.out.1.
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================================
+ PERFORMING VMC CONFIGURATION-GENERATION CALCULATION No. 2
+ =========================================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  1.4006E-02
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+  Jastrow factor - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio <level 1>        (%)  =  52.4925
+ Acceptance ratio <levels 1-2>     (%)  =  48.4627
+ Diffusion constant           (Bohr^2)  = 4.8970E-03
+ Correlation time              (steps)  = 2.0893E+00 +- 3.4425E-02
+ Efficiency               (au^-2 s^-1)  = 9.1227E+03
+ No. of VMC steps per MPI process       = 25000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -24.091250851224
+  Standard error                        +/-           0.001383674899
+
+  Kinetic energy KEI (used in Total) (au) =          18.906429938619
+  Standard error                        +/-           0.033083391879
+
+  Kinetic energy TI                  (au) =          18.744315721839
+  Standard error                        +/-           0.095985414821
+
+  Kinetic energy FISQ                (au) =          18.582201505058
+  Standard error                        +/-           0.186907686214
+
+  Potential energy                   (au) =         -42.997680789843
+  Standard error                        +/-           0.033092726479
+
+  e-e interaction                    (au) =          16.657076970884
+  Standard error                        +/-           0.010346159100
+
+  e-i interaction (local)            (au) =         -59.667941251001
+  Standard error                        +/-           0.032088148233
+
+  e-i interaction (non-local)        (au) =           0.013183490274
+  Standard error                        +/-           0.019986709785
+
+  Variance of local energy           (au) =           0.192181466478
+  Standard error                        +/-           0.003668428302
+
+  Maximum distance from origin       (au) =           6.831518019795
+
+  Particles within backflow range   (%) :  99.9474
+
+
+ Time taken in block    : : :       27.2998
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -24.091250851224 +/- 0.001383674899      No correction
+ -24.091250851224 +/- 0.002000030325      Correlation time method
+ -24.091250851224 +/- 0.001963903523      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 0.192181466478
+
+ =========================================================================
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================
+ PERFORMING OPTIMIZATION CALCULATION No. 2
+ =========================================
+
+ Energy minimization configuration
+ =================================
+
+ Energy minimization internal setup:
+ ---------------------------------------------------
+ Optimize                       :  energy
+ Target function                :  energy + 3*error
+ xi parameter for semiorthog.   :  1.000000
+ Weights in corr. sampling      :  yes
+ Matrix regularization          :  normalized basis
+ H matrix manipulation          :  on
+ Fix E_NL in correl. sampling   :  T
+ ---------------------------------------------------
+
+ There are 300 optimizable parameters.
+ Will optimize all of them.
+
+ Random number generator reset to state in config.in.
+
+ Number of MPI processes                               : 4
+ Number of configurations per MPI process              : 25000
+ Total number of configurations                        : 100000
+
+ Stored VMC result suggests minimum energy of -25.845295905603166 a.u.
+ This minimum will be enforced.
+
+ Optimization workspace:
+ ---------------------------------------------------
+ No. of variable parameters (P) :               300
+ No. of configurations (C)      :            100000
+ ---------------------------------------------------
+ Configuration storage          :          4.00 MiB
+ Vectors of size C              :          1.90 MiB
+ Matrices of size P^2           :          4.14 MiB
+ ---------------------------------------------------
+ Total memory req. per MPI proc.:          10.0 MiB
+ ---------------------------------------------------
+
+ Optimization start
+ ==================
+
+ Optimization monitor :
+ ----------------------
+ Start of minimization process
+ Parameters:
+ Be -3.12242151E-04     7.28928573E-02    -1.31494418E-01     8.90056049E-02
+    -3.10081550E-02     6.74232204E-03    -1.12394303E-03     1.34500207E-04
+    -7.00302251E-06     1.68504115E-01    -1.82266736E-01     1.62689055E-01
+    -1.65846436E-01     1.23344049E-01    -5.99040072E-02     1.87959138E-02
+    -3.52312207E-03     3.27726803E-04    -8.91040951E-06 Bm  2.85952062E-02
+     2.28474437E-02    -8.10828339E-01     1.85467534E+00    -2.20259470E+00
+     1.36043585E+00    -4.37241850E-01     6.76146137E-02    -3.90076526E-03
+ BP  7.11548068E-03    -7.22786782E-02     9.06993842E-01    -1.54494226E-01
+    -5.33118387E-02    -5.13162013E-01     9.85340138E-02     5.56272311E-03
+     6.22140565E-02    -1.70443928E-01     9.31941053E-02     3.88052370E-01
+     7.00790952E-01    -1.80194586E-01    -8.67625711E-02    -9.95742731E-02
+     2.03482533E-01     3.02604295E-02     1.06163895E-01    -9.20193494E-02
+     8.78716735E-02     1.20507029E-01    -7.94507973E-02    -2.39897924E-01
+    -2.84646858E-01     8.53042917E-02     1.19399531E-01     2.38507024E-02
+    -2.44198339E-02     9.87030484E-02    -2.04193984E-01     9.74842736E-03
+    -1.36308102E-01     3.01247205E-01    -6.73403092E-02    -7.31323271E-03
+     6.60631513E-02    -8.51850113E-02     5.99203525E-02    -1.93342684E-02
+    -3.68902918E-03    -3.07021097E-03     5.06267090E-03    -4.28256010E-03
+     1.26197644E-02     1.67145351E-02    -4.14175691E-02     1.13797287E-01
+     4.39647761E-01    -3.09561139E-01     1.17349180E-01    -5.32683470E-01
+     1.05514127E-01     3.01934415E-01    -1.27272599E-01    -7.26439737E-02
+    -3.06783527E-01     1.16813806E-01    -5.85498156E-01     1.73622521E-01
+     7.96493069E-01    -1.66651736E-01    -3.21188070E-01     2.15415999E-02
+    -3.87682010E-02    -3.15332858E-01     5.01997718E-01    -1.02402092E-01
+     4.26512412E-01    -1.82351207E-02    -8.39257351E-01     5.45101983E-01
+     1.41639581E-01    -3.30232114E-01    -1.96529467E-01     5.45627959E-02
+     1.83962389E-02     7.82667866E-02    -2.51075365E-01     3.95794677E-01
+    -8.68443348E-02     1.83785920E-01    -3.29755543E-01    -3.01245489E-02
+     1.00781844E-02     1.54370862E-01    -6.56518095E-02    -6.87333599E-03
+     5.51918292E-02     2.80996860E-03     4.23453464E-03    -1.03693671E-03
+    -1.72557382E-02    -9.74802134E-02     2.61687170E-01    -2.41416352E-01
+     2.61438042E-01    -2.83288926E-01     1.03505895E-01    -3.55001734E-01
+     4.01803102E-01    -1.20246379E-01     2.00746427E-01    -1.38327154E-01
+     1.63765436E-01    -4.01527339E-01     3.03136174E-01     1.81794779E-02
+    -4.79603019E-02     4.24891734E-01    -4.80115801E-01     1.14474175E-01
+     1.56764028E-01    -1.79815855E-01     6.37467277E-02    -1.93591384E-01
+     1.04995643E-01    -4.57525210E-02     5.14400651E-02     7.37745692E-02
+    -1.10574506E-01     6.92274533E-02    -2.26148284E-02    -2.54990431E-01
+     3.37644132E-01    -1.31602071E-01    -2.09760579E-04    -1.36758229E-02
+     9.07278228E-03     7.58221194E-02    -9.72887810E-02     6.97883436E-02
+    -6.10917991E-02     6.83046850E-02    -5.66338625E-02    -3.56970013E-03
+     2.57016700E-02     8.31958066E-03    -1.14885174E-02     1.66612529E-02
+    -8.41462692E-04     8.23688463E-04    -2.90725139E-03     7.29029084E-04
+    -6.71050615E-02    -2.13146197E-01    -3.50673680E-01    -2.35859467E-02
+    -5.35225723E-02    -1.46426911E-01     4.64136344E-01     1.39857105E-01
+     3.89303968E-01    -3.26195055E-01    -2.04554246E-02     4.35048008E-02
+     5.15363475E-01    -4.62118197E-01    -4.68532607E-01     1.06374874E-01
+     5.28466168E-02    -4.21626769E-01     4.01146434E-01     1.05059249E-01
+    -3.03992613E-01     1.53634098E-01    -1.40594877E-01    -8.01934045E-02
+    -3.49868403E-01    -2.03713545E-01     4.54025192E-01     4.16323863E-01
+    -1.71757943E-01     2.40474868E-01    -1.41930029E-01     1.12402200E-01
+    -9.64617248E-02    -2.82024234E-02     1.59527764E-01     4.34431390E-02
+    -1.07226805E-01    -2.54404564E-01     5.73519462E-02     1.89353600E-01
+     5.28323947E-03     5.54392453E-02    -1.32458264E-01    -3.66347642E-02
+    -2.60865121E-02     1.02016818E-02     2.79330113E-03     1.82017717E-02
+     5.33476518E-03 Ju  5.0000000E+00*     2.53295587E-03     1.81377328E-03
+    -4.20765926E-03     3.47472592E-03    -1.23491629E-03     1.54091482E-04
+     9.75575428E-06    -2.56451625E-06     4.86907521E-03    -1.08707607E-03
+     2.16755294E-03    -2.01454906E-03     1.20724217E-03    -4.44740631E-04
+     8.74646608E-05    -6.88226854E-06 JX  4.0000000E+00*    -5.25443655E-02
+    -4.05047063E-02     8.91624905E-02    -1.41847230E-01     1.27915604E-01
+    -6.19720380E-02     1.49760628E-02    -1.38798757E-03 Jf  4.0000000E+00*
+    -5.05287432E-05     1.40297559E-04    -9.49607236E-04    -3.81317126E-04
+     7.25138123E-04    -3.08372161E-04     2.45754293E-04    -2.10883653E-03
+     1.24407986E-04    -3.99559638E-04     8.30517334E-04     1.55234439E-04
+    -1.42134733E-03    -1.37024425E-04     2.40905656E-03    -4.68423465E-04
+     1.54345481E-04     6.88751546E-06    -3.68533591E-06    -2.04261483E-04
+     3.94912860E-04     1.10824575E-04     7.30959345E-06    -3.94419552E-04
+     1.08007451E-04    -3.87218572E-05    -5.75428440E-05     1.41402612E-04
+    -9.96532156E-05    -4.91195501E-04     2.04237343E-04    -7.38786567E-05
+    -4.28922416E-04    -1.54411212E-04    -1.12844368E-04     1.38882692E-04
+    -4.56824986E-04    -1.48849258E-04     6.52605521E-04    -3.14756777E-04
+    -4.80848256E-04     1.81498900E-04    -4.75470804E-05    -1.46296125E-04
+     3.68903954E-04    -1.22283437E-04    -8.36693726E-04     3.41188024E-04
+    -1.64991142E-06    -1.53819207E-04    -9.77225908E-06     1.14418106E-05
+    [*] : shallow parameters
+
+                      Energy (a.u.) : -24.091243533207905
+                       Error (a.u.) : 1.3867001579977196E-003
+                    Variance (a.u.) : 0.19229373281909007
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 9m21s remaining]
+ Done. [total CPU time: 10m22s]
+
+ Performing matrix algebra.
+  Found 3 singularities inverting S (stage 1).
+  Found 3 singularities inverting S (stage 2).
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 21s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 1
+ Parameters:
+ Be  1.43489843E-04     7.29280732E-02    -1.31508348E-01     8.89987232E-02
+    -3.10099717E-02     6.74196951E-03    -1.12399639E-03     1.34493137E-04
+    -7.00458140E-06     1.71259415E-01    -1.82463337E-01     1.62517986E-01
+    -1.65869892E-01     1.23346182E-01    -5.99024956E-02     1.87961331E-02
+    -3.52318621E-03     3.27673079E-04    -8.93244814E-06 Bm  2.69509001E-02
+     2.26124733E-02    -8.10985502E-01     1.85457984E+00    -2.20263864E+00
+     1.36041954E+00    -4.37247036E-01     6.76131392E-02    -3.90115264E-03
+ BP  7.41321021E-03    -7.26318525E-02     9.06839443E-01    -1.54175097E-01
+    -5.31836455E-02    -5.13119264E-01     9.86153657E-02     5.67615522E-03
+     6.22439354E-02    -1.70338827E-01     9.41804664E-02     3.88312928E-01
+     7.00884896E-01    -1.80185406E-01    -8.63686719E-02    -9.93814594E-02
+     2.03654402E-01     3.02344861E-02     1.06052161E-01    -9.20153959E-02
+     8.78926051E-02     1.20505259E-01    -7.94809595E-02    -2.39883701E-01
+    -2.84630268E-01     8.53077143E-02     1.19387865E-01     2.38541552E-02
+    -2.44220525E-02     9.87181748E-02    -2.04187498E-01     9.79758170E-03
+    -1.36324521E-01     3.01260690E-01    -6.73388937E-02    -7.31297818E-03
+     6.60914111E-02    -8.51895069E-02     5.99242247E-02    -1.93341911E-02
+    -3.69259233E-03    -3.07035149E-03     5.06135060E-03    -5.62480423E-03
+     1.18413455E-02     1.62811381E-02    -4.16381597E-02     1.12146333E-01
+     4.39272665E-01    -3.09705261E-01     1.17241747E-01    -5.33708478E-01
+     1.05368357E-01     3.01903828E-01    -1.27307486E-01    -7.35059844E-02
+    -3.07220555E-01     1.16025121E-01    -5.85179399E-01     1.73704491E-01
+     7.96698398E-01    -1.66569235E-01    -3.20576839E-01     2.12031252E-02
+    -3.85796730E-02    -3.15390997E-01     5.01884211E-01    -1.02455122E-01
+     4.26516420E-01    -1.82434757E-02    -8.39254104E-01     5.45136594E-01
+     1.41647225E-01    -3.30238541E-01    -1.96540069E-01     5.45722403E-02
+     1.83921563E-02     7.82568948E-02    -2.51014412E-01     3.95786361E-01
+    -8.67511271E-02     1.83777467E-01    -3.29729315E-01    -3.01274815E-02
+     1.00766053E-02     1.54391049E-01    -6.56382670E-02    -6.87213502E-03
+     5.51885374E-02     2.81330210E-03     4.23622822E-03    -1.04023924E-03
+    -1.72600247E-02    -9.69964780E-02     2.61324933E-01    -2.41702626E-01
+     2.61576121E-01    -2.82920811E-01     1.03539637E-01    -3.55044475E-01
+     4.01917844E-01    -1.20295799E-01     1.97794828E-01    -1.36845514E-01
+     1.64143740E-01    -4.01575426E-01     3.02998241E-01     1.81279749E-02
+    -4.85128874E-02     4.24877909E-01    -4.80016550E-01     1.14489826E-01
+     1.56738294E-01    -1.79801822E-01     6.37339372E-02    -1.94320277E-01
+     1.05166052E-01    -4.50443713E-02     5.12209917E-02     7.37296511E-02
+    -1.10590915E-01     6.92222413E-02    -2.27044168E-02    -2.54998982E-01
+     3.37668363E-01    -1.31596385E-01    -2.18561611E-04    -1.36756534E-02
+     9.07084298E-03     7.59961776E-02    -9.72170480E-02     6.99856024E-02
+    -6.11474675E-02     6.82970845E-02    -5.66332954E-02    -3.56953137E-03
+     2.56517760E-02     8.31619903E-03    -1.14840518E-02     1.66627595E-02
+    -8.45283197E-04     8.23007077E-04    -2.90733347E-03     3.94760919E-05
+    -6.69655065E-02    -2.12886069E-01    -3.50590505E-01    -2.41296419E-02
+    -5.33269082E-02    -1.46182700E-01     4.64280236E-01     1.39162435E-01
+     3.89172654E-01    -3.26233995E-01    -2.04798436E-02     4.37053708E-02
+     5.15658122E-01    -4.62263412E-01    -4.68659136E-01     1.06451768E-01
+     5.23673933E-02    -4.21674419E-01     3.98832444E-01     1.03922742E-01
+    -3.03853454E-01     1.53732967E-01    -1.40502674E-01    -8.01151353E-02
+    -3.49854386E-01    -2.03707779E-01     4.53980022E-01     4.16339958E-01
+    -1.71756797E-01     2.40469579E-01    -1.42083248E-01     1.12336673E-01
+    -9.65004626E-02    -2.82233271E-02     1.59704275E-01     4.35428273E-02
+    -1.06958169E-01    -2.54356755E-01     5.73732071E-02     1.89358639E-01
+     5.28423601E-03     5.54072928E-02    -1.32471555E-01    -3.66453896E-02
+    -2.60928623E-02     1.01374980E-02     2.76128053E-03     1.81844102E-02
+     5.32656437E-03 Ju  5.00201792E+00     2.53622740E-03     1.80826968E-03
+    -4.20843484E-03     3.47463325E-03    -1.23493758E-03     1.54078581E-04
+     9.74793616E-06    -2.56843384E-06     4.87653464E-03    -1.14611534E-03
+     2.16338729E-03    -2.01395956E-03     1.20764435E-03    -4.44607341E-04
+     8.74997869E-05    -6.87409089E-06 JX  4.00036195E+00    -5.25632613E-02
+    -4.04829965E-02     8.91779597E-02    -1.41840819E-01     1.27917480E-01
+    -6.19716669E-02     1.49760859E-02    -1.38800733E-03 Jf  3.99959204E+00
+    -5.04228991E-05     1.40071982E-04    -9.49832320E-04    -3.81470971E-04
+     7.25081690E-04    -3.08412850E-04     2.45215926E-04    -2.10898619E-03
+     1.29026072E-04    -3.99291825E-04     8.30481376E-04     1.55083510E-04
+    -1.42134579E-03    -1.37029142E-04     2.40902776E-03    -4.68426414E-04
+     1.54351154E-04     7.81791701E-06    -3.70366947E-06    -2.04243147E-04
+     3.94920900E-04     1.10819933E-04     7.30898420E-06    -3.94426843E-04
+     1.08007827E-04    -3.87181089E-05    -5.74900561E-05     1.41478478E-04
+    -9.96913657E-05    -4.91530508E-04     2.04091677E-04    -7.40825238E-05
+    -4.28868880E-04    -1.54633222E-04    -1.00628671E-04     1.39518775E-04
+    -4.56840161E-04    -1.48866447E-04     6.52568705E-04    -3.14765585E-04
+    -4.80953047E-04     1.81473316E-04    -4.75729499E-05    -1.45076503E-04
+     3.68886975E-04    -1.22462535E-04    -8.36740890E-04     3.41177469E-04
+    -1.65328072E-06    -1.53850086E-04    -9.77842944E-06     1.14362285E-05
+
+                      Energy (a.u.) : -24.099138820062681
+                       Error (a.u.) : 2.1108104850777296E-003
+                    Variance (a.u.) : 0.44555209039140803
+
+ Writing parameters to correlation.out.2.
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 11m41s remaining]
+ Done. [total CPU time: 10m1s]
+
+ Performing matrix algebra.
+  Found 3 singularities inverting S (stage 1).
+  Found 3 singularities inverting S (stage 2).
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 15s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 2
+ Parameters:
+ Be  4.66511951E-04     7.29678073E-02    -1.31508497E-01     8.89971729E-02
+    -3.10103955E-02     6.74192281E-03    -1.12398275E-03     1.34503901E-04
+    -7.00012125E-06     1.71653061E-01    -1.82527980E-01     1.62479526E-01
+    -1.65876548E-01     1.23345776E-01    -5.99024545E-02     1.87961122E-02
+    -3.52321246E-03     3.27659858E-04    -8.93731633E-06 Bm  2.68579379E-02
+     2.27739691E-02    -8.10917516E-01     1.85460285E+00    -2.20263163E+00
+     1.36042161E+00    -4.37246402E-01     6.76133416E-02    -3.90108570E-03
+ BP  7.60143496E-03    -7.26482546E-02     9.06826671E-01    -1.54027067E-01
+    -5.31943535E-02    -5.13131347E-01     9.86581522E-02     5.66849247E-03
+     6.22376302E-02    -1.70238577E-01     9.60341376E-02     3.88393011E-01
+     7.00905380E-01    -1.80177417E-01    -8.63837371E-02    -9.95473003E-02
+     2.03717720E-01     3.02262156E-02     1.06041272E-01    -9.20062946E-02
+     8.78875726E-02     1.20503945E-01    -7.94859528E-02    -2.39881593E-01
+    -2.84630399E-01     8.53073625E-02     1.19385448E-01     2.38535434E-02
+    -2.44225829E-02     9.86930770E-02    -2.04185151E-01     9.79317160E-03
+    -1.36327254E-01     3.01260893E-01    -6.73395014E-02    -7.31323955E-03
+     6.60905348E-02    -8.51906918E-02     5.99243428E-02    -1.93342711E-02
+    -3.69332583E-03    -3.07050421E-03     5.06118131E-03    -5.70210385E-03
+     1.20354443E-02     1.64270269E-02    -4.15857808E-02     1.11851201E-01
+     4.39241926E-01    -3.09702020E-01     1.17242819E-01    -5.33903773E-01
+     1.05342954E-01     3.01899815E-01    -1.27310995E-01    -7.33183254E-02
+    -3.07032120E-01     1.16022504E-01    -5.85267960E-01     1.73723910E-01
+     7.96551905E-01    -1.66555615E-01    -3.20588216E-01     2.09223502E-02
+    -3.87087864E-02    -3.15373846E-01     5.01914377E-01    -1.02429500E-01
+     4.26513365E-01    -1.82424797E-02    -8.39262374E-01     5.45142011E-01
+     1.41649560E-01    -3.30238723E-01    -1.96546378E-01     5.45734289E-02
+     1.83920896E-02     7.82558781E-02    -2.51061169E-01     3.95793322E-01
+    -8.67571233E-02     1.83788576E-01    -3.29727631E-01    -3.01263982E-02
+     1.00767106E-02     1.54392387E-01    -6.56357957E-02    -6.87144733E-03
+     5.51883242E-02     2.81301031E-03     4.23675568E-03    -1.04039115E-03
+    -1.72604504E-02    -9.69303055E-02     2.61341301E-01    -2.41716571E-01
+     2.61546901E-01    -2.82833636E-01     1.03557564E-01    -3.55093933E-01
+     4.01964399E-01    -1.20286593E-01     1.97364245E-01    -1.36567503E-01
+     1.64195023E-01    -4.01590247E-01     3.02997936E-01     1.81266606E-02
+    -4.84350104E-02     4.24845314E-01    -4.79997962E-01     1.14492272E-01
+     1.56720188E-01    -1.79795536E-01     6.37339096E-02    -1.94381909E-01
+     1.05164545E-01    -4.49346892E-02     5.12384573E-02     7.37165335E-02
+    -1.10589597E-01     6.92224349E-02    -2.26546032E-02    -2.55009728E-01
+     3.37670789E-01    -1.31596696E-01    -2.23595373E-04    -1.36758786E-02
+     9.07026364E-03     7.60459888E-02    -9.72200316E-02     7.00106511E-02
+    -6.11394292E-02     6.82939317E-02    -5.66328919E-02    -3.56950620E-03
+     2.56607778E-02     8.31323678E-03    -1.14843355E-02     1.66623986E-02
+    -8.46711634E-04     8.22504215E-04    -2.90758263E-03    -9.03153780E-05
+    -6.68654716E-02    -2.12784554E-01    -3.50552152E-01    -2.43031733E-02
+    -5.33047984E-02    -1.46138248E-01     4.64311564E-01     1.39060897E-01
+     3.89176451E-01    -3.26218962E-01    -2.04678827E-02     4.37881231E-02
+     5.15757309E-01    -4.62302853E-01    -4.68721161E-01     1.06451863E-01
+     5.22647433E-02    -4.21684731E-01     3.98618863E-01     1.03773255E-01
+    -3.03769179E-01     1.53767476E-01    -1.40455902E-01    -8.00844880E-02
+    -3.49840573E-01    -2.03703992E-01     4.53993462E-01     4.16353610E-01
+    -1.71750426E-01     2.40471961E-01    -1.42084794E-01     1.12337774E-01
+    -9.65002269E-02    -2.82232987E-02     1.59752762E-01     4.35705762E-02
+    -1.06904592E-01    -2.54336794E-01     5.73839566E-02     1.89361778E-01
+     5.28518081E-03     5.54120020E-02    -1.32469181E-01    -3.66447945E-02
+    -2.60927970E-02     1.01358142E-02     2.76027370E-03     1.81837674E-02
+     5.32627258E-03 Ju  5.00250547E+00     2.53809973E-03     1.80397287E-03
+    -4.20944925E-03     3.47440720E-03    -1.23498856E-03     1.54066953E-04
+     9.74514914E-06    -2.56917305E-06     4.87796551E-03    -1.15611870E-03
+     2.16261645E-03    -2.01389346E-03     1.20769901E-03    -4.44589362E-04
+     8.75043498E-05    -6.87307999E-06 JX  4.00042877E+00    -5.25629008E-02
+    -4.04884494E-02     8.91771275E-02    -1.41840975E-01     1.27917411E-01
+    -6.19716993E-02     1.49760761E-02    -1.38800809E-03 Jf  3.99954880E+00
+    -5.04218779E-05     1.40085523E-04    -9.49839047E-04    -3.81370455E-04
+     7.25105811E-04    -3.08388216E-04     2.45168626E-04    -2.10900707E-03
+     1.30103808E-04    -3.99189538E-04     8.30497180E-04     1.55087438E-04
+    -1.42133453E-03    -1.37026889E-04     2.40903356E-03    -4.68424751E-04
+     1.54353423E-04     8.06858935E-06    -3.69483445E-06    -2.04222378E-04
+     3.94933219E-04     1.10821357E-04     7.30960837E-06    -3.94425875E-04
+     1.08008239E-04    -3.87174183E-05    -5.74927565E-05     1.41527239E-04
+    -9.96777063E-05    -4.91474888E-04     2.04099131E-04    -7.40813953E-05
+    -4.28822391E-04    -1.54632429E-04    -9.88289575E-05     1.39628326E-04
+    -4.56831298E-04    -1.48853680E-04     6.52566855E-04    -3.14765577E-04
+    -4.80956023E-04     1.81472834E-04    -4.75732811E-05    -1.44896373E-04
+     3.68889914E-04    -1.22478348E-04    -8.36746202E-04     3.41177205E-04
+    -1.65335010E-06    -1.53850533E-04    -9.77831689E-06     1.14364201E-05
+
+                      Energy (a.u.) : -24.099894690343728
+                       Error (a.u.) : 1.7925358049251342E-003
+                    Variance (a.u.) : 0.32131846119385987
+
+ Writing parameters to correlation.out.2.
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 8m53s remaining]
+ Done. [total CPU time: 11m32s]
+
+ Performing matrix algebra.
+  Found 3 singularities inverting S (stage 1).
+  Found 3 singularities inverting S (stage 2).
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 20s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 3
+ Parameters:
+ Be  8.72227649E-04     7.30280781E-02    -1.31504255E-01     8.89966992E-02
+    -3.10104759E-02     6.74200178E-03    -1.12392316E-03     1.34530557E-04
+    -6.99051515E-06     1.72185827E-01    -1.82522123E-01     1.62460528E-01
+    -1.65879318E-01     1.23346003E-01    -5.99023184E-02     1.87961096E-02
+    -3.52323304E-03     3.27648686E-04    -8.94150589E-06 Bm  2.67837117E-02
+     2.30487892E-02    -8.10799435E-01     1.85464476E+00    -2.20261816E+00
+     1.36042578E+00    -4.37245109E-01     6.76137518E-02    -3.90095261E-03
+ BP  7.82919827E-03    -7.26448499E-02     9.06816574E-01    -1.53833543E-01
+    -5.32092624E-02    -5.13151837E-01     9.87265037E-02     5.65727655E-03
+     6.22279735E-02    -1.70098106E-01     9.89539196E-02     3.88511037E-01
+     7.00945957E-01    -1.80151301E-01    -8.63450492E-02    -9.98365956E-02
+     2.03794669E-01     3.02151098E-02     1.06033756E-01    -9.19905525E-02
+     8.78762559E-02     1.20501445E-01    -7.94911005E-02    -2.39871834E-01
+    -2.84631409E-01     8.53064618E-02     1.19384397E-01     2.38525381E-02
+    -2.44232247E-02     9.86509694E-02    -2.04181375E-01     9.78104648E-03
+    -1.36330216E-01     3.01262773E-01    -6.73408822E-02    -7.31387789E-03
+     6.60872376E-02    -8.51911673E-02     5.99242193E-02    -1.93344659E-02
+    -3.69375443E-03    -3.07074234E-03     5.06100597E-03    -5.79232239E-03
+     1.23636702E-02     1.66746303E-02    -4.14935166E-02     1.11440578E-01
+     4.39214177E-01    -3.09685615E-01     1.17250804E-01    -5.34153151E-01
+     1.05324888E-01     3.01905164E-01    -1.27309582E-01    -7.29907350E-02
+    -3.06708359E-01     1.16081197E-01    -5.85418977E-01     1.73759037E-01
+     7.96318874E-01    -1.66526910E-01    -3.20543344E-01     2.04815076E-02
+    -3.89364990E-02    -3.15345657E-01     5.01967603E-01    -1.02386086E-01
+     4.26506732E-01    -1.82409641E-02    -8.39272130E-01     5.45151378E-01
+     1.41654161E-01    -3.30238158E-01    -1.96552347E-01     5.45772817E-02
+     1.83937235E-02     7.82556285E-02    -2.51142295E-01     3.95803241E-01
+    -8.67773636E-02     1.83807022E-01    -3.29726648E-01    -3.01248509E-02
+     1.00767737E-02     1.54394794E-01    -6.56317992E-02    -6.87002097E-03
+     5.51883404E-02     2.81344631E-03     4.23822981E-03    -1.03999558E-03
+    -1.72606369E-02    -9.68291079E-02     2.61388057E-01    -2.41717891E-01
+     2.61556299E-01    -2.82750434E-01     1.03571614E-01    -3.55126495E-01
+     4.02012987E-01    -1.20275919E-01     1.96819613E-01    -1.36326149E-01
+     1.64276152E-01    -4.01581228E-01     3.03004998E-01     1.81269904E-02
+    -4.83472042E-02     4.24823414E-01    -4.79983723E-01     1.14491880E-01
+     1.56704161E-01    -1.79790717E-01     6.37331582E-02    -1.94484257E-01
+     1.05181146E-01    -4.48428128E-02     5.12704127E-02     7.37094556E-02
+    -1.10587859E-01     6.92225226E-02    -2.25984477E-02    -2.55019722E-01
+     3.37670954E-01    -1.31598260E-01    -2.28789876E-04    -1.36770662E-02
+     9.06920942E-03     7.60917668E-02    -9.72205323E-02     7.00283499E-02
+    -6.11278351E-02     6.82911334E-02    -5.66328164E-02    -3.56965018E-03
+     2.56706285E-02     8.30993471E-03    -1.14854657E-02     1.66616193E-02
+    -8.48297161E-04     8.21639704E-04    -2.90799983E-03    -2.66233615E-04
+    -6.67106075E-02    -2.12635870E-01    -3.50495861E-01    -2.45919420E-02
+    -5.32990426E-02    -1.46090808E-01     4.64347697E-01     1.38916529E-01
+     3.89183927E-01    -3.26194821E-01    -2.04487334E-02     4.38991787E-02
+     5.15899824E-01    -4.62386945E-01    -4.68815299E-01     1.06449186E-01
+     5.21227959E-02    -4.21695878E-01     3.98460978E-01     1.03553820E-01
+    -3.03691585E-01     1.53812277E-01    -1.40396759E-01    -8.00438184E-02
+    -3.49823866E-01    -2.03699013E-01     4.54005388E-01     4.16369851E-01
+    -1.71741979E-01     2.40475489E-01    -1.42082535E-01     1.12342420E-01
+    -9.64976238E-02    -2.82219547E-02     1.59791015E-01     4.36033541E-02
+    -1.06851951E-01    -2.54312785E-01     5.73959464E-02     1.89365818E-01
+     5.28639368E-03     5.54177844E-02    -1.32465663E-01    -3.66434669E-02
+    -2.60923633E-02     1.01360914E-02     2.76057589E-03     1.81839059E-02
+     5.32637829E-03 Ju  5.00315853E+00     2.54093463E-03     1.79705522E-03
+    -4.21107321E-03     3.47404834E-03    -1.23506737E-03     1.54050052E-04
+     9.74154957E-06    -2.56997543E-06     4.87984847E-03    -1.16711049E-03
+     2.16158664E-03    -2.01389757E-03     1.20773406E-03    -4.44576714E-04
+     8.75075594E-05    -6.87238073E-06 JX  4.00051349E+00    -5.25600073E-02
+    -4.05011995E-02     8.91739474E-02    -1.41841977E-01     1.27917057E-01
+    -6.19718091E-02     1.49760535E-02    -1.38800713E-03 Jf  3.99951389E+00
+    -5.04329561E-05     1.40144475E-04    -9.49822900E-04    -3.81174566E-04
+     7.25152450E-04    -3.08346054E-04     2.45155290E-04    -2.10903332E-03
+     1.31451891E-04    -3.99039958E-04     8.30528693E-04     1.55110795E-04
+    -1.42131597E-03    -1.37022389E-04     2.40904481E-03    -4.68422004E-04
+     1.54356184E-04     8.40021432E-06    -3.67752076E-06    -2.04188909E-04
+     3.94952728E-04     1.10824295E-04     7.31080517E-06    -3.94423901E-04
+     1.08008821E-04    -3.87167302E-05    -5.75044276E-05     1.41609747E-04
+    -9.96485055E-05    -4.91334986E-04     2.04127818E-04    -7.40595126E-05
+    -4.28743344E-04    -1.54611617E-04    -9.69938880E-05     1.39764825E-04
+    -4.56810185E-04    -1.48825511E-04     6.52570627E-04    -3.14763930E-04
+    -4.80948514E-04     1.81474887E-04    -4.75712079E-05    -1.44675048E-04
+     3.68899588E-04    -1.22478806E-04    -8.36746086E-04     3.41178433E-04
+    -1.65290791E-06    -1.53847719E-04    -9.77746049E-06     1.14372735E-05
+
+                      Energy (a.u.) : -24.101121825275055
+                       Error (a.u.) : 1.7648825106614200E-003
+                    Variance (a.u.) : 0.31148102764385571
+
+ Writing parameters to correlation.out.2.
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 8m49s remaining]
+ Done. [total CPU time: 10m11s]
+
+ Performing matrix algebra.
+  Found 2 singularities inverting S (stage 1).
+  Found 2 singularities inverting S (stage 2).
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 26s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 4
+ Parameters:
+ Be  1.68358830E-03     7.31756529E-02    -1.31484032E-01     8.89994478E-02
+    -3.10096169E-02     6.74243435E-03    -1.12372692E-03     1.34606817E-04
+    -6.96421211E-06     1.72927502E-01    -1.82415869E-01     1.62466766E-01
+    -1.65877351E-01     1.23347207E-01    -5.99018656E-02     1.87962353E-02
+    -3.52320552E-03     3.27653034E-04    -8.94136744E-06 Bm  2.71068176E-02
+     2.38356364E-02    -8.10449567E-01     1.85477771E+00    -2.20257275E+00
+     1.36044024E+00    -4.37240677E-01     6.76150963E-02    -3.90054157E-03
+ BP  8.26265557E-03    -7.25390419E-02     9.06832557E-01    -1.53454511E-01
+    -5.32857289E-02    -5.13221953E-01     9.88910572E-02     5.59884804E-03
+     6.21918834E-02    -1.69786532E-01     1.05904318E-01     3.88759977E-01
+     7.01025843E-01    -1.80063531E-01    -8.62430795E-02    -1.00590109E-01
+     2.03928919E-01     3.01930219E-02     1.06044402E-01    -9.19491912E-02
+     8.78394539E-02     1.20494991E-01    -7.94972123E-02    -2.39838105E-01
+    -2.84639862E-01     8.53021387E-02     1.19388345E-01     2.38483687E-02
+    -2.44248465E-02     9.85385967E-02    -2.04172792E-01     9.73364250E-03
+    -1.36334014E-01     3.01268754E-01    -6.73452457E-02    -7.31581055E-03
+     6.60680611E-02    -8.51893696E-02     5.99223389E-02    -1.93353240E-02
+    -3.69301709E-03    -3.07155922E-03     5.06074410E-03    -5.64750376E-03
+     1.33880331E-02     1.74063924E-02    -4.12078087E-02     1.10869981E-01
+     4.39242865E-01    -3.09607586E-01     1.17296171E-01    -5.34474652E-01
+     1.05329887E-01     3.01933354E-01    -1.27294215E-01    -7.19405072E-02
+    -3.05791622E-01     1.16440276E-01    -5.85875659E-01     1.73827264E-01
+     7.95694932E-01    -1.66471302E-01    -3.20488146E-01     1.94915276E-02
+    -3.95469211E-02    -3.15261228E-01     5.02132104E-01    -1.02265213E-01
+     4.26487512E-01    -1.82355189E-02    -8.39295495E-01     5.45165101E-01
+     1.41662802E-01    -3.30235875E-01    -1.96562060E-01     5.45849844E-02
+     1.83989458E-02     7.82574328E-02    -2.51359687E-01     3.95828844E-01
+    -8.68574712E-02     1.83854540E-01    -3.29732306E-01    -3.01206876E-02
+     1.00770929E-02     1.54395508E-01    -6.56258329E-02    -6.86719349E-03
+     5.51889217E-02     2.81409130E-03     4.24145789E-03    -1.03822917E-03
+    -1.72600838E-02    -9.66771619E-02     2.61561791E-01    -2.41654554E-01
+     2.61589057E-01    -2.82657594E-01     1.03593919E-01    -3.55168942E-01
+     4.02094416E-01    -1.20240416E-01     1.96110925E-01    -1.36199804E-01
+     1.64399857E-01    -4.01533436E-01     3.03052845E-01     1.81402743E-02
+    -4.80904914E-02     4.24791794E-01    -4.79973814E-01     1.14488409E-01
+     1.56677674E-01    -1.79782502E-01     6.37347873E-02    -1.94663357E-01
+     1.05199943E-01    -4.47999125E-02     5.13801834E-02     7.37099509E-02
+    -1.10579346E-01     6.92243314E-02    -2.24574199E-02    -2.55037613E-01
+     3.37666747E-01    -1.31602600E-01    -2.37880826E-04    -1.36795096E-02
+     9.06736262E-03     7.61439791E-02    -9.72311563E-02     7.00263573E-02
+    -6.10887777E-02     6.82877872E-02    -5.66323650E-02    -3.56987649E-03
+     2.57053195E-02     8.30376882E-03    -1.14887145E-02     1.66596262E-02
+    -8.50871400E-04     8.19878593E-04    -2.90893559E-03    -4.52085990E-04
+    -6.62962240E-02    -2.12293350E-01    -3.50362829E-01    -2.51463374E-02
+    -5.33109875E-02    -1.46013578E-01     4.64413014E-01     1.38724413E-01
+     3.89241704E-01    -3.26117204E-01    -2.03909139E-02     4.41943341E-02
+     5.16222482E-01    -4.62541080E-01    -4.69039034E-01     1.06429288E-01
+     5.18500369E-02    -4.21710346E-01     3.98591333E-01     1.03163409E-01
+    -3.03612741E-01     1.53903466E-01    -1.40270609E-01    -7.99569474E-02
+    -3.49786632E-01    -2.03687620E-01     4.54037761E-01     4.16407060E-01
+    -1.71719492E-01     2.40486428E-01    -1.42045022E-01     1.12369954E-01
+    -9.64811615E-02    -2.82133290E-02     1.59813656E-01     4.36615821E-02
+    -1.06786624E-01    -2.54263973E-01     5.74205840E-02     1.89375111E-01
+     5.28929649E-03     5.54386100E-02    -1.32452706E-01    -3.66368555E-02
+    -2.60894704E-02     1.01513956E-02     2.76938059E-03     1.81886636E-02
+     5.32866853E-03 Ju  5.00439025E+00     2.54718276E-03     1.78159506E-03
+    -4.21487145E-03     3.47317400E-03    -1.23526481E-03     1.54007929E-04
+     9.73330559E-06    -2.57139504E-06     4.88337033E-03    -1.18199636E-03
+     2.15954658E-03    -2.01415610E-03     1.20770526E-03    -4.44579456E-04
+     8.75072979E-05    -6.87239153E-06 JX  4.00065176E+00    -5.25481687E-02
+    -4.05393028E-02     8.91622216E-02    -1.41845994E-01     1.27915730E-01
+    -6.19721724E-02     1.49759904E-02    -1.38800019E-03 Jf  3.99951501E+00
+    -5.04885750E-05     1.40358681E-04    -9.49723674E-04    -3.80629049E-04
+     7.25286181E-04    -3.08229654E-04     2.45271586E-04    -2.10905104E-03
+     1.33593060E-04    -3.98730896E-04     8.30618989E-04     1.55210497E-04
+    -1.42126871E-03    -1.37009537E-04     2.40908331E-03    -4.68413621E-04
+     1.54362314E-04     8.99508226E-06    -3.62802313E-06    -2.04104200E-04
+     3.95001291E-04     1.10833278E-04     7.31416381E-06    -3.94415916E-04
+     1.08010473E-04    -3.87157050E-05    -5.75456524E-05     1.41803282E-04
+    -9.95661597E-05    -4.90904897E-04     2.04232203E-04    -7.39609424E-05
+    -4.28555222E-04    -1.54512804E-04    -9.49681020E-05     1.40001060E-04
+    -4.56745092E-04    -1.48742338E-04     6.52593613E-04    -3.14756864E-04
+    -4.80903657E-04     1.81485940E-04    -4.75603659E-05    -1.44295968E-04
+     3.68933314E-04    -1.22425953E-04    -8.36728421E-04     3.41184606E-04
+    -1.65085112E-06    -1.53833729E-04    -9.77402848E-06     1.14405306E-05
+
+                      Energy (a.u.) : -24.103982046166514
+                       Error (a.u.) : 2.3481877734127764E-003
+                    Variance (a.u.) : 0.55139858192052515
+
+ Writing parameters to correlation.out.2.
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 14m20s remaining]
+ Done. [total CPU time: 13m8s]
+
+ Performing matrix algebra.
+  Found 2 singularities inverting S (stage 1).
+  Found 2 singularities inverting S (stage 2).
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Failed.
+ Done. [total CPU time: 22s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 5
+ Parameters:
+ Be  1.68358830E-03     7.31756529E-02    -1.31484032E-01     8.89994478E-02
+    -3.10096169E-02     6.74243435E-03    -1.12372692E-03     1.34606817E-04
+    -6.96421211E-06     1.72927502E-01    -1.82415869E-01     1.62466766E-01
+    -1.65877351E-01     1.23347207E-01    -5.99018656E-02     1.87962353E-02
+    -3.52320552E-03     3.27653034E-04    -8.94136744E-06 Bm  2.71068176E-02
+     2.38356364E-02    -8.10449567E-01     1.85477771E+00    -2.20257275E+00
+     1.36044024E+00    -4.37240677E-01     6.76150963E-02    -3.90054157E-03
+ BP  8.26265557E-03    -7.25390419E-02     9.06832557E-01    -1.53454511E-01
+    -5.32857289E-02    -5.13221953E-01     9.88910572E-02     5.59884804E-03
+     6.21918834E-02    -1.69786532E-01     1.05904318E-01     3.88759977E-01
+     7.01025843E-01    -1.80063531E-01    -8.62430795E-02    -1.00590109E-01
+     2.03928919E-01     3.01930219E-02     1.06044402E-01    -9.19491912E-02
+     8.78394539E-02     1.20494991E-01    -7.94972123E-02    -2.39838105E-01
+    -2.84639862E-01     8.53021387E-02     1.19388345E-01     2.38483687E-02
+    -2.44248465E-02     9.85385967E-02    -2.04172792E-01     9.73364250E-03
+    -1.36334014E-01     3.01268754E-01    -6.73452457E-02    -7.31581055E-03
+     6.60680611E-02    -8.51893696E-02     5.99223389E-02    -1.93353240E-02
+    -3.69301709E-03    -3.07155922E-03     5.06074410E-03    -5.64750376E-03
+     1.33880331E-02     1.74063924E-02    -4.12078087E-02     1.10869981E-01
+     4.39242865E-01    -3.09607586E-01     1.17296171E-01    -5.34474652E-01
+     1.05329887E-01     3.01933354E-01    -1.27294215E-01    -7.19405072E-02
+    -3.05791622E-01     1.16440276E-01    -5.85875659E-01     1.73827264E-01
+     7.95694932E-01    -1.66471302E-01    -3.20488146E-01     1.94915276E-02
+    -3.95469211E-02    -3.15261228E-01     5.02132104E-01    -1.02265213E-01
+     4.26487512E-01    -1.82355189E-02    -8.39295495E-01     5.45165101E-01
+     1.41662802E-01    -3.30235875E-01    -1.96562060E-01     5.45849844E-02
+     1.83989458E-02     7.82574328E-02    -2.51359687E-01     3.95828844E-01
+    -8.68574712E-02     1.83854540E-01    -3.29732306E-01    -3.01206876E-02
+     1.00770929E-02     1.54395508E-01    -6.56258329E-02    -6.86719349E-03
+     5.51889217E-02     2.81409130E-03     4.24145789E-03    -1.03822917E-03
+    -1.72600838E-02    -9.66771619E-02     2.61561791E-01    -2.41654554E-01
+     2.61589057E-01    -2.82657594E-01     1.03593919E-01    -3.55168942E-01
+     4.02094416E-01    -1.20240416E-01     1.96110925E-01    -1.36199804E-01
+     1.64399857E-01    -4.01533436E-01     3.03052845E-01     1.81402743E-02
+    -4.80904914E-02     4.24791794E-01    -4.79973814E-01     1.14488409E-01
+     1.56677674E-01    -1.79782502E-01     6.37347873E-02    -1.94663357E-01
+     1.05199943E-01    -4.47999125E-02     5.13801834E-02     7.37099509E-02
+    -1.10579346E-01     6.92243314E-02    -2.24574199E-02    -2.55037613E-01
+     3.37666747E-01    -1.31602600E-01    -2.37880826E-04    -1.36795096E-02
+     9.06736262E-03     7.61439791E-02    -9.72311563E-02     7.00263573E-02
+    -6.10887777E-02     6.82877872E-02    -5.66323650E-02    -3.56987649E-03
+     2.57053195E-02     8.30376882E-03    -1.14887145E-02     1.66596262E-02
+    -8.50871400E-04     8.19878593E-04    -2.90893559E-03    -4.52085990E-04
+    -6.62962240E-02    -2.12293350E-01    -3.50362829E-01    -2.51463374E-02
+    -5.33109875E-02    -1.46013578E-01     4.64413014E-01     1.38724413E-01
+     3.89241704E-01    -3.26117204E-01    -2.03909139E-02     4.41943341E-02
+     5.16222482E-01    -4.62541080E-01    -4.69039034E-01     1.06429288E-01
+     5.18500369E-02    -4.21710346E-01     3.98591333E-01     1.03163409E-01
+    -3.03612741E-01     1.53903466E-01    -1.40270609E-01    -7.99569474E-02
+    -3.49786632E-01    -2.03687620E-01     4.54037761E-01     4.16407060E-01
+    -1.71719492E-01     2.40486428E-01    -1.42045022E-01     1.12369954E-01
+    -9.64811615E-02    -2.82133290E-02     1.59813656E-01     4.36615821E-02
+    -1.06786624E-01    -2.54263973E-01     5.74205840E-02     1.89375111E-01
+     5.28929649E-03     5.54386100E-02    -1.32452706E-01    -3.66368555E-02
+    -2.60894704E-02     1.01513956E-02     2.76938059E-03     1.81886636E-02
+     5.32866853E-03 Ju  5.00439025E+00     2.54718276E-03     1.78159506E-03
+    -4.21487145E-03     3.47317400E-03    -1.23526481E-03     1.54007929E-04
+     9.73330559E-06    -2.57139504E-06     4.88337033E-03    -1.18199636E-03
+     2.15954658E-03    -2.01415610E-03     1.20770526E-03    -4.44579456E-04
+     8.75072979E-05    -6.87239153E-06 JX  4.00065176E+00    -5.25481687E-02
+    -4.05393028E-02     8.91622216E-02    -1.41845994E-01     1.27915730E-01
+    -6.19721724E-02     1.49759904E-02    -1.38800019E-03 Jf  3.99951501E+00
+    -5.04885750E-05     1.40358681E-04    -9.49723674E-04    -3.80629049E-04
+     7.25286181E-04    -3.08229654E-04     2.45271586E-04    -2.10905104E-03
+     1.33593060E-04    -3.98730896E-04     8.30618989E-04     1.55210497E-04
+    -1.42126871E-03    -1.37009537E-04     2.40908331E-03    -4.68413621E-04
+     1.54362314E-04     8.99508226E-06    -3.62802313E-06    -2.04104200E-04
+     3.95001291E-04     1.10833278E-04     7.31416381E-06    -3.94415916E-04
+     1.08010473E-04    -3.87157050E-05    -5.75456524E-05     1.41803282E-04
+    -9.95661597E-05    -4.90904897E-04     2.04232203E-04    -7.39609424E-05
+    -4.28555222E-04    -1.54512804E-04    -9.49681020E-05     1.40001060E-04
+    -4.56745092E-04    -1.48742338E-04     6.52593613E-04    -3.14756864E-04
+    -4.80903657E-04     1.81485940E-04    -4.75603659E-05    -1.44295968E-04
+     3.68933314E-04    -1.22425953E-04    -8.36728421E-04     3.41184606E-04
+    -1.65085112E-06    -1.53833729E-04    -9.77402848E-06     1.14405306E-05
+
+                      Energy (a.u.) : -24.103982046166514
+                       Error (a.u.) : 2.3481877734127764E-003
+                    Variance (a.u.) : 0.55139858192052515
+
+ Writing parameters to correlation.out.2.
+
+ Criterion for convergence satisfied.
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================================
+ PERFORMING VMC CONFIGURATION-GENERATION CALCULATION No. 3
+ =========================================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  1.3292E-02
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+  Jastrow factor - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio <level 1>        (%)  =  53.4676
+ Acceptance ratio <levels 1-2>     (%)  =  48.8913
+ Diffusion constant           (Bohr^2)  = 4.6658E-03
+ Correlation time              (steps)  = 1.4872E+00 +- 2.0592E-02
+ Efficiency               (au^-2 s^-1)  = 8.8535E+03
+ No. of VMC steps per MPI process       = 25000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -24.097073742682
+  Standard error                        +/-           0.001763703471
+
+  Kinetic energy KEI (used in Total) (au) =          18.574759369591
+  Standard error                        +/-           0.032593460067
+
+  Kinetic energy TI                  (au) =          18.500911847320
+  Standard error                        +/-           0.094584238249
+
+  Kinetic energy FISQ                (au) =          18.427064325050
+  Standard error                        +/-           0.183372210999
+
+  Potential energy                   (au) =         -42.671833112273
+  Standard error                        +/-           0.032769202794
+
+  e-e interaction                    (au) =          16.531616182974
+  Standard error                        +/-           0.010523381570
+
+  e-i interaction (local)            (au) =         -59.448670563938
+  Standard error                        +/-           0.032324035584
+
+  e-i interaction (non-local)        (au) =           0.245221268691
+  Standard error                        +/-           0.020100779084
+
+  Variance of local energy           (au) =           0.307240984908
+  Standard error                        +/-           0.009743549648
+
+  Maximum distance from origin       (au) =           6.952988938061
+
+  Particles within backflow range   (%) :  99.9356
+
+
+ Time taken in block    : : :       24.7197
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -24.097073742682 +/- 0.001763703471      No correction
+ -24.097073742682 +/- 0.002150837028      Correlation time method
+ -24.097073742682 +/- 0.002207022030      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 0.307240984908
+
+ =========================================================================
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================
+ PERFORMING OPTIMIZATION CALCULATION No. 3
+ =========================================
+
+ Energy minimization configuration
+ =================================
+
+ Energy minimization internal setup:
+ ---------------------------------------------------
+ Optimize                       :  energy
+ Target function                :  energy + 3*error
+ xi parameter for semiorthog.   :  1.000000
+ Weights in corr. sampling      :  yes
+ Matrix regularization          :  normalized basis
+ H matrix manipulation          :  on
+ Fix E_NL in correl. sampling   :  T
+ ---------------------------------------------------
+
+ There are 300 optimizable parameters.
+ Will optimize all of them.
+
+ Random number generator reset to state in config.in.
+
+ Number of MPI processes                               : 4
+ Number of configurations per MPI process              : 25000
+ Total number of configurations                        : 100000
+
+ Stored VMC result suggests minimum energy of -26.314208384979697 a.u.
+ This minimum will be enforced.
+
+ Optimization workspace:
+ ---------------------------------------------------
+ No. of variable parameters (P) :               300
+ No. of configurations (C)      :            100000
+ ---------------------------------------------------
+ Configuration storage          :          4.00 MiB
+ Vectors of size C              :          1.90 MiB
+ Matrices of size P^2           :          4.14 MiB
+ ---------------------------------------------------
+ Total memory req. per MPI proc.:          10.0 MiB
+ ---------------------------------------------------
+
+ Optimization start
+ ==================
+
+ Optimization monitor :
+ ----------------------
+ Start of minimization process
+ Parameters:
+ Be  1.68358830E-03     7.31756529E-02    -1.31484032E-01     8.89994478E-02
+    -3.10096169E-02     6.74243435E-03    -1.12372692E-03     1.34606817E-04
+    -6.96421211E-06     1.72927502E-01    -1.82415869E-01     1.62466766E-01
+    -1.65877351E-01     1.23347207E-01    -5.99018656E-02     1.87962353E-02
+    -3.52320552E-03     3.27653034E-04    -8.94136744E-06 Bm  2.71068176E-02
+     2.38356364E-02    -8.10449567E-01     1.85477771E+00    -2.20257275E+00
+     1.36044024E+00    -4.37240677E-01     6.76150963E-02    -3.90054157E-03
+ BP  8.26265557E-03    -7.25390419E-02     9.06832557E-01    -1.53454511E-01
+    -5.32857289E-02    -5.13221953E-01     9.88910572E-02     5.59884804E-03
+     6.21918834E-02    -1.69786532E-01     1.05904318E-01     3.88759977E-01
+     7.01025843E-01    -1.80063531E-01    -8.62430795E-02    -1.00590109E-01
+     2.03928919E-01     3.01930219E-02     1.06044402E-01    -9.19491912E-02
+     8.78394539E-02     1.20494991E-01    -7.94972123E-02    -2.39838105E-01
+    -2.84639862E-01     8.53021387E-02     1.19388345E-01     2.38483687E-02
+    -2.44248465E-02     9.85385967E-02    -2.04172792E-01     9.73364250E-03
+    -1.36334014E-01     3.01268754E-01    -6.73452457E-02    -7.31581055E-03
+     6.60680611E-02    -8.51893696E-02     5.99223389E-02    -1.93353240E-02
+    -3.69301709E-03    -3.07155922E-03     5.06074410E-03    -5.64750376E-03
+     1.33880331E-02     1.74063924E-02    -4.12078087E-02     1.10869981E-01
+     4.39242865E-01    -3.09607586E-01     1.17296171E-01    -5.34474652E-01
+     1.05329887E-01     3.01933354E-01    -1.27294215E-01    -7.19405072E-02
+    -3.05791622E-01     1.16440276E-01    -5.85875659E-01     1.73827264E-01
+     7.95694932E-01    -1.66471302E-01    -3.20488146E-01     1.94915276E-02
+    -3.95469211E-02    -3.15261228E-01     5.02132104E-01    -1.02265213E-01
+     4.26487512E-01    -1.82355189E-02    -8.39295495E-01     5.45165101E-01
+     1.41662802E-01    -3.30235875E-01    -1.96562060E-01     5.45849844E-02
+     1.83989458E-02     7.82574328E-02    -2.51359687E-01     3.95828844E-01
+    -8.68574712E-02     1.83854540E-01    -3.29732306E-01    -3.01206876E-02
+     1.00770929E-02     1.54395508E-01    -6.56258329E-02    -6.86719349E-03
+     5.51889217E-02     2.81409130E-03     4.24145789E-03    -1.03822917E-03
+    -1.72600838E-02    -9.66771619E-02     2.61561791E-01    -2.41654554E-01
+     2.61589057E-01    -2.82657594E-01     1.03593919E-01    -3.55168942E-01
+     4.02094416E-01    -1.20240416E-01     1.96110925E-01    -1.36199804E-01
+     1.64399857E-01    -4.01533436E-01     3.03052845E-01     1.81402743E-02
+    -4.80904914E-02     4.24791794E-01    -4.79973814E-01     1.14488409E-01
+     1.56677674E-01    -1.79782502E-01     6.37347873E-02    -1.94663357E-01
+     1.05199943E-01    -4.47999125E-02     5.13801834E-02     7.37099509E-02
+    -1.10579346E-01     6.92243314E-02    -2.24574199E-02    -2.55037613E-01
+     3.37666747E-01    -1.31602600E-01    -2.37880826E-04    -1.36795096E-02
+     9.06736262E-03     7.61439791E-02    -9.72311563E-02     7.00263573E-02
+    -6.10887777E-02     6.82877872E-02    -5.66323650E-02    -3.56987649E-03
+     2.57053195E-02     8.30376882E-03    -1.14887145E-02     1.66596262E-02
+    -8.50871400E-04     8.19878593E-04    -2.90893559E-03    -4.52085990E-04
+    -6.62962240E-02    -2.12293350E-01    -3.50362829E-01    -2.51463374E-02
+    -5.33109875E-02    -1.46013578E-01     4.64413014E-01     1.38724413E-01
+     3.89241704E-01    -3.26117204E-01    -2.03909139E-02     4.41943341E-02
+     5.16222482E-01    -4.62541080E-01    -4.69039034E-01     1.06429288E-01
+     5.18500369E-02    -4.21710346E-01     3.98591333E-01     1.03163409E-01
+    -3.03612741E-01     1.53903466E-01    -1.40270609E-01    -7.99569474E-02
+    -3.49786632E-01    -2.03687620E-01     4.54037761E-01     4.16407060E-01
+    -1.71719492E-01     2.40486428E-01    -1.42045022E-01     1.12369954E-01
+    -9.64811615E-02    -2.82133290E-02     1.59813656E-01     4.36615821E-02
+    -1.06786624E-01    -2.54263973E-01     5.74205840E-02     1.89375111E-01
+     5.28929649E-03     5.54386100E-02    -1.32452706E-01    -3.66368555E-02
+    -2.60894704E-02     1.01513956E-02     2.76938059E-03     1.81886636E-02
+     5.32866853E-03 Ju  5.0043902E+00*     2.54718276E-03     1.78159506E-03
+    -4.21487145E-03     3.47317400E-03    -1.23526481E-03     1.54007929E-04
+     9.73330559E-06    -2.57139504E-06     4.88337033E-03    -1.18199636E-03
+     2.15954658E-03    -2.01415610E-03     1.20770526E-03    -4.44579456E-04
+     8.75072979E-05    -6.87239153E-06 JX  4.0006518E+00*    -5.25481687E-02
+    -4.05393028E-02     8.91622216E-02    -1.41845994E-01     1.27915730E-01
+    -6.19721724E-02     1.49759904E-02    -1.38800019E-03 Jf  3.9995150E+00*
+    -5.04885750E-05     1.40358681E-04    -9.49723674E-04    -3.80629049E-04
+     7.25286181E-04    -3.08229654E-04     2.45271586E-04    -2.10905104E-03
+     1.33593060E-04    -3.98730896E-04     8.30618989E-04     1.55210497E-04
+    -1.42126871E-03    -1.37009537E-04     2.40908331E-03    -4.68413621E-04
+     1.54362314E-04     8.99508226E-06    -3.62802313E-06    -2.04104200E-04
+     3.95001291E-04     1.10833278E-04     7.31416381E-06    -3.94415916E-04
+     1.08010473E-04    -3.87157050E-05    -5.75456524E-05     1.41803282E-04
+    -9.95661597E-05    -4.90904897E-04     2.04232203E-04    -7.39609424E-05
+    -4.28555222E-04    -1.54512804E-04    -9.49681020E-05     1.40001060E-04
+    -4.56745092E-04    -1.48742338E-04     6.52593613E-04    -3.14756864E-04
+    -4.80903657E-04     1.81485940E-04    -4.75603659E-05    -1.44295968E-04
+     3.68933314E-04    -1.22425953E-04    -8.36728421E-04     3.41184606E-04
+    -1.65085112E-06    -1.53833729E-04    -9.77402848E-06     1.14405306E-05
+    [*] : shallow parameters
+
+                      Energy (a.u.) : -24.097056493581004
+                       Error (a.u.) : 1.7528124738425382E-003
+                    Variance (a.u.) : 0.30723515684579983
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 8m55s remaining]
+ Done. [total CPU time: 10m25s]
+
+ Performing matrix algebra.
+  Found 2 singularities inverting S (stage 1).
+  Found 2 singularities inverting S (stage 2).
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 16s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 1
+ Parameters:
+ Be  1.56041085E-03     7.31339230E-02    -1.31494980E-01     8.89966882E-02
+    -3.10103372E-02     6.74223737E-03    -1.12378255E-03     1.34590915E-04
+    -6.96874072E-06     1.72775356E-01    -1.82486432E-01     1.62452557E-01
+    -1.65879338E-01     1.23346817E-01    -5.99020395E-02     1.87961510E-02
+    -3.52323980E-03     3.27641147E-04    -8.94502854E-06 Bm  2.70203523E-02
+     2.38463805E-02    -8.10447700E-01     1.85477652E+00    -2.20257357E+00
+     1.36044000E+00    -4.37240682E-01     6.76151354E-02    -3.90051269E-03
+ BP  8.20005091E-03    -7.25093692E-02     9.06843234E-01    -1.53557956E-01
+    -5.32450931E-02    -5.13199200E-01     9.88168493E-02     5.61999764E-03
+     6.22045530E-02    -1.69849614E-01     1.05342296E-01     3.88630438E-01
+     7.01043471E-01    -1.80117679E-01    -8.62819209E-02    -1.00543037E-01
+     2.03880153E-01     3.02011536E-02     1.06059910E-01    -9.19647825E-02
+     8.78427131E-02     1.20495586E-01    -7.94904975E-02    -2.39870369E-01
+    -2.84636803E-01     8.53033246E-02     1.19382413E-01     2.38494025E-02
+    -2.44244029E-02     9.85500168E-02    -2.04178877E-01     9.74054315E-03
+    -1.36330436E-01     3.01255021E-01    -6.73446362E-02    -7.31571961E-03
+     6.60721810E-02    -8.51924766E-02     5.99229545E-02    -1.93351333E-02
+    -3.69441542E-03    -3.07140868E-03     5.06079013E-03    -5.70247989E-03
+     1.33810094E-02     1.74099810E-02    -4.12086277E-02     1.10780316E-01
+     4.39247762E-01    -3.09592116E-01     1.17302858E-01    -5.34540598E-01
+     1.05333041E-01     3.01943504E-01    -1.27289374E-01    -7.19705491E-02
+    -3.05789699E-01     1.16386390E-01    -5.85873391E-01     1.73835720E-01
+     7.95676046E-01    -1.66465705E-01    -3.20462957E-01     1.95252555E-02
+    -3.95037682E-02    -3.15256890E-01     5.02138744E-01    -1.02260273E-01
+     4.26490114E-01    -1.82354303E-02    -8.39292472E-01     5.45170938E-01
+     1.41665416E-01    -3.30235316E-01    -1.96563652E-01     5.45867999E-02
+     1.83998378E-02     7.82575380E-02    -2.51343420E-01     3.95833410E-01
+    -8.68499821E-02     1.83858011E-01    -3.29729152E-01    -3.01203918E-02
+     1.00770559E-02     1.54397130E-01    -6.56242235E-02    -6.86665613E-03
+     5.51889496E-02     2.81377653E-03     4.24181976E-03    -1.03813262E-03
+    -1.72601390E-02    -9.67178604E-02     2.61576630E-01    -2.41652933E-01
+     2.61546951E-01    -2.82639634E-01     1.03597998E-01    -3.55189888E-01
+     4.02100734E-01    -1.20239652E-01     1.96254573E-01    -1.36120372E-01
+     1.64364068E-01    -4.01549622E-01     3.03055232E-01     1.81403306E-02
+    -4.80630496E-02     4.24777380E-01    -4.79972583E-01     1.14487324E-01
+     1.56672686E-01    -1.79783688E-01     6.37335568E-02    -1.94624121E-01
+     1.05181323E-01    -4.47796309E-02     5.13899190E-02     7.37049530E-02
+    -1.10579257E-01     6.92241130E-02    -2.24507808E-02    -2.55040904E-01
+     3.37665668E-01    -1.31603495E-01    -2.39098051E-04    -1.36805713E-02
+     9.06676142E-03     7.61567195E-02    -9.72354654E-02     7.00282956E-02
+    -6.10870101E-02     6.82867279E-02    -5.66326111E-02    -3.57002481E-03
+     2.57044961E-02     8.30290695E-03    -1.14893622E-02     1.66592778E-02
+    -8.51220541E-04     8.19470696E-04    -2.90911991E-03    -5.16303011E-04
+    -6.63098453E-02    -2.12288934E-01    -3.50362584E-01    -2.52061370E-02
+    -5.33176634E-02    -1.46010764E-01     4.64414129E-01     1.38691454E-01
+     3.89237670E-01    -3.26116368E-01    -2.03903568E-02     4.41692190E-02
+     5.16220982E-01    -4.62582555E-01    -4.69041097E-01     1.06430264E-01
+     5.18398660E-02    -4.21711065E-01     3.98583775E-01     1.03165521E-01
+    -3.03571899E-01     1.53906758E-01    -1.40268203E-01    -7.99553415E-02
+    -3.49786318E-01    -2.03687628E-01     4.54036013E-01     4.16406652E-01
+    -1.71720314E-01     2.40485739E-01    -1.42048055E-01     1.12368448E-01
+    -9.64821178E-02    -2.82138457E-02     1.59828252E-01     4.36649306E-02
+    -1.06779844E-01    -2.54263109E-01     5.74207115E-02     1.89375042E-01
+     5.28922613E-03     5.54374251E-02    -1.32453612E-01    -3.66375139E-02
+    -2.60898194E-02     1.01500181E-02     2.76854470E-03     1.81882088E-02
+     5.32846583E-03 Ju  5.00440437E+00     2.54696615E-03     1.78196315E-03
+    -4.21467529E-03     3.47323880E-03    -1.23524660E-03     1.54012248E-04
+     9.73409698E-06    -2.57132908E-06     4.88345695E-03    -1.18293811E-03
+     2.15958165E-03    -2.01411860E-03     1.20771545E-03    -4.44577937E-04
+     8.75072263E-05    -6.87253601E-06 JX  4.00065543E+00    -5.25481488E-02
+    -4.05391722E-02     8.91622912E-02    -1.41846130E-01     1.27915614E-01
+    -6.19722260E-02     1.49759729E-02    -1.38800409E-03 Jf  3.99950672E+00
+    -5.04899345E-05     1.40361691E-04    -9.49720871E-04    -3.80642145E-04
+     7.25280696E-04    -3.08238871E-04     2.45276449E-04    -2.10906576E-03
+     1.33483014E-04    -3.98746615E-04     8.30614754E-04     1.55206358E-04
+    -1.42127189E-03    -1.37009815E-04     2.40907827E-03    -4.68414610E-04
+     1.54361487E-04     8.95840819E-06    -3.63087807E-06    -2.04112806E-04
+     3.94996916E-04     1.10832799E-04     7.31410529E-06    -3.94417293E-04
+     1.08010259E-04    -3.87158214E-05    -5.75460030E-05     1.41805012E-04
+    -9.95651005E-05    -4.90908650E-04     2.04230965E-04    -7.39627187E-05
+    -4.28552595E-04    -1.54519851E-04    -9.48242279E-05     1.40000328E-04
+    -4.56746821E-04    -1.48743153E-04     6.52593647E-04    -3.14756663E-04
+    -4.80903500E-04     1.81486351E-04    -4.75597185E-05    -1.44312628E-04
+     3.68931807E-04    -1.22431367E-04    -8.36728830E-04     3.41184728E-04
+    -1.65071515E-06    -1.53833073E-04    -9.77376063E-06     1.14408428E-05
+
+                      Energy (a.u.) : -24.097619292990480
+                       Error (a.u.) : 1.7083601955871757E-003
+                    Variance (a.u.) : 0.29184945578666532
+
+ Writing parameters to correlation.out.3.
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 9m remaining]
+ Done. [total CPU time: 11m38s]
+
+ Performing matrix algebra.
+  Found 2 singularities inverting S (stage 1).
+  Found 2 singularities inverting S (stage 2).
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 18s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 2
+ Parameters:
+ Be  1.52812843E-03     7.31234764E-02    -1.31497639E-01     8.89960298E-02
+    -3.10105094E-02     6.74218931E-03    -1.12379653E-03     1.34586795E-04
+    -6.96994677E-06     1.72736268E-01    -1.82504712E-01     1.62448919E-01
+    -1.65879858E-01     1.23346694E-01    -5.99020995E-02     1.87961222E-02
+    -3.52325127E-03     3.27637227E-04    -8.94622157E-06 Bm  2.70057597E-02
+     2.38511383E-02    -8.10447059E-01     1.85477612E+00    -2.20257384E+00
+     1.36043992E+00    -4.37240684E-01     6.76151471E-02    -3.90050406E-03
+ BP  8.18381959E-03    -7.24995600E-02     9.06846500E-01    -1.53584652E-01
+    -5.32313498E-02    -5.13191936E-01     9.87974952E-02     5.62703485E-03
+     6.22084447E-02    -1.69865827E-01     1.05172426E-01     3.88596363E-01
+     7.01049151E-01    -1.80131897E-01    -8.62900232E-02    -1.00524141E-01
+     2.03868068E-01     3.02038366E-02     1.06065451E-01    -9.19686815E-02
+     8.78438127E-02     1.20495790E-01    -7.94882403E-02    -2.39878781E-01
+    -2.84635816E-01     8.53036949E-02     1.19380876E-01     2.38497393E-02
+    -2.44242705E-02     9.85544387E-02    -2.04180256E-01     9.74292178E-03
+    -1.36329236E-01     3.01251464E-01    -6.73444319E-02    -7.31568418E-03
+     6.60737284E-02    -8.51932660E-02     5.99231515E-02    -1.93350739E-02
+    -3.69477866E-03    -3.07135913E-03     5.06080330E-03    -5.71221929E-03
+     1.33825234E-02     1.74114913E-02    -4.12090345E-02     1.10765439E-01
+     4.39254019E-01    -3.09585740E-01     1.17305493E-01    -5.34553356E-01
+     1.05336132E-01     3.01947134E-01    -1.27287771E-01    -7.19751825E-02
+    -3.05788797E-01     1.16376080E-01    -5.85871878E-01     1.73838515E-01
+     7.95672401E-01    -1.66463674E-01    -3.20457311E-01     1.95418302E-02
+    -3.94877212E-02    -3.15255409E-01     5.02141844E-01    -1.02258649E-01
+     4.26491001E-01    -1.82353857E-02    -8.39290498E-01     5.45172968E-01
+     1.41666279E-01    -3.30235119E-01    -1.96563610E-01     5.45874513E-02
+     1.84001197E-02     7.82575706E-02    -2.51336963E-01     3.95835008E-01
+    -8.68471845E-02     1.83859315E-01    -3.29728091E-01    -3.01202855E-02
+     1.00770535E-02     1.54397868E-01    -6.56236854E-02    -6.86648102E-03
+     5.51889640E-02     2.81380374E-03     4.24194843E-03    -1.03810264E-03
+    -1.72601560E-02    -9.67280595E-02     2.61581930E-01    -2.41652351E-01
+     2.61536182E-01    -2.82632961E-01     1.03599726E-01    -3.55195547E-01
+     4.02103122E-01    -1.20239246E-01     1.96291404E-01    -1.36092593E-01
+     1.64355184E-01    -4.01553541E-01     3.03056104E-01     1.81403906E-02
+    -4.80505101E-02     4.24773559E-01    -4.79971905E-01     1.14487124E-01
+     1.56671305E-01    -1.79783923E-01     6.37332332E-02    -1.94608296E-01
+     1.05176941E-01    -4.47726198E-02     5.13936018E-02     7.37036602E-02
+    -1.10579181E-01     6.92240641E-02    -2.24477794E-02    -2.55041798E-01
+     3.37665417E-01    -1.31603733E-01    -2.39449842E-04    -1.36808599E-02
+     9.06659286E-03     7.61612946E-02    -9.72364741E-02     7.00290896E-02
+    -6.10863120E-02     6.82864494E-02    -5.66326694E-02    -3.57006352E-03
+     2.57044815E-02     8.30266199E-03    -1.14895390E-02     1.66591808E-02
+    -8.51325223E-04     8.19355868E-04    -2.90917226E-03    -5.30030219E-04
+    -6.63108003E-02    -2.12287101E-01    -3.50362562E-01    -2.52153257E-02
+    -5.33160571E-02    -1.46008593E-01     4.64414928E-01     1.38686314E-01
+     3.89238015E-01    -3.26115659E-01    -2.03900680E-02     4.41653922E-02
+     5.16221076E-01    -4.62590617E-01    -4.69041191E-01     1.06430869E-01
+     5.18379890E-02    -4.21710921E-01     3.98580470E-01     1.03172850E-01
+    -3.03556837E-01     1.53907865E-01    -1.40266526E-01    -7.99547322E-02
+    -3.49786178E-01    -2.03687623E-01     4.54036396E-01     4.16406801E-01
+    -1.71720472E-01     2.40485567E-01    -1.42048558E-01     1.12368105E-01
+    -9.64823760E-02    -2.82139919E-02     1.59834070E-01     4.36660931E-02
+    -1.06777433E-01    -2.54262639E-01     5.74208341E-02     1.89375031E-01
+     5.28920928E-03     5.54372864E-02    -1.32453822E-01    -3.66376902E-02
+    -2.60899154E-02     1.01497042E-02     2.76831981E-03     1.81880795E-02
+     5.32840736E-03 Ju  5.00440513E+00     2.54688449E-03     1.78210496E-03
+    -4.21460795E-03     3.47326048E-03    -1.23524052E-03     1.54013723E-04
+     9.73438555E-06    -2.57129513E-06     4.88347170E-03    -1.18318282E-03
+     2.15959874E-03    -2.01410614E-03     1.20771876E-03    -4.44577418E-04
+     8.75072234E-05    -6.87257372E-06 JX  4.00065542E+00    -5.25481863E-02
+    -4.05389269E-02     8.91623395E-02    -1.41846172E-01     1.27915578E-01
+    -6.19722428E-02     1.49759675E-02    -1.38800529E-03 Jf  3.99950433E+00
+    -5.04901872E-05     1.40361457E-04    -9.49720097E-04    -3.80649483E-04
+     7.25278399E-04    -3.08242045E-04     2.45277347E-04    -2.10907123E-03
+     1.33444535E-04    -3.98752571E-04     8.30613158E-04     1.55204936E-04
+    -1.42127294E-03    -1.37009923E-04     2.40907658E-03    -4.68414937E-04
+     1.54361230E-04     8.94497352E-06    -3.63190198E-06    -2.04115854E-04
+     3.94995524E-04     1.10832633E-04     7.31407903E-06    -3.94417742E-04
+     1.08010190E-04    -3.87158571E-05    -5.75459589E-05     1.41804526E-04
+    -9.95649107E-05    -4.90912273E-04     2.04230135E-04    -7.39635326E-05
+    -4.28552557E-04    -1.54522903E-04    -9.47859723E-05     1.39999032E-04
+    -4.56747589E-04    -1.48743564E-04     6.52593631E-04    -3.14756612E-04
+    -4.80903606E-04     1.81486448E-04    -4.75595373E-05    -1.44319684E-04
+     3.68931237E-04    -1.22433300E-04    -8.36728933E-04     3.41184753E-04
+    -1.65067790E-06    -1.53832909E-04    -9.77368598E-06     1.14409337E-05
+
+                      Energy (a.u.) : -24.097693525028134
+                       Error (a.u.) : 1.7103676616771223E-003
+                    Variance (a.u.) : 0.29253575381108671
+
+ Writing parameters to correlation.out.3.
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 10m58s remaining]
+ Done. [total CPU time: 11m59s]
+
+ Performing matrix algebra.
+  Found 2 singularities inverting S (stage 1).
+  Found 2 singularities inverting S (stage 2).
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 18s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 3
+ Parameters:
+ Be  1.49862990E-03     7.31143028E-02    -1.31499913E-01     8.89954759E-02
+    -3.10106546E-02     6.74214805E-03    -1.12380882E-03     1.34583083E-04
+    -6.97105628E-06     1.72701371E-01    -1.82521238E-01     1.62445642E-01
+    -1.65880344E-01     1.23346561E-01    -5.99021668E-02     1.87960904E-02
+    -3.52326373E-03     3.27633024E-04    -8.94748873E-06 Bm  2.69982363E-02
+     2.38557087E-02    -8.10446894E-01     1.85477550E+00    -2.20257417E+00
+     1.36043983E+00    -4.37240685E-01     6.76151601E-02    -3.90049476E-03
+ BP  8.16914326E-03    -7.24894041E-02     9.06849647E-01    -1.53608705E-01
+    -5.32168182E-02    -5.13184556E-01     9.87799170E-02     5.63436808E-03
+     6.22122847E-02    -1.69880437E-01     1.04996466E-01     3.88565229E-01
+     7.01055027E-01    -1.80144880E-01    -8.62958139E-02    -1.00501828E-01
+     2.03857586E-01     3.02066175E-02     1.06071458E-01    -9.19721193E-02
+     8.78449596E-02     1.20496001E-01    -7.94858946E-02    -2.39886402E-01
+    -2.84634812E-01     8.53040600E-02     1.19379489E-01     2.38500781E-02
+    -2.44241470E-02     9.85595112E-02    -2.04181367E-01     9.74546835E-03
+    -1.36327991E-01     3.01248264E-01    -6.73442206E-02    -7.31564529E-03
+     6.60754321E-02    -8.51939694E-02     5.99233486E-02    -1.93350167E-02
+    -3.69510756E-03    -3.07131063E-03     5.06081408E-03    -5.71718158E-03
+     1.33857060E-02     1.74125576E-02    -4.12098503E-02     1.10758363E-01
+     4.39262713E-01    -3.09578786E-01     1.17308230E-01    -5.34561795E-01
+     1.05340083E-01     3.01950779E-01    -1.27286266E-01    -7.19775613E-02
+    -3.05788481E-01     1.16369110E-01    -5.85869447E-01     1.73841355E-01
+     7.95670595E-01    -1.66461537E-01    -3.20453279E-01     1.95630262E-02
+    -3.94696344E-02    -3.15253969E-01     5.02145430E-01    -1.02257108E-01
+     4.26491911E-01    -1.82353437E-02    -8.39287940E-01     5.45175068E-01
+     1.41667130E-01    -3.30234928E-01    -1.96563290E-01     5.45881080E-02
+     1.84003747E-02     7.82575874E-02    -2.51329466E-01     3.95836666E-01
+    -8.68441006E-02     1.83860703E-01    -3.29726996E-01    -3.01201809E-02
+     1.00770541E-02     1.54398725E-01    -6.56231459E-02    -6.86631408E-03
+     5.51889758E-02     2.81388993E-03     4.24207220E-03    -1.03808142E-03
+    -1.72601772E-02    -9.67369717E-02     2.61587542E-01    -2.41651861E-01
+     2.61526546E-01    -2.82625771E-01     1.03601544E-01    -3.55200840E-01
+     4.02105605E-01    -1.20238880E-01     1.96324152E-01    -1.36062368E-01
+     1.64347491E-01    -4.01556928E-01     3.03056951E-01     1.81404326E-02
+    -4.80355065E-02     4.24770018E-01    -4.79971170E-01     1.14486921E-01
+     1.56669983E-01    -1.79784165E-01     6.37328910E-02    -1.94589656E-01
+     1.05173307E-01    -4.47651804E-02     5.13976451E-02     7.37024547E-02
+    -1.10579114E-01     6.92240130E-02    -2.24443403E-02    -2.55042651E-01
+     3.37665164E-01    -1.31603974E-01    -2.39799088E-04    -1.36811548E-02
+     9.06641935E-03     7.61663232E-02    -9.72373293E-02     7.00299375E-02
+    -6.10855773E-02     6.82861802E-02    -5.66327294E-02    -3.57010195E-03
+     2.57045272E-02     8.30241828E-03    -1.14897185E-02     1.66590826E-02
+    -8.51432094E-04     8.19239359E-04    -2.90922553E-03    -5.39804278E-04
+    -6.63101287E-02    -2.12285398E-01    -3.50362769E-01    -2.52189196E-02
+    -5.33127483E-02    -1.46006089E-01     4.64415728E-01     1.38683951E-01
+     3.89238856E-01    -3.26115011E-01    -2.03898944E-02     4.41636712E-02
+     5.16221040E-01    -4.62596239E-01    -4.69040736E-01     1.06431558E-01
+     5.18371680E-02    -4.21710663E-01     3.98576293E-01     1.03184778E-01
+    -3.03540031E-01     1.53908920E-01    -1.40264429E-01    -7.99541814E-02
+    -3.49786058E-01    -2.03687626E-01     4.54037226E-01     4.16406992E-01
+    -1.71720645E-01     2.40485386E-01    -1.42048876E-01     1.12367757E-01
+    -9.64826569E-02    -2.82141504E-02     1.59840793E-01     4.36672715E-02
+    -1.06774897E-01    -2.54262116E-01     5.74209615E-02     1.89375014E-01
+     5.28919217E-03     5.54372294E-02    -1.32454035E-01    -3.66378740E-02
+    -2.60900137E-02     1.01494271E-02     2.76808975E-03     1.81879439E-02
+     5.32834615E-03 Ju  5.00440451E+00     2.54679540E-03     1.78226100E-03
+    -4.21453716E-03     3.47328306E-03    -1.23523415E-03     1.54015290E-04
+     9.73470323E-06    -2.57125244E-06     4.88348228E-03    -1.18341119E-03
+     2.15961841E-03    -2.01409333E-03     1.20772212E-03    -4.44576890E-04
+     8.75072242E-05    -6.87260971E-06 JX  4.00065443E+00    -5.25482300E-02
+    -4.05385810E-02     8.91623807E-02    -1.41846226E-01     1.27915536E-01
+    -6.19722611E-02     1.49759618E-02    -1.38800648E-03 Jf  3.99950218E+00
+    -5.04904546E-05     1.40360667E-04    -9.49719115E-04    -3.80658620E-04
+     7.25275853E-04    -3.08245250E-04     2.45278216E-04    -2.10907734E-03
+     1.33401097E-04    -3.98759375E-04     8.30611434E-04     1.55203582E-04
+    -1.42127400E-03    -1.37010031E-04     2.40907483E-03    -4.68415263E-04
+     1.54360989E-04     8.92964522E-06    -3.63299005E-06    -2.04119179E-04
+     3.94994117E-04     1.10832463E-04     7.31405060E-06    -3.94418194E-04
+     1.08010122E-04    -3.87158872E-05    -5.75458905E-05     1.41803463E-04
+    -9.95646468E-05    -4.90917108E-04     2.04229184E-04    -7.39642891E-05
+    -4.28552881E-04    -1.54526504E-04    -9.47510276E-05     1.39997025E-04
+    -4.56748447E-04    -1.48743951E-04     6.52593649E-04    -3.14756555E-04
+    -4.80903724E-04     1.81486553E-04    -4.75593374E-05    -1.44328283E-04
+     3.68930628E-04    -1.22435379E-04    -8.36728978E-04     3.41184782E-04
+    -1.65063905E-06    -1.53832738E-04    -9.77360799E-06     1.14410299E-05
+
+                      Energy (a.u.) : -24.097738409416621
+                       Error (a.u.) : 1.7165096269454048E-003
+                    Variance (a.u.) : 0.29464052993962531
+
+ Writing parameters to correlation.out.3.
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 10m56s remaining]
+ Done. [total CPU time: 11m52s]
+
+ Performing matrix algebra.
+  Found 2 singularities inverting S (stage 1).
+  Found 2 singularities inverting S (stage 2).
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 19s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 4
+ Parameters:
+ Be  1.49861492E-03     7.31142981E-02    -1.31499914E-01     8.89954756E-02
+    -3.10106547E-02     6.74214803E-03    -1.12380883E-03     1.34583081E-04
+    -6.97105685E-06     1.72701353E-01    -1.82521246E-01     1.62445640E-01
+    -1.65880345E-01     1.23346561E-01    -5.99021669E-02     1.87960904E-02
+    -3.52326373E-03     3.27633022E-04    -8.94748939E-06 Bm  2.69982324E-02
+     2.38557111E-02    -8.10446894E-01     1.85477550E+00    -2.20257417E+00
+     1.36043983E+00    -4.37240685E-01     6.76151601E-02    -3.90049475E-03
+ BP  8.16913580E-03    -7.24893990E-02     9.06849649E-01    -1.53608717E-01
+    -5.32168108E-02    -5.13184552E-01     9.87799081E-02     5.63437181E-03
+     6.22122866E-02    -1.69880445E-01     1.04996377E-01     3.88565213E-01
+     7.01055030E-01    -1.80144887E-01    -8.62958168E-02    -1.00501817E-01
+     2.03857580E-01     3.02066189E-02     1.06071461E-01    -9.19721210E-02
+     8.78449602E-02     1.20496001E-01    -7.94858934E-02    -2.39886406E-01
+    -2.84634812E-01     8.53040601E-02     1.19379488E-01     2.38500782E-02
+    -2.44241470E-02     9.85595138E-02    -2.04181368E-01     9.74546965E-03
+    -1.36327990E-01     3.01248263E-01    -6.73442205E-02    -7.31564527E-03
+     6.60754330E-02    -8.51939698E-02     5.99233487E-02    -1.93350167E-02
+    -3.69510773E-03    -3.07131060E-03     5.06081409E-03    -5.71718417E-03
+     1.33857077E-02     1.74125582E-02    -4.12098507E-02     1.10758360E-01
+     4.39262718E-01    -3.09578782E-01     1.17308232E-01    -5.34561799E-01
+     1.05340085E-01     3.01950780E-01    -1.27286265E-01    -7.19775625E-02
+    -3.05788481E-01     1.16369106E-01    -5.85869446E-01     1.73841357E-01
+     7.95670594E-01    -1.66461536E-01    -3.20453277E-01     1.95630369E-02
+    -3.94696253E-02    -3.15253968E-01     5.02145432E-01    -1.02257107E-01
+     4.26491911E-01    -1.82353437E-02    -8.39287938E-01     5.45175069E-01
+     1.41667130E-01    -3.30234928E-01    -1.96563290E-01     5.45881083E-02
+     1.84003748E-02     7.82575874E-02    -2.51329462E-01     3.95836667E-01
+    -8.68440991E-02     1.83860704E-01    -3.29726996E-01    -3.01201809E-02
+     1.00770541E-02     1.54398726E-01    -6.56231457E-02    -6.86631399E-03
+     5.51889758E-02     2.81388997E-03     4.24207227E-03    -1.03808141E-03
+    -1.72601772E-02    -9.67369762E-02     2.61587545E-01    -2.41651861E-01
+     2.61526541E-01    -2.82625767E-01     1.03601545E-01    -3.55200843E-01
+     4.02105607E-01    -1.20238879E-01     1.96324168E-01    -1.36062352E-01
+     1.64347487E-01    -4.01556930E-01     3.03056951E-01     1.81404326E-02
+    -4.80354989E-02     4.24770016E-01    -4.79971169E-01     1.14486921E-01
+     1.56669983E-01    -1.79784165E-01     6.37328908E-02    -1.94589647E-01
+     1.05173305E-01    -4.47651766E-02     5.13976472E-02     7.37024540E-02
+    -1.10579114E-01     6.92240130E-02    -2.24443386E-02    -2.55042651E-01
+     3.37665164E-01    -1.31603975E-01    -2.39799271E-04    -1.36811549E-02
+     9.06641926E-03     7.61663257E-02    -9.72373297E-02     7.00299380E-02
+    -6.10855770E-02     6.82861800E-02    -5.66327295E-02    -3.57010197E-03
+     2.57045272E-02     8.30241815E-03    -1.14897186E-02     1.66590825E-02
+    -8.51432149E-04     8.19239300E-04    -2.90922556E-03    -5.39809321E-04
+    -6.63101284E-02    -2.12285397E-01    -3.50362769E-01    -2.52189215E-02
+    -5.33127467E-02    -1.46006087E-01     4.64415729E-01     1.38683950E-01
+     3.89238856E-01    -3.26115010E-01    -2.03898943E-02     4.41636703E-02
+     5.16221040E-01    -4.62596242E-01    -4.69040736E-01     1.06431558E-01
+     5.18371676E-02    -4.21710662E-01     3.98576291E-01     1.03184784E-01
+    -3.03540023E-01     1.53908921E-01    -1.40264428E-01    -7.99541812E-02
+    -3.49786058E-01    -2.03687626E-01     4.54037226E-01     4.16406992E-01
+    -1.71720645E-01     2.40485386E-01    -1.42048876E-01     1.12367757E-01
+    -9.64826570E-02    -2.82141504E-02     1.59840796E-01     4.36672721E-02
+    -1.06774896E-01    -2.54262116E-01     5.74209615E-02     1.89375014E-01
+     5.28919216E-03     5.54372294E-02    -1.32454035E-01    -3.66378741E-02
+    -2.60900138E-02     1.01494269E-02     2.76808963E-03     1.81879438E-02
+     5.32834612E-03 Ju  5.00440451E+00     2.54679536E-03     1.78226108E-03
+    -4.21453713E-03     3.47328307E-03    -1.23523415E-03     1.54015291E-04
+     9.73470339E-06    -2.57125242E-06     4.88348229E-03    -1.18341130E-03
+     2.15961842E-03    -2.01409333E-03     1.20772212E-03    -4.44576890E-04
+     8.75072242E-05    -6.87260973E-06 JX  4.00065443E+00    -5.25482300E-02
+    -4.05385808E-02     8.91623807E-02    -1.41846226E-01     1.27915536E-01
+    -6.19722611E-02     1.49759618E-02    -1.38800648E-03 Jf  3.99950218E+00
+    -5.04904547E-05     1.40360666E-04    -9.49719114E-04    -3.80658624E-04
+     7.25275852E-04    -3.08245252E-04     2.45278217E-04    -2.10907734E-03
+     1.33401075E-04    -3.98759378E-04     8.30611433E-04     1.55203581E-04
+    -1.42127401E-03    -1.37010031E-04     2.40907483E-03    -4.68415263E-04
+     1.54360989E-04     8.92963743E-06    -3.63299060E-06    -2.04119180E-04
+     3.94994116E-04     1.10832463E-04     7.31405059E-06    -3.94418194E-04
+     1.08010122E-04    -3.87158872E-05    -5.75458904E-05     1.41803463E-04
+    -9.95646467E-05    -4.90917110E-04     2.04229184E-04    -7.39642895E-05
+    -4.28552881E-04    -1.54526506E-04    -9.47510098E-05     1.39997024E-04
+    -4.56748447E-04    -1.48743951E-04     6.52593649E-04    -3.14756555E-04
+    -4.80903724E-04     1.81486553E-04    -4.75593373E-05    -1.44328287E-04
+     3.68930627E-04    -1.22435380E-04    -8.36728978E-04     3.41184782E-04
+    -1.65063903E-06    -1.53832738E-04    -9.77360795E-06     1.14410300E-05
+
+                      Energy (a.u.) : -24.097738428891130
+                       Error (a.u.) : 1.7165136235681145E-003
+                    Variance (a.u.) : 0.29464190198949386
+
+ Writing parameters to correlation.out.3.
+
+ Criterion for convergence satisfied.
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================================
+ PERFORMING VMC CONFIGURATION-GENERATION CALCULATION No. 4
+ =========================================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  1.2164E-02
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+  Jastrow factor - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio <level 1>        (%)  =  55.2287
+ Acceptance ratio <levels 1-2>     (%)  =  50.6784
+ Diffusion constant           (Bohr^2)  = 4.4552E-03
+ Correlation time              (steps)  = 1.5978E+00 +- 2.3710E-02
+ Efficiency               (au^-2 s^-1)  = 9.2691E+03
+ No. of VMC steps per MPI process       = 25000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -24.093447585332
+  Standard error                        +/-           0.001616894160
+
+  Kinetic energy KEI (used in Total) (au) =          18.592933788414
+  Standard error                        +/-           0.032139460994
+
+  Kinetic energy TI                  (au) =          18.208888174467
+  Standard error                        +/-           0.067121947879
+
+  Kinetic energy FISQ                (au) =          17.824842560520
+  Standard error                        +/-           0.129676173341
+
+  Potential energy                   (au) =         -42.686381373747
+  Standard error                        +/-           0.032409653368
+
+  e-e interaction                    (au) =          16.574798329136
+  Standard error                        +/-           0.010529070885
+
+  e-i interaction (local)            (au) =         -59.503336137268
+  Standard error                        +/-           0.032443964610
+
+  e-i interaction (non-local)        (au) =           0.242156434385
+  Standard error                        +/-           0.019684277384
+
+  Variance of local energy           (au) =           0.260486397734
+  Standard error                        +/-           0.014160271194
+
+  Maximum distance from origin       (au) =           6.035129577849
+
+  Particles within backflow range   (%) :  99.9477
+
+
+ Time taken in block    : : :       25.9209
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -24.093447585332 +/- 0.001616894160      No correction
+ -24.093447585332 +/- 0.002043828198      Correlation time method
+ -24.093447585332 +/- 0.002055763658      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 0.260486397734
+
+ =========================================================================
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================
+ PERFORMING OPTIMIZATION CALCULATION No. 4
+ =========================================
+
+ Energy minimization configuration
+ =================================
+
+ Energy minimization internal setup:
+ ---------------------------------------------------
+ Optimize                       :  energy
+ Target function                :  energy + 3*error
+ xi parameter for semiorthog.   :  1.000000
+ Weights in corr. sampling      :  yes
+ Matrix regularization          :  normalized basis
+ H matrix manipulation          :  on
+ Fix E_NL in correl. sampling   :  T
+ ---------------------------------------------------
+
+ There are 300 optimizable parameters.
+ Will optimize all of them.
+
+ Random number generator reset to state in config.in.
+
+ Number of MPI processes                               : 4
+ Number of configurations per MPI process              : 25000
+ Total number of configurations                        : 100000
+
+ Stored VMC result suggests minimum energy of -26.135033770560572 a.u.
+ This minimum will be enforced.
+
+ Optimization workspace:
+ ---------------------------------------------------
+ No. of variable parameters (P) :               300
+ No. of configurations (C)      :            100000
+ ---------------------------------------------------
+ Configuration storage          :          4.00 MiB
+ Vectors of size C              :          1.90 MiB
+ Matrices of size P^2           :          4.14 MiB
+ ---------------------------------------------------
+ Total memory req. per MPI proc.:          10.0 MiB
+ ---------------------------------------------------
+
+ Optimization start
+ ==================
+
+ Optimization monitor :
+ ----------------------
+ Start of minimization process
+ Parameters:
+ Be  1.49861492E-03     7.31142981E-02    -1.31499914E-01     8.89954756E-02
+    -3.10106547E-02     6.74214803E-03    -1.12380883E-03     1.34583081E-04
+    -6.97105685E-06     1.72701353E-01    -1.82521246E-01     1.62445640E-01
+    -1.65880345E-01     1.23346561E-01    -5.99021669E-02     1.87960904E-02
+    -3.52326373E-03     3.27633022E-04    -8.94748939E-06 Bm  2.69982324E-02
+     2.38557111E-02    -8.10446894E-01     1.85477550E+00    -2.20257417E+00
+     1.36043983E+00    -4.37240685E-01     6.76151601E-02    -3.90049475E-03
+ BP  8.16913580E-03    -7.24893990E-02     9.06849649E-01    -1.53608717E-01
+    -5.32168108E-02    -5.13184552E-01     9.87799081E-02     5.63437181E-03
+     6.22122866E-02    -1.69880445E-01     1.04996377E-01     3.88565213E-01
+     7.01055030E-01    -1.80144887E-01    -8.62958168E-02    -1.00501817E-01
+     2.03857580E-01     3.02066189E-02     1.06071461E-01    -9.19721210E-02
+     8.78449602E-02     1.20496001E-01    -7.94858934E-02    -2.39886406E-01
+    -2.84634812E-01     8.53040601E-02     1.19379488E-01     2.38500782E-02
+    -2.44241470E-02     9.85595138E-02    -2.04181368E-01     9.74546965E-03
+    -1.36327990E-01     3.01248263E-01    -6.73442205E-02    -7.31564527E-03
+     6.60754330E-02    -8.51939698E-02     5.99233487E-02    -1.93350167E-02
+    -3.69510773E-03    -3.07131060E-03     5.06081409E-03    -5.71718417E-03
+     1.33857077E-02     1.74125582E-02    -4.12098507E-02     1.10758360E-01
+     4.39262718E-01    -3.09578782E-01     1.17308232E-01    -5.34561799E-01
+     1.05340085E-01     3.01950780E-01    -1.27286265E-01    -7.19775625E-02
+    -3.05788481E-01     1.16369106E-01    -5.85869446E-01     1.73841357E-01
+     7.95670594E-01    -1.66461536E-01    -3.20453277E-01     1.95630369E-02
+    -3.94696253E-02    -3.15253968E-01     5.02145432E-01    -1.02257107E-01
+     4.26491911E-01    -1.82353437E-02    -8.39287938E-01     5.45175069E-01
+     1.41667130E-01    -3.30234928E-01    -1.96563290E-01     5.45881083E-02
+     1.84003748E-02     7.82575874E-02    -2.51329462E-01     3.95836667E-01
+    -8.68440991E-02     1.83860704E-01    -3.29726996E-01    -3.01201809E-02
+     1.00770541E-02     1.54398726E-01    -6.56231457E-02    -6.86631399E-03
+     5.51889758E-02     2.81388997E-03     4.24207227E-03    -1.03808141E-03
+    -1.72601772E-02    -9.67369762E-02     2.61587545E-01    -2.41651861E-01
+     2.61526541E-01    -2.82625767E-01     1.03601545E-01    -3.55200843E-01
+     4.02105607E-01    -1.20238879E-01     1.96324168E-01    -1.36062352E-01
+     1.64347487E-01    -4.01556930E-01     3.03056951E-01     1.81404326E-02
+    -4.80354989E-02     4.24770016E-01    -4.79971169E-01     1.14486921E-01
+     1.56669983E-01    -1.79784165E-01     6.37328908E-02    -1.94589647E-01
+     1.05173305E-01    -4.47651766E-02     5.13976472E-02     7.37024540E-02
+    -1.10579114E-01     6.92240130E-02    -2.24443386E-02    -2.55042651E-01
+     3.37665164E-01    -1.31603975E-01    -2.39799271E-04    -1.36811549E-02
+     9.06641926E-03     7.61663257E-02    -9.72373297E-02     7.00299380E-02
+    -6.10855770E-02     6.82861800E-02    -5.66327295E-02    -3.57010197E-03
+     2.57045272E-02     8.30241815E-03    -1.14897186E-02     1.66590825E-02
+    -8.51432149E-04     8.19239300E-04    -2.90922556E-03    -5.39809321E-04
+    -6.63101284E-02    -2.12285397E-01    -3.50362769E-01    -2.52189215E-02
+    -5.33127467E-02    -1.46006087E-01     4.64415729E-01     1.38683950E-01
+     3.89238856E-01    -3.26115010E-01    -2.03898943E-02     4.41636703E-02
+     5.16221040E-01    -4.62596242E-01    -4.69040736E-01     1.06431558E-01
+     5.18371676E-02    -4.21710662E-01     3.98576291E-01     1.03184784E-01
+    -3.03540023E-01     1.53908921E-01    -1.40264428E-01    -7.99541812E-02
+    -3.49786058E-01    -2.03687626E-01     4.54037226E-01     4.16406992E-01
+    -1.71720645E-01     2.40485386E-01    -1.42048876E-01     1.12367757E-01
+    -9.64826570E-02    -2.82141504E-02     1.59840796E-01     4.36672721E-02
+    -1.06774896E-01    -2.54262116E-01     5.74209615E-02     1.89375014E-01
+     5.28919216E-03     5.54372294E-02    -1.32454035E-01    -3.66378741E-02
+    -2.60900138E-02     1.01494269E-02     2.76808963E-03     1.81879438E-02
+     5.32834612E-03 Ju  5.0044045E+00*     2.54679536E-03     1.78226108E-03
+    -4.21453713E-03     3.47328307E-03    -1.23523415E-03     1.54015291E-04
+     9.73470339E-06    -2.57125242E-06     4.88348229E-03    -1.18341130E-03
+     2.15961842E-03    -2.01409333E-03     1.20772212E-03    -4.44576890E-04
+     8.75072242E-05    -6.87260973E-06 JX  4.0006544E+00*    -5.25482300E-02
+    -4.05385808E-02     8.91623807E-02    -1.41846226E-01     1.27915536E-01
+    -6.19722611E-02     1.49759618E-02    -1.38800648E-03 Jf  3.9995022E+00*
+    -5.04904547E-05     1.40360666E-04    -9.49719114E-04    -3.80658624E-04
+     7.25275852E-04    -3.08245252E-04     2.45278217E-04    -2.10907734E-03
+     1.33401075E-04    -3.98759378E-04     8.30611433E-04     1.55203581E-04
+    -1.42127401E-03    -1.37010031E-04     2.40907483E-03    -4.68415263E-04
+     1.54360989E-04     8.92963743E-06    -3.63299060E-06    -2.04119180E-04
+     3.94994116E-04     1.10832463E-04     7.31405059E-06    -3.94418194E-04
+     1.08010122E-04    -3.87158872E-05    -5.75458904E-05     1.41803463E-04
+    -9.95646467E-05    -4.90917110E-04     2.04229184E-04    -7.39642895E-05
+    -4.28552881E-04    -1.54526506E-04    -9.47510098E-05     1.39997024E-04
+    -4.56748447E-04    -1.48743951E-04     6.52593649E-04    -3.14756555E-04
+    -4.80903724E-04     1.81486553E-04    -4.75593373E-05    -1.44328287E-04
+     3.68930627E-04    -1.22435380E-04    -8.36728978E-04     3.41184782E-04
+    -1.65063903E-06    -1.53832738E-04    -9.77360795E-06     1.14410300E-05
+    [*] : shallow parameters
+
+                      Energy (a.u.) : -24.093451479270868
+                       Error (a.u.) : 1.6140125177852016E-003
+                    Variance (a.u.) : 0.26050364075673260
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 11m1s remaining]
+ Done. [total CPU time: 11m45s]
+
+ Performing matrix algebra.
+  Found 3 singularities inverting S (stage 1).
+  Found 3 singularities inverting S (stage 2).
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 24s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 1
+ Parameters:
+ Be  1.34528284E-03     7.30822000E-02    -1.31505135E-01     8.89948052E-02
+    -3.10107555E-02     6.74211004E-03    -1.12382896E-03     1.34573824E-04
+    -6.97468840E-06     1.72558087E-01    -1.82580155E-01     1.62447565E-01
+    -1.65874705E-01     1.23348665E-01    -5.99016642E-02     1.87961701E-02
+    -3.52326058E-03     3.27629589E-04    -8.94915976E-06 Bm  2.69372987E-02
+     2.37991503E-02    -8.10487546E-01     1.85475663E+00    -2.20258048E+00
+     1.36043835E+00    -4.37240836E-01     6.76152405E-02    -3.90042753E-03
+ BP  8.09296857E-03    -7.24457051E-02     9.06854541E-01    -1.53707061E-01
+    -5.31281678E-02    -5.13148207E-01     9.87144110E-02     5.67802363E-03
+     6.22287242E-02    -1.69946195E-01     1.03916139E-01     3.88453453E-01
+     7.01090892E-01    -1.80186074E-01    -8.62509178E-02    -1.00298497E-01
+     2.03821832E-01     3.02202466E-02     1.06106760E-01    -9.19848597E-02
+     8.78506524E-02     1.20496821E-01    -7.94746364E-02    -2.39910170E-01
+    -2.84630008E-01     8.53052943E-02     1.19375480E-01     2.38513223E-02
+    -2.44241063E-02     9.85991462E-02    -2.04183953E-01     9.76076439E-03
+    -1.36322075E-01     3.01238503E-01    -6.73433118E-02    -7.31547941E-03
+     6.60867195E-02    -8.51958811E-02     5.99240496E-02    -1.93349641E-02
+    -3.69601534E-03    -3.07129929E-03     5.06068491E-03    -5.71620350E-03
+     1.33593811E-02     1.73576578E-02    -4.12430418E-02     1.10755571E-01
+     4.39300285E-01    -3.09562320E-01     1.17307304E-01    -5.34596480E-01
+     1.05348634E-01     3.01955278E-01    -1.27288621E-01    -7.20288194E-02
+    -3.05852045E-01     1.16326668E-01    -5.85811576E-01     1.73854006E-01
+     7.95724552E-01    -1.66450366E-01    -3.20435346E-01     1.97554596E-02
+    -3.93288259E-02    -3.15255667E-01     5.02156750E-01    -1.02259353E-01
+     4.26496397E-01    -1.82358856E-02    -8.39268203E-01     5.45185205E-01
+     1.41669848E-01    -3.30234917E-01    -1.96558032E-01     5.45906189E-02
+     1.84003055E-02     7.82567938E-02    -2.51269453E-01     3.95842599E-01
+    -8.68225217E-02     1.83865581E-01    -3.29720769E-01    -3.01201841E-02
+     1.00770020E-02     1.54404930E-01    -6.56207831E-02    -6.86600848E-03
+     5.51887516E-02     2.81541932E-03     4.24236900E-03    -1.03840607E-03
+    -1.72605406E-02    -9.67772682E-02     2.61603524E-01    -2.41665908E-01
+     2.61512755E-01    -2.82591458E-01     1.03599465E-01    -3.55197647E-01
+     4.02111718E-01    -1.20244759E-01     1.96480907E-01    -1.35870328E-01
+     1.64312004E-01    -4.01562639E-01     3.03049902E-01     1.81354630E-02
+    -4.79320843E-02     4.24772411E-01    -4.79973540E-01     1.14480935E-01
+     1.56675236E-01    -1.79789835E-01     6.37282878E-02    -1.94482931E-01
+     1.05176394E-01    -4.47271948E-02     5.14156475E-02     7.37008418E-02
+    -1.10582542E-01     6.92222637E-02    -2.24216926E-02    -2.55039822E-01
+     3.37661120E-01    -1.31606736E-01    -2.37822002E-04    -1.36841831E-02
+     9.06479332E-03     7.62001646E-02    -9.72325872E-02     7.00306230E-02
+    -6.10849932E-02     6.82860630E-02    -5.66341535E-02    -3.57068665E-03
+     2.57037231E-02     8.30320362E-03    -1.14914663E-02     1.66582263E-02
+    -8.50981118E-04     8.18276609E-04    -2.90963259E-03    -6.04875639E-04
+    -6.63414744E-02    -2.12313453E-01    -3.50381285E-01    -2.52507676E-02
+    -5.33255059E-02    -1.46019300E-01     4.64404343E-01     1.38662173E-01
+     3.89219742E-01    -3.26129151E-01    -2.03984900E-02     4.41262762E-02
+     5.16184972E-01    -4.62632386E-01    -4.69012625E-01     1.06435576E-01
+     5.18703557E-02    -4.21707970E-01     3.98559418E-01     1.03290907E-01
+    -3.03428619E-01     1.53905468E-01    -1.40261794E-01    -7.99602407E-02
+    -3.49788939E-01    -2.03688814E-01     4.54042628E-01     4.16404238E-01
+    -1.71724323E-01     2.40483190E-01    -1.42050152E-01     1.12363615E-01
+    -9.64856446E-02    -2.82156150E-02     1.59887754E-01     4.36687300E-02
+    -1.06767060E-01    -2.54263057E-01     5.74193244E-02     1.89373898E-01
+     5.28879825E-03     5.54362725E-02    -1.32456725E-01    -3.66397250E-02
+    -2.60908556E-02     1.01476646E-02     2.76609023E-03     1.81868255E-02
+     5.32789147E-03 Ju  5.00442015E+00     2.54636231E-03     1.78252572E-03
+    -4.21422305E-03     3.47340810E-03    -1.23519297E-03     1.54027255E-04
+     9.73778633E-06    -2.57056179E-06     4.88356057E-03    -1.18523062E-03
+     2.15976641E-03    -2.01400127E-03     1.20774502E-03    -4.44573663E-04
+     8.75070641E-05    -6.87289990E-06 JX  4.00063651E+00    -5.25476616E-02
+    -4.05377375E-02     8.91614018E-02    -1.41847077E-01     1.27915135E-01
+    -6.19723961E-02     1.49759284E-02    -1.38801134E-03 Jf  3.99949254E+00
+    -5.04986074E-05     1.40367724E-04    -9.49696027E-04    -3.80700911E-04
+     7.25268747E-04    -3.08251345E-04     2.45309144E-04    -2.10911209E-03
+     1.33064670E-04    -3.98805445E-04     8.30604643E-04     1.55206363E-04
+    -1.42127961E-03    -1.37010186E-04     2.40906682E-03    -4.68416383E-04
+     1.54360792E-04     8.81106576E-06    -3.63757076E-06    -2.04140968E-04
+     3.94985790E-04     1.10831792E-04     7.31392620E-06    -3.94420083E-04
+     1.08009961E-04    -3.87157194E-05    -5.75469620E-05     1.41802281E-04
+    -9.95549361E-05    -4.90938045E-04     2.04228247E-04    -7.39611782E-05
+    -4.28544478E-04    -1.54550528E-04    -9.44862728E-05     1.39984877E-04
+    -4.56751696E-04    -1.48740719E-04     6.52594358E-04    -3.14755839E-04
+    -4.80903668E-04     1.81487443E-04    -4.75578364E-05    -1.44394475E-04
+     3.68928158E-04    -1.22447782E-04    -8.36728461E-04     3.41185242E-04
+    -1.65030527E-06    -1.53831343E-04    -9.77307011E-06     1.14416400E-05
+
+                      Energy (a.u.) : -24.093820209220812
+                       Error (a.u.) : 1.5854730916212948E-003
+                    Variance (a.u.) : 0.25137249242551862
+
+ Writing parameters to correlation.out.4.
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 11m12s remaining]
+ Done. [total CPU time: 11m35s]
+
+ Performing matrix algebra.
+  Found 3 singularities inverting S (stage 1).
+  Found 3 singularities inverting S (stage 2).
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Failed.
+ Done. [total CPU time: 21s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 2
+ Parameters:
+ Be  1.34528284E-03     7.30822000E-02    -1.31505135E-01     8.89948052E-02
+    -3.10107555E-02     6.74211004E-03    -1.12382896E-03     1.34573824E-04
+    -6.97468840E-06     1.72558087E-01    -1.82580155E-01     1.62447565E-01
+    -1.65874705E-01     1.23348665E-01    -5.99016642E-02     1.87961701E-02
+    -3.52326058E-03     3.27629589E-04    -8.94915976E-06 Bm  2.69372987E-02
+     2.37991503E-02    -8.10487546E-01     1.85475663E+00    -2.20258048E+00
+     1.36043835E+00    -4.37240836E-01     6.76152405E-02    -3.90042753E-03
+ BP  8.09296857E-03    -7.24457051E-02     9.06854541E-01    -1.53707061E-01
+    -5.31281678E-02    -5.13148207E-01     9.87144110E-02     5.67802363E-03
+     6.22287242E-02    -1.69946195E-01     1.03916139E-01     3.88453453E-01
+     7.01090892E-01    -1.80186074E-01    -8.62509178E-02    -1.00298497E-01
+     2.03821832E-01     3.02202466E-02     1.06106760E-01    -9.19848597E-02
+     8.78506524E-02     1.20496821E-01    -7.94746364E-02    -2.39910170E-01
+    -2.84630008E-01     8.53052943E-02     1.19375480E-01     2.38513223E-02
+    -2.44241063E-02     9.85991462E-02    -2.04183953E-01     9.76076439E-03
+    -1.36322075E-01     3.01238503E-01    -6.73433118E-02    -7.31547941E-03
+     6.60867195E-02    -8.51958811E-02     5.99240496E-02    -1.93349641E-02
+    -3.69601534E-03    -3.07129929E-03     5.06068491E-03    -5.71620350E-03
+     1.33593811E-02     1.73576578E-02    -4.12430418E-02     1.10755571E-01
+     4.39300285E-01    -3.09562320E-01     1.17307304E-01    -5.34596480E-01
+     1.05348634E-01     3.01955278E-01    -1.27288621E-01    -7.20288194E-02
+    -3.05852045E-01     1.16326668E-01    -5.85811576E-01     1.73854006E-01
+     7.95724552E-01    -1.66450366E-01    -3.20435346E-01     1.97554596E-02
+    -3.93288259E-02    -3.15255667E-01     5.02156750E-01    -1.02259353E-01
+     4.26496397E-01    -1.82358856E-02    -8.39268203E-01     5.45185205E-01
+     1.41669848E-01    -3.30234917E-01    -1.96558032E-01     5.45906189E-02
+     1.84003055E-02     7.82567938E-02    -2.51269453E-01     3.95842599E-01
+    -8.68225217E-02     1.83865581E-01    -3.29720769E-01    -3.01201841E-02
+     1.00770020E-02     1.54404930E-01    -6.56207831E-02    -6.86600848E-03
+     5.51887516E-02     2.81541932E-03     4.24236900E-03    -1.03840607E-03
+    -1.72605406E-02    -9.67772682E-02     2.61603524E-01    -2.41665908E-01
+     2.61512755E-01    -2.82591458E-01     1.03599465E-01    -3.55197647E-01
+     4.02111718E-01    -1.20244759E-01     1.96480907E-01    -1.35870328E-01
+     1.64312004E-01    -4.01562639E-01     3.03049902E-01     1.81354630E-02
+    -4.79320843E-02     4.24772411E-01    -4.79973540E-01     1.14480935E-01
+     1.56675236E-01    -1.79789835E-01     6.37282878E-02    -1.94482931E-01
+     1.05176394E-01    -4.47271948E-02     5.14156475E-02     7.37008418E-02
+    -1.10582542E-01     6.92222637E-02    -2.24216926E-02    -2.55039822E-01
+     3.37661120E-01    -1.31606736E-01    -2.37822002E-04    -1.36841831E-02
+     9.06479332E-03     7.62001646E-02    -9.72325872E-02     7.00306230E-02
+    -6.10849932E-02     6.82860630E-02    -5.66341535E-02    -3.57068665E-03
+     2.57037231E-02     8.30320362E-03    -1.14914663E-02     1.66582263E-02
+    -8.50981118E-04     8.18276609E-04    -2.90963259E-03    -6.04875639E-04
+    -6.63414744E-02    -2.12313453E-01    -3.50381285E-01    -2.52507676E-02
+    -5.33255059E-02    -1.46019300E-01     4.64404343E-01     1.38662173E-01
+     3.89219742E-01    -3.26129151E-01    -2.03984900E-02     4.41262762E-02
+     5.16184972E-01    -4.62632386E-01    -4.69012625E-01     1.06435576E-01
+     5.18703557E-02    -4.21707970E-01     3.98559418E-01     1.03290907E-01
+    -3.03428619E-01     1.53905468E-01    -1.40261794E-01    -7.99602407E-02
+    -3.49788939E-01    -2.03688814E-01     4.54042628E-01     4.16404238E-01
+    -1.71724323E-01     2.40483190E-01    -1.42050152E-01     1.12363615E-01
+    -9.64856446E-02    -2.82156150E-02     1.59887754E-01     4.36687300E-02
+    -1.06767060E-01    -2.54263057E-01     5.74193244E-02     1.89373898E-01
+     5.28879825E-03     5.54362725E-02    -1.32456725E-01    -3.66397250E-02
+    -2.60908556E-02     1.01476646E-02     2.76609023E-03     1.81868255E-02
+     5.32789147E-03 Ju  5.00442015E+00     2.54636231E-03     1.78252572E-03
+    -4.21422305E-03     3.47340810E-03    -1.23519297E-03     1.54027255E-04
+     9.73778633E-06    -2.57056179E-06     4.88356057E-03    -1.18523062E-03
+     2.15976641E-03    -2.01400127E-03     1.20774502E-03    -4.44573663E-04
+     8.75070641E-05    -6.87289990E-06 JX  4.00063651E+00    -5.25476616E-02
+    -4.05377375E-02     8.91614018E-02    -1.41847077E-01     1.27915135E-01
+    -6.19723961E-02     1.49759284E-02    -1.38801134E-03 Jf  3.99949254E+00
+    -5.04986074E-05     1.40367724E-04    -9.49696027E-04    -3.80700911E-04
+     7.25268747E-04    -3.08251345E-04     2.45309144E-04    -2.10911209E-03
+     1.33064670E-04    -3.98805445E-04     8.30604643E-04     1.55206363E-04
+    -1.42127961E-03    -1.37010186E-04     2.40906682E-03    -4.68416383E-04
+     1.54360792E-04     8.81106576E-06    -3.63757076E-06    -2.04140968E-04
+     3.94985790E-04     1.10831792E-04     7.31392620E-06    -3.94420083E-04
+     1.08009961E-04    -3.87157194E-05    -5.75469620E-05     1.41802281E-04
+    -9.95549361E-05    -4.90938045E-04     2.04228247E-04    -7.39611782E-05
+    -4.28544478E-04    -1.54550528E-04    -9.44862728E-05     1.39984877E-04
+    -4.56751696E-04    -1.48740719E-04     6.52594358E-04    -3.14755839E-04
+    -4.80903668E-04     1.81487443E-04    -4.75578364E-05    -1.44394475E-04
+     3.68928158E-04    -1.22447782E-04    -8.36728461E-04     3.41185242E-04
+    -1.65030527E-06    -1.53831343E-04    -9.77307011E-06     1.14416400E-05
+
+                      Energy (a.u.) : -24.093820209220812
+                       Error (a.u.) : 1.5854730916212948E-003
+                    Variance (a.u.) : 0.25137249242551862
+
+ Writing parameters to correlation.out.4.
+
+ Criterion for convergence satisfied.
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ ====================================
+ PERFORMING POST-FIT VMC CALCULATION.
+ ====================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  1.3710E-02
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+  Jastrow factor - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio <level 1>        (%)  =  52.8790
+ Acceptance ratio <levels 1-2>     (%)  =  48.3230
+ Diffusion constant           (Bohr^2)  = 4.7955E-03
+ Correlation time              (steps)  = 3.8700E+00 +- 8.5094E-02
+ Efficiency               (au^-2 s^-1)  = 5.5898E+03
+ No. of VMC steps per MPI process       = 25000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -24.095456748992
+  Standard error                        +/-           0.001523967088
+
+  Kinetic energy KEI (used in Total) (au) =          18.773555242828
+  Standard error                        +/-           0.032538619666
+
+  Kinetic energy TI                  (au) =          18.513100052927
+  Standard error                        +/-           0.096839998482
+
+  Kinetic energy FISQ                (au) =          18.252644863025
+  Standard error                        +/-           0.189303644018
+
+  Potential energy                   (au) =         -42.869011991821
+  Standard error                        +/-           0.032795972854
+
+  e-e interaction                    (au) =          16.659490704953
+  Standard error                        +/-           0.010618839002
+
+  e-i interaction (local)            (au) =         -59.693267240421
+  Standard error                        +/-           0.032280918418
+
+  e-i interaction (non-local)        (au) =           0.164764543647
+  Standard error                        +/-           0.019885254081
+
+  Variance of local energy           (au) =           0.232062382345
+  Standard error                        +/-           0.006478552677
+
+  Maximum distance from origin       (au) =           5.712222269232
+
+  Particles within backflow range   (%) :  99.9703
+
+
+ Time taken in block    : : :       19.9199
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -24.095456748992 +/- 0.001523967088      No correction
+ -24.095456748992 +/- 0.002997988368      Correlation time method
+ -24.095456748992 +/- 0.003064171684      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 0.232062382345
+
+ =========================================================================
+
+
+ Total CASINO CPU time  : : :    11151.1104
+ Total CASINO real time : : :    11220.2754
+
+
+ Subroutine timers deactivated (use TIMING_INFO input keyword)
+
+ =========================================================================
+ Ends 2023/12/15 17:19:24.139
+
+Job finished: Пт 15 дек 2023 17:19:24 +07

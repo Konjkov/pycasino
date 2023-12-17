@@ -139,6 +139,7 @@ class Gwfn(FortranFile):
         self.is_pseudoatom = np.full_like(self.atom_numbers, False)
         self.vmc_nonlocal_grid = np.zeros_like(self.atom_numbers)
         self.dmc_nonlocal_grid = np.zeros_like(self.atom_numbers)
+        self.local_angular_momentum = np.zeros_like(self.atom_numbers)
         ppotential_list = [np.zeros(shape=(0, 0))] * self.atom_numbers.size
 
         for file_name in os.listdir(base_path):
@@ -173,14 +174,15 @@ class Gwfn(FortranFile):
                         elif units == 'ev':
                             scale = 27.2114079527
                     elif line.startswith('Angular momentum of local component (0=s,1=p,2=d..)'):
-                        # FIXME: local channel not max angular momentum
-                        max_angular_momentum = self.read_int()
+                        local_angular_momentum = self.read_int()
+                        self.local_angular_momentum[ids] = local_angular_momentum
                     elif line.startswith('NLRULE override (1) VMC/DMC (2) config gen (0 ==> input/default value)'):
                         self.vmc_nonlocal_grid[ids], self.dmc_nonlocal_grid[ids] = map(int, self.f.readline().split())
                     elif line.startswith('Number of grid points'):
                         grid_points = self.read_int()
                     elif line.startswith('R(i) in atomic units'):
-                        ppotential = np.zeros(shape=(max_angular_momentum+2, grid_points), dtype=float)
+                        # FIXME: local channel not max angular momentum
+                        ppotential = np.zeros(shape=(local_angular_momentum+2, grid_points), dtype=float)
                         for i in range(grid_points):
                             ppotential[0, i] = self.read_float()
                     elif line.startswith('r*potential'):

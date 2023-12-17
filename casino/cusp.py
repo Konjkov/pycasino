@@ -8,7 +8,7 @@ from scipy.optimize import minimize
 from numpy.polynomial.polynomial import polyval
 from casino.abstract import AbstractCusp
 from casino.harmonics import angular_part
-from casino.readers.casino import CasinoConfig
+from casino.readers import CasinoConfig
 
 logger = logging.getLogger(__name__)
 

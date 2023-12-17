@@ -80,17 +80,18 @@ class Wfn:
             potential = self.ppotential.get_ppotential(n_vectors)
             for atom in range(n_vectors.shape[0]):
                 for j in range(self.neu + self.ned):
-                    for q in range(Np):
-                        cos_theta = (grid[atom, j, q] @ n_vectors[atom, j]) / (n_vectors[atom, j] @ n_vectors[atom, j])
-                        r_e_copy = r_e.copy()
-                        r_e_copy[j] = grid[atom, j, q] + self.atom_positions[atom]
-                        if value:
-                            value_ratio = self.value(r_e_copy) / value
-                        else:
-                            value_ratio = 1
-                        weight = self.ppotential.weight[atom][q]
-                        for l in range(2):
-                            res += (potential[atom][j, l] - potential[atom][j, 2]) * self.ppotential.legendre(l, cos_theta) * value_ratio * weight
+                    if (np.abs(potential[atom][j, 0]) > 1e-5) or (np.abs(potential[atom][j, 1]) > 1e-5):
+                        for q in range(Np):
+                            cos_theta = (grid[atom, j, q] @ n_vectors[atom, j]) / (n_vectors[atom, j] @ n_vectors[atom, j])
+                            r_e_copy = r_e.copy()
+                            r_e_copy[j] = grid[atom, j, q] + self.atom_positions[atom]
+                            if value:
+                                value_ratio = self.value(r_e_copy) / value
+                            else:
+                                value_ratio = 1
+                            weight = self.ppotential.weight[atom][q]
+                            for l in range(2):
+                                res += potential[atom][j, l] * self.ppotential.legendre(l, cos_theta) * value_ratio * weight
                     # local channel
                     res += potential[atom][j, 2]
         # e-n coulomb interaction

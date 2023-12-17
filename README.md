@@ -66,3 +66,5 @@ within a small sphere by a function which ensures that the electron–nucleus cu
 
 ### Pseudopotential keywords:
 * **NON_LOCAL_GRID** Selects the grid for nonlocal integration, can take values between 1 and 7, the default being 4.
+* **LCUTOFFTOL** This is used to define the cutoff radius for the local part of the pseudopotential, the default being 1e-5.
+* **NLCUTOFFTOL** This is used to define the cutoff radius for the nonlocal parts of the pseudopotential, the default being 1e-5.

@@ -19,7 +19,7 @@ from casino.backflow import Backflow
 from casino.markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
 from casino.wfn import Wfn
 from casino.ppotential import PPotential
-from casino.readers.main import CasinoConfig
+from casino.readers import CasinoConfig
 from casino.sem import correlated_sem
 
 logger = logging.getLogger(__name__)
@@ -95,7 +95,7 @@ class Casino:
         if self.config.wfn.is_pseudoatom.any():
             ppotential = PPotential(
                 self.config.input.neu, self.config.input.ned,
-                self.config.wfn.vmc_nonlocal_grid, self.config.wfn.dmc_nonlocal_grid, self.config.wfn.ppotential
+                self.config.wfn.vmc_nonlocal_grid, self.config.wfn.dmc_nonlocal_grid, self.config.wfn.local_angular_momentum, self.config.wfn.ppotential
             )
         else:
             ppotential = None

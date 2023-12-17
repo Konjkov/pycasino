@@ -1,0 +1,41 @@
+#-------------------#
+# CASINO input file #
+#-------------------#
+
+# F molecule (ground state)
+
+# SYSTEM
+neu               : 4              #*! Number of up electrons (Integer)
+ned               : 3              #*! Number of down electrons (Integer)
+periodic          : F              #*! Periodic boundary conditions (Boolean)
+atom_basis_type   : gaussian       #*! Basis set type (text)
+
+# RUN
+runtype           : vmc_opt        #*! Type of calculation (Text)
+newrun            : T              #*! New run or continue old (Boolean)
+testrun           : F              #*! Test run flag (Boolean)
+
+# VMC
+vmc_method        : 3
+vmc_equil_nstep   : 5000           #*! Number of equilibration steps (Integer)
+vmc_nstep         : 100000         #*! Number of steps (Integer)
+vmc_nblock        : 1              #*! Number of checkpoints (Integer)
+vmc_nconfig_write : 100000         #*! Number of configs to write (Integer)
+vmc_decorr_period : 10             #*! VMC decorrelation period (0 - auto)
+writeout_vmc_hist : F              #*! Write vmc.hist file in VMC (Boolean)
+
+# OPTIMIZATION
+opt_method        : emin           #*! Opt method (varmin/madmin/emin/...)
+opt_jastrow       : T              #*! Optimize Jastrow factor (Boolean)
+opt_backflow      : T              #*! Optimize backflow parameters (Boolean)
+opt_fixnl         : T              #*! Fix nonlocal energies in optimization
+%block opt_plan                    #*! Multi-cycle optimization plan (Block)
+1 method=varmin fix_cutoffs=T
+2
+3
+4
+%endblock opt_plan
+
+# GENERAL PARAMETERS
+use_jastrow       : T              #*! Use a Jastrow function (Boolean)
+backflow          : T              #*! Use backflow corrections (Boolean)

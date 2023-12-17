@@ -11,6 +11,7 @@ ppotential_spec = [
     ('ned', nb.int64),
     ('vmc_nonlocal_grid', nb.int64[:]),
     ('dmc_nonlocal_grid', nb.int64[:]),
+    ('local_angular_momentum', nb.int64[:]),
     ('ppotential_list', nb.types.ListType(ppotential_type)),
     ('weight', nb.types.ListType(weight_type)),
     ('quadrature', nb.types.ListType(quadrature_type)),
@@ -20,7 +21,7 @@ ppotential_spec = [
 @nb.experimental.jitclass(ppotential_spec)
 class PPotential:
 
-    def __init__(self, neu, ned, vmc_nonlocal_grid, dmc_nonlocal_grid, ppotential):
+    def __init__(self, neu, ned, vmc_nonlocal_grid, dmc_nonlocal_grid, local_angular_momentum, ppotential):
         """Pseudopotential.
         For more details
         https://vallico.net/casinoqmc/pplib/
@@ -29,12 +30,14 @@ class PPotential:
         :param ned: number of down electrons
         :param vmc_nonlocal_grid:
         :param dmc_nonlocal_grid:
+        :param local_angular_momentum:
         :param ppotential: tabulated pseudopotential Casino style
         """
         self.neu = neu
         self.ned = ned
         self.vmc_nonlocal_grid = vmc_nonlocal_grid
         self.dmc_nonlocal_grid = dmc_nonlocal_grid
+        self.local_angular_momentum = local_angular_momentum
         self.ppotential_list = ppotential
         self.weight = nb.typed.List.empty_list(weight_type)
         self.quadrature = nb.typed.List.empty_list(quadrature_type)
@@ -142,10 +145,10 @@ class PPotential:
         """Value φ(r)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        # FIXME: self.pp[0].shape[0]-1) = lmax
         res = nb.typed.List.empty_list(ppotential_type)
         for atom in range(n_vectors.shape[0]):
             atom_pp = self.ppotential_list[atom]
+            local_angular_momentum = self.local_angular_momentum[atom]
             ppotential = np.zeros(shape=(self.neu + self.ned, atom_pp.shape[0]-1))
             for i in range(self.neu + self.ned):
                 r = np.linalg.norm(n_vectors[atom, i])
@@ -156,6 +159,9 @@ class PPotential:
                 else:
                     di_dx = (r - atom_pp[0, idx-1]) / (atom_pp[0, idx] - atom_pp[0, idx-1])
                     ppotential[i] = (atom_pp[1:, idx-1] + (atom_pp[1:, idx] - atom_pp[1:, idx-1]) * di_dx) / r
+            # FIXME: local_angular_momentum suppose to be l_max
+            ppotential[:, 0] -= ppotential[:, local_angular_momentum]
+            ppotential[:, 1] -= ppotential[:, local_angular_momentum]
             res.append(ppotential)
         return res
 
