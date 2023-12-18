@@ -80,7 +80,7 @@ class Wfn:
             potential = self.ppotential.get_ppotential(n_vectors)
             for atom in range(n_vectors.shape[0]):
                 for j in range(self.neu + self.ned):
-                    if (np.abs(potential[atom][j, 0]) > 1e-5) or (np.abs(potential[atom][j, 1]) > 1e-5):
+                    if potential[atom][j, 0] or potential[atom][j, 1]:
                         for q in range(Np):
                             cos_theta = (grid[atom, j, q] @ n_vectors[atom, j]) / (n_vectors[atom, j] @ n_vectors[atom, j])
                             r_e_copy = r_e.copy()

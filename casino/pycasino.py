@@ -94,7 +94,7 @@ class Casino:
 
         if self.config.wfn.is_pseudoatom.any():
             ppotential = PPotential(
-                self.config.input.neu, self.config.input.ned,
+                self.config.input.neu, self.config.input.ned, self.config.input.lcutofftol, self.config.input.nlcutofftol,
                 self.config.wfn.vmc_nonlocal_grid, self.config.wfn.dmc_nonlocal_grid, self.config.wfn.local_angular_momentum, self.config.wfn.ppotential
             )
         else:
@@ -244,7 +244,12 @@ class Casino:
         """Run Casino workflow.
         """
         start = default_timer()
-        if self.config.input.runtype == 'vmc':
+        if self.config.input.testrun:
+            logger.info(
+                ' TEST RUN only.\n'
+                ' Quitting.\n'
+            )
+        elif self.config.input.runtype == 'vmc':
             logger.info(
                 ' ====================================\n'
                 ' PERFORMING A SINGLE VMC CALCULATION.\n'

@@ -9,10 +9,12 @@ quadrature_type = nb.float64[:, :]
 ppotential_spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
+    ('lcutofftol', nb.float64),
+    ('nlcutofftol', nb.float64),
     ('vmc_nonlocal_grid', nb.int64[:]),
     ('dmc_nonlocal_grid', nb.int64[:]),
     ('local_angular_momentum', nb.int64[:]),
-    ('ppotential_list', nb.types.ListType(ppotential_type)),
+    ('ppotential', nb.types.ListType(ppotential_type)),
     ('weight', nb.types.ListType(weight_type)),
     ('quadrature', nb.types.ListType(quadrature_type)),
 ]
@@ -21,27 +23,39 @@ ppotential_spec = [
 @nb.experimental.jitclass(ppotential_spec)
 class PPotential:
 
-    def __init__(self, neu, ned, vmc_nonlocal_grid, dmc_nonlocal_grid, local_angular_momentum, ppotential):
+    def __init__(self, neu, ned, lcutofftol, nlcutofftol, vmc_nonlocal_grid, dmc_nonlocal_grid, local_angular_momentum, ppotential):
         """Pseudopotential.
         For more details
         https://vallico.net/casinoqmc/pplib/
         https://pseudopotentiallibrary.org/
         :param neu: number of up electrons
         :param ned: number of down electrons
-        :param vmc_nonlocal_grid:
-        :param dmc_nonlocal_grid:
+        :param lcutofftol: cutoff radius for the local part of the pseudopotential
+        :param nlcutofftol: cutoff radius for the nonlocal part of the pseudopotential
+        :param vmc_nonlocal_grid: VMC grid for nonlocal integration
+        :param dmc_nonlocal_grid: DMC grid for nonlocal integration
         :param local_angular_momentum:
         :param ppotential: tabulated pseudopotential Casino style
         """
         self.neu = neu
         self.ned = ned
+        self.lcutofftol = lcutofftol
+        self.nlcutofftol = nlcutofftol
         self.vmc_nonlocal_grid = vmc_nonlocal_grid
         self.dmc_nonlocal_grid = dmc_nonlocal_grid
         self.local_angular_momentum = local_angular_momentum
-        self.ppotential_list = ppotential
+        self.ppotential = ppotential
         self.weight = nb.typed.List.empty_list(weight_type)
         self.quadrature = nb.typed.List.empty_list(quadrature_type)
         self.generate_quadratures()
+        # make s-d and p-d
+        for atom in range(len(self.ppotential)):
+            atom_pp = self.ppotential[atom]
+            local_angular_momentum = self.local_angular_momentum[atom]
+            atom_pp[1] -= atom_pp[local_angular_momentum + 1]
+            atom_pp[2] -= atom_pp[local_angular_momentum + 1]
+            atom_pp[1, np.abs(atom_pp[1]) < self.nlcutofftol] = 0
+            atom_pp[2, np.abs(atom_pp[2]) < self.nlcutofftol] = 0
 
     def generate_quadratures(self):
         """Formulae from "Nonlocal pseudopotentials and diffusion monte carlo"
@@ -147,8 +161,7 @@ class PPotential:
         """
         res = nb.typed.List.empty_list(ppotential_type)
         for atom in range(n_vectors.shape[0]):
-            atom_pp = self.ppotential_list[atom]
-            local_angular_momentum = self.local_angular_momentum[atom]
+            atom_pp = self.ppotential[atom]
             ppotential = np.zeros(shape=(self.neu + self.ned, atom_pp.shape[0]-1))
             for i in range(self.neu + self.ned):
                 r = np.linalg.norm(n_vectors[atom, i])
@@ -159,9 +172,6 @@ class PPotential:
                 else:
                     di_dx = (r - atom_pp[0, idx-1]) / (atom_pp[0, idx] - atom_pp[0, idx-1])
                     ppotential[i] = (atom_pp[1:, idx-1] + (atom_pp[1:, idx] - atom_pp[1:, idx-1]) * di_dx) / r
-            # FIXME: local_angular_momentum suppose to be l_max
-            ppotential[:, 0] -= ppotential[:, local_angular_momentum]
-            ppotential[:, 1] -= ppotential[:, local_angular_momentum]
             res.append(ppotential)
         return res
 

@@ -61,6 +61,7 @@ class Input:
         self.read_int('ned')
         self.read_str('atom_basis_type')
         self.read_str('runtype')
+        self.read_bool('testrun', False)
         # VMC keywords
         self.read_int('vmc_equil_nstep')
         self.read_int('vmc_nstep')
