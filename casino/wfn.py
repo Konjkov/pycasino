@@ -60,7 +60,6 @@ class Wfn:
         res = 0.0
         for i in range(self.atom_positions.shape[0] - 1):
             for j in range(i + 1, self.atom_positions.shape[0]):
-                # FIXME: use pseudocharge in self.atom_charges
                 res += self.atom_charges[i] * self.atom_charges[j] / np.linalg.norm(self.atom_positions[i] - self.atom_positions[j])
         return res
 
@@ -194,8 +193,13 @@ class Wfn:
                 res -= s_l / 2
         return res
 
-    def get_parameters(self, opt_jastrow=True, opt_backflow=True, all_parameters=False):
-        """Get WFN parameters to be optimized"""
+    def get_parameters(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True, all_parameters=False):
+        """Get WFN parameters to be optimized
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
+        :param all_parameters: optimize all parameters or only independent
+        """
         res = np.zeros(0)
         if self.jastrow is not None and opt_jastrow:
             res = np.concatenate((
@@ -205,32 +209,47 @@ class Wfn:
             res = np.concatenate((
                 res, self.backflow.get_parameters(all_parameters)
             ))
-        if self.slater.det_coeff.size > 1:
+        if self.slater.det_coeff.size > 1 and opt_det_coeff:
             res = np.concatenate((
                 res, self.slater.get_parameters(all_parameters)
             ))
         return res
 
-    def set_parameters(self, parameters, opt_jastrow=True, opt_backflow=True, all_parameters=False):
-        """Update optimized parameters"""
+    def set_parameters(self, parameters, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True, all_parameters=False):
+        """Update optimized parameters
+        :param parameters: parameters to update
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
+        :param all_parameters: optimize all parameters or only independent
+        """
         if self.jastrow is not None and opt_jastrow:
             parameters = self.jastrow.set_parameters(parameters, all_parameters=all_parameters)
         if self.backflow is not None and opt_backflow:
             parameters = self.backflow.set_parameters(parameters, all_parameters=all_parameters)
-        if self.slater.det_coeff.size > 1:
+        if self.slater.det_coeff.size > 1 and opt_det_coeff:
             self.slater.set_parameters(parameters, all_parameters=all_parameters)
 
-    def set_parameters_projector(self, opt_jastrow=True, opt_backflow=True):
-        """Update optimized parameters"""
+    def set_parameters_projector(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
+        """Update optimized parameters
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
+        """
         if self.jastrow is not None and opt_jastrow:
             self.jastrow.set_parameters_projector()
         if self.backflow is not None and opt_backflow:
             self.backflow.set_parameters_projector()
-        if self.slater.det_coeff.size > 1:
+        if self.slater.det_coeff.size > 1 and opt_det_coeff:
             self.slater.set_parameters_projector()
 
-    def get_parameters_scale(self, opt_jastrow=True, opt_backflow=True, all_parameters=False):
-        """Characteristic scale of each optimized parameter."""
+    def get_parameters_scale(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True, all_parameters=False):
+        """Characteristic scale of each optimized parameter.
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
+        :param all_parameters: optimize all parameters or only independent
+        """
         res = np.zeros(0)
         if self.jastrow is not None and opt_jastrow:
             res = np.concatenate((
@@ -240,17 +259,18 @@ class Wfn:
             res = np.concatenate((
                 res, self.backflow.get_parameters_scale(all_parameters)
             ))
-        if self.slater.det_coeff.size > 1:
+        if self.slater.det_coeff.size > 1 and opt_det_coeff:
             res = np.concatenate((
                 res, self.slater.get_parameters_scale(all_parameters)
             ))
         return res
 
-    def value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
+    def value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
         """First-order derivatives of the wave function value w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
         :return:
         """
         res = np.zeros(0)
@@ -264,7 +284,7 @@ class Wfn:
             res = np.concatenate((
                 res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v)
             ))
-        if self.slater.det_coeff.size > 1:
+        if self.slater.det_coeff.size > 1 and opt_det_coeff:
             if self.backflow is not None:
                 n_vectors = self.backflow.value(e_vectors, n_vectors) + n_vectors
             res = np.concatenate((
@@ -272,12 +292,13 @@ class Wfn:
             ))
         return res
 
-    def value_parameters_d2(self, r_e, opt_jastrow=True, opt_backflow=True):
+    def value_parameters_d2(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
         """Second-order derivatives of the wave function value w.r.t parameters.
         1/wfn * d²wfn/dp² - 1/wfn * dwfn/dp * 1/wfn * dwfn/dp
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
         :return:
         """
         res = []
@@ -286,13 +307,16 @@ class Wfn:
             res.append(self.jastrow.value_parameters_d2(e_vectors, n_vectors))
         if self.backflow is not None and opt_backflow:
             raise NotImplementedError
+        if self.slater.det_coeff.size > 1 and opt_det_coeff:
+            raise NotImplementedError
         return block_diag(res)
 
-    def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True):
+    def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
         """First-order derivatives of local energy w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
         :return:
         """
         res = np.zeros(0)
@@ -332,7 +356,7 @@ class Wfn:
                     j_g = self.jastrow.gradient(e_vectors, n_vectors)
                     bf_d1[i] += (s_g_d1[i] @ b_g + s_g @ b_g_d1[i]) @ j_g
             res = np.concatenate((res, bf_d1 @ self.backflow.parameters_projector))
-        if self.slater.det_coeff.size > 1:
+        if self.slater.det_coeff.size > 1 and opt_det_coeff:
             if self.backflow is not None:
                 b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
                 s_g_d1 = self.slater.gradient_parameters_d1(b_v + n_vectors)
@@ -351,49 +375,51 @@ class Wfn:
             res = np.concatenate((res, sl_d1))
         return -res
 
-    def value_parameters_numerical_d1(self, r_e, opt_jastrow, opt_backflow, all_parameters=False):
+    def value_parameters_numerical_d1(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters=False):
         """First-order derivatives of log wfn value w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
         :param all_parameters: optimize all parameters or only independent
         :return:
         """
         scale = self.get_parameters_scale(opt_jastrow, opt_backflow)
-        parameters = self.get_parameters(opt_jastrow, opt_backflow, all_parameters)
+        parameters = self.get_parameters(opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
             parameters[i] -= delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
             res[i] -= self.value(r_e) / scale[i]
             parameters[i] += 2 * delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
             res[i] += self.value(r_e) / scale[i]
             parameters[i] -= delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
 
         return res / delta / 2 / self.value(r_e)
 
-    def energy_parameters_numerical_d1(self, r_e, opt_jastrow, opt_backflow, all_parameters=False):
-        """First-order derivatives of local energy w.r.t. parameters.
+    def energy_parameters_numerical_d1(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters=False):
+        """First-order derivatives of local energy w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
         :param all_parameters: optimize all parameters or only independent
         :return:
         """
         scale = self.get_parameters_scale(opt_jastrow, opt_backflow)
-        parameters = self.get_parameters(opt_jastrow, opt_backflow, all_parameters)
+        parameters = self.get_parameters(opt_jastrow, opt_backflow, all_parameters, opt_det_coeff)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
             parameters[i] -= delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters, opt_det_coeff)
             res[i] -= self.energy(r_e) / scale[i]
             parameters[i] += 2 * delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters, opt_det_coeff)
             res[i] += self.energy(r_e) / scale[i]
             parameters[i] -= delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters)
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters, opt_det_coeff)
 
         return res / delta / 2
 
@@ -421,7 +447,7 @@ class Wfn:
         return res.ravel() / delta / 2 / val
 
     def numerical_laplacian(self, r_e):
-        """Numerical laplacian  of log wfn value w.r.t. e-coordinates
+        """Numerical laplacian  of log wfn value w.r.t e-coordinates
         :param r_e: electron coordinates - array(nelec, 3)
         """
         val = self.value(r_e)

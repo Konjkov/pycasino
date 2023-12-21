@@ -51,8 +51,10 @@ class Input:
                         block_line[k] = True
                     elif v.startswith('F'):
                         block_line[k] = False
-                    else:
+                    elif k == 'method':
                         block_line[k] = v
+                    else:
+                        block_line[k] = float(v)
                 value.append(block_line)
         setattr(self, 'opt_plan', value)
 
@@ -84,6 +86,7 @@ class Input:
         self.read_bool('opt_orbitals', False)
         self.read_bool('opt_det_coeff', False)
         self.read_int('opt_maxeval', 40)
+        self.read_int('opt_maxiter', 10)
         self.read_opt_plan()
         self.read_int('opt_noctf_cycles', 0)
         self.read_bool('opt_fixnl', self.opt_method == 'varmin')

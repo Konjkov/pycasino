@@ -261,6 +261,7 @@ class Casino:
                 self.config.write('.', 0)
             opt_method = self.config.input.opt_method
             opt_cycles = self.config.input.opt_cycles
+            vm_reweight = self.config.input.vm_reweight
             opt_jastrow = self.config.input.opt_jastrow
             opt_backflow = self.config.input.opt_backflow
             opt_orbitals = self.config.input.opt_orbitals
@@ -271,8 +272,11 @@ class Casino:
             for i in range(opt_cycles):
                 if self.config.input.opt_plan:
                     opt_method = self.config.input.opt_plan[i].get('method', self.config.input.opt_method)
+                    vm_reweight = self.config.input.opt_plan[i].get('reweight', self.config.input.vm_reweight)
                     opt_jastrow = self.config.input.opt_plan[i].get('jastrow', self.config.input.opt_jastrow)
                     opt_backflow = self.config.input.opt_plan[i].get('backflow', self.config.input.opt_backflow)
+                    opt_orbitals = self.config.input.opt_plan[i].get('orbitals', self.config.input.opt_orbitals)
+                    opt_det_coeff = self.config.input.opt_plan[i].get('det_coeff', self.config.input.opt_det_coeff)
                     if self.wfn.jastrow:
                         self.wfn.jastrow.cutoffs_optimizable = not self.config.input.opt_plan[i].get('fix_cutoffs', False)
                     if self.wfn.backflow:
@@ -284,19 +288,19 @@ class Casino:
                     f' ==========================================\n\n'
                 )
                 if opt_method == 'varmin':
-                    if self.config.input.vm_reweight:
-                        self.vmc_reweighted_variance_minimization(vmc_nconfig_write, opt_jastrow, opt_backflow)
+                    if vm_reweight:
+                        self.vmc_reweighted_variance_minimization(vmc_nconfig_write, opt_jastrow, opt_backflow, opt_det_coeff)
                     else:
-                        self.vmc_unreweighted_variance_minimization(vmc_nconfig_write, opt_jastrow, opt_backflow)
+                        self.vmc_unreweighted_variance_minimization(vmc_nconfig_write, opt_jastrow, opt_backflow, opt_det_coeff)
                 elif opt_method == 'madmin':
                     raise NotImplemented
                 elif opt_method == 'emin':
                     if self.config.input.emin_method == 'newton':
-                        self.vmc_energy_minimization_newton(vmc_nconfig_write, opt_jastrow, opt_backflow)
+                        self.vmc_energy_minimization_newton(vmc_nconfig_write, opt_jastrow, opt_backflow, opt_det_coeff)
                     elif self.config.input.emin_method == 'linear':
-                        self.vmc_energy_minimization_linear_method(vmc_nconfig_write, opt_jastrow, opt_backflow)
+                        self.vmc_energy_minimization_linear_method(vmc_nconfig_write, opt_jastrow, opt_backflow, opt_det_coeff)
                     elif self.config.input.emin_method == 'reconf':
-                        self.vmc_energy_minimization_stochastic_reconfiguration(vmc_nconfig_write, opt_jastrow, opt_backflow)
+                        self.vmc_energy_minimization_stochastic_reconfiguration(vmc_nconfig_write, opt_jastrow, opt_backflow, opt_det_coeff)
                 self.config.jastrow.u_cutoff[0]['value'] = self.wfn.jastrow.u_cutoff
                 if self.root:
                     self.config.write('.', i + 1)
@@ -490,7 +494,7 @@ class Casino:
     def check(self, steps):
         """Check"""
         self.wfn.set_parameters_projector()
-        opt_jastrow, opt_backflow = False, False
+        opt_jastrow, opt_backflow, opt_det_coeff = False, False, False
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         for cond, pos in zip(condition, position):
             if cond:
@@ -509,15 +513,16 @@ class Casino:
                     logger.info(self.wfn.backflow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.backflow.value_parameters_numerical_d1(e_vectors, n_vectors, False))
                     logger.info(self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.gradient_parameters_d1(e_vectors, n_vectors)[0][:, :, 1] / self.wfn.backflow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False)[:, :, 1])
                     logger.info(self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.laplacian_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.laplacian_parameters_numerical_d1(e_vectors, n_vectors, False))
-                logger.info(self.wfn.value_parameters_d1(pos, opt_jastrow, opt_backflow) / self.wfn.value_parameters_numerical_d1(pos, opt_jastrow, opt_backflow))
-                logger.info(self.wfn.energy_parameters_d1(pos, opt_jastrow, opt_backflow) / self.wfn.energy_parameters_numerical_d1(pos, opt_jastrow, opt_backflow))
+                logger.info(self.wfn.value_parameters_d1(pos, opt_jastrow, opt_backflow) / self.wfn.value_parameters_numerical_d1(pos, opt_jastrow, opt_backflow, opt_det_coeff))
+                logger.info(self.wfn.energy_parameters_d1(pos, opt_jastrow, opt_backflow) / self.wfn.energy_parameters_numerical_d1(pos, opt_jastrow, opt_backflow, opt_det_coeff))
 
-    def vmc_unreweighted_variance_minimization(self, steps, opt_jastrow, opt_backflow, verbose=2):
+    def vmc_unreweighted_variance_minimization(self, steps, opt_jastrow, opt_backflow, opt_det_coeff, verbose=2):
         """Minimize vmc unreweighted variance.
         https://github.com/scipy/scipy/issues/10634
         :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
         :param verbose:
             0 : work silently.
             1 : display a termination report.
@@ -527,7 +532,7 @@ class Casino:
         start, stop = self.mpi_comm.rank * steps // self.mpi_comm.size, (self.mpi_comm.rank + 1) * steps // self.mpi_comm.size
         # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
         scale = np.sqrt(2) / np.sqrt(steps - 1)
-        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow, opt_det_coeff)
         # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         logger.info(
@@ -544,15 +549,15 @@ class Casino:
         energy_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
 
         def fun(x, *args, **kwargs):
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow, opt_det_coeff)
             energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Barrier()
             return scale * (energy - energy.mean())
 
         def jac(x, *args, **kwargs):
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
-            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
-            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow, opt_det_coeff)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow, opt_det_coeff)
+            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow, opt_det_coeff)
             self.mpi_comm.Barrier()
             return scale * (energy_gradient - energy_gradient.mean(axis=0))
 
@@ -564,17 +569,18 @@ class Casino:
         energy_buffer.Free()
         energy_gradient_buffer.Free()
         self.mpi_comm.Bcast(parameters)
-        self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
+        self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow, opt_det_coeff)
         logger.info(
             f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac.mean(axis=0)):.5e}\n'
         )
 
-    def vmc_reweighted_variance_minimization(self, steps, opt_jastrow, opt_backflow, verbose=2):
+    def vmc_reweighted_variance_minimization(self, steps, opt_jastrow, opt_backflow, opt_det_coeff, verbose=2):
         """Minimize vmc reweighted variance.
         https://github.com/scipy/scipy/issues/10634
         :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
         :param verbose:
             0 : work silently.
             1 : display a termination report.
@@ -582,7 +588,7 @@ class Casino:
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         start, stop = self.mpi_comm.rank * steps // self.mpi_comm.size, (self.mpi_comm.rank + 1) * steps // self.mpi_comm.size
-        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow, opt_det_coeff)
         # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         logger.info(
@@ -613,7 +619,7 @@ class Casino:
         self.mpi_comm.Barrier()
 
         def fun(x, *args, **kwargs):
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow, opt_det_coeff)
             wfn[start:stop] = vmc_observable(condition, position, self.wfn.value)
             energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Barrier()
@@ -635,13 +641,13 @@ class Casino:
                        2 * np.average(weights * wfn_gradient, weights=weights) -
                        2 * np.average(wfn_gradient, weights=weights) * ddof
             """
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
-            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow, opt_det_coeff)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow, opt_det_coeff)
             # jac(x) call allways follows fun(x) call
             # wfn[start:stop] = vmc_observable(condition, position, self.wfn.value)
             # energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow)
-            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow)
+            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow, opt_det_coeff)
+            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow, opt_det_coeff)
             self.mpi_comm.Barrier()
             weights = (wfn / wfn_0)**2
             mean_energy = np.average(energy, weights=weights)
@@ -667,7 +673,7 @@ class Casino:
         wfn_gradient_buffer.Free()
         energy_gradient_buffer.Free()
         self.mpi_comm.Bcast(parameters)
-        self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
+        self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow, opt_det_coeff)
         logger.info(
             f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac.mean(axis=0)):.5e}\n'
         )
@@ -704,7 +710,7 @@ class Casino:
         self.mpi_comm.Allreduce(MPI.IN_PLACE, hessian)
         return hessian / self.mpi_comm.size
 
-    def vmc_energy_minimization_newton(self, steps, opt_jastrow, opt_backflow, method='Newton-CG'):
+    def vmc_energy_minimization_newton(self, steps, opt_jastrow, opt_backflow, opt_det_coeff, method='Newton-CG'):
         """Minimize vmc energy by Newton or gradient descent methods.
         For SJB wfn = exp(J(r)) * S(Bf(r))
             second derivatives by Jastrow parameters is:
@@ -716,19 +722,20 @@ class Casino:
         :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
         :param method: type of solver
         """
         data = dict()
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        self.wfn.set_parameters(x0, opt_jastrow, opt_backflow)
+        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow, opt_det_coeff)
+        self.wfn.set_parameters(x0, opt_jastrow, opt_backflow, opt_det_coeff)
         # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         logger.info(
             ' Optimization start\n'
             ' =================='
         )
-        scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow)
+        scale = self.wfn.get_parameters_scale(opt_jastrow, opt_backflow, opt_det_coeff)
 
         def callback(x):
             """Log intermediate results"""
@@ -742,31 +749,31 @@ class Casino:
         def fun(x, *args):
             """For Nelder-Mead, Powell, COBYLA and those listed in jac and hess methods."""
             callback.nfev += 1
-            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, opt_det_coeff)
             data['energy'] = vmc_observable(condition, position, self.wfn.energy)
             data['energy_mean'] = data['energy'].mean()
             return self.mpi_comm.allreduce(data['energy_mean']) / self.mpi_comm.size
 
         def jac(x, *args):
             """Only for CG, BFGS, L-BFGS-B, TNC, SLSQP and those listed in hess method."""
-            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
-            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, opt_det_coeff)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow, opt_det_coeff)
             data['energy'] = vmc_observable(condition, position, self.wfn.energy)
             data['energy_mean'] = data['energy'].mean()
-            data['wfn_gradient'] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow)
+            data['wfn_gradient'] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow, opt_det_coeff)
             data['wfn_gradient_mean'] = np.mean(data['wfn_gradient'], axis=0)
             return self.energy_parameters_gradient(data) * scale
 
         def hess(x, *args):
             """Only for Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact and trust-constr."""
-            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow)
-            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x * scale, opt_jastrow, opt_backflow, opt_det_coeff)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow, opt_det_coeff)
             data['energy'] = vmc_observable(condition, position, self.wfn.energy)
             data['energy_mean'] = data['energy'].mean()
-            data['wfn_gradient'] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow)
+            data['wfn_gradient'] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow, opt_det_coeff)
             data['wfn_gradient_mean'] = np.mean(data['wfn_gradient'], axis=0)
-            data['wfn_hessian'] = vmc_observable(condition, position, self.wfn.value_parameters_d2, opt_jastrow, opt_backflow)
-            data['energy_gradient'] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow)
+            data['wfn_hessian'] = vmc_observable(condition, position, self.wfn.value_parameters_d2, opt_jastrow, opt_backflow, opt_det_coeff)
+            data['energy_gradient'] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow, opt_det_coeff)
             return self.energy_parameters_hessian(data) * np.outer(scale, scale)
 
         callback.nfev = 0
@@ -784,9 +791,9 @@ class Casino:
         logger.info(f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac):.5e}\n')
         parameters = res.x * scale
         self.mpi_comm.Bcast(parameters)
-        self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
+        self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow, opt_det_coeff)
 
-    def vmc_energy_minimization_linear_method(self, steps, opt_jastrow, opt_backflow):
+    def vmc_energy_minimization_linear_method(self, steps, opt_jastrow, opt_backflow, opt_det_coeff):
         """Minimize vmc energy by linear method.
         Another way to energy-optimize linear parameters of wfn is to diagonalize the Hamiltonian
         in the variational space that they define, leading to a generalized eigenvalue equation.
@@ -806,11 +813,12 @@ class Casino:
         :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
         """
         invert_S = False
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         start, stop = self.mpi_comm.rank * steps // self.mpi_comm.size, (self.mpi_comm.rank + 1) * steps // self.mpi_comm.size
-        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
+        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow, opt_det_coeff)
         if x0.all():
             self.wfn.set_parameters(x0)
         else:
@@ -826,7 +834,7 @@ class Casino:
             ' Optimization start\n'
             ' =================='
         )
-        self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
+        self.wfn.set_parameters_projector(opt_jastrow, opt_backflow, opt_det_coeff)
         energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=self.mpi_comm)
         # create energy numpy array whose data points to the shared buffer
         buffer, _ = energy_buffer.Shared_query(rank=0)
@@ -840,8 +848,8 @@ class Casino:
         buffer, _ = energy_gradient_buffer.Shared_query(rank=0)
         energy_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
         energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-        wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow)
-        energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow)
+        wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow, opt_det_coeff)
+        energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow, opt_det_coeff)
         self.mpi_comm.Barrier()
         dp = np.empty_like(x0)
         if self.root:
@@ -885,12 +893,12 @@ class Casino:
             logger.info(f'delta p / p\n{dp / x0}\n')
         else:
             logger.info(f'delta p\n{dp}\n')
-        self.wfn.set_parameters(x0 + dp, opt_jastrow, opt_backflow)
+        self.wfn.set_parameters(x0 + dp, opt_jastrow, opt_backflow, opt_det_coeff)
         energy_buffer.Free()
         wfn_gradient_buffer.Free()
         energy_gradient_buffer.Free()
 
-    def vmc_energy_minimization_stochastic_reconfiguration(self, steps, opt_jastrow, opt_backflow):
+    def vmc_energy_minimization_stochastic_reconfiguration(self, steps, opt_jastrow, opt_backflow, opt_det_coeff):
         """Minimize vmc energy by stochastic reconfiguration.
         Stochastic Reconfiguration (SR) is a second-order optimization method. Instead of manipulating the gradients according to
         their history, the SR algorithm manipulates the gradients according to the curvature of the energy landscape. It can
@@ -909,11 +917,12 @@ class Casino:
         :param steps: number of configs
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
         """
         steps = steps // self.mpi_comm.size * self.mpi_comm.size
         start, stop = self.mpi_comm.rank * steps // self.mpi_comm.size, (self.mpi_comm.rank + 1) * steps // self.mpi_comm.size
-        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow)
-        self.wfn.set_parameters(x0, opt_jastrow, opt_backflow)
+        x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow, opt_det_coeff)
+        self.wfn.set_parameters(x0, opt_jastrow, opt_backflow, opt_det_coeff)
         # FIXME: reuse from vmc_energy_accumulation run
         condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
         logger.info(
@@ -944,7 +953,7 @@ class Casino:
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
             energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow)
+            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow, opt_det_coeff)
             self.mpi_comm.Barrier()
             if self.root:
                 energy[:] -= np.mean(energy)
@@ -956,8 +965,8 @@ class Casino:
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
             energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow)
-            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow)
+            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow, opt_det_coeff)
+            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow, opt_det_coeff)
             self.mpi_comm.Barrier()
             if self.root:
                 wfn_gradient[:, :] -= np.mean(wfn_gradient, axis=0)
@@ -979,7 +988,7 @@ class Casino:
         wfn_gradient_buffer.Free()
         energy_gradient_buffer.Free()
         self.mpi_comm.Bcast(parameters)
-        self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow)
+        self.wfn.set_parameters(parameters, opt_jastrow, opt_backflow, opt_det_coeff)
 
 
 def main():
