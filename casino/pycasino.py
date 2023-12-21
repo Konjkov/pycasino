@@ -552,7 +552,7 @@ class Casino:
         def jac(x, *args, **kwargs):
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
-            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow)
             self.mpi_comm.Barrier()
             return scale * (energy_gradient - energy_gradient.mean(axis=0))
 
@@ -640,8 +640,8 @@ class Casino:
             # jac(x) call allways follows fun(x) call
             # wfn[start:stop] = vmc_observable(condition, position, self.wfn.value)
             # energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow)
+            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow)
             self.mpi_comm.Barrier()
             weights = (wfn / wfn_0)**2
             mean_energy = np.average(energy, weights=weights)
@@ -753,7 +753,7 @@ class Casino:
             self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
             data['energy'] = vmc_observable(condition, position, self.wfn.energy)
             data['energy_mean'] = data['energy'].mean()
-            data['wfn_gradient'] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            data['wfn_gradient'] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow)
             data['wfn_gradient_mean'] = np.mean(data['wfn_gradient'], axis=0)
             return self.energy_parameters_gradient(data) * scale
 
@@ -763,10 +763,10 @@ class Casino:
             self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
             data['energy'] = vmc_observable(condition, position, self.wfn.energy)
             data['energy_mean'] = data['energy'].mean()
-            data['wfn_gradient'] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            data['wfn_gradient'] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow)
             data['wfn_gradient_mean'] = np.mean(data['wfn_gradient'], axis=0)
-            data['wfn_hessian'] = vmc_observable(condition, position, self.wfn.value_parameters_d2)
-            data['energy_gradient'] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+            data['wfn_hessian'] = vmc_observable(condition, position, self.wfn.value_parameters_d2, opt_jastrow, opt_backflow)
+            data['energy_gradient'] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow)
             return self.energy_parameters_hessian(data) * np.outer(scale, scale)
 
         callback.nfev = 0
@@ -840,8 +840,8 @@ class Casino:
         buffer, _ = energy_gradient_buffer.Shared_query(rank=0)
         energy_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
         energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-        wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-        energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+        wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow)
+        energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow)
         self.mpi_comm.Barrier()
         dp = np.empty_like(x0)
         if self.root:
@@ -944,7 +944,7 @@ class Casino:
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
             energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow)
             self.mpi_comm.Barrier()
             if self.root:
                 energy[:] -= np.mean(energy)
@@ -956,8 +956,8 @@ class Casino:
             self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
             self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
             energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow)
+            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow)
             self.mpi_comm.Barrier()
             if self.root:
                 wfn_gradient[:, :] -= np.mean(wfn_gradient, axis=0)

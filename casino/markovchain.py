@@ -494,7 +494,7 @@ def vmc_observable(condition, position, observable, *args):
 
     for i in range(1, condition.shape[0]):
         if condition[i]:
-            res[i] = observable(position[i])
+            res[i] = observable(position[i], *args)
         else:
             res[i] = res[i-1]
     return res

@@ -32,14 +32,14 @@ class Input:
                 value = str(line.split(':')[1].strip())
         setattr(self, keyword, value)
 
-    def read_block(self, keyword, value=None):
-        value = value or []
+    def read_opt_plan(self):
+        value = []
         block_start = False
         for line in self.lines:
-            if line.startswith(f'%block {keyword}'):
+            if line.startswith(f'%block opt_plan'):
                 block_start = True
                 continue
-            elif line.startswith(f'%endblock {keyword}'):
+            elif line.startswith(f'%endblock opt_plan'):
                 break
             if block_start:
                 block_line = dict()
@@ -47,9 +47,14 @@ class Input:
                     if i == 0:
                         continue
                     k, v = token.split('=')
-                    block_line[k] = v
+                    if v.startswith('T'):
+                        block_line[k] = True
+                    elif v.startswith('F'):
+                        block_line[k] = False
+                    else:
+                        block_line[k] = v
                 value.append(block_line)
-        setattr(self, keyword, value)
+        setattr(self, 'opt_plan', value)
 
     def read(self, base_path):
         self.file_path = os.path.join(base_path, 'input')
@@ -79,10 +84,12 @@ class Input:
         self.read_bool('opt_orbitals', False)
         self.read_bool('opt_det_coeff', False)
         self.read_int('opt_maxeval', 40)
-        self.read_block('opt_plan')
+        self.read_opt_plan()
         self.read_int('opt_noctf_cycles', 0)
         self.read_bool('opt_fixnl', self.opt_method == 'varmin')
         self.read_bool('vm_reweight', False)
+        self.read_bool('vm_w_max', 0.0)
+        self.read_bool('vm_w_min', 0.0)
         # DMC keywords
         self.read_float('dmc_target_weight')
         self.read_int('dmc_equil_nstep')
