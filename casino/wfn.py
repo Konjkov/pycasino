@@ -58,9 +58,9 @@ class Wfn:
     def _get_nuclear_repulsion(self) -> float:
         """Value of n-n repulsion."""
         res = 0.0
-        for i in range(self.atom_positions.shape[0] - 1):
-            for j in range(i + 1, self.atom_positions.shape[0]):
-                res += self.atom_charges[i] * self.atom_charges[j] / np.linalg.norm(self.atom_positions[i] - self.atom_positions[j])
+        for atom1 in range(self.atom_positions.shape[0] - 1):
+            for atom2 in range(atom1 + 1, self.atom_positions.shape[0]):
+                res += self.atom_charges[atom1] * self.atom_charges[atom2] / np.linalg.norm(self.atom_positions[atom1] - self.atom_positions[atom2])
         return res
 
     def coulomb(self, r_e) -> float:
@@ -71,6 +71,10 @@ class Wfn:
         for e1 in range(e_vectors.shape[0] - 1):
             for e2 in range(e1 + 1, e_vectors.shape[1]):
                 res += 1 / np.linalg.norm(e_vectors[e1, e2])
+        # e-n coulomb interaction
+        for atom in range(n_vectors.shape[0]):
+            for e1 in range(n_vectors.shape[1]):
+                res -= self.atom_charges[atom] / np.linalg.norm(n_vectors[atom, e1])
         # pseudopotential interaction
         if self.ppotential is not None:
             value = self.value(r_e)
@@ -78,26 +82,21 @@ class Wfn:
             Np = grid.shape[2]
             potential = self.ppotential.get_ppotential(n_vectors)
             for atom in range(n_vectors.shape[0]):
-                for j in range(self.neu + self.ned):
-                    if potential[atom][j, 0] or potential[atom][j, 1]:
+                for e1 in range(self.neu + self.ned):
+                    if potential[atom][e1, 0] or potential[atom][e1, 1]:
                         for q in range(Np):
-                            cos_theta = (grid[atom, j, q] @ n_vectors[atom, j]) / (n_vectors[atom, j] @ n_vectors[atom, j])
+                            cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
                             r_e_copy = r_e.copy()
-                            r_e_copy[j] = grid[atom, j, q] + self.atom_positions[atom]
+                            r_e_copy[e1] = grid[atom, e1, q] + self.atom_positions[atom]
                             if value:
                                 value_ratio = self.value(r_e_copy) / value
                             else:
                                 value_ratio = 1
                             weight = self.ppotential.weight[atom][q]
                             for l in range(2):
-                                res += potential[atom][j, l] * self.ppotential.legendre(l, cos_theta) * value_ratio * weight
+                                res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_ratio * weight
                     # local channel
-                    res += potential[atom][j, 2]
-        # e-n coulomb interaction
-        else:
-            for atom in range(n_vectors.shape[0]):
-                for e1 in range(n_vectors.shape[1]):
-                    res -= self.atom_charges[atom] / np.linalg.norm(n_vectors[atom, e1])
+                    res += potential[atom][e1, 2]
         return res
 
     def value(self, r_e) -> float:

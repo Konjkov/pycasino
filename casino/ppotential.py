@@ -11,6 +11,7 @@ ppotential_spec = [
     ('ned', nb.int64),
     ('lcutofftol', nb.float64),
     ('nlcutofftol', nb.float64),
+    ('atom_charges', nb.float64[:]),
     ('vmc_nonlocal_grid', nb.int64[:]),
     ('dmc_nonlocal_grid', nb.int64[:]),
     ('local_angular_momentum', nb.int64[:]),
@@ -23,7 +24,7 @@ ppotential_spec = [
 @nb.experimental.jitclass(ppotential_spec)
 class PPotential:
 
-    def __init__(self, neu, ned, lcutofftol, nlcutofftol, vmc_nonlocal_grid, dmc_nonlocal_grid, local_angular_momentum, ppotential):
+    def __init__(self, neu, ned, atom_charges, lcutofftol, nlcutofftol, vmc_nonlocal_grid, dmc_nonlocal_grid, local_angular_momentum, ppotential):
         """Pseudopotential.
         For more details
         https://vallico.net/casinoqmc/pplib/
@@ -39,6 +40,7 @@ class PPotential:
         """
         self.neu = neu
         self.ned = ned
+        self.atom_charges = atom_charges
         self.lcutofftol = lcutofftol
         self.nlcutofftol = nlcutofftol
         self.vmc_nonlocal_grid = vmc_nonlocal_grid
@@ -54,8 +56,12 @@ class PPotential:
             local_angular_momentum = self.local_angular_momentum[atom]
             atom_pp[1] -= atom_pp[local_angular_momentum + 1]
             atom_pp[2] -= atom_pp[local_angular_momentum + 1]
+            # FIXME: max cutoff radius by np.argmax(np.abs(a[::-1]) > nlcutofftol) in reversed array
             atom_pp[1, np.abs(atom_pp[1]) < self.nlcutofftol] = 0
             atom_pp[2, np.abs(atom_pp[2]) < self.nlcutofftol] = 0
+            atom_pp[local_angular_momentum + 1] += atom_charges[atom]
+            # FIXME: max cutoff radius by np.argmax(np.abs(a[::-1]) > lcutofftol) in reversed array
+            atom_pp[local_angular_momentum + 1, np.abs(atom_pp[local_angular_momentum + 1]) < self.lcutofftol] = 0
 
     def generate_quadratures(self):
         """Formulae from "Nonlocal pseudopotentials and diffusion monte carlo"
