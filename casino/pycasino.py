@@ -820,7 +820,7 @@ class Casino:
         start, stop = self.mpi_comm.rank * steps // self.mpi_comm.size, (self.mpi_comm.rank + 1) * steps // self.mpi_comm.size
         x0 = self.wfn.get_parameters(opt_jastrow, opt_backflow, opt_det_coeff)
         if x0.all():
-            self.wfn.set_parameters(x0)
+            self.wfn.set_parameters(x0, opt_jastrow, opt_backflow, opt_det_coeff)
         else:
             # CASINO variant
             # self.wfn.jastrow.set_u_parameters_for_emin()
@@ -943,15 +943,15 @@ class Casino:
         energy_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
 
         def fun(x, *args):
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow, opt_det_coeff)
             energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
             self.mpi_comm.Barrier()
             logger.info(f'energy: {energy.mean()}')
             return energy.mean()
 
         def jac(x, *args):
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
-            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow, opt_det_coeff)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow, opt_det_coeff)
             energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
             wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow, opt_det_coeff)
             self.mpi_comm.Barrier()
@@ -962,8 +962,8 @@ class Casino:
             return 2 * wfn_gradient.T @ energy / steps
 
         def hess(x, *args):
-            self.wfn.set_parameters(x, opt_jastrow, opt_backflow)
-            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow)
+            self.wfn.set_parameters(x, opt_jastrow, opt_backflow, opt_det_coeff)
+            self.wfn.set_parameters_projector(opt_jastrow, opt_backflow, opt_det_coeff)
             energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
             wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1, opt_jastrow, opt_backflow, opt_det_coeff)
             energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1, opt_jastrow, opt_backflow, opt_det_coeff)
