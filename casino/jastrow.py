@@ -255,9 +255,6 @@ class Jastrow(AbstractJastrow):
         :return:
         """
         res = 0.0
-        if not self.chi_cutoff.any():
-            return res
-
         C = self.trunc
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
             for label in chi_labels:
@@ -281,9 +278,6 @@ class Jastrow(AbstractJastrow):
         :return:
         """
         res = 0.0
-        if not self.f_cutoff.any():
-            return res
-
         C = self.trunc
         for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
             for label in f_labels:
@@ -345,12 +339,8 @@ class Jastrow(AbstractJastrow):
         :param n_vectors: e-n vectors
         :return:
         """
-        res = np.zeros(shape=(self.neu + self.ned, 3))
-
-        if not self.chi_cutoff.any():
-            return res.ravel()
-
         C = self.trunc
+        res = np.zeros(shape=(self.neu + self.ned, 3))
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
@@ -375,12 +365,8 @@ class Jastrow(AbstractJastrow):
         :param n_vectors: e-n vectors
         :return:
         """
-        res = np.zeros(shape=(self.neu + self.ned, 3))
-
-        if not self.f_cutoff.any():
-            return res.ravel()
-
         C = self.trunc
+        res = np.zeros(shape=(self.neu + self.ned, 3))
         for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
             for label in f_labels:
                 for e1 in range(1, self.neu + self.ned):
@@ -404,7 +390,7 @@ class Jastrow(AbstractJastrow):
                                         poly_diff_e2I += m * p
                                         poly_diff_ee += n * p
                             cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
-                            # workaround to not create temporary 1-d numpy array
+                            # workaround do not create temporary 1-d numpy array
                             for t1 in range(3):
                                 e1_gradient = r_e1I_vec[t1] * (C/(r_e1I - L) * poly + poly_diff_e1I/r_e1I)
                                 e2_gradient = r_e2I_vec[t1] * (C/(r_e2I - L) * poly + poly_diff_e2I/r_e2I)
@@ -454,9 +440,6 @@ class Jastrow(AbstractJastrow):
         :return:
         """
         res = 0.0
-        if not self.chi_cutoff.any():
-            return res
-
         C = self.trunc
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
             for label in chi_labels:
@@ -492,9 +475,6 @@ class Jastrow(AbstractJastrow):
         :return:
         """
         res = 0.0
-        if not self.f_cutoff.any():
-            return res
-
         C = self.trunc
         for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
             for label in f_labels:

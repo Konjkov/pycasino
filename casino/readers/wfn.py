@@ -136,7 +136,7 @@ class Gwfn(FortranFile):
         self.remove_premultiplied_factor()
 
         # Read pseudopotential from files
-        self.is_pseudoatom = np.full_like(self.atom_numbers, False)
+        self.is_pseudoatom = np.full_like(self.atom_numbers, False, dtype=np.bool_)
         self.vmc_nonlocal_grid = np.zeros_like(self.atom_numbers)
         self.dmc_nonlocal_grid = np.zeros_like(self.atom_numbers)
         self.local_angular_momentum = np.zeros_like(self.atom_numbers)
@@ -323,7 +323,7 @@ class Stowfn(FortranFile):
         self.normalize_orbitals()
 
         # Read pseudopotential from files
-        self.is_pseudoatom = np.full_like(self.atom_numbers, False)
+        self.is_pseudoatom = np.full_like(self.atom_numbers, False, dtype=np.bool_)
 
     def normalize_orbitals(self):
         """

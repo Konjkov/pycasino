@@ -443,11 +443,8 @@ class Backflow(AbstractBackflow):
         :param n_powers: powers of e-n distances
         :return: displacements of electrons - array(2, nelec, 3)
         """
-        res = np.zeros(shape=(2, self.neu + self.ned, 3))
-        if not self.mu_cutoff.any():
-            return res.reshape(2, (self.neu + self.ned) * 3)
-
         C = self.trunc
+        res = np.zeros(shape=(2, self.neu + self.ned, 3))
         for parameters, L, mu_labels in zip(self.mu_parameters, self.mu_cutoff, self.mu_labels):
             for label in mu_labels:
                 for e1 in range(self.neu + self.ned):
@@ -473,11 +470,8 @@ class Backflow(AbstractBackflow):
         :param n_powers: powers of e-n distances
         :return: displacements of electrons - array(2, nelec, 3)
         """
-        res = np.zeros(shape=(2, self.neu + self.ned, 3))
-        if not self.phi_cutoff.any():
-            return res.reshape(2, (self.neu + self.ned) * 3)
-
         C = self.trunc
+        res = np.zeros(shape=(2, self.neu + self.ned, 3))
         for phi_parameters, theta_parameters, L, phi_labels in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_labels):
             for label in phi_labels:
                 for e1 in range(self.neu + self.ned):
@@ -547,11 +541,8 @@ class Backflow(AbstractBackflow):
         :param n_powers: powers of e-n distances
         :return: partial derivatives of displacements of electrons - array(2, nelec * 3, nelec * 3)
         """
-        res = np.zeros(shape=(2, self.neu + self.ned, 3, self.neu + self.ned, 3))
-        if not self.mu_cutoff.any():
-            return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
-
         C = self.trunc
+        res = np.zeros(shape=(2, self.neu + self.ned, 3, self.neu + self.ned, 3))
         for parameters, L, mu_labels in zip(self.mu_parameters, self.mu_cutoff, self.mu_labels):
             for label in mu_labels:
                 for e1 in range(self.neu + self.ned):
@@ -580,11 +571,8 @@ class Backflow(AbstractBackflow):
         :param e_powers: powers of e-e distances
         :return: partial derivatives of displacements of electrons - array(2, nelec * 3, nelec * 3)
         """
-        res = np.zeros(shape=(2, self.neu + self.ned, 3, self.neu + self.ned, 3))
-        if not self.mu_cutoff.any():
-            return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
-
         C = self.trunc
+        res = np.zeros(shape=(2, self.neu + self.ned, 3, self.neu + self.ned, 3))
         for phi_parameters, theta_parameters, L, phi_labels in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_labels):
             for label in phi_labels:
                 for e1 in range(self.neu + self.ned):
@@ -686,11 +674,8 @@ class Backflow(AbstractBackflow):
             ∇²(f) = d²f/dr² + 2/r * df/dr
         :return: vector laplacian - array(2, nelec * 3)
         """
-        res = np.zeros(shape=(2, self.neu + self.ned, 3))
-        if not self.mu_cutoff.any():
-            return res.reshape(2, (self.neu + self.ned) * 3)
-
         C = self.trunc
+        res = np.zeros(shape=(2, self.neu + self.ned, 3))
         for parameters, L, mu_labels in zip(self.mu_parameters, self.mu_cutoff, self.mu_labels):
             for label in mu_labels:
                 for e1 in range(self.neu + self.ned):
@@ -727,11 +712,8 @@ class Backflow(AbstractBackflow):
             ∇²(f) = d²f/dr² + 2/r * df/dr
         :return: vector laplacian - array(2, nelec * 3)
         """
-        res = np.zeros(shape=(2, self.neu + self.ned, 3))
-        if not self.phi_cutoff.any():
-            return res.reshape(2, (self.neu + self.ned) * 3)
-
         C = self.trunc
+        res = np.zeros(shape=(2, self.neu + self.ned, 3))
         for phi_parameters, theta_parameters, L, phi_labels in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_labels):
             for label in phi_labels:
                 for e1 in range(self.neu + self.ned):
