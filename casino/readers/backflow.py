@@ -466,9 +466,15 @@ class Backflow:
 
     def fix_mu_parameters(self):
         """Fix mu-term parameters"""
-        for mu_parameters in self.mu_parameters:
-            # for AE atoms
-            mu_parameters[0:2] = 0
+        C = self.trunc
+        for mu_parameters, mu_cutoff, mu_cusp in zip(self.mu_parameters, self.mu_cutoff, self.mu_cusp):
+            if mu_cusp:
+                # AE atoms (d0,I = 0; Lμ,I * d1,I = C * d0,I)
+                mu_parameters[0:2] = 0
+            else:
+                # PP atoms (Lμ,I * d1,I = C * d0,I)
+                L = mu_cutoff['value']
+                mu_parameters[1] = L * mu_parameters[0] / C
 
     def fix_phi_parameters(self):
         """Fix phi-term parameters"""

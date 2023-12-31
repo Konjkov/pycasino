@@ -114,7 +114,7 @@ class Input:
         self.read_float('cusp_threshold', 1e-7)
         self.read_bool('cusp_info', False)
         # Pseudopotential keywords
-        self.read_bool('non_local_gris', 4)
+        self.read_bool('non_local_grid', 4)
         self.read_float('lcutofftol', 1e-5)
         self.read_float('nlcutofftol', 1e-5)
 

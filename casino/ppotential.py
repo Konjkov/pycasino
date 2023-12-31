@@ -56,12 +56,13 @@ class PPotential:
             local_angular_momentum = self.local_angular_momentum[atom]
             atom_pp[1] -= atom_pp[local_angular_momentum + 1]
             atom_pp[2] -= atom_pp[local_angular_momentum + 1]
-            # FIXME: max cutoff radius by np.argmax(np.abs(a[::-1]) > nlcutofftol) in reversed array
-            atom_pp[1, np.abs(atom_pp[1]) < self.nlcutofftol] = 0
-            atom_pp[2, np.abs(atom_pp[2]) < self.nlcutofftol] = 0
+            r_nlcutoff_1 = atom_pp.shape[0] - np.argmax(np.abs(atom_pp[1, ::-1]) > self.nlcutofftol)
+            r_nlcutoff_2 = atom_pp.shape[0] - np.argmax(np.abs(atom_pp[2, ::-1]) > self.nlcutofftol)
+            atom_pp[1, r_nlcutoff_1:] = 0
+            atom_pp[2, r_nlcutoff_2:] = 0
             atom_pp[local_angular_momentum + 1] += atom_charges[atom]
-            # FIXME: max cutoff radius by np.argmax(np.abs(a[::-1]) > lcutofftol) in reversed array
-            atom_pp[local_angular_momentum + 1, np.abs(atom_pp[local_angular_momentum + 1]) < self.lcutofftol] = 0
+            r_lcutoff = atom_pp.shape[0] - np.argmax(np.abs(atom_pp[3, ::-1]) > self.lcutofftol)
+            atom_pp[local_angular_momentum + 1, r_lcutoff:] = 0
 
     def generate_quadratures(self):
         """Formulae from "Nonlocal pseudopotentials and diffusion monte carlo"
@@ -117,16 +118,9 @@ class PPotential:
                     self.to_cartesian(c1, 8 * np.pi/5), self.to_cartesian(c2, 9 * np.pi/5)
                 ]
             else:
+                # No grid
                 weight = [0.0]
                 quadrature = [[0.0, 0.0, 0.0]]
-            # logger.info(
-            #      f'Non-local integration grids\n'
-            #      f'===========================\n'
-            #      f'Ion type            :  1\n'
-            #      f'Non-local grid no.  :  {self.vmc_nonlocal_grid}\n'
-            #      f'Lexact              :  {[0, 2, 3, 5, 5, 7, 11][self.vmc_nonlocal_grid-1]}\n'
-            #      f'Number of points    :  {len(quadrature)}\n'
-            # )
             self.weight.append(np.array(weight, dtype=np.float64))
             self.quadrature.append(np.array(quadrature, dtype=np.float64))
 
