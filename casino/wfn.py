@@ -137,6 +137,31 @@ class Wfn:
             else:
                 return s_g
 
+    def pp_energy(self, r_e) -> float:
+        """Pseudopotential interaction local energy.
+        :param r_e: electron positions - array(nelec, 3)
+        """
+        res = 0.0
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        if self.ppotential is not None:
+            value = self.value(r_e)
+            grid = self.ppotential.integration_grid(n_vectors)
+            potential = self.ppotential.get_ppotential(n_vectors)
+            for atom in range(n_vectors.shape[0]):
+                for e1 in range(self.neu + self.ned):
+                    if potential[atom][e1, 0] or potential[atom][e1, 1]:
+                        for q in range(grid.shape[2]):
+                            cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
+                            r_e_copy = r_e.copy()
+                            r_e_copy[e1] = grid[atom, e1, q] + self.atom_positions[atom]
+                            value_ratio = self.value(r_e_copy) / value
+                            weight = self.ppotential.weight[atom][q]
+                            for l in range(2):
+                                res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_ratio * weight
+                    # local channel
+                    res += potential[atom][e1, 2]
+        return res
+
     def energy(self, r_e) -> float:
         """Local energy.
         :param r_e: electron coordinates - array(nelec, 3)
@@ -310,6 +335,75 @@ class Wfn:
             raise NotImplementedError
         return block_diag(res)
 
+    def pp_energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
+        """First-order derivatives of pseudopotential energy w.r.t parameters.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
+        :return:
+        """
+        res = np.zeros(0)
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        if self.jastrow is not None and opt_jastrow:
+            # Jastrow parameters part
+            parameters = self.jastrow.get_parameters()
+            j_pp = np.zeros(shape=(parameters.size,))
+            grid = self.ppotential.integration_grid(n_vectors)
+            potential = self.ppotential.get_ppotential(n_vectors)
+            for atom in range(n_vectors.shape[0]):
+                for e1 in range(self.neu + self.ned):
+                    if potential[atom][e1, 0] or potential[atom][e1, 1]:
+                        for q in range(grid.shape[2]):
+                            cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
+                            r_e_copy = r_e.copy()
+                            r_e_copy[e1] = grid[atom, e1, q] + self.atom_positions[atom]
+                            e_vectors_copy, n_vectors_copy = self._relative_coordinates(r_e_copy)
+                            value_parameters_d1 = self.jastrow.value_parameters_d1(e_vectors_copy, n_vectors_copy)
+                            weight = self.ppotential.weight[atom][q]
+                            for l in range(2):
+                                j_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_parameters_d1 * weight
+            res = np.concatenate((res, j_pp))
+        if self.backflow is not None and opt_backflow:
+            # backflow parameters part
+            parameters = self.backflow.get_parameters()
+            b_pp = np.zeros(shape=(parameters.size,))
+            grid = self.ppotential.integration_grid(n_vectors)
+            potential = self.ppotential.get_ppotential(n_vectors)
+            for atom in range(n_vectors.shape[0]):
+                for e1 in range(self.neu + self.ned):
+                    if potential[atom][e1, 0] or potential[atom][e1, 1]:
+                        for q in range(grid.shape[2]):
+                            cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
+                            r_e_copy = r_e.copy()
+                            r_e_copy[e1] = grid[atom, e1, q] + self.atom_positions[atom]
+                            e_vectors_copy, n_vectors_copy = self._relative_coordinates(r_e_copy)
+                            value_parameters_d1 = self.backflow.value_parameters_d1(e_vectors_copy, n_vectors_copy)
+                            weight = self.ppotential.weight[atom][q]
+                            for l in range(2):
+                                b_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_parameters_d1 * weight
+            res = np.concatenate((res, b_pp))
+        if self.slater.det_coeff.size > 1 and opt_det_coeff:
+            # determinants coefficients part
+            parameters = self.slater.get_parameters()
+            s_pp = np.zeros(shape=(parameters.size,))
+            grid = self.ppotential.integration_grid(n_vectors)
+            potential = self.ppotential.get_ppotential(n_vectors)
+            for atom in range(n_vectors.shape[0]):
+                for e1 in range(self.neu + self.ned):
+                    if potential[atom][e1, 0] or potential[atom][e1, 1]:
+                        for q in range(grid.shape[2]):
+                            cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
+                            r_e_copy = r_e.copy()
+                            r_e_copy[e1] = grid[atom, e1, q] + self.atom_positions[atom]
+                            e_vectors_copy, n_vectors_copy = self._relative_coordinates(r_e_copy)
+                            value_parameters_d1 = self.slater.value_parameters_d1(e_vectors_copy, n_vectors_copy)
+                            weight = self.ppotential.weight[atom][q]
+                            for l in range(2):
+                                s_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_parameters_d1 * weight
+            res = np.concatenate((res, s_pp))
+        return res
+
     def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
         """First-order derivatives of local energy w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
@@ -356,6 +450,7 @@ class Wfn:
                     bf_d1[i] += (s_g_d1[i] @ b_g + s_g @ b_g_d1[i]) @ j_g
             res = np.concatenate((res, bf_d1 @ self.backflow.parameters_projector))
         if self.slater.det_coeff.size > 1 and opt_det_coeff:
+            # determinants coefficients part
             if self.backflow is not None:
                 b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
                 s_g_d1 = self.slater.gradient_parameters_d1(b_v + n_vectors)
@@ -372,6 +467,9 @@ class Wfn:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
                 sl_d1 += s_g_d1 @ j_g
             res = np.concatenate((res, sl_d1))
+        if self.ppotential is not None:
+            # pseudopotential part
+            res -= self.pp_energy_parameters_d1(r_e, opt_jastrow, opt_backflow, opt_det_coeff)
         return -res
 
     def value_parameters_numerical_d1(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters=False):
