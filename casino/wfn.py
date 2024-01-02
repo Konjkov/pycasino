@@ -75,28 +75,6 @@ class Wfn:
         for atom in range(n_vectors.shape[0]):
             for e1 in range(n_vectors.shape[1]):
                 res -= self.atom_charges[atom] / np.linalg.norm(n_vectors[atom, e1])
-        # pseudopotential interaction
-        if self.ppotential is not None:
-            value = self.value(r_e)
-            grid = self.ppotential.integration_grid(n_vectors)
-            Np = grid.shape[2]
-            potential = self.ppotential.get_ppotential(n_vectors)
-            for atom in range(n_vectors.shape[0]):
-                for e1 in range(self.neu + self.ned):
-                    if potential[atom][e1, 0] or potential[atom][e1, 1]:
-                        for q in range(Np):
-                            cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
-                            r_e_copy = r_e.copy()
-                            r_e_copy[e1] = grid[atom, e1, q] + self.atom_positions[atom]
-                            if value:
-                                value_ratio = self.value(r_e_copy) / value
-                            else:
-                                value_ratio = 1
-                            weight = self.ppotential.weight[atom][q]
-                            for l in range(2):
-                                res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_ratio * weight
-                    # local channel
-                    res += potential[atom][e1, 2]
         return res
 
     def value(self, r_e) -> float:
@@ -184,7 +162,7 @@ class Wfn:
 
         e_vectors, n_vectors = self._relative_coordinates(r_e)
 
-        res = self.coulomb(r_e) + self.nuclear_repulsion
+        res = self.coulomb(r_e) + self.pp_energy(r_e) + self.nuclear_repulsion
 
         if self.backflow is not None:
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
@@ -347,7 +325,7 @@ class Wfn:
         e_vectors, n_vectors = self._relative_coordinates(r_e)
         if self.jastrow is not None and opt_jastrow:
             # Jastrow parameters part
-            parameters = self.jastrow.get_parameters()
+            parameters = self.jastrow.get_parameters(all_parameters=False)
             j_pp = np.zeros(shape=(parameters.size,))
             grid = self.ppotential.integration_grid(n_vectors)
             potential = self.ppotential.get_ppotential(n_vectors)
@@ -366,7 +344,7 @@ class Wfn:
             res = np.concatenate((res, j_pp))
         if self.backflow is not None and opt_backflow:
             # backflow parameters part
-            parameters = self.backflow.get_parameters()
+            parameters = self.backflow.get_parameters(all_parameters=False)
             b_pp = np.zeros(shape=(parameters.size,))
             grid = self.ppotential.integration_grid(n_vectors)
             potential = self.ppotential.get_ppotential(n_vectors)
@@ -378,14 +356,15 @@ class Wfn:
                             r_e_copy = r_e.copy()
                             r_e_copy[e1] = grid[atom, e1, q] + self.atom_positions[atom]
                             e_vectors_copy, n_vectors_copy = self._relative_coordinates(r_e_copy)
-                            value_parameters_d1 = self.backflow.value_parameters_d1(e_vectors_copy, n_vectors_copy)
+                            b_v = self.backflow.value(e_vectors_copy, n_vectors_copy) + n_vectors_copy
+                            value_parameters_d1 = self.backflow.value_parameters_d1(e_vectors_copy, n_vectors_copy) @ self.slater.gradient(b_v)
                             weight = self.ppotential.weight[atom][q]
                             for l in range(2):
                                 b_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_parameters_d1 * weight
             res = np.concatenate((res, b_pp))
         if self.slater.det_coeff.size > 1 and opt_det_coeff:
             # determinants coefficients part
-            parameters = self.slater.get_parameters()
+            parameters = self.slater.get_parameters(all_parameters=False)
             s_pp = np.zeros(shape=(parameters.size,))
             grid = self.ppotential.integration_grid(n_vectors)
             potential = self.ppotential.get_ppotential(n_vectors)
@@ -397,7 +376,9 @@ class Wfn:
                             r_e_copy = r_e.copy()
                             r_e_copy[e1] = grid[atom, e1, q] + self.atom_positions[atom]
                             e_vectors_copy, n_vectors_copy = self._relative_coordinates(r_e_copy)
-                            value_parameters_d1 = self.slater.value_parameters_d1(e_vectors_copy, n_vectors_copy)
+                            if self.backflow is not None:
+                                n_vectors_copy = self.backflow.value(e_vectors_copy, n_vectors_copy) + n_vectors_copy
+                            value_parameters_d1 = self.slater.value_parameters_d1(n_vectors_copy)
                             weight = self.ppotential.weight[atom][q]
                             for l in range(2):
                                 s_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_parameters_d1 * weight

@@ -191,7 +191,7 @@ class Gwfn(FortranFile):
                         for i in range(grid_points):
                             ppotential[angular_momentum+1, i] = self.read_float() * scale
             for idx in ids:
-                ppotential_list[idx[0]] = ppotential
+                ppotential_list[idx[0]] = ppotential.copy()
         self.ppotential = nb.typed.List.empty_list(ppotential_type)
         [self.ppotential.append(pp) for pp in ppotential_list]
 
