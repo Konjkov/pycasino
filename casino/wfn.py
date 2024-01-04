@@ -75,6 +75,12 @@ class Wfn:
         for atom in range(n_vectors.shape[0]):
             for e1 in range(n_vectors.shape[1]):
                 res -= self.atom_charges[atom] / np.linalg.norm(n_vectors[atom, e1])
+        # local channel pseudopotential
+        if self.ppotential is not None:
+            potential = self.ppotential.get_ppotential(n_vectors)
+            for atom in range(n_vectors.shape[0]):
+                for e1 in range(self.neu + self.ned):
+                    res += potential[atom][e1, 2]
         return res
 
     def value(self, r_e) -> float:
@@ -115,14 +121,13 @@ class Wfn:
             else:
                 return s_g
 
-    def pp_energy(self, r_e) -> float:
-        """Pseudopotential interaction local energy.
+    def nonlocal_energy(self, r_e) -> float:
+        """Nonlocal (pseudopotential) energy.
         :param r_e: electron positions - array(nelec, 3)
         """
         res = 0.0
         e_vectors, n_vectors = self._relative_coordinates(r_e)
         if self.ppotential is not None:
-            value = self.value(r_e)
             grid = self.ppotential.integration_grid(n_vectors)
             potential = self.ppotential.get_ppotential(n_vectors)
             for atom in range(n_vectors.shape[0]):
@@ -132,12 +137,11 @@ class Wfn:
                             cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
                             r_e_copy = r_e.copy()
                             r_e_copy[e1] = grid[atom, e1, q] + self.atom_positions[atom]
-                            value_ratio = self.value(r_e_copy) / value
+                            value = self.value(r_e_copy)
                             weight = self.ppotential.weight[atom][q]
                             for l in range(2):
-                                res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_ratio * weight
-                    # local channel
-                    res += potential[atom][e1, 2]
+                                res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value * weight
+            res /= self.value(r_e)
         return res
 
     def energy(self, r_e) -> float:
@@ -162,7 +166,7 @@ class Wfn:
 
         e_vectors, n_vectors = self._relative_coordinates(r_e)
 
-        res = self.coulomb(r_e) + self.pp_energy(r_e) + self.nuclear_repulsion
+        res = self.coulomb(r_e) + self.nonlocal_energy(r_e) + self.nuclear_repulsion
 
         if self.backflow is not None:
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
@@ -313,7 +317,7 @@ class Wfn:
             raise NotImplementedError
         return block_diag(res)
 
-    def pp_energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
+    def nonlocal_energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
         """First-order derivatives of pseudopotential energy w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
         :param opt_jastrow: optimize jastrow parameters
@@ -337,10 +341,12 @@ class Wfn:
                             r_e_copy = r_e.copy()
                             r_e_copy[e1] = grid[atom, e1, q] + self.atom_positions[atom]
                             e_vectors_copy, n_vectors_copy = self._relative_coordinates(r_e_copy)
+                            value = self.value(r_e_copy)
                             value_parameters_d1 = self.jastrow.value_parameters_d1(e_vectors_copy, n_vectors_copy)
                             weight = self.ppotential.weight[atom][q]
                             for l in range(2):
-                                j_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_parameters_d1 * weight
+                                j_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value * value_parameters_d1 * weight
+            j_pp /= self.value(r_e)
             res = np.concatenate((res, j_pp))
         if self.backflow is not None and opt_backflow:
             # backflow parameters part
@@ -357,10 +363,12 @@ class Wfn:
                             r_e_copy[e1] = grid[atom, e1, q] + self.atom_positions[atom]
                             e_vectors_copy, n_vectors_copy = self._relative_coordinates(r_e_copy)
                             b_v = self.backflow.value(e_vectors_copy, n_vectors_copy) + n_vectors_copy
+                            value = self.value(r_e_copy)
                             value_parameters_d1 = self.backflow.value_parameters_d1(e_vectors_copy, n_vectors_copy) @ self.slater.gradient(b_v)
                             weight = self.ppotential.weight[atom][q]
                             for l in range(2):
-                                b_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_parameters_d1 * weight
+                                b_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value * value_parameters_d1 * weight
+            b_pp /= self.value(r_e)
             res = np.concatenate((res, b_pp))
         if self.slater.det_coeff.size > 1 and opt_det_coeff:
             # determinants coefficients part
@@ -378,11 +386,14 @@ class Wfn:
                             e_vectors_copy, n_vectors_copy = self._relative_coordinates(r_e_copy)
                             if self.backflow is not None:
                                 n_vectors_copy = self.backflow.value(e_vectors_copy, n_vectors_copy) + n_vectors_copy
+                            value = self.value(r_e_copy)
                             value_parameters_d1 = self.slater.value_parameters_d1(n_vectors_copy)
                             weight = self.ppotential.weight[atom][q]
                             for l in range(2):
-                                s_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_parameters_d1 * weight
+                                s_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value * value_parameters_d1 * weight
+            s_pp /= self.value(r_e)
             res = np.concatenate((res, s_pp))
+        res -= self.value_parameters_d1(r_e, opt_jastrow, opt_backflow, opt_det_coeff) * self.nonlocal_energy(r_e)
         return res
 
     def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
@@ -450,7 +461,7 @@ class Wfn:
             res = np.concatenate((res, sl_d1))
         if self.ppotential is not None:
             # pseudopotential part
-            res -= self.pp_energy_parameters_d1(r_e, opt_jastrow, opt_backflow, opt_det_coeff)
+            res -= self.nonlocal_energy_parameters_d1(r_e, opt_jastrow, opt_backflow, opt_det_coeff)
         return -res
 
     def value_parameters_numerical_d1(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters=False):

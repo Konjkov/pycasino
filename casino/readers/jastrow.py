@@ -290,7 +290,7 @@ class Jastrow:
                     elif line.startswith('END SET'):
                         set_number = None
 
-    def write(self):
+    def write(self, title='no title given'):
         """Write Jastrow config to file"""
         u_term = ""
         if self.u_cutoff:
@@ -364,7 +364,7 @@ class Jastrow:
             f_term = f_term_template.format(n_f_sets=n_f_set + 1, f_sets='\n '.join(f_sets))
 
         jastrow = jastrow_template.format(
-            title='no title given',
+            title=title,
             trunc=self.trunc,
             terms=u_term + chi_term + f_term,
         )

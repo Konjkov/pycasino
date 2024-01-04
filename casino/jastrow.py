@@ -973,7 +973,6 @@ class Jastrow(AbstractJastrow):
                                 n += 1
                                 if u_set == j2:
                                     res[n] += e_powers[e1, e2, j1] * cutoff
-
         return res
 
     def chi_term_parameters_d1(self, n_powers) -> np.ndarray:
@@ -1016,7 +1015,6 @@ class Jastrow(AbstractJastrow):
                                     n += 1
                                     if chi_set == j2:
                                         res[n] += n_powers[label, e1, j1] * cutoff
-
         return res
 
     def f_term_parameters_d1(self, e_powers, n_powers) -> np.ndarray:
@@ -1068,7 +1066,6 @@ class Jastrow(AbstractJastrow):
                                                     if j1 != j2:
                                                         en_part += n_powers[label, e1, j2] * n_powers[label, e2, j1]
                                                     res[n] += en_part * e_powers[e1, e2, j3] * cutoff
-
         return res
 
     def u_term_gradient_parameters_d1(self, e_powers, e_vectors) -> np.ndarray:
@@ -1111,7 +1108,6 @@ class Jastrow(AbstractJastrow):
                                     gradient = r_vec * cutoff * (C / (r - L) + j1 / r) * poly
                                     res[n, e1, :] += gradient
                                     res[n, e2, :] -= gradient
-
         return res.reshape(size, (self.neu + self.ned) * 3)
 
     def chi_term_gradient_parameters_d1(self, n_powers, n_vectors) -> np.ndarray:
@@ -1158,7 +1154,6 @@ class Jastrow(AbstractJastrow):
                                     if chi_set == j2:
                                         poly = n_powers[label, e1, j1]
                                         res[n, e1, :] += r_vec * cutoff * (C / (r - L) + j1 / r) * poly
-
         return res.reshape(size, (self.neu + self.ned) * 3)
 
     def f_term_gradient_parameters_d1(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
@@ -1227,7 +1222,6 @@ class Jastrow(AbstractJastrow):
                                                             e2_gradient = r_e2I_vec[t1] * (C / (r_e2I - L) + j1 / r_e2I)
                                                             res[n, e1, t1] += (e1_gradient + ee_gradient) * poly_2
                                                             res[n, e2, t1] += (e2_gradient - ee_gradient) * poly_2
-
         return res.reshape(size, (self.neu + self.ned) * 3)
 
     def u_term_laplacian_parameters_d1(self, e_powers) -> np.ndarray:
@@ -1270,7 +1264,6 @@ class Jastrow(AbstractJastrow):
                                         2 * C/(r-L) * (j1 + 1) / r +
                                         j1 * (j1 + 1) / r**2
                                     ) * poly
-
         return res
 
     def chi_term_laplacian_parameters_d1(self, n_powers) -> np.ndarray:
@@ -1319,7 +1312,6 @@ class Jastrow(AbstractJastrow):
                                             2 * C/(r-L) * (j1 + 1) / r +
                                             j1 * (j1 + 1) / r**2
                                         ) * poly
-
         return res
 
     def f_term_laplacian_parameters_d1(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:

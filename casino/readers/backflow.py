@@ -22,10 +22,6 @@ backflow_template = """\
  Truncation order
    {trunc}
  {terms}\
- START AE CUTOFFS
- Nucleus ; Set ; Cutoff length     ;  Optimizable (0=NO; 1=YES)
- {ae_cutoffs}
- END AE CUTOFFS
  END BACKFLOW
 
 """
@@ -101,6 +97,13 @@ START SET {n_set}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
   {phi_parameters}
  END SET {n_set}"""
+
+ae_cutoff_template = """\
+ START AE CUTOFFS
+ Nucleus ; Set ; Cutoff length     ;  Optimizable (0=NO; 1=YES)
+ {ae_cutoffs}
+ END AE CUTOFFS
+"""
 
 
 class Backflow:
@@ -320,7 +323,7 @@ class Backflow:
                         ae_cutoff.append(float(cutoff_length))
                         ae_cutoff_optimizable.append(bool(int(cutoff_length_optimizable)))
 
-    def write(self):
+    def write(self, title='no title given'):
         eta_term = ""
         if self.eta_cutoff['value'].any():
             eta_parameters_list = []
@@ -399,14 +402,16 @@ class Backflow:
         if phi_sets:
             phi_term = phi_term_template.format(n_phi_sets=n_phi_set + 1, phi_sets='\n '.join(phi_sets))
 
+        ae_cutoffs = ''
         ae_cutoff_list = []
         for i, (ae_cutoff, ae_cutoff_optimizable) in enumerate(zip(self.ae_cutoff, self.ae_cutoff_optimizable)):
             ae_cutoff_list.append(f' {i + 1}         1      {ae_cutoff: .16e}           {int(ae_cutoff_optimizable)}')
+        if ae_cutoff_list:
+            ae_cutoffs = ae_cutoff_template.format(ae_cutoffs='\n '.join(ae_cutoff_list))
         backflow = backflow_template.format(
-            title='no title given',
+            title=title,
             trunc=self.trunc,
-            terms=eta_term + mu_term + phi_term,
-            ae_cutoffs='\n '.join(ae_cutoff_list),
+            terms=eta_term + mu_term + phi_term + ae_cutoffs,
         )
         return backflow
 

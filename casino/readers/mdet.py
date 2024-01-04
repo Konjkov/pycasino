@@ -61,14 +61,14 @@ class Mdet:
                 # normalisation
                 self.coeff /= np.linalg.norm(self.coeff)
 
-    def write(self):
+    def write(self, title='no title given'):
         mdet = ''
         if self.coeff.size > 1:
             det_weights_list = []
             for coeff in self.coeff:
                 det_weights_list.append(f'{coeff: .16e}            1       0')
             mdet = mdet_template.format(
-                title='no title given',
+                title=title,
                 n_dets=self.coeff.size,
                 det_weights='\n  '.join(det_weights_list),
                 promote='\n  '.join(self.promote_lines),

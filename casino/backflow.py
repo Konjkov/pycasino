@@ -1111,7 +1111,7 @@ class Backflow(AbstractBackflow):
                     eta_spin_deps = [x for x in eta_spin_deps if x != 2]
 
             eta_list = []
-            eta_cutoff_matrix= []
+            eta_cutoff_matrix = []
             for spin_dep in eta_spin_deps:
                 # e-e term is affected by constraints only for like-spin electrons
                 if spin_dep in (0, 2):
@@ -1135,18 +1135,27 @@ class Backflow(AbstractBackflow):
                 ))
             a_list.append(eta_block)
 
-        for mu_parameters, mu_cutoff, mu_cutoff_optimizable in zip(self.mu_parameters, self.mu_cutoff, self.mu_cutoff_optimizable):
-            # d0 = 0
-            # d0*C - d1*L = 0
-            # -d1 * dL + С * dd0 - L * dd1 = 0
-            mu_matrix = np.zeros(shape=(2, mu_parameters.shape[0]))
-            mu_matrix[0, 0] = 1
-            mu_matrix[1, 0] = self.trunc
-            mu_matrix[1, 1] = -mu_cutoff
+        for mu_parameters, mu_cutoff, mu_cutoff_optimizable, mu_cusp in zip(self.mu_parameters, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_cusp):
+            if mu_cusp:
+                # AE atoms (d0,I = 0; Lμ,I * d1,I = C * d0,I)
+                # -d1 * dL + С * dd0 - L * dd1 = 0
+                mu_matrix = np.zeros(shape=(2, mu_parameters.shape[0]))
+                mu_matrix[0, 0] = 1
+                mu_matrix[1, 0] = self.trunc
+                mu_matrix[1, 1] = -mu_cutoff
+            else:
+                # PP atoms (Lμ,I * d1,I = C * d0,I)
+                # -d1 * dL + С * dd0 - L * dd1 = 0
+                mu_matrix = np.zeros(shape=(1, mu_parameters.shape[0]))
+                mu_matrix[0, 0] = self.trunc
+                mu_matrix[0, 1] = -mu_cutoff
 
             if mu_parameters.shape[1] == 2:
                 mu_spin_deps = [0, 1]
-                mu_cutoff_matrix = [0, mu_parameters[1, 0], 0, mu_parameters[1, 1]]
+                if mu_cusp:
+                    mu_cutoff_matrix = [0, mu_parameters[1, 0], 0, mu_parameters[1, 1]]
+                else:
+                    mu_cutoff_matrix = [mu_parameters[1, 0], mu_parameters[1, 1]]
                 if self.neu < 1:
                     mu_spin_deps = [1]
                     mu_cutoff_matrix = [0, mu_parameters[1, 0]]
@@ -1155,14 +1164,20 @@ class Backflow(AbstractBackflow):
                     mu_cutoff_matrix = [0, mu_parameters[1, 1]]
             else:
                 mu_spin_deps = [0]
-                mu_cutoff_matrix = [0, mu_parameters[0, 1]]
+                if mu_cusp:
+                    mu_cutoff_matrix = [0, mu_parameters[0, 1]]
+                else:
+                    mu_cutoff_matrix = [mu_parameters[0, 1]]
 
             mu_block = block_diag([mu_matrix] * len(mu_spin_deps))
             if mu_cutoff_optimizable and self.cutoffs_optimizable:
                 # does not matter for AE atoms
                 mu_block = np.hstack((- np.array(mu_cutoff_matrix).reshape(-1, 1), mu_block))
             a_list.append(mu_block)
-            b_list += [0] * 2 * len(mu_spin_deps)
+            if mu_cusp:
+                b_list += [0] * 2 * len(mu_spin_deps)
+            else:
+                b_list += [0] * len(mu_spin_deps)
 
         for phi_parameters, theta_parameters, phi_cutoff, phi_cutoff_optimizable, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cutoff_optimizable, self.phi_cusp, self.phi_irrotational):
             phi_spin_deps = [0]
