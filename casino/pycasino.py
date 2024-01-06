@@ -574,7 +574,7 @@ class Casino:
             return scale * (energy_gradient - energy_gradient.mean(axis=0))
 
         res = least_squares(
-            fun, x0=x0, jac=jac, method='trf', ftol=2/np.sqrt(steps-1),
+            fun, x0=x0, jac=jac, method='trf', ftol=2/np.sqrt(steps-1), x_scale='jac',
             tr_solver='exact', max_nfev=self.config.input.opt_maxeval, verbose=self.root and verbose
         )
         parameters = res.x

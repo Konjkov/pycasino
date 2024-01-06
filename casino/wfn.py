@@ -329,10 +329,9 @@ class Wfn:
         e_vectors, n_vectors = self._relative_coordinates(r_e)
         if self.jastrow is not None and opt_jastrow:
             # Jastrow parameters part
-            parameters = self.jastrow.get_parameters(all_parameters=False)
-            value = self.value(r_e)
-            # j_d1 = self.jastrow.value_parameters_d1(e_vectors, n_vectors)
-            j_pp = np.zeros(shape=(parameters.size,))
+            j_parameters = self.jastrow.get_parameters(all_parameters=False)
+            j_d1 = self.jastrow.value_parameters_d1(e_vectors, n_vectors)
+            j_pp = np.zeros(shape=(j_parameters.size,))
             grid = self.ppotential.integration_grid(n_vectors)
             potential = self.ppotential.get_ppotential(n_vectors)
             for atom in range(n_vectors.shape[0]):
@@ -347,17 +346,14 @@ class Wfn:
                             j_d1_q = self.jastrow.value_parameters_d1(e_vectors_q, n_vectors_q)
                             weight = self.ppotential.weight[atom][q]
                             for l in range(2):
-                                j_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_q * weight * j_d1_q
-                                # j_pp -= potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_q * weight * j_d1
-            j_pp /= value
+                                j_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q * (j_d1_q - j_d1)
             res = np.concatenate((res, j_pp))
         if self.backflow is not None and opt_backflow:
             # backflow parameters part
-            parameters = self.backflow.get_parameters(all_parameters=False)
-            value = self.value(r_e)
-            # b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
-            # b_d1 = self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v)
-            b_pp = np.zeros(shape=(parameters.size,))
+            b_parameters = self.backflow.get_parameters(all_parameters=False)
+            b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
+            b_d1 = self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v)
+            b_pp = np.zeros(shape=(b_parameters.size,))
             grid = self.ppotential.integration_grid(n_vectors)
             potential = self.ppotential.get_ppotential(n_vectors)
             for atom in range(n_vectors.shape[0]):
@@ -373,18 +369,15 @@ class Wfn:
                             b_d1_q = self.backflow.value_parameters_d1(e_vectors_q, n_vectors_q) @ self.slater.gradient(b_v_q)
                             weight = self.ppotential.weight[atom][q]
                             for l in range(2):
-                                b_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_q * weight * b_d1_q
-                                # b_pp -= potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_q * weight * b_d1
-            b_pp /= value
+                                b_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q * (b_d1_q - b_d1)
             res = np.concatenate((res, b_pp))
         if self.slater.det_coeff.size > 1 and opt_det_coeff:
             # determinants coefficients part
-            parameters = self.slater.get_parameters(all_parameters=False)
-            value = self.value(r_e)
-            # if self.backflow is not None:
-            #     n_vectors = self.backflow.value(e_vectors, n_vectors) + n_vectors
-            # s_d1 = self.slater.value_parameters_d1(n_vectors)
-            s_pp = np.zeros(shape=(parameters.size,))
+            s_parameters = self.slater.get_parameters(all_parameters=False)
+            if self.backflow is not None:
+                n_vectors = self.backflow.value(e_vectors, n_vectors) + n_vectors
+            s_d1 = self.slater.value_parameters_d1(n_vectors)
+            s_pp = np.zeros(shape=(s_parameters.size,))
             grid = self.ppotential.integration_grid(n_vectors)
             potential = self.ppotential.get_ppotential(n_vectors)
             for atom in range(n_vectors.shape[0]):
@@ -401,12 +394,9 @@ class Wfn:
                             s_d1_q = self.slater.value_parameters_d1(n_vectors_q)
                             weight = self.ppotential.weight[atom][q]
                             for l in range(2):
-                                s_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_q * weight * s_d1_q
-                                # s_pp -= potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * value_q * weight * s_d1
-            s_pp /= value
+                                s_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q * (s_d1_q - s_d1)
             res = np.concatenate((res, s_pp))
-        res -= self.value_parameters_d1(r_e, opt_jastrow, opt_backflow, opt_det_coeff) * self.nonlocal_energy(r_e)
-        return res
+        return res / self.value(r_e)
 
     def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
         """First-order derivatives of local energy w.r.t parameters.

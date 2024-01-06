@@ -242,7 +242,10 @@ class DMCMarkovChain:
 
     def random_step(self):
         """Wrapper"""
-        self.all_electrons_random_step()
+        if self.method == 1:
+            self.one_electrons_random_step()
+        elif self.method == 2:
+            self.all_electrons_random_step()
 
     def alimit_vector(self, r_e, velocity):
         """Parameter required by DMC drift-velocity- and energy-limiting schemes
@@ -342,6 +345,9 @@ class DMCMarkovChain:
             next_velocity, velocity_ratio = self.limiting_velocity(next_r_e)
             gf_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
         return next_r_e, gf_forth, gf_back, next_velocity, velocity_ratio
+
+    def one_electrons_random_step(self):
+        """EBES random step"""
 
     def all_electrons_random_step(self):
         """CBCS random step"""

@@ -189,15 +189,16 @@ class PPotential:
 
     def legendre(self, l, x):
         """Legendre polynomial (2 * l + 1) times"""
-        res = (2 * l + 1)
         if l == 0:
-            res *= 1
+            res = 1
         elif l == 1:
-            res *= x
+            res = 3 * x
         elif l == 2:
-            res *= (3 * x ** 2 - 1) / 2
+            res = 5 * (3 * x ** 2 - 1) / 2
         elif l == 3:
-            res *= (5 * x ** 2 - 3) * x / 2
+            res = 7 * (5 * x ** 2 - 3) * x / 2
         elif l == 4:
-            res *= (35 * x ** 4 - 30 * x ** 2 + 3) / 8
+            res = 9 * (35 * x ** 4 - 30 * x ** 2 + 3) / 8
+        else:
+            res = 0
         return res
