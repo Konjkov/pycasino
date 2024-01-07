@@ -1216,7 +1216,7 @@ class Backflow(AbstractBackflow):
         return block_diag(a_list), np.array(b_list)
 
     def set_parameters_projector(self):
-        """Get Projector matrix"""
+        """Set Projector matrix"""
         a, b = self.get_parameters_constraints()
         p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
         mask_idx = np.argwhere(self.get_parameters_mask()).ravel()
@@ -1339,7 +1339,7 @@ class Backflow(AbstractBackflow):
         return parameters[n:]
 
     def eta_term_d1(self, e_powers, e_vectors):
-        """First derivatives of logarithm wfn w.r.t. eta-term parameters
+        """First derivatives of log wfn w.r.t eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
         """
@@ -1381,7 +1381,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def mu_term_d1(self, n_powers, n_vectors):
-        """First derivatives of logarithm wfn w.r.t. mu-term parameters
+        """First derivatives of log wfn w.r.t mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -1430,7 +1430,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def phi_term_d1(self, e_powers, n_powers, e_vectors, n_vectors):
-        """First derivatives of logarithm wfn w.r.t. phi-term parameters
+        """First derivatives of log wfn w.r.t phi-term parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param e_powers: powers of e-e distances
@@ -1492,7 +1492,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def ae_multiplier_d1(self, n_vectors, n_powers):
-        """First derivatives of logarithm wfn w.r.t. ae_cutoff
+        """First derivatives of log wfn w.r.t ae_cutoff
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -1511,7 +1511,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def eta_term_gradient_d1(self, e_powers, e_vectors):
-        """First derivatives of logarithm wfn w.r.t. eta-term parameters
+        """First derivatives of log wfn w.r.t eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
         """
@@ -1560,7 +1560,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def mu_term_gradient_d1(self, n_powers, n_vectors):
-        """First derivatives of logarithm wfn w.r.t. mu-term parameters
+        """First derivatives of log wfn w.r.t mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -1613,7 +1613,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def phi_term_gradient_d1(self, e_powers, n_powers, e_vectors, n_vectors):
-        """First derivatives of logarithm wfn w.r.t. phi-term parameters
+        """First derivatives of log wfn w.r.t phi-term parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param e_powers: powers of e-e distances
@@ -1695,7 +1695,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def ae_multiplier_gradient_d1(self, n_vectors, n_powers):
-        """First derivatives of gradient w.r.t. ae_cutoff
+        """First derivatives of gradient w.r.t ae_cutoff
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -1715,7 +1715,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def eta_term_laplacian_d1(self, e_powers, e_vectors):
-        """First derivatives of laplacian w.r.t. eta-term parameters
+        """First derivatives of laplacian w.r.t eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
         """
@@ -1761,7 +1761,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def mu_term_laplacian_d1(self, n_powers, n_vectors):
-        """First derivatives of logarithm wfn w.r.t. mu-term parameters
+        """First derivatives of log wfn w.r.t mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -1813,7 +1813,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def phi_term_laplacian_d1(self, e_powers, n_powers, e_vectors, n_vectors):
-        """First derivatives of laplacian w.r.t. phi-term parameters
+        """First derivatives of laplacian w.r.t phi-term parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param e_powers: powers of e-e distances
@@ -1920,7 +1920,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def ae_multiplier_laplacian_d1(self, n_vectors, n_powers):
-        """First derivatives of laplacian w.r.t. ae_cutoff
+        """First derivatives of laplacian w.r.t ae_cutoff
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -1939,7 +1939,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def value_parameters_d1(self, e_vectors, n_vectors):
-        """First derivatives of backflow w.r.t. the parameters
+        """First derivatives of backflow w.r.t the parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         """
@@ -2016,7 +2016,7 @@ class Backflow(AbstractBackflow):
         return gradient, value
 
     def laplacian_parameters_d1(self, e_vectors, n_vectors) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """First derivatives of backflow laplacian w.r.t. the parameters
+        """First derivatives of backflow laplacian w.r.t the parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
@@ -2083,7 +2083,7 @@ class Backflow(AbstractBackflow):
         return laplacian, gradient, value
 
     def eta_term_d2(self, e_powers, e_vectors):
-        """Second derivatives of logarithm wfn w.r.t. eta-term parameters
+        """Second derivatives of logarithm wfn w.r.t eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
         """
@@ -2096,7 +2096,7 @@ class Backflow(AbstractBackflow):
         return res
 
     def mu_term_d2(self, n_powers, n_vectors):
-        """Second derivatives of logarithm wfn w.r.t. mu-term parameters
+        """Second derivatives of logarithm wfn w.r.t mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -2112,7 +2112,7 @@ class Backflow(AbstractBackflow):
         return res
 
     def phi_term_d2(self, e_powers, n_powers, e_vectors, n_vectors):
-        """Second derivatives of logarithm wfn w.r.t. phi-term parameters
+        """Second derivatives of logarithm wfn w.r.t phi-term parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param e_powers: powers of e-e distances
@@ -2130,7 +2130,7 @@ class Backflow(AbstractBackflow):
         return res
 
     def ae_multiplier_d2(self, n_vectors, n_powers):
-        """Second derivatives of logarithm wfn w.r.t. ae_cutoff
+        """Second derivatives of logarithm wfn w.r.t ae_cutoff
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """

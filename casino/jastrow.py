@@ -840,7 +840,7 @@ class Jastrow(AbstractJastrow):
         return block_diag(a_list), np.array(b_list[1:])
 
     def set_parameters_projector(self):
-        """Get Projector matrix"""
+        """Set Projector matrix"""
         a, b = self.get_parameters_constraints()
         p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
         mask_idx = np.argwhere(self.get_parameters_mask()).ravel()
@@ -940,7 +940,7 @@ class Jastrow(AbstractJastrow):
         return parameters[n:]
 
     def u_term_parameters_d1(self, e_powers) -> np.ndarray:
-        """First derivatives of logarithm wfn w.r.t u-term parameters
+        """First derivatives of log wfn w.r.t u-term parameters
         :param e_powers: powers of e-e distances
         """
         if not self.u_cutoff:
@@ -976,7 +976,7 @@ class Jastrow(AbstractJastrow):
         return res
 
     def chi_term_parameters_d1(self, n_powers) -> np.ndarray:
-        """First derivatives of logarithm wfn w.r.t chi-term parameters
+        """First derivatives of log wfn w.r.t chi-term parameters
         :param n_powers: powers of e-n distances
         """
         if not self.chi_cutoff.any():
@@ -1018,7 +1018,7 @@ class Jastrow(AbstractJastrow):
         return res
 
     def f_term_parameters_d1(self, e_powers, n_powers) -> np.ndarray:
-        """First derivatives of logarithm wfn w.r.t f-term parameters
+        """First derivatives of log wfn w.r.t f-term parameters
         :param e_powers: powers of e-e distances
         :param n_powers: powers of e-n distances
         """
