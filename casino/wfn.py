@@ -325,77 +325,23 @@ class Wfn:
         :param opt_det_coeff: optimize coefficients of the determinants
         :return:
         """
-        res = np.zeros(0)
         e_vectors, n_vectors = self._relative_coordinates(r_e)
-        if self.jastrow is not None and opt_jastrow:
-            # Jastrow parameters part
-            j_parameters = self.jastrow.get_parameters(all_parameters=False)
-            j_d1 = self.jastrow.value_parameters_d1(e_vectors, n_vectors)
-            j_pp = np.zeros(shape=(j_parameters.size,))
-            grid = self.ppotential.integration_grid(n_vectors)
-            potential = self.ppotential.get_ppotential(n_vectors)
-            for atom in range(n_vectors.shape[0]):
-                for e1 in range(self.neu + self.ned):
-                    if potential[atom][e1, 0] or potential[atom][e1, 1]:
-                        for q in range(grid.shape[2]):
-                            cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
-                            r_e_q = r_e.copy()
-                            r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
-                            value_q = self.value(r_e_q)
-                            e_vectors_q, n_vectors_q = self._relative_coordinates(r_e_q)
-                            j_d1_q = self.jastrow.value_parameters_d1(e_vectors_q, n_vectors_q)
-                            weight = self.ppotential.weight[atom][q]
-                            for l in range(2):
-                                j_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q * (j_d1_q - j_d1)
-            res = np.concatenate((res, j_pp))
-        if self.backflow is not None and opt_backflow:
-            # backflow parameters part
-            b_parameters = self.backflow.get_parameters(all_parameters=False)
-            b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
-            b_d1 = self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v)
-            b_pp = np.zeros(shape=(b_parameters.size,))
-            grid = self.ppotential.integration_grid(n_vectors)
-            potential = self.ppotential.get_ppotential(n_vectors)
-            for atom in range(n_vectors.shape[0]):
-                for e1 in range(self.neu + self.ned):
-                    if potential[atom][e1, 0] or potential[atom][e1, 1]:
-                        for q in range(grid.shape[2]):
-                            cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
-                            r_e_q = r_e.copy()
-                            r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
-                            value_q = self.value(r_e_q)
-                            e_vectors_q, n_vectors_q = self._relative_coordinates(r_e_q)
-                            b_v_q = self.backflow.value(e_vectors_q, n_vectors_q) + n_vectors_q
-                            b_d1_q = self.backflow.value_parameters_d1(e_vectors_q, n_vectors_q) @ self.slater.gradient(b_v_q)
-                            weight = self.ppotential.weight[atom][q]
-                            for l in range(2):
-                                b_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q * (b_d1_q - b_d1)
-            res = np.concatenate((res, b_pp))
-        if self.slater.det_coeff.size > 1 and opt_det_coeff:
-            # determinants coefficients part
-            s_parameters = self.slater.get_parameters(all_parameters=False)
-            if self.backflow is not None:
-                n_vectors = self.backflow.value(e_vectors, n_vectors) + n_vectors
-            s_d1 = self.slater.value_parameters_d1(n_vectors)
-            s_pp = np.zeros(shape=(s_parameters.size,))
-            grid = self.ppotential.integration_grid(n_vectors)
-            potential = self.ppotential.get_ppotential(n_vectors)
-            for atom in range(n_vectors.shape[0]):
-                for e1 in range(self.neu + self.ned):
-                    if potential[atom][e1, 0] or potential[atom][e1, 1]:
-                        for q in range(grid.shape[2]):
-                            cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
-                            r_e_q = r_e.copy()
-                            r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
-                            value_q = self.value(r_e_q)
-                            e_vectors_q, n_vectors_q = self._relative_coordinates(r_e_q)
-                            if self.backflow is not None:
-                                n_vectors_q = self.backflow.value(e_vectors_q, n_vectors_q) + n_vectors_q
-                            s_d1_q = self.slater.value_parameters_d1(n_vectors_q)
-                            weight = self.ppotential.weight[atom][q]
-                            for l in range(2):
-                                s_pp += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q * (s_d1_q - s_d1)
-            res = np.concatenate((res, s_pp))
+        grid = self.ppotential.integration_grid(n_vectors)
+        potential = self.ppotential.get_ppotential(n_vectors)
+        value_parameters_d1 = self.value_parameters_d1(r_e, opt_jastrow, opt_backflow, opt_det_coeff)
+        res = np.zeros(shape=(value_parameters_d1.size,))
+        for atom in range(n_vectors.shape[0]):
+            for e1 in range(self.neu + self.ned):
+                if potential[atom][e1, 0] or potential[atom][e1, 1]:
+                    for q in range(grid.shape[2]):
+                        cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
+                        r_e_q = r_e.copy()
+                        r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
+                        value_q = self.value(r_e_q)
+                        value_parameters_d1_q = self.value_parameters_d1(r_e_q, opt_jastrow, opt_backflow, opt_det_coeff)
+                        weight = self.ppotential.weight[atom][q]
+                        for l in range(2):
+                            res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q * (value_parameters_d1_q - value_parameters_d1)
         return res / self.value(r_e)
 
     def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):

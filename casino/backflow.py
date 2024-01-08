@@ -11,7 +11,8 @@ eye3 = np.eye(3)
 @nb.njit(nogil=True, parallel=False, cache=True)
 def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
     """C-matrix has the following rows:
-    ...
+    6 * (phi_en_order + phi_ee_order + 1) - 2 constraints imposed to satisfy phi-term conditions.
+    ... constraints imposed to satisfy theta-term conditions.
     copy-paste from /CASINO/src/pbackflow.f90 SUBROUTINE construct_C
     """
     phi_en_order = phi_parameters.shape[0] - 1
@@ -144,7 +145,7 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
                     c[n, p] = trunc + k
                     if k < phi_en_order:
                         c[n, p + inc_k] = -phi_cutoff * (k + 1)
-                        # cutoff_constraints[n] -= (k + 1) * phi_parameters[k + 1, l, m - 1, spin_dep]
+                        cutoff_constraints[n] -= (k + 1) * phi_parameters[k + 1, l, :, spin_dep].sum()
                     p += 1
                     n += 1
             # ...for k=N_eN+1...
@@ -153,7 +154,7 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
                 for l in range(phi_parameters.shape[1]):
                     c[n, p + nphi + inc_m] = -(m + 1)
                     c[n, p + nphi + inc_k + inc_m] = phi_cutoff * (m + 1)
-                    # cutoff_constraints[n] += (m + 1) * theta_parameters[k - 1, l, m + 1, spin_dep]
+                    cutoff_constraints[n] += (m + 1) * theta_parameters[:, l, m + 1, spin_dep].sum()
                     p += inc_l
                     n += 1
             # ...and for k=N_eN+2.
@@ -1137,15 +1138,15 @@ class Backflow(AbstractBackflow):
 
         for mu_parameters, mu_cutoff, mu_cutoff_optimizable, mu_cusp in zip(self.mu_parameters, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_cusp):
             if mu_cusp:
-                # AE atoms (d0,I = 0; Lμ,I * d1,I = C * d0,I)
-                # -d1 * dL + С * dd0 - L * dd1 = 0
+                # AE atoms (d0,I = 0; Lμ,I * d1,I = C * d0,I) after differentiation on variables: d0, d1, L
+                # -d1 * dL + С * d(d0) - L * d(d1) = 0
                 mu_matrix = np.zeros(shape=(2, mu_parameters.shape[0]))
                 mu_matrix[0, 0] = 1
                 mu_matrix[1, 0] = self.trunc
                 mu_matrix[1, 1] = -mu_cutoff
             else:
-                # PP atoms (Lμ,I * d1,I = C * d0,I)
-                # -d1 * dL + С * dd0 - L * dd1 = 0
+                # PP atoms (Lμ,I * d1,I = C * d0,I) after differentiation on variables: d0, d1, L
+                # -d1 * dL + С * d(d0) - L * d(d1) = 0
                 mu_matrix = np.zeros(shape=(1, mu_parameters.shape[0]))
                 mu_matrix[0, 0] = self.trunc
                 mu_matrix[0, 1] = -mu_cutoff
@@ -1158,16 +1159,22 @@ class Backflow(AbstractBackflow):
                     mu_cutoff_matrix = [mu_parameters[1, 0], mu_parameters[1, 1]]
                 if self.neu < 1:
                     mu_spin_deps = [1]
-                    mu_cutoff_matrix = [0, mu_parameters[1, 0]]
+                    if mu_cusp:
+                        mu_cutoff_matrix = [0, mu_parameters[1, 1]]
+                    else:
+                        mu_cutoff_matrix = [mu_parameters[1, 1]]
                 if self.ned < 1:
                     mu_spin_deps = [0]
-                    mu_cutoff_matrix = [0, mu_parameters[1, 1]]
+                    if mu_cusp:
+                        mu_cutoff_matrix = [0, mu_parameters[1, 0]]
+                    else:
+                        mu_cutoff_matrix = [mu_parameters[1, 0]]
             else:
                 mu_spin_deps = [0]
                 if mu_cusp:
-                    mu_cutoff_matrix = [0, mu_parameters[0, 1]]
+                    mu_cutoff_matrix = [0, mu_parameters[1, 0]]
                 else:
-                    mu_cutoff_matrix = [mu_parameters[0, 1]]
+                    mu_cutoff_matrix = [mu_parameters[1, 0]]
 
             mu_block = block_diag([mu_matrix] * len(mu_spin_deps))
             if mu_cutoff_optimizable and self.cutoffs_optimizable:

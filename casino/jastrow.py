@@ -737,7 +737,7 @@ class Jastrow(AbstractJastrow):
         b_list = [0.0]
 
         if self.u_cutoff:
-            # a0*C - a1*L = gamma/(-L)**(C-1) after differentiation
+            # a0*C - a1*L = gamma/(-L)**(C-1) after differentiation on variables: a0, a1, L
             # (-(C-1)*gamma/(-L)**C - a1) * dL + С * da0 - L * da1 = 0
             u_matrix = np.zeros(shape=(1, self.u_parameters.shape[0]))
             u_matrix[0, 0] = self.trunc
@@ -781,7 +781,7 @@ class Jastrow(AbstractJastrow):
             b_list += u_b
 
         for chi_parameters, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters, self.chi_cutoff, self.chi_cutoff_optimizable):
-            # a0*C - a1*L = -Z/(-L)**(C-1) or 0 if cusp imposed by WFN
+            # a0*C - a1*L = -Z/(-L)**(C-1) or 0 if cusp imposed by WFN, after differentiation on variables: a0, a1, L
             # -a1 * dL + С * da0 - L * da1 = 0
             chi_matrix = np.zeros(shape=(1, chi_parameters.shape[0]))
             chi_matrix[0, 0] = self.trunc
