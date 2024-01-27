@@ -479,7 +479,7 @@ class Backflow:
             else:
                 # PP atoms (Lμ,I * d1,I = C * d0,I)
                 L = mu_cutoff['value']
-                mu_parameters[1] = L * mu_parameters[0] / C
+                mu_parameters[1] = C * mu_parameters[0] / L
 
     def fix_phi_parameters(self):
         """Fix phi-term parameters"""

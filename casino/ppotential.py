@@ -16,6 +16,7 @@ ppotential_spec = [
     ('dmc_nonlocal_grid', nb.int64[:]),
     ('local_angular_momentum', nb.int64[:]),
     ('ppotential', nb.types.ListType(ppotential_type)),
+    ('is_pseudoatom', nb.boolean[:]),
     ('weight', nb.types.ListType(weight_type)),
     ('quadrature', nb.types.ListType(quadrature_type)),
 ]
@@ -24,7 +25,7 @@ ppotential_spec = [
 @nb.experimental.jitclass(ppotential_spec)
 class PPotential:
 
-    def __init__(self, neu, ned, atom_charges, lcutofftol, nlcutofftol, vmc_nonlocal_grid, dmc_nonlocal_grid, local_angular_momentum, ppotential):
+    def __init__(self, neu, ned, lcutofftol, nlcutofftol, atom_charges, vmc_nonlocal_grid, dmc_nonlocal_grid, local_angular_momentum, ppotential, is_pseudoatom):
         """Pseudopotential.
         For more details
         https://vallico.net/casinoqmc/pplib/
@@ -40,18 +41,21 @@ class PPotential:
         """
         self.neu = neu
         self.ned = ned
-        self.atom_charges = atom_charges
         self.lcutofftol = lcutofftol
         self.nlcutofftol = nlcutofftol
+        self.atom_charges = atom_charges
         self.vmc_nonlocal_grid = vmc_nonlocal_grid
         self.dmc_nonlocal_grid = dmc_nonlocal_grid
         self.local_angular_momentum = local_angular_momentum
         self.ppotential = ppotential
+        self.is_pseudoatom = is_pseudoatom
         self.weight = nb.typed.List.empty_list(weight_type)
         self.quadrature = nb.typed.List.empty_list(quadrature_type)
         self.generate_quadratures()
         # make s-d and p-d
         for atom in range(len(self.ppotential)):
+            if not self.is_pseudoatom[atom]:
+                continue
             atom_pp = self.ppotential[atom]
             local_angular_momentum = self.local_angular_momentum[atom]
             atom_pp[1] -= atom_pp[local_angular_momentum + 1]
@@ -161,18 +165,21 @@ class PPotential:
         """
         res = nb.typed.List.empty_list(ppotential_type)
         for atom in range(n_vectors.shape[0]):
-            atom_pp = self.ppotential[atom]
-            ppotential = np.zeros(shape=(self.neu + self.ned, atom_pp.shape[0]-1))
-            for i in range(self.neu + self.ned):
-                r = np.linalg.norm(n_vectors[atom, i])
-                # atom_pp[0, i-1] < r <= atom_pp[0, i]
-                idx = np.searchsorted(atom_pp[0], r)
-                if idx == 1:
-                    ppotential[i] = atom_pp[1:, idx] / atom_pp[0, idx]
-                else:
-                    di_dx = (r - atom_pp[0, idx-1]) / (atom_pp[0, idx] - atom_pp[0, idx-1])
-                    ppotential[i] = (atom_pp[1:, idx-1] + (atom_pp[1:, idx] - atom_pp[1:, idx-1]) * di_dx) / r
-            res.append(ppotential)
+            if self.is_pseudoatom[atom]:
+                atom_pp = self.ppotential[atom]
+                ppotential = np.zeros(shape=(self.neu + self.ned, atom_pp.shape[0] - 1))
+                for i in range(self.neu + self.ned):
+                    r = np.linalg.norm(n_vectors[atom, i])
+                    # atom_pp[0, i-1] < r <= atom_pp[0, i]
+                    idx = np.searchsorted(atom_pp[0], r)
+                    if idx == 1:
+                        ppotential[i] = atom_pp[1:, idx] / atom_pp[0, idx]
+                    else:
+                        di_dx = (r - atom_pp[0, idx-1]) / (atom_pp[0, idx] - atom_pp[0, idx-1])
+                        ppotential[i] = (atom_pp[1:, idx-1] + (atom_pp[1:, idx] - atom_pp[1:, idx-1]) * di_dx) / r
+                res.append(ppotential)
+            else:
+                res.append(np.zeros(shape=(self.neu + self.ned, 0)))
         return res
 
     def integration_grid(self, n_vectors: np.ndarray) -> np.ndarray:
@@ -181,10 +188,11 @@ class PPotential:
         """
         grid = np.zeros(shape=(n_vectors.shape[0], self.neu + self.ned, self.quadrature[0].shape[0], 3))
         for atom in range(n_vectors.shape[0]):
-            for i in range(self.neu + self.ned):
-                r = np.linalg.norm(n_vectors[atom, i])
-                rotation_marix = self.random_rotation_matrix()
-                grid[atom, i] = self.quadrature[atom] @ rotation_marix.T * r
+            if self.is_pseudoatom[atom]:
+                for i in range(self.neu + self.ned):
+                    r = np.linalg.norm(n_vectors[atom, i])
+                    rotation_marix = self.random_rotation_matrix()
+                    grid[atom, i] = self.quadrature[atom] @ rotation_marix.T * r
         return grid
 
     def legendre(self, l, x):

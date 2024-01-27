@@ -106,8 +106,9 @@ class Casino:
                      f' Number of points    :  {n_points[vmc_nonlocal_grid-1]}\n'
                 )
             ppotential = PPotential(
-                self.config.input.neu, self.config.input.ned, self.config.wfn.atom_charges, self.config.input.lcutofftol, self.config.input.nlcutofftol,
-                self.config.wfn.vmc_nonlocal_grid, self.config.wfn.dmc_nonlocal_grid, self.config.wfn.local_angular_momentum, self.config.wfn.ppotential
+                self.config.input.neu, self.config.input.ned, self.config.input.lcutofftol, self.config.input.nlcutofftol, self.config.wfn.atom_charges,
+                self.config.wfn.vmc_nonlocal_grid, self.config.wfn.dmc_nonlocal_grid, self.config.wfn.local_angular_momentum, self.config.wfn.ppotential,
+                self.config.wfn.is_pseudoatom
             )
         else:
             ppotential = None

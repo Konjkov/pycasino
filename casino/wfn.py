@@ -79,8 +79,9 @@ class Wfn:
         if self.ppotential is not None:
             potential = self.ppotential.get_ppotential(n_vectors)
             for atom in range(n_vectors.shape[0]):
-                for e1 in range(self.neu + self.ned):
-                    res += potential[atom][e1, 2]
+                if self.ppotential.is_pseudoatom[atom]:
+                    for e1 in range(self.neu + self.ned):
+                        res += potential[atom][e1, 2]
         return res
 
     def value(self, r_e) -> float:
@@ -131,16 +132,17 @@ class Wfn:
             grid = self.ppotential.integration_grid(n_vectors)
             potential = self.ppotential.get_ppotential(n_vectors)
             for atom in range(n_vectors.shape[0]):
-                for e1 in range(self.neu + self.ned):
-                    if potential[atom][e1, 0] or potential[atom][e1, 1]:
-                        for q in range(grid.shape[2]):
-                            cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
-                            r_e_q = r_e.copy()
-                            r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
-                            value_q = self.value(r_e_q)
-                            weight = self.ppotential.weight[atom][q]
-                            for l in range(2):
-                                res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q
+                if self.ppotential.is_pseudoatom[atom]:
+                    for e1 in range(self.neu + self.ned):
+                        if potential[atom][e1, 0] or potential[atom][e1, 1]:
+                            for q in range(grid.shape[2]):
+                                cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
+                                r_e_q = r_e.copy()
+                                r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
+                                value_q = self.value(r_e_q)
+                                weight = self.ppotential.weight[atom][q]
+                                for l in range(2):
+                                    res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q
             res /= self.value(r_e)
         return res
 
