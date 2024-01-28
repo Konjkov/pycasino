@@ -28,6 +28,7 @@ cusp_spec = [
     ('primitives', nb.int64[:]),
     ('coefficients', nb.float64[:]),
     ('exponents', nb.float64[:]),
+    ('is_pseudoatom', nb.boolean[:]),
 ]
 
 
@@ -72,7 +73,7 @@ class Cusp(AbstractCusp):
     """
     def __init__(
             self, neu, ned, orbitals_up, orbitals_down, rc, shift, orbital_sign, alpha,
-            mo, first_shells, shell_moments, primitives, coefficients, exponents
+            mo, first_shells, shell_moments, primitives, coefficients, exponents, is_pseudoatom,
     ):
         """
         Cusp
@@ -94,6 +95,7 @@ class Cusp(AbstractCusp):
         self.primitives = primitives
         self.coefficients = coefficients
         self.exponents = exponents
+        self.is_pseudoatom = is_pseudoatom
 
     def exp(self, atom, orbital, r) -> float:
         """Exponent part"""
@@ -449,6 +451,7 @@ class CuspFactory:
     def __init__(
             self, neu, ned, cusp_threshold, mo_up, mo_down, permutation_up, permutation_down,
             first_shells, shell_moments, primitives, coefficients, exponents, atom_positions, atom_charges, unrestricted,
+            is_pseudoatom,
     ):
         self.neu = neu
         self.ned = ned
@@ -484,7 +487,7 @@ class CuspFactory:
             ' ========================\n'
             ' Activated.\n'
         )
-
+        self.is_pseudoatom = is_pseudoatom
 
     def phi(self, rc):
         """Wfn of single electron of s-orbitals on each atom"""
@@ -761,7 +764,7 @@ class CuspFactory:
         alpha = self.alpha_data(self.phi_tilde_0)
         return Cusp(
             self.neu, self.ned, self.orbitals_up, self.orbitals_down, self.rc, self.shift, self.orbital_sign, alpha,
-            self.mo, self.first_shells, self.shell_moments, self.primitives, self.coefficients, self.exponents
+            self.mo, self.first_shells, self.shell_moments, self.primitives, self.coefficients, self.exponents, self.is_pseudoatom,
         )
 
     def cusp_info(self):

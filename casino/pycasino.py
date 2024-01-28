@@ -84,7 +84,7 @@ class Casino:
                 self.config.mdet.permutation_up, self.config.mdet.permutation_down,
                 self.config.wfn.first_shells, self.config.wfn.shell_moments, self.config.wfn.primitives,
                 self.config.wfn.coefficients, self.config.wfn.exponents,
-                self.config.wfn.atom_positions, self.config.wfn.atom_charges, self.config.wfn.unrestricted,
+                self.config.wfn.atom_positions, self.config.wfn.atom_charges, self.config.wfn.unrestricted, self.config.wfn.is_pseudoatom
             )
             cusp = cusp_factory.create()
             if self.config.input.cusp_info:

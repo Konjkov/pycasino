@@ -333,17 +333,18 @@ class Wfn:
         value_parameters_d1 = self.value_parameters_d1(r_e, opt_jastrow, opt_backflow, opt_det_coeff)
         res = np.zeros(shape=(value_parameters_d1.size,))
         for atom in range(n_vectors.shape[0]):
-            for e1 in range(self.neu + self.ned):
-                if potential[atom][e1, 0] or potential[atom][e1, 1]:
-                    for q in range(grid.shape[2]):
-                        cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
-                        r_e_q = r_e.copy()
-                        r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
-                        value_q = self.value(r_e_q)
-                        value_parameters_d1_q = self.value_parameters_d1(r_e_q, opt_jastrow, opt_backflow, opt_det_coeff)
-                        weight = self.ppotential.weight[atom][q]
-                        for l in range(2):
-                            res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q * (value_parameters_d1_q - value_parameters_d1)
+            if self.ppotential.is_pseudoatom[atom]:
+                for e1 in range(self.neu + self.ned):
+                    if potential[atom][e1, 0] or potential[atom][e1, 1]:
+                        for q in range(grid.shape[2]):
+                            cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
+                            r_e_q = r_e.copy()
+                            r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
+                            value_q = self.value(r_e_q)
+                            value_parameters_d1_q = self.value_parameters_d1(r_e_q, opt_jastrow, opt_backflow, opt_det_coeff)
+                            weight = self.ppotential.weight[atom][q]
+                            for l in range(2):
+                                res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q * (value_parameters_d1_q - value_parameters_d1)
         return res / self.value(r_e)
 
     def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
