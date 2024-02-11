@@ -122,5 +122,3 @@ class Input:
         for file_name in os.listdir(base_path):
             if file_name.endswith('_pp.data'):
                 self.ppotential = True
-                # FIXME: not for all atoms
-                self.cusp_correction = False

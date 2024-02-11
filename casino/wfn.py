@@ -127,8 +127,8 @@ class Wfn:
         :param r_e: electron positions - array(nelec, 3)
         """
         res = 0.0
-        e_vectors, n_vectors = self._relative_coordinates(r_e)
         if self.ppotential is not None:
+            e_vectors, n_vectors = self._relative_coordinates(r_e)
             grid = self.ppotential.integration_grid(n_vectors)
             potential = self.ppotential.get_ppotential(n_vectors)
             for atom in range(n_vectors.shape[0]):

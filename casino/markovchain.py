@@ -144,7 +144,7 @@ class VMCMarkovChain:
         """
         # reset if parameters changed
         self.probability_density = self.wfn.value(self.r_e) ** 2
-        condition = np.empty(shape=(steps, ), dtype=np.int64)
+        condition = np.empty(shape=(steps, ), dtype=np.int_)
         position = np.empty(shape=(steps, ) + self.r_e.shape)
 
         for i in range(steps):
@@ -230,8 +230,8 @@ class DMCMarkovChain:
             self.velocity_list.append(self.limiting_velocity(r_e)[0])
             self.energy_list.append(self.wfn.energy(r_e))
             self.branching_energy_list.append(self.wfn.energy(r_e))
-        energy_list_len = np.empty(1, dtype=np.int64)
-        energy_list_sum = np.empty(1, dtype=np.float64)
+        energy_list_len = np.empty(1, dtype=np.int_)
+        energy_list_sum = np.empty(1, dtype=np.float_)
         nb_mpi.allreduce(len(self.energy_list), energy_list_len)
         nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
         self.step_eff = self.step_size  # first guess
@@ -392,9 +392,9 @@ class DMCMarkovChain:
         self.velocity_list = next_velocity_list
         self.wfn_value_list = next_wfn_value_list
         self.branching_energy_list = next_branching_energy_list
-        energy_list_len = np.empty(1, dtype=np.int64)
-        energy_list_sum = np.empty(1, dtype=np.float64)
-        total_sum_acceptance_probability = np.empty(1, dtype=np.float64)
+        energy_list_len = np.empty(1, dtype=np.int_)
+        energy_list_sum = np.empty(1, dtype=np.float_)
+        total_sum_acceptance_probability = np.empty(1, dtype=np.float_)
         nb_mpi.allreduce(len(self.energy_list), energy_list_len)
         nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
         nb_mpi.allreduce(sum_acceptance_probability, total_sum_acceptance_probability)
@@ -443,12 +443,13 @@ class DMCMarkovChain:
             self.efficiency_list.append(1)
             return
         rank = nb_mpi.rank()
-        walkers = np.zeros(shape=(nb_mpi.size(),), dtype=np.int64)
+        walkers = np.zeros(shape=(nb_mpi.size(),), dtype=np.int_)
         walkers[rank] = len(self.energy_list)
         # FIXME: use MPI_IN_PLACE
         nb_mpi.allgather(walkers[rank:rank+1], walkers, 1)
         self.efficiency_list.append(walkers.mean() / np.max(walkers))
-        walkers = (walkers - walkers.mean()).astype(np.int64)
+        # round down
+        walkers = (walkers - walkers.mean()).astype(np.int_)
         self.ntransfers_tot += np.abs(walkers).sum() // 2
         rank_1 = 0
         rank_2 = 1

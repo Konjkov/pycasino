@@ -93,18 +93,19 @@ class Casino:
             cusp = None
 
         if self.config.wfn.is_pseudoatom.any():
-            for i, vmc_nonlocal_grid in enumerate(self.config.wfn.vmc_nonlocal_grid):
-                l_exact = [0, 2, 3, 5, 5, 7, 11]
-                n_points = [1, 4, 6, 12, 18, 26, 50]
-                vmc_nonlocal_grid = vmc_nonlocal_grid or self.config.input.non_local_grid
-                logger.info(
-                     f' Non-local integration grids\n'
-                     f' ===========================\n'
-                     f' Ion type            :  {i+1}\n'
-                     f' Non-local grid no.  :  {vmc_nonlocal_grid}\n'
-                     f' Lexact              :  {l_exact[vmc_nonlocal_grid-1]}\n'
-                     f' Number of points    :  {n_points[vmc_nonlocal_grid-1]}\n'
-                )
+            for atom, vmc_nonlocal_grid in enumerate(self.config.wfn.vmc_nonlocal_grid):
+                if self.config.wfn.is_pseudoatom[atom]:
+                    l_exact = [0, 2, 3, 5, 5, 7, 11]
+                    n_points = [1, 4, 6, 12, 18, 26, 50]
+                    vmc_nonlocal_grid = vmc_nonlocal_grid or self.config.input.non_local_grid
+                    logger.info(
+                         f' Non-local integration grids\n'
+                         f' ===========================\n'
+                         f' Ion type            :  {atom+1}\n'
+                         f' Non-local grid no.  :  {vmc_nonlocal_grid}\n'
+                         f' Lexact              :  {l_exact[vmc_nonlocal_grid-1]}\n'
+                         f' Number of points    :  {n_points[vmc_nonlocal_grid-1]}\n'
+                    )
             ppotential = PPotential(
                 self.config.input.neu, self.config.input.ned, self.config.input.lcutofftol, self.config.input.nlcutofftol, self.config.wfn.atom_charges,
                 self.config.wfn.vmc_nonlocal_grid, self.config.wfn.dmc_nonlocal_grid, self.config.wfn.local_angular_momentum, self.config.wfn.ppotential,
@@ -375,7 +376,7 @@ class Casino:
         logger.info(
             f'Starting VMC.\n'
         )
-        # condition = np.empty(shape=(nblock, nblock_steps), dtype=np.int64)
+        # condition = np.empty(shape=(nblock, nblock_steps), dtype=np.int_)
         # position = np.empty(shape=(nblock, nblock_steps, ne, 3))
 
         energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=self.mpi_comm)

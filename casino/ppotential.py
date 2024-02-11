@@ -125,8 +125,8 @@ class PPotential:
                 # No grid
                 weight = [0.0]
                 quadrature = [[0.0, 0.0, 0.0]]
-            self.weight.append(np.array(weight, dtype=np.float64))
-            self.quadrature.append(np.array(quadrature, dtype=np.float64))
+            self.weight.append(np.array(weight, dtype=np.float_))
+            self.quadrature.append(np.array(quadrature, dtype=np.float_))
 
     @staticmethod
     def to_cartesian(theta: float, phi: float) -> list:
