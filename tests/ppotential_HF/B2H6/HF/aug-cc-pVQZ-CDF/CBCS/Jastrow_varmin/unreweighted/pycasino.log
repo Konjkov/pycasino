@@ -17,7 +17,7 @@
 
  Python 3.10.12 (main, Nov 20 2023, 15:14:05) [GCC 11.4.0]
  Numba 0.58.1
- Numpy 1.24.4
+ Numpy 1.26.4
  Scipy 1.11.3
 
  Running in parallel using 4 MPI processes.
@@ -42,19 +42,9 @@
  CON_LOC (Dir to read/write config.*)     :  ./
  RELATIVISTIC                             :  F
 
- Non-local integration grids
- ===========================
- Ion type            :  1
- Non-local grid no.  :  4
- Lexact              :  5
- Number of points    :  12
-
- Non-local integration grids
- ===========================
- Ion type            :  2
- Non-local grid no.  :  4
- Lexact              :  5
- Number of points    :  12
+ Gaussian cusp correction
+ ========================
+ Activated.
 
  Non-local integration grids
  ===========================
@@ -103,8 +93,8 @@
 
 Running VMC equilibration (5000 moves).
 Performing time-step optimization.
-Optimized step size: 0.11895
-DTVMC: 0.00472
+Optimized step size: 0.11524
+DTVMC: 0.00443
 
 Starting VMC.
 
@@ -114,24 +104,24 @@ Starting VMC.
 
   Block average energies (au)
 
-  Total energy                       (au) =         -52.847955374824
-  Standard error                        +/-           0.022026519868
+  Total energy                       (au) =         -52.813762275210
+  Standard error                        +/-           0.022535299775
 
   Constant energy contributions      (au) =          32.169090804218
 
-  Variance of local energy           (au) =          16.423509446126
+  Variance of local energy           (au) =          12.830670296892
   Standard error                        +/-           0.000000000000
 
- Time taken in block    : : :       237.6283
+ Time taken in block    : : :       260.1828
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
 
- -52.847955374824 +/- 0.022026519868      On-the-fly reblocking method
+ -52.813762275210 +/- 0.022535299775      On-the-fly reblocking method
 
- Sample variance of E_L (au^2/sim.cell) : 16.423509446126
+ Sample variance of E_L (au^2/sim.cell) : 12.830670296892
 
 
  ==========================================
@@ -142,24 +132,27 @@ Starting VMC.
  Optimization start
  ==================
    Iteration     Total nfev        Cost      Cost reduction    Step norm     Optimality
-       0              1         1.6632e+01                                    2.18e+08
-       1              2         8.6189e+00      8.01e+00       9.39e-04       1.12e+07
-       2              3         7.7131e+00      9.06e-01       1.56e-03       8.80e+05
-       3              4         7.2830e+00      4.30e-01       4.41e-03       1.39e+06
-       4              5         7.1286e+00      1.54e-01       2.41e-03       8.54e+05
-       5              6         7.0514e+00      7.73e-02       1.76e-03       5.00e+05
-       6              7         7.0085e+00      4.29e-02       1.33e-03       6.25e+05
+       0              1         1.0324e+01                                    2.15e+08
+       1              2         2.0961e+00      8.23e+00       7.43e-04       1.06e+07
+       2              3         1.1516e+00      9.44e-01       1.27e-03       1.17e+06
+       3              4         7.1233e-01      4.39e-01       3.77e-03       9.60e+05
+       4              5         5.5207e-01      1.60e-01       2.24e-03       3.67e+05
+       5              6         4.6887e-01      8.32e-02       1.60e-03       9.93e+04
+       6              7         4.1959e-01      4.93e-02       1.36e-03       2.34e+05
+       7              8         3.8792e-01      3.17e-02       4.96e-04       3.77e+05
+       8              9         3.7658e-01      1.13e-02       1.61e-03       2.80e+05
+       9             10         3.7552e-01      1.07e-03       3.48e-04       2.24e+05
 `ftol` termination condition is satisfied.
-Function evaluations 7, initial cost 1.6632e+01, final cost 7.0085e+00, first-order optimality 6.25e+05.
-Norm of Jacobian at the solution: 1.12887e-09
+Function evaluations 10, initial cost 1.0324e+01, final cost 3.7552e-01, first-order optimality 2.24e+05.
+Norm of Jacobian at the solution: 1.14713e-09
 
  BEGIN VMC CALCULATION
  =====================
 
 Running VMC equilibration (5000 moves).
 Performing time-step optimization.
-Optimized step size: 0.11275
-DTVMC: 0.00424
+Optimized step size: 0.11549
+DTVMC: 0.00445
 
 Starting VMC.
 
@@ -169,24 +162,24 @@ Starting VMC.
 
   Block average energies (au)
 
-  Total energy                       (au) =         -53.212895516545
-  Standard error                        +/-           0.010795961128
+  Total energy                       (au) =         -53.209873071449
+  Standard error                        +/-           0.006552139201
 
   Constant energy contributions      (au) =          32.169090804218
 
-  Variance of local energy           (au) =           8.336646504247
+  Variance of local energy           (au) =           0.334024066440
   Standard error                        +/-           0.000000000000
 
- Time taken in block    : : :       134.6848
+ Time taken in block    : : :       158.4963
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
 
- -53.212895516545 +/- 0.010795961128      On-the-fly reblocking method
+ -53.209873071449 +/- 0.006552139201      On-the-fly reblocking method
 
- Sample variance of E_L (au^2/sim.cell) : 8.336646504247
+ Sample variance of E_L (au^2/sim.cell) : 0.334024066440
 
 
  ==========================================
@@ -197,19 +190,20 @@ Starting VMC.
  Optimization start
  ==================
    Iteration     Total nfev        Cost      Cost reduction    Step norm     Optimality
-       0              1         5.5979e+00                                    2.38e+06
-       1              2         5.5749e+00      2.30e-02       2.80e-01       1.18e+07
+       0              1         3.3760e-01                                    1.16e+06
+       1              2         3.2938e-01      8.22e-03       1.90e-01       1.98e+06
+       2              3         3.2828e-01      1.10e-03       1.70e-01       2.57e+06
 `ftol` termination condition is satisfied.
-Function evaluations 2, initial cost 5.5979e+00, final cost 5.5749e+00, first-order optimality 1.18e+07.
-Norm of Jacobian at the solution: 1.01415e-09
+Function evaluations 3, initial cost 3.3760e-01, final cost 3.2828e-01, first-order optimality 2.57e+06.
+Norm of Jacobian at the solution: 3.33895e-09
 
  BEGIN VMC CALCULATION
  =====================
 
 Running VMC equilibration (5000 moves).
 Performing time-step optimization.
-Optimized step size: 0.11727
-DTVMC: 0.00458
+Optimized step size: 0.11636
+DTVMC: 0.00451
 
 Starting VMC.
 
@@ -219,26 +213,26 @@ Starting VMC.
 
   Block average energies (au)
 
-  Total energy                       (au) =         -53.202621667559
-  Standard error                        +/-           0.011945830314
+  Total energy                       (au) =         -53.206817998624
+  Standard error                        +/-           0.006490423288
 
   Constant energy contributions      (au) =          32.169090804218
 
-  Variance of local energy           (au) =          11.325544882212
+  Variance of local energy           (au) =           0.326668414454
   Standard error                        +/-           0.000000000000
 
- Time taken in block    : : :       132.0192
+ Time taken in block    : : :       141.2903
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
 
- -53.202621667559 +/- 0.011945830314      On-the-fly reblocking method
+ -53.206817998624 +/- 0.006490423288      On-the-fly reblocking method
 
- Sample variance of E_L (au^2/sim.cell) : 11.325544882212
+ Sample variance of E_L (au^2/sim.cell) : 0.326668414454
 
 
  =========================================================================
 
- Total PyCasino real time : : :    3818.7489
+ Total PyCasino real time : : :    5173.4482

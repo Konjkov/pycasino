@@ -21,8 +21,8 @@ setup(
         'numpy>=1.24.0',
         'scipy>=1.10.0',
         'sympy>=1.12.0',
-        'pyyaml>=6.0.0',  # for gjastrow loader
-        'matplotlib>=3.5.2',
+        'pyyaml>=6.0.0',  # for gjastrow reader
+        'matplotlib>=3.6.0',
         'pandas>=2.0.2'   # for pyblock
     ],
     classifiers=[

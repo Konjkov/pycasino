@@ -323,6 +323,18 @@ class Backflow:
                         ae_cutoff.append(float(cutoff_length))
                         ae_cutoff_optimizable.append(bool(int(cutoff_length_optimizable)))
 
+    def set_ae_cutoff(self, is_pseudoatom):
+        """Set AE cut-off if not defined in input file.
+        :param is_pseudoatom:
+        :return:
+        """
+        self.ae_cutoff = np.ones_like(is_pseudoatom, dtype=float)
+        self.ae_cutoff_optimizable = np.ones_like(is_pseudoatom, dtype=bool)
+        for atom in range(is_pseudoatom.size):
+            if is_pseudoatom[atom]:
+                self.ae_cutoff[atom] = 0
+                self.ae_cutoff_optimizable[atom] = False
+
     def write(self, title='no title given'):
         eta_term = ""
         if self.eta_cutoff['value'].any():
@@ -405,7 +417,8 @@ class Backflow:
         ae_cutoffs = ''
         ae_cutoff_list = []
         for i, (ae_cutoff, ae_cutoff_optimizable) in enumerate(zip(self.ae_cutoff, self.ae_cutoff_optimizable)):
-            ae_cutoff_list.append(f' {i + 1}         1      {ae_cutoff: .16e}           {int(ae_cutoff_optimizable)}')
+            if ae_cutoff:
+                ae_cutoff_list.append(f' {i + 1}         {i + 1}      {ae_cutoff: .16e}           {int(ae_cutoff_optimizable)}')
         if ae_cutoff_list:
             ae_cutoffs = ae_cutoff_template.format(ae_cutoffs='\n '.join(ae_cutoff_list))
         backflow = backflow_template.format(

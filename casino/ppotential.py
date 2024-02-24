@@ -83,7 +83,7 @@ class PPotential:
                 weight = [1 / 4] * 4
                 quadrature = [[q, q, q], [q, -q, -q], [-q, q, -q], [-q, -q, q]]
             elif vmc_nonlocal_grid in (3, 5, 6, 7):
-                #  Octahedron symmetry quadratures.
+                # Octahedron symmetry quadratures.
                 weight = [1 / 6] * 6
                 quadrature = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]]
                 if vmc_nonlocal_grid >= 5:
