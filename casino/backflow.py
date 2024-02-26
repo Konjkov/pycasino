@@ -287,6 +287,13 @@ class Backflow(AbstractBackflow):
 
     def fix_optimizable(self):
         """Set parameter fixed if there is no corresponded spin-pairs"""
+        if self.neu + self.ned == 1:
+            # H-atom
+            for i in range(len(self.eta_cutoff_optimizable)):
+                self.eta_cutoff_optimizable[i] = False
+            for i in range(len(self.phi_cutoff_optimizable)):
+                self.phi_cutoff_optimizable[i] = False
+
         ee_order = 2
         if self.eta_parameters.shape[1] == 2:
             if self.neu < ee_order and self.ned < ee_order:

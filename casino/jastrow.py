@@ -151,6 +151,12 @@ class Jastrow(AbstractJastrow):
 
     def fix_optimizable(self):
         """Set parameter optimisation to "fixed" if there is no corresponded spin-pairs"""
+        if self.neu + self.ned == 1:
+            # H-atom
+            self.u_cutoff_optimizable = False
+            for i in range(len(self.f_cutoff_optimizable)):
+                self.f_cutoff_optimizable[i] = False
+
         ee_order = 2
         if self.u_parameters.shape[1] == 2:
             if self.neu < ee_order and self.ned < ee_order:
