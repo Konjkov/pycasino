@@ -1,5 +1,6 @@
 import numpy as np
 import numba as nb
+# from numpy.polynomial.polynomial import polyval, polyval3d
 
 from casino import delta
 from casino.abstract import AbstractJastrow
@@ -268,8 +269,6 @@ class Jastrow(AbstractJastrow):
                     r = n_powers[label, e1, 1]
                     if r < L:
                         chi_set = int(e1 >= self.neu) % parameters.shape[1]
-                        # FIXME: maybe in next numba
-                        # from numpy.polynomial.polynomial import polyval, polyval3d
                         # res += polyval(r, parameters[:, chi_set]) * (r - L) ** C
                         poly = 0.0
                         for k in range(parameters.shape[0]):
@@ -293,10 +292,8 @@ class Jastrow(AbstractJastrow):
                         r_e2I = n_powers[label, e2, 1]
                         if r_e1I < L and r_e2I < L:
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[3]
-                            # FIXME: maybe in next numba
-                            # from numpy.polynomial.polynomial import polyval, polyval3d
                             # r_ee = e_powers[e1, e2, 1]
-                            # res += polyval3d(r_e1I, r_e2I, r_ee, parameters[:, :, :, f_set]) * (r_e1I - L) ** C * (r_e2I - L) ** C
+                            # res += (r_e1I - L)**C * (r_e2I - L)**C * polyval3d(r_e1I, r_e2I, r_ee, parameters[:, :, :, f_set])
                             poly = 0.0
                             for l in range(parameters.shape[0]):
                                 for m in range(l, parameters.shape[1]):
@@ -357,10 +354,8 @@ class Jastrow(AbstractJastrow):
                     if r < L:
                         r_vec = n_vectors[label, e1] / r
                         chi_set = int(e1 >= self.neu) % parameters.shape[1]
-                        # FIXME: maybe in next numba
-                        # from numpy.polynomial.polynomial import polyval, polyval3d
-                        # k_range = np.arange(parameters.shape[0])
-                        # res += r_vec * (r-L) ** C * polyval(r, (C/(r-L) + k_range/r) * parameters[:, chi_set])
+                        # k = np.arange(parameters.shape[0])
+                        # res += r_vec * (r-L) ** C * polyval(r, (C*r/(r-L) + k) * parameters[:, chi_set]) / r
                         poly = 0.0
                         for k in range(parameters.shape[0]):
                             p = parameters[k, chi_set] * n_powers[label, e1, k]
@@ -391,6 +386,14 @@ class Jastrow(AbstractJastrow):
                             r_e2I_vec = n_vectors[label, e2] / r_e2I
                             r_ee_vec = e_vectors[e1, e2] / r_ee
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[3]
+                            # r_ee = e_powers[e1, e2, 1]
+                            # k = np.arange(parameters.shape[0])
+                            # cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
+                            # e1_gradient = r_e1I_vec * (C/(r_e1I - L) * poly + poly_diff_e1I/r_e1I)
+                            # e2_gradient = r_e2I_vec * (C/(r_e2I - L) * poly + poly_diff_e2I/r_e2I)
+                            # ee_gradient = r_ee_vec * polyval3d(r_e1I, r_e2I, r_ee, k[np.newaxis, np.newaxis, :] * parameters[:, :, :, f_set])/r_ee
+                            # res[e1] += cutoff * (e1_gradient + ee_gradient)
+                            # res[e2] += cutoff * (e2_gradient - ee_gradient)
                             poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
                             for l in range(parameters.shape[0]):
                                 for m in range(parameters.shape[1]):
@@ -459,6 +462,9 @@ class Jastrow(AbstractJastrow):
                     r = n_powers[label, e1, 1]
                     if r < L:
                         chi_set = int(e1 >= self.neu) % parameters.shape[1]
+                        # k = np.arange(parameters.shape[0])
+                        # k_1 = np.arange(parameters.shape[0]) (k-1) series
+                        # res += (r-L) ** C * polyval(r, (C*(C-1)*r**2/(r-L) + 2*C*r/(r-L)*(1 + k) + 2*k + k * k_1) * parameters[:, chi_set]) / r**2
                         poly = poly_diff = poly_diff_2 = 0.0
                         for k in range(parameters.shape[0]):
                             p = parameters[k, chi_set] * n_powers[label, e1, k]
