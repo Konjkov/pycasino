@@ -22,7 +22,7 @@ def laplace_multivariate_distribution(zeta):
     the azimuthal angle uniformly on [0, 2π] and the magnitude w from 4ζ³ * w² * exp(−2ζw).
     This is achieved by sampling r1, r2 and r3 uniformly on [0, 1] and setting w = − log(r1*r2*r3)/2ζ
 
-    copy-past from
+    copy-past from CASINO: R.J. Needs, M.D. Towler, N.D. Drummond, and P. Lopez Rios
     SUBROUTINE g2_dist(zeta,xi)
       USE constants, ONLY : twopi
       IMPLICIT NONE
@@ -144,7 +144,7 @@ class VMCMarkovChain:
         """
         # reset if parameters changed
         self.probability_density = self.wfn.value(self.r_e) ** 2
-        condition = np.empty(shape=(steps, ), dtype=np.int64)
+        condition = np.empty(shape=(steps, ), dtype=np.int_)
         position = np.empty(shape=(steps, ) + self.r_e.shape)
 
         for i in range(steps):
@@ -230,8 +230,8 @@ class DMCMarkovChain:
             self.velocity_list.append(self.limiting_velocity(r_e)[0])
             self.energy_list.append(self.wfn.energy(r_e))
             self.branching_energy_list.append(self.wfn.energy(r_e))
-        energy_list_len = np.empty(1, dtype=np.int64)
-        energy_list_sum = np.empty(1, dtype=np.float64)
+        energy_list_len = np.empty(1, dtype=np.int_)
+        energy_list_sum = np.empty(1, dtype=np.float_)
         nb_mpi.allreduce(len(self.energy_list), energy_list_len)
         nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
         self.step_eff = self.step_size  # first guess
@@ -242,7 +242,10 @@ class DMCMarkovChain:
 
     def random_step(self):
         """Wrapper"""
-        self.all_electrons_random_step()
+        if self.method == 1:
+            self.one_electrons_random_step()
+        elif self.method == 2:
+            self.all_electrons_random_step()
 
     def alimit_vector(self, r_e, velocity):
         """Parameter required by DMC drift-velocity- and energy-limiting schemes
@@ -343,6 +346,9 @@ class DMCMarkovChain:
             gf_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
         return next_r_e, gf_forth, gf_back, next_velocity, velocity_ratio
 
+    def one_electrons_random_step(self):
+        """EBES random step"""
+
     def all_electrons_random_step(self):
         """CBCS random step"""
         sum_acceptance_probability = 0
@@ -386,9 +392,9 @@ class DMCMarkovChain:
         self.velocity_list = next_velocity_list
         self.wfn_value_list = next_wfn_value_list
         self.branching_energy_list = next_branching_energy_list
-        energy_list_len = np.empty(1, dtype=np.int64)
-        energy_list_sum = np.empty(1, dtype=np.float64)
-        total_sum_acceptance_probability = np.empty(1, dtype=np.float64)
+        energy_list_len = np.empty(1, dtype=np.int_)
+        energy_list_sum = np.empty(1, dtype=np.float_)
+        total_sum_acceptance_probability = np.empty(1, dtype=np.float_)
         nb_mpi.allreduce(len(self.energy_list), energy_list_len)
         nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
         nb_mpi.allreduce(sum_acceptance_probability, total_sum_acceptance_probability)
@@ -437,12 +443,13 @@ class DMCMarkovChain:
             self.efficiency_list.append(1)
             return
         rank = nb_mpi.rank()
-        walkers = np.zeros(shape=(nb_mpi.size(),), dtype=np.int64)
+        walkers = np.zeros(shape=(nb_mpi.size(),), dtype=np.int_)
         walkers[rank] = len(self.energy_list)
         # FIXME: use MPI_IN_PLACE
         nb_mpi.allgather(walkers[rank:rank+1], walkers, 1)
         self.efficiency_list.append(walkers.mean() / np.max(walkers))
-        walkers = (walkers - walkers.mean()).astype(np.int64)
+        # round down
+        walkers = (walkers - walkers.mean()).astype(np.int_)
         self.ntransfers_tot += np.abs(walkers).sum() // 2
         rank_1 = 0
         rank_2 = 1
@@ -494,7 +501,7 @@ def vmc_observable(condition, position, observable, *args):
 
     for i in range(1, condition.shape[0]):
         if condition[i]:
-            res[i] = observable(position[i])
+            res[i] = observable(position[i], *args)
         else:
             res[i] = res[i-1]
     return res

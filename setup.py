@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='casino',
-    version='0.1.0',
+    version='0.2.0',
     description='Quantum Monte Carlo Python package',
     data_files=[('', ['README.md'])],
     long_description=open('README.md').read(),
@@ -12,16 +12,17 @@ setup(
     author_email='Konjkov.VV@gmail.com',
     license='MIT',
     packages=['casino', 'casino.readers'],
+    # https://scientific-python.org/specs/spec-0000/
     install_requires=[
         'numba>=0.58.0',
         'mpi4py>=3.1.0',
-        'numba-mpi>=0.34',
+        'numba-mpi>=0.40',
         'pyblock>=0.6.0',
         'numpy>=1.24.0',
         'scipy>=1.10.0',
         'sympy>=1.12.0',
-        'pyyaml>=6.0.0',  # for gjastrow loader
-        'matplotlib>=3.5.2',
+        'pyyaml>=6.0.0',  # for gjastrow reader
+        'matplotlib>=3.6.0',
         'pandas>=2.0.2'   # for pyblock
     ],
     classifiers=[

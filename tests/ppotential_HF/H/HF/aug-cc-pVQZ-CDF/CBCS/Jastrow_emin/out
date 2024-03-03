@@ -1,0 +1,1076 @@
+CASINO v2.13.1087 [Mike Towler] (6 November 2023)
+Running on vladimir-Kubuntu [linuxpc-gcc-parallel.openblas]
+Binary compiled in opt mode
+Job started: Вс 14 янв 2024 11:34:15 +07
+ ------------------------------------------------------------------------------
+
+                   #####
+                  ##   ##    ##     ####   ##  #   ##   ####
+                  ##        ####   ##      ##  ##  ##  ##  ##
+                  ##       ##  ##   ####   ##  ### ##  ##  ##
+                  ##       ######      ##  ##  ## ###  ##  ##
+                  ##   ##  ##  ##  ##  ##  ##  ##  ##  ##  ##
+                   #####   ##  ##   ####   ##  ##   #   ####
+
+                              Quantum Monte Carlo
+               CASINO v2.13.1087 [Mike Towler] (6 November 2023)
+
+    Main Authors : R.J. Needs, M.D. Towler, N.D. Drummond, and P. Lopez Rios
+
+       Required citation in publications arising from the use of CASINO:
+     R.J. Needs, M.D. Towler, N.D. Drummond, P. Lopez Rios, and J.R. Trail,
+                       J. Chem. Phys. 152, 154106 (2020).
+                       https://doi.org/10.1063/1.5144288
+
+                 CASINO web page: https://vallico.net/casinoqmc
+
+                      Current contact: mdt26 at cantab.net
+
+ ------------------------------------------------------------------------------
+ Started 2024/01/14 11:34:16.462
+
+ Running in parallel using 4 MPI processes.
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  1
+ NED (num down spin electrons)            :  0
+ RUNTYPE (type of run)                    :  vmc_opt
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  T
+ BACKFLOW (use backflow corrections)      :  F
+ DBARRC (DBAR recalculation period)       :  100000
+ USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  T
+ MOLGSCREENING                            :  F
+ USE_DETLA (DLA approx. to NL PP)         :  F
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ ESUPERCELL                               :  F
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ CHECKPOINT (checkpointing level)         :  1
+ CHECKPOINT_NCPU (chkpnt group size)      :  4
+ CON_LOC (Dir to read/write config.*)     :  ./
+ RELATIVISTIC                             :  F
+
+ VMC/optimization input parameters
+ =================================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  1.0000E-02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  100000
+ VMC_NCONFIG_WRITE (num configs to write) :  100000
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  10
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+ OPT_CYCLES (num optimization cycles)     :  4
+ POSTFIT_VMC (perform post-fit VMC calc)  :  T
+ POSTFIT_KEEP_CFG (keep post-fit VMC cfgs):  F
+ OPT_NOCTF_CYCLES (fixed cutoff cycles)   :  0
+ OPT_INFO (information level)             :  2
+ OPT_JASTROW (opt Jastrow factor)         :  T
+ OPT_DET_COEFF (opt det coeffs)           :  F
+ OPT_ORBITALS (opt orbitals)              :  F
+ OPT_BACKFLOW (opt backflow params)       :  F
+ OPT_FIXNL (fix nonlocal energy)          :  F
+ OPT_MAXITER (max num iterations)         :  10
+ OPT_MAXEVAL (max num evaluations)        :  200
+ VM_SMOOTH_LIMITS (smooth limiting)       :  T
+ VM_REWEIGHT (reweighting)                :  F
+ VM_FILTER (filter outlying configs)      :  F
+ VM_USE_E_GUESS (use guess energy)        :  F
+ EMIN_XI_VALUE (xi parameter)             :  1.0
+
+ Particles
+ =========
+ Particle name                 Charge        Mass         Spin   Type
+ -------------------------------------------------------------------------
+ 1: Spin-up electron          -1.00000       1.0000000     0.5   Fermion
+ 2: Spin-down electron        -1.00000       1.0000000    -0.5   Fermion
+ -------------------------------------------------------------------------
+
+ Number of diffusion types : 1
+
+ Single-particle groupings
+ -------------------------
+ Spin dep. 0 : (1,2) [F] [E]
+ Spin dep. 1 : (1) (2)
+
+ NB, partitions defining spin-[F]amilies and [E]quivalent particles flagged.
+
+ Particle-pair groupings
+ -----------------------
+ Spin-pair dep. 0 : (1-1,1-2,2-2)
+ Spin-pair dep. 1 : (1-1,2-2) (1-2)
+ Spin-pair dep. 2 : (1-1) (1-2) (2-2)
+
+ Initialize random number generator
+ ==================================
+ Generator                                 :  RANLUX
+ RANLUX luxury level                       :  3
+ p value                                   :  223
+ Value of random seed on MPI process 0     :  7945366
+
+ Initialized with seed derived from timer.
+
+ Reading correlation.data
+ ========================
+ Header:
+   No title given.
+ Version of correlation.data : 1
+ A Jastrow factor is present in correlation.data.
+
+ No multideterminant/excitation data supplied.
+ Using ground state defined in xwfn.data file.
+
+ Reading Gaussian wave function and associated data
+ ==================================================
+
+ Title: TITLE
+
+ Generating code                           :  molden2qmc version: 4.0.4
+ Method                                    :
+ DFT functional                            :
+ Periodicity                               :  0 (molecule)
+ Spin restricted?                          :  Yes
+
+ Total number of electrons                 :  1
+
+ Basis set information
+
+ Number of atoms                           :  1
+ Number of shells                          :  14
+ Number of basis fns                       :  46
+ Number of primitives                      :  21
+ Highest ang momentum                      :  4
+
+ Gaussian basis sets:
+ ------------------------------------------------------------------
+   Atom  x(au)  y(au)  z(au)    No. Type  Exponent    Coefficients
+ ------------------------------------------------------------------
+   1 H     0.000    0.000    0.000
+                             1-   1  s
+                                         4.020E+02     1.408E-03
+                                         6.024E+01    -9.200E-03
+                                         1.373E+01     6.703E-02
+                                         3.905E+00     8.658E-02
+                                         1.283E+00     1.232E-01
+                                         4.655E-01     1.325E-01
+                                         1.811E-01     8.647E-02
+                                         7.279E-02     1.759E-02
+                             2-   2  s
+                                         6.685E-01     5.269E-01
+                             3-   3  s
+                                         2.352E-01     2.407E-01
+                             4-   4  s
+                                         8.280E-02     1.100E-01
+                             5-   7  p
+                                         2.526E+00     4.539E+00
+                             8-  10  p
+                                         8.498E-01     1.163E+00
+                            11-  13  p
+                                         2.859E-01     2.980E-01
+                            14-  18  d
+                                         2.026E+00     5.665E+00
+                            19-  23  d
+                                         6.639E-01     8.037E-01
+                            24-  30  f
+                                         1.450E+00     3.399E+00
+                            31-  31  s
+                                         2.280E-02     4.182E-02
+                            32-  34  p
+                                         8.200E-02     6.255E-02
+                            35-  39  d
+                                         1.861E-01     8.679E-02
+                            40-  46  f
+                                         3.614E-01     1.491E-01
+ ------------------------------------------------------------------
+ Single determinant :
+
+ Det 1 spin 1           : ground state
+ Det 1 spin 2           : ground state
+ Det 1 coefficient      : 1.00000000
+
+ Pseudopotentials
+ ================
+
+ Ion type 1, atomic no 1, file=h_pp.data
+ Title:  HF Pseudopotential in real space for H
+
+ Number of grid points                   :  1405
+ Pseudo-charge                           :  1.0
+ Local cutoff radius (au)                :  0.495002
+ Non-local cutoff radius (au)            :  0.495002
+ Local potential angular momentum        :  2
+ Deviation from z/r at cutoff radius     :  -.1021405183E-13
+ Non-local potential angular momentum    :  0
+ Deviation from vlocal at cutoff radius  :  0.1845954500E-09
+ Non-local potential angular momentum    :  1
+ Deviation from vlocal at cutoff radius  :  0.0000000000E+00
+
+ Geometry derived from information in gwfn.data
+ ==============================================
+
+ Simulation cell : Finite (atomic/molecular geometry)
+
+ Atom Atno  Type              Position (Cartesian au)
+ -------------------------------------------------------------
+    1   1   1         0.00000000     0.00000000     0.00000000
+
+
+ Expectation values
+ ==================
+ None requested.
+
+ Interactions
+ ============
+ Interaction type: Coulomb
+ System is aperiodic. Using 1/r only.
+
+ Jastrow factor
+ ==============
+ Reading Jastrow factor from correlation.data file.
+
+ Title: Be atom
+
+ Truncation order                   :  3
+
+ U term:
+  SET 1
+   Spherical harmonic l             :  0
+   Spherical harmonic m             :  0
+   Expansion order (N_u)            :  8
+   Spin dependence                  :  1
+   Cutoff             (optimizable) :  8.000000000000000E+00
+   Not all coefficients supplied: rest assumed to be zero.
+   No. of parameters in set         :  16
+   (In addition to the cutoff length.)
+
+ Chi term:
+  Number of sets                    :  1
+  SET 1:
+   Spherical harmonic l             :  0
+   Spherical harmonic m             :  0
+   Number of atoms in set           :  1
+   The atoms are:
+    1
+   Electron-nucleus cusp not imposed in Jastrow
+   Expansion order (N_chi)          :  8
+   Spin dependence                  :  0
+   Cutoff             (optimizable) :  7.000000000000000E+00
+   Not all coefficients supplied: rest assumed to be zero.
+   No. of parameters in set         :  8
+   (In addition to the cutoff length.)
+
+ F term:
+  Number of sets                    :  1
+  SET 1:
+   Number of atoms in set           :  1
+   The atoms are:
+    1
+   No constraints applied to avoid duplicating u.
+   No constraints applied to avoid duplicating chi.
+   Expansion order (N_f_eN)         :  3
+   Expansion order (N_f_ee)         :  3
+   Spin dependence                       :  1
+   Cutoff             (optimizable) :  7.000000000000000E+00
+   Not all coefficients supplied: rest assumed to be zero.
+   No. of parameters in set         :  52
+   (In addition to the cutoff length.)
+
+ Finished reading Jastrow factor from correlation.data.
+
+ Imposed symmetry and no-cusp constraints on gamma array.
+ Checked that gamma array satisfies its constraints.
+ Polynomials constructed.
+ Checked that cusp and cutoff conditions are satisfied.
+
+ Finished Jastrow setup.
+
+ Initial Jastrow set is empty.
+ Will not use a Jastrow factor until needed.
+
+ Non-local integration grids
+ ===========================
+ Ion type            :  1
+ Non-local grid no.  :  4
+ Lexact              :  5
+ Number of points    :  12
+
+
+ Setup complete.
+
+ Time taken in setup    : : :        0.0300
+
+ Writing parameters to correlation.out.0.
+
+ =========================================================
+ PERFORMING VMC CONFIGURATION-GENERATION CALCULATION No. 1
+ =========================================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  5.9427E-01
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio         (%)  =  49.5052
+ Diffusion constant  (Bohr^2)  = 1.6669E-01
+ Correlation time     (steps)  = 1.1416E+00 +- 1.4013E-02
+ Efficiency      (au^-2 s^-1)  = 1.4738E+08
+ No. of VMC steps per process  = 25000
+
+  Block average energies (au)
+
+  Total energy                       (au) =          -0.499974313526
+  Standard error                        +/-           0.000108486712
+
+  Kinetic energy KEI (used in Total) (au) =           0.492740936739
+  Standard error                        +/-           0.002773728705
+
+  Kinetic energy TI                  (au) =           0.495683610334
+  Standard error                        +/-           0.001366579422
+
+  Kinetic energy FISQ                (au) =           0.498626283930
+  Standard error                        +/-           0.000083524321
+
+  Potential energy                   (au) =          -0.992715250265
+  Standard error                        +/-           0.002777374505
+
+  e-e interaction                    (au) =           0.000000000000
+
+  e-i interaction (local)            (au) =          -0.969692024821
+  Standard error                        +/-           0.002346342833
+
+  e-i interaction (non-local)        (au) =          -0.023023225444
+  Standard error                        +/-           0.000673645344
+
+  Variance of local energy           (au) =           0.001165377857
+  Standard error                        +/-           0.000024098384
+
+  Maximum distance from origin       (au) =           8.374269770323
+
+
+ Time taken in block    : : :        0.5100
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -0.499974313526 +/- 0.000108486712      No correction
+ -0.499974313526 +/- 0.000115914739      Correlation time method
+ -0.499974313526 +/- 0.000117999519      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 0.001165377857
+
+ =========================================================================
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================
+ PERFORMING OPTIMIZATION CALCULATION No. 1
+ =========================================
+
+ Variance minimization configuration
+ ===================================
+
+ Random number generator reset to state in config.in.
+
+ Number of MPI processes                               : 4
+ Number of configurations per process                  : 25000
+ Total number of configurations                        : 100000
+
+ Optimization workspace:
+ -----------------------------------------------
+ Number of variable parameters  :              8
+ Number of configurations       :          25000
+ -----------------------------------------------
+ Electron positions             :        585 KiB
+ Other energy buffers           :        195 KiB
+ Local energies                 :       6.86 MiB
+ NL2SOL work array (real)       :       8.39 MiB
+ NL2SOL work array (int)        :          272 B
+ -----------------------------------------------
+ Total memory required          :       16.0 MiB
+ -----------------------------------------------
+
+ Optimization start
+ ==================
+
+ Optimization monitor :
+ ----------------------
+ Function evaluations : 1
+ NL2SOL iteration     : 0
+
+ Current parameters:
+ JX  0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+
+    Unreweighted variance of energy (a.u.)  :   1.165368E-03
+           Unreweighted mean energy (a.u.)  :  -4.999743E-01
+
+ Computing derivatives.
+ Done. [total CPU time: 1s]
+
+ Optimization monitor :
+ ----------------------
+ Function evaluations : 2
+ NL2SOL iteration     : 1
+
+ Current parameters:
+ JX -5.31832215E-05     2.06359181E-05    -7.87944842E-05     9.61995327E-05
+    -6.10855465E-05     2.00012597E-05    -3.21513341E-06     1.94545682E-07
+
+ Accepted step:
+    Unreweighted variance of energy (a.u.)  :   1.165368E-03 ->   1.163089E-03
+           Unreweighted mean energy (a.u.)  :  -4.999743E-01 ->  -4.999739E-01
+
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+ Done. [total CPU time: 1s]
+
+ NL2SOL return code : 4
+ Relative function convergence.
+
+ Successful optimization: some degree of confidence in minimum.
+
+ Iterations           : 1
+ Function evaluations : 4
+ Variance reduced to  : 0.11630894E-02
+
+ Writing parameters to correlation.out.1.
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================================
+ PERFORMING VMC CONFIGURATION-GENERATION CALCULATION No. 2
+ =========================================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  6.1019E-01
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+  Jastrow factor - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio <level 1>        (%)  =  49.0784
+ Acceptance ratio <levels 1-2>     (%)  =  49.0678
+ Diffusion constant           (Bohr^2)  = 1.7069E-01
+ Correlation time              (steps)  = 1.1747E+00 +- 1.4474E-02
+ Efficiency               (au^-2 s^-1)  = 1.2417E+08
+ No. of VMC steps per MPI process       = 25000
+
+  Block average energies (au)
+
+  Total energy                       (au) =          -0.500097141322
+  Standard error                        +/-           0.000111765953
+
+  Kinetic energy KEI (used in Total) (au) =           0.496515135812
+  Standard error                        +/-           0.002781942903
+
+  Kinetic energy TI                  (au) =           0.497471041929
+  Standard error                        +/-           0.001371326112
+
+  Kinetic energy FISQ                (au) =           0.498426948046
+  Standard error                        +/-           0.000083197668
+
+  Potential energy                   (au) =          -0.996612277134
+  Standard error                        +/-           0.002785349626
+
+  e-e interaction                    (au) =           0.000000000000
+
+  e-i interaction (local)            (au) =          -0.973226574771
+  Standard error                        +/-           0.002352108758
+
+  e-i interaction (non-local)        (au) =          -0.023385702363
+  Standard error                        +/-           0.000673239431
+
+  Variance of local energy           (au) =           0.001246434641
+  Standard error                        +/-           0.000054127767
+
+  Maximum distance from origin       (au) =           9.120707051480
+
+
+ Time taken in block    : : :        0.5500
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -0.500097141322 +/- 0.000111765953      No correction
+ -0.500097141322 +/- 0.000121136896      Correlation time method
+ -0.500097141322 +/- 0.000126392940      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 0.001246434641
+
+ =========================================================================
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================
+ PERFORMING OPTIMIZATION CALCULATION No. 2
+ =========================================
+
+ Energy minimization configuration
+ =================================
+
+ Energy minimization internal setup:
+ ---------------------------------------------------
+ Optimize                       :  energy
+ Target function                :  energy + 3*error
+ xi parameter for semiorthog.   :  1.000000
+ Weights in corr. sampling      :  yes
+ Matrix regularization          :  normalized basis
+ H matrix manipulation          :  on
+ Fix E_NL in correl. sampling   :  F
+ ---------------------------------------------------
+
+ There are 11 optimizable parameters.
+ Will optimize all of them.
+
+ Random number generator reset to state in config.in.
+
+ Number of MPI processes                               : 4
+ Number of configurations per MPI process              : 25000
+ Total number of configurations                        : 100000
+
+ Stored VMC result suggests minimum energy of -0.64131690523397111 a.u.
+ This minimum will be enforced.
+
+ Optimization workspace:
+ ---------------------------------------------------
+ No. of variable parameters (P) :                11
+ No. of configurations (C)      :            100000
+ ---------------------------------------------------
+ Configuration storage          :           585 KiB
+ Vectors of size C              :          1.90 MiB
+ Matrices of size P^2           :          6.75 KiB
+ ---------------------------------------------------
+ Total memory req. per MPI proc.:          2.48 MiB
+ ---------------------------------------------------
+
+ Optimization start
+ ==================
+
+ Optimization monitor :
+ ----------------------
+ Start of minimization process
+ Parameters:
+ Ju  8.0000000E+00* JX  7.0000000E+00*    -5.31832215E-05     2.06359181E-05
+    -7.87944842E-05     9.61995327E-05    -6.10855465E-05     2.00012597E-05
+    -3.21513341E-06     1.94545682E-07 Jf  7.0000000E+00*
+    [*] : shallow parameters
+
+                      Energy (a.u.) : -0.50009714132226935
+                       Error (a.u.) : 1.1164402614805680E-004
+                    Variance (a.u.) : 1.2464388574547991E-003
+
+ Computing derivatives.
+ Done. [total CPU time: 1s]
+
+ Performing matrix algebra.
+  Found 2 parameters with negligible derivatives.
+  Found 2 singularities inverting S (stage 1).
+  Found 2 singularities inverting S (stage 2).
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Failed.
+ Done. [total CPU time: 1s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 1
+ Parameters:
+ Ju  8.00000000E+00 JX  7.00000000E+00    -5.31832215E-05     2.06359181E-05
+    -7.87944842E-05     9.61995327E-05    -6.10855465E-05     2.00012597E-05
+    -3.21513341E-06     1.94545682E-07 Jf  7.00000000E+00
+
+                      Energy (a.u.) : -0.50009714132226935
+                       Error (a.u.) : 1.1164402614805680E-004
+                    Variance (a.u.) : 1.2464388574547991E-003
+
+ Writing parameters to correlation.out.2.
+
+ Criterion for convergence satisfied.
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================================
+ PERFORMING VMC CONFIGURATION-GENERATION CALCULATION No. 3
+ =========================================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  5.8696E-01
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+  Jastrow factor - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio <level 1>        (%)  =  49.7761
+ Acceptance ratio <levels 1-2>     (%)  =  49.7619
+ Diffusion constant           (Bohr^2)  = 1.6696E-01
+ Correlation time              (steps)  = 1.1862E+00 +- 1.4662E-02
+ Efficiency               (au^-2 s^-1)  = 1.2257E+08
+ No. of VMC steps per MPI process       = 25000
+
+  Block average energies (au)
+
+  Total energy                       (au) =          -0.499871247333
+  Standard error                        +/-           0.000111240268
+
+  Kinetic energy KEI (used in Total) (au) =           0.492745078456
+  Standard error                        +/-           0.002771119055
+
+  Kinetic energy TI                  (au) =           0.495616812810
+  Standard error                        +/-           0.001366131649
+
+  Kinetic energy FISQ                (au) =           0.498488547163
+  Standard error                        +/-           0.000081146782
+
+  Potential energy                   (au) =          -0.992616325789
+  Standard error                        +/-           0.002769003994
+
+  e-e interaction                    (au) =           0.000000000000
+
+  e-i interaction (local)            (au) =          -0.969652096375
+  Standard error                        +/-           0.002338726410
+
+  e-i interaction (non-local)        (au) =          -0.022964229414
+  Standard error                        +/-           0.000671560558
+
+  Variance of local energy           (au) =           0.001228237608
+  Standard error                        +/-           0.000052994930
+
+  Maximum distance from origin       (au) =           8.273449299244
+
+
+ Time taken in block    : : :        0.5600
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -0.499871247333 +/- 0.000111240268      No correction
+ -0.499871247333 +/- 0.000121153868      Correlation time method
+ -0.499871247333 +/- 0.000123684906      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 0.001228237608
+
+ =========================================================================
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================
+ PERFORMING OPTIMIZATION CALCULATION No. 3
+ =========================================
+
+ Energy minimization configuration
+ =================================
+
+ Energy minimization internal setup:
+ ---------------------------------------------------
+ Optimize                       :  energy
+ Target function                :  energy + 3*error
+ xi parameter for semiorthog.   :  1.000000
+ Weights in corr. sampling      :  yes
+ Matrix regularization          :  normalized basis
+ H matrix manipulation          :  on
+ Fix E_NL in correl. sampling   :  F
+ ---------------------------------------------------
+
+ There are 11 optimizable parameters.
+ Will optimize all of them.
+
+ Random number generator reset to state in config.in.
+
+ Number of MPI processes                               : 4
+ Number of configurations per MPI process              : 25000
+ Total number of configurations                        : 100000
+
+ Stored VMC result suggests minimum energy of -0.64005445424705265 a.u.
+ This minimum will be enforced.
+
+ Optimization workspace:
+ ---------------------------------------------------
+ No. of variable parameters (P) :                11
+ No. of configurations (C)      :            100000
+ ---------------------------------------------------
+ Configuration storage          :           585 KiB
+ Vectors of size C              :          1.90 MiB
+ Matrices of size P^2           :          6.75 KiB
+ ---------------------------------------------------
+ Total memory req. per MPI proc.:          2.48 MiB
+ ---------------------------------------------------
+
+ Optimization start
+ ==================
+
+ Optimization monitor :
+ ----------------------
+ Start of minimization process
+ Parameters:
+ Ju  8.0000000E+00* JX  7.0000000E+00*    -5.31832215E-05     2.06359181E-05
+    -7.87944842E-05     9.61995327E-05    -6.10855465E-05     2.00012597E-05
+    -3.21513341E-06     1.94545682E-07 Jf  7.0000000E+00*
+    [*] : shallow parameters
+
+                      Energy (a.u.) : -0.49987124733289739
+                       Error (a.u.) : 1.1082455588884867E-004
+                    Variance (a.u.) : 1.2282082187960544E-003
+
+ Computing derivatives.
+ Done. [total CPU time: 1s]
+
+ Performing matrix algebra.
+  Found 2 parameters with negligible derivatives.
+  Found 2 singularities inverting S (stage 1).
+  Found 2 singularities inverting S (stage 2).
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 1s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 1
+ Parameters:
+ Ju  8.00000000E+00 JX  7.00000000E+00    -5.31832215E-05     2.06359181E-05
+    -7.87944842E-05     9.61995327E-05    -6.10855465E-05     2.00012597E-05
+    -3.21513341E-06     1.94545682E-07 Jf  7.00000000E+00
+
+                      Energy (a.u.) : -0.49987124733289834
+                       Error (a.u.) : 1.1082455588886548E-004
+                    Variance (a.u.) : 1.2282082187964269E-003
+
+ Writing parameters to correlation.out.3.
+
+ Criterion for convergence satisfied.
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================================
+ PERFORMING VMC CONFIGURATION-GENERATION CALCULATION No. 4
+ =========================================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  5.9112E-01
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+  Jastrow factor - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio <level 1>        (%)  =  49.6106
+ Acceptance ratio <levels 1-2>     (%)  =  49.6001
+ Diffusion constant           (Bohr^2)  = 1.6682E-01
+ Correlation time              (steps)  = 1.1371E+00 +- 1.3977E-02
+ Efficiency               (au^-2 s^-1)  = 1.3026E+08
+ No. of VMC steps per MPI process       = 25000
+
+  Block average energies (au)
+
+  Total energy                       (au) =          -0.499938688661
+  Standard error                        +/-           0.000109864865
+
+  Kinetic energy KEI (used in Total) (au) =           0.495925044568
+  Standard error                        +/-           0.002775388158
+
+  Kinetic energy TI                  (au) =           0.497172975613
+  Standard error                        +/-           0.001367838541
+
+  Kinetic energy FISQ                (au) =           0.498420906659
+  Standard error                        +/-           0.000082713755
+
+  Potential energy                   (au) =          -0.995863733228
+  Standard error                        +/-           0.002776945276
+
+  e-e interaction                    (au) =           0.000000000000
+
+  e-i interaction (local)            (au) =          -0.972253060142
+  Standard error                        +/-           0.002338779777
+
+  e-i interaction (non-local)        (au) =          -0.023610673087
+  Standard error                        +/-           0.000677570046
+
+  Variance of local energy           (au) =           0.001205638322
+  Standard error                        +/-           0.000041601303
+
+  Maximum distance from origin       (au) =           8.166091261280
+
+
+ Time taken in block    : : :        0.5600
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -0.499938688661 +/- 0.000109864865      No correction
+ -0.499938688661 +/- 0.000117153404      Correlation time method
+ -0.499938688661 +/- 0.000123864908      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 0.001205638322
+
+ =========================================================================
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================
+ PERFORMING OPTIMIZATION CALCULATION No. 4
+ =========================================
+
+ Energy minimization configuration
+ =================================
+
+ Energy minimization internal setup:
+ ---------------------------------------------------
+ Optimize                       :  energy
+ Target function                :  energy + 3*error
+ xi parameter for semiorthog.   :  1.000000
+ Weights in corr. sampling      :  yes
+ Matrix regularization          :  normalized basis
+ H matrix manipulation          :  on
+ Fix E_NL in correl. sampling   :  F
+ ---------------------------------------------------
+
+ There are 11 optimizable parameters.
+ Will optimize all of them.
+
+ Random number generator reset to state in config.in.
+
+ Number of MPI processes                               : 4
+ Number of configurations per MPI process              : 25000
+ Total number of configurations                        : 100000
+
+ Stored VMC result suggests minimum energy of -0.63882762333849197 a.u.
+ This minimum will be enforced.
+
+ Optimization workspace:
+ ---------------------------------------------------
+ No. of variable parameters (P) :                11
+ No. of configurations (C)      :            100000
+ ---------------------------------------------------
+ Configuration storage          :           585 KiB
+ Vectors of size C              :          1.90 MiB
+ Matrices of size P^2           :          6.75 KiB
+ ---------------------------------------------------
+ Total memory req. per MPI proc.:          2.48 MiB
+ ---------------------------------------------------
+
+ Optimization start
+ ==================
+
+ Optimization monitor :
+ ----------------------
+ Start of minimization process
+ Parameters:
+ Ju  8.0000000E+00* JX  7.0000000E+00*    -5.31832215E-05     2.06359181E-05
+    -7.87944842E-05     9.61995327E-05    -6.10855465E-05     2.00012597E-05
+    -3.21513341E-06     1.94545682E-07 Jf  7.0000000E+00*
+    [*] : shallow parameters
+
+                      Energy (a.u.) : -0.49993868866070662
+                       Error (a.u.) : 1.0980134384403648E-004
+                    Variance (a.u.) : 1.2056335109956328E-003
+
+ Computing derivatives.
+ Done. [total CPU time: 1s]
+
+ Performing matrix algebra.
+  Found 2 parameters with negligible derivatives.
+  Found 2 singularities inverting S (stage 1).
+  Found 2 singularities inverting S (stage 2).
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 1s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 1
+ Parameters:
+ Ju  8.00000000E+00 JX  6.99722966E+00    -5.32508589E-05     2.06193423E-05
+    -7.87909290E-05     9.62025265E-05    -6.10842700E-05     2.00016795E-05
+    -3.21501670E-06     1.94574250E-07 Jf  7.00000000E+00
+
+                      Energy (a.u.) : -0.49993872006451595
+                       Error (a.u.) : 1.0980614337674064E-004
+                    Variance (a.u.) : 1.2057389123273322E-003
+
+ Writing parameters to correlation.out.4.
+
+ Criterion for convergence satisfied.
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ ====================================
+ PERFORMING POST-FIT VMC CALCULATION.
+ ====================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  5.6055E-01
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+  Jastrow factor - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio <level 1>        (%)  =  50.6603
+ Acceptance ratio <levels 1-2>     (%)  =  50.6450
+ Diffusion constant           (Bohr^2)  = 1.6207E-01
+ Correlation time              (steps)  = 2.4155E+00 +- 4.3061E-02
+ Efficiency               (au^-2 s^-1)  = 1.4188E+08
+ No. of VMC steps per MPI process       = 25000
+
+  Block average energies (au)
+
+  Total energy                       (au) =          -0.499988771441
+  Standard error                        +/-           0.000109683557
+
+  Kinetic energy KEI (used in Total) (au) =           0.497175203011
+  Standard error                        +/-           0.002760835396
+
+  Kinetic energy TI                  (au) =           0.497894539626
+  Standard error                        +/-           0.001362048708
+
+  Kinetic energy FISQ                (au) =           0.498613876241
+  Standard error                        +/-           0.000080162675
+
+  Potential energy                   (au) =          -0.997163974452
+  Standard error                        +/-           0.002760865011
+
+  e-e interaction                    (au) =           0.000000000000
+
+  e-i interaction (local)            (au) =          -0.974288462644
+  Standard error                        +/-           0.002338723065
+
+  e-i interaction (non-local)        (au) =          -0.022875511808
+  Standard error                        +/-           0.000663584823
+
+  Variance of local energy           (au) =           0.001215841053
+  Standard error                        +/-           0.000061771254
+
+  Maximum distance from origin       (au) =           7.560530730238
+
+
+ Time taken in block    : : :        0.2400
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -0.499988771441 +/- 0.000109683557      No correction
+ -0.499988771441 +/- 0.000170467319      Correlation time method
+ -0.499988771441 +/- 0.000163905485      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 0.001215841053
+
+ =========================================================================
+
+
+ Total CASINO CPU time  : : :       11.0300
+ Total CASINO real time : : :       11.1740
+
+
+ Subroutine timers deactivated (use TIMING_INFO input keyword)
+
+ =========================================================================
+ Ends 2024/01/14 11:34:27.633
+
+Job finished: Вс 14 янв 2024 11:34:27 +07

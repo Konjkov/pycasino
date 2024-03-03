@@ -11,7 +11,8 @@ eye3 = np.eye(3)
 @nb.njit(nogil=True, parallel=False, cache=True)
 def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational):
     """C-matrix has the following rows:
-    ...
+    6 * (phi_en_order + phi_ee_order + 1) - 2 constraints imposed to satisfy phi-term conditions.
+    ... constraints imposed to satisfy theta-term conditions.
     copy-paste from /CASINO/src/pbackflow.f90 SUBROUTINE construct_C
     """
     phi_en_order = phi_parameters.shape[0] - 1
@@ -19,16 +20,26 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
 
     ee_constrains = 2 * phi_en_order + 1
     en_constrains = phi_en_order + phi_ee_order + 1
-
     offset = 0
-    phi_constraints = 6 * en_constrains - 2
-    if phi_cusp and spin_dep in (0, 2):
+    if phi_cusp:
+        # AE cusps: 6 * (ee + eN) - 8
+        phi_constraints = 6 * en_constrains - 2
+    else:
+        # PP cusps: 2 * (ee + eN) - 2
+        phi_constraints = 2 * en_constrains
+    if spin_dep in (0, 2):
+        # e-e cusps: 2 * eN - 1 from Theta, and same from some spin-deps of Phi
         phi_constraints += ee_constrains
         offset += ee_constrains
-
-    theta_constraints = 5 * en_constrains + ee_constrains - 2
+    if phi_cusp:
+        # AE cusps: 5 * (ee + eN) - 7
+        theta_constraints = 5 * en_constrains + ee_constrains - 2
+    else:
+        # PP cusps: ee + eN - 1
+        theta_constraints = en_constrains + ee_constrains
     n_constraints = phi_constraints + theta_constraints
     if phi_irrotational:
+        # ee * eN * eN + 2 * eN * (ee-1) + eN**2 constraints from Phi and Theta
         n_constraints += ((phi_en_order + 3) * (phi_ee_order + 2) - 4) * (phi_en_order + 1)
         if trunc == 0:
             n_constraints -= (phi_en_order + 1) * (phi_ee_order + 1)
@@ -41,21 +52,33 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
     for m in range(phi_parameters.shape[2]):
         for l in range(phi_parameters.shape[1]):
             for k in range(phi_parameters.shape[0]):
-                if phi_cusp and spin_dep in (0, 2):  # e-e cusp
+                if spin_dep in (0, 2):  # e-e cusp
                     if m == 1:
                         c[k + l, p] = 1
-                if l == 0:
-                    c[k + m + offset + en_constrains, p] = 1
-                    if m > 0:
-                        c[k + m - 1 + offset + 5 * en_constrains - 1, p] = m
-                elif l == 1:
-                    c[k + m + offset + 3 * en_constrains, p] = 1
-                if k == 0:
-                    c[l + m + offset, p] = 1
-                    if m > 0:
-                        c[l + m - 1 + offset + 4 * en_constrains, p] = m
-                elif k == 1:
-                    c[l + m + offset + 2 * en_constrains, p] = 1
+                if phi_cusp:
+                    if l == 0:  # 1b
+                        c[k + m + offset + en_constrains, p] = 1
+                        if m > 0:  # 3b
+                            c[k + m - 1 + offset + 5 * en_constrains - 1, p] = m
+                    elif l == 1:  # b2
+                        c[k + m + offset + 3 * en_constrains, p] = 1
+                    if k == 0:  # 1a
+                        c[l + m + offset, p] = 1
+                        if m > 0:  # 3a
+                            c[l + m - 1 + offset + 4 * en_constrains, p] = m
+                    elif k == 1:  # 2a
+                        c[l + m + offset + 2 * en_constrains, p] = 1
+                else:
+                    if l == 0:  # 1b
+                        c[k + m + offset + en_constrains, p] = -trunc / phi_cutoff
+                        cutoff_constraints[k + m + offset + en_constrains] += trunc * phi_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
+                    elif l == 1:  # 1b
+                        c[k + m + offset + en_constrains, p] = 1
+                    if k == 0:  # 1a
+                        c[l + m + offset, p] = -trunc / phi_cutoff
+                        cutoff_constraints[l + m + offset] += trunc * phi_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
+                    elif k == 1:  # 1a
+                        c[l + m + offset, p] = 1
                 p += 1
     # Do Theta bit of the constraint matrix.
     offset = phi_constraints
@@ -64,19 +87,26 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
             for k in range(phi_parameters.shape[0]):
                 if m == 1:
                     c[k + l + offset, p] = 1
-                if l == 0:
-                    c[k + m + offset + ee_constrains + 2 * en_constrains, p] = -trunc / phi_cutoff
-                    cutoff_constraints[k + m + offset + ee_constrains + 2 * en_constrains] += trunc * theta_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
-                    if m > 0:
-                        c[k + m - 1 + offset + ee_constrains + 4 * en_constrains - 1, p] = m
-                elif l == 1:
-                    c[k + m + offset + ee_constrains + 2 * en_constrains, p] = 1
-                if k == 0:
-                    c[l + m + offset + ee_constrains, p] = 1
-                    if m > 0:
-                        c[l + m - 1 + offset + ee_constrains + 3 * en_constrains, p] = m
-                elif k == 1:
-                    c[l + m + offset + ee_constrains + en_constrains, p] = 1
+                if phi_cusp:
+                    if l == 0:  # 2b
+                        c[k + m + offset + ee_constrains + 2 * en_constrains, p] = -trunc / phi_cutoff
+                        cutoff_constraints[k + m + offset + ee_constrains + 2 * en_constrains] += trunc * theta_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
+                        if m > 0:  # 3b
+                            c[k + m - 1 + offset + ee_constrains + 4 * en_constrains - 1, p] = m
+                    elif l == 1:  # 2b
+                        c[k + m + offset + ee_constrains + 2 * en_constrains, p] = 1
+                    if k == 0:  # 1a
+                        c[l + m + offset + ee_constrains, p] = 1
+                        if m > 0:  # 3a
+                            c[l + m - 1 + offset + ee_constrains + 3 * en_constrains, p] = m
+                    elif k == 1:  # 2a
+                        c[l + m + offset + ee_constrains + en_constrains, p] = 1
+                else:
+                    if l == 0:  # 1a
+                        c[k + m + offset + ee_constrains, p] = -trunc / phi_cutoff
+                        cutoff_constraints[l + m + offset + ee_constrains] += trunc * theta_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
+                    elif l == 1:  # 1a
+                        c[k + m + offset + ee_constrains, p] = 1
                 p += 1
     # Do irrotational bit of the constraint matrix.
     n = phi_constraints + theta_constraints
@@ -115,7 +145,7 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
                     c[n, p] = trunc + k
                     if k < phi_en_order:
                         c[n, p + inc_k] = -phi_cutoff * (k + 1)
-                        # cutoff_constraints[n] -= (k + 1) * phi_parameters[k + 1, l, m - 1, spin_dep]
+                        cutoff_constraints[n] -= (k + 1) * phi_parameters[k + 1, l, :, spin_dep].sum()
                     p += 1
                     n += 1
             # ...for k=N_eN+1...
@@ -124,7 +154,7 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
                 for l in range(phi_parameters.shape[1]):
                     c[n, p + nphi + inc_m] = -(m + 1)
                     c[n, p + nphi + inc_k + inc_m] = phi_cutoff * (m + 1)
-                    # cutoff_constraints[n] += (m + 1) * theta_parameters[k - 1, l, m + 1, spin_dep]
+                    cutoff_constraints[n] += (m + 1) * theta_parameters[:, l, m + 1, spin_dep].sum()
                     p += inc_l
                     n += 1
             # ...and for k=N_eN+2.
@@ -257,6 +287,13 @@ class Backflow(AbstractBackflow):
 
     def fix_optimizable(self):
         """Set parameter fixed if there is no corresponded spin-pairs"""
+        if self.neu + self.ned == 1:
+            # H-atom
+            for i in range(len(self.eta_cutoff_optimizable)):
+                self.eta_cutoff_optimizable[i] = False
+            for i in range(len(self.phi_cutoff_optimizable)):
+                self.phi_cutoff_optimizable[i] = False
+
         ee_order = 2
         if self.eta_parameters.shape[1] == 2:
             if self.neu < ee_order and self.ned < ee_order:
@@ -414,11 +451,8 @@ class Backflow(AbstractBackflow):
         :param n_powers: powers of e-n distances
         :return: displacements of electrons - array(2, nelec, 3)
         """
-        res = np.zeros(shape=(2, self.neu + self.ned, 3))
-        if not self.mu_cutoff.any():
-            return res.reshape(2, (self.neu + self.ned) * 3)
-
         C = self.trunc
+        res = np.zeros(shape=(2, self.neu + self.ned, 3))
         for parameters, L, mu_labels in zip(self.mu_parameters, self.mu_cutoff, self.mu_labels):
             for label in mu_labels:
                 for e1 in range(self.neu + self.ned):
@@ -444,11 +478,8 @@ class Backflow(AbstractBackflow):
         :param n_powers: powers of e-n distances
         :return: displacements of electrons - array(2, nelec, 3)
         """
-        res = np.zeros(shape=(2, self.neu + self.ned, 3))
-        if not self.phi_cutoff.any():
-            return res.reshape(2, (self.neu + self.ned) * 3)
-
         C = self.trunc
+        res = np.zeros(shape=(2, self.neu + self.ned, 3))
         for phi_parameters, theta_parameters, L, phi_labels in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_labels):
             for label in phi_labels:
                 for e1 in range(self.neu + self.ned):
@@ -518,11 +549,8 @@ class Backflow(AbstractBackflow):
         :param n_powers: powers of e-n distances
         :return: partial derivatives of displacements of electrons - array(2, nelec * 3, nelec * 3)
         """
-        res = np.zeros(shape=(2, self.neu + self.ned, 3, self.neu + self.ned, 3))
-        if not self.mu_cutoff.any():
-            return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
-
         C = self.trunc
+        res = np.zeros(shape=(2, self.neu + self.ned, 3, self.neu + self.ned, 3))
         for parameters, L, mu_labels in zip(self.mu_parameters, self.mu_cutoff, self.mu_labels):
             for label in mu_labels:
                 for e1 in range(self.neu + self.ned):
@@ -551,11 +579,8 @@ class Backflow(AbstractBackflow):
         :param e_powers: powers of e-e distances
         :return: partial derivatives of displacements of electrons - array(2, nelec * 3, nelec * 3)
         """
-        res = np.zeros(shape=(2, self.neu + self.ned, 3, self.neu + self.ned, 3))
-        if not self.mu_cutoff.any():
-            return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
-
         C = self.trunc
+        res = np.zeros(shape=(2, self.neu + self.ned, 3, self.neu + self.ned, 3))
         for phi_parameters, theta_parameters, L, phi_labels in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_labels):
             for label in phi_labels:
                 for e1 in range(self.neu + self.ned):
@@ -657,11 +682,8 @@ class Backflow(AbstractBackflow):
             ∇²(f) = d²f/dr² + 2/r * df/dr
         :return: vector laplacian - array(2, nelec * 3)
         """
-        res = np.zeros(shape=(2, self.neu + self.ned, 3))
-        if not self.mu_cutoff.any():
-            return res.reshape(2, (self.neu + self.ned) * 3)
-
         C = self.trunc
+        res = np.zeros(shape=(2, self.neu + self.ned, 3))
         for parameters, L, mu_labels in zip(self.mu_parameters, self.mu_cutoff, self.mu_labels):
             for label in mu_labels:
                 for e1 in range(self.neu + self.ned):
@@ -698,11 +720,8 @@ class Backflow(AbstractBackflow):
             ∇²(f) = d²f/dr² + 2/r * df/dr
         :return: vector laplacian - array(2, nelec * 3)
         """
-        res = np.zeros(shape=(2, self.neu + self.ned, 3))
-        if not self.phi_cutoff.any():
-            return res.reshape(2, (self.neu + self.ned) * 3)
-
         C = self.trunc
+        res = np.zeros(shape=(2, self.neu + self.ned, 3))
         for phi_parameters, theta_parameters, L, phi_labels in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_labels):
             for label in phi_labels:
                 for e1 in range(self.neu + self.ned):
@@ -920,9 +939,14 @@ class Backflow(AbstractBackflow):
 
     def fix_mu_parameters(self):
         """Fix mu-term dependent parameters"""
-        for mu_parameters in self.mu_parameters:
-            # for AE atoms
-            mu_parameters[0:2] = 0
+        C = self.trunc
+        for mu_parameters, L, mu_cusp in zip(self.mu_parameters, self.mu_cutoff, self.mu_cusp):
+            if mu_cusp:
+                # AE atoms (d0,I = 0; Lμ,I * d1,I = C * d0,I)
+                mu_parameters[0:2] = 0
+            else:
+                # PP atoms (Lμ,I * d1,I = C * d0,I)
+                mu_parameters[1] = C * mu_parameters[0] / L
 
     def fix_phi_parameters(self):
         """Fix phi-term dependent parameters"""
@@ -1095,7 +1119,7 @@ class Backflow(AbstractBackflow):
                     eta_spin_deps = [x for x in eta_spin_deps if x != 2]
 
             eta_list = []
-            eta_cutoff_matrix= []
+            eta_cutoff_matrix = []
             for spin_dep in eta_spin_deps:
                 # e-e term is affected by constraints only for like-spin electrons
                 if spin_dep in (0, 2):
@@ -1119,34 +1143,55 @@ class Backflow(AbstractBackflow):
                 ))
             a_list.append(eta_block)
 
-        for mu_parameters, mu_cutoff, mu_cutoff_optimizable in zip(self.mu_parameters, self.mu_cutoff, self.mu_cutoff_optimizable):
-            # d0 = 0
-            # d0*C - d1*L = 0
-            # -d1 * dL + С * dd0 - L * dd1 = 0
-            mu_matrix = np.zeros(shape=(2, mu_parameters.shape[0]))
-            mu_matrix[0, 0] = 1
-            mu_matrix[1, 0] = self.trunc
-            mu_matrix[1, 1] = -mu_cutoff
+        for mu_parameters, mu_cutoff, mu_cutoff_optimizable, mu_cusp in zip(self.mu_parameters, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_cusp):
+            if mu_cusp:
+                # AE atoms (d0,I = 0; Lμ,I * d1,I = C * d0,I) after differentiation on variables: d0, d1, L
+                # -d1 * dL + С * d(d0) - L * d(d1) = 0
+                mu_matrix = np.zeros(shape=(2, mu_parameters.shape[0]))
+                mu_matrix[0, 0] = 1
+                mu_matrix[1, 0] = self.trunc
+                mu_matrix[1, 1] = -mu_cutoff
+            else:
+                # PP atoms (Lμ,I * d1,I = C * d0,I) after differentiation on variables: d0, d1, L
+                # -d1 * dL + С * d(d0) - L * d(d1) = 0
+                mu_matrix = np.zeros(shape=(1, mu_parameters.shape[0]))
+                mu_matrix[0, 0] = self.trunc
+                mu_matrix[0, 1] = -mu_cutoff
 
             if mu_parameters.shape[1] == 2:
                 mu_spin_deps = [0, 1]
-                mu_cutoff_matrix = [0, mu_parameters[1, 0], 0, mu_parameters[1, 1]]
+                if mu_cusp:
+                    mu_cutoff_matrix = [0, mu_parameters[1, 0], 0, mu_parameters[1, 1]]
+                else:
+                    mu_cutoff_matrix = [mu_parameters[1, 0], mu_parameters[1, 1]]
                 if self.neu < 1:
                     mu_spin_deps = [1]
-                    mu_cutoff_matrix = [0, mu_parameters[1, 0]]
+                    if mu_cusp:
+                        mu_cutoff_matrix = [0, mu_parameters[1, 1]]
+                    else:
+                        mu_cutoff_matrix = [mu_parameters[1, 1]]
                 if self.ned < 1:
                     mu_spin_deps = [0]
-                    mu_cutoff_matrix = [0, mu_parameters[1, 1]]
+                    if mu_cusp:
+                        mu_cutoff_matrix = [0, mu_parameters[1, 0]]
+                    else:
+                        mu_cutoff_matrix = [mu_parameters[1, 0]]
             else:
                 mu_spin_deps = [0]
-                mu_cutoff_matrix = [0, mu_parameters[0, 1]]
+                if mu_cusp:
+                    mu_cutoff_matrix = [0, mu_parameters[1, 0]]
+                else:
+                    mu_cutoff_matrix = [mu_parameters[1, 0]]
 
             mu_block = block_diag([mu_matrix] * len(mu_spin_deps))
             if mu_cutoff_optimizable and self.cutoffs_optimizable:
                 # does not matter for AE atoms
                 mu_block = np.hstack((- np.array(mu_cutoff_matrix).reshape(-1, 1), mu_block))
             a_list.append(mu_block)
-            b_list += [0] * 2 * len(mu_spin_deps)
+            if mu_cusp:
+                b_list += [0] * 2 * len(mu_spin_deps)
+            else:
+                b_list += [0] * len(mu_spin_deps)
 
         for phi_parameters, theta_parameters, phi_cutoff, phi_cutoff_optimizable, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cutoff_optimizable, self.phi_cusp, self.phi_irrotational):
             phi_spin_deps = [0]
@@ -1185,7 +1230,7 @@ class Backflow(AbstractBackflow):
         return block_diag(a_list), np.array(b_list)
 
     def set_parameters_projector(self):
-        """Get Projector matrix"""
+        """Set Projector matrix"""
         a, b = self.get_parameters_constraints()
         p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
         mask_idx = np.argwhere(self.get_parameters_mask()).ravel()
@@ -1308,7 +1353,7 @@ class Backflow(AbstractBackflow):
         return parameters[n:]
 
     def eta_term_d1(self, e_powers, e_vectors):
-        """First derivatives of logarithm wfn w.r.t. eta-term parameters
+        """First derivatives of log wfn w.r.t eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
         """
@@ -1350,7 +1395,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def mu_term_d1(self, n_powers, n_vectors):
-        """First derivatives of logarithm wfn w.r.t. mu-term parameters
+        """First derivatives of log wfn w.r.t mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -1399,7 +1444,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def phi_term_d1(self, e_powers, n_powers, e_vectors, n_vectors):
-        """First derivatives of logarithm wfn w.r.t. phi-term parameters
+        """First derivatives of log wfn w.r.t phi-term parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param e_powers: powers of e-e distances
@@ -1461,7 +1506,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def ae_multiplier_d1(self, n_vectors, n_powers):
-        """First derivatives of logarithm wfn w.r.t. ae_cutoff
+        """First derivatives of log wfn w.r.t ae_cutoff
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -1480,7 +1525,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def eta_term_gradient_d1(self, e_powers, e_vectors):
-        """First derivatives of logarithm wfn w.r.t. eta-term parameters
+        """First derivatives of log wfn w.r.t eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
         """
@@ -1529,7 +1574,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def mu_term_gradient_d1(self, n_powers, n_vectors):
-        """First derivatives of logarithm wfn w.r.t. mu-term parameters
+        """First derivatives of log wfn w.r.t mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -1582,7 +1627,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def phi_term_gradient_d1(self, e_powers, n_powers, e_vectors, n_vectors):
-        """First derivatives of logarithm wfn w.r.t. phi-term parameters
+        """First derivatives of log wfn w.r.t phi-term parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param e_powers: powers of e-e distances
@@ -1664,7 +1709,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def ae_multiplier_gradient_d1(self, n_vectors, n_powers):
-        """First derivatives of gradient w.r.t. ae_cutoff
+        """First derivatives of gradient w.r.t ae_cutoff
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -1684,7 +1729,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     def eta_term_laplacian_d1(self, e_powers, e_vectors):
-        """First derivatives of laplacian w.r.t. eta-term parameters
+        """First derivatives of laplacian w.r.t eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
         """
@@ -1730,7 +1775,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def mu_term_laplacian_d1(self, n_powers, n_vectors):
-        """First derivatives of logarithm wfn w.r.t. mu-term parameters
+        """First derivatives of log wfn w.r.t mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -1782,7 +1827,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def phi_term_laplacian_d1(self, e_powers, n_powers, e_vectors, n_vectors):
-        """First derivatives of laplacian w.r.t. phi-term parameters
+        """First derivatives of laplacian w.r.t phi-term parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param e_powers: powers of e-e distances
@@ -1889,7 +1934,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def ae_multiplier_laplacian_d1(self, n_vectors, n_powers):
-        """First derivatives of laplacian w.r.t. ae_cutoff
+        """First derivatives of laplacian w.r.t ae_cutoff
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -1908,7 +1953,7 @@ class Backflow(AbstractBackflow):
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     def value_parameters_d1(self, e_vectors, n_vectors):
-        """First derivatives of backflow w.r.t. the parameters
+        """First derivatives of backflow w.r.t the parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         """
@@ -1985,7 +2030,7 @@ class Backflow(AbstractBackflow):
         return gradient, value
 
     def laplacian_parameters_d1(self, e_vectors, n_vectors) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """First derivatives of backflow laplacian w.r.t. the parameters
+        """First derivatives of backflow laplacian w.r.t the parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :return:
@@ -2052,7 +2097,7 @@ class Backflow(AbstractBackflow):
         return laplacian, gradient, value
 
     def eta_term_d2(self, e_powers, e_vectors):
-        """Second derivatives of logarithm wfn w.r.t. eta-term parameters
+        """Second derivatives of logarithm wfn w.r.t eta-term parameters
         :param e_vectors: e-e vectors
         :param e_powers: powers of e-e distances
         """
@@ -2065,7 +2110,7 @@ class Backflow(AbstractBackflow):
         return res
 
     def mu_term_d2(self, n_powers, n_vectors):
-        """Second derivatives of logarithm wfn w.r.t. mu-term parameters
+        """Second derivatives of logarithm wfn w.r.t mu-term parameters
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """
@@ -2081,7 +2126,7 @@ class Backflow(AbstractBackflow):
         return res
 
     def phi_term_d2(self, e_powers, n_powers, e_vectors, n_vectors):
-        """Second derivatives of logarithm wfn w.r.t. phi-term parameters
+        """Second derivatives of logarithm wfn w.r.t phi-term parameters
         :param e_vectors: e-e vectors
         :param n_vectors: e-n vectors
         :param e_powers: powers of e-e distances
@@ -2099,7 +2144,7 @@ class Backflow(AbstractBackflow):
         return res
 
     def ae_multiplier_d2(self, n_vectors, n_powers):
-        """Second derivatives of logarithm wfn w.r.t. ae_cutoff
+        """Second derivatives of logarithm wfn w.r.t ae_cutoff
         :param n_vectors: e-n vectors
         :param n_powers: powers of e-n distances
         """

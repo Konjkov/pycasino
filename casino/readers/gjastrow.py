@@ -187,7 +187,7 @@ class Gjastrow:
                     linear_parameters[i, j] = val[0]
             self.linear_parameters.append(linear_parameters.ravel())
 
-    def fix_terns(self):
+    def fix_terms(self):
         """Fix dependent parameters."""
         # FIXME: not works
         for i, term in enumerate(self.terms):
@@ -221,35 +221,36 @@ class Gjastrow:
             self.get_basis_parameters()
             self.get_cutoff_parameters()
             self.get_linear_parameters()
-            # self.fix_terns()
+            # self.fix_terms()
 
-    def write(self, base_path, version):
+    def write(self, base_path, version, title='no title given'):
         """Write Gjastrow config to file"""
-        casl = {
-            'JASTROW': {
-                'Title': 'no title given',
-                'TERM 1': {
+        jastrow = {'Title': title}
+        for i, term in enumerate(self.terms):
+            if i == 0:
+                jastrow[f'TERM {i+1}'] = {
                     'Rules': ['1-1=2-2'],
                     'e-e basis': [{'Type': 'natural power'}, {'Order': 2}],
                     'e-e cusp': 'T',
                     'e-e cutoff': [{'Type': 'alt polynomial'}],
                     'Rank': [2, 0]
-                },
-                'TERM 2': {
+                }
+            elif i == 1:
+                jastrow[f'TERM {i+1}'] = {
                     'Rules': ['Z', '1=2'],
                     'e-n basis': [{'Type': 'natural power'}, {'Order': 2}],
                     'e-n cutoff': [{'Type': 'alt polynomial'}],
                     'Rank': [1, 1]
-                },
-                'TERM 3': {
+                }
+            elif i == 2:
+                jastrow[f'TERM {i+1}'] = {
                     'Rules': ['Z', '1=2'],
                     'e-e basis': [{'Type': 'natural power'}, {'Order': 4}],
                     'e-n basis': [{'Type': 'natural power'}, {'Order': 4}],
                     'e-n cutoff': [{'Type': 'alt polynomial'}],
                     'Rank': [2, 1]
                 }
-            }
-        }
+        casl = {'JASTROW': jastrow}
         file_path = os.path.join(base_path, f'parameters.{version}.casl')
         with open(file_path, 'w') as f:
             dump(casl, f, default_flow_style=False, Dumper=CaslDumper)

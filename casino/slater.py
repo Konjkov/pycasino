@@ -64,8 +64,8 @@ class Slater(AbstractSlater):
         self.primitives = primitives
         self.coefficients = coefficients
         self.exponents = exponents
-        self.mo_up = mo_up[:np.max(permutation_up) + 1]
-        self.mo_down = mo_down[:np.max(permutation_down) + 1]
+        self.mo_up = mo_up[:np.max(permutation_up) + 1 if neu else 0]
+        self.mo_down = mo_down[:np.max(permutation_down) + 1 if ned else 0]
         self.permutation_up = permutation_up
         self.permutation_down = permutation_down
         self.det_coeff = coeff

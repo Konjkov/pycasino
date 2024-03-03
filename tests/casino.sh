@@ -22,6 +22,19 @@
 # path="gwfn/O3/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/B2H6/HF/cc-pVQZ/${method}/${operation}/"
 
+# PP="HF"
+# PP="DF"
+# path="ppotential_${PP}/H/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+# path="ppotential_${PP}/B/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+# path="ppotential_${PP}/C/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+# path="ppotential_${PP}/N/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+# path="ppotential_${PP}/O/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+# path="ppotential_${PP}/F/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+# path="ppotential_${PP}/Ne/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+# path="ppotential_${PP}/B2H6/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
+
+# path="Goodharts_law"
+
 # path="stowfn/He/HF/QZ4P/${method}/${operation}/"
 # path="stowfn/Be/HF/QZ4P/${method}/${operation}/"
 # path="stowfn/N/HF/QZ4P/${method}/${operation}/"
@@ -32,6 +45,9 @@
 
 # path="stowfn/He/HF/QZ4P/${method}/Gjastrow/"
 # path="stowfn/Be/HF/QZ4P/${method}/Gjastrow/"
+
+
+# ../casino/plot/plot.py stowfn/He/HF/QZ4P/CBCS/Backflow/ u
 
 # /usr/bin/time -v pycasino $path
 # pycasino $path

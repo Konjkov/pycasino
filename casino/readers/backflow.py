@@ -22,10 +22,6 @@ backflow_template = """\
  Truncation order
    {trunc}
  {terms}\
- START AE CUTOFFS
- Nucleus ; Set ; Cutoff length     ;  Optimizable (0=NO; 1=YES)
- {ae_cutoffs}
- END AE CUTOFFS
  END BACKFLOW
 
 """
@@ -102,6 +98,13 @@ START SET {n_set}
   {phi_parameters}
  END SET {n_set}"""
 
+ae_cutoff_template = """\
+ START AE CUTOFFS
+ Nucleus ; Set ; Cutoff length     ;  Optimizable (0=NO; 1=YES)
+ {ae_cutoffs}
+ END AE CUTOFFS
+"""
+
 
 class Backflow:
     """Backflow reader from file.
@@ -120,7 +123,7 @@ class Backflow:
             parameter, mask, _, comment = self.f.readline().split()
             casino_index = list(map(int, comment.split('_')[1].split(',')))
             if index != casino_index:
-                print(index, casino_index)
+                print(f'{index}, {casino_index}')
         else:
             # https://www.python.org/dev/peps/pep-3132/
             parameter, mask, *_ = self.f.readline().split()
@@ -153,7 +156,7 @@ class Backflow:
         self.mu_cusp = np.zeros(0, dtype=bool)
         self.phi_cusp = np.zeros(0, dtype=bool)
         self.ae_cutoff = np.zeros(0)
-        self.ae_cutoff_optimizable = np.zeros(0)
+        self.ae_cutoff_optimizable = np.zeros(0, dtype=bool)
         self.phi_irrotational = np.zeros(0, dtype=bool)
 
     def read(self, base_path):
@@ -244,7 +247,7 @@ class Backflow:
                     elif line.startswith('Parameter values'):
                         mu_parameters = np.zeros((mu_order+1, mu_spin_dep+1), dtype=float)
                         mu_parameters_optimizable = np.zeros((mu_order + 1, mu_spin_dep + 1), dtype=bool)
-                        mu_parameters_independent = self.mu_parameters_independent(mu_parameters)
+                        mu_parameters_independent = self.mu_parameters_independent(mu_parameters, mu_cusp)
                         try:
                             for i in range(mu_spin_dep + 1):
                                 for j in range(mu_order + 1):
@@ -320,7 +323,19 @@ class Backflow:
                         ae_cutoff.append(float(cutoff_length))
                         ae_cutoff_optimizable.append(bool(int(cutoff_length_optimizable)))
 
-    def write(self):
+    def set_ae_cutoff(self, is_pseudoatom):
+        """Set AE cut-off if not defined in input file.
+        :param is_pseudoatom:
+        :return:
+        """
+        self.ae_cutoff = np.ones_like(is_pseudoatom, dtype=float)
+        self.ae_cutoff_optimizable = np.ones_like(is_pseudoatom, dtype=bool)
+        for atom in range(is_pseudoatom.size):
+            if is_pseudoatom[atom]:
+                self.ae_cutoff[atom] = 0
+                self.ae_cutoff_optimizable[atom] = False
+
+    def write(self, title='no title given'):
         eta_term = ""
         if self.eta_cutoff['value'].any():
             eta_parameters_list = []
@@ -344,7 +359,7 @@ class Backflow:
         mu_sets = []
         for n_mu_set, (mu_labels, mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cusp) in enumerate(zip(self.mu_labels, self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cusp)):
             mu_parameters_list = []
-            mu_parameters_independent = self.mu_parameters_independent(mu_parameters)
+            mu_parameters_independent = self.mu_parameters_independent(mu_parameters, mu_cusp)
             for i in range(mu_parameters.shape[1]):
                 for j in range(mu_parameters.shape[0]):
                     if mu_parameters_independent[j, i]:
@@ -399,14 +414,17 @@ class Backflow:
         if phi_sets:
             phi_term = phi_term_template.format(n_phi_sets=n_phi_set + 1, phi_sets='\n '.join(phi_sets))
 
+        ae_cutoffs = ''
         ae_cutoff_list = []
         for i, (ae_cutoff, ae_cutoff_optimizable) in enumerate(zip(self.ae_cutoff, self.ae_cutoff_optimizable)):
-            ae_cutoff_list.append(f' {i + 1}         1      {ae_cutoff: .16e}           {int(ae_cutoff_optimizable)}')
+            if ae_cutoff:
+                ae_cutoff_list.append(f' {i + 1}         {i + 1}      {ae_cutoff: .16e}           {int(ae_cutoff_optimizable)}')
+        if ae_cutoff_list:
+            ae_cutoffs = ae_cutoff_template.format(ae_cutoffs='\n '.join(ae_cutoff_list))
         backflow = backflow_template.format(
-            title='no title given',
+            title=title,
             trunc=self.trunc,
-            terms=eta_term + mu_term + phi_term,
-            ae_cutoffs='\n '.join(ae_cutoff_list),
+            terms=eta_term + mu_term + phi_term + ae_cutoffs,
         )
         return backflow
 
@@ -422,9 +440,12 @@ class Backflow:
         return mask
 
     @staticmethod
-    def mu_parameters_independent(parameters):
+    def mu_parameters_independent(parameters, mu_cusp):
         mask = np.ones(parameters.shape, bool)
-        mask[0:2] = False
+        if mu_cusp:
+            mask[0:2] = False
+        else:
+            mask[1] = False
         return mask
 
     def phi_theta_parameters_independent(self, phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational):
@@ -463,9 +484,15 @@ class Backflow:
 
     def fix_mu_parameters(self):
         """Fix mu-term parameters"""
-        for mu_parameters in self.mu_parameters:
-            # for AE atoms
-            mu_parameters[0:2] = 0
+        C = self.trunc
+        for mu_parameters, mu_cutoff, mu_cusp in zip(self.mu_parameters, self.mu_cutoff, self.mu_cusp):
+            if mu_cusp:
+                # AE atoms (d0,I = 0; Lμ,I * d1,I = C * d0,I)
+                mu_parameters[0:2] = 0
+            else:
+                # PP atoms (Lμ,I * d1,I = C * d0,I)
+                L = mu_cutoff['value']
+                mu_parameters[1] = C * mu_parameters[0] / L
 
     def fix_phi_parameters(self):
         """Fix phi-term parameters"""
@@ -608,8 +635,10 @@ if __name__ == '__main__':
         '51', '52', '53', '54', '55',
     ):
         print(phi_term)
+        # Truncation order = 3; Type of e-N cusp conditions = 1; Irrotational Phi term = 0;
         # path = f'test/backflow/0_1_0/{phi_term}/correlation.out.1'
         # path = f'test/backflow/3_1_0/{phi_term}/correlation.out.1'
-        path = f'test/backflow/0_1_1/{phi_term}/correlation.out.1'
+        # path = f'test/backflow/0_1_1/{phi_term}/correlation.out.1'
         # path = f'test/backflow/3_1_1/{phi_term}/correlation.out.1'
+        path = f'test/backflow/3_0_1/{phi_term}/correlation.out.1'
         Backflow().read(path)

@@ -1,0 +1,991 @@
+CASINO v2.13.1087 [Mike Towler] (6 November 2023)
+Running on vladimir-Kubuntu [linuxpc-gcc-parallel.openblas]
+Binary compiled in opt mode
+Job started: Ср 10 янв 2024 21:31:02 +07
+ ------------------------------------------------------------------------------
+
+                   #####
+                  ##   ##    ##     ####   ##  #   ##   ####
+                  ##        ####   ##      ##  ##  ##  ##  ##
+                  ##       ##  ##   ####   ##  ### ##  ##  ##
+                  ##       ######      ##  ##  ## ###  ##  ##
+                  ##   ##  ##  ##  ##  ##  ##  ##  ##  ##  ##
+                   #####   ##  ##   ####   ##  ##   #   ####
+
+                              Quantum Monte Carlo
+               CASINO v2.13.1087 [Mike Towler] (6 November 2023)
+
+    Main Authors : R.J. Needs, M.D. Towler, N.D. Drummond, and P. Lopez Rios
+
+       Required citation in publications arising from the use of CASINO:
+     R.J. Needs, M.D. Towler, N.D. Drummond, P. Lopez Rios, and J.R. Trail,
+                       J. Chem. Phys. 152, 154106 (2020).
+                       https://doi.org/10.1063/1.5144288
+
+                 CASINO web page: https://vallico.net/casinoqmc
+
+                      Current contact: mdt26 at cantab.net
+
+ ------------------------------------------------------------------------------
+ Started 2024/01/10 21:31:03.119
+
+ Running in parallel using 4 MPI processes.
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  4
+ NED (num down spin electrons)            :  4
+ RUNTYPE (type of run)                    :  vmc_opt
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  T
+ BACKFLOW (use backflow corrections)      :  F
+ DBARRC (DBAR recalculation period)       :  100000
+ USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  T
+ MOLGSCREENING                            :  F
+ USE_DETLA (DLA approx. to NL PP)         :  F
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ ESUPERCELL                               :  F
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ CHECKPOINT (checkpointing level)         :  1
+ CHECKPOINT_NCPU (chkpnt group size)      :  4
+ CON_LOC (Dir to read/write config.*)     :  ./
+ RELATIVISTIC                             :  F
+
+ VMC/optimization input parameters
+ =================================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  1.0000E-02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  100000
+ VMC_NCONFIG_WRITE (num configs to write) :  100000
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  10
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+ OPT_CYCLES (num optimization cycles)     :  2
+ POSTFIT_VMC (perform post-fit VMC calc)  :  T
+ POSTFIT_KEEP_CFG (keep post-fit VMC cfgs):  F
+ OPT_NOCTF_CYCLES (fixed cutoff cycles)   :  0
+ OPT_INFO (information level)             :  2
+ OPT_JASTROW (opt Jastrow factor)         :  T
+ OPT_DET_COEFF (opt det coeffs)           :  F
+ OPT_ORBITALS (opt orbitals)              :  F
+ OPT_BACKFLOW (opt backflow params)       :  F
+ OPT_FIXNL (fix nonlocal energy)          :  T
+ OPT_MAXITER (max num iterations)         :  10
+ OPT_MAXEVAL (max num evaluations)        :  200
+ VM_SMOOTH_LIMITS (smooth limiting)       :  T
+ VM_REWEIGHT (reweighting)                :  F
+ VM_FILTER (filter outlying configs)      :  F
+ VM_USE_E_GUESS (use guess energy)        :  F
+
+ Particles
+ =========
+ Particle name                 Charge        Mass         Spin   Type
+ -------------------------------------------------------------------------
+ 1: Spin-up electron          -1.00000       1.0000000     0.5   Fermion
+ 2: Spin-down electron        -1.00000       1.0000000    -0.5   Fermion
+ -------------------------------------------------------------------------
+
+ Number of diffusion types : 1
+
+ Single-particle groupings
+ -------------------------
+ Spin dep. 0 : (1,2) [F] [E]
+ Spin dep. 1 : (1) (2)
+
+ NB, partitions defining spin-[F]amilies and [E]quivalent particles flagged.
+
+ Particle-pair groupings
+ -----------------------
+ Spin-pair dep. 0 : (1-1,1-2,2-2)
+ Spin-pair dep. 1 : (1-1,2-2) (1-2)
+ Spin-pair dep. 2 : (1-1) (1-2) (2-2)
+
+ Initialize random number generator
+ ==================================
+ Generator                                 :  RANLUX
+ RANLUX luxury level                       :  3
+ p value                                   :  223
+ Value of random seed on MPI process 0     :  37181852
+
+ Initialized with seed derived from timer.
+
+ Reading correlation.data
+ ========================
+ Header:
+   No title given.
+ Version of correlation.data : 1
+ A Jastrow factor is present in correlation.data.
+
+ No multideterminant/excitation data supplied.
+ Using ground state defined in xwfn.data file.
+
+ Reading Gaussian wave function and associated data
+ ==================================================
+
+ Title: TITLE
+
+ Generating code                           :  molden2qmc version: 4.0.4
+ Method                                    :
+ DFT functional                            :
+ Periodicity                               :  0 (molecule)
+ Spin restricted?                          :  Yes
+
+ Total number of electrons                 :  8
+
+ Basis set information
+
+ Number of atoms                           :  1
+ Number of shells                          :  19
+ Number of basis fns                       :  79
+ Number of primitives                      :  37
+ Highest ang momentum                      :  5
+
+ Gaussian basis sets:
+ ------------------------------------------------------------------
+   Atom  x(au)  y(au)  z(au)    No. Type  Exponent    Coefficients
+ ------------------------------------------------------------------
+   1 Ne    0.000    0.000    0.000
+                             1-   1  s
+                                         9.269E+01    -4.211E-02
+                                         5.782E+01     2.464E-01
+                                         3.595E+01    -7.863E-01
+                                         2.247E+01     1.525E+00
+                                         1.405E+01    -1.313E+00
+                                         4.845E+00    -1.531E-01
+                                         2.608E+00     3.446E-01
+                                         1.162E+00     3.660E-01
+                                         5.239E-01     1.677E-01
+                                         2.303E-01     2.278E-02
+                             2-   4  p
+                                         8.363E+01    -2.329E-01
+                                         5.227E+01     1.060E+00
+                                         3.264E+01    -2.997E+00
+                                         1.913E+01     4.643E+00
+                                         6.765E+00     2.206E+00
+                                         2.986E+00     1.380E+00
+                                         1.375E+00     6.535E-01
+                                         6.397E-01     2.342E-01
+                                         2.948E-01     5.522E-02
+                                         1.300E-01     4.842E-03
+                             5-   5  s
+                                         3.035E+00     1.639E+00
+                             6-   6  s
+                                         1.081E+00     7.555E-01
+                             7-   7  s
+                                         3.849E-01     3.483E-01
+                             8-  10  p
+                                         2.252E+00     3.932E+00
+                            11-  13  p
+                                         7.615E-01     1.014E+00
+                            14-  16  p
+                                         2.575E-01     2.615E-01
+                            17-  21  d
+                                         6.565E+00     4.431E+01
+                            22-  26  d
+                                         2.218E+00     6.637E+00
+                            27-  31  d
+                                         7.496E-01     9.939E-01
+                            32-  38  f
+                                         4.537E+00     4.423E+01
+                            39-  45  f
+                                         1.504E+00     3.686E+00
+                            46-  54  g
+                                         2.973E+00     2.226E+01
+                            55-  55  s
+                                         1.751E-01     1.929E-01
+                            56-  58  p
+                                         9.020E-02     7.046E-02
+                            59-  63  d
+                                         2.650E-01     1.611E-01
+                            64-  70  f
+                                         6.250E-01     5.113E-01
+                            71-  79  g
+                                         1.177E+00     1.742E+00
+ ------------------------------------------------------------------
+ Single determinant :
+
+ Det 1 spin 1           : ground state
+ Det 1 spin 2           : ground state
+ Det 1 coefficient      : 1.00000000
+
+ Pseudopotentials
+ ================
+
+ Ion type 1, atomic no 10, file=ne_pp.data
+ Title:  HF Pseudopotential in real space for Ne
+
+ Number of grid points                   :  1577
+ Pseudo-charge                           :  8.0
+ Local cutoff radius (au)                :  0.836013
+ Non-local cutoff radius (au)            :  0.761516
+ Local potential angular momentum        :  2
+ Deviation from z/r at cutoff radius     :  -.8962590330E-05
+ Non-local potential angular momentum    :  0
+ Deviation from vlocal at cutoff radius  :  0.3729465258E-05
+ Non-local potential angular momentum    :  1
+ Deviation from vlocal at cutoff radius  :  0.5706446995E-06
+
+ Geometry derived from information in gwfn.data
+ ==============================================
+
+ Simulation cell : Finite (atomic/molecular geometry)
+
+ Atom Atno  Type              Position (Cartesian au)
+ -------------------------------------------------------------
+    1  10   1         0.00000000     0.00000000     0.00000000
+
+
+ Expectation values
+ ==================
+ None requested.
+
+ Interactions
+ ============
+ Interaction type: Coulomb
+ System is aperiodic. Using 1/r only.
+
+ Jastrow factor
+ ==============
+ Reading Jastrow factor from correlation.data file.
+
+ Title: Ne atom
+
+ Truncation order                   :  3
+
+ U term:
+  SET 1
+   Spherical harmonic l             :  0
+   Spherical harmonic m             :  0
+   Expansion order (N_u)            :  8
+   Spin dependence                  :  1
+   Cutoff             (optimizable) :  5.000000000000000E+00
+   Not all coefficients supplied: rest assumed to be zero.
+   No. of parameters in set         :  16
+   (In addition to the cutoff length.)
+
+ Chi term:
+  Number of sets                    :  1
+  SET 1:
+   Spherical harmonic l             :  0
+   Spherical harmonic m             :  0
+   Number of atoms in set           :  1
+   The atoms are:
+    1
+   Electron-nucleus cusp not imposed in Jastrow
+   Expansion order (N_chi)          :  8
+   Spin dependence                  :  0
+   Cutoff             (optimizable) :  4.000000000000000E+00
+   Not all coefficients supplied: rest assumed to be zero.
+   No. of parameters in set         :  8
+   (In addition to the cutoff length.)
+
+ F term:
+  Number of sets                    :  1
+  SET 1:
+   Number of atoms in set           :  1
+   The atoms are:
+    1
+   No constraints applied to avoid duplicating u.
+   No constraints applied to avoid duplicating chi.
+   Expansion order (N_f_eN)         :  3
+   Expansion order (N_f_ee)         :  3
+   Spin dependence                       :  1
+   Cutoff             (optimizable) :  4.000000000000000E+00
+   Not all coefficients supplied: rest assumed to be zero.
+   No. of parameters in set         :  52
+   (In addition to the cutoff length.)
+
+ Finished reading Jastrow factor from correlation.data.
+
+ Imposed symmetry and no-cusp constraints on gamma array.
+ Checked that gamma array satisfies its constraints.
+ Polynomials constructed.
+ Checked that cusp and cutoff conditions are satisfied.
+
+ Finished Jastrow setup.
+
+ Initial Jastrow set is empty.
+ Will not use a Jastrow factor until needed.
+
+ Non-local integration grids
+ ===========================
+ Ion type            :  1
+ Non-local grid no.  :  4
+ Lexact              :  5
+ Number of points    :  12
+
+
+ Setup complete.
+
+ Time taken in setup    : : :        0.0100
+
+ Writing parameters to correlation.out.0.
+
+ =========================================================
+ PERFORMING VMC CONFIGURATION-GENERATION CALCULATION No. 1
+ =========================================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  1.0254E-02
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio         (%)  =  51.7996
+ Diffusion constant  (Bohr^2)  = 3.8667E-03
+ Correlation time     (steps)  = 2.7048E+00 +- 4.9886E-02
+ Efficiency      (au^-2 s^-1)  = 1.1652E+03
+ No. of VMC steps per process  = 25000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -34.610521990007
+  Standard error                        +/-           0.007859120782
+
+  Kinetic energy KEI (used in Total) (au) =          27.932628282724
+  Standard error                        +/-           0.047532221585
+
+  Kinetic energy TI                  (au) =          27.690722067181
+  Standard error                        +/-           0.178170005104
+
+  Kinetic energy FISQ                (au) =          27.448815851637
+  Standard error                        +/-           0.348960275969
+
+  Potential energy                   (au) =         -62.543150272731
+  Standard error                        +/-           0.048024863283
+
+  e-e interaction                    (au) =          25.717797811878
+  Standard error                        +/-           0.017112438921
+
+  e-i interaction (local)            (au) =         -89.318199169047
+  Standard error                        +/-           0.055237764293
+
+  e-i interaction (non-local)        (au) =           1.057251084438
+  Standard error                        +/-           0.023492912485
+
+  Variance of local energy           (au) =           6.258085574068
+  Standard error                        +/-           0.128306831447
+
+  Maximum distance from origin       (au) =           5.716647142391
+
+
+ Time taken in block    : : :        5.0700
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -34.610521990007 +/- 0.007859120782      No correction
+ -34.610521990007 +/- 0.012925407264      Correlation time method
+ -34.610521990007 +/- 0.013384402905      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 6.258085574068
+
+ =========================================================================
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================
+ PERFORMING OPTIMIZATION CALCULATION No. 1
+ =========================================
+
+ Variance minimization configuration
+ ===================================
+
+ Random number generator reset to state in config.in.
+
+ Number of MPI processes                               : 4
+ Number of configurations per process                  : 25000
+ Total number of configurations                        : 100000
+
+ Optimization workspace:
+ -----------------------------------------------
+ Number of variable parameters  :             76
+ Number of configurations       :          25000
+ -----------------------------------------------
+ Electron positions             :       4.57 MiB
+ Other energy buffers           :        195 KiB
+ Local energies                 :       58.7 MiB
+ NL2SOL work array (real)       :       60.3 MiB
+ NL2SOL work array (int)        :          544 B
+ -----------------------------------------------
+ Total memory required          :        123 MiB
+ -----------------------------------------------
+
+ Optimization start
+ ==================
+
+ Optimization monitor :
+ ----------------------
+ Function evaluations : 1
+ NL2SOL iteration     : 0
+
+ Current parameters:
+ Ju  0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+ JX  0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+ Jf  0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+
+    Unreweighted variance of energy (a.u.)  :   2.382359E+00
+           Unreweighted mean energy (a.u.)  :  -3.495525E+01
+
+ Computing derivatives.
+ Done. [total CPU time: 59s]
+
+ Optimization monitor :
+ ----------------------
+ Function evaluations : 2
+ NL2SOL iteration     : 1
+
+ Current parameters:
+ Ju  2.59182742E-03     7.42694961E-04    -7.80244442E-04     8.19944026E-04
+    -5.06419265E-04     1.93914310E-04    -4.13400238E-05     3.69966928E-06
+     3.62892214E-03     1.35634788E-03    -1.62606611E-03     1.84266850E-03
+    -1.24523679E-03     5.02678808E-04    -1.06741954E-04     9.35043978E-06
+ JX -6.31172376E-02    -1.41289082E-02     6.58677590E-03     5.88116053E-03
+    -1.21546378E-02     7.55123285E-03    -1.99814199E-03     1.91803526E-04
+ Jf -6.19503572E-05    -8.19461523E-05     2.82264919E-05    -1.72612544E-05
+    -4.18016038E-05     1.75572493E-05     5.26835267E-05     6.66987359E-05
+    -1.71286536E-05     9.40720533E-06     6.51988439E-06    -6.16321430E-05
+     2.54909542E-05    -2.36752441E-06    -4.64548870E-05     1.16218487E-05
+    -5.71521949E-06     2.23364733E-06     7.19617956E-06    -1.18097050E-05
+    -1.44325537E-05     1.17217549E-05    -1.29132752E-06    -4.67812367E-06
+    -2.68212169E-07     1.10987403E-06    -7.15771335E-05    -5.45250348E-05
+     1.22151189E-05    -5.44838845E-05     1.27038953E-06    -1.02513459E-05
+    -5.29821577E-05    -2.04372729E-05    -1.09194939E-04     2.58491018E-06
+     1.75591932E-05     1.68225660E-04    -1.67962869E-04     8.47231505E-06
+     1.56152134E-04    -1.93584727E-05     7.91769022E-06     1.15985576E-04
+    -9.95930476E-05     3.23159457E-05     4.12356025E-05     3.54788671E-05
+    -6.39818101E-06    -7.25783275E-05     1.51186634E-05    -3.92975084E-06
+
+ Accepted step:
+    Unreweighted variance of energy (a.u.)  :   2.382359E+00 ->   5.363426E-01
+           Unreweighted mean energy (a.u.)  :  -3.495525E+01 ->  -3.485350E+01
+
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+ Done. [total CPU time: 59s]
+
+ Optimization monitor :
+ ----------------------
+ Function evaluations : 3
+ NL2SOL iteration     : 2
+
+ Current parameters:
+ Ju  2.07775403E-03     6.55253230E-04    -7.66948487E-04     7.83696020E-04
+    -4.79335075E-04     1.81252523E-04    -3.81658021E-05     3.35484970E-06
+     2.98344763E-03     1.34139662E-03    -1.59707218E-03     1.80447729E-03
+    -1.20771330E-03     4.82554919E-04    -1.01364067E-04     8.79529327E-06
+ JX -6.22816269E-02    -1.50734974E-02     6.30242759E-03     8.31876803E-03
+    -1.41369649E-02     8.74679211E-03    -2.35924648E-03     2.37831128E-04
+ Jf -6.64296112E-05    -8.41849207E-05     2.76788132E-05    -3.32189361E-05
+    -3.28754311E-05     6.84749299E-06     4.89114671E-05     6.69737489E-05
+    -1.71489844E-05     1.05691274E-05     7.29643578E-06    -5.79812480E-05
+     2.11111146E-05    -7.39066457E-07    -4.07956182E-05     8.97034779E-06
+    -2.74397296E-06     3.30659888E-06     5.56364557E-06    -1.12335282E-05
+    -1.08896098E-05     1.05977861E-05    -1.35303421E-06    -5.12358864E-06
+     1.80741976E-07     4.67842443E-07    -8.88239877E-05    -6.85896952E-05
+     1.34730026E-05    -6.27483852E-05     6.50435230E-06    -2.16821339E-05
+    -4.83806433E-05    -2.07523660E-05    -1.06984058E-04     3.98422655E-06
+     3.12392057E-05     1.78027858E-04    -1.89658218E-04     1.57057341E-05
+     1.75240800E-04    -2.33784247E-05     1.13278518E-05     1.20639683E-04
+    -1.11416012E-04     3.49263454E-05     6.38149337E-05     2.87020722E-05
+    -6.49738359E-06    -7.30744130E-05     1.57032031E-05    -4.58558143E-06
+
+ Accepted step:
+    Unreweighted variance of energy (a.u.)  :   5.363426E-01 ->   5.264796E-01
+           Unreweighted mean energy (a.u.)  :  -3.485350E+01 ->  -3.485921E+01
+
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+ Done. [total CPU time: 59s]
+
+ Optimization monitor :
+ ----------------------
+ Function evaluations : 4
+ NL2SOL iteration     : 3
+
+ Current parameters:
+ Ju  2.03555300E-03     6.50385124E-04    -7.64787082E-04     7.78218627E-04
+    -4.74549139E-04     1.78816947E-04    -3.75252830E-05     3.28532714E-06
+     2.94019171E-03     1.33961586E-03    -1.59539612E-03     1.80203542E-03
+    -1.20479397E-03     4.80660195E-04    -1.00826515E-04     8.73452273E-06
+ JX -6.16207863E-02    -1.47866399E-02     6.29599678E-03     8.31886163E-03
+    -1.40960090E-02     8.71876459E-03    -2.34825349E-03     2.36465768E-04
+ Jf -6.56687446E-05    -8.39364285E-05     2.78635899E-05    -3.24459302E-05
+    -3.31466471E-05     6.88085058E-06     4.92898628E-05     6.69361568E-05
+    -1.69682521E-05     1.06017582E-05     7.74915699E-06    -5.79443252E-05
+     2.10082538E-05    -6.69058571E-07    -4.05318846E-05     8.98626668E-06
+    -2.77913913E-06     3.37117285E-06     5.34751330E-06    -1.12028677E-05
+    -1.04929739E-05     1.03999639E-05    -1.32897949E-06    -5.09444153E-06
+     1.81621105E-07     4.62949845E-07    -8.87754224E-05    -6.89362891E-05
+     1.34320453E-05    -6.13678796E-05     5.90859124E-06    -2.17054041E-05
+    -4.78667608E-05    -2.13151535E-05    -1.06763215E-04     4.10804019E-06
+     3.19832103E-05     1.78271127E-04    -1.91015523E-04     1.60732802E-05
+     1.77207406E-04    -2.36688725E-05     1.13351736E-05     1.20788329E-04
+    -1.11849331E-04     3.48723597E-05     6.50443619E-05     2.82894443E-05
+    -6.47723024E-06    -7.32136600E-05     1.57598202E-05    -4.59831482E-06
+
+ Accepted step:
+    Unreweighted variance of energy (a.u.)  :   5.264796E-01 ->   5.264734E-01
+           Unreweighted mean energy (a.u.)  :  -3.485921E+01 ->  -3.485918E+01
+
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+ Done. [total CPU time: 59s]
+
+ NL2SOL return code : 4
+ Relative function convergence.
+
+ Successful optimization: some degree of confidence in minimum.
+
+ Iterations           : 3
+ Function evaluations : 8
+ Variance reduced to  : 0.52647338E+00
+
+ Writing parameters to correlation.out.1.
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================================
+ PERFORMING VMC CONFIGURATION-GENERATION CALCULATION No. 2
+ =========================================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  1.0946E-02
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+  Jastrow factor - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio <level 1>        (%)  =  50.4499
+ Acceptance ratio <levels 1-2>     (%)  =  47.9942
+ Diffusion constant           (Bohr^2)  = 3.7861E-03
+ Correlation time              (steps)  = 1.7641E+00 +- 2.6170E-02
+ Efficiency               (au^-2 s^-1)  = 1.9827E+04
+ No. of VMC steps per MPI process       = 25000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -34.890060911911
+  Standard error                        +/-           0.001994933140
+
+  Kinetic energy KEI (used in Total) (au) =          27.988100206385
+  Standard error                        +/-           0.045448928027
+
+  Kinetic energy TI                  (au) =          28.164722512394
+  Standard error                        +/-           0.363121572322
+
+  Kinetic energy FISQ                (au) =          28.341344818403
+  Standard error                        +/-           0.723414773731
+
+  Potential energy                   (au) =         -62.878161118295
+  Standard error                        +/-           0.045463034875
+
+  e-e interaction                    (au) =          25.079910376490
+  Standard error                        +/-           0.014426815739
+
+  e-i interaction (local)            (au) =         -89.025368031719
+  Standard error                        +/-           0.048739286667
+
+  e-i interaction (non-local)        (au) =           1.067296536934
+  Standard error                        +/-           0.023831869493
+
+  Variance of local energy           (au) =           0.399305619275
+  Standard error                        +/-           0.007197799048
+
+  Maximum distance from origin       (au) =           5.677678356489
+
+
+ Time taken in block    : : :        7.1600
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -34.890060911911 +/- 0.001994933140      No correction
+ -34.890060911911 +/- 0.002649687765      Correlation time method
+ -34.890060911911 +/- 0.002781175001      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 0.399305619275
+
+ =========================================================================
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================
+ PERFORMING OPTIMIZATION CALCULATION No. 2
+ =========================================
+
+ Variance minimization configuration
+ ===================================
+
+ Random number generator reset to state in config.in.
+
+ Number of MPI processes                               : 4
+ Number of configurations per process                  : 25000
+ Total number of configurations                        : 100000
+
+ Optimization workspace:
+ -----------------------------------------------
+ Number of variable parameters  :             79
+ Number of configurations       :          25000
+ -----------------------------------------------
+ Electron positions             :       4.57 MiB
+ Other energy buffers           :        195 KiB
+ Local energies                 :       61.0 MiB
+ NL2SOL work array (real)       :       62.6 MiB
+ NL2SOL work array (int)        :          556 B
+ -----------------------------------------------
+ Total memory required          :        128 MiB
+ -----------------------------------------------
+
+ Optimization start
+ ==================
+
+ Optimization monitor :
+ ----------------------
+ Function evaluations : 1
+ NL2SOL iteration     : 0
+
+ Current parameters:
+ Ju  5.00000000E+00     2.03555300E-03     6.50385124E-04    -7.64787082E-04
+     7.78218627E-04    -4.74549139E-04     1.78816947E-04    -3.75252830E-05
+     3.28532714E-06     2.94019171E-03     1.33961586E-03    -1.59539612E-03
+     1.80203542E-03    -1.20479397E-03     4.80660195E-04    -1.00826515E-04
+     8.73452273E-06 JX  4.00000000E+00    -6.16207863E-02    -1.47866399E-02
+     6.29599678E-03     8.31886163E-03    -1.40960090E-02     8.71876459E-03
+    -2.34825349E-03     2.36465768E-04 Jf  4.00000000E+00    -6.56687446E-05
+    -8.39364285E-05     2.78635899E-05    -3.24459302E-05    -3.31466471E-05
+     6.88085058E-06     4.92898628E-05     6.69361568E-05    -1.69682521E-05
+     1.06017582E-05     7.74915699E-06    -5.79443252E-05     2.10082538E-05
+    -6.69058571E-07    -4.05318846E-05     8.98626668E-06    -2.77913913E-06
+     3.37117285E-06     5.34751330E-06    -1.12028677E-05    -1.04929739E-05
+     1.03999639E-05    -1.32897949E-06    -5.09444153E-06     1.81621105E-07
+     4.62949845E-07    -8.87754224E-05    -6.89362891E-05     1.34320453E-05
+    -6.13678796E-05     5.90859124E-06    -2.17054041E-05    -4.78667608E-05
+    -2.13151535E-05    -1.06763215E-04     4.10804019E-06     3.19832103E-05
+     1.78271127E-04    -1.91015523E-04     1.60732802E-05     1.77207406E-04
+    -2.36688725E-05     1.13351736E-05     1.20788329E-04    -1.11849331E-04
+     3.48723597E-05     6.50443619E-05     2.82894443E-05    -6.47723024E-06
+    -7.32136600E-05     1.57598202E-05    -4.59831482E-06
+
+    Unreweighted variance of energy (a.u.)  :   3.993512E-01
+           Unreweighted mean energy (a.u.)  :  -3.489006E+01
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 1s remaining]
+ Done. [total CPU time: 1m1s]
+
+ Optimization monitor :
+ ----------------------
+ Function evaluations : 2
+ NL2SOL iteration     : 1
+
+ Current parameters:
+ Ju  5.01717372E+00     2.07665106E-03     1.01174072E-03    -1.54726560E-03
+     1.73980213E-03    -1.12550951E-03     4.17727141E-04    -8.08055374E-05
+     6.30376804E-06     2.61884610E-03     1.22302288E-03    -1.75470243E-03
+     2.00455854E-03    -1.41129494E-03     5.80599188E-04    -1.23033557E-04
+     1.03511740E-05 JX  3.50333948E+00    -9.21016911E-02    -3.05171298E-02
+     3.97544441E-03     1.45239233E-02    -2.37989919E-02     1.39476624E-02
+    -3.57811565E-03     3.38869504E-04 Jf  4.22345459E+00    -3.98347784E-05
+    -7.87310148E-05     1.30589374E-05     4.73738462E-05    -3.05105390E-05
+     1.14986040E-05     7.14495954E-05    -1.57772216E-05    -1.40646644E-06
+    -1.34475729E-06     4.61208321E-05    -4.83163982E-05    -1.57411541E-05
+    -1.01365914E-05    -1.20691450E-05     1.71626988E-05    -8.01213201E-06
+     1.37100830E-06    -5.05577041E-06    -8.81734832E-06     9.63260320E-06
+     9.15468847E-06     7.69683948E-08    -5.45789381E-06    -2.22292209E-06
+     1.70393408E-06    -6.00138002E-05    -8.38774011E-05     6.73845149E-05
+     6.96470482E-05    -9.12428519E-05     3.84193738E-05    -4.52521687E-05
+     3.44776529E-05    -8.07219476E-05     4.89577644E-05    -1.64893579E-05
+     6.47774356E-05    -1.25405079E-04     2.23928868E-05     1.16654050E-04
+    -1.13784682E-05    -5.03456464E-06     6.34907715E-05    -6.57975105E-05
+     2.44757654E-05     5.56268821E-05     1.03911635E-05    -4.42613643E-06
+    -3.80695360E-05     7.24875724E-06    -2.27178159E-08
+
+ Rejected step:
+ Variance  :   3.993512E-01 ->   1.599236E+00
+ Energy    :  -3.489006E+01 ->  -3.519023E+01
+
+ Current parameters:
+ Ju  5.03493508E+00     2.07592141E-03     8.00185902E-04    -8.88987730E-04
+     8.33368535E-04    -4.84959455E-04     1.76022043E-04    -3.52154516E-05
+     2.93224646E-06     2.75581477E-03     1.17026862E-03    -1.59118039E-03
+     1.77015895E-03    -1.21093321E-03     4.83212783E-04    -1.00110156E-04
+     8.39496546E-06 JX  4.01878724E+00    -6.21098463E-02    -1.59013421E-02
+     5.94564403E-03     8.23747678E-03    -1.45067440E-02     8.84460386E-03
+    -2.31627493E-03     2.21275656E-04 Jf  4.03806185E+00    -5.52534157E-05
+    -8.00013262E-05     3.04432133E-05    -1.62720463E-05    -3.29012263E-05
+     9.39850393E-06     4.90331550E-05     5.54448238E-05    -8.24201428E-06
+     1.24319321E-05     1.07276500E-05    -5.93182715E-05     1.55003613E-05
+    -6.12823766E-07    -4.26322940E-05     1.17969776E-05    -4.58128146E-06
+    -2.14612529E-06     4.15009771E-06    -7.42000833E-06    -1.02101212E-05
+     1.07751757E-05    -1.63797922E-06    -5.29816021E-06     1.62089327E-07
+     5.53284248E-07    -8.43164822E-05    -7.42815147E-05     2.24410602E-05
+    -3.33914888E-05    -1.28487770E-05    -1.37426235E-05    -5.87792782E-05
+    -1.97193439E-05    -1.06234982E-04     1.66561303E-05     2.06892125E-05
+     1.69209404E-04    -1.99060560E-04     1.65832011E-05     1.84818836E-04
+    -2.44072198E-05     8.23090175E-06     1.13549950E-04    -1.10221290E-04
+     3.60394878E-05     6.83231566E-05     2.91142100E-05    -6.49729928E-06
+    -7.16391272E-05     1.50094682E-05    -3.63823888E-06
+
+ Accepted step:
+    Unreweighted variance of energy (a.u.)  :   3.993512E-01 ->   3.938148E-01
+           Unreweighted mean energy (a.u.)  :  -3.489006E+01 ->  -3.489020E+01
+
+
+ Writing parameters to correlation.out.2.
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 1s remaining]
+ Done. [total CPU time: 1m1s]
+
+ Optimization monitor :
+ ----------------------
+ Function evaluations : 4
+ NL2SOL iteration     : 2
+
+ Current parameters:
+ Ju  5.08775946E+00     2.03301485E-03     8.18886135E-04    -9.55584325E-04
+     8.88531062E-04    -5.03843516E-04     1.75072127E-04    -3.31872083E-05
+     2.58536289E-06     2.70835812E-03     1.13319608E-03    -1.53889827E-03
+     1.72414317E-03    -1.20097383E-03     4.87895666E-04    -1.02193746E-04
+     8.55321651E-06 JX  4.13984066E+00    -5.99719979E-02    -1.50489265E-02
+     5.74945269E-03     8.09768720E-03    -1.44836733E-02     9.00112936E-03
+    -2.41623780E-03     2.38471263E-04 Jf  4.07655446E+00    -5.36101643E-05
+    -8.06193798E-05     2.98975374E-05    -4.54703776E-06    -3.60042200E-05
+     1.16329914E-05     5.11994790E-05     4.92807750E-05    -8.20612474E-06
+     1.14369719E-05     1.43670799E-05    -5.89789896E-05     1.12740678E-05
+    -2.00538011E-06    -4.17299365E-05     1.44115572E-05    -6.09599072E-06
+    -1.63097201E-06     2.72654418E-06    -7.55795519E-06    -6.73905610E-06
+     1.10767823E-05    -1.47352992E-06    -5.67150318E-06    -4.48465250E-07
+     9.74839482E-07    -8.22887283E-05    -8.16612070E-05     3.18243971E-05
+    -1.84258060E-07    -3.64547518E-05     5.84294999E-07    -6.09665972E-05
+    -1.96009163E-05    -1.05232962E-04     2.73088140E-05     1.00026085E-05
+     1.56180465E-04    -1.99855167E-04     1.77216442E-05     1.94951022E-04
+    -2.46419594E-05     5.87354748E-06     1.06081838E-04    -1.05313255E-04
+     3.59676793E-05     6.81600270E-05     2.87364332E-05    -6.60802030E-06
+    -7.27005303E-05     1.49081078E-05    -3.16077151E-06
+
+ Accepted step:
+    Unreweighted variance of energy (a.u.)  :   3.938148E-01 ->   3.928957E-01
+           Unreweighted mean energy (a.u.)  :  -3.489020E+01 ->  -3.489034E+01
+
+
+ Writing parameters to correlation.out.2.
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 1s remaining]
+ Done. [total CPU time: 1m1s]
+
+ Optimization monitor :
+ ----------------------
+ Function evaluations : 5
+ NL2SOL iteration     : 3
+
+ Current parameters:
+ Ju  5.12966374E+00     2.00453891E-03     8.18302473E-04    -9.90659440E-04
+     9.38339952E-04    -5.34115254E-04     1.82576116E-04    -3.35524554E-05
+     2.50461824E-06     2.64139161E-03     1.12769559E-03    -1.50831753E-03
+     1.69358070E-03    -1.18947457E-03     4.90895731E-04    -1.04581283E-04
+     8.86937989E-06 JX  4.07447188E+00    -6.39905821E-02    -1.68204806E-02
+     5.73063812E-03     7.85478158E-03    -1.46906809E-02     9.10571847E-03
+    -2.41123891E-03     2.31925480E-04 Jf  4.10113141E+00    -5.27434935E-05
+    -8.37160370E-05     2.77189430E-05     1.10873669E-05    -3.82742570E-05
+     1.22594241E-05     5.89277559E-05     3.83795898E-05    -7.94296902E-06
+     8.79348887E-06     2.14417986E-05    -5.87716686E-05     7.68056662E-06
+    -4.44694469E-06    -4.00281166E-05     1.70098130E-05    -7.40949373E-06
+    -1.53433621E-07     8.02729456E-07    -8.09250815E-06    -3.91095378E-06
+     1.14301305E-05    -1.16704573E-06    -5.72121971E-06    -1.14380168E-06
+     1.35965199E-06    -7.89299851E-05    -8.65624265E-05     4.05096205E-05
+     2.79343567E-05    -5.51101200E-05     1.11780878E-05    -5.96316064E-05
+    -1.73778131E-05    -1.02891880E-04     3.56425861E-05     1.03070381E-06
+     1.39063021E-04    -1.94627882E-04     1.85486088E-05     2.01135331E-04
+    -2.56040710E-05     4.53657035E-06     9.78491146E-05    -9.78678072E-05
+     3.43857088E-05     6.60305389E-05     2.75807174E-05    -6.57075326E-06
+    -7.30348926E-05     1.51678988E-05    -3.04626905E-06
+
+ Accepted step:
+    Unreweighted variance of energy (a.u.)  :   3.928957E-01 ->   3.928608E-01
+           Unreweighted mean energy (a.u.)  :  -3.489034E+01 ->  -3.489031E+01
+
+
+ Writing parameters to correlation.out.2.
+
+ Computing derivatives.
+  [CPU time: 1m elapsed, 1s remaining]
+ Done. [total CPU time: 1m1s]
+
+ NL2SOL return code : 4
+ Relative function convergence.
+
+ Successful optimization: some degree of confidence in minimum.
+
+ Iterations           : 3
+ Function evaluations : 9
+ Variance reduced to  : 0.39286082E+00
+
+ Writing parameters to correlation.out.2.
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ ====================================
+ PERFORMING POST-FIT VMC CALCULATION.
+ ====================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  1.0101E-02
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+  Jastrow factor - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio <level 1>        (%)  =  52.0387
+ Acceptance ratio <levels 1-2>     (%)  =  49.5433
+ Diffusion constant           (Bohr^2)  = 3.6337E-03
+ Correlation time              (steps)  = 4.1064E+00 +- 9.5508E-02
+ Efficiency               (au^-2 s^-1)  = 1.3204E+04
+ No. of VMC steps per MPI process       = 25000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -34.885879899902
+  Standard error                        +/-           0.002011260760
+
+  Kinetic energy KEI (used in Total) (au) =          27.984414022530
+  Standard error                        +/-           0.045223027391
+
+  Kinetic energy TI                  (au) =          27.726072992229
+  Standard error                        +/-           0.132695149757
+
+  Kinetic energy FISQ                (au) =          27.467731961929
+  Standard error                        +/-           0.256472535557
+
+  Potential energy                   (au) =         -62.870293922431
+  Standard error                        +/-           0.045111793845
+
+  e-e interaction                    (au) =          24.924412157854
+  Standard error                        +/-           0.014031365360
+
+  e-i interaction (local)            (au) =         -88.798613322491
+  Standard error                        +/-           0.047837246248
+
+  e-i interaction (non-local)        (au) =           1.003907242207
+  Standard error                        +/-           0.023952855404
+
+  Variance of local energy           (au) =           0.403567873858
+  Standard error                        +/-           0.017659750066
+
+  Maximum distance from origin       (au) =           5.777217148534
+
+
+ Time taken in block    : : :        4.5700
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -34.885879899902 +/- 0.002011260760      No correction
+ -34.885879899902 +/- 0.004075685843      Correlation time method
+ -34.885879899902 +/- 0.004329813664      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 0.403567873858
+
+ =========================================================================
+
+
+ Total CASINO CPU time  : : :      509.1400
+ Total CASINO real time : : :      509.3610
+
+
+ Subroutine timers deactivated (use TIMING_INFO input keyword)
+
+ =========================================================================
+ Ends 2024/01/10 21:39:32.479
+
+Job finished: Ср 10 янв 2024 21:39:32 +07
