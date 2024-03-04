@@ -192,14 +192,14 @@ class Jastrow:
                     elif line.startswith('Cutoff'):
                         self.u_cutoff[0] = self.read_parameter()
                     elif line.startswith('Parameter'):
-                        self.u_parameters = np.zeros(shape=(u_order+1, u_spin_dep+1), dtype=float)
-                        self.u_parameters_optimizable = np.zeros(shape=(u_order+1, u_spin_dep+1), dtype=bool)
+                        self.u_parameters = np.zeros(shape=(u_spin_dep+1, u_order+1), dtype=float)
+                        self.u_parameters_optimizable = np.zeros(shape=(u_spin_dep+1, u_order+1), dtype=bool)
                         u_parameters_independent = self.u_parameters_independent(self.u_parameters)
                         try:
                             for i in range(u_spin_dep + 1):
                                 for l in range(u_order + 1):
-                                    if u_parameters_independent[l, i]:
-                                        self.u_parameters[l, i], self.u_parameters_optimizable[l, i] = self.read_parameter()
+                                    if u_parameters_independent[i, l]:
+                                        self.u_parameters[i, l], self.u_parameters_optimizable[i, l] = self.read_parameter()
                         except ValueError:
                             u_term = False
                             self.u_parameters_optimizable = u_parameters_independent
@@ -296,13 +296,13 @@ class Jastrow:
         if self.u_cutoff:
             u_parameters_list = []
             u_parameters_independent = self.u_parameters_independent(self.u_parameters)
-            for i in range(self.u_parameters.shape[1]):
-                for l in range(self.u_parameters.shape[0]):
-                    if u_parameters_independent[l, i]:
-                        u_parameters_list.append(f'{self.u_parameters[l, i]: .16e}            {int(self.u_parameters_optimizable[l, i])}       ! alpha_{l},{i + 1}')
+            for i in range(self.u_parameters.shape[0]):
+                for l in range(self.u_parameters.shape[1]):
+                    if u_parameters_independent[i, l]:
+                        u_parameters_list.append(f'{self.u_parameters[i, l]: .16e}            {int(self.u_parameters_optimizable[i, l])}       ! alpha_{l},{i + 1}')
             u_set = u_set_template.format(
-                u_order=self.u_parameters.shape[0] - 1,
-                u_spin_dep=self.u_parameters.shape[1] - 1,
+                u_spin_dep=self.u_parameters.shape[0] - 1,
+                u_order=self.u_parameters.shape[1] - 1,
                 u_cutoff=self.u_cutoff[0]['value'],
                 u_cutoff_optimizable=int(self.u_cutoff[0]['optimizable']),
                 u_parameters='\n  '.join(u_parameters_list),
@@ -374,7 +374,7 @@ class Jastrow:
     def u_parameters_independent(parameters):
         """Mask dependent parameters in u-term"""
         mask = np.ones(parameters.shape, bool)
-        mask[1] = False
+        mask[:, 1] = False
         return mask
 
     @staticmethod
@@ -407,8 +407,8 @@ class Jastrow:
             return
         C = self.trunc
         L = self.u_cutoff[0]['value']
-        Gamma = 1 / np.array([4, 2, 4][:self.u_parameters.shape[1]])
-        self.u_parameters[1] = Gamma / (-L) ** C + self.u_parameters[0] * C / L
+        Gamma = 1 / np.array([4, 2, 4][:self.u_parameters.shape[0]])
+        self.u_parameters[:, 1] = Gamma / (-L) ** C + self.u_parameters[:, 0] * C / L
 
     def fix_chi_parameters(self):
         """Fix chi-term parameters"""
