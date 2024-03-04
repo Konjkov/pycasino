@@ -225,14 +225,14 @@ class Jastrow:
                     elif line.startswith('Cutoff'):
                         self.chi_cutoff[set_number] = self.read_parameter()
                     elif line.startswith('Parameter'):
-                        chi_parameters = np.zeros(shape=(chi_order+1, chi_spin_dep+1), dtype=float)
-                        chi_parameters_optimizable = np.zeros(shape=(chi_order + 1, chi_spin_dep + 1), dtype=bool)
+                        chi_parameters = np.zeros(shape=(chi_spin_dep+1, chi_order+1), dtype=float)
+                        chi_parameters_optimizable = np.zeros(shape=(chi_spin_dep + 1, chi_order + 1), dtype=bool)
                         chi_parameters_independent = self.chi_parameters_independent(chi_parameters)
                         try:
                             for i in range(chi_spin_dep + 1):
                                 for m in range(chi_order + 1):
-                                    if chi_parameters_independent[m, i]:
-                                        chi_parameters[m, i], chi_parameters_optimizable[m, i] = self.read_parameter()
+                                    if chi_parameters_independent[i, m]:
+                                        chi_parameters[i, m], chi_parameters_optimizable[i, m] = self.read_parameter()
                         except ValueError:
                             chi_parameters_optimizable = chi_parameters_independent
                         self.chi_parameters.append(chi_parameters)
@@ -315,18 +315,18 @@ class Jastrow:
         for n_chi_set, (chi_labels, chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cusp) in enumerate(zip(self.chi_labels, self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cusp)):
             chi_parameters_list = []
             chi_parameters_independent = self.chi_parameters_independent(chi_parameters)
-            for i in range(chi_parameters.shape[1]):
-                for m in range(chi_parameters.shape[0]):
-                    if chi_parameters_independent[m, i]:
-                        chi_parameters_list.append(f'{chi_parameters[m, i]: .16e}            {int(chi_parameters_optimizable[m, i])}       ! beta_{m},{i + 1},{n_chi_set + 1}')
+            for i in range(chi_parameters.shape[0]):
+                for m in range(chi_parameters.shape[1]):
+                    if chi_parameters_independent[i, m]:
+                        chi_parameters_list.append(f'{chi_parameters[i, m]: .16e}            {int(chi_parameters_optimizable[i, m])}       ! beta_{m},{i + 1},{n_chi_set + 1}')
             chi_sets.append(
                 chi_set_template.format(
                     n_set=n_chi_set + 1,
                     n_atoms=len(chi_labels),
                     chi_cusp=int(chi_cusp),
                     chi_labels=' '.join(['{}'.format(i + 1) for i in chi_labels]),
-                    chi_order=chi_parameters.shape[0] - 1,
-                    chi_spin_dep=chi_parameters.shape[1] - 1,
+                    chi_spin_dep=chi_parameters.shape[0] - 1,
+                    chi_order=chi_parameters.shape[1] - 1,
                     chi_cutoff=chi_cutoff['value'],
                     chi_cutoff_optimizable=int(chi_cutoff['optimizable']),
                     chi_parameters='\n  '.join(chi_parameters_list),
@@ -381,7 +381,7 @@ class Jastrow:
     def chi_parameters_independent(parameters):
         """Mask dependent parameters in chi-term"""
         mask = np.ones(parameters.shape, bool)
-        mask[1] = False
+        mask[:, 1] = False
         return mask
 
     def f_parameters_independent(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
@@ -417,11 +417,11 @@ class Jastrow:
             if not chi_parameters.any():
                 continue
             L = chi_cutoff['value']
-            chi_parameters[1] = chi_parameters[0] * C / L
+            chi_parameters[:, 1] = chi_parameters[:, 0] * C / L
             if chi_cusp:
                 pass
                 # FIXME: chi cusp not implemented
-                # chi_parameters[1] -= charge / (-L) ** C
+                # chi_parameters[:, 1] -= charge / (-L) ** C
 
     def fix_f_parameters(self):
         """To find the dependent coefficients of f-term it is necessary to solve

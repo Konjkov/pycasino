@@ -1,6 +1,6 @@
 import numpy as np
 import numba as nb
-# from numpy.polynomial.polynomial import polyval, polyval3d
+from numpy.polynomial.polynomial import polyval
 
 from casino import delta
 from casino.abstract import AbstractJastrow
@@ -141,7 +141,7 @@ class Jastrow(AbstractJastrow):
             max([p.shape[2] for p in self.f_parameters]) if self.f_parameters else 0,
         ))
         self.max_en_order = max((
-            max([p.shape[0] for p in self.chi_parameters]) if self.chi_parameters else 0,
+            max([p.shape[1] for p in self.chi_parameters]) if self.chi_parameters else 0,
             max([p.shape[0] for p in self.f_parameters]) if self.f_parameters else 0,
         ))
         self.chi_cusp = chi_cusp
@@ -175,11 +175,11 @@ class Jastrow(AbstractJastrow):
         ee_order = 1
         for chi_parameters_optimizable in self.chi_parameters_optimizable:
             chi_parameters_available = np.ones_like(chi_parameters_optimizable)
-            if chi_parameters_optimizable.shape[1] == 2:
+            if chi_parameters_optimizable.shape[0] == 2:
                 if self.neu < ee_order:
-                    chi_parameters_available[:, 0] = False
+                    chi_parameters_available[0] = False
                 if self.ned < ee_order:
-                    chi_parameters_available[:, 1] = False
+                    chi_parameters_available[1] = False
             self.chi_parameters_available.append(chi_parameters_available)
 
         ee_order = 2
@@ -268,12 +268,8 @@ class Jastrow(AbstractJastrow):
                 for e1 in range(self.neu + self.ned):
                     r = n_powers[label, e1, 1]
                     if r < L:
-                        chi_set = int(e1 >= self.neu) % parameters.shape[1]
-                        # res += polyval(r, parameters[:, chi_set]) * (r - L) ** C
-                        poly = 0.0
-                        for k in range(parameters.shape[0]):
-                            poly += parameters[k, chi_set] * n_powers[label, e1, k]
-                        res += poly * (r - L) ** C
+                        chi_set = int(e1 >= self.neu) % parameters.shape[0]
+                        res += polyval(r, parameters[chi_set]) * (r - L) ** C
         return res
 
     def f_term(self, e_powers, n_powers) -> float:
@@ -292,6 +288,7 @@ class Jastrow(AbstractJastrow):
                         r_e2I = n_powers[label, e2, 1]
                         if r_e1I < L and r_e2I < L:
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[3]
+                            # FIXME: polyval3d not supported
                             # r_ee = e_powers[e1, e2, 1]
                             # res += (r_e1I - L)**C * (r_e2I - L)**C * polyval3d(r_e1I, r_e2I, r_ee, parameters[:, :, :, f_set])
                             poly = 0.0
@@ -348,20 +345,14 @@ class Jastrow(AbstractJastrow):
         C = self.trunc
         res = np.zeros(shape=(self.neu + self.ned, 3))
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
+            k = np.arange(parameters.shape[1])
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
                     r = n_powers[label, e1, 1]
                     if r < L:
                         r_vec = n_vectors[label, e1] / r
-                        chi_set = int(e1 >= self.neu) % parameters.shape[1]
-                        # k = np.arange(parameters.shape[0])
-                        # res += r_vec * (r-L) ** C * polyval(r, (C*r/(r-L) + k) * parameters[:, chi_set]) / r
-                        poly = 0.0
-                        for k in range(parameters.shape[0]):
-                            p = parameters[k, chi_set] * n_powers[label, e1, k]
-                            poly += (C/(r-L) + k/r) * p
-
-                        res[e1, :] += r_vec * (r-L) ** C * poly
+                        chi_set = int(e1 >= self.neu) % parameters.shape[0]
+                        res[e1, :] += r_vec * (r-L) ** C * polyval(r, (C*r/(r-L) + k) * parameters[chi_set]) / r
         return res.ravel()
 
     def f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
@@ -386,6 +377,7 @@ class Jastrow(AbstractJastrow):
                             r_e2I_vec = n_vectors[label, e2] / r_e2I
                             r_ee_vec = e_vectors[e1, e2] / r_ee
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[3]
+                            # FIXME: polyval3d not supported
                             # r_ee = e_powers[e1, e2, 1]
                             # k = np.arange(parameters.shape[0])
                             # cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
@@ -457,26 +449,14 @@ class Jastrow(AbstractJastrow):
         res = 0.0
         C = self.trunc
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
+            k = np.arange(parameters.shape[1])
+            k_1 = np.arange(-1, parameters.shape[1] - 1)
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
                     r = n_powers[label, e1, 1]
                     if r < L:
-                        chi_set = int(e1 >= self.neu) % parameters.shape[1]
-                        # k = np.arange(parameters.shape[0])
-                        # k_1 = np.arange(parameters.shape[0]) (k-1) series
-                        # res += (r-L) ** C * polyval(r, (C*(C-1)*r**2/(r-L) + 2*C*r/(r-L)*(1 + k) + 2*k + k * k_1) * parameters[:, chi_set]) / r**2
-                        poly = poly_diff = poly_diff_2 = 0.0
-                        for k in range(parameters.shape[0]):
-                            p = parameters[k, chi_set] * n_powers[label, e1, k]
-                            poly += p
-                            poly_diff += k * p
-                            poly_diff_2 += k * (k-1) * p
-
-                        res += (r-L)**C * (
-                            C*(C-1)*r**2/(r-L)**2 * poly +
-                            2 * C*r/(r-L) * (poly + poly_diff) +
-                            poly_diff_2 + 2 * poly_diff
-                        ) / r**2
+                        chi_set = int(e1 >= self.neu) % parameters.shape[0]
+                        res += (r-L) ** C * polyval(r, (C*(C-1)*r**2/(r-L)**2 + 2*C*r/(r-L)*(1 + k) + 2*k + k * k_1) * parameters[chi_set]) / r**2
         return res
 
     def f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors) -> float:
@@ -507,6 +487,7 @@ class Jastrow(AbstractJastrow):
                         r_ee = e_powers[e1, e2, 1]
                         if r_e1I < L and r_e2I < L:
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[3]
+                            # FIXME: polyval3d not supported
                             cutoff_diff_e1I = C*r_e1I/(r_e1I - L)
                             cutoff_diff_e2I = C*r_e2I/(r_e2I - L)
                             poly = poly_diff_e1I = poly_diff_e2I = 0.0
@@ -615,11 +596,11 @@ class Jastrow(AbstractJastrow):
         """Fix chi-term dependent parameters."""
         C = self.trunc
         for chi_parameters, L, chi_cusp in zip(self.chi_parameters, self.chi_cutoff, self.chi_cusp):
-            chi_parameters[1] = chi_parameters[0] * C / L
+            chi_parameters[:, 1] = chi_parameters[:, 0] * C / L
             if chi_cusp:
                 pass
                 # FIXME: chi cusp not implemented
-                # chi_parameters[1] -= charge / (-L) ** C
+                # chi_parameters[:, 1] -= charge / (-L) ** C
 
     def fix_f_parameters(self):
         """Fix f-term dependent parameters.
@@ -680,8 +661,8 @@ class Jastrow(AbstractJastrow):
             for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
                 if chi_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
-                for j2 in range(chi_parameters.shape[1]):
-                    for j1 in range(chi_parameters.shape[0]):
+                for j1 in range(chi_parameters.shape[0]):
+                    for j2 in range(chi_parameters.shape[1]):
                         if chi_parameters_available[j1, j2]:
                             res.append(chi_parameters_optimizable[j1, j2])
 
@@ -720,10 +701,10 @@ class Jastrow(AbstractJastrow):
             for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
                 if chi_cutoff_optimizable and self.cutoffs_optimizable:
                     scale.append(1)
-                for j2 in range(chi_parameters.shape[1]):
-                    for j1 in range(chi_parameters.shape[0]):
+                for j1 in range(chi_parameters.shape[0]):
+                    for j2 in range(chi_parameters.shape[1]):
                         if (chi_parameters_optimizable[j1, j2] or all_parameters) and chi_parameters_available[j1, j2]:
-                            scale.append(1 / chi_cutoff ** j1 / ne)
+                            scale.append(1 / chi_cutoff ** j2 / ne)
 
         if self.f_cutoff.any():
             for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available):
@@ -795,11 +776,11 @@ class Jastrow(AbstractJastrow):
         for chi_parameters, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters, self.chi_cutoff, self.chi_cutoff_optimizable):
             # a0*C - a1*L = -Z/(-L)**(C-1) or 0 if cusp imposed by WFN, after differentiation on variables: a0, a1, L
             # -a1 * dL + С * da0 - L * da1 = 0
-            chi_matrix = np.zeros(shape=(1, chi_parameters.shape[0]))
+            chi_matrix = np.zeros(shape=(1, chi_parameters.shape[1]))
             chi_matrix[0, 0] = self.trunc
             chi_matrix[0, 1] = -chi_cutoff
 
-            if chi_parameters.shape[1] == 2:
+            if chi_parameters.shape[0] == 2:
                 chi_spin_deps = [0, 1]
                 if self.neu < 1:
                     chi_spin_deps = [1]
@@ -811,7 +792,7 @@ class Jastrow(AbstractJastrow):
             chi_block = block_diag([chi_matrix] * len(chi_spin_deps))
             if chi_cutoff_optimizable and self.cutoffs_optimizable:
                 chi_block = np.hstack((
-                    -chi_parameters[1, np.array(chi_spin_deps)].reshape(-1, 1),
+                    -chi_parameters[np.array(chi_spin_deps), 1],
                     chi_block
                 ))
             a_list.append(chi_block)
@@ -879,8 +860,8 @@ class Jastrow(AbstractJastrow):
             for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
                 if chi_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(chi_cutoff)
-                for j2 in range(chi_parameters.shape[1]):
-                    for j1 in range(chi_parameters.shape[0]):
+                for j1 in range(chi_parameters.shape[0]):
+                    for j2 in range(chi_parameters.shape[1]):
                         if (chi_parameters_optimizable[j1, j2] or all_parameters) and chi_parameters_available[j1, j2]:
                             res.append(chi_parameters[j1, j2])
 
@@ -925,8 +906,8 @@ class Jastrow(AbstractJastrow):
                     # Sequence type is a pointer, but numeric type is not.
                     self.chi_cutoff[i] = parameters[n]
                     n += 1
-                for j2 in range(chi_parameters.shape[1]):
-                    for j1 in range(chi_parameters.shape[0]):
+                for j1 in range(chi_parameters.shape[0]):
+                    for j2 in range(chi_parameters.shape[1]):
                         if (chi_parameters_optimizable[j1, j2] or all_parameters) and chi_parameters_available[j1, j2]:
                             chi_parameters[j1, j2] = parameters[n]
                             n += 1
@@ -1020,13 +1001,13 @@ class Jastrow(AbstractJastrow):
                     r = n_powers[label, e1, 1]
                     cutoff = (r - L) ** C
                     if r < L:
-                        chi_set = int(e1 >= self.neu) % chi_parameters.shape[1]
-                        for j2 in range(chi_parameters.shape[1]):
-                            for j1 in range(chi_parameters.shape[0]):
+                        chi_set = int(e1 >= self.neu) % chi_parameters.shape[0]
+                        for j1 in range(chi_parameters.shape[0]):
+                            for j2 in range(chi_parameters.shape[1]):
                                 if chi_parameters_available[j1, j2]:
                                     n += 1
-                                    if chi_set == j2:
-                                        res[n] += n_powers[label, e1, j1] * cutoff
+                                    if chi_set == j1:
+                                        res[n] += n_powers[label, e1, j2] * cutoff
         return res
 
     def f_term_parameters_d1(self, e_powers, n_powers) -> np.ndarray:
@@ -1157,15 +1138,15 @@ class Jastrow(AbstractJastrow):
                     r = n_powers[label, e1, 1]
                     if r < L:
                         r_vec = n_vectors[label, e1] / r
-                        chi_set = int(e1 >= self.neu) % chi_parameters.shape[1]
+                        chi_set = int(e1 >= self.neu) % chi_parameters.shape[0]
                         cutoff = (r - L) ** C
-                        for j2 in range(chi_parameters.shape[1]):
-                            for j1 in range(chi_parameters.shape[0]):
+                        for j1 in range(chi_parameters.shape[0]):
+                            for j2 in range(chi_parameters.shape[1]):
                                 if chi_parameters_available[j1, j2]:
                                     n += 1
-                                    if chi_set == j2:
-                                        poly = n_powers[label, e1, j1]
-                                        res[n, e1, :] += r_vec * cutoff * (C / (r - L) + j1 / r) * poly
+                                    if chi_set == j1:
+                                        poly = n_powers[label, e1, j2]
+                                        res[n, e1, :] += r_vec * cutoff * (C / (r - L) + j2 / r) * poly
         return res.reshape(size, (self.neu + self.ned) * 3)
 
     def f_term_gradient_parameters_d1(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
@@ -1311,18 +1292,18 @@ class Jastrow(AbstractJastrow):
                     n = n_start
                     r = n_powers[label, e1, 1]
                     if r < L:
-                        chi_set = int(e1 >= self.neu) % chi_parameters.shape[1]
+                        chi_set = int(e1 >= self.neu) % chi_parameters.shape[0]
                         cutoff = (r - L) ** C
-                        for j2 in range(chi_parameters.shape[1]):
-                            for j1 in range(chi_parameters.shape[0]):
+                        for j1 in range(chi_parameters.shape[0]):
+                            for j2 in range(chi_parameters.shape[1]):
                                 if chi_parameters_available[j1, j2]:
                                     n += 1
-                                    if chi_set == j2:
-                                        poly = n_powers[label, e1, j1]
+                                    if chi_set == j1:
+                                        poly = n_powers[label, e1, j2]
                                         res[n] += cutoff * (
                                             C*(C - 1)/(r-L)**2 +
-                                            2 * C/(r-L) * (j1 + 1) / r +
-                                            j1 * (j1 + 1) / r**2
+                                            2 * C/(r-L) * (j2 + 1) / r +
+                                            j2 * (j2 + 1) / r**2
                                         ) * poly
         return res
 
