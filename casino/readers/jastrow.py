@@ -267,26 +267,24 @@ class Jastrow:
                         self.f_cutoff[set_number]['value'] = f_cutoff
                         self.f_cutoff[set_number]['optimizable'] = f_cutoff_optimizable
                     elif line.startswith('Parameter'):
-                        f_parameters = np.zeros(shape=(f_en_order+1, f_en_order+1, f_ee_order+1, f_spin_dep+1), dtype=float)
-                        f_parameters_optimizable = np.zeros(shape=(f_en_order + 1, f_en_order + 1, f_ee_order + 1, f_spin_dep + 1), dtype=bool)
+                        f_parameters = np.zeros(shape=(f_spin_dep+1, f_ee_order+1, f_en_order+1, f_en_order+1), dtype=float)
+                        f_parameters_optimizable = np.zeros(shape=(f_spin_dep+1, f_ee_order+1, f_en_order+1, f_en_order+1), dtype=bool)
                         f_parameters_independent = self.f_parameters_independent(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                         try:
                             for i in range(f_spin_dep + 1):
                                 for n in range(f_ee_order + 1):
                                     for m in range(f_en_order + 1):
                                         for l in range(f_en_order + 1):
-                                            if f_parameters_independent[l, m, n, i]:
+                                            if f_parameters_independent[i, n, m, l]:
                                                 # γlmnI = γmlnI
                                                 p = self.read_parameter([l, m, n, i+1, set_number+1])
-                                                f_parameters[l, m, n, i], f_parameters_optimizable[l, m, n, i] = p
-                                                f_parameters[m, l, n, i], f_parameters_optimizable[m, l, n, i] = p
+                                                f_parameters[i, n, m, l], f_parameters_optimizable[i, n, m, l] = p
+                                                f_parameters[i, n, l, m], f_parameters_optimizable[i, n, l, m] = p
                         except ValueError:
                             f_parameters_optimizable = f_parameters_independent
-                        self.f_parameters.append(f_parameters)
-                        self.f_parameters_optimizable.append(f_parameters_optimizable)
-                        # for i, parameters in enumerate(self.f_parameters):
-                        #     # FIXME: put spin_dep to first place
-                        #     self.f_parameters[i] = parameters.transpose((3, 0, 1, 2))
+                        # reverses the order of the axes
+                        self.f_parameters.append(f_parameters.T)
+                        self.f_parameters_optimizable.append(f_parameters_optimizable.T)
                     elif line.startswith('END SET'):
                         set_number = None
 
@@ -338,14 +336,16 @@ class Jastrow:
         f_term = ''
         f_sets = []
         for n_f_set, (f_labels, f_parameters, f_parameters_optimizable, f_cutoff, no_dup_u_term, no_dup_chi_term) in enumerate(zip(self.f_labels, self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term)):
+            f_parameters = f_parameters.T
+            f_parameters_optimizable = f_parameters_optimizable.T
             f_parameters_list = []
             f_parameters_independent = self.f_parameters_independent(f_parameters, f_cutoff['value'], no_dup_u_term, no_dup_chi_term)
-            for i in range(f_parameters.shape[3]):
-                for n in range(f_parameters.shape[2]):
-                    for m in range(f_parameters.shape[1]):
-                        for l in range(f_parameters.shape[0]):
-                            if f_parameters_independent[l, m, n, i]:
-                                f_parameters_list.append(f'{f_parameters[l, m, n, i]: .16e}            {int(f_parameters_optimizable[l, m, n, i])}       ! gamma_{l},{m},{n},{i + 1},{n_f_set + 1}')
+            for i in range(f_parameters.shape[0]):
+                for n in range(f_parameters.shape[1]):
+                    for m in range(f_parameters.shape[2]):
+                        for l in range(f_parameters.shape[3]):
+                            if f_parameters_independent[i, n, m, l]:
+                                f_parameters_list.append(f'{f_parameters[i, n, m, l]: .16e}            {int(f_parameters_optimizable[i, n, m, l])}       ! gamma_{l},{m},{n},{i + 1},{n_f_set + 1}')
             f_sets.append(
                 f_set_template.format(
                     n_set=n_f_set + 1,
@@ -353,9 +353,9 @@ class Jastrow:
                     f_labels=' '.join(['{}'.format(i + 1) for i in f_labels]),
                     no_dup_u_term=int(no_dup_u_term),
                     no_dup_chi_term=int(no_dup_chi_term),
-                    f_en_order=f_parameters.shape[0] - 1,
-                    f_ee_order=f_parameters.shape[2] - 1,
-                    f_spin_dep=f_parameters.shape[3] - 1,
+                    f_spin_dep=f_parameters.shape[0] - 1,
+                    f_ee_order=f_parameters.shape[1] - 1,
+                    f_en_order=f_parameters.shape[2] - 1,
                     f_cutoff=f_cutoff['value'],
                     f_cutoff_optimizable=int(f_cutoff['optimizable']),
                     f_parameters='\n  '.join(f_parameters_list),
@@ -386,17 +386,17 @@ class Jastrow:
 
     def f_parameters_independent(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
         """Mask dependent parameters in f-term."""
-        a, _ = construct_a_matrix(self.trunc, f_parameters, f_cutoff, 0, no_dup_u_term, no_dup_chi_term)
+        a, _ = construct_a_matrix(self.trunc, f_parameters.T, f_cutoff, 0, no_dup_u_term, no_dup_chi_term)
 
         _, pivot_positions = rref(a)
 
         p = 0
         mask = np.zeros(shape=f_parameters.shape, dtype=bool)
-        for n in range(f_parameters.shape[2]):
-            for m in range(f_parameters.shape[1]):
-                for l in range(m, f_parameters.shape[0]):
+        for n in range(f_parameters.shape[1]):
+            for m in range(f_parameters.shape[2]):
+                for l in range(m, f_parameters.shape[3]):
                     if p not in pivot_positions:
-                        mask[l, m, n] = True
+                        mask[:, n, m, l] = True
                     p += 1
         return mask
 
@@ -472,26 +472,26 @@ class Jastrow:
     def check_f_constrains(self):
         for f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
             L = f_cutoff['value']
-            f_en_order = f_parameters.shape[0] - 1
-            f_ee_order = f_parameters.shape[2] - 1
-            f_spin_dep = f_parameters.shape[3] - 1
+            f_spin_dep = f_parameters.shape[0] - 1
+            f_ee_order = f_parameters.shape[1] - 1
+            f_en_order = f_parameters.shape[2] - 1
 
             lm_sum = np.zeros(shape=(2 * f_en_order + 1, f_spin_dep + 1))
             for l in range(f_en_order + 1):
                 for m in range(f_en_order + 1):
-                    lm_sum[l + m] += f_parameters[l, m, 1, :]
+                    lm_sum[l + m] += f_parameters[:, 1, m, l]
             np.abs(lm_sum).max() > 1e-18 and print('lm_sum =', lm_sum)
 
             mn_sum = np.zeros(shape=(f_en_order + f_ee_order + 1, f_spin_dep + 1))
             for m in range(f_en_order + 1):
                 for n in range(f_ee_order + 1):
-                    mn_sum[m + n] += self.trunc * f_parameters[0, m, n, :] - L * f_parameters[1, m, n, :]
+                    mn_sum[m + n] += self.trunc * f_parameters[:, n, m, 0] - L * f_parameters[:, n, m, 1]
             np.abs(mn_sum).max() > 1e-18 and print('mn_sum =', mn_sum)
 
             if no_dup_u_term:
                 print('should be equal to zero')
-                print(f_parameters[1, 1, 0, :])
-                print(f_parameters[0, 0, :, :])
+                print(f_parameters[:, 0, 1, 1])
+                print(f_parameters[:, :, 0, 0])
             if no_dup_chi_term:
                 print('should be equal to zero')
                 print(f_parameters[:, 0, 0, :])
@@ -508,5 +508,5 @@ if __name__ == '__main__':
         '51', '52', '53', '54', '55',
     ):
         print(f_term_order)
-        path = f'test/jastrow/3_1/{f_term_order}/correlation.out.1'
+        path = f'{os.path.dirname(__file__)}/../../tests/jastrow/3_1/{f_term_order}/correlation.out.1'
         Jastrow().read(path)
