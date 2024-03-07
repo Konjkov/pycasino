@@ -284,7 +284,7 @@ class Jastrow:
                             f_parameters_optimizable = f_parameters_independent
                         # reverses the order of the axes
                         self.f_parameters.append(f_parameters.T)
-                        self.f_parameters_optimizable.append(f_parameters_optimizable.T)
+                        self.f_parameters_optimizable.append(f_parameters_optimizable)
                     elif line.startswith('END SET'):
                         set_number = None
 
@@ -337,7 +337,6 @@ class Jastrow:
         f_sets = []
         for n_f_set, (f_labels, f_parameters, f_parameters_optimizable, f_cutoff, no_dup_u_term, no_dup_chi_term) in enumerate(zip(self.f_labels, self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term)):
             f_parameters = f_parameters.T
-            f_parameters_optimizable = f_parameters_optimizable.T
             f_parameters_list = []
             f_parameters_independent = self.f_parameters_independent(f_parameters, f_cutoff['value'], no_dup_u_term, no_dup_chi_term)
             for i in range(f_parameters.shape[0]):
