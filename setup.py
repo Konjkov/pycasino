@@ -14,7 +14,7 @@ setup(
     packages=['casino', 'casino.readers'],
     # https://scientific-python.org/specs/spec-0000/
     install_requires=[
-        'numba>=0.58.0',
+        'numba>=0.59.0',
         'mpi4py>=3.1.0',
         'numba-mpi>=0.40',
         'pyblock>=0.6.0',
