@@ -192,12 +192,8 @@ class Backflow:
                     phi_term = False
                 elif line.startswith('START AE CUTOFFS'):
                     ae_term = True
-                    ae_cutoff = []
-                    ae_cutoff_optimizable = []
                 elif line.startswith('END AE CUTOFFS'):
                     ae_term = False
-                    self.ae_cutoff = np.array(ae_cutoff)
-                    self.ae_cutoff_optimizable = np.array(ae_cutoff_optimizable)
                 elif eta_term:
                     if line.startswith('Expansion order'):
                         eta_order = self.read_int()
@@ -318,10 +314,9 @@ class Backflow:
                         # Nucleus ; Set ; Cutoff length     ;  Optimizable (0=NO; 1=YES)
                         pass
                     else:
-                        # FIXME: Nucleus order
-                        _, _, cutoff_length, cutoff_length_optimizable = line.split()
-                        ae_cutoff.append(float(cutoff_length))
-                        ae_cutoff_optimizable.append(bool(int(cutoff_length_optimizable)))
+                        nucleus, _, cutoff_length, cutoff_length_optimizable = line.split()
+                        self.ae_cutoff[int(nucleus)-1] = float(cutoff_length)
+                        self.ae_cutoff_optimizable[int(nucleus)-1] = bool(int(cutoff_length_optimizable))
 
     def set_ae_cutoff(self, is_pseudoatom):
         """Set AE cut-off if not defined in input file.

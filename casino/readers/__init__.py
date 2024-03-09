@@ -53,8 +53,8 @@ class CasinoConfig:
         if self.jastrow:
             self.jastrow.read(self.base_path)
         if self.backflow:
-            self.backflow.read(self.base_path)
             self.backflow.set_ae_cutoff(self.wfn.is_pseudoatom)
+            self.backflow.read(self.base_path)
         self.log()
 
     def write(self, base_path, version):
