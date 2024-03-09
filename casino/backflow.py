@@ -1,5 +1,6 @@
 import numpy as np
 import numba as nb
+from numpy.polynomial.polynomial import polyval
 
 from casino import delta
 from casino.abstract import AbstractBackflow
@@ -272,7 +273,7 @@ class Backflow(AbstractBackflow):
         self.theta_parameters_available = nb.typed.List.empty_list(theta_parameters_mask_type)
 
         self.max_ee_order = max((
-            self.eta_parameters.shape[0],
+            self.eta_parameters.shape[1],
             max([p.shape[2] for p in self.phi_parameters]) if self.phi_parameters else 0,
         ))
         self.max_en_order = max((
@@ -295,18 +296,18 @@ class Backflow(AbstractBackflow):
                 self.phi_cutoff_optimizable[i] = False
 
         ee_order = 2
-        if self.eta_parameters.shape[1] == 2:
+        if self.eta_parameters.shape[0] == 2:
             if self.neu < ee_order and self.ned < ee_order:
-                self.eta_parameters_available[:, 0] = False
+                self.eta_parameters_available[0] = False
             if self.neu + self.ned < ee_order:
-                self.eta_parameters_available[:, 1] = False
-        elif self.eta_parameters.shape[1] == 3:
+                self.eta_parameters_available[1] = False
+        elif self.eta_parameters.shape[0] == 3:
             if self.neu < ee_order:
-                self.eta_parameters_available[:, 0] = False
+                self.eta_parameters_available[0] = False
             if self.neu + self.ned < ee_order:
-                self.eta_parameters_available[:, 1] = False
+                self.eta_parameters_available[1] = False
             if self.ned < ee_order:
-                self.eta_parameters_available[:, 2] = False
+                self.eta_parameters_available[2] = False
 
         ee_order = 1
         for mu_parameters_optimizable in self.mu_parameters_optimizable:
@@ -434,13 +435,10 @@ class Backflow(AbstractBackflow):
             for e2 in range(e1):
                 r_vec = e_vectors[e1, e2]
                 r = e_powers[e1, e2, 1]
-                eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[1]
+                eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
                 L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
                 if r < L:
-                    poly = 0
-                    for k in range(parameters.shape[0]):
-                        poly += parameters[k, eta_set] * e_powers[e1, e2, k]
-                    bf = (1 - r/L) ** C * poly * r_vec
+                    bf = (1 - r/L) ** C * r_vec * polyval(r, parameters[eta_set])
                     res[ae_cutoff_condition, e1] += bf
                     res[ae_cutoff_condition, e2] -= bf
         return res.reshape(2, (self.neu + self.ned) * 3)
@@ -460,14 +458,11 @@ class Backflow(AbstractBackflow):
                     r = n_powers[label, e1, 1]
                     if r < L:
                         mu_set = int(e1 >= self.neu) % parameters.shape[1]
-                        poly = 0.0
-                        for k in range(parameters.shape[0]):
-                            poly += parameters[k, mu_set] * n_powers[label, e1, k]
                         # cutoff_condition
                         # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
-                        res[ae_cutoff_condition, e1] += poly * (1 - r/L) ** C * r_vec
+                        res[ae_cutoff_condition, e1] += (1 - r/L) ** C * r_vec * polyval(r, parameters[:, mu_set])
         return res.reshape(2, (self.neu + self.ned) * 3)
 
     def phi_term(self, e_powers, n_powers, e_vectors, n_vectors):
@@ -524,12 +519,12 @@ class Backflow(AbstractBackflow):
             for e2 in range(e1):
                 r_vec = e_vectors[e1, e2]
                 r = e_powers[e1, e2, 1]
-                eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[1]
+                eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
                 L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
                 if r < L:
                     poly = poly_diff = 0
-                    for k in range(parameters.shape[0]):
-                        p = parameters[k, eta_set] * e_powers[e1, e2, k]
+                    for k in range(parameters.shape[1]):
+                        p = parameters[eta_set, k] * e_powers[e1, e2, k]
                         poly += p
                         poly_diff += p * k
 
@@ -589,7 +584,7 @@ class Backflow(AbstractBackflow):
                             continue
                         r_e1I_vec = n_vectors[label, e1]
                         r_e2I_vec = n_vectors[label, e2]
-                        r_ee_vec = e_vectors[e1, e2]
+                        r_ee_vec = r_e1I_vec - r_e2I_vec
                         r_e1I = n_powers[label, e1, 1]
                         r_e2I = n_powers[label, e2, 1]
                         r_ee = e_powers[e1, e2, 1]
@@ -655,12 +650,12 @@ class Backflow(AbstractBackflow):
             for e2 in range(e1):
                 r_vec = e_vectors[e1, e2]
                 r = e_powers[e1, e2, 1]
-                eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[1]
+                eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
                 L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
                 if r < L:
                     poly = poly_diff = poly_diff_2 = 0
-                    for k in range(parameters.shape[0]):
-                        p = parameters[k, eta_set] * e_powers[e1, e2, k]
+                    for k in range(parameters.shape[1]):
+                        p = parameters[eta_set, k] * e_powers[e1, e2, k]
                         poly += p
                         poly_diff += k * p
                         poly_diff_2 += k * (k - 1) * p
@@ -932,10 +927,10 @@ class Backflow(AbstractBackflow):
         """Fix eta-term dependent parameters"""
         C = self.trunc
         L = self.eta_cutoff[0]
-        self.eta_parameters[1, 0] = C * self.eta_parameters[0, 0] / L
-        if self.eta_parameters.shape[1] == 3:
+        self.eta_parameters[0, 1] = C * self.eta_parameters[0, 0] / L
+        if self.eta_parameters.shape[0] == 3:
             L = self.eta_cutoff[2] or self.eta_cutoff[0]
-            self.eta_parameters[1, 2] = C * self.eta_parameters[0, 2] / L
+            self.eta_parameters[2, 1] = C * self.eta_parameters[2, 0] / L
 
     def fix_mu_parameters(self):
         """Fix mu-term dependent parameters"""
@@ -1002,8 +997,8 @@ class Backflow(AbstractBackflow):
             for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
                 if eta_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
-            for j2 in range(self.eta_parameters.shape[1]):
-                for j1 in range(self.eta_parameters.shape[0]):
+            for j1 in range(self.eta_parameters.shape[0]):
+                for j2 in range(self.eta_parameters.shape[1]):
                     if self.eta_parameters_available[j1, j2]:
                         res.append(self.eta_parameters_optimizable[j1, j2])
 
@@ -1053,10 +1048,10 @@ class Backflow(AbstractBackflow):
             for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
                 if eta_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
-            for j2 in range(self.eta_parameters.shape[1]):
-                for j1 in range(self.eta_parameters.shape[0]):
+            for j1 in range(self.eta_parameters.shape[0]):
+                for j2 in range(self.eta_parameters.shape[1]):
                     if (self.eta_parameters_optimizable[j1, j2] or all_parameters) and self.eta_parameters_available[j1, j2]:
-                        res.append(2 / self.eta_cutoff[0] ** j1 / ne ** 2)
+                        res.append(2 / self.eta_cutoff[0] ** j2 / ne ** 2)
 
         if self.mu_cutoff.any():
             for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_parameters_available) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_parameters_available)):
@@ -1103,13 +1098,13 @@ class Backflow(AbstractBackflow):
         if self.eta_cutoff.any():
             # c0*C - c1*L = 0 only for like-spin electrons
             eta_spin_deps = [0]
-            if self.eta_parameters.shape[1] == 2:
+            if self.eta_parameters.shape[0] == 2:
                 eta_spin_deps = [0, 1]
                 if self.neu < 2 and self.ned < 2:
                     eta_spin_deps = [x for x in eta_spin_deps if x != 0]
                 if self.neu + self.ned < 2:
                     eta_spin_deps = [x for x in eta_spin_deps if x != 1]
-            elif self.eta_parameters.shape[1] == 3:
+            elif self.eta_parameters.shape[0] == 3:
                 eta_spin_deps = [0, 1, 2]
                 if self.neu < 2:
                     eta_spin_deps = [x for x in eta_spin_deps if x != 0]
@@ -1123,16 +1118,16 @@ class Backflow(AbstractBackflow):
             for spin_dep in eta_spin_deps:
                 # e-e term is affected by constraints only for like-spin electrons
                 if spin_dep in (0, 2):
-                    eta_matrix = np.zeros(shape=(1, self.eta_parameters.shape[0]))
+                    eta_matrix = np.zeros(shape=(1, self.eta_parameters.shape[1]))
                     eta_matrix[0, 0] = self.trunc
                     eta_matrix[0, 1] = -self.eta_cutoff[spin_dep]
                     eta_list.append(eta_matrix)
                     b_list.append(0)
                     for _ in range(self.eta_cutoff_optimizable.sum()):
-                        eta_cutoff_matrix.append(self.eta_parameters[1, spin_dep])
+                        eta_cutoff_matrix.append(self.eta_parameters[spin_dep, 1])
                 else:
                     # no constrains
-                    eta_matrix = np.zeros(shape=(0, self.eta_parameters.shape[0]))
+                    eta_matrix = np.zeros(shape=(0, self.eta_parameters.shape[1]))
                     eta_list.append(eta_matrix)
             eta_block = block_diag(eta_list)
             if self.eta_cutoff_optimizable.any() and self.cutoffs_optimizable:
@@ -1250,8 +1245,8 @@ class Backflow(AbstractBackflow):
             for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
                 if eta_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(eta_cutoff)
-            for j2 in range(self.eta_parameters.shape[1]):
-                for j1 in range(self.eta_parameters.shape[0]):
+            for j1 in range(self.eta_parameters.shape[0]):
+                for j2 in range(self.eta_parameters.shape[1]):
                     if (self.eta_parameters_optimizable[j1, j2] or all_parameters) and self.eta_parameters_available[j1, j2]:
                         res.append(self.eta_parameters[j1, j2])
 
@@ -1302,8 +1297,8 @@ class Backflow(AbstractBackflow):
                 if self.eta_cutoff_optimizable[j1] and self.cutoffs_optimizable:
                     self.eta_cutoff[j1] = parameters[n]
                     n += 1
-            for j2 in range(self.eta_parameters.shape[1]):
-                for j1 in range(self.eta_parameters.shape[0]):
+            for j1 in range(self.eta_parameters.shape[0]):
+                for j2 in range(self.eta_parameters.shape[1]):
                     if (self.eta_parameters_optimizable[j1, j2] or all_parameters) and self.eta_parameters_available[j1, j2]:
                         self.eta_parameters[j1, j2] = parameters[n]
                         n += 1
@@ -1379,16 +1374,16 @@ class Backflow(AbstractBackflow):
             for e2 in range(e1):
                 n = (self.cutoffs_optimizable and self.eta_cutoff_optimizable.sum()) - 1
                 r = e_powers[e1, e2, 1]
-                eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.eta_parameters.shape[1]
+                eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.eta_parameters.shape[0]
                 L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
                 if r < L:
                     r_vec = e_vectors[e1, e2]
-                    for j2 in range(self.eta_parameters.shape[1]):
-                        for j1 in range(self.eta_parameters.shape[0]):
+                    for j1 in range(self.eta_parameters.shape[0]):
+                        for j2 in range(self.eta_parameters.shape[1]):
                             if self.eta_parameters_available[j1, j2]:
                                 n += 1
-                                if eta_set == j2:
-                                    bf = (1 - r / L) ** C * e_powers[e1, e2, j1] * r_vec
+                                if eta_set == j1:
+                                    bf = (1 - r / L) ** C * e_powers[e1, e2, j2] * r_vec
                                     res[n, ae_cutoff_condition, e1] += bf
                                     res[n, ae_cutoff_condition, e2] -= bf
 
@@ -1551,20 +1546,20 @@ class Backflow(AbstractBackflow):
             for e2 in range(e1):
                 n = (self.cutoffs_optimizable and self.eta_cutoff_optimizable.sum()) - 1
                 r = e_powers[e1, e2, 1]
-                eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.eta_parameters.shape[1]
+                eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.eta_parameters.shape[0]
                 L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
                 if r < L:
                     r_vec = e_vectors[e1, e2]
                     cutoff = (1 - r / L) ** C
                     outer_vec = np.outer(r_vec, r_vec)
-                    for j2 in range(self.eta_parameters.shape[1]):
-                        for j1 in range(self.eta_parameters.shape[0]):
+                    for j1 in range(self.eta_parameters.shape[0]):
+                        for j2 in range(self.eta_parameters.shape[1]):
                             if self.eta_parameters_available[j1, j2]:
                                 n += 1
-                                if eta_set == j2:
-                                    poly = cutoff * e_powers[e1, e2, j1]
+                                if eta_set == j1:
+                                    poly = cutoff * e_powers[e1, e2, j2]
                                     bf = (
-                                        (j1 / r - C / (L - r)) * outer_vec / r + eye3
+                                        (j2 / r - C / (L - r)) * outer_vec / r + eye3
                                     ) * poly
                                     res[n, ae_cutoff_condition, e1, :, e1, :] += bf
                                     res[n, ae_cutoff_condition, e1, :, e2, :] -= bf
@@ -1755,19 +1750,19 @@ class Backflow(AbstractBackflow):
             for e2 in range(e1):
                 n = (self.cutoffs_optimizable and self.eta_cutoff_optimizable.sum()) - 1
                 r = e_powers[e1, e2, 1]
-                eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.eta_parameters.shape[1]
+                eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.eta_parameters.shape[0]
                 L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
                 if r < L:
                     r_vec = e_vectors[e1, e2]
-                    for j2 in range(self.eta_parameters.shape[1]):
-                        for j1 in range(self.eta_parameters.shape[0]):
+                    for j1 in range(self.eta_parameters.shape[0]):
+                        for j2 in range(self.eta_parameters.shape[1]):
                             if self.eta_parameters_available[j1, j2]:
                                 n += 1
-                                if eta_set == j2:
-                                    poly = e_powers[e1, e2, j1]
+                                if eta_set == j1:
+                                    poly = e_powers[e1, e2, j2]
                                     bf = 2 * (1 - r/L) ** C * (
-                                        4 * (j1 / r - C / (L - r)) +
-                                        r * (C * (C - 1) / (L - r) ** 2 - 2 * C / (L - r) * j1 / r + j1 * (j1 - 1) / r**2)
+                                        4 * (j2 / r - C / (L - r)) +
+                                        r * (C * (C - 1) / (L - r) ** 2 - 2 * C / (L - r) * j2 / r + j2 * (j2 - 1) / r**2)
                                     ) * r_vec * poly / r
                                     res[n, ae_cutoff_condition, e1] += bf
                                     res[n, ae_cutoff_condition, e2] -= bf

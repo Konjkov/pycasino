@@ -154,6 +154,7 @@ class Jastrow:
         """Read Jastrow config from file."""
         file_path = os.path.join(base_path, 'correlation.data')
         if not os.path.isfile(file_path):
+            print(f'{file_path} not found')
             return
         with open(file_path, 'r') as f:
             u_term = chi_term = f_term = False
@@ -505,5 +506,5 @@ if __name__ == '__main__':
         '51', '52', '53', '54', '55',
     ):
         print(f_term_order)
-        path = f'{os.path.dirname(__file__)}/../../tests/jastrow/3_1/{f_term_order}/correlation.out.1'
+        path = f'{os.path.dirname(__file__)}/../../tests/jastrow/3_1/{f_term_order}'
         Jastrow().read(path)

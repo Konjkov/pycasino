@@ -162,6 +162,7 @@ class Backflow:
     def read(self, base_path):
         file_path = os.path.join(base_path, 'correlation.data')
         if not os.path.isfile(file_path):
+            print(f'{file_path} not found')
             return
         with open(file_path, 'r') as f:
             eta_term = mu_term = phi_term = ae_term = False
@@ -210,14 +211,14 @@ class Backflow:
                         for i in range(1, self.eta_cutoff.shape[0]):
                             self.eta_cutoff[i] = self.read_parameter()
                     elif line.startswith('Parameter'):
-                        self.eta_parameters = np.zeros((eta_order+1, eta_spin_dep+1), dtype=float)
-                        self.eta_parameters_optimizable = np.zeros((eta_order + 1, eta_spin_dep + 1), dtype=bool)
+                        self.eta_parameters = np.zeros((eta_spin_dep+1, eta_order+1), dtype=float)
+                        self.eta_parameters_optimizable = np.zeros((eta_spin_dep + 1, eta_order + 1), dtype=bool)
                         eta_parameters_independent = self.eta_parameters_independent(self.eta_parameters)
                         try:
                             for i in range(eta_spin_dep + 1):
                                 for j in range(eta_order + 1):
-                                    if eta_parameters_independent[j, i]:
-                                        self.eta_parameters[j, i], self.eta_parameters_optimizable[j, i] = self.read_parameter()
+                                    if eta_parameters_independent[i, j]:
+                                        self.eta_parameters[i, j], self.eta_parameters_optimizable[i, j] = self.read_parameter()
                         except ValueError:
                             eta_term = False
                             self.eta_parameters_optimizable = eta_parameters_independent
@@ -335,13 +336,13 @@ class Backflow:
         if self.eta_cutoff['value'].any():
             eta_parameters_list = []
             eta_parameters_independent = self.eta_parameters_independent(self.eta_parameters)
-            for i in range(self.eta_parameters.shape[1]):
-                for j in range(self.eta_parameters.shape[0]):
-                    if eta_parameters_independent[j, i]:
-                        eta_parameters_list.append(f'{self.eta_parameters[j, i]: .16e}            {int(self.eta_parameters_optimizable[j, i])}       ! c_{j},{i + 1}')
+            for i in range(self.eta_parameters.shape[0]):
+                for j in range(self.eta_parameters.shape[1]):
+                    if eta_parameters_independent[i, j]:
+                        eta_parameters_list.append(f'{self.eta_parameters[i, j]: .16e}            {int(self.eta_parameters_optimizable[i, j])}       ! c_{j},{i + 1}')
             eta_set = eta_set_template.format(
-                eta_order=self.eta_parameters.shape[0] - 1,
-                eta_spin_dep=self.eta_parameters.shape[1] - 1,
+                eta_spin_dep=self.eta_parameters.shape[0] - 1,
+                eta_order=self.eta_parameters.shape[1] - 1,
                 # FIXME: Optimizable (0=NO; 1=YES; 2=YES BUT NO SPIN-DEP)
                 eta_cutoff=self.eta_cutoff[0]['value'],
                 eta_cutoff_optimizable=int(self.eta_cutoff[0]['optimizable']),
@@ -429,9 +430,9 @@ class Backflow:
         we constrain the parallel-spin η(rij) function to have zero derivative at rij = 0,
         while the antiparallel-spin η function may have a nonzero derivative"""
         mask = np.ones(parameters.shape, bool)
-        mask[1, 0] = False
-        if parameters.shape[1] == 3:
-            mask[1, 2] = False
+        mask[0, 1] = False
+        if parameters.shape[0] == 3:
+            mask[2, 0] = False
         return mask
 
     @staticmethod
@@ -472,10 +473,10 @@ class Backflow:
         """Fix eta-term parameters"""
         C = self.trunc
         L = self.eta_cutoff[0]['value']
-        self.eta_parameters[1, 0] = C * self.eta_parameters[0, 0] / L
-        if self.eta_parameters.shape[1] == 3:
+        self.eta_parameters[0, 1] = C * self.eta_parameters[0, 0] / L
+        if self.eta_parameters.shape[0] == 3:
             L = self.eta_cutoff[2]['value'] or self.eta_cutoff[0]['value']
-            self.eta_parameters[1, 2] = C * self.eta_parameters[0, 2] / L
+            self.eta_parameters[2, 1] = C * self.eta_parameters[2, 0] / L
 
     def fix_mu_parameters(self):
         """Fix mu-term parameters"""
@@ -635,5 +636,5 @@ if __name__ == '__main__':
         # path = f'test/backflow/3_1_0/{phi_term}/correlation.out.1'
         # path = f'test/backflow/0_1_1/{phi_term}/correlation.out.1'
         # path = f'test/backflow/3_1_1/{phi_term}/correlation.out.1'
-        path = f'test/backflow/3_0_1/{phi_term}/correlation.out.1'
+        path = f'{os.path.dirname(__file__)}/../../tests/backflow/3_0_1/{phi_term}'
         Backflow().read(path)
