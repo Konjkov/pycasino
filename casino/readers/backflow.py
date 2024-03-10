@@ -242,14 +242,14 @@ class Backflow:
                     elif line.startswith('Cutoff (a.u.)'):
                         self.mu_cutoff[set_number] = self.read_parameter()
                     elif line.startswith('Parameter values'):
-                        mu_parameters = np.zeros((mu_order+1, mu_spin_dep+1), dtype=float)
-                        mu_parameters_optimizable = np.zeros((mu_order + 1, mu_spin_dep + 1), dtype=bool)
+                        mu_parameters = np.zeros((mu_spin_dep+1, mu_order+1), dtype=float)
+                        mu_parameters_optimizable = np.zeros((mu_spin_dep + 1, mu_order + 1), dtype=bool)
                         mu_parameters_independent = self.mu_parameters_independent(mu_parameters, mu_cusp)
                         try:
                             for i in range(mu_spin_dep + 1):
                                 for j in range(mu_order + 1):
-                                    if mu_parameters_independent[j, i]:
-                                        mu_parameters[j, i], mu_parameters_optimizable[j, i] = self.read_parameter()
+                                    if mu_parameters_independent[i, j]:
+                                        mu_parameters[i, j], mu_parameters_optimizable[i, j] = self.read_parameter()
                         except ValueError:
                             mu_parameters_optimizable = mu_parameters_independent
                         self.mu_parameters.append(mu_parameters)
@@ -356,18 +356,18 @@ class Backflow:
         for n_mu_set, (mu_labels, mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cusp) in enumerate(zip(self.mu_labels, self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cusp)):
             mu_parameters_list = []
             mu_parameters_independent = self.mu_parameters_independent(mu_parameters, mu_cusp)
-            for i in range(mu_parameters.shape[1]):
-                for j in range(mu_parameters.shape[0]):
-                    if mu_parameters_independent[j, i]:
-                        mu_parameters_list.append(f'{mu_parameters[j, i]: .16e}            {int(mu_parameters_optimizable[j, i])}       ! mu_{j},{i + 1}')
+            for i in range(mu_parameters.shape[0]):
+                for j in range(mu_parameters.shape[1]):
+                    if mu_parameters_independent[i, j]:
+                        mu_parameters_list.append(f'{mu_parameters[i, j]: .16e}            {int(mu_parameters_optimizable[i, j])}       ! mu_{j},{i + 1}')
             mu_sets.append(
                 mu_set_template.format(
                     n_set=n_mu_set + 1,
                     n_atoms=len(mu_labels),
                     mu_cusp=int(mu_cusp),
                     mu_labels=' '.join(['{}'.format(i + 1) for i in mu_labels]),
-                    mu_order=mu_parameters.shape[0] - 1,
-                    mu_spin_dep=mu_parameters.shape[1] - 1,
+                    mu_spin_dep=mu_parameters.shape[0] - 1,
+                    mu_order=mu_parameters.shape[1] - 1,
                     mu_cutoff=mu_cutoff['value'],
                     mu_cutoff_optimizable=int(mu_cutoff['optimizable']),
                     mu_parameters='\n  '.join(mu_parameters_list),
@@ -439,9 +439,9 @@ class Backflow:
     def mu_parameters_independent(parameters, mu_cusp):
         mask = np.ones(parameters.shape, bool)
         if mu_cusp:
-            mask[0:2] = False
+            mask[:, 0:2] = False
         else:
-            mask[1] = False
+            mask[:, 1] = False
         return mask
 
     def phi_theta_parameters_independent(self, phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational):
@@ -484,11 +484,11 @@ class Backflow:
         for mu_parameters, mu_cutoff, mu_cusp in zip(self.mu_parameters, self.mu_cutoff, self.mu_cusp):
             if mu_cusp:
                 # AE atoms (d0,I = 0; Lμ,I * d1,I = C * d0,I)
-                mu_parameters[0:2] = 0
+                mu_parameters[:, 0:2] = 0
             else:
                 # PP atoms (Lμ,I * d1,I = C * d0,I)
                 L = mu_cutoff['value']
-                mu_parameters[1] = C * mu_parameters[0] / L
+                mu_parameters[:, 1] = C * mu_parameters[:, 0] / L
 
     def fix_phi_parameters(self):
         """Fix phi-term parameters"""
