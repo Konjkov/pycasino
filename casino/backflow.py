@@ -16,8 +16,8 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
     ... constraints imposed to satisfy theta-term conditions.
     copy-paste from /CASINO/src/pbackflow.f90 SUBROUTINE construct_C
     """
-    phi_en_order = phi_parameters.shape[0] - 1
-    phi_ee_order = phi_parameters.shape[2] - 1
+    phi_ee_order = phi_parameters.shape[1] - 1
+    phi_en_order = phi_parameters.shape[2] - 1
 
     ee_constrains = 2 * phi_en_order + 1
     en_constrains = phi_en_order + phi_ee_order + 1
@@ -45,14 +45,14 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
         if trunc == 0:
             n_constraints -= (phi_en_order + 1) * (phi_ee_order + 1)
 
-    parameters_size = 2 * (phi_parameters.shape[0] * phi_parameters.shape[1] * phi_parameters.shape[2])
+    parameters_size = 2 * (phi_parameters.shape[1] * phi_parameters.shape[2] * phi_parameters.shape[3])
     c = np.zeros((n_constraints, parameters_size))
     cutoff_constraints = np.zeros(shape=(n_constraints, ))
     p = 0
     # Do Phi bit of the constraint matrix.
-    for m in range(phi_parameters.shape[2]):
-        for l in range(phi_parameters.shape[1]):
-            for k in range(phi_parameters.shape[0]):
+    for m in range(phi_parameters.shape[1]):
+        for l in range(phi_parameters.shape[2]):
+            for k in range(phi_parameters.shape[3]):
                 if spin_dep in (0, 2):  # e-e cusp
                     if m == 1:
                         c[k + l, p] = 1
@@ -72,26 +72,26 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
                 else:
                     if l == 0:  # 1b
                         c[k + m + offset + en_constrains, p] = -trunc / phi_cutoff
-                        cutoff_constraints[k + m + offset + en_constrains] += trunc * phi_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
+                        cutoff_constraints[k + m + offset + en_constrains] += trunc * phi_parameters[spin_dep, m, l, k] / phi_cutoff ** 2
                     elif l == 1:  # 1b
                         c[k + m + offset + en_constrains, p] = 1
                     if k == 0:  # 1a
                         c[l + m + offset, p] = -trunc / phi_cutoff
-                        cutoff_constraints[l + m + offset] += trunc * phi_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
+                        cutoff_constraints[l + m + offset] += trunc * phi_parameters[spin_dep, m, l, k] / phi_cutoff ** 2
                     elif k == 1:  # 1a
                         c[l + m + offset, p] = 1
                 p += 1
     # Do Theta bit of the constraint matrix.
     offset = phi_constraints
-    for m in range(phi_parameters.shape[2]):
-        for l in range(phi_parameters.shape[1]):
-            for k in range(phi_parameters.shape[0]):
+    for m in range(phi_parameters.shape[1]):
+        for l in range(phi_parameters.shape[2]):
+            for k in range(phi_parameters.shape[3]):
                 if m == 1:
                     c[k + l + offset, p] = 1
                 if phi_cusp:
                     if l == 0:  # 2b
                         c[k + m + offset + ee_constrains + 2 * en_constrains, p] = -trunc / phi_cutoff
-                        cutoff_constraints[k + m + offset + ee_constrains + 2 * en_constrains] += trunc * theta_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
+                        cutoff_constraints[k + m + offset + ee_constrains + 2 * en_constrains] += trunc * theta_parameters[spin_dep, m, l, k] / phi_cutoff ** 2
                         if m > 0:  # 3b
                             c[k + m - 1 + offset + ee_constrains + 4 * en_constrains - 1, p] = m
                     elif l == 1:  # 2b
@@ -105,7 +105,7 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
                 else:
                     if l == 0:  # 1a
                         c[k + m + offset + ee_constrains, p] = -trunc / phi_cutoff
-                        cutoff_constraints[l + m + offset + ee_constrains] += trunc * theta_parameters[k, l, m, spin_dep] / phi_cutoff ** 2
+                        cutoff_constraints[l + m + offset + ee_constrains] += trunc * theta_parameters[spin_dep, m, l, k] / phi_cutoff ** 2
                     elif l == 1:  # 1a
                         c[k + m + offset + ee_constrains, p] = 1
                 p += 1
@@ -117,9 +117,9 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
         inc_l = inc_k * (phi_en_order + 1)
         inc_m = inc_l * (phi_en_order + 1)
         nphi = inc_m * (phi_ee_order + 1)
-        for m in range(phi_parameters.shape[2]):
-            for l in range(phi_parameters.shape[1]):
-                for k in range(phi_parameters.shape[0]):
+        for m in range(phi_parameters.shape[1]):
+            for l in range(phi_parameters.shape[2]):
+                for k in range(phi_parameters.shape[3]):
                     if trunc > 0:
                         if m > 0:
                             c[n, p - inc_m] = trunc + k
@@ -130,7 +130,7 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
                                 c[n, p + nphi - 2 * inc_k + inc_m] = -(m + 1)
                             if k > 0:
                                 c[n, p + nphi - inc_k + inc_m] = phi_cutoff * (m + 1)
-                                cutoff_constraints[n] += (m + 1) * phi_parameters[k, l, m, spin_dep]
+                                cutoff_constraints[n] += (m + 1) * phi_parameters[spin_dep, m, l, k]
                     else:
                         if m > 0 and k < phi_en_order:
                             c[n, p + inc_k - inc_m] = k + 1
@@ -141,42 +141,42 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
         if trunc > 0:
             # Same as above, for m=N_ee+1...
             p = phi_ee_order * (phi_en_order + 1) ** 2
-            for l in range(phi_parameters.shape[1]):
-                for k in range(phi_parameters.shape[0]):
+            for l in range(phi_parameters.shape[2]):
+                for k in range(phi_parameters.shape[3]):
                     c[n, p] = trunc + k
                     if k < phi_en_order:
                         c[n, p + inc_k] = -phi_cutoff * (k + 1)
-                        cutoff_constraints[n] -= (k + 1) * phi_parameters[k + 1, l, :, spin_dep].sum()
+                        cutoff_constraints[n] -= (k + 1) * phi_parameters[spin_dep, :, l, k+1].sum()
                     p += 1
                     n += 1
             # ...for k=N_eN+1...
             p = phi_en_order - 1
-            for m in range(phi_parameters.shape[2] - 1):
-                for l in range(phi_parameters.shape[1]):
+            for m in range(phi_parameters.shape[1] - 1):
+                for l in range(phi_parameters.shape[2]):
                     c[n, p + nphi + inc_m] = -(m + 1)
                     c[n, p + nphi + inc_k + inc_m] = phi_cutoff * (m + 1)
-                    cutoff_constraints[n] += (m + 1) * theta_parameters[:, l, m + 1, spin_dep].sum()
+                    cutoff_constraints[n] += (m + 1) * theta_parameters[spin_dep, m + 1, l, :].sum()
                     p += inc_l
                     n += 1
             # ...and for k=N_eN+2.
             p = phi_en_order
-            for m in range(phi_parameters.shape[2] - 1):
-                for l in range(phi_parameters.shape[1]):
+            for m in range(phi_parameters.shape[1] - 1):
+                for l in range(phi_parameters.shape[2]):
                     c[n, p + nphi + inc_m] = -(m + 1)
                     p += inc_l
                     n += 1
         else:
             # Same as above, for m=N_ee+1...
             p = phi_ee_order * (phi_en_order + 1) ** 2
-            for l in range(phi_parameters.shape[1]):
-                for k in range(phi_parameters.shape[0] - 1):
+            for l in range(phi_parameters.shape[2]):
+                for k in range(phi_parameters.shape[3] - 1):
                     c[n, p + inc_k] = 1  # just zeroes the corresponding param
                     p += 1
                     n += 1
             # ...and for k=N_eN+1.
             p = phi_en_order - 1
-            for m in range(phi_parameters.shape[2] - 1):
-                for l in range(phi_parameters.shape[1]):
+            for m in range(phi_parameters.shape[1] - 1):
+                for l in range(phi_parameters.shape[2]):
                     c[n, p + nphi + inc_m] = 1  # just zeroes the corresponding param
                     p += inc_l
                     n += 1
@@ -947,7 +947,7 @@ class Backflow(AbstractBackflow):
         """Fix phi-term dependent parameters"""
         for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cusp, self.phi_irrotational):
             for spin_dep in range(phi_parameters.shape[0]):
-                c, _ = construct_c_matrix(self.trunc, phi_parameters.T, theta_parameters.T, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+                c, _ = construct_c_matrix(self.trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
                 c, pivot_positions = rref(c)
                 c = c[:pivot_positions.size, :]
 
@@ -1208,7 +1208,7 @@ class Backflow(AbstractBackflow):
             phi_list = []
             phi_cutoff_matrix = np.zeros(0)
             for spin_dep in phi_spin_deps:
-                phi_matrix, cutoff_constraints = construct_c_matrix(self.trunc, phi_parameters.T, theta_parameters.T, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+                phi_matrix, cutoff_constraints = construct_c_matrix(self.trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
                 phi_constrains_size, phi_parameters_size = phi_matrix.shape
                 phi_list.append(phi_matrix)
                 phi_cutoff_matrix = np.concatenate((phi_cutoff_matrix, cutoff_constraints))

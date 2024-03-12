@@ -450,7 +450,7 @@ class Backflow:
         phi_mask = np.zeros(shape=phi_parameters.shape, dtype=bool)
         theta_mask = np.zeros(shape=phi_parameters.shape, dtype=bool)
         for spin_dep in range(phi_parameters.shape[0]):
-            c, _ = construct_c_matrix(self.trunc, phi_parameters.T, theta_parameters.T, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+            c, _ = construct_c_matrix(self.trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
             _, pivot_positions = rref(c)
 
             p = 0
@@ -496,7 +496,7 @@ class Backflow:
             if not phi_parameters.any():
                 continue
             for spin_dep in range(phi_parameters.shape[0]):
-                c, _ = construct_c_matrix(self.trunc, phi_parameters.T,  theta_parameters.T, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+                c, _ = construct_c_matrix(self.trunc, phi_parameters,  theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
                 c, pivot_positions = rref(c)
                 c = c[:pivot_positions.size, :]
 
