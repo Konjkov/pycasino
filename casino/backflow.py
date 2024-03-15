@@ -488,10 +488,10 @@ class Backflow(AbstractBackflow):
                         if r_e1I < L and r_e2I < L:
                             phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[0]
                             phi_poly = theta_poly = 0.0
-                            for k in range(phi_parameters.shape[3]):
+                            for m in range(phi_parameters.shape[1]):
                                 for l in range(phi_parameters.shape[2]):
-                                    for m in range(phi_parameters.shape[1]):
-                                        poly = n_powers[label, e1, k] * n_powers[label, e2, l] * e_powers[e1, e2, m]
+                                    for k in range(phi_parameters.shape[3]):
+                                        poly = e_powers[e1, e2, m] * n_powers[label, e2, l] * n_powers[label, e1, k]
                                         phi_poly += phi_parameters[phi_set, m, l, k] * poly
                                         theta_poly += theta_parameters[phi_set, m, l, k] * poly
                             # cutoff_condition
@@ -592,12 +592,12 @@ class Backflow(AbstractBackflow):
                             phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[0]
                             phi_poly = phi_poly_diff_e1I = phi_poly_diff_e2I = phi_poly_diff_ee = 0.0
                             theta_poly = theta_poly_diff_e1I = theta_poly_diff_e2I = theta_poly_diff_ee = 0.0
-                            for k in range(phi_parameters.shape[3]):
+                            for m in range(phi_parameters.shape[1]):
                                 for l in range(phi_parameters.shape[2]):
-                                    for m in range(phi_parameters.shape[1]):
+                                    for k in range(phi_parameters.shape[3]):
                                         phi_p = phi_parameters[phi_set, m, l, k]
                                         theta_p = theta_parameters[phi_set, m, l, k]
-                                        poly = n_powers[label, e1, k] * n_powers[label, e2, l] * e_powers[e1, e2, m]
+                                        poly = e_powers[e1, e2, m] * n_powers[label, e2, l] * n_powers[label, e1, k]
                                         phi_poly += poly * phi_p
                                         theta_poly += poly * theta_p
                                         poly_diff_e1I = k * poly
@@ -741,12 +741,12 @@ class Backflow(AbstractBackflow):
                             cutoff_diff_e2I = C * r_e2I / (L - r_e2I)
                             cutoff_diff_e1I_2 = C * (C - 1) * r_e1I ** 2 / (L - r_e1I) ** 2
                             cutoff_diff_e2I_2 = C * (C - 1) * r_e2I ** 2 / (L - r_e2I) ** 2
-                            for k in range(phi_parameters.shape[3]):
+                            for m in range(phi_parameters.shape[1]):
                                 for l in range(phi_parameters.shape[2]):
-                                    for m in range(phi_parameters.shape[1]):
+                                    for k in range(phi_parameters.shape[3]):
                                         phi_p = phi_parameters[phi_set, m, l, k]
                                         theta_p = theta_parameters[phi_set, m, l, k]
-                                        poly = n_powers[label, e1, k] * n_powers[label, e2, l] * e_powers[e1, e2, m]
+                                        poly = e_powers[e1, e2, m] * n_powers[label, e2, l] * n_powers[label, e1, k]
                                         phi_poly += poly * phi_p
                                         theta_poly += poly * theta_p
                                         poly_diff_e1I = k * poly
@@ -1672,32 +1672,32 @@ class Backflow(AbstractBackflow):
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[0]
-                            for j4 in range(phi_parameters.shape[0]):
-                                dn = np.sum(phi_parameters_available[j4])
-                                for j3 in range(phi_parameters.shape[1]):
-                                    for j2 in range(phi_parameters.shape[2]):
-                                        for j1 in range(phi_parameters.shape[3]):
-                                            if phi_parameters_available[j4, j3, j2, j1]:
+                            for j1 in range(phi_parameters.shape[0]):
+                                dn = np.sum(phi_parameters_available[j1])
+                                for j2 in range(phi_parameters.shape[1]):
+                                    for j3 in range(phi_parameters.shape[2]):
+                                        for j4 in range(phi_parameters.shape[3]):
+                                            if phi_parameters_available[j1, j2, j3, j4]:
                                                 n += 1
-                                                if phi_set == j4:
-                                                    poly = cutoff * n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
+                                                if phi_set == j1:
+                                                    poly = cutoff * e_powers[e1, e2, j2] * n_powers[label, e2, j3] * n_powers[label, e1, j4]
                                                     for t1 in range(3):
                                                         for t2 in range(3):
                                                             res[n, ae_cutoff_condition, e1, t1, e1, t2] += (
-                                                                (j1 - cutoff_diff_e1I) * r_ee_vec[t1] * r_e1I_vec[t2] / r_e1I**2 +
-                                                                j3 * r_ee_vec[t1] * r_ee_vec[t2] / r_ee**2 + eye3[t1, t2]
+                                                                (j4 - cutoff_diff_e1I) * r_ee_vec[t1] * r_e1I_vec[t2] / r_e1I**2 +
+                                                                j2 * r_ee_vec[t1] * r_ee_vec[t2] / r_ee**2 + eye3[t1, t2]
                                                             ) * poly
                                                             res[n + dn, ae_cutoff_condition, e1, t1, e1, t2] += (
-                                                                (j1 - cutoff_diff_e1I) * r_e1I_vec[t1] * r_e1I_vec[t2] / r_e1I**2 +
-                                                                j3 * r_ee_vec[t2] * r_e1I_vec[t1] / r_ee**2 + eye3[t1, t2]
+                                                                (j4 - cutoff_diff_e1I) * r_e1I_vec[t1] * r_e1I_vec[t2] / r_e1I**2 +
+                                                                j2 * r_ee_vec[t2] * r_e1I_vec[t1] / r_ee**2 + eye3[t1, t2]
                                                             ) * poly
                                                             res[n, ae_cutoff_condition, e1, t1, e2, t2] += (
-                                                                (j2 - cutoff_diff_e2I) * r_ee_vec[t1] * r_e2I_vec[t2] / r_e2I**2 -
-                                                                j3 * r_ee_vec[t1] * r_ee_vec[t2] / r_ee**2 - eye3[t1, t2]
+                                                                (j3 - cutoff_diff_e2I) * r_ee_vec[t1] * r_e2I_vec[t2] / r_e2I**2 -
+                                                                j2 * r_ee_vec[t1] * r_ee_vec[t2] / r_ee**2 - eye3[t1, t2]
                                                             ) * poly
                                                             res[n + dn, ae_cutoff_condition, e1, t1, e2, t2] += (
-                                                                (j2 - cutoff_diff_e2I) * r_e1I_vec[t1] * r_e2I_vec[t2] / r_e2I**2 -
-                                                                j3 * r_ee_vec[t2] * r_e1I_vec[t1] / r_ee**2
+                                                                (j3 - cutoff_diff_e2I) * r_e1I_vec[t1] * r_e2I_vec[t2] / r_e2I**2 -
+                                                                j2 * r_ee_vec[t2] * r_e1I_vec[t1] / r_ee**2
                                                             ) * poly
                                 n += dn
 
@@ -1878,46 +1878,46 @@ class Backflow(AbstractBackflow):
                             vec_2 = r_ee_vec * (r_ee_vec @ r_e2I_vec)
                             vec_3 = r_e1I_vec * (r_ee_vec @ r_e1I_vec)
                             vec_4 = r_e1I_vec * (r_ee_vec @ r_e2I_vec)
-                            for j4 in range(phi_parameters.shape[0]):
-                                dn = np.sum(phi_parameters_available[j4])
-                                for j3 in range(phi_parameters.shape[1]):
-                                    for j2 in range(phi_parameters.shape[2]):
-                                        for j1 in range(phi_parameters.shape[3]):
-                                            if phi_parameters_available[j4, j3, j2, j1]:
+                            for j1 in range(phi_parameters.shape[0]):
+                                dn = np.sum(phi_parameters_available[j1])
+                                for j2 in range(phi_parameters.shape[1]):
+                                    for j3 in range(phi_parameters.shape[2]):
+                                        for j4 in range(phi_parameters.shape[3]):
+                                            if phi_parameters_available[j1, j2, j3, j4]:
                                                 n += 1
-                                                if phi_set == j4:
+                                                if phi_set == j1:
                                                     phi_diff_1 = (
-                                                        (j1 - cutoff_diff_e1I) / r_e1I**2 +
-                                                        (j2 - cutoff_diff_e2I) / r_e2I**2 +
-                                                        4 * j3 / r_ee**2
+                                                        (j4 - cutoff_diff_e1I) / r_e1I**2 +
+                                                        (j3 - cutoff_diff_e2I) / r_e2I**2 +
+                                                        4 * j2 / r_ee**2
                                                     )
                                                     phi_diff_2 = (
-                                                        (cutoff_diff_e1I_2 - 2 * j1 * cutoff_diff_e1I + j1 * (j1 - 1)) / r_e1I**2 +
-                                                        (cutoff_diff_e2I_2 - 2 * j2 * cutoff_diff_e2I + j2 * (j2 - 1)) / r_e2I**2 +
-                                                        2 * j3 * (j3 - 1) / r_ee**2
+                                                        (cutoff_diff_e1I_2 - 2 * j4 * cutoff_diff_e1I + j4 * (j4 - 1)) / r_e1I**2 +
+                                                        (cutoff_diff_e2I_2 - 2 * j3 * cutoff_diff_e2I + j3 * (j3 - 1)) / r_e2I**2 +
+                                                        2 * j2 * (j2 - 1) / r_ee**2
                                                     )
                                                     phi_dot_product = (
-                                                        (j1 - cutoff_diff_e1I) * r_e1I_vec / r_e1I**2 -
-                                                        (j2 - cutoff_diff_e2I) * r_e2I_vec / r_e2I**2 +
-                                                        (j1 - cutoff_diff_e1I) * j3 * vec_1 / r_e1I**2 / r_ee**2 -
-                                                        (j2 - cutoff_diff_e2I) * j3 * vec_2 / r_e2I**2 / r_ee**2
+                                                        (j4 - cutoff_diff_e1I) * r_e1I_vec / r_e1I**2 -
+                                                        (j3 - cutoff_diff_e2I) * r_e2I_vec / r_e2I**2 +
+                                                        (j4 - cutoff_diff_e1I) * j2 * vec_1 / r_e1I**2 / r_ee**2 -
+                                                        (j3 - cutoff_diff_e2I) * j2 * vec_2 / r_e2I**2 / r_ee**2
                                                     )
                                                     theta_diff_1 = (
-                                                        2 * (j1 - cutoff_diff_e1I) / r_e1I**2 +
-                                                        (j2 - cutoff_diff_e2I) / r_e2I**2 +
-                                                        2 * j3 / r_ee**2
+                                                        2 * (j4 - cutoff_diff_e1I) / r_e1I**2 +
+                                                        (j3 - cutoff_diff_e2I) / r_e2I**2 +
+                                                        2 * j2 / r_ee**2
                                                     )
                                                     theta_diff_2 = (
-                                                        (cutoff_diff_e1I_2 - 2 * j1 * cutoff_diff_e1I + j1 * (j1 - 1)) / r_e1I**2 +
-                                                        (cutoff_diff_e2I_2 - 2 * j2 * cutoff_diff_e2I + j2 * (j2 - 1)) / r_e2I**2 +
-                                                        2 * j3 * (j3 - 1) / r_ee**2
+                                                        (cutoff_diff_e1I_2 - 2 * j4 * cutoff_diff_e1I + j4 * (j4 - 1)) / r_e1I**2 +
+                                                        (cutoff_diff_e2I_2 - 2 * j3 * cutoff_diff_e2I + j3 * (j3 - 1)) / r_e2I**2 +
+                                                        2 * j2 * (j2 - 1) / r_ee**2
                                                     )
                                                     theta_dot_product = (
-                                                        (j1 - cutoff_diff_e1I) * vec_3 / r_e1I**2 -
-                                                        (j2 - cutoff_diff_e2I) * vec_4 / r_e2I**2 +
+                                                        (j4 - cutoff_diff_e1I) * vec_3 / r_e1I**2 -
+                                                        (j3 - cutoff_diff_e2I) * vec_4 / r_e2I**2 +
                                                         r_ee_vec
-                                                    ) * j3 / r_ee**2
-                                                    poly = cutoff * n_powers[label, e1, j1] * n_powers[label, e2, j2] * e_powers[e1, e2, j3]
+                                                    ) * j2 / r_ee**2
+                                                    poly = cutoff * e_powers[e1, e2, j2] * n_powers[label, e2, j3] * n_powers[label, e1, j4]
                                                     res[n, ae_cutoff_condition, e1] += (
                                                         (phi_diff_2 + 2 * phi_diff_1) * r_ee_vec + 2 * phi_dot_product
                                                     ) * poly
