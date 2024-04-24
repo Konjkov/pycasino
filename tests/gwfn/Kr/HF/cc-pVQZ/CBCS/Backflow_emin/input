@@ -2,11 +2,11 @@
 # CASINO input file #
 #-------------------#
 
-# Ar molecule (ground state)
+# Kr molecule (ground state)
 
 # SYSTEM
-neu               : 9              #*! Number of up electrons (Integer)
-ned               : 9              #*! Number of down electrons (Integer)
+neu               : 18             #*! Number of up electrons (Integer)
+ned               : 18             #*! Number of down electrons (Integer)
 periodic          : F              #*! Periodic boundary conditions (Boolean)
 atom_basis_type   : gaussian       #*! Basis set type (text)
 
@@ -25,12 +25,14 @@ vmc_decorr_period : 10             #*! VMC decorrelation period (0 - auto)
 writeout_vmc_hist : F              #*! Write vmc.hist file in VMC (Boolean)
 
 # OPTIMIZATION
-opt_method        : varmin         #*! Opt method (varmin/madmin/emin/...)
+opt_method        : emin           #*! Opt method (varmin/madmin/emin/...)
 opt_jastrow       : T              #*! Optimize Jastrow factor (Boolean)
 opt_backflow      : T              #*! Optimize backflow parameters (Boolean)
 %block opt_plan                    #*! Multi-cycle optimization plan (Block)
-1 fix_cutoffs=T
+1  method=varmin fix_cutoffs=T
 2
+3
+4
 %endblock opt_plan
 
 # GENERAL PARAMETERS

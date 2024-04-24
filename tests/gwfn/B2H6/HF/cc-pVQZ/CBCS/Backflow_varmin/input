@@ -18,9 +18,9 @@ testrun           : F              #*! Test run flag (Boolean)
 # VMC
 vmc_method        : 3
 vmc_equil_nstep   : 5000           #*! Number of equilibration steps (Integer)
-vmc_nstep         : 100000         #*! Number of steps (Integer)
+vmc_nstep         : 10000          #*! Number of steps (Integer)
 vmc_nblock        : 1              #*! Number of checkpoints (Integer)
-vmc_nconfig_write : 100000         #*! Number of configs to write (Integer)
+vmc_nconfig_write : 10000          #*! Number of configs to write (Integer)
 vmc_decorr_period : 10             #*! VMC decorrelation period (0 - auto)
 writeout_vmc_hist : F              #*! Write vmc.hist file in VMC (Boolean)
 
@@ -28,7 +28,10 @@ writeout_vmc_hist : F              #*! Write vmc.hist file in VMC (Boolean)
 opt_method        : varmin         #*! Opt method (varmin/madmin/emin/...)
 opt_jastrow       : T              #*! Optimize Jastrow factor (Boolean)
 opt_backflow      : T              #*! Optimize backflow parameters (Boolean)
-opt_cycles        : 2              #*! Number of optimization cycles (Integer)
+%block opt_plan                    #*! Multi-cycle optimization plan (Block)
+1 fix_cutoffs=T
+2
+%endblock opt_plan
 
 # GENERAL PARAMETERS
 use_jastrow       : T              #*! Use a Jastrow function (Boolean)

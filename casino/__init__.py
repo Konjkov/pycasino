@@ -22,6 +22,7 @@ disclamer = f"""
 
 import os
 import sys
+
 os.environ["OMP_NUM_THREADS"] = "1"  # openmp
 os.environ["OPENBLAS_NUM_THREADS"] = "1"  # openblas
 os.environ["MKL_NUM_THREADS"] = "1"  # mkl
@@ -69,8 +70,12 @@ else:
 
 logger.info(disclamer)
 
+import datetime
 import numba as nb
 import scipy as sp
+
+now = datetime.strftime(timezone.now(), '%Y/%m/%d/ %H:%M:%S')
+logger.info(f'Started {now}\n')
 
 logger.info(
     f' Python {sys.version}\n'
