@@ -221,10 +221,11 @@ class Stowfn(FortranFile):
     CASINO manual: 7.10.6 stowfn.data file specification
 
       read CASINO distributive: /utils/wfn_converters/adf/stowfn.py for details
-      polynorm[0] = sqrt(1./(4.*pi)); // 1
-      polynorm[1] = sqrt(3./(4.*pi)); // x
-      polynorm[2] = sqrt(3./(4.*pi)); // y
-      polynorm[3] = sqrt(3./(4.*pi)); // z
+      polynorm[0] = sqrt(1./(4.*pi)); //  0
+
+      polynorm[1] = sqrt(3./(4.*pi)); //  1
+      polynorm[2] = sqrt(3./(4.*pi)); // -1
+      polynorm[3] = sqrt(3./(4.*pi)); //  0
 
       polynorm[4] = .5*sqrt(15./pi); // xy        -2
       polynorm[5] = .5*sqrt(15./pi); // yz        -1

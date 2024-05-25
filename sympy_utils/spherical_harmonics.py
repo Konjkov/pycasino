@@ -12,6 +12,7 @@ r = sqrt(x*x + y*y + z*z)
 momentum_map = dict(s=0, p=1, d=2, f=3, g=4)
 
 # https://www.chemeurope.com/en/encyclopedia/Solid_harmonics.html
+# https://en.wikipedia.org/wiki/Table_of_spherical_harmonics#Real_spherical_harmonics
 harmonics = dict()
 
 harmonics['s'] = (
