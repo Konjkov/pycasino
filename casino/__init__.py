@@ -17,8 +17,8 @@ disclamer = f"""
                         v {__version__} [{__author__}]
 
     Main Author : {__author__}
- ------------------------------------------------------------------------------
-"""  # created with art python package
+ ------------------------------------------------------------------------------"""
+# created with art python package
 
 import os
 import sys
@@ -74,8 +74,8 @@ import datetime
 import numba as nb
 import scipy as sp
 
-now = datetime.strftime(timezone.now(), '%Y/%m/%d/ %H:%M:%S')
-logger.info(f'Started {now}\n')
+now = datetime.datetime.now().strftime('%Y/%m/%d/ %H:%M:%S')
+logger.info(f' Started {now}\n')
 
 logger.info(
     f' Python {sys.version}\n'
