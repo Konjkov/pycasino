@@ -285,39 +285,43 @@ class DMCMarkovChain:
 
     def ebe_drift_diffusion(self, r_e, wfn_value, velocity, energy, branching_energy):
         """EBE drift-diffusion step."""
-        total_p = 1
+        total_p = 0
         ne = self.wfn.neu + self.wfn.ned
-        if self.nucleus_gf_mods or False:
+        if self.nucleus_gf_mods:
             # random step according to
             # C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
             pass
         else:
             # simple random step
-            next_r_e = np.zeros(shape=(ne, 3))
+            velocity_ratio = 1
+            next_r_e = np.copy(r_e)
+            next_wfn_value = wfn_value
+            next_velocity = np.copy(velocity)
+            diffuse_step = np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape(ne, 3)
             for i in range(ne):
-                next_r_e[i] += np.random.normal(0, np.sqrt(self.step_size), 3) + self.step_size * velocity[i]
+                interim_r_e = np.copy(next_r_e)
+                interim_r_e[i] += diffuse_step[i] + self.step_size * next_velocity.reshape(ne, 3)[i]
+                interim_wfn_value = self.wfn.value(interim_r_e)
                 # prevent crossing nodal surface
-                next_wfn_value = self.wfn.value(next_r_e)
-                if np.sign(wfn_value) == np.sign(next_wfn_value):
-                    next_energy = self.wfn.energy(next_r_e)
-                    gf_forth = np.exp(-np.sum((next_r_e.ravel() - r_e.ravel() - self.step_size * velocity) ** 2) / 2 / self.step_size)
-                    next_velocity, velocity_ratio = self.limiting_velocity(next_r_e)
-                    next_branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - next_energy) * velocity_ratio
-                    gf_back = np.exp(-np.sum((r_e.ravel() - next_r_e.ravel() - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
-                    p = min(1, (gf_back * next_wfn_value ** 2) / (gf_forth * wfn_value ** 2))
+                if np.sign(wfn_value) == np.sign(interim_wfn_value):
+                    gf_forth = np.exp(-np.sum((interim_r_e[i] - next_r_e[i] - self.step_size * next_velocity.reshape(ne, 3)[i]) ** 2) / 2 / self.step_size)
+                    interim_velocity, velocity_ratio = self.limiting_velocity(interim_r_e)
+                    gf_back = np.exp(-np.sum((next_r_e[i] - interim_r_e[i] - self.step_size * interim_velocity.reshape(ne, 3)[i]) ** 2) / 2 / self.step_size)
+                    p = min(1, (gf_back * interim_wfn_value ** 2) / (gf_forth * next_wfn_value ** 2))
                     if p >= np.random.random():
-                        r_e = next_r_e
-                        wfn_value = next_wfn_value
-                        velocity = next_velocity
-                        energy = next_energy
-                        branching_energy = next_branching_energy
-                else:
-                    break
-                total_p *= p
+                        next_r_e = interim_r_e
+                        next_wfn_value = interim_wfn_value
+                        next_velocity = interim_velocity
+                    # Casino manual (62)
+                    total_p += p * np.sum(diffuse_step[i] ** 2) / np.sum(diffuse_step ** 2)
+            next_energy = self.wfn.energy(next_r_e)
+            next_branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - next_energy) * velocity_ratio
+            return total_p, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
         return total_p, r_e, wfn_value, velocity, energy, branching_energy
 
     def cbc_drift_diffusion(self, r_e, wfn_value, velocity, energy, branching_energy):
         """CBC drift-diffusion step."""
+        p = 0
         ne = self.wfn.neu + self.wfn.ned
         if self.nucleus_gf_mods:
             # random step according to
@@ -391,7 +395,7 @@ class DMCMarkovChain:
                     next_energy = self.wfn.energy(next_r_e)
                     next_branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - next_energy) * velocity_ratio
                     return p, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
-        return 0, r_e, wfn_value, velocity, energy, branching_energy
+        return p, r_e, wfn_value, velocity, energy, branching_energy
 
     def random_step(self):
         """Random step"""
