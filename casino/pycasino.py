@@ -185,10 +185,11 @@ class Casino:
         if self.config.input.vmc_method == 1:
             # EBES
             return 1 / np.log(np.max(self.config.wfn.atom_charges))
+        elif self.config.input.vmc_method == 2:
+            # determinant-by-determinant sampling
+            return 1 / (self.neu + self.ned)
         elif self.config.input.vmc_method == 3:
             # CBCS
-            return 1 / (self.neu + self.ned)
-        elif self.config.input.vmc_method == 4:
             return 1 / (self.neu + self.ned)
         else:
             # wrong method

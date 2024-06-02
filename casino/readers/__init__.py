@@ -77,6 +77,12 @@ class CasinoConfig:
             f.write(correlation_data)
 
     def log(self):
+        if self.input.runtype == 'vmc':
+            runtype = 'VMC input parameters'
+        elif self.input.runtype == 'vmc_opt':
+            runtype = 'VMC/optimization input parameters'
+        elif self.input.runtype == 'vmc_dmc':
+            runtype = 'VMC/DMC input parameters'
         logger.info(
             f' General input parameters\n'
             f' ========================\n'
@@ -107,19 +113,19 @@ class CasinoConfig:
             # f' CHECKPOINT_NCPU (chkpnt group size)      :  4\n'
             f' CON_LOC (Dir to read/write config.*)     :  ./\n'
             f' RELATIVISTIC                             :  F\n'
-            # f'\n VMC input parameters\n'
-            # f' ===================='
-            # f' NEWRUN (start new run)                   :  T\n'
-            # f' VMC_METHOD (choice of VMC algorithm)     :  3\n'
-            # f' DTVMC (VMC time step)                    :  1.0000E-02\n'
-            # f' OPT_DTVMC (VMC time-step optimization)   :  1\n'
-            # f' VMC_NSTEP (num VMC steps)                :  10000000\n'
-            # f' VMC_NCONFIG_WRITE (num configs to write) :  0\n'
-            # f' VMC_NBLOCK (num VMC blocks)              :  1\n'
-            # f' VMC_EQUIL_NSTEP (num equil steps)        :  5000\n'
-            # f' VMC_DECORR_PERIOD (length of inner loop) :  1\n'
-            # f' VMC_AVE_PERIOD (hist reduction factor)   :  1\n'
-            # f' VMC_SAMPLING                             :  standard\n'
-            # f' MAKEMOVIE                                :  F\n'
-            # f' FORCES                                   :  F\n'
+            f'\n {runtype}\n'
+            f' ====================\n'
+            f' NEWRUN (start new run)                   :  T\n'
+            f' VMC_METHOD (choice of VMC algorithm)     :  {self.input.vmc_method}\n'
+            f' DTVMC (VMC time step)                    :  1.0000E-02\n'
+            f' OPT_DTVMC (VMC time-step optimization)   :  1\n'
+            f' VMC_NSTEP (num VMC steps)                :  {self.input.vmc_nstep}\n'
+            f' VMC_NCONFIG_WRITE (num configs to write) :  {self.input.vmc_nconfig_write}\n'
+            f' VMC_NBLOCK (num VMC blocks)              :  {self.input.vmc_nblock}\n'
+            f' VMC_EQUIL_NSTEP (num equil steps)        :  {self.input.vmc_equil_nstep}\n'
+            f' VMC_DECORR_PERIOD (length of inner loop) :  {self.input.vmc_decorr_period}\n'
+            f' VMC_AVE_PERIOD (hist reduction factor)   :  1\n'
+            f' VMC_SAMPLING                             :  standard\n'
+            f' MAKEMOVIE                                :  F\n'
+            f' FORCES                                   :  F\n'
         )
