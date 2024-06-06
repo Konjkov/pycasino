@@ -283,9 +283,13 @@ class DMCMarkovChain:
             velocity = drift_velocity * (np.sqrt(1 + 2 * a_v_t) - 1) / a_v_t
         return velocity, drift_velocity
 
+    def t_move(self, r_e, wfn_value, velocity, energy, branching_energy):
+        """T-move."""
+        return r_e, wfn_value, velocity, energy, branching_energy
+
     def ebe_drift_diffusion(self, r_e, wfn_value, velocity, energy, branching_energy):
-        """EBE drift-diffusion step."""
-        total_p = 0
+        """EBES drift-diffusion step."""
+        p = 0
         ne = self.wfn.neu + self.wfn.ned
         drift_velocity = np.zeros(shape=(ne, 3))
         if self.nucleus_gf_mods:
@@ -294,6 +298,7 @@ class DMCMarkovChain:
             next_r_e = np.copy(r_e)
             next_wfn_value = wfn_value
             next_velocity = np.copy(velocity)
+            diffuse_step = np.zeros(shape=(ne, 3))
             for i in range(ne):
                 n_vectors = np.expand_dims(next_r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
                 r = np.sqrt(np.sum(n_vectors ** 2, axis=2))
@@ -309,15 +314,17 @@ class DMCMarkovChain:
                 zeta = np.sqrt(self.wfn.atom_charges[idx[i]] ** 2 + 1 / self.step_size)
                 interim_r_e = np.copy(next_r_e)
                 if q > np.random.random():
-                    interim_r_e[i] = laplace_multivariate_distribution(zeta) + self.wfn.atom_positions[idx[i]]
+                    diffuse_step[i] = laplace_multivariate_distribution(zeta)
+                    interim_r_e[i] = diffuse_step[i] + self.wfn.atom_positions[idx[i]]
                 else:
-                    interim_r_e[i] = np.random.normal(0, np.sqrt(self.step_size), 3) + drift_to
+                    diffuse_step[i] = np.random.normal(0, np.sqrt(self.step_size), 3)
+                    interim_r_e[i] = diffuse_step[i] + drift_to
                 # prevent crossing nodal surface
                 interim_wfn_value = self.wfn.value(interim_r_e)
                 if np.sign(wfn_value) == np.sign(interim_wfn_value):
                     gf_forth = (
-                            (1 - q) * np.exp(-np.sum((interim_r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (2 * np.pi * self.step_size) ** 1.5 +
-                            q * zeta ** 3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(interim_r_e[i] - self.wfn.atom_positions[idx[i]]))
+                        (1 - q) * np.exp(-np.sum((interim_r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (2 * np.pi * self.step_size) ** 1.5 +
+                        q * zeta ** 3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(interim_r_e[i] - self.wfn.atom_positions[idx[i]]))
                     )
                     interim_velocity, interim_drift_velocity = self.limiting_velocity(interim_r_e)
                     drift_velocity[i] = interim_drift_velocity[i]
@@ -337,15 +344,15 @@ class DMCMarkovChain:
                         (1 - q) * np.exp(-np.sum((next_r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (2 * np.pi * self.step_size) ** 1.5 +
                         q * zeta ** 3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(next_r_e[i] - self.wfn.atom_positions[idx[i]]))
                     )
-                    p = min(1, (gf_back * interim_wfn_value ** 2) / (gf_forth * next_wfn_value ** 2))
-                    if p >= np.random.random():
+                    p_i = min(1, (gf_back * interim_wfn_value ** 2) / (gf_forth * next_wfn_value ** 2))
+                    if p_i >= np.random.random():
                         next_r_e = interim_r_e
                         next_wfn_value = interim_wfn_value
                         next_velocity = interim_velocity
                     # Casino manual (62)
-                    total_p += p / ne
+                    p += p_i * np.sum(diffuse_step[i] ** 2)
                 else:
-                    return total_p, r_e, wfn_value, velocity, energy, branching_energy
+                    return 0, r_e, wfn_value, velocity, energy, branching_energy
         else:
             # simple random step
             next_r_e = np.copy(r_e)
@@ -362,22 +369,22 @@ class DMCMarkovChain:
                     interim_velocity, interim_drift_velocity = self.limiting_velocity(interim_r_e)
                     drift_velocity[i] = interim_drift_velocity[i]
                     gf_back = np.exp(-np.sum((next_r_e[i] - interim_r_e[i] - self.step_size * interim_velocity[i]) ** 2) / 2 / self.step_size)
-                    p = min(1, (gf_back * interim_wfn_value ** 2) / (gf_forth * next_wfn_value ** 2))
-                    if p >= np.random.random():
+                    p_i = min(1, (gf_back * interim_wfn_value ** 2) / (gf_forth * next_wfn_value ** 2))
+                    if p_i >= np.random.random():
                         next_r_e = interim_r_e
                         next_wfn_value = interim_wfn_value
                         next_velocity = interim_velocity
                     # Casino manual (62)
-                    total_p += p * np.sum(diffuse_step[i] ** 2) / np.sum(diffuse_step ** 2)
+                    p += p_i * np.sum(diffuse_step[i] ** 2)
                 else:
-                    return total_p, r_e, wfn_value, velocity, energy, branching_energy
+                    return 0, r_e, wfn_value, velocity, energy, branching_energy
         next_energy = self.wfn.energy(next_r_e)
         limiting_factor = np.linalg.norm(velocity) / np.linalg.norm(drift_velocity)
         next_branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - next_energy) * limiting_factor
-        return total_p, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
+        return p / np.sum(diffuse_step ** 2), next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
 
     def cbc_drift_diffusion(self, r_e, wfn_value, velocity, energy, branching_energy):
-        """CBC drift-diffusion step."""
+        """CBCS drift-diffusion step."""
         p = 0
         ne = self.wfn.neu + self.wfn.ned
         if self.nucleus_gf_mods:

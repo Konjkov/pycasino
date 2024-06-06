@@ -74,7 +74,7 @@ import datetime
 import numba as nb
 import scipy as sp
 
-now = datetime.datetime.now().strftime('%Y/%m/%d/ %H:%M:%S')
+now = datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')
 logger.info(f' Started {now}\n')
 
 logger.info(
