@@ -9,7 +9,7 @@ The Pycasino program implements some of the methods from the well-known [Casino]
 3. capable of doing 3-term Jastrow factor and 3-term Backflow
 4. configuration-by-configuration (CBCS) and electron-by-electron (EBES) sampling
 5. partial Ma CUSP correction (no rc optimization yet)
-6. use only MPI parallelization
+6. MPI parallelization
 7. support VMC and DMC energy calculation, varmin and emin optimization
 
 ## List of supported keywords in input file
@@ -48,7 +48,7 @@ Unreweighted variance minimization is recommended
 * **DMC EQUIL NBLOCK** Number of blocks into which the DMC equilibration phase is divided
 * **DMC STATS NBLOCK** Number of blocks into which the DMC statistics accumulation phase is divided
 * **DTDMC** DMC time step
-* **DMC_METHOD** (1) - EBES (work in progress), (2) - CBCS
+* **DMC_METHOD** (1) - EBES, (2) - CBCS
 * **LIMDMC** Set modifications to Green’s function in DMC. Only (4) Umrigar mods to drift velocity, Zen–Sorella–Alfè mods to energy
 * **ALIMIT** Parameter required by DMC drift-velocity- and energy-limiting schemes
 * **NUCLEUS_GF_MODS** This keyword is the switch for enabling the use of the modifications to the DMC Green’s function for the presence of bare nuclei

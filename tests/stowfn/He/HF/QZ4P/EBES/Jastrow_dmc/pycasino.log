@@ -1,0 +1,753 @@
+
+ ------------------------------------------------------------------------------
+ ########::'##:::'##::'######:::::'###:::::'######::'####:'##::: ##::'#######::
+ ##.... ##:. ##:'##::'##... ##:::'## ##:::'##... ##:. ##:: ###:: ##:'##.... ##:
+ ##:::: ##::. ####::: ##:::..:::'##:. ##:: ##:::..::: ##:: ####: ##: ##:::: ##:
+ ########::::. ##:::: ##:::::::'##:::. ##:. ######::: ##:: ## ## ##: ##:::: ##:
+ ##.....:::::: ##:::: ##::::::: #########::..... ##:: ##:: ##. ####: ##:::: ##:
+ ##::::::::::: ##:::: ##::: ##: ##.... ##:'##::: ##:: ##:: ##:. ###: ##:::: ##:
+ ##::::::::::: ##::::. ######:: ##:::: ##:. ######::'####: ##::. ##:. #######::
+ .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
+
+                     Python Quantum Monte Carlo Package
+                        v 0.2.0 [Vladimir Konkov]
+
+    Main Author : Vladimir Konkov
+ ------------------------------------------------------------------------------
+ Started 2024/06/10 08:23:26
+
+ Python 3.10.12 (main, Nov 20 2023, 15:14:05) [GCC 11.4.0]
+ Numba 0.59.0
+ Numpy 1.26.4
+ Scipy 1.11.3
+
+ Running in parallel using 4 MPI processes.
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  1
+ NED (num down spin electrons)            :  1
+ RUNTYPE (type of run)                    :  vmc_dmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  slater-type
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  T
+ BACKFLOW (use backflow corrections)      :  F
+ USE_ORBMODS (use orbitals modifications) :  F
+ E_OFFSET (energy offset)                 :  0.0000
+ CHECKPOINT (checkpointing level)         :  1
+ CON_LOC (Dir to read/write config.*)     :  ./
+ RELATIVISTIC                             :  F
+
+ VMC/DMC input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  1
+ DTVMC (VMC time step)                    :  1.0000E-02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  1024
+ VMC_NCONFIG_WRITE (num configs to write) :  1024
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  1
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ ======================================================
+ PERFORMING A VMC CONFIGURATION-GENERATION CALCULATION.
+ ======================================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Optimized step size: 0.74237
+ DTVMC: 0.18371
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+  Number of VMC steps           = 1024
+
+  Block average energies (au)
+
+  Total energy                       (au) =          -2.904227896926
+  Standard error                        +/-           0.000708379375
+
+  Constant energy contributions      (au) =           0.000000000000
+
+  Variance of local energy           (au) =           0.000186241993
+  Standard error                        +/-           0.000000000000
+
+ Time taken in block    : : :       144.4019
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -2.904227896926 +/- 0.000708379375      On-the-fly reblocking method
+
+ Sample variance of E_L (au^2/sim.cell) : 0.000186241993
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ ===========================================
+ PERFORMING A DMC EQUILIBRATION CALCULATION.
+ ===========================================
+
+ BEGIN DMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ EBEST = -2.9042278969263733 (au/prim cell inc. N-N)
+ EREF  = -2.9042278969263733
+
+
+ =========================================================================
+ In block : 1
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.953
+ Acceptance ratio (%)                     : 94.929
+ Number of config transfers               : 196
+ New best estimate of DMC energy (au)     : -2.90372662
+ New best estimate of effective time step : 0.07910428
+
+ Time taken in block    : : :       2559.0677
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =====================================================
+ PERFORMING A DMC STATISTICS-ACCUMULATION CALCULATION.
+ =====================================================
+
+ BEGIN DMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ EBEST = -2.904708034019777 (au/prim cell inc. N-N)
+ EREF  = -2.906763487663341
+
+ Number of previous DMC stats accumulation moves : 0
+
+ =========================================================================
+ In block : 1
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.463
+ Acceptance ratio (%)                     : 95.695
+ Number of config transfers               : 227
+ New best estimate of DMC energy (au)     : -2.90370998
+ New best estimate of effective time step : 0.07974274
+
+ Time taken in block    : : :       374.3775
+
+ =========================================================================
+ In block : 2
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 97.117
+ Acceptance ratio (%)                     : 95.062
+ Number of config transfers               : 195
+ New best estimate of DMC energy (au)     : -2.90372648
+ New best estimate of effective time step : 0.07921548
+
+ Time taken in block    : : :       325.4082
+
+ =========================================================================
+ In block : 3
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.368
+ Acceptance ratio (%)                     : 95.109
+ Number of config transfers               : 230
+ New best estimate of DMC energy (au)     : -2.90372707
+ New best estimate of effective time step : 0.07925397
+
+ Time taken in block    : : :       334.7082
+
+ =========================================================================
+ In block : 4
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.860
+ Acceptance ratio (%)                     : 94.997
+ Number of config transfers               : 236
+ New best estimate of DMC energy (au)     : -2.90372441
+ New best estimate of effective time step : 0.07916062
+
+ Time taken in block    : : :       344.4850
+
+ =========================================================================
+ In block : 5
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.800
+ Acceptance ratio (%)                     : 95.509
+ Number of config transfers               : 214
+ New best estimate of DMC energy (au)     : -2.90372347
+ New best estimate of effective time step : 0.07958805
+
+ Time taken in block    : : :       315.5040
+
+ =========================================================================
+ In block : 6
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.525
+ Acceptance ratio (%)                     : 95.151
+ Number of config transfers               : 224
+ New best estimate of DMC energy (au)     : -2.90372388
+ New best estimate of effective time step : 0.07928907
+
+ Time taken in block    : : :       280.2642
+
+ =========================================================================
+ In block : 7
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.148
+ Acceptance ratio (%)                     : 95.153
+ Number of config transfers               : 267
+ New best estimate of DMC energy (au)     : -2.90372567
+ New best estimate of effective time step : 0.07929084
+
+ Time taken in block    : : :       288.5982
+
+ =========================================================================
+ In block : 8
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.410
+ Acceptance ratio (%)                     : 95.443
+ Number of config transfers               : 248
+ New best estimate of DMC energy (au)     : -2.90372305
+ New best estimate of effective time step : 0.07953231
+
+ Time taken in block    : : :       284.5508
+
+ =========================================================================
+ In block : 9
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.482
+ Acceptance ratio (%)                     : 95.214
+ Number of config transfers               : 232
+ New best estimate of DMC energy (au)     : -2.90372290
+ New best estimate of effective time step : 0.07934205
+
+ Time taken in block    : : :       281.3126
+
+ =========================================================================
+ In block : 10
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 97.046
+ Acceptance ratio (%)                     : 95.335
+ Number of config transfers               : 201
+ New best estimate of DMC energy (au)     : -2.90372441
+ New best estimate of effective time step : 0.07944290
+
+ Time taken in block    : : :       274.4528
+
+ =========================================================================
+ In block : 11
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.483
+ Acceptance ratio (%)                     : 95.057
+ Number of config transfers               : 230
+ New best estimate of DMC energy (au)     : -2.90372490
+ New best estimate of effective time step : 0.07921084
+
+ Time taken in block    : : :       273.9962
+
+ =========================================================================
+ In block : 12
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.734
+ Acceptance ratio (%)                     : 95.241
+ Number of config transfers               : 232
+ New best estimate of DMC energy (au)     : -2.90372504
+ New best estimate of effective time step : 0.07936421
+
+ Time taken in block    : : :       274.5778
+
+ =========================================================================
+ In block : 13
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.769
+ Acceptance ratio (%)                     : 95.358
+ Number of config transfers               : 205
+ New best estimate of DMC energy (au)     : -2.90372465
+ New best estimate of effective time step : 0.07946199
+
+ Time taken in block    : : :       331.8075
+
+ =========================================================================
+ In block : 14
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.496
+ Acceptance ratio (%)                     : 94.995
+ Number of config transfers               : 229
+ New best estimate of DMC energy (au)     : -2.90372467
+ New best estimate of effective time step : 0.07915924
+
+ Time taken in block    : : :       335.9654
+
+ =========================================================================
+ In block : 15
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.390
+ Acceptance ratio (%)                     : 95.020
+ Number of config transfers               : 239
+ New best estimate of DMC energy (au)     : -2.90372483
+ New best estimate of effective time step : 0.07918047
+
+ Time taken in block    : : :       319.1029
+
+ =========================================================================
+ In block : 16
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.826
+ Acceptance ratio (%)                     : 95.305
+ Number of config transfers               : 227
+ New best estimate of DMC energy (au)     : -2.90372498
+ New best estimate of effective time step : 0.07941793
+
+ Time taken in block    : : :       327.4988
+
+ =========================================================================
+ In block : 17
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.445
+ Acceptance ratio (%)                     : 95.449
+ Number of config transfers               : 236
+ New best estimate of DMC energy (au)     : -2.90372476
+ New best estimate of effective time step : 0.07953755
+
+ Time taken in block    : : :       344.3062
+
+ =========================================================================
+ In block : 18
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.732
+ Acceptance ratio (%)                     : 95.355
+ Number of config transfers               : 212
+ New best estimate of DMC energy (au)     : -2.90372431
+ New best estimate of effective time step : 0.07945914
+
+ Time taken in block    : : :       350.2522
+
+ =========================================================================
+ In block : 19
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.332
+ Acceptance ratio (%)                     : 95.635
+ Number of config transfers               : 230
+ New best estimate of DMC energy (au)     : -2.90372464
+ New best estimate of effective time step : 0.07969249
+
+ Time taken in block    : : :       323.2651
+
+ =========================================================================
+ In block : 20
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.112
+ Acceptance ratio (%)                     : 95.128
+ Number of config transfers               : 233
+ New best estimate of DMC energy (au)     : -2.90372435
+ New best estimate of effective time step : 0.07927007
+
+ Time taken in block    : : :       321.9643
+
+ =========================================================================
+ In block : 21
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 97.369
+ Acceptance ratio (%)                     : 95.765
+ Number of config transfers               : 192
+ New best estimate of DMC energy (au)     : -2.90372464
+ New best estimate of effective time step : 0.07980074
+
+ Time taken in block    : : :       307.1988
+
+ =========================================================================
+ In block : 22
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.150
+ Acceptance ratio (%)                     : 95.478
+ Number of config transfers               : 258
+ New best estimate of DMC energy (au)     : -2.90372430
+ New best estimate of effective time step : 0.07956174
+
+ Time taken in block    : : :       310.7888
+
+ =========================================================================
+ In block : 23
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.155
+ Acceptance ratio (%)                     : 95.312
+ Number of config transfers               : 250
+ New best estimate of DMC energy (au)     : -2.90372405
+ New best estimate of effective time step : 0.07942347
+
+ Time taken in block    : : :       342.0296
+
+ =========================================================================
+ In block : 24
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.640
+ Acceptance ratio (%)                     : 95.025
+ Number of config transfers               : 218
+ New best estimate of DMC energy (au)     : -2.90372418
+ New best estimate of effective time step : 0.07918413
+
+ Time taken in block    : : :       322.0145
+
+ =========================================================================
+ In block : 25
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.539
+ Acceptance ratio (%)                     : 95.504
+ Number of config transfers               : 222
+ New best estimate of DMC energy (au)     : -2.90372432
+ New best estimate of effective time step : 0.07958380
+
+ Time taken in block    : : :       302.3303
+
+ =========================================================================
+ In block : 26
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.182
+ Acceptance ratio (%)                     : 95.569
+ Number of config transfers               : 255
+ New best estimate of DMC energy (au)     : -2.90372423
+ New best estimate of effective time step : 0.07963789
+
+ Time taken in block    : : :       322.0175
+
+ =========================================================================
+ In block : 27
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.868
+ Acceptance ratio (%)                     : 95.058
+ Number of config transfers               : 191
+ New best estimate of DMC energy (au)     : -2.90372415
+ New best estimate of effective time step : 0.07921169
+
+ Time taken in block    : : :       326.1744
+
+ =========================================================================
+ In block : 28
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 97.383
+ Acceptance ratio (%)                     : 95.376
+ Number of config transfers               : 161
+ New best estimate of DMC energy (au)     : -2.90372391
+ New best estimate of effective time step : 0.07947675
+
+ Time taken in block    : : :       359.0774
+
+ =========================================================================
+ In block : 29
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.507
+ Acceptance ratio (%)                     : 95.376
+ Number of config transfers               : 242
+ New best estimate of DMC energy (au)     : -2.90372438
+ New best estimate of effective time step : 0.07947701
+
+ Time taken in block    : : :       312.5997
+
+ =========================================================================
+ In block : 30
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.303
+ Acceptance ratio (%)                     : 95.332
+ Number of config transfers               : 237
+ New best estimate of DMC energy (au)     : -2.90372403
+ New best estimate of effective time step : 0.07944036
+
+ Time taken in block    : : :       317.0821
+
+ =========================================================================
+ In block : 31
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.214
+ Acceptance ratio (%)                     : 95.632
+ Number of config transfers               : 245
+ New best estimate of DMC energy (au)     : -2.90372347
+ New best estimate of effective time step : 0.07968992
+
+ Time taken in block    : : :       290.2956
+
+ =========================================================================
+ In block : 32
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 95.799
+ Acceptance ratio (%)                     : 95.442
+ Number of config transfers               : 242
+ New best estimate of DMC energy (au)     : -2.90372333
+ New best estimate of effective time step : 0.07953193
+
+ Time taken in block    : : :       309.2225
+
+ =========================================================================
+ In block : 33
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.883
+ Acceptance ratio (%)                     : 95.397
+ Number of config transfers               : 209
+ New best estimate of DMC energy (au)     : -2.90372295
+ New best estimate of effective time step : 0.07949425
+
+ Time taken in block    : : :       357.0935
+
+ =========================================================================
+ In block : 34
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.215
+ Acceptance ratio (%)                     : 95.074
+ Number of config transfers               : 284
+ New best estimate of DMC energy (au)     : -2.90372273
+ New best estimate of effective time step : 0.07922499
+
+ Time taken in block    : : :       292.1911
+
+ =========================================================================
+ In block : 35
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.014
+ Acceptance ratio (%)                     : 95.414
+ Number of config transfers               : 252
+ New best estimate of DMC energy (au)     : -2.90372243
+ New best estimate of effective time step : 0.07950810
+
+ Time taken in block    : : :       292.9134
+
+ =========================================================================
+ In block : 36
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.973
+ Acceptance ratio (%)                     : 95.755
+ Number of config transfers               : 221
+ New best estimate of DMC energy (au)     : -2.90372250
+ New best estimate of effective time step : 0.07979267
+
+ Time taken in block    : : :       341.2125
+
+ =========================================================================
+ In block : 37
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.232
+ Acceptance ratio (%)                     : 95.048
+ Number of config transfers               : 235
+ New best estimate of DMC energy (au)     : -2.90372237
+ New best estimate of effective time step : 0.07920345
+
+ Time taken in block    : : :       284.3337
+
+ =========================================================================
+ In block : 38
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.585
+ Acceptance ratio (%)                     : 95.055
+ Number of config transfers               : 209
+ New best estimate of DMC energy (au)     : -2.90372244
+ New best estimate of effective time step : 0.07920924
+
+ Time taken in block    : : :       332.9463
+
+ =========================================================================
+ In block : 39
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.109
+ Acceptance ratio (%)                     : 95.529
+ Number of config transfers               : 246
+ New best estimate of DMC energy (au)     : -2.90372247
+ New best estimate of effective time step : 0.07960393
+
+ Time taken in block    : : :       347.5548
+
+ =========================================================================
+ In block : 40
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.987
+ Acceptance ratio (%)                     : 94.731
+ Number of config transfers               : 202
+ New best estimate of DMC energy (au)     : -2.90372262
+ New best estimate of effective time step : 0.07893945
+
+ Time taken in block    : : :       314.3262
+
+ =========================================================================
+ In block : 41
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.602
+ Acceptance ratio (%)                     : 95.017
+ Number of config transfers               : 226
+ New best estimate of DMC energy (au)     : -2.90372260
+ New best estimate of effective time step : 0.07917791
+
+ Time taken in block    : : :       307.3214
+
+ =========================================================================
+ In block : 42
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.558
+ Acceptance ratio (%)                     : 95.600
+ Number of config transfers               : 256
+ New best estimate of DMC energy (au)     : -2.90372278
+ New best estimate of effective time step : 0.07966316
+
+ Time taken in block    : : :       347.0921
+
+ =========================================================================
+ In block : 43
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.506
+ Acceptance ratio (%)                     : 95.431
+ Number of config transfers               : 217
+ New best estimate of DMC energy (au)     : -2.90372322
+ New best estimate of effective time step : 0.07952305
+
+ Time taken in block    : : :       380.4650
+
+ =========================================================================
+ In block : 44
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.375
+ Acceptance ratio (%)                     : 94.911
+ Number of config transfers               : 247
+ New best estimate of DMC energy (au)     : -2.90372311
+ New best estimate of effective time step : 0.07908907
+
+ Time taken in block    : : :       358.6175
+
+ =========================================================================
+ In block : 45
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.765
+ Acceptance ratio (%)                     : 95.371
+ Number of config transfers               : 184
+ New best estimate of DMC energy (au)     : -2.90372292
+ New best estimate of effective time step : 0.07947238
+
+ Time taken in block    : : :       293.9575
+
+ =========================================================================
+ In block : 46
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.153
+ Acceptance ratio (%)                     : 95.398
+ Number of config transfers               : 264
+ New best estimate of DMC energy (au)     : -2.90372303
+ New best estimate of effective time step : 0.07949500
+
+ Time taken in block    : : :       278.1678
+
+ =========================================================================
+ In block : 47
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.601
+ Acceptance ratio (%)                     : 95.324
+ Number of config transfers               : 255
+ New best estimate of DMC energy (au)     : -2.90372330
+ New best estimate of effective time step : 0.07943375
+
+ Time taken in block    : : :       286.0481
+
+ =========================================================================
+ In block : 48
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.902
+ Acceptance ratio (%)                     : 95.745
+ Number of config transfers               : 219
+ New best estimate of DMC energy (au)     : -2.90372312
+ New best estimate of effective time step : 0.07978390
+
+ Time taken in block    : : :       278.2695
+
+ =========================================================================
+ In block : 49
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 97.085
+ Acceptance ratio (%)                     : 95.336
+ Number of config transfers               : 208
+ New best estimate of DMC energy (au)     : -2.90372299
+ New best estimate of effective time step : 0.07944309
+
+ Time taken in block    : : :       303.5729
+
+ =========================================================================
+ In block : 50
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 96.717
+ Acceptance ratio (%)                     : 95.336
+ Number of config transfers               : 221
+ New best estimate of DMC energy (au)     : -2.90372315
+ New best estimate of effective time step : 0.07944324
+
+ Time taken in block    : : :       351.7882
+
+Mixed estimators of the energies at the end of the run
+------------------------------------------------------
+
+Total energy                 =       -2.903723147689 +/- 0.000001119872
+
+ =========================================================================
+
+ Total PyCasino real time : : :    18860.0488

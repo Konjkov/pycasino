@@ -185,10 +185,11 @@ class Casino:
         if self.config.input.vmc_method == 1:
             # EBES
             return 1 / np.log(np.max(self.config.wfn.atom_charges))
+        elif self.config.input.vmc_method == 2:
+            # determinant-by-determinant sampling
+            return 1 / (self.neu + self.ned)
         elif self.config.input.vmc_method == 3:
             # CBCS
-            return 1 / (self.neu + self.ned)
-        elif self.config.input.vmc_method == 4:
             return 1 / (self.neu + self.ned)
         else:
             # wrong method
@@ -231,7 +232,7 @@ class Casino:
             return (np.exp(a/ts0) - 1) / (np.exp(a/ts0) + np.exp(ts/ts0) - 2)
 
         logger.info(
-            f'Performing time-step optimization.'
+            f' Performing time-step optimization.'
         )
         if self.root:
             warnings.simplefilter("error", OptimizeWarning)
@@ -348,7 +349,7 @@ class Casino:
         """
         condition, _ = self.vmc_markovchain.random_walk(steps, self.decorr_period)
         logger.info(
-            f'Running VMC equilibration ({steps} moves).'
+            f' Running VMC equilibration ({steps} moves).'
         )
 
     def vmc_energy_accumulation(self):
@@ -364,8 +365,8 @@ class Casino:
         else:
             self.optimize_vmc_step(1000)
         logger.info(
-            f'Optimized step size: {self.vmc_markovchain.step_size:.5f}\n'
-            f'DTVMC: {(self.vmc_markovchain.step_size**2)/3:.5f}\n'
+            f' Optimized step size: {self.vmc_markovchain.step_size:.5f}\n'
+            f' DTVMC: {(self.vmc_markovchain.step_size**2)/3:.5f}\n'
         )
 
         ne = self.neu + self.ned
@@ -374,7 +375,7 @@ class Casino:
         nblock_steps = steps // nblock // self.mpi_comm.size
 
         logger.info(
-            f'Starting VMC.\n'
+            f' Starting VMC.\n'
         )
         # condition = np.empty(shape=(nblock, nblock_steps), dtype=np.int_)
         # position = np.empty(shape=(nblock, nblock_steps, ne, 3))
@@ -445,6 +446,7 @@ class Casino:
                 f' In block : {i + 1}\n\n'
                 f' Number of moves in block                 : {steps // nblock}\n'
                 f' Load-balancing efficiency (%)            : {100 * np.mean(self.dmc_markovchain.efficiency_list):.3f}\n'
+                f' Acceptance ratio (%)                     : {100 * self.dmc_markovchain.step_eff / self.dmc_markovchain.step_size:.3f}\n'
                 f' Number of config transfers               : {self.dmc_markovchain.ntransfers_tot}\n'
                 f' New best estimate of DMC energy (au)     : {energy.mean():.8f}\n'
                 f' New best estimate of effective time step : {self.dmc_markovchain.step_eff:.8f}\n\n'
@@ -481,6 +483,7 @@ class Casino:
                 f' In block : {i + 1}\n\n'
                 f' Number of moves in block                 : {block_steps}\n'
                 f' Load-balancing efficiency (%)            : {100 * np.mean(self.dmc_markovchain.efficiency_list):.3f}\n'
+                f' Acceptance ratio (%)                     : {100 * self.dmc_markovchain.step_eff / self.dmc_markovchain.step_size:.3f}\n'
                 f' Number of config transfers               : {self.dmc_markovchain.ntransfers_tot}\n'
                 f' New best estimate of DMC energy (au)     : {energy_mean:.8f}\n'
                 f' New best estimate of effective time step : {self.dmc_markovchain.step_eff:.8f}\n\n'

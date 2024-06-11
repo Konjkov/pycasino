@@ -1,3 +1,48 @@
+
+ ------------------------------------------------------------------------------
+ ########::'##:::'##::'######:::::'###:::::'######::'####:'##::: ##::'#######::
+ ##.... ##:. ##:'##::'##... ##:::'## ##:::'##... ##:. ##:: ###:: ##:'##.... ##:
+ ##:::: ##::. ####::: ##:::..:::'##:. ##:: ##:::..::: ##:: ####: ##: ##:::: ##:
+ ########::::. ##:::: ##:::::::'##:::. ##:. ######::: ##:: ## ## ##: ##:::: ##:
+ ##.....:::::: ##:::: ##::::::: #########::..... ##:: ##:: ##. ####: ##:::: ##:
+ ##::::::::::: ##:::: ##::: ##: ##.... ##:'##::: ##:: ##:: ##:. ###: ##:::: ##:
+ ##::::::::::: ##::::. ######:: ##:::: ##:. ######::'####: ##::. ##:. #######::
+ .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
+
+                     Python Quantum Monte Carlo Package
+                        v 0.2.0 [Vladimir Konkov]
+
+    Main Author : Vladimir Konkov
+ ------------------------------------------------------------------------------
+ Started 2024/05/28/ 11:23:36
+
+ Python 3.10.12 (main, Nov 20 2023, 15:14:05) [GCC 11.4.0]
+ Numba 0.59.0
+ Numpy 1.26.4
+ Scipy 1.11.3
+
+ Running in parallel using 4 MPI processes.
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  12
+ NED (num down spin electrons)            :  12
+ RUNTYPE (type of run)                    :  vmc_dmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  slater-type
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  T
+ BACKFLOW (use backflow corrections)      :  F
+ USE_ORBMODS (use orbitals modifications) :  F
+ E_OFFSET (energy offset)                 :  0.0000
+ CHECKPOINT (checkpointing level)         :  1
+ CON_LOC (Dir to read/write config.*)     :  ./
+ RELATIVISTIC                             :  F
+
  ======================================================
  PERFORMING A VMC CONFIGURATION-GENERATION CALCULATION.
  ======================================================
@@ -8,7 +53,8 @@
 
 Running VMC equilibration (5000 moves).
 Performing time-step optimization.
-Optimized step size: 0.05670
+Optimized step size: 0.05405
+DTVMC: 0.00097
 
 Starting VMC.
 
@@ -18,23 +64,24 @@ Starting VMC.
 
   Block average energies (au)
 
-  Total energy                       (au) =        -225.482882795821
-  Standard error                        +/-           0.206632788757
+  Total energy                       (au) =        -225.498366634488
+  Standard error                        +/-           0.133375132898
 
   Constant energy contributions      (au) =          69.027000022559
 
-  Variance of local energy           (au) =           4.055318319190
+  Variance of local energy           (au) =           1.526394020939
   Standard error                        +/-           0.000000000000
 
- Time taken in block    : : :       146.5257
+ Time taken in block    : : :       125.6383
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
- -225.482882795821 +/- 0.206632788757      On-the-fly reblocking method
 
- Sample variance of E_L (au^2/sim.cell) : 4.055318319190
+ -225.498366634488 +/- 0.133375132898      On-the-fly reblocking method
+
+ Sample variance of E_L (au^2/sim.cell) : 1.526394020939
 
 
  *     *     *     *     *     *     *     *     *     *     *     *
@@ -48,20 +95,21 @@ Starting VMC.
 
  Random number generator reset to state in config.in.
 
- EBEST = -225.48288279582073 (au/prim cell inc. N-N)
- EREF  = -225.48288279582073
+ EBEST = -225.49836663448775 (au/prim cell inc. N-N)
+ EREF  = -225.49836663448775
 
 
  =========================================================================
  In block : 1
 
  Number of moves in block                 : 10000
- Load-balancing efficiency (%)            : 90.077
- Number of config transfers               : 685
- New best estimate of DMC energy (au)     : -225.33299868
- New best estimate of effective time step : 0.00398599
+ Load-balancing efficiency (%)            : 92.119
+ Acceptance ratio (%)                     : 77.027
+ Number of config transfers               : 569
+ New best estimate of DMC energy (au)     : -225.33635738
+ New best estimate of effective time step : 0.00401154
 
- Time taken in block    : : :       8425.7364
+ Time taken in block    : : :       6180.7150
 
  *     *     *     *     *     *     *     *     *     *     *     *
 
@@ -74,8 +122,8 @@ Starting VMC.
 
  Random number generator reset to state in config.in.
 
- EBEST = -225.3849743531142 (au/prim cell inc. N-N)
- EREF  = -225.40899529367164
+ EBEST = -225.4225548499505 (au/prim cell inc. N-N)
+ EREF  = -225.43139943983334
 
  Number of previous DMC stats accumulation moves : 0
 
@@ -83,18 +131,19 @@ Starting VMC.
  In block : 1
 
  Number of moves in block                 : 10000
- Load-balancing efficiency (%)            : 91.354
- Number of config transfers               : 710
- New best estimate of DMC energy (au)     : -225.33566999
- New best estimate of effective time step : 0.00400621
+ Load-balancing efficiency (%)            : 89.647
+ Acceptance ratio (%)                     : 76.683
+ Number of config transfers               : 734
+ New best estimate of DMC energy (au)     : -225.33447496
+ New best estimate of effective time step : 0.00399366
 
- Time taken in block    : : :       7259.2862
+ Time taken in block    : : :       4327.8098
 
 Mixed estimators of the energies at the end of the run
 ------------------------------------------------------
 
-Total energy                 =       -225.335669993268 +/- 0.002194304013
+Total energy                 =       -225.334474958232 +/- 0.002107456971
 
  =========================================================================
 
- Total PyCasino real time : : :    16138.0211
+ Total PyCasino real time : : :    10880.2408
