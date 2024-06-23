@@ -122,12 +122,44 @@ class Wfn:
             else:
                 return s_g
 
+    def t_move_probability(self, r_e, step_size):
+        """T-move probability
+        :param r_e: electron positions - array(nelec, 3)
+        :param step_size: DMC step size
+        The probability of a move to R′(i, grid_j) is res[j, i] and the probability of staying at the current point is res[0, i]
+        :return: probability
+        """
+        res = np.ones(shape=(1, self.neu + self.ned))
+        if self.ppotential is not None:
+            value = self.value(r_e)
+            e_vectors, n_vectors = self._relative_coordinates(r_e)
+            grid = self.ppotential.integration_grid(n_vectors)
+            res = np.zeros(shape=(grid.shape[2] + 1, self.neu + self.ned))
+            res[0] = 1
+            potential = self.ppotential.get_ppotential(n_vectors)
+            for atom in range(n_vectors.shape[0]):
+                if self.ppotential.is_pseudoatom[atom]:
+                    for e1 in range(self.neu + self.ned):
+                        if potential[atom][e1, 0] or potential[atom][e1, 1]:
+                            for q in range(grid.shape[2]):
+                                cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
+                                r_e_q = r_e.copy()
+                                r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
+                                value_q = self.value(r_e_q)
+                                weight = self.ppotential.weight[atom][q]
+                                for l in range(2):
+                                    res[q + 1, e1] += (np.exp(- step_size * potential[atom][e1, l]) - 1) * self.ppotential.legendre(l, cos_theta) * weight * value_q / value
+        # negative probability is not possible
+        res = res.clip(0)
+        return res / np.sum(res, axis=0)
+
     def nonlocal_energy(self, r_e) -> float:
-        """Nonlocal (pseudopotential) energy.
+        """Nonlocal (pseudopotential) energy Wφ/φ.
         :param r_e: electron positions - array(nelec, 3)
         """
         res = 0.0
         if self.ppotential is not None:
+            value = self.value(r_e)
             e_vectors, n_vectors = self._relative_coordinates(r_e)
             grid = self.ppotential.integration_grid(n_vectors)
             potential = self.ppotential.get_ppotential(n_vectors)
@@ -142,8 +174,7 @@ class Wfn:
                                 value_q = self.value(r_e_q)
                                 weight = self.ppotential.weight[atom][q]
                                 for l in range(2):
-                                    res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q
-            res /= self.value(r_e)
+                                    res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q / value
         return res
 
     def energy(self, r_e) -> float:
@@ -239,7 +270,7 @@ class Wfn:
             self.slater.set_parameters(parameters, all_parameters=all_parameters)
 
     def set_parameters_projector(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
-        """Update optimized parameters
+        """Update parameters projector
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         :param opt_det_coeff: optimize coefficients of the determinants
