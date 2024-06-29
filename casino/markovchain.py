@@ -188,6 +188,7 @@ dmc_spec = [
     ('step_eff', nb.float64),
     ('target_weight', nb.float64),
     ('nucleus_gf_mods', nb.boolean),
+    ('use_tmove', nb.boolean),
     ('age_list', nb.types.ListType(age_type)),
     ('r_e_list', nb.types.ListType(r_e_type)),
     ('wfn_value_list', nb.types.ListType(wfn_value_type)),
@@ -205,10 +206,12 @@ dmc_spec = [
 @nb.experimental.jitclass(dmc_spec)
 class DMCMarkovChain:
 
-    def __init__(self, r_e_list, alimit, nucleus_gf_mods, step_size, target_weight, wfn, method):
+    def __init__(self, r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
         """Markov chain Monte Carlo.
         :param r_e_list: initial positions of walkers
         :param alimit: parameter required by DMC drift-velocity- and energy-limiting schemes
+        :param nucleus_gf_mods:
+        :param use_tmove: use T-move
         :param step_size: time step size
         :param target_weight: target weight of walkers
         :param wfn: instance of Wfn class
@@ -220,7 +223,8 @@ class DMCMarkovChain:
         self.alimit = alimit
         self.step_size = step_size
         self.target_weight = target_weight
-        self.nucleus_gf_mods = False
+        self.nucleus_gf_mods = nucleus_gf_mods and not self.wfn.ppotential.is_pseudoatom.any()
+        self.use_tmove = use_tmove
         self.age_list = nb.typed.List.empty_list(age_type)
         self.r_e_list = nb.typed.List.empty_list(r_e_type)
         self.wfn_value_list = nb.typed.List.empty_list(wfn_value_type)
@@ -233,7 +237,7 @@ class DMCMarkovChain:
             self.wfn_value_list.append(self.wfn.value(r_e))
             self.velocity_list.append(self.limiting_velocity(r_e)[0])
             self.energy_list.append(self.wfn.energy(r_e))
-            self.branching_energy_list.append(self.wfn.energy(r_e))
+            self.branching_energy_list.append(self.wfn.kinetic_energy(r_e) + self.wfn.local_potential(r_e))
         energy_list_len = np.empty(1, dtype=np.int_)
         energy_list_sum = np.empty(1, dtype=np.float_)
         nb_mpi.allreduce(len(self.energy_list), energy_list_len)
@@ -289,7 +293,21 @@ class DMCMarkovChain:
 
     def t_move(self, r_e, wfn_value, velocity, energy, branching_energy):
         """T-move."""
-        # p = self.wfn.t_move_probability(r_e, self.step_size)
+        moved = False
+        p, t_grid = self.wfn.t_move_probability(r_e, self.step_size)
+        for atom in range(p.shape[0]):
+            if self.wfn.ppotential.is_pseudoatom[atom]:
+                for e1 in range(self.wfn.neu + self.wfn.ned):
+                    i = np.searchsorted(np.cumsum(p[atom, e1]), np.random.random())
+                    if i > 0:
+                        moved = True
+                        r_e[e1] = t_grid[atom, e1, i] + self.wfn.atom_positions[atom]
+        if moved:
+            wfn_value = self.wfn.value(r_e)
+            velocity, drift_velocity = self.limiting_velocity(r_e)
+            energy = self.wfn.energy(r_e)
+            limiting_factor = np.linalg.norm(velocity) / np.linalg.norm(drift_velocity)
+            branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - energy) * limiting_factor
         return r_e, wfn_value, velocity, energy, branching_energy
 
     def ebe_drift_diffusion(self, age, r_e, wfn_value, velocity, energy, branching_energy):
@@ -387,9 +405,10 @@ class DMCMarkovChain:
                     p += p_i * np.sum(diffuse_step[i] ** 2)
                 else:
                     return 0, False, r_e, wfn_value, velocity, energy, branching_energy
-        next_energy = self.wfn.energy(next_r_e)
+        next_local_potential_energy = self.wfn.kinetic_energy(next_r_e) + self.wfn.local_potential(next_r_e)
+        next_energy = next_local_potential_energy + self.wfn.nonlocal_potential(next_r_e)
         limiting_factor = np.linalg.norm(next_velocity) / np.linalg.norm(drift_velocity)
-        next_branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - next_energy) * limiting_factor
+        next_branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - next_local_potential_energy) * limiting_factor
         return p / np.sum(diffuse_step ** 2), moved, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
 
     def cbc_drift_diffusion(self, age, r_e, wfn_value, velocity, energy, branching_energy):
@@ -447,9 +466,10 @@ class DMCMarkovChain:
                     )
                 p = min(1, age_p * (gf_back * next_wfn_value ** 2) / (gf_forth * wfn_value ** 2))
                 if p >= np.random.random():
-                    next_energy = self.wfn.energy(next_r_e)
+                    next_local_potential_energy = self.wfn.kinetic_energy(next_r_e) + self.wfn.local_potential(next_r_e)
+                    next_energy = next_local_potential_energy + self.wfn.nonlocal_potential(next_r_e)
                     limiting_factor = np.linalg.norm(next_velocity) / np.linalg.norm(drift_velocity)
-                    next_branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - next_energy) * limiting_factor
+                    next_branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - next_local_potential_energy) * limiting_factor
                     return p, True, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
         else:
             # simple random step
@@ -462,9 +482,10 @@ class DMCMarkovChain:
                 gf_back = np.exp(-np.sum((r_e - next_r_e - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
                 p = min(1, age_p * (gf_back * next_wfn_value ** 2) / (gf_forth * wfn_value ** 2))
                 if p >= np.random.random():
-                    next_energy = self.wfn.energy(next_r_e)
+                    next_local_potential_energy = self.wfn.kinetic_energy(next_r_e) + self.wfn.local_potential(next_r_e)
+                    next_energy = next_local_potential_energy + self.wfn.nonlocal_potential(next_r_e)
                     limiting_factor = np.linalg.norm(next_velocity) / np.linalg.norm(drift_velocity)
-                    next_branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - next_energy) * limiting_factor
+                    next_branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - next_local_potential_energy) * limiting_factor
                     return p, True, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
         return p, False, r_e, wfn_value, velocity, energy, branching_energy
 
@@ -479,7 +500,8 @@ class DMCMarkovChain:
         next_branching_energy_list = nb.typed.List.empty_list(energy_type)
         for age, r_e, wfn_value, velocity, energy, branching_energy in zip(self.age_list, self.r_e_list, self.wfn_value_list, self.velocity_list, self.energy_list, self.branching_energy_list):
             p, moved, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy = self.drift_diffusion(age, r_e, wfn_value, velocity, energy, branching_energy)
-            next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy = self.t_move(next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy)
+            # if self.wfn.ppotential.is_pseudoatom.any() and self.use_tmove:
+            #     next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy = self.t_move(next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy)
             # branching UNR (23)
             weight = np.exp(self.step_eff * (next_branching_energy + branching_energy) / 2)
             for _ in range(int(weight + np.random.random())):

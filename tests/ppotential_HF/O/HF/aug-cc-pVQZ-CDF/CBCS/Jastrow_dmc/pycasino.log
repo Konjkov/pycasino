@@ -1,0 +1,224 @@
+
+ ------------------------------------------------------------------------------
+ ########::'##:::'##::'######:::::'###:::::'######::'####:'##::: ##::'#######::
+ ##.... ##:. ##:'##::'##... ##:::'## ##:::'##... ##:. ##:: ###:: ##:'##.... ##:
+ ##:::: ##::. ####::: ##:::..:::'##:. ##:: ##:::..::: ##:: ####: ##: ##:::: ##:
+ ########::::. ##:::: ##:::::::'##:::. ##:. ######::: ##:: ## ## ##: ##:::: ##:
+ ##.....:::::: ##:::: ##::::::: #########::..... ##:: ##:: ##. ####: ##:::: ##:
+ ##::::::::::: ##:::: ##::: ##: ##.... ##:'##::: ##:: ##:: ##:. ###: ##:::: ##:
+ ##::::::::::: ##::::. ######:: ##:::: ##:. ######::'####: ##::. ##:. #######::
+ .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
+
+                     Python Quantum Monte Carlo Package
+                        v 0.2.0 [Vladimir Konkov]
+
+    Main Author : Vladimir Konkov
+ ------------------------------------------------------------------------------
+ Started 2024/06/26 19:20:40
+
+ Python 3.10.12 (main, Nov 20 2023, 15:14:05) [GCC 11.4.0]
+ Numba 0.59.0
+ Numpy 1.26.4
+ Scipy 1.11.3
+
+ Running in parallel using 4 MPI processes.
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  4
+ NED (num down spin electrons)            :  2
+ RUNTYPE (type of run)                    :  vmc_dmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  T
+ BACKFLOW (use backflow corrections)      :  F
+ USE_ORBMODS (use orbitals modifications) :  F
+ E_OFFSET (energy offset)                 :  0.0000
+ CHECKPOINT (checkpointing level)         :  1
+ CON_LOC (Dir to read/write config.*)     :  ./
+ RELATIVISTIC                             :  F
+
+ VMC/DMC input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  1.0000E-02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  1024
+ VMC_NCONFIG_WRITE (num configs to write) :  1024
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  1
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ Gaussian cusp correction
+ ========================
+ Activated.
+
+ Non-local integration grids
+ ===========================
+ Ion type            :  1
+ Non-local grid no.  :  4
+ Lexact              :  5
+ Number of points    :  12
+
+ ======================================================
+ PERFORMING A VMC CONFIGURATION-GENERATION CALCULATION.
+ ======================================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Optimized step size: 0.27373
+ DTVMC: 0.02498
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+  Number of VMC steps           = 1024
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -15.851609791637
+  Standard error                        +/-           0.017762564651
+
+  Constant energy contributions      (au) =           0.000000000000
+
+  Variance of local energy           (au) =           0.070854119713
+  Standard error                        +/-           0.000000000000
+
+ Time taken in block    : : :       148.0636
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -15.851609791637 +/- 0.017762564651      On-the-fly reblocking method
+
+ Sample variance of E_L (au^2/sim.cell) : 0.070854119713
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ ===========================================
+ PERFORMING A DMC EQUILIBRATION CALCULATION.
+ ===========================================
+
+ BEGIN DMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ EBEST = -15.851532775742962 (au/prim cell inc. N-N)
+ EREF  = -15.851532775742962
+
+
+ =========================================================================
+ In block : 1
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 30.346
+ Acceptance ratio (%)                     : 97.609
+ Number of config transfers               : 740
+ New best estimate of DMC energy (au)     : -15.83836501
+ New best estimate of effective time step : 0.00902880
+
+ Time taken in block    : : :       2674.4160
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =====================================================
+ PERFORMING A DMC STATISTICS-ACCUMULATION CALCULATION.
+ =====================================================
+
+ BEGIN DMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ EBEST = -15.891297925592973 (au/prim cell inc. N-N)
+ EREF  = -12.643356559631485
+
+ Number of previous DMC stats accumulation moves : 0
+
+ =========================================================================
+ In block : 1
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 25.000
+ Acceptance ratio (%)                     : 97.177
+ Number of config transfers               : 871
+ New best estimate of DMC energy (au)     : -15.83428755
+ New best estimate of effective time step : 0.00898889
+
+ Time taken in block    : : :       393.6963
+
+ =========================================================================
+ In block : 2
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 25.000
+ Acceptance ratio (%)                     : 96.880
+ Number of config transfers               : 920
+ New best estimate of DMC energy (au)     : -15.83641183
+ New best estimate of effective time step : 0.00896142
+
+ Time taken in block    : : :       371.8661
+
+ =========================================================================
+ In block : 3
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 25.000
+ Acceptance ratio (%)                     : 98.112
+ Number of config transfers               : 945
+ New best estimate of DMC energy (au)     : -15.83696443
+ New best estimate of effective time step : 0.00907532
+
+ Time taken in block    : : :       424.4197
+
+ =========================================================================
+ In block : 4
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 25.000
+ Acceptance ratio (%)                     : 94.585
+ Number of config transfers               : 865
+ New best estimate of DMC energy (au)     : -15.83585709
+ New best estimate of effective time step : 0.00874909
+
+ Time taken in block    : : :       364.6634
+
+ =========================================================================
+ In block : 5
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 25.000
+ Acceptance ratio (%)                     : 97.263
+ Number of config transfers               : 882
+ New best estimate of DMC energy (au)     : -15.83576917
+ New best estimate of effective time step : 0.00899681
+
+ Time taken in block    : : :       342.3030
+
+Mixed estimators of the energies at the end of the run
+------------------------------------------------------
+
+Total energy                 =       -15.835769167278 +/- 0.001155309024
+
+ =========================================================================
+
+ Total PyCasino real time : : :    4999.6767

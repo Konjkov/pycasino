@@ -104,6 +104,7 @@ class Input:
         self.read_int('limdmct', 4)
         self.read_float('alimit', 0.5)
         self.read_bool('nucleus_gf_mods', True)
+        self.read_bool('use_tmove', True)
         self.read_int('ebest_av_window', 25)
         # WFN definition keywords
         self.read_bool('backflow', self.opt_backflow)

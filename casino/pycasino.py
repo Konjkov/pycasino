@@ -329,9 +329,8 @@ class Casino:
             _, position = self.vmc_energy_accumulation()
             r_e_list = position[-self.config.input.vmc_nconfig_write // self.mpi_comm.size:]
             self.dmc_markovchain = DMCMarkovChain(
-                r_e_list, self.config.input.alimit, self.config.input.nucleus_gf_mods,
-                self.config.input.dtdmc, self.config.input.dmc_target_weight, self.wfn,
-                self.config.input.dmc_method
+                r_e_list, self.config.input.alimit, self.config.input.nucleus_gf_mods, self.config.input.use_tmove,
+                self.config.input.dtdmc, self.config.input.dmc_target_weight, self.wfn, self.config.input.dmc_method,
             )
             self.dmc_energy_equilibration()
             self.dmc_energy_accumulation()

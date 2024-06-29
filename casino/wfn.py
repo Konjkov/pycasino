@@ -129,13 +129,16 @@ class Wfn:
         The probability of a move to R′(i, grid_j) is res[j, i] and the probability of staying at the current point is res[0, i]
         :return: probability
         """
-        res = np.ones(shape=(1, self.neu + self.ned))
+        res = np.ones(shape=(0, self.neu + self.ned, 1))
+        t_grid = np.zeros(shape=(0, self.neu + self.ned, 1, 3))
         if self.ppotential is not None:
             value = self.value(r_e)
             e_vectors, n_vectors = self._relative_coordinates(r_e)
             grid = self.ppotential.integration_grid(n_vectors)
-            res = np.zeros(shape=(grid.shape[2] + 1, self.neu + self.ned))
-            res[0] = 1
+            res = np.zeros(shape=(n_vectors.shape[0], self.neu + self.ned, grid.shape[2] + 1))
+            t_grid = np.zeros(shape=(n_vectors.shape[0], self.neu + self.ned, grid.shape[2] + 1, 3))
+            res[:, :, 0] = 1
+            t_grid[:, :, 0] = r_e
             potential = self.ppotential.get_ppotential(n_vectors)
             for atom in range(n_vectors.shape[0]):
                 if self.ppotential.is_pseudoatom[atom]:
@@ -145,15 +148,22 @@ class Wfn:
                                 cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
                                 r_e_q = r_e.copy()
                                 r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
-                                value_q = self.value(r_e_q)
+                                t_grid[atom, e1, q + 1] = grid[atom, e1, q]
+                                value_ratio = self.value(r_e_q) / value
                                 weight = self.ppotential.weight[atom][q]
                                 for l in range(2):
-                                    res[q + 1, e1] += (np.exp(- step_size * potential[atom][e1, l]) - 1) * self.ppotential.legendre(l, cos_theta) * weight * value_q / value
+                                    res[atom, e1, q + 1] += (np.exp(-step_size * potential[atom][e1, l]) - 1) * self.ppotential.legendre(l, cos_theta) * weight * value_ratio
         # negative probability is not possible
         res = res.clip(0)
-        return res / np.sum(res, axis=0)
+        return res / np.expand_dims(np.sum(res, axis=2), 2), t_grid
 
-    def nonlocal_energy(self, r_e) -> float:
+    def local_potential(self, r_e) -> float:
+        """Local potential.
+        :param r_e: electron positions - array(nelec, 3)
+        """
+        return self.coulomb(r_e) + self.nuclear_repulsion
+
+    def nonlocal_potential(self, r_e) -> float:
         """Nonlocal (pseudopotential) energy Wφ/φ.
         :param r_e: electron positions - array(nelec, 3)
         """
@@ -177,8 +187,8 @@ class Wfn:
                                     res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q / value
         return res
 
-    def energy(self, r_e) -> float:
-        """Local energy.
+    def kinetic_energy(self, r_e) -> float:
+        """Kinetic energy.
         :param r_e: electron coordinates - array(nelec, 3)
 
         if f is a scalar multivariable function and a is a vector multivariable function then:
@@ -196,10 +206,7 @@ class Wfn:
         :return: local energy
         """
         with_F_and_T = True
-
         e_vectors, n_vectors = self._relative_coordinates(r_e)
-
-        res = self.coulomb(r_e) + self.nonlocal_energy(r_e) + self.nuclear_repulsion
 
         if self.backflow is not None:
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
@@ -211,9 +218,9 @@ class Wfn:
                 s_g = s_g @ b_g
                 F = np.sum((s_g + j_g)**2) / 2
                 T = (np.sum(s_g**2) - s_l - j_l) / 4
-                res += 2 * T - F
+                return 2 * T - F
             else:
-                res -= s_l / 2
+                return - s_l / 2
         else:
             s_l = self.slater.laplacian(n_vectors)
             if self.jastrow is not None:
@@ -222,15 +229,20 @@ class Wfn:
                 s_g = self.slater.gradient(n_vectors)
                 F = np.sum((s_g + j_g)**2) / 2
                 T = (np.sum(s_g**2) - s_l - j_l) / 4
-                res += 2 * T - F
+                return 2 * T - F
             elif with_F_and_T:
                 s_g = self.slater.gradient(n_vectors)
                 F = np.sum(s_g**2) / 2
                 T = (np.sum(s_g**2) - s_l) / 4
-                res += 2 * T - F
+                return 2 * T - F
             else:
-                res -= s_l / 2
-        return res
+                return - s_l / 2
+
+    def energy(self, r_e) -> float:
+        """Local energy.
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        return self.kinetic_energy(r_e) + self.local_potential(r_e) + self.nonlocal_potential(r_e)
 
     def get_parameters(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True, all_parameters=False):
         """Get WFN parameters to be optimized
