@@ -306,8 +306,7 @@ class DMCMarkovChain:
             wfn_value = self.wfn.value(r_e)
             velocity, drift_velocity = self.limiting_velocity(r_e)
             energy = self.wfn.energy(r_e)
-            limiting_factor = np.linalg.norm(velocity) / np.linalg.norm(drift_velocity)
-            branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - energy) * limiting_factor
+            next_branching_energy = self.branching(next_energy, velocity, drift_velocity)
         return r_e, wfn_value, velocity, energy, branching_energy
 
     def ebe_drift_diffusion(self, age, r_e, wfn_value, velocity, energy, branching_energy):
@@ -405,10 +404,8 @@ class DMCMarkovChain:
                     p += p_i * np.sum(diffuse_step[i] ** 2)
                 else:
                     return 0, False, r_e, wfn_value, velocity, energy, branching_energy
-        next_local_potential_energy = self.wfn.kinetic_energy(next_r_e) + self.wfn.local_potential(next_r_e)
-        next_energy = next_local_potential_energy + self.wfn.nonlocal_potential(next_r_e)
-        limiting_factor = np.linalg.norm(next_velocity) / np.linalg.norm(drift_velocity)
-        next_branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - next_local_potential_energy) * limiting_factor
+        next_energy = self.wfn.energy(next_r_e)
+        next_branching_energy = self.branching(next_energy, next_velocity, drift_velocity)
         return p / np.sum(diffuse_step ** 2), moved, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
 
     def cbc_drift_diffusion(self, age, r_e, wfn_value, velocity, energy, branching_energy):
@@ -466,10 +463,8 @@ class DMCMarkovChain:
                     )
                 p = min(1, age_p * (gf_back * next_wfn_value ** 2) / (gf_forth * wfn_value ** 2))
                 if p >= np.random.random():
-                    next_local_potential_energy = self.wfn.kinetic_energy(next_r_e) + self.wfn.local_potential(next_r_e)
-                    next_energy = next_local_potential_energy + self.wfn.nonlocal_potential(next_r_e)
-                    limiting_factor = np.linalg.norm(next_velocity) / np.linalg.norm(drift_velocity)
-                    next_branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - next_local_potential_energy) * limiting_factor
+                    next_energy = self.wfn.energy(r_e)
+                    next_branching_energy = self.branching(next_energy, next_velocity, drift_velocity)
                     return p, True, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
         else:
             # simple random step
@@ -482,12 +477,19 @@ class DMCMarkovChain:
                 gf_back = np.exp(-np.sum((r_e - next_r_e - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
                 p = min(1, age_p * (gf_back * next_wfn_value ** 2) / (gf_forth * wfn_value ** 2))
                 if p >= np.random.random():
-                    next_local_potential_energy = self.wfn.kinetic_energy(next_r_e) + self.wfn.local_potential(next_r_e)
-                    next_energy = next_local_potential_energy + self.wfn.nonlocal_potential(next_r_e)
-                    limiting_factor = np.linalg.norm(next_velocity) / np.linalg.norm(drift_velocity)
-                    next_branching_energy = (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - next_local_potential_energy) * limiting_factor
+                    next_energy = self.wfn.energy(r_e)
+                    next_branching_energy = self.branching(next_energy, next_velocity, drift_velocity)
                     return p, True, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
         return p, False, r_e, wfn_value, velocity, energy, branching_energy
+
+    def branching(self, energy, next_velocity, drift_velocity):
+        """Branching step."""
+        if self.wfn.ppotential.is_pseudoatom.any():
+            return self.energy_t - self.best_estimate_energy
+        else:
+            # branching UNR (39)
+            limiting_factor = np.linalg.norm(next_velocity) / np.linalg.norm(drift_velocity)
+            return (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - energy) * limiting_factor
 
     def random_step(self):
         """Random step"""
