@@ -237,7 +237,7 @@ class DMCMarkovChain:
             self.wfn_value_list.append(self.wfn.value(r_e))
             self.velocity_list.append(self.limiting_velocity(r_e)[0])
             self.energy_list.append(self.wfn.energy(r_e))
-            self.branching_energy_list.append(self.wfn.kinetic_energy(r_e) + self.wfn.local_potential(r_e))
+            self.branching_energy_list.append(self.wfn.energy(r_e))
         energy_list_len = np.empty(1, dtype=np.int_)
         energy_list_sum = np.empty(1, dtype=np.float_)
         nb_mpi.allreduce(len(self.energy_list), energy_list_len)
@@ -404,7 +404,7 @@ class DMCMarkovChain:
                     p += p_i * np.sum(diffuse_step[i] ** 2)
                 else:
                     return 0, False, r_e, wfn_value, velocity, energy, branching_energy
-        next_energy = self.wfn.energy(next_r_e)
+        next_energy = self.wfn.kinetic_energy(r_e) + self.wfn.local_potential(r_e) + self.wfn.nonlocal_potential_plus(r_e)
         next_branching_energy = self.branching(next_energy, next_velocity, drift_velocity)
         return p / np.sum(diffuse_step ** 2), moved, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
 
@@ -463,7 +463,7 @@ class DMCMarkovChain:
                     )
                 p = min(1, age_p * (gf_back * next_wfn_value ** 2) / (gf_forth * wfn_value ** 2))
                 if p >= np.random.random():
-                    next_energy = self.wfn.energy(r_e)
+                    next_energy = self.wfn.kinetic_energy(r_e) + self.wfn.local_potential(r_e) + self.wfn.nonlocal_potential_plus(r_e)
                     next_branching_energy = self.branching(next_energy, next_velocity, drift_velocity)
                     return p, True, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
         else:
@@ -477,19 +477,16 @@ class DMCMarkovChain:
                 gf_back = np.exp(-np.sum((r_e - next_r_e - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
                 p = min(1, age_p * (gf_back * next_wfn_value ** 2) / (gf_forth * wfn_value ** 2))
                 if p >= np.random.random():
-                    next_energy = self.wfn.energy(r_e)
+                    next_energy = self.wfn.kinetic_energy(r_e) + self.wfn.local_potential(r_e) + self.wfn.nonlocal_potential_plus(r_e)
                     next_branching_energy = self.branching(next_energy, next_velocity, drift_velocity)
                     return p, True, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
         return p, False, r_e, wfn_value, velocity, energy, branching_energy
 
     def branching(self, energy, next_velocity, drift_velocity):
         """Branching step."""
-        if self.wfn.ppotential.is_pseudoatom.any():
-            return self.energy_t - self.best_estimate_energy
-        else:
-            # branching UNR (39)
-            limiting_factor = np.linalg.norm(next_velocity) / np.linalg.norm(drift_velocity)
-            return (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - energy) * limiting_factor
+        # branching UNR (39)
+        limiting_factor = np.linalg.norm(next_velocity) / np.linalg.norm(drift_velocity)
+        return (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - energy) * limiting_factor
 
     def random_step(self):
         """Random step"""
