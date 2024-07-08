@@ -305,7 +305,7 @@ class DMCMarkovChain:
         if moved:
             wfn_value = self.wfn.value(r_e)
             velocity, drift_velocity = self.limiting_velocity(r_e)
-            energy = self.wfn.energy(r_e)
+            next_energy = self.wfn.energy(r_e)
             next_branching_energy = self.branching(next_energy, velocity, drift_velocity)
         return r_e, wfn_value, velocity, energy, branching_energy
 
@@ -499,8 +499,6 @@ class DMCMarkovChain:
         next_branching_energy_list = nb.typed.List.empty_list(energy_type)
         for age, r_e, wfn_value, velocity, energy, branching_energy in zip(self.age_list, self.r_e_list, self.wfn_value_list, self.velocity_list, self.energy_list, self.branching_energy_list):
             p, moved, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy = self.drift_diffusion(age, r_e, wfn_value, velocity, energy, branching_energy)
-            # if self.wfn.ppotential.is_pseudoatom.any() and self.use_tmove:
-            #     next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy = self.t_move(next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy)
             # branching UNR (23)
             weight = np.exp(self.step_eff * (next_branching_energy + branching_energy) / 2)
             for _ in range(int(weight + np.random.random())):
@@ -511,6 +509,10 @@ class DMCMarkovChain:
                 next_velocity_list.append(next_velocity)
                 next_wfn_value_list.append(next_wfn_value)
                 next_branching_energy_list.append(next_branching_energy)
+        if self.wfn.ppotential.is_pseudoatom.any() and self.use_tmove:
+            for i in range(len(next_r_e_list)):
+                next_r_e_list[i], next_wfn_value_list[i], next_velocity_list[i], next_energy_list[i], next_branching_energy_list[i] = self.t_move(
+                    next_r_e_list[i], next_wfn_value_list[i], next_velocity_list[i], next_energy_list[i], next_branching_energy_list[i])
         self.age_list = next_age_list
         self.r_e_list = next_r_e_list
         self.energy_list = next_energy_list
