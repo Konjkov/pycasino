@@ -126,48 +126,10 @@ class Wfn:
         """T-move probability
         :param r_e: electron positions - array(nelec, 3)
         :param step_size: DMC step size
-        The probability of a move to R′(i, grid_j) is res[j, i] and the probability of staying at the current point is res[0, i]
         :return: probability
         """
-        res = np.ones(shape=(0, self.neu + self.ned, 1))
-        t_grid = np.zeros(shape=(0, self.neu + self.ned, 1, 3))
-        if self.ppotential is not None:
-            value = self.value(r_e)
-            e_vectors, n_vectors = self._relative_coordinates(r_e)
-            grid = self.ppotential.integration_grid(n_vectors)
-            res = np.zeros(shape=(n_vectors.shape[0], self.neu + self.ned, grid.shape[2] + 1))
-            t_grid = np.zeros(shape=(n_vectors.shape[0], self.neu + self.ned, grid.shape[2] + 1, 3))
-            res[:, :, 0] = 1
-            t_grid[:, :, 0] = r_e
-            potential = self.ppotential.get_ppotential(n_vectors)
-            for atom in range(n_vectors.shape[0]):
-                if self.ppotential.is_pseudoatom[atom]:
-                    for e1 in range(self.neu + self.ned):
-                        if potential[atom][e1, 0] or potential[atom][e1, 1]:
-                            for q in range(grid.shape[2]):
-                                cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
-                                r_e_q = r_e.copy()
-                                r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
-                                t_grid[atom, e1, q + 1] = grid[atom, e1, q]
-                                value_ratio = self.value(r_e_q) / value
-                                weight = self.ppotential.weight[atom][q]
-                                for l in range(2):
-                                    res[atom, e1, q + 1] += (np.exp(-step_size * potential[atom][e1, l]) - 1) * self.ppotential.legendre(l, cos_theta) * weight * value_ratio
-        # negative probability is not possible
-        res = res.clip(0)
-        return res / np.expand_dims(np.sum(res, axis=2), 2), t_grid
-
-    def local_potential(self, r_e) -> float:
-        """Local potential.
-        :param r_e: electron positions - array(nelec, 3)
-        """
-        return self.coulomb(r_e) + self.nuclear_repulsion
-
-    def nonlocal_potential_plus(self, r_e) -> float:
-        """Nonlocal (pseudopotential) energy Wφ/φ of plus sign (for DMC).
-        :param r_e: electron positions - array(nelec, 3)
-        """
-        res = 0.0
+        t_prob = [1.0]
+        t_grid = [r_e]
         if self.ppotential is not None:
             value = self.value(r_e)
             e_vectors, n_vectors = self._relative_coordinates(r_e)
@@ -185,10 +147,21 @@ class Wfn:
                                 weight = self.ppotential.weight[atom][q]
                                 v = 0
                                 for l in range(2):
-                                    v += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_ratio
+                                    v += (np.exp(-step_size * potential[atom][e1, l]) - 1) * self.ppotential.legendre(l, cos_theta) * weight * value_ratio
+                                # negative probability is not possible
                                 if v > 0:
-                                    res += v
-        return res
+                                    t_prob.append(v)
+                                    t_grid.append(r_e_q)
+        t_prob = np.array(t_prob)
+        i = np.searchsorted(np.cumsum(t_prob / np.sum(t_prob)), np.random.random())
+        return i != 0, t_grid[i]
+
+
+    def local_potential(self, r_e) -> float:
+        """Local potential.
+        :param r_e: electron positions - array(nelec, 3)
+        """
+        return self.coulomb(r_e) + self.nuclear_repulsion
 
     def nonlocal_potential(self, r_e) -> float:
         """Nonlocal (pseudopotential) energy Wφ/φ.

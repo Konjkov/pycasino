@@ -293,20 +293,13 @@ class DMCMarkovChain:
 
     def t_move(self, r_e, wfn_value, velocity, energy, branching_energy):
         """T-move."""
-        moved = False
-        p, t_grid = self.wfn.t_move_probability(r_e, self.step_size)
-        for atom in range(p.shape[0]):
-            if self.wfn.ppotential.is_pseudoatom[atom]:
-                for e1 in range(self.wfn.neu + self.wfn.ned):
-                    i = np.searchsorted(np.cumsum(p[atom, e1]), np.random.random())
-                    if i > 0:
-                        moved = True
-                        r_e[e1] = t_grid[atom, e1, i] + self.wfn.atom_positions[atom]
+        moved, r_e = self.wfn.t_move_probability(r_e, self.step_size)
         if moved:
             wfn_value = self.wfn.value(r_e)
             velocity, drift_velocity = self.limiting_velocity(r_e)
-            next_energy = self.wfn.energy(r_e)
-            next_branching_energy = self.branching(next_energy, velocity, drift_velocity)
+            energy = self.wfn.energy(r_e)
+            branching_energy = self.branching(energy, velocity, drift_velocity)
+            return r_e, wfn_value, velocity, energy, branching_energy
         return r_e, wfn_value, velocity, energy, branching_energy
 
     def ebe_drift_diffusion(self, age, r_e, wfn_value, velocity, energy, branching_energy):
@@ -404,7 +397,7 @@ class DMCMarkovChain:
                     p += p_i * np.sum(diffuse_step[i] ** 2)
                 else:
                     return 0, False, r_e, wfn_value, velocity, energy, branching_energy
-        next_energy = self.wfn.kinetic_energy(r_e) + self.wfn.local_potential(r_e) + self.wfn.nonlocal_potential_plus(r_e)
+        next_energy = self.wfn.energy(next_r_e)
         next_branching_energy = self.branching(next_energy, next_velocity, drift_velocity)
         return p / np.sum(diffuse_step ** 2), moved, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
 
@@ -463,7 +456,7 @@ class DMCMarkovChain:
                     )
                 p = min(1, age_p * (gf_back * next_wfn_value ** 2) / (gf_forth * wfn_value ** 2))
                 if p >= np.random.random():
-                    next_energy = self.wfn.kinetic_energy(r_e) + self.wfn.local_potential(r_e) + self.wfn.nonlocal_potential_plus(r_e)
+                    next_energy = self.wfn.energy(next_r_e)
                     next_branching_energy = self.branching(next_energy, next_velocity, drift_velocity)
                     return p, True, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
         else:
@@ -477,16 +470,23 @@ class DMCMarkovChain:
                 gf_back = np.exp(-np.sum((r_e - next_r_e - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
                 p = min(1, age_p * (gf_back * next_wfn_value ** 2) / (gf_forth * wfn_value ** 2))
                 if p >= np.random.random():
-                    next_energy = self.wfn.kinetic_energy(r_e) + self.wfn.local_potential(r_e) + self.wfn.nonlocal_potential_plus(r_e)
+                    next_energy = self.wfn.energy(next_r_e)
                     next_branching_energy = self.branching(next_energy, next_velocity, drift_velocity)
                     return p, True, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
         return p, False, r_e, wfn_value, velocity, energy, branching_energy
 
     def branching(self, energy, next_velocity, drift_velocity):
         """Branching step."""
-        # branching UNR (39)
+        ne = self.wfn.neu + self.wfn.ned
         limiting_factor = np.linalg.norm(next_velocity) / np.linalg.norm(drift_velocity)
-        return (self.energy_t - self.best_estimate_energy) + (self.best_estimate_energy - energy) * limiting_factor
+        # Andrea Zen, Sandro Sorella, Michael J. Gillan, Angelos Michaelides and Dario Alfè
+        # Boosting the accuracy and speed of quantum Monte Carlo: Size consistency and time step
+        if np.abs(self.best_estimate_energy - energy) > 0.2 * np.sqrt(ne / self.step_size):
+            E_cut = np.sign(self.best_estimate_energy - energy) * 0.2 * np.sqrt(ne / self.step_size)
+        else:
+            E_cut = self.best_estimate_energy - energy
+        # branching UNR (39)
+        return (self.energy_t - self.best_estimate_energy) + E_cut * limiting_factor
 
     def random_step(self):
         """Random step"""
@@ -527,6 +527,7 @@ class DMCMarkovChain:
         nb_mpi.allreduce(sum_acceptance_probability, total_sum_acceptance_probability)
         self.step_eff = total_sum_acceptance_probability[0] / energy_list_len[0] * self.step_size
         self.best_estimate_energy = energy_list_sum[0] / energy_list_len[0]
+        # UNR (11)
         self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) * self.step_size / self.step_eff
 
     def redistribute_walker(self, from_rank, to_rank, count):
