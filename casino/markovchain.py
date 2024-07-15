@@ -293,7 +293,7 @@ class DMCMarkovChain:
 
     def t_move(self, r_e, wfn_value, velocity, energy, branching_energy):
         """T-move."""
-        moved, r_e = self.wfn.t_move_probability(r_e, self.step_size)
+        moved, r_e = self.wfn.t_move(r_e, self.step_size)
         if moved:
             wfn_value = self.wfn.value(r_e)
             velocity, drift_velocity = self.limiting_velocity(r_e)

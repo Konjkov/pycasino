@@ -122,39 +122,45 @@ class Wfn:
             else:
                 return s_g
 
-    def t_move_probability(self, r_e, step_size):
-        """T-move probability
+    def t_move(self, r_e, step_size):
+        """T-move
         :param r_e: electron positions - array(nelec, 3)
         :param step_size: DMC step size
-        :return: probability
+        :return: next electrons positions
         """
-        t_prob = [1.0]
-        t_grid = [r_e]
         if self.ppotential is not None:
-            value = self.value(r_e)
-            e_vectors, n_vectors = self._relative_coordinates(r_e)
-            grid = self.ppotential.integration_grid(n_vectors)
-            potential = self.ppotential.get_ppotential(n_vectors)
-            for atom in range(n_vectors.shape[0]):
-                if self.ppotential.is_pseudoatom[atom]:
-                    for e1 in range(self.neu + self.ned):
+            moved = False
+            next_r_e = r_e.copy()
+            for e1 in range(self.neu + self.ned):
+                t_prob = [1.0]
+                t_grid = [next_r_e]
+                value = self.value(next_r_e)
+                e_vectors, n_vectors = self._relative_coordinates(next_r_e)
+                grid = self.ppotential.integration_grid(n_vectors)
+                potential = self.ppotential.get_ppotential(n_vectors)
+                for atom in range(n_vectors.shape[0]):
+                    if self.ppotential.is_pseudoatom[atom]:
                         if potential[atom][e1, 0] or potential[atom][e1, 1]:
                             for q in range(grid.shape[2]):
                                 cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
-                                r_e_q = r_e.copy()
+                                r_e_q = next_r_e.copy()
                                 r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
                                 value_ratio = self.value(r_e_q) / value
                                 weight = self.ppotential.weight[atom][q]
                                 v = 0
                                 for l in range(2):
-                                    v += (np.exp(-step_size * potential[atom][e1, l]) - 1) * self.ppotential.legendre(l, cos_theta) * weight * value_ratio
+                                    v += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_ratio
                                 # negative probability is not possible
-                                if v > 0:
-                                    t_prob.append(v)
+                                if v < 0:
+                                    t_prob.append(-step_size * v)
                                     t_grid.append(r_e_q)
-        t_prob = np.array(t_prob)
-        i = np.searchsorted(np.cumsum(t_prob / np.sum(t_prob)), np.random.random())
-        return i != 0, t_grid[i]
+                t_prob = np.array(t_prob)
+                i = np.searchsorted(np.cumsum(t_prob / np.sum(t_prob)), np.random.random())
+                if i > 0:
+                    moved = True
+                    next_r_e = t_grid[i]
+            return moved, next_r_e
+        return False, r_e
 
 
     def local_potential(self, r_e) -> float:
