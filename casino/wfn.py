@@ -122,12 +122,60 @@ class Wfn:
             else:
                 return s_g
 
-    def nonlocal_energy(self, r_e) -> float:
-        """Nonlocal (pseudopotential) energy.
+    def t_move(self, r_e, step_size):
+        """T-move
+        :param r_e: electron positions - array(nelec, 3)
+        :param step_size: DMC step size
+        :return: next electrons positions
+        """
+        if self.ppotential is not None:
+            moved = False
+            next_r_e = r_e.copy()
+            for e1 in range(self.neu + self.ned):
+                t_prob = [1.0]
+                t_grid = [next_r_e]
+                value = self.value(next_r_e)
+                e_vectors, n_vectors = self._relative_coordinates(next_r_e)
+                grid = self.ppotential.integration_grid(n_vectors)
+                potential = self.ppotential.get_ppotential(n_vectors)
+                for atom in range(n_vectors.shape[0]):
+                    if self.ppotential.is_pseudoatom[atom]:
+                        if potential[atom][e1, 0] or potential[atom][e1, 1]:
+                            for q in range(grid.shape[2]):
+                                cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
+                                r_e_q = next_r_e.copy()
+                                r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
+                                value_ratio = self.value(r_e_q) / value
+                                weight = self.ppotential.weight[atom][q]
+                                v = 0
+                                for l in range(2):
+                                    v += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_ratio
+                                # negative probability is not possible
+                                if v < 0:
+                                    t_prob.append(-step_size * v)
+                                    t_grid.append(r_e_q)
+                t_prob = np.array(t_prob)
+                i = np.searchsorted(np.cumsum(t_prob / np.sum(t_prob)), np.random.random())
+                if i > 0:
+                    moved = True
+                    next_r_e = t_grid[i]
+            return moved, next_r_e
+        return False, r_e
+
+
+    def local_potential(self, r_e) -> float:
+        """Local potential.
+        :param r_e: electron positions - array(nelec, 3)
+        """
+        return self.coulomb(r_e) + self.nuclear_repulsion
+
+    def nonlocal_potential(self, r_e) -> float:
+        """Nonlocal (pseudopotential) energy Wφ/φ.
         :param r_e: electron positions - array(nelec, 3)
         """
         res = 0.0
         if self.ppotential is not None:
+            value = self.value(r_e)
             e_vectors, n_vectors = self._relative_coordinates(r_e)
             grid = self.ppotential.integration_grid(n_vectors)
             potential = self.ppotential.get_ppotential(n_vectors)
@@ -139,15 +187,14 @@ class Wfn:
                                 cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
                                 r_e_q = r_e.copy()
                                 r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
-                                value_q = self.value(r_e_q)
+                                value_ratio = self.value(r_e_q) / value
                                 weight = self.ppotential.weight[atom][q]
                                 for l in range(2):
-                                    res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q
-            res /= self.value(r_e)
+                                    res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_ratio
         return res
 
-    def energy(self, r_e) -> float:
-        """Local energy.
+    def kinetic_energy(self, r_e) -> float:
+        """Kinetic energy.
         :param r_e: electron coordinates - array(nelec, 3)
 
         if f is a scalar multivariable function and a is a vector multivariable function then:
@@ -165,10 +212,7 @@ class Wfn:
         :return: local energy
         """
         with_F_and_T = True
-
         e_vectors, n_vectors = self._relative_coordinates(r_e)
-
-        res = self.coulomb(r_e) + self.nonlocal_energy(r_e) + self.nuclear_repulsion
 
         if self.backflow is not None:
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
@@ -180,9 +224,9 @@ class Wfn:
                 s_g = s_g @ b_g
                 F = np.sum((s_g + j_g)**2) / 2
                 T = (np.sum(s_g**2) - s_l - j_l) / 4
-                res += 2 * T - F
+                return 2 * T - F
             else:
-                res -= s_l / 2
+                return - s_l / 2
         else:
             s_l = self.slater.laplacian(n_vectors)
             if self.jastrow is not None:
@@ -191,15 +235,20 @@ class Wfn:
                 s_g = self.slater.gradient(n_vectors)
                 F = np.sum((s_g + j_g)**2) / 2
                 T = (np.sum(s_g**2) - s_l - j_l) / 4
-                res += 2 * T - F
+                return 2 * T - F
             elif with_F_and_T:
                 s_g = self.slater.gradient(n_vectors)
                 F = np.sum(s_g**2) / 2
                 T = (np.sum(s_g**2) - s_l) / 4
-                res += 2 * T - F
+                return 2 * T - F
             else:
-                res -= s_l / 2
-        return res
+                return - s_l / 2
+
+    def energy(self, r_e) -> float:
+        """Local energy.
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        return self.kinetic_energy(r_e) + self.local_potential(r_e) + self.nonlocal_potential(r_e)
 
     def get_parameters(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True, all_parameters=False):
         """Get WFN parameters to be optimized
@@ -239,7 +288,7 @@ class Wfn:
             self.slater.set_parameters(parameters, all_parameters=all_parameters)
 
     def set_parameters_projector(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
-        """Update optimized parameters
+        """Update parameters projector
         :param opt_jastrow: optimize jastrow parameters
         :param opt_backflow: optimize backflow parameters
         :param opt_det_coeff: optimize coefficients of the determinants
