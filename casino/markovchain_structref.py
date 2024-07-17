@@ -6,18 +6,20 @@ from numba.core.extending import overload_method
 
 
 @structref.register
-class VMCMarkovChain_t(types.StructRef):
+class VMCMarkovChain_class_t(types.StructRef):
     def preprocess_fields(self, fields):
         return tuple((name, types.unliteral(typ)) for name, typ in fields)
 
-# VMCMarkovChain_t = VMCMarkovChain_class_t([
-#     ('r_e', nb.float64[:, :]),
-#     ('cond', nb.int64),
-#     ('step_size', nb.float64),
-#     ('wfn', Wfn.class_type.instance_type),
-#     ('method', nb.int64),
-#     ('probability_density', nb.float64),
-# ])
+
+VMCMarkovChainr_instance_t = VMCMarkovChain_class_t([
+    ('r_e', nb.float64[:, :]),
+    ('cond', nb.int64),
+    ('step_size', nb.float64),
+    ('wfn', Wfn.class_type.instance_type),
+    ('method', nb.int64),
+    ('probability_density', nb.float64),
+])
+
 
 class VMCMarkovChain(structref.StructRefProxy):
 
@@ -59,7 +61,7 @@ def random_walk(self, steps, decorr_period):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(VMCMarkovChain_t, 'random_step')
+@overload_method(VMCMarkovChain_class_t, 'random_step')
 def overload_random_step(self):
     """Wrapper"""
     def impl(self):
@@ -71,7 +73,7 @@ def overload_random_step(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(VMCMarkovChain_t, 'simple_random_step')
+@overload_method(VMCMarkovChain_class_t, 'simple_random_step')
 def overload_simple_random_step(self):
     """Simple random walker with random N-dim square proposal density in
     configuration-by-configuration sampling (CBCS).
@@ -86,7 +88,7 @@ def overload_simple_random_step(self):
     return impl
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(VMCMarkovChain_t, 'gibbs_random_step')
+@overload_method(VMCMarkovChain_class_t, 'gibbs_random_step')
 def overload_gibbs_random_step(self):
     """Simple random walker with electron-by-electron sampling (EBES)
     """
@@ -105,7 +107,7 @@ def overload_gibbs_random_step(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(VMCMarkovChain_t, 'vmc_energy')
+@overload_method(VMCMarkovChain_class_t, 'vmc_energy')
 def overload_vmc_energy(self, condition, position):
     """VMC energy.
     :param condition: accept/reject conditions
@@ -130,4 +132,4 @@ def overload_vmc_energy(self, condition, position):
 # This associates the proxy with MyStruct_t for the given set of fields.
 # Notice how we are not constraining the type of each field.
 # Field types remain generic.
-structref.define_proxy(VMCMarkovChain, VMCMarkovChain_t, ['r_e', 'cond', 'step_size', 'wfn', 'method', 'probability_density'])
+structref.define_proxy(VMCMarkovChain, VMCMarkovChain_class_t, ['r_e', 'cond', 'step_size', 'wfn', 'method', 'probability_density'])

@@ -4,32 +4,38 @@ from numba.core import types
 from numba.experimental import structref
 from numba.core.extending import overload_method
 
+from casino import delta, delta_2, delta_3
+from casino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
+from casino.cusp import Cusp
+from casino.harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
+
 
 @structref.register
-class Slater_t(types.StructRef):
+class Slater_class_t(types.StructRef):
     def preprocess_fields(self, fields):
         return tuple((name, types.unliteral(typ)) for name, typ in fields)
 
-# Slater_t = Slater_class_t([
-#     ('neu', nb.int64),
-#     ('ned', nb.int64),
-#     ('nbasis_functions', nb.int64),
-#     ('first_shells', nb.int64[:]),
-#     ('orbital_types', nb.int64[:]),
-#     ('shell_moments', nb.int64[:]),
-#     ('slater_orders', nb.int64[:]),
-#     ('primitives', nb.int64[:]),
-#     ('coefficients', nb.float64[:]),
-#     ('exponents', nb.float64[:]),
-#     ('permutation_up', nb.int64[:, :]),
-#     ('permutation_down', nb.int64[:, :]),
-#     ('mo_up', nb.float64[:, :]),
-#     ('mo_down', nb.float64[:, :]),
-#     ('det_coeff', nb.float64[:]),
-#     ('cusp', nb.optional(Cusp.class_type.instance_type)),
-#     ('norm', nb.float64),
-#     ('parameters_projector', nb.float64[:, :]),
-# ])
+
+Slater_instance_t = Slater_class_t([
+    ('neu', nb.int64),
+    ('ned', nb.int64),
+    ('nbasis_functions', nb.int64),
+    ('first_shells', nb.int64[:]),
+    ('orbital_types', nb.int64[:]),
+    ('shell_moments', nb.int64[:]),
+    ('slater_orders', nb.int64[:]),
+    ('primitives', nb.int64[:]),
+    ('coefficients', nb.float64[:]),
+    ('exponents', nb.float64[:]),
+    ('permutation_up', nb.int64[:, :]),
+    ('permutation_down', nb.int64[:, :]),
+    ('mo_up', nb.float64[:, :]),
+    ('mo_down', nb.float64[:, :]),
+    ('det_coeff', nb.float64[:]),
+    ('cusp', nb.optional(Cusp.class_type.instance_type)),
+    ('norm', nb.float64),
+    ('parameters_projector', nb.float64[:, :]),
+])
 
 
 class Slater(structref.StructRefProxy):
@@ -48,11 +54,11 @@ class Slater(structref.StructRefProxy):
         return structref.StructRefProxy.__new__(cls, neu, ned,
             nbasis_functions, first_shells, orbital_types, shell_moments,
             slater_orders, primitives, coefficients, exponents,
-            mo_up, mo_down, permutation_up, permutation_down, det_coeff, cusp, norm, parameters_projector)
+            permutation_up, permutation_down, mo_up, mo_down, det_coeff, cusp, norm, parameters_projector)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'value_matrix')
+@overload_method(Slater_class_t, 'value_matrix')
 def overload_value_matrix(self):
     """Value matrix.
     :param n_vectors: electron-nuclei array(natom, nelec, 3)
@@ -93,7 +99,7 @@ def overload_value_matrix(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'gradient_matrix')
+@overload_method(Slater_class_t, 'gradient_matrix')
 def overload_gradient_matrix(self):
     """Gradient matrix.
     :param n_vectors: electron-nuclei - array(natom, nelec, 3)
@@ -145,7 +151,7 @@ def overload_gradient_matrix(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'laplacian_matrix')
+@overload_method(Slater_class_t, 'laplacian_matrix')
 def overload_laplacian_matrix(self):
     """Laplacian matrix.
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
@@ -190,7 +196,7 @@ def overload_laplacian_matrix(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'hessian_matrix')
+@overload_method(Slater_class_t, 'hessian_matrix')
 def overload_hessian_matrix(self):
     """Hessian matrix.
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
@@ -265,7 +271,7 @@ def overload_hessian_matrix(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'tressian_matrix')
+@overload_method(Slater_class_t, 'tressian_matrix')
 def overload_tressian_matrix(self):
     """Tressian matrix.
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
@@ -357,7 +363,7 @@ def overload_tressian_matrix(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'value')
+@overload_method(Slater_class_t, 'value')
 def overload_value(self):
     """Wave function value.
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
@@ -372,7 +378,7 @@ def overload_value(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'gradient')
+@overload_method(Slater_class_t, 'gradient')
 def overload_gradient(self):
     """Gradient ∇φ/φ w.r.t e-coordinates.
     Derivative of determinant of symmetric matrix w.r.t. a scalar
@@ -402,7 +408,7 @@ def overload_gradient(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'laplacian')
+@overload_method(Slater_class_t, 'laplacian')
 def overload_laplacian(self):
     """Scalar laplacian Δφ/φ w.r.t e-coordinates.
     Δln(det(A)) = sum(tr(slater^-1 * B(n)) over n
@@ -432,7 +438,7 @@ def overload_laplacian(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'hessian')
+@overload_method(Slater_class_t, 'hessian')
 def overload_hessian(self):
     """Hessian H(φ)/φ w.r.t e-coordinates.
     d²ln(det(A))/dxdy = (
@@ -491,7 +497,7 @@ def overload_hessian(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'tressian')
+@overload_method(Slater_class_t, 'tressian')
 def overload_tressian(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Tressian or numerical third partial derivatives w.r.t. e-coordinates
     d³ln(det(A))/dxdydz = (
@@ -605,7 +611,7 @@ def overload_tressian(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'tressian_v2')
+@overload_method(Slater_class_t, 'tressian_v2')
 def overload_tressian_v2(self):
     """Tressian or numerical third partial derivatives w.r.t. e-coordinates
     d³ln(det(A))/dxdydz
@@ -630,7 +636,7 @@ def overload_tressian_v2(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'fix_det_coeff_parameters')
+@overload_method(Slater_class_t, 'fix_det_coeff_parameters')
 def overload_fix_det_coeff_parameters(self):
     """Fix dependent parameters."""
     def impl(self):
@@ -638,7 +644,7 @@ def overload_fix_det_coeff_parameters(self):
     return impl
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'get_parameters_mask')
+@overload_method(Slater_class_t, 'get_parameters_mask')
 def overload_get_parameters_mask(self):
     """Mask dependent parameters."""
     def impl(self) -> np.ndarray:
@@ -648,7 +654,7 @@ def overload_get_parameters_mask(self):
     return impl
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'get_parameters_scale')
+@overload_method(Slater_class_t, 'get_parameters_scale')
 def overload_get_parameters_scale(self):
     """Characteristic scale of each variable. Setting x_scale is equivalent
     to reformulating the problem in scaled variables xs = x / x_scale.
@@ -665,7 +671,7 @@ def overload_get_parameters_scale(self):
     return impl
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'get_parameters_constraints')
+@overload_method(Slater_class_t, 'get_parameters_constraints')
 def overload_get_parameters_constraints(self):
     """Returns det_coeff parameters
     :return:
@@ -675,7 +681,7 @@ def overload_get_parameters_constraints(self):
     return impl
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'set_parameters_projector')
+@overload_method(Slater_class_t, 'set_parameters_projector')
 def overload_set_parameters_projector(self):
     """Get Projector matrix"""
     def impl(self):
@@ -687,7 +693,7 @@ def overload_set_parameters_projector(self):
     return impl
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'get_parameters')
+@overload_method(Slater_class_t, 'get_parameters')
 def overload_get_parameters(self):
     """Returns parameters in the following order:
     determinant coefficients accept the first.
@@ -702,7 +708,7 @@ def overload_get_parameters(self):
     return impl
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'set_parameters')
+@overload_method(Slater_class_t, 'set_parameters')
 def overload_set_parameters(self):
     """Set parameters in the following order:
     determinant coefficients accept the first.
@@ -721,7 +727,7 @@ def overload_set_parameters(self):
     return impl
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'value_parameters_d1')
+@overload_method(Slater_class_t, 'value_parameters_d1')
 def overload_value_parameters_d1(self):
     """First derivatives of logarithm wfn w.r.t. the parameters
     :param n_vectors: e-n vectors
@@ -738,7 +744,7 @@ def overload_value_parameters_d1(self):
     return impl
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'gradient_parameters_d1')
+@overload_method(Slater_class_t, 'gradient_parameters_d1')
 def overload_gradient_parameters_d1(self):
     """First derivatives of gradient w.r.t. the parameters
     :param n_vectors: e-n vectors
@@ -755,7 +761,7 @@ def overload_gradient_parameters_d1(self):
     return impl
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'laplacian_parameters_d1')
+@overload_method(Slater_class_t, 'laplacian_parameters_d1')
 def overload_laplacian_parameters_d1(self):
     """First derivatives of laplacian w.r.t. the parameters
     :param n_vectors: e-n vectors
@@ -772,7 +778,7 @@ def overload_laplacian_parameters_d1(self):
     return impl
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Slater_t, 'hessian_parameters_d1')
+@overload_method(Slater_class_t, 'hessian_parameters_d1')
 def overload_hessian_parameters_d1(self):
     """First derivatives of hessian w.r.t. the parameters
     :param n_vectors: e-n vectors
@@ -791,7 +797,7 @@ def overload_hessian_parameters_d1(self):
 # This associates the proxy with MyStruct_t for the given set of fields.
 # Notice how we are not constraining the type of each field.
 # Field types remain generic.
-structref.define_proxy(Slater, Slater_t, ['neu', 'ned',
+structref.define_proxy(Slater, Slater_class_t, ['neu', 'ned',
             'nbasis_functions', 'first_shells', 'orbital_types', 'shell_moments',
             'slater_orders', 'primitives', 'coefficients', 'exponents',
             'mo_up', 'mo_down', 'permutation_up', 'permutation_down', 'det_coeff',
