@@ -11,7 +11,7 @@ class VMCMarkovChain_class_t(types.StructRef):
         return tuple((name, types.unliteral(typ)) for name, typ in fields)
 
 
-VMCMarkovChainr_instance_t = VMCMarkovChain_class_t([
+VMCMarkovChain_instance_t = VMCMarkovChain_class_t([
     ('r_e', nb.float64[:, :]),
     ('cond', nb.int64),
     ('step_size', nb.float64),
@@ -62,7 +62,7 @@ def random_walk(self, steps, decorr_period):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(VMCMarkovChain_class_t, 'random_step')
-def overload_random_step(self):
+def vmcmarkovchain_random_step(self):
     """Wrapper"""
     def impl(self):
         if self.method == 1:
@@ -74,7 +74,7 @@ def overload_random_step(self):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(VMCMarkovChain_class_t, 'simple_random_step')
-def overload_simple_random_step(self):
+def vmcmarkovchain_simple_random_step(self):
     """Simple random walker with random N-dim square proposal density in
     configuration-by-configuration sampling (CBCS).
     """
@@ -89,7 +89,7 @@ def overload_simple_random_step(self):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(VMCMarkovChain_class_t, 'gibbs_random_step')
-def overload_gibbs_random_step(self):
+def vmcmarkovchain_gibbs_random_step(self):
     """Simple random walker with electron-by-electron sampling (EBES)
     """
     def impl(self):
@@ -108,7 +108,7 @@ def overload_gibbs_random_step(self):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(VMCMarkovChain_class_t, 'vmc_energy')
-def overload_vmc_energy(self, condition, position):
+def vmcmarkovchain_vmc_energy(self, condition, position):
     """VMC energy.
     :param condition: accept/reject conditions
     :param position: random walk positions
