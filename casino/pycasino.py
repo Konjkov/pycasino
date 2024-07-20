@@ -12,7 +12,7 @@ from scipy.optimize import least_squares, minimize, curve_fit, OptimizeWarning
 import matplotlib.pyplot as plt
 
 from casino.cusp import CuspFactory
-from casino.slater import Slater
+from casino.slater_structref import Slater
 from casino.jastrow import Jastrow
 from casino.gjastrow import Gjastrow
 from casino.backflow import Backflow

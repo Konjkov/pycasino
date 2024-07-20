@@ -32,6 +32,7 @@ Slater_instance_t = Slater_class_t([
     ('mo_up', nb.float64[:, ::1]),
     ('mo_down', nb.float64[:, ::1]),
     ('det_coeff', nb.float64[::1]),
+    # https://github.com/numba/numba/issues/6077
     ('cusp', nb.none),
     ('norm', nb.float64),
     ('parameters_projector', nb.float64[:, ::1]),
