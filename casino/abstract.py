@@ -190,6 +190,117 @@ class AbstractCusp:
             self.hessian(n_vectors)
 
 
+class AbstractWfn:
+
+    def __init__(self, neu, ned):
+        """
+        :param neu: number of up electrons
+        :param ned: number of down electrons
+        """
+        self.neu = neu
+        self.ned = ned
+
+    # @abstractmethod
+    def value(self, n_vectors: np.ndarray) -> float:
+        """Value φ(r)
+        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+        """
+
+    def numerical_gradient(self, r_e):
+        """Numerical gradient of log wfn value w.r.t e-coordinates
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        val = self.value(r_e)
+        res = np.zeros((self.neu + self.ned, 3))
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        for i in range(self.neu + self.ned):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+                res[i, j] -= self.value(r_e)
+                e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
+                n_vectors[:, i, j] += 2 * delta
+                res[i, j] += self.value(r_e)
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+
+        return res.ravel() / delta / 2 / val
+
+    def numerical_laplacian(self, r_e):
+        """Numerical laplacian  of log wfn value w.r.t e-coordinates
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        val = self.value(r_e)
+        res = - 6 * (self.neu + self.ned) * self.value(r_e)
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        for i in range(self.neu + self.ned):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+                res += self.value(r_e)
+                e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
+                n_vectors[:, i, j] += 2 * delta
+                res += self.value(r_e)
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+
+        return res / delta / delta / val
+
+    def value_parameters_numerical_d1(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters=False):
+        """First-order derivatives of log wfn value w.r.t parameters.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
+        :param all_parameters: optimize all parameters or only independent
+        :return:
+        """
+        scale = self.get_parameters_scale(opt_jastrow, opt_backflow)
+        parameters = self.get_parameters(opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
+        res = np.zeros(shape=parameters.shape)
+        for i in range(parameters.size):
+            parameters[i] -= delta * scale[i]
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
+            res[i] -= self.value(r_e) / scale[i]
+            parameters[i] += 2 * delta * scale[i]
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
+            res[i] += self.value(r_e) / scale[i]
+            parameters[i] -= delta * scale[i]
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
+
+        return res / delta / 2 / self.value(r_e)
+
+    def energy_parameters_numerical_d1(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters=False):
+        """First-order derivatives of local energy w.r.t parameters.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
+        :param all_parameters: optimize all parameters or only independent
+        :return:
+        """
+        scale = self.get_parameters_scale(opt_jastrow, opt_backflow)
+        parameters = self.get_parameters(opt_jastrow, opt_backflow, all_parameters, opt_det_coeff)
+        res = np.zeros(shape=parameters.shape)
+        for i in range(parameters.size):
+            parameters[i] -= delta * scale[i]
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters, opt_det_coeff)
+            res[i] -= self.energy(r_e) / scale[i]
+            parameters[i] += 2 * delta * scale[i]
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters, opt_det_coeff)
+            res[i] += self.energy(r_e) / scale[i]
+            parameters[i] -= delta * scale[i]
+            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters, opt_det_coeff)
+
+        return res / delta / 2
+
+
 class AbstractSlater:
 
     def __init__(self, neu, ned):
