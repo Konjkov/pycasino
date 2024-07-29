@@ -4,7 +4,7 @@ from numba.core import types
 from numba.experimental import structref
 from numba.core.extending import overload_method
 
-from casino.wfn import Wfn
+from casino.wfn import Wfn, Wfn_t
 
 
 @structref.register
@@ -17,7 +17,7 @@ VMCMarkovChain_t = VMCMarkovChain_class_t([
     ('r_e', nb.float64[:, :]),
     ('cond', nb.int64),
     ('step_size', nb.float64),
-    ('wfn', Wfn.class_type.instance_type),
+    ('wfn', Wfn_t),
     ('method', nb.int64),
     ('probability_density', nb.float64),
 ])
@@ -33,9 +33,7 @@ class VMCMarkovChain(structref.StructRefProxy):
         :param method: vmc method: (1) - EBES (work in progress), (3) - CBCS.
         :return:
         """
-        cond = 0
-        probability_density = wfn.value(r_e) ** 2
-        return structref.StructRefProxy.__new__(cls, r_e, cond, step_size, wfn, method, probability_density)
+        return vmcmarkovchain_new(r_e, step_size, wfn, method)
 
     def bbk_random_step(self):
         """Brünger–Brooks–Karplus (13 B. Brünger, C. L. Brooks, and M. Karplus, Chem. Phys. Lett. 105, 495 1984).
@@ -155,6 +153,18 @@ def vmcmarkovchain_vmc_energy(self, condition, position):
 # Notice how we are not constraining the type of each field.
 # Field types remain generic.
 structref.define_proxy(VMCMarkovChain, VMCMarkovChain_class_t, ['r_e', 'cond', 'step_size', 'wfn', 'method', 'probability_density'])
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def vmcmarkovchain_new(r_e, step_size, wfn, method):
+    self = structref.new(VMCMarkovChain_t)
+    self.r_e = r_e
+    self.cond = 0
+    self.step_size = step_size
+    self.wfn = wfn
+    self.method = method
+    self.probability_density = wfn.value(r_e) ** 2
+    return self
 
 
 def vmc_observable(condition, position, observable, *args):

@@ -3,7 +3,7 @@ import numba as nb
 import numba_mpi as nb_mpi
 
 from math import erfc
-from casino.wfn import Wfn
+from casino.wfn_class import Wfn
 
 vmc_spec = [
     ('r_e', nb.float64[:, :]),
