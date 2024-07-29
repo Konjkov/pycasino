@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import numba as nb
 
@@ -70,7 +71,7 @@ class Slater(AbstractSlater):
         self.permutation_down = permutation_down
         self.det_coeff = coeff
         self.cusp = cusp
-        self.norm = np.exp(-(np.math.lgamma(neu + 1) + np.math.lgamma(ned + 1)) / (neu + ned) / 2)
+        self.norm = np.exp(-(math.lgamma(neu + 1) + math.lgamma(ned + 1)) / (neu + ned) / 2)
 
     def value_matrix(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Value matrix.

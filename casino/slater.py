@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import numba as nb
 from numba.core import types
@@ -51,7 +52,7 @@ class Slater(structref.StructRefProxy):
         mo_up = mo_up[:np.max(permutation_up) + 1 if neu else 0]
         mo_down = mo_down[:np.max(permutation_down) + 1 if ned else 0]
         det_coeff = coeff
-        norm = np.exp(-(np.math.lgamma(neu + 1) + np.math.lgamma(ned + 1)) / (neu + ned) / 2)
+        norm = np.exp(-(math.lgamma(neu + 1) + math.lgamma(ned + 1)) / (neu + ned) / 2)
         parameters_projector = np.zeros(shape=(0, 0))
         return slater_new(neu, ned,
             nbasis_functions, first_shells, orbital_types, shell_moments,

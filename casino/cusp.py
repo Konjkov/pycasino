@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import logging
+import math
 import numpy as np
 import numba as nb
 
@@ -89,7 +90,7 @@ class Cusp(AbstractCusp):
         self.alpha = alpha
         # evaluate s-part of Gaussian orbital
         self.mo = mo
-        self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
+        self.norm = np.exp(-(math.lgamma(self.neu + 1) + math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
         self.first_shells = first_shells
         self.shell_moments = shell_moments
         self.primitives = primitives
@@ -457,8 +458,8 @@ class CuspFactory:
         self.ned = ned
         self.orbitals_up = np.max(permutation_up) + 1 if neu else 0
         self.orbitals_down = np.max(permutation_down) + 1 if ned else 0
-        self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
-        self.casino_norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.neu + 1)) / (self.neu + self.neu) / 2)
+        self.norm = np.exp(-(math.lgamma(self.neu + 1) + math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
+        self.casino_norm = np.exp(-(math.lgamma(self.neu + 1) + math.lgamma(self.neu + 1)) / (self.neu + self.neu) / 2)
         self.mo = np.concatenate((mo_up[:self.orbitals_up], mo_down[:self.orbitals_down]))
         self.first_shells = first_shells
         self.shell_moments = shell_moments
@@ -821,8 +822,8 @@ class TestCuspFactory:
         self.ned = ned
         self.orbitals_up = np.max(permutation_up) + 1
         self.orbitals_down = np.max(permutation_down) + 1
-        self.norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
-        self.casino_norm = np.exp(-(np.math.lgamma(self.neu + 1) + np.math.lgamma(self.neu + 1)) / (self.neu + self.neu) / 2)
+        self.norm = np.exp(-(math.lgamma(self.neu + 1) + math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
+        self.casino_norm = np.exp(-(math.lgamma(self.neu + 1) + math.lgamma(self.neu + 1)) / (self.neu + self.neu) / 2)
         self.mo = np.concatenate((mo_up[:self.orbitals_up], mo_down[:self.orbitals_down]))
         self.first_shells = first_shells
         self.shell_moments = shell_moments
@@ -832,6 +833,7 @@ class TestCuspFactory:
 
     def create(self):
         if self.neu == 1 and self.ned == 1:
+            is_pseudoatom = np.zeros(shape=(1, ), dtype=np.bool_)
             # atoms, MO - Value of uncorrected orbital at nucleus
             wfn_0_up = wfn_0_down = np.array([[1.307524154011]])
             # atoms, MO
@@ -845,6 +847,7 @@ class TestCuspFactory:
                 [0.29141713, -2.0, 0.25262478, -0.098352818, 0.11124336],
             ]])
         elif self.neu == 2 and self.ned == 2:
+            is_pseudoatom = np.zeros(shape=(1, ), dtype=np.bool_)
             wfn_0_up = wfn_0_down = np.array([[-3.447246814709, -0.628316785317]])
             shift_up = shift_down = np.array([[0.0, 0.0]])
             orbital_sign_up = orbital_sign_down = np.array([[-1, -1]])
@@ -854,6 +857,7 @@ class TestCuspFactory:
                 [-0.45510824, -4.0, -0.73882727, -0.89716308, -5.8491770]
             ]])
         elif self.neu == 5 and self.ned == 2:
+            is_pseudoatom = np.zeros(shape=(1, ), dtype=np.bool_)
             wfn_0_up = np.array([[6.069114031640, -1.397116693472, 0.0, 0.0, 0.0]])
             wfn_0_down = np.array([[6.095832387803, 1.268342737910]])
             shift_up = np.array([[0.0, 0.0, 0.0, 0.0, 0.0]])
@@ -874,6 +878,7 @@ class TestCuspFactory:
                 [0.24741402, -7.0, -0.36101513E+01, -0.11720244E+02, -0.17700238E+02],
             ]])
         elif self.neu == 5 and self.ned == 5:
+            is_pseudoatom = np.zeros(shape=(1, ), dtype=np.bool_)
             wfn_0_up = wfn_0_down = np.array([[10.523069754656, 2.470734575103, 0.0, 0.0, 0.0]])
             shift_up = shift_down = np.array([[0.0, 0.0, 0.0, 0.0, 0.0]])
             orbital_sign_up = orbital_sign_down = np.array([[1, 1, 0, 0, 0]])
@@ -886,6 +891,7 @@ class TestCuspFactory:
                 [0.0, 0.0, 0.0, 0.0, 0.0],
             ]])
         elif self.neu == 9 and self.ned == 9:
+            is_pseudoatom = np.zeros(shape=(1, ), dtype=np.bool_)
             wfn_0_up = wfn_0_down = np.array([[20.515046538335, 5.824658914949, 0.0, 0.0, 0.0, -1.820248905891, 0.0, 0.0, 0.0]])
             shift_up = shift_down = np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
             orbital_sign_up = orbital_sign_down = np.array([[1, 1, 0, 0, 0, -1, 0, 0, 0]])
@@ -902,6 +908,7 @@ class TestCuspFactory:
                 [0.0, 0.0, 0.0, 0.0, 0.0],
             ]])
         elif self.neu == 18 and self.ned == 18:
+            is_pseudoatom = np.zeros(shape=(1, ), dtype=np.bool_)
             wfn_0_up = wfn_0_down = np.array(([
                 [43.608490133788, -13.720841107516, 0.0, 0.0, 0.0, -5.505781654931, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.751185788791, 0.0, 0.0, 0.0],
             ]))
@@ -929,6 +936,7 @@ class TestCuspFactory:
                 [0.0, 0.0, 0.0, 0.0, 0.0],
             ]])
         elif self.neu == 12 and self.ned == 12:
+            is_pseudoatom = np.zeros(shape=(3, ), dtype=np.bool_)
             wfn_0_up = np.array(([
                 [-5.245016636407, -0.025034008898,  0.019182670511, -0.839192164211,  0.229570396176, -0.697628545957, 0.0, -0.140965538444, -0.015299796091, 0.0, -0.084998032927,  0.220208807573],
                 [-0.024547538656,  5.241296804923, -0.002693454373, -0.611438043012, -0.806215116184,  0.550648084416, 0.0, -0.250758940038, -0.185619271170, 0.0,  0.007450966720, -0.023495021763],
@@ -1065,7 +1073,8 @@ class TestCuspFactory:
         alpha[0] += np.where(alpha[0], np.log(self.norm / self.casino_norm), 0)
         return Cusp(
             self.neu, self.ned, self.neu, self.ned, rc, shift, orbital_sign, alpha,
-            self.mo, self.first_shells, self.shell_moments, self.primitives, self.coefficients, self.exponents
+            self.mo, self.first_shells, self.shell_moments, self.primitives, self.coefficients, self.exponents,
+            is_pseudoatom,
         )
         # atoms, MO - Optimum corrected s orbital at nucleus
         # phi_0 = np.concatenate((phi_0_up, phi_0_down), axis=1)
@@ -1087,7 +1096,7 @@ if __name__ == '__main__':
             config.mdet.permutation_up, config.mdet.permutation_down,
             config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
             config.wfn.coefficients, config.wfn.exponents,
-            config.wfn.atom_positions, config.wfn.atom_charges, config.wfn.unrestricted,
+            config.wfn.atom_positions, config.wfn.atom_charges, config.wfn.unrestricted, config.wfn.is_pseudoatom,
         ).create(casino_rc=True, casino_phi_tilde_0=False)
 
         cusp_test = TestCuspFactory(
