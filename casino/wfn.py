@@ -2,7 +2,7 @@ import numpy as np
 import numba as nb
 
 from casino import delta
-from casino.slater_structref import Slater, Slater_instance_t
+from casino.slater import Slater, Slater_t
 from casino.jastrow import Jastrow
 from casino.backflow import Backflow
 from casino.overload import block_diag
@@ -14,7 +14,7 @@ spec = [
     ('atom_positions', nb.float64[:, :]),
     ('atom_charges', nb.float64[:]),
     ('nuclear_repulsion', nb.float64),
-    ('slater', Slater_instance_t),
+    ('slater', Slater_t),
     ('jastrow', nb.optional(Jastrow.class_type.instance_type)),
     ('backflow', nb.optional(Backflow.class_type.instance_type)),
     ('ppotential', nb.optional(PPotential.class_type.instance_type)),
