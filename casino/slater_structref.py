@@ -32,8 +32,8 @@ Slater_instance_t = Slater_class_t([
     ('mo_up', nb.float64[:, ::1]),
     ('mo_down', nb.float64[:, ::1]),
     ('det_coeff', nb.float64[::1]),
-    # https://github.com/numba/numba/issues/6077
-    ('cusp', nb.none),
+    # https://github.com/numba/numba/issues/6522
+    ('cusp', nb.optional(Cusp.class_type.instance_type)),
     ('norm', nb.float64),
     ('parameters_projector', nb.float64[:, ::1]),
 ])
@@ -52,7 +52,7 @@ class Slater(structref.StructRefProxy):
         det_coeff = coeff
         norm = np.exp(-(np.math.lgamma(neu + 1) + np.math.lgamma(ned + 1)) / (neu + ned) / 2)
         parameters_projector = np.zeros(shape=(0, 0))
-        return structref.StructRefProxy.__new__(cls, neu, ned,
+        return slater_new(neu, ned,
             nbasis_functions, first_shells, orbital_types, shell_moments,
             slater_orders, primitives, coefficients, exponents,
             permutation_up, permutation_down, mo_up, mo_down, det_coeff, cusp, norm, parameters_projector)
@@ -799,7 +799,34 @@ def slater_hessian_parameters_d1(self):
 # Notice how we are not constraining the type of each field.
 # Field types remain generic.
 structref.define_proxy(Slater, Slater_class_t, ['neu', 'ned',
-            'nbasis_functions', 'first_shells', 'orbital_types', 'shell_moments',
-            'slater_orders', 'primitives', 'coefficients', 'exponents',
-            'permutation_up', 'permutation_down', 'mo_up', 'mo_down', 'det_coeff',
-            'cusp', 'norm', 'parameters_projector'])
+    'nbasis_functions', 'first_shells', 'orbital_types', 'shell_moments',
+    'slater_orders', 'primitives', 'coefficients', 'exponents',
+    'permutation_up', 'permutation_down', 'mo_up', 'mo_down', 'det_coeff',
+    'cusp', 'norm', 'parameters_projector'])
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def slater_new(neu, ned,
+        nbasis_functions, first_shells, orbital_types, shell_moments,
+        slater_orders, primitives, coefficients, exponents,
+        permutation_up, permutation_down, mo_up, mo_down, det_coeff, cusp, norm, parameters_projector):
+    self = structref.new(Slater_instance_t)
+    self.neu = neu
+    self.ned = ned
+    self.nbasis_functions = nbasis_functions
+    self.first_shells = first_shells
+    self.orbital_types = orbital_types
+    self.shell_moments = shell_moments
+    self.slater_orders = slater_orders
+    self.primitives = primitives
+    self.coefficients = coefficients
+    self.exponents = exponents
+    self.permutation_up = permutation_up
+    self.permutation_down = permutation_down
+    self.mo_up = mo_up
+    self.mo_down = mo_down
+    self.det_coeff = det_coeff
+    self.cusp = cusp
+    self.norm = norm
+    self.parameters_projector = parameters_projector
+    return self
