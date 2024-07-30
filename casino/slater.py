@@ -45,19 +45,12 @@ class Slater(structref.StructRefProxy):
     def __new__(cls, neu, ned,
             nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders,
             primitives, coefficients, exponents, mo_up, mo_down,
-            permutation_up, permutation_down, coeff, cusp
-        ):
-        """Slater multideterminant wavefunction.
-        """
-        mo_up = mo_up[:np.max(permutation_up) + 1 if neu else 0]
-        mo_down = mo_down[:np.max(permutation_down) + 1 if ned else 0]
-        det_coeff = coeff
-        norm = np.exp(-(math.lgamma(neu + 1) + math.lgamma(ned + 1)) / (neu + ned) / 2)
-        parameters_projector = np.zeros(shape=(0, 0))
+            permutation_up, permutation_down, coeff, cusp):
+        """Slater multideterminant wavefunction."""
         return slater_new(neu, ned,
-            nbasis_functions, first_shells, orbital_types, shell_moments,
-            slater_orders, primitives, coefficients, exponents,
-            permutation_up, permutation_down, mo_up, mo_down, det_coeff, cusp, norm, parameters_projector)
+            nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders,
+            primitives, coefficients, exponents, mo_up, mo_down,
+            permutation_up, permutation_down, coeff, cusp)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -810,8 +803,8 @@ structref.define_proxy(Slater, Slater_class_t, ['neu', 'ned',
 @nb.njit(nogil=True, parallel=False, cache=True)
 def slater_new(neu, ned,
         nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders,
-        primitives, coefficients, exponents, permutation_up, permutation_down,
-        mo_up, mo_down, det_coeff, cusp, norm, parameters_projector
+        primitives, coefficients, exponents, mo_up, mo_down,
+        permutation_up, permutation_down, coeff, cusp
     ):
     self = structref.new(Slater_t)
     self.neu = neu
@@ -826,10 +819,10 @@ def slater_new(neu, ned,
     self.exponents = exponents
     self.permutation_up = permutation_up
     self.permutation_down = permutation_down
-    self.mo_up = mo_up
-    self.mo_down = mo_down
-    self.det_coeff = det_coeff
+    self.mo_up = mo_up[:np.max(permutation_up) + 1 if neu else 0]
+    self.mo_down = mo_down[:np.max(permutation_down) + 1 if ned else 0]
+    self.det_coeff = coeff
     self.cusp = cusp
-    self.norm = norm
-    self.parameters_projector = parameters_projector
+    self.norm = np.exp(-(math.lgamma(neu + 1) + math.lgamma(ned + 1)) / (neu + ned) / 2)
+    self.parameters_projector = np.zeros(shape=(0, 0))
     return self

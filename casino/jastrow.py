@@ -258,7 +258,7 @@ class Jastrow(AbstractJastrow):
 
     def chi_term(self, n_powers: np.ndarray) -> float:
         """Jastrow chi-term
-        :param n_powers: powers of e-e distances
+        :param n_powers: powers of e-n distances
         :return:
         """
         res = 0.0

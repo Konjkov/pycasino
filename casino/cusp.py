@@ -127,9 +127,9 @@ def cusp_alpha(self):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Cusp_class_t, 'exp')
-def cusp_exp(self, atom, orbital, r) -> float:
+def cusp_exp(self, atom, orbital, r):
     """Exponent part"""
-    def impl(self, atom, orbital, r):
+    def impl(self, atom, orbital, r) -> float:
         return self.orbital_sign[atom, orbital] * np.exp(
             # FIXME: use polyval(r, self.alpha[:, atom, i])
             self.alpha[0, atom, orbital] +
@@ -143,9 +143,9 @@ def cusp_exp(self, atom, orbital, r) -> float:
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Cusp_class_t, 'diff_1')
-def cusp_diff_1(self, atom, orbital, r) -> float:
+def cusp_diff_1(self, atom, orbital, r):
     """f`(r) / r"""
-    def impl(self, atom, orbital, r):
+    def impl(self, atom, orbital, r) -> float:
         return (
                self.alpha[1, atom, orbital] +
                2 * self.alpha[2, atom, orbital] * r +
@@ -157,9 +157,9 @@ def cusp_diff_1(self, atom, orbital, r) -> float:
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Cusp_class_t, 'diff_2')
-def cusp_diff_2(self, atom, orbital, r) -> float:
+def cusp_diff_2(self, atom, orbital, r):
     """f``(r) / r²"""
-    def impl(self, atom, orbital, r):
+    def impl(self, atom, orbital, r) -> float:
         return (
                2 * self.alpha[2, atom, orbital] +
                6 * self.alpha[3, atom, orbital] * r +
@@ -176,9 +176,9 @@ def cusp_diff_2(self, atom, orbital, r) -> float:
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Cusp_class_t, 'diff_3')
-def cusp_diff_3(self, atom, orbital, r) -> float:
+def cusp_diff_3(self, atom, orbital, r):
     """f```(r) / r³"""
-    def impl(self, atom, orbital, r):
+    def impl(self, atom, orbital, r) -> float:
         return (
                6 * self.alpha[3, atom, orbital] +
                24 * self.alpha[4, atom, orbital] * r +

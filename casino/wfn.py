@@ -156,7 +156,7 @@ def wfn__relative_coordinates(self, r_e):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, '_get_nuclear_repulsion')
-def wfn__get_nuclear_repulsion(self) -> float:
+def wfn__get_nuclear_repulsion(self):
     """Value of n-n repulsion."""
     def impl(self) -> float:
         res = 0.0
@@ -169,7 +169,7 @@ def wfn__get_nuclear_repulsion(self) -> float:
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, 'coulomb')
-def wfn_coulomb(self, r_e) -> float:
+def wfn_coulomb(self, r_e):
     """Value of e-e and e-n coulomb interaction."""
     def impl(self, r_e) -> float:
         res = 0.0
@@ -195,7 +195,7 @@ def wfn_coulomb(self, r_e) -> float:
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, 'value')
-def wfn_value(self, r_e) -> float:
+def wfn_value(self, r_e):
     """Value of wave function.
     :param r_e: electron positions
     """
@@ -287,7 +287,7 @@ def wfn_t_move(self, r_e):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, 'local_potential')
-def wfn_local_potential(self, r_e) -> float:
+def wfn_local_potential(self, r_e):
     """Local potential.
     :param r_e: electron positions - array(nelec, 3)
     """
@@ -298,7 +298,7 @@ def wfn_local_potential(self, r_e) -> float:
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, 'nonlocal_potential')
-def wfn_nonlocal_potential(self, r_e) -> float:
+def wfn_nonlocal_potential(self, r_e):
     """Nonlocal (pseudopotential) energy Wφ/φ.
     :param r_e: electron positions - array(nelec, 3)
     """
@@ -327,7 +327,7 @@ def wfn_nonlocal_potential(self, r_e) -> float:
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, 'kinetic_energy')
-def wfn_kinetic_energy(self, r_e) -> float:
+def wfn_kinetic_energy(self, r_e):
     """Kinetic energy.
     :param r_e: electron coordinates - array(nelec, 3)
 
@@ -382,7 +382,7 @@ def wfn_kinetic_energy(self, r_e) -> float:
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def wfn_energy_py(self, r_e) -> float:
+def wfn_energy_py(self, r_e):
     """Local energy.
     :param r_e: electron coordinates - array(nelec, 3)
     """
@@ -391,7 +391,7 @@ def wfn_energy_py(self, r_e) -> float:
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, 'energy')
-def wfn_energy(self, r_e) -> float:
+def wfn_energy(self, r_e):
     """Local energy.
     :param r_e: electron coordinates - array(nelec, 3)
     """
