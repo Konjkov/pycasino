@@ -4,9 +4,6 @@ import logging
 import math
 import numpy as np
 import numba as nb
-from numba.core import types
-from numba.experimental import structref
-from numba.core.extending import overload_method
 
 from scipy.optimize import minimize
 from numpy.polynomial.polynomial import polyval
@@ -16,13 +13,7 @@ from casino.readers import CasinoConfig
 
 logger = logging.getLogger(__name__)
 
-
-@structref.register
-class Cusp_class_t(types.StructRef):
-    def preprocess_fields(self, fields):
-        return tuple((name, types.unliteral(typ)) for name, typ in fields)
-
-Cusp_t = Cusp_class_t([
+cusp_spec = [
     ('neu', nb.int64),
     ('ned', nb.int64),
     ('orbitals_up', nb.int64),
@@ -39,10 +30,13 @@ Cusp_t = Cusp_class_t([
     ('coefficients', nb.float64[:]),
     ('exponents', nb.float64[:]),
     ('is_pseudoatom', nb.boolean[:]),
-])
+]
 
-class Cusp(structref.StructRefProxy):
-    """Scheme for adding electron–nucleus cusps to Gaussian orbitals
+
+@nb.experimental.jitclass(cusp_spec)
+class Cusp(AbstractCusp):
+    """
+    Scheme for adding electron–nucleus cusps to Gaussian orbitals
     A. Ma, M. D. Towler, N. D. Drummond and R. J. Needs
 
     An orbital, psi, expanded in a Gaussian basis set can be written as:
@@ -78,58 +72,34 @@ class Cusp(structref.StructRefProxy):
     and in gaussians.f90:
         POLYPRINT=.true. ! Include cusp polynomial coefficients in CUSP_INFO output.
     """
-
-    def __new__(cls, neu, ned, orbitals_up, orbitals_down, rc, shift, orbital_sign, alpha,
+    def __init__(
+            self, neu, ned, orbitals_up, orbitals_down, rc, shift, orbital_sign, alpha,
             mo, first_shells, shell_moments, primitives, coefficients, exponents, is_pseudoatom,
     ):
-        norm = np.exp(-(math.lgamma(neu + 1) + math.lgamma(ned + 1)) / (neu + ned) / 2)
-        return structref.StructRefProxy.__new__(
-            cls, neu, ned, orbitals_up, orbitals_down, rc, shift, orbital_sign, alpha, norm,
-            mo, first_shells, shell_moments, primitives, coefficients, exponents, is_pseudoatom
-        )
+        """
+        Cusp
+        """
+        self.neu = neu
+        self.ned = ned
+        self.orbitals_up = orbitals_up
+        self.orbitals_down = orbitals_down
+        # evaluate Ma cusp
+        self.rc = rc
+        self.shift = shift
+        self.orbital_sign = orbital_sign
+        self.alpha = alpha
+        # evaluate s-part of Gaussian orbital
+        self.mo = mo
+        self.norm = np.exp(-(math.lgamma(self.neu + 1) + math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
+        self.first_shells = first_shells
+        self.shell_moments = shell_moments
+        self.primitives = primitives
+        self.coefficients = coefficients
+        self.exponents = exponents
+        self.is_pseudoatom = is_pseudoatom
 
-    @property
-    def orbital_sign(self):
-        return cusp_orbital_sign(self)
-
-    @property
-    def shift(self):
-        return cusp_shift(self)
-
-    @property
-    def rc(self):
-        return cusp_rc(self)
-
-    @property
-    def alpha(self):
-        return cusp_alpha(self)
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def cusp_orbital_sign(self):
-    return self.orbital_sign
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def cusp_shift(self):
-    return self.shift
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def cusp_rc(self):
-    return self.rc
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def cusp_alpha(self):
-    return self.alpha
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Cusp_class_t, 'exp')
-def cusp_exp(self, atom, orbital, r) -> float:
-    """Exponent part"""
-    def impl(self, atom, orbital, r):
+    def exp(self, atom, orbital, r) -> float:
+        """Exponent part"""
         return self.orbital_sign[atom, orbital] * np.exp(
             # FIXME: use polyval(r, self.alpha[:, atom, i])
             self.alpha[0, atom, orbital] +
@@ -138,74 +108,54 @@ def cusp_exp(self, atom, orbital, r) -> float:
             self.alpha[3, atom, orbital] * r ** 3 +
             self.alpha[4, atom, orbital] * r ** 4
         )
-    return impl
 
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Cusp_class_t, 'diff_1')
-def cusp_diff_1(self, atom, orbital, r) -> float:
-    """f`(r) / r"""
-    def impl(self, atom, orbital, r):
+    def diff_1(self, atom, orbital, r) -> float:
+        """f`(r) / r"""
         return (
-               self.alpha[1, atom, orbital] +
-               2 * self.alpha[2, atom, orbital] * r +
-               3 * self.alpha[3, atom, orbital] * r ** 2 +
-               4 * self.alpha[4, atom, orbital] * r ** 3
-           ) / r
-    return impl
+            self.alpha[1, atom, orbital] +
+            2 * self.alpha[2, atom, orbital] * r +
+            3 * self.alpha[3, atom, orbital] * r ** 2 +
+            4 * self.alpha[4, atom, orbital] * r ** 3
+        ) / r
 
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Cusp_class_t, 'diff_2')
-def cusp_diff_2(self, atom, orbital, r) -> float:
-    """f``(r) / r²"""
-    def impl(self, atom, orbital, r):
+    def diff_2(self, atom, orbital, r) -> float:
+        """f``(r) / r²"""
         return (
-               2 * self.alpha[2, atom, orbital] +
-               6 * self.alpha[3, atom, orbital] * r +
-               12 * self.alpha[4, atom, orbital] * r ** 2 +
-               (
-                   self.alpha[1, atom, orbital] +
-                   2 * self.alpha[2, atom, orbital] * r +
-                   3 * self.alpha[3, atom, orbital] * r ** 2 +
-                   4 * self.alpha[4, atom, orbital] * r ** 3
-               ) ** 2
-           ) / r ** 2
-    return impl
+            2 * self.alpha[2, atom, orbital] +
+            6 * self.alpha[3, atom, orbital] * r +
+            12 * self.alpha[4, atom, orbital] * r ** 2 +
+            (
+                self.alpha[1, atom, orbital] +
+                2 * self.alpha[2, atom, orbital] * r +
+                3 * self.alpha[3, atom, orbital] * r ** 2 +
+                4 * self.alpha[4, atom, orbital] * r ** 3
+            ) ** 2
+        ) / r ** 2
 
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Cusp_class_t, 'diff_3')
-def cusp_diff_3(self, atom, orbital, r) -> float:
-    """f```(r) / r³"""
-    def impl(self, atom, orbital, r):
+    def diff_3(self, atom, orbital, r) -> float:
+        """f```(r) / r³"""
         return (
-               6 * self.alpha[3, atom, orbital] +
-               24 * self.alpha[4, atom, orbital] * r +
-               6 * (
-                   self.alpha[2, atom, orbital] +
-                   3 * self.alpha[3, atom, orbital] * r +
-                   6 * self.alpha[4, atom, orbital] * r ** 2
-               ) * (
-                   self.alpha[1, atom, orbital] +
-                   2 * self.alpha[2, atom, orbital] * r +
-                   3 * self.alpha[3, atom, orbital] * r ** 2 +
-                   4 * self.alpha[4, atom, orbital] * r ** 3
-               ) + (
-                   self.alpha[1, atom, orbital] +
-                   2 * self.alpha[2, atom, orbital] * r +
-                   3 * self.alpha[3, atom, orbital] * r ** 2 +
-                   4 * self.alpha[4, atom, orbital] * r ** 3
-               ) ** 3
-           ) / r ** 3
-    return impl
+            6 * self.alpha[3, atom, orbital] +
+            24 * self.alpha[4, atom, orbital] * r +
+            6 * (
+                self.alpha[2, atom, orbital] +
+                3 * self.alpha[3, atom, orbital] * r +
+                6 * self.alpha[4, atom, orbital] * r ** 2
+            ) * (
+                self.alpha[1, atom, orbital] +
+                2 * self.alpha[2, atom, orbital] * r +
+                3 * self.alpha[3, atom, orbital] * r ** 2 +
+                4 * self.alpha[4, atom, orbital] * r ** 3
+            ) + (
+                self.alpha[1, atom, orbital] +
+                2 * self.alpha[2, atom, orbital] * r +
+                3 * self.alpha[3, atom, orbital] * r ** 2 +
+                4 * self.alpha[4, atom, orbital] * r ** 3
+            ) ** 3
+        ) / r ** 3
 
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Cusp_class_t, 'value')
-def cusp_value(self, atom, orbital, r) -> float:
-    """Cusp correction for s-part of orbitals."""
-    def impl(self, n_vectors: np.ndarray):
+    def value(self, n_vectors: np.ndarray):
+        """Cusp correction for s-part of orbitals."""
         value = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned))
         for i in range(self.orbitals_up):
             for j in range(self.neu):
@@ -250,16 +200,11 @@ def cusp_value(self, atom, orbital, r) -> float:
                         value[i, j] -= s_part * self.norm
 
         return value[:self.orbitals_up, :self.neu], value[self.orbitals_up:, self.neu:]
-    return impl
 
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Cusp_class_t, 'gradient')
-def cusp_gradient(self, atom, orbital, r) -> float:
-    """Cusp part of gradient
-    df(r)/dx = ri * f`(r) / r
-    """
-    def impl(self, n_vectors: np.ndarray):
+    def gradient(self, n_vectors: np.ndarray):
+        """Cusp part of gradient
+        df(r)/dx = ri * f`(r) / r
+        """
         gradient = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3))
         for i in range(self.orbitals_up):
             for j in range(self.neu):
@@ -308,17 +253,12 @@ def cusp_gradient(self, atom, orbital, r) -> float:
                         gradient[i, j] -= n_vectors[atom, j] * s_part * self.norm
 
         return gradient[:self.orbitals_up, :self.neu], gradient[self.orbitals_up:, self.neu:]
-    return impl
 
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Cusp_class_t, 'laplacian')
-def cusp_laplacian(self, atom, orbital, r) -> float:
-    """Cusp part of laplacian
-    https://math.stackexchange.com/questions/1048973/laplacian-of-a-radial-function
-    ∇²(f(r)) = f``(r) + 2 * f`(r) / r
-    """
-    def impl(self, n_vectors: np.ndarray):
+    def laplacian(self, n_vectors: np.ndarray):
+        """Cusp part of laplacian
+        https://math.stackexchange.com/questions/1048973/laplacian-of-a-radial-function
+        ∇²(f(r)) = f``(r) + 2 * f`(r) / r
+        """
         laplacian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned))
         for i in range(self.orbitals_up):
             for j in range(self.neu):
@@ -367,17 +307,12 @@ def cusp_laplacian(self, atom, orbital, r) -> float:
                         laplacian[i, j] -= s_part * self.norm
 
         return laplacian[:self.orbitals_up, :self.neu], laplacian[self.orbitals_up:, self.neu:]
-    return impl
 
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Cusp_class_t, 'hessian')
-def cusp_hessian(self, atom, orbital, r) -> float:
-    """Cusp part of hessian
-    https://sunlimingbit.wordpress.com/2018/09/23/hessian-of-radial-functions/
-    d²f(r)/dxdy = ri ⊗ rj * f``(r) / r² + (δij - ri ⊗ rj / r²) * f`(r) / r
-    """
-    def impl(self, n_vectors: np.ndarray):
+    def hessian(self, n_vectors: np.ndarray):
+        """Cusp part of hessian
+        https://sunlimingbit.wordpress.com/2018/09/23/hessian-of-radial-functions/
+        d²f(r)/dxdy = ri ⊗ rj * f``(r) / r² + (δij - ri ⊗ rj / r²) * f`(r) / r
+        """
         hessian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3, 3))
         for i in range(self.orbitals_up):
             for j in range(self.neu):
@@ -433,18 +368,13 @@ def cusp_hessian(self, atom, orbital, r) -> float:
                         hessian[i, j] -= s_part * self.norm
 
         return hessian[:self.orbitals_up, :self.neu], hessian[self.orbitals_up:, self.neu:]
-    return impl
 
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Cusp_class_t, 'tressian')
-def cusp_tressian(self, atom, orbital, r) -> float:
-    """Cusp part of tressian
-    d³f(r)/dxdydz = ri ⊗ rj ⊗ rk * f```(r) / r³ +
-    (δik ⊗ rj + δjk ⊗ ri + δij ⊗ rk - 3 * ri ⊗ rj ⊗ rk / r²) * f``(r) / r² +
-    (3 * ri ⊗ rj ⊗ rk / r**4 - δij ⊗ rk / r² - δik ⊗ rj / r² - δjk ⊗ ri / r²) * f`(r) / r
-    """
-    def impl(self, n_vectors: np.ndarray):
+    def tressian(self, n_vectors: np.ndarray):
+        """Cusp part of tressian
+        d³f(r)/dxdydz = ri ⊗ rj ⊗ rk * f```(r) / r³ +
+        (δik ⊗ rj + δjk ⊗ ri + δij ⊗ rk - 3 * ri ⊗ rj ⊗ rk / r²) * f``(r) / r² +
+        (3 * ri ⊗ rj ⊗ rk / r**4 - δij ⊗ rk / r² - δik ⊗ rj / r² - δjk ⊗ ri / r²) * f`(r) / r
+        """
         tressian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3, 3, 3))
 
         for i in range(self.orbitals_up):
@@ -515,16 +445,6 @@ def cusp_tressian(self, atom, orbital, r) -> float:
                         tressian[i, j] -= s_part * self.norm
 
         return tressian[:self.orbitals_up, :self.neu], tressian[self.orbitals_up:, self.neu:]
-    return impl
-
-
-# This associates the proxy with MyStruct_t for the given set of fields.
-# Notice how we are not constraining the type of each field.
-# Field types remain generic.
-structref.define_proxy(Cusp, Cusp_class_t, ['neu', 'ned',
-        'orbitals_up', 'orbitals_down', 'rc', 'shift', 'orbital_sign',
-        'alpha', 'norm', 'mo', 'first_shells', 'shell_moments', 'primitives',
-        'coefficients', 'exponents', 'is_pseudoatom'])
 
 
 class CuspFactory:

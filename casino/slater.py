@@ -7,7 +7,7 @@ from numba.core.extending import overload_method
 
 from casino import delta, delta_2, delta_3
 from casino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
-from casino.cusp import Cusp
+from casino.cusp import Cusp, Cusp_t
 from casino.harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
 
 
@@ -34,7 +34,7 @@ Slater_t = Slater_class_t([
     ('mo_down', nb.float64[:, ::1]),
     ('det_coeff', nb.float64[::1]),
     # https://github.com/numba/numba/issues/6522
-    ('cusp', nb.optional(Cusp.class_type.instance_type)),
+    ('cusp', nb.optional(Cusp_t)),
     ('norm', nb.float64),
     ('parameters_projector', nb.float64[:, ::1]),
 ])

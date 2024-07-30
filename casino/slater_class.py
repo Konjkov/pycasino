@@ -5,7 +5,7 @@ import numba as nb
 from casino import delta, delta_2, delta_3
 from casino.abstract import AbstractSlater
 from casino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
-from casino.cusp import Cusp
+from casino.cusp_class import Cusp
 from casino.harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
 
 

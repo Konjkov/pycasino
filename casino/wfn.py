@@ -21,8 +21,8 @@ class Wfn_class_t(types.StructRef):
 Wfn_t = Wfn_class_t([
     ('neu', nb.int64),
     ('ned', nb.int64),
-    ('atom_positions', nb.float64[:, :]),
-    ('atom_charges', nb.float64[:]),
+    ('atom_positions', nb.float64[:, ::1]),
+    ('atom_charges', nb.float64[::1]),
     ('nuclear_repulsion', nb.float64),
     ('slater', Slater_t),
     ('jastrow', nb.optional(Jastrow.class_type.instance_type)),
@@ -338,6 +338,7 @@ def wfn_new(neu, ned, atom_positions, atom_charges, slater, jastrow, backflow, p
     self.ned = ned
     self.atom_positions = atom_positions
     self.atom_charges = atom_charges
+    self.nuclear_repulsion = self._get_nuclear_repulsion()
     self.slater = slater
     self.jastrow = jastrow
     self.backflow = backflow

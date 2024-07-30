@@ -14,7 +14,7 @@ class VMCMarkovChain_class_t(types.StructRef):
 
 
 VMCMarkovChain_t = VMCMarkovChain_class_t([
-    ('r_e', nb.float64[:, :]),
+    ('r_e', nb.float64[:, ::1]),
     ('cond', nb.int64),
     ('step_size', nb.float64),
     ('wfn', Wfn_t),
