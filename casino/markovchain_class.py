@@ -22,7 +22,7 @@ def laplace_multivariate_distribution(zeta):
     the azimuthal angle uniformly on [0, 2π] and the magnitude w from 4ζ³ * w² * exp(−2ζw).
     This is achieved by sampling r1, r2 and r3 uniformly on [0, 1] and setting w = − log(r1*r2*r3)/2ζ
 
-    copy-past from CASINO: R.J. Needs, M.D. Towler, N.D. Drummond, and P. Lopez Rios
+    copy-paste from CASINO: R.J. Needs, M.D. Towler, N.D. Drummond, and P. Lopez Rios
     SUBROUTINE g2_dist(zeta,xi)
       USE constants, ONLY : twopi
       IMPLICIT NONE

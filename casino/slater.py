@@ -501,7 +501,7 @@ def slater_hessian(self, n_vectors: np.ndarray):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'tressian')
-def slater_tressian(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Tressian or numerical third partial derivatives w.r.t. e-coordinates
     d³ln(det(A))/dxdydz = (
         tr(A^-1 • d³A/dxdydz)
@@ -615,7 +615,7 @@ def slater_tressian(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'tressian_v2')
-def slater_tressian_v2(self):
+def slater_tressian_v2(self, n_vectors: np.ndarray):
     """Tressian or numerical third partial derivatives w.r.t. e-coordinates
     d³ln(det(A))/dxdydz
     :param n_vectors: e-n vectors
@@ -658,7 +658,7 @@ def slater_get_parameters_mask(self):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'get_parameters_scale')
-def slater_get_parameters_scale(self):
+def slater_get_parameters_scale(self, all_parameters):
     """Characteristic scale of each variable. Setting x_scale is equivalent
     to reformulating the problem in scaled variables xs = x / x_scale.
     An alternative view is that the size of a trust region along j-th
@@ -697,7 +697,7 @@ def slater_set_parameters_projector(self):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'get_parameters')
-def slater_get_parameters(self):
+def slater_get_parameters(self, all_parameters):
     """Returns parameters in the following order:
     determinant coefficients accept the first.
     :param all_parameters:
@@ -712,7 +712,7 @@ def slater_get_parameters(self):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'set_parameters')
-def slater_set_parameters(self):
+def slater_set_parameters(self, parameters, all_parameters):
     """Set parameters in the following order:
     determinant coefficients accept the first.
     :param parameters:
@@ -731,7 +731,7 @@ def slater_set_parameters(self):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'value_parameters_d1')
-def slater_value_parameters_d1(self):
+def slater_value_parameters_d1(self, n_vectors: np.ndarray):
     """First derivatives of logarithm wfn w.r.t. the parameters
     :param n_vectors: e-n vectors
     """
@@ -748,7 +748,7 @@ def slater_value_parameters_d1(self):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'gradient_parameters_d1')
-def slater_gradient_parameters_d1(self):
+def slater_gradient_parameters_d1(self, n_vectors: np.ndarray):
     """First derivatives of gradient w.r.t. the parameters
     :param n_vectors: e-n vectors
     """
@@ -765,7 +765,7 @@ def slater_gradient_parameters_d1(self):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'laplacian_parameters_d1')
-def slater_laplacian_parameters_d1(self):
+def slater_laplacian_parameters_d1(self, n_vectors: np.ndarray):
     """First derivatives of laplacian w.r.t. the parameters
     :param n_vectors: e-n vectors
     """
@@ -782,7 +782,7 @@ def slater_laplacian_parameters_d1(self):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'hessian_parameters_d1')
-def slater_hessian_parameters_d1(self):
+def slater_hessian_parameters_d1(self, n_vectors: np.ndarray):
     """First derivatives of hessian w.r.t. the parameters
     :param n_vectors: e-n vectors
     """
