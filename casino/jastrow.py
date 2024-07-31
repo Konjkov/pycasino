@@ -6,6 +6,7 @@ from numba.core import types
 from numba.experimental import structref
 from numba.core.extending import overload_method
 
+from casino import delta
 from casino.overload import block_diag, rref
 
 
@@ -175,7 +176,7 @@ def jastrow_fix_optimizable(self):
                 if self.ned < ee_order:
                     f_parameters_available[2] = False
             self.f_parameters_available.append(f_parameters_available)
-        return impl
+    return impl
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -622,6 +623,1019 @@ def jastrow_laplacian(self, e_vectors, n_vectors):
     return impl
 
 
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'fix_u_parameters')
+def jastrow_fix_u_parameters(self):
+    """Fix u-term dependent parameters."""
+    def impl(self):
+        C = self.trunc
+        L = self.u_cutoff
+        Gamma = 1 / np.array([4, 2, 4][:self.u_parameters.shape[0]])
+        self.u_parameters[:, 1] = Gamma / (-L) ** C + self.u_parameters[:, 0] * C / L
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'fix_chi_parameters')
+def jastrow_fix_chi_parameters(self):
+    """Fix chi-term dependent parameters."""
+    def impl(self):
+        C = self.trunc
+        for chi_parameters, L, chi_cusp in zip(self.chi_parameters, self.chi_cutoff, self.chi_cusp):
+            chi_parameters[:, 1] = chi_parameters[:, 0] * C / L
+            if chi_cusp:
+                pass
+                # FIXME: chi cusp not implemented
+                # chi_parameters[:, 1] -= charge / (-L) ** C
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'fix_f_parameters')
+def jastrow_fix_f_parameters(self):
+    """Fix f-term dependent parameters.
+    To find the dependent coefficients of f-term it is necessary to solve
+    the system of linear equations:  A*x=b
+    A-matrix has the following rows:
+    (2 * f_en_order + 1) constraints imposed to satisfy electron–electron no-cusp condition.
+    (f_en_order + f_ee_order + 1) constraints imposed to satisfy electron–nucleus no-cusp condition.
+    (f_ee_order + 1) constraints imposed to prevent duplication of u-term
+    (f_en_order + 1) constraints imposed to prevent duplication of chi-term
+    b-column has the sum of independent coefficients for each condition.
+    """
+    def impl(self):
+        for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
+            f_spin_dep = f_parameters.shape[0] - 1
+            f_ee_order = f_parameters.shape[1] - 1
+            f_en_order = f_parameters.shape[2] - 1
+
+            a, _ = construct_a_matrix(self.trunc, f_parameters, L, 0, no_dup_u_term, no_dup_chi_term)
+            a, pivot_positions = rref(a)
+            # remove zero-rows
+            a = a[:pivot_positions.size, :]
+            b = np.zeros(shape=(f_spin_dep+1, a.shape[0]))
+            p = 0
+            for n in range(f_ee_order + 1):
+                for m in range(f_en_order + 1):
+                    for l in range(m, f_en_order + 1):
+                        if p not in pivot_positions:
+                            for temp in range(pivot_positions.size):
+                                b[:, temp] -= a[temp, p] * f_parameters[:, n, m, l]
+                        p += 1
+
+            x = np.empty(shape=(f_spin_dep + 1, pivot_positions.size))
+            for i in range(f_spin_dep + 1):
+                x[i, :] = np.linalg.solve(a[:, pivot_positions], b[i])
+
+            p = 0
+            temp = 0
+            for n in range(f_ee_order + 1):
+                for m in range(f_en_order + 1):
+                    for l in range(m, f_en_order + 1):
+                        if temp in pivot_positions:
+                            f_parameters[:, n, m, l] = f_parameters[:, n, l, m] = x[:, p]
+                            p += 1
+                        temp += 1
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'get_parameters_mask')
+def jastrow_get_parameters_mask(self):
+    """Mask optimizable parameters."""
+    def impl(self) -> np.ndarray:
+        res = []
+        if self.u_cutoff:
+            if self.u_cutoff_optimizable and self.cutoffs_optimizable:
+                res.append(1)
+            for j1 in range(self.u_parameters.shape[0]):
+                for j2 in range(self.u_parameters.shape[1]):
+                    if self.u_parameters_available[j1, j2]:
+                        res.append(self.u_parameters_optimizable[j1, j2])
+
+        if self.chi_cutoff.any():
+            for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
+                if chi_cutoff_optimizable and self.cutoffs_optimizable:
+                    res.append(1)
+                for j1 in range(chi_parameters.shape[0]):
+                    for j2 in range(chi_parameters.shape[1]):
+                        if chi_parameters_available[j1, j2]:
+                            res.append(chi_parameters_optimizable[j1, j2])
+
+        if self.f_cutoff.any():
+            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available):
+                if f_cutoff_optimizable and self.cutoffs_optimizable:
+                    res.append(1)
+                for j1 in range(f_parameters.shape[0]):
+                    for j2 in range(f_parameters.shape[1]):
+                        for j3 in range(f_parameters.shape[2]):
+                            for j4 in range(j3, f_parameters.shape[3]):
+                                if f_parameters_available[j1, j2, j3, j4]:
+                                    res.append(f_parameters_optimizable[j1, j2, j3, j4])
+
+        return np.array(res)
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'get_parameters_scale')
+def jastrow_get_parameters_scale(self, all_parameters):
+    """Characteristic scale of each variable. Setting x_scale is equivalent
+    to reformulating the problem in scaled variables xs = x / x_scale.
+    An alternative view is that the size of a trust region along j-th
+    dimension is proportional to x_scale[j].
+    The purpose of this method is to reformulate the optimization problem
+    with dimensionless variables having only one dimensional parameter - scale.
+    """
+    def impl(self, all_parameters) -> np.ndarray:
+        scale = []
+        ne = self.neu + self.ned
+        if self.u_cutoff:
+            if self.u_cutoff_optimizable and self.cutoffs_optimizable:
+                scale.append(1)
+            for j1 in range(self.u_parameters.shape[0]):
+                for j2 in range(self.u_parameters.shape[1]):
+                    if (self.u_parameters_optimizable[j1, j2] or all_parameters) and self.u_parameters_available[j1, j2]:
+                        scale.append(2 / self.u_cutoff ** j2 / ne ** 2)
+
+        if self.chi_cutoff.any():
+            for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
+                if chi_cutoff_optimizable and self.cutoffs_optimizable:
+                    scale.append(1)
+                for j1 in range(chi_parameters.shape[0]):
+                    for j2 in range(chi_parameters.shape[1]):
+                        if (chi_parameters_optimizable[j1, j2] or all_parameters) and chi_parameters_available[j1, j2]:
+                            scale.append(1 / chi_cutoff ** j2 / ne)
+
+        if self.f_cutoff.any():
+            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available):
+                if f_cutoff_optimizable and self.cutoffs_optimizable:
+                    scale.append(1)
+                for j1 in range(f_parameters.shape[0]):
+                    for j2 in range(f_parameters.shape[1]):
+                        for j3 in range(f_parameters.shape[2]):
+                            for j4 in range(j3, f_parameters.shape[3]):
+                                if (f_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and f_parameters_available[j1, j2, j3, j4]:
+                                    scale.append(2 / f_cutoff ** (j2 + j3 + j4) / ne ** 3)
+
+        return np.array(scale)
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'get_parameters_constraints')
+def jastrow_get_parameters_constraints(self):
+    """Returns parameters constraints in the following order
+    u-cutoff, u-linear parameters,
+    for every chi-set: chi-cutoff, chi-linear parameters,
+    for every f-set: f-cutoff, f-linear parameters.
+    :return:
+    """
+    def impl(self):
+        a_list = []
+        b_list = [0.0]
+
+        if self.u_cutoff:
+            # a0*C - a1*L = gamma/(-L)**(C-1) after differentiation on variables: a0, a1, L
+            # (-(C-1)*gamma/(-L)**C - a1) * dL + С * da0 - L * da1 = 0
+            u_matrix = np.zeros(shape=(1, self.u_parameters.shape[1]))
+            u_matrix[0, 0] = self.trunc
+            u_matrix[0, 1] = -self.u_cutoff
+
+            u_spin_deps = self.u_parameters.shape[0]
+            c = 1 / (-self.u_cutoff) ** (self.trunc - 1)
+            if u_spin_deps == 3:
+                u_b = [c/4, c/2, c/4]
+                u_spin_deps = [0, 1, 2]
+                if self.neu < 2:
+                    u_b = [c/2, c/4]
+                    u_spin_deps = [x for x in u_spin_deps if x != 0]
+                if self.neu + self.ned < 2:
+                    u_b = [c/4, c/4]
+                    u_spin_deps = [x for x in u_spin_deps if x != 1]
+                if self.ned < 2:
+                    u_b = [c/4, c/2]
+                    u_spin_deps = [x for x in u_spin_deps if x != 2]
+            elif u_spin_deps == 2:
+                u_b = [c/4, c/2]
+                u_spin_deps = [0, 1]
+                if self.neu < 2 and self.ned < 2:
+                    u_b = [c/2]
+                    u_spin_deps = [x for x in u_spin_deps if x != 0]
+                if self.neu + self.ned < 2:
+                    u_b = [c/4]
+                    u_spin_deps = [x for x in u_spin_deps if x != 1]
+            else:
+                # FIXME: u_spin_deps == 1
+                u_b = [c/4]
+                u_spin_deps = [0]
+
+            u_block = block_diag([u_matrix] * len(u_spin_deps))
+            if self.u_cutoff_optimizable and self.cutoffs_optimizable:
+                u_block = np.hstack((
+                    -((1 - self.trunc) * np.array(u_b) / self.u_cutoff + self.u_parameters[np.array(u_spin_deps), 1]).reshape(-1, 1),
+                    u_block
+                ))
+            a_list.append(u_block)
+            b_list += u_b
+
+        for chi_parameters, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters, self.chi_cutoff, self.chi_cutoff_optimizable):
+            # a0*C - a1*L = -Z/(-L)**(C-1) or 0 if cusp imposed by WFN, after differentiation on variables: a0, a1, L
+            # -a1 * dL + С * da0 - L * da1 = 0
+            chi_matrix = np.zeros(shape=(1, chi_parameters.shape[1]))
+            chi_matrix[0, 0] = self.trunc
+            chi_matrix[0, 1] = -chi_cutoff
+
+            if chi_parameters.shape[0] == 2:
+                chi_spin_deps = [0, 1]
+                if self.neu < 1:
+                    chi_spin_deps = [1]
+                if self.ned < 1:
+                    chi_spin_deps = [0]
+            else:
+                chi_spin_deps = [0]
+
+            chi_block = block_diag([chi_matrix] * len(chi_spin_deps))
+            if chi_cutoff_optimizable and self.cutoffs_optimizable:
+                chi_block = np.hstack((
+                    -chi_parameters[np.array(chi_spin_deps), 1].reshape(-1, 1),
+                    chi_block
+                ))
+            a_list.append(chi_block)
+            b_list += [0] * len(chi_spin_deps)
+
+        for f_parameters, f_cutoff, f_cutoff_optimizable, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.f_cutoff_optimizable, self.no_dup_u_term, self.no_dup_chi_term):
+            if f_parameters.shape[0] == 3:
+                f_spin_deps = [0, 1, 2]
+                if self.neu < 2:
+                    f_spin_deps = [x for x in f_spin_deps if x != 0]
+                if self.neu + self.ned < 2:
+                    f_spin_deps = [x for x in f_spin_deps if x != 1]
+                if self.ned < 2:
+                    f_spin_deps = [x for x in f_spin_deps if x != 2]
+            elif f_parameters.shape[0] == 2:
+                f_spin_deps = [0, 1]
+                if self.neu < 2 and self.ned < 2:
+                    f_spin_deps = [x for x in f_spin_deps if x != 0]
+                if self.neu + self.ned < 2:
+                    f_spin_deps = [x for x in f_spin_deps if x != 1]
+            else:
+                f_spin_deps = [0]
+
+            f_list = []
+            f_constrains_size = 0
+            f_cutoff_matrix = np.zeros(0)
+            for spin_dep in f_spin_deps:
+                f_matrix, cutoff_constraints = construct_a_matrix(self.trunc, f_parameters, f_cutoff, spin_dep, no_dup_u_term, no_dup_chi_term)
+                f_constrains_size, f_parameters_size = f_matrix.shape
+                f_list.append(f_matrix)
+                f_cutoff_matrix = np.concatenate((f_cutoff_matrix, cutoff_constraints))
+            f_block = block_diag(f_list)
+            if f_cutoff_optimizable and self.cutoffs_optimizable:
+                f_block = np.hstack((f_cutoff_matrix.reshape(-1, 1), f_block))
+            a_list.append(f_block)
+            b_list += [0] * f_constrains_size * len(f_spin_deps)
+
+        return block_diag(a_list), np.array(b_list[1:])
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'set_parameters_projector')
+def jastrow_set_parameters_projector(self):
+    """Set Projector matrix"""
+    def impl(self):
+        a, b = self.get_parameters_constraints()
+        p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
+        mask_idx = np.argwhere(self.get_parameters_mask()).ravel()
+        inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
+        self.parameters_projector = p[:, mask_idx] @ inv_p
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'get_parameters')
+def jastrow_get_parameters(self, all_parameters):
+    """Returns parameters in the following order:
+    u-cutoff, u-linear parameters,
+    for every chi-set: chi-cutoff, chi-linear parameters,
+    for every f-set: f-cutoff, f-linear parameters.
+    :return:
+    """
+    def impl(self, all_parameters):
+        res = []
+        if self.u_cutoff:
+            if self.u_cutoff_optimizable and self.cutoffs_optimizable:
+                res.append(self.u_cutoff)
+            for j1 in range(self.u_parameters.shape[0]):
+                for j2 in range(self.u_parameters.shape[1]):
+                    if (self.u_parameters_optimizable[j1, j2] or all_parameters) and self.u_parameters_available[j1, j2]:
+                        res.append(self.u_parameters[j1, j2])
+
+        if self.chi_cutoff.any():
+            for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
+                if chi_cutoff_optimizable and self.cutoffs_optimizable:
+                    res.append(chi_cutoff)
+                for j1 in range(chi_parameters.shape[0]):
+                    for j2 in range(chi_parameters.shape[1]):
+                        if (chi_parameters_optimizable[j1, j2] or all_parameters) and chi_parameters_available[j1, j2]:
+                            res.append(chi_parameters[j1, j2])
+
+        if self.f_cutoff.any():
+            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available):
+                if f_cutoff_optimizable and self.cutoffs_optimizable:
+                    res.append(f_cutoff)
+                for j1 in range(f_parameters.shape[0]):
+                    for j2 in range(f_parameters.shape[1]):
+                        for j3 in range(f_parameters.shape[2]):
+                            for j4 in range(j3, f_parameters.shape[3]):
+                                if (f_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and f_parameters_available[j1, j2, j3, j4]:
+                                    res.append(f_parameters[j1, j2, j3, j4])
+
+        return np.array(res)
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'set_parameters')
+def jastrow_set_parameters(self, parameters, all_parameters):
+    """Set parameters in the following order:
+    u-cutoff, u-linear parameters,
+    for every chi-set: chi-cutoff, chi-linear parameters,
+    for every f-set: f-cutoff, f-linear parameters.
+    :param parameters:
+    :param all_parameters:
+    :return:
+    """
+    def impl(self, parameters, all_parameters):
+        n = 0
+        if self.u_cutoff:
+            if self.u_cutoff_optimizable and self.cutoffs_optimizable:
+                self.u_cutoff = parameters[n]
+                n += 1
+            for j1 in range(self.u_parameters.shape[0]):
+                for j2 in range(self.u_parameters.shape[1]):
+                    if (self.u_parameters_optimizable[j1, j2] or all_parameters) and self.u_parameters_available[j1, j2]:
+                        self.u_parameters[j1, j2] = parameters[n]
+                        n += 1
+            if not all_parameters:
+                self.fix_u_parameters()
+
+        if self.chi_cutoff.any():
+            for i, (chi_parameters, chi_parameters_optimizable, chi_cutoff_optimizable, chi_parameters_available) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff_optimizable, self.chi_parameters_available)):
+                if chi_cutoff_optimizable and self.cutoffs_optimizable:
+                    # Sequence type is a pointer, but numeric type is not.
+                    self.chi_cutoff[i] = parameters[n]
+                    n += 1
+                for j1 in range(chi_parameters.shape[0]):
+                    for j2 in range(chi_parameters.shape[1]):
+                        if (chi_parameters_optimizable[j1, j2] or all_parameters) and chi_parameters_available[j1, j2]:
+                            chi_parameters[j1, j2] = parameters[n]
+                            n += 1
+            if not all_parameters:
+                self.fix_chi_parameters()
+
+        if self.f_cutoff.any():
+            for i, (f_parameters, f_parameters_optimizable, f_cutoff_optimizable, f_parameters_available) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff_optimizable, self.f_parameters_available)):
+                if f_cutoff_optimizable and self.cutoffs_optimizable:
+                    # Sequence types is a pointer, but numeric types is not.
+                    self.f_cutoff[i] = parameters[n]
+                    n += 1
+                for j1 in range(f_parameters.shape[0]):
+                    for j2 in range(f_parameters.shape[1]):
+                        for j3 in range(f_parameters.shape[2]):
+                            for j4 in range(j3, f_parameters.shape[3]):
+                                if (f_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and f_parameters_available[j1, j2, j3, j4]:
+                                    f_parameters[j1, j2, j3, j4] = f_parameters[j1, j2, j4, j3] = parameters[n]
+                                    n += 1
+            if not all_parameters:
+                self.fix_f_parameters()
+
+        return parameters[n:]
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'u_term_parameters_d1')
+def jastrow_u_term_parameters_d1(self, e_powers):
+    """First derivatives of log wfn w.r.t u-term parameters
+    :param e_powers: powers of e-e distances
+    """
+    def impl(self, e_powers) -> np.ndarray:
+        if not self.u_cutoff:
+            return np.zeros((0,))
+
+        C = self.trunc
+        L = self.u_cutoff
+        size = self.u_parameters_available.sum() + (self.u_cutoff_optimizable and self.cutoffs_optimizable)
+        res = np.zeros(shape=(size,))
+
+        n = -1
+        if self.u_cutoff_optimizable and self.cutoffs_optimizable:
+            n += 1
+            self.u_cutoff -= delta
+            res[n] -= self.u_term(e_powers) / delta / 2
+            self.u_cutoff += 2 * delta
+            res[n] += self.u_term(e_powers) / delta / 2
+            self.u_cutoff -= delta
+
+        for e1 in range(1, self.neu + self.ned):
+            for e2 in range(e1):
+                n = int(self.u_cutoff_optimizable and self.cutoffs_optimizable) - 1
+                r = e_powers[e1, e2, 1]
+                cutoff = (r - L) ** C
+                if r < self.u_cutoff:
+                    u_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.u_parameters.shape[0]
+                    for j1 in range(self.u_parameters.shape[0]):
+                        for j2 in range(self.u_parameters.shape[1]):
+                            if self.u_parameters_available[j1, j2]:
+                                n += 1
+                                if u_set == j1:
+                                    res[n] += e_powers[e1, e2, j2] * cutoff
+        return res
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'chi_term_parameters_d1')
+def jastrow_chi_term_parameters_d1(self, n_powers):
+    """First derivatives of log wfn w.r.t chi-term parameters
+    :param n_powers: powers of e-n distances
+    """
+    def impl(self, n_powers) -> np.ndarray:
+        if not self.chi_cutoff.any():
+            return np.zeros((0,))
+
+        C = self.trunc
+        size = sum([
+            chi_parameters_available.sum() + (chi_cutoff_optimizable and self.cutoffs_optimizable)
+            for chi_parameters_available, chi_cutoff_optimizable
+            in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size,))
+
+        n = -1
+        for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)):
+            if self.chi_cutoff_optimizable[i] and self.cutoffs_optimizable:
+                n += 1
+                self.chi_cutoff[i] -= delta
+                res[n] -= self.chi_term(n_powers) / delta / 2
+                self.chi_cutoff[i] += 2 * delta
+                res[n] += self.chi_term(n_powers) / delta / 2
+                self.chi_cutoff[i] -= delta
+
+            n_start = n
+            L = self.chi_cutoff[i]
+            for label in chi_labels:
+                for e1 in range(self.neu + self.ned):
+                    n = n_start
+                    r = n_powers[label, e1, 1]
+                    cutoff = (r - L) ** C
+                    if r < L:
+                        chi_set = int(e1 >= self.neu) % chi_parameters.shape[0]
+                        for j1 in range(chi_parameters.shape[0]):
+                            for j2 in range(chi_parameters.shape[1]):
+                                if chi_parameters_available[j1, j2]:
+                                    n += 1
+                                    if chi_set == j1:
+                                        res[n] += n_powers[label, e1, j2] * cutoff
+        return res
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'f_term_parameters_d1')
+def jastrow_f_term_parameters_d1(self, e_powers, n_powers):
+    """First derivatives of log wfn w.r.t f-term parameters
+    :param e_powers: powers of e-e distances
+    :param n_powers: powers of e-n distances
+    """
+    def impl(self, e_powers, n_powers) -> np.ndarray:
+        if not self.f_cutoff.any():
+            return np.zeros((0,))
+
+        C = self.trunc
+        size = sum([
+            f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
+            for f_parameters_available, f_cutoff_optimizable
+            in zip(self.f_parameters_available, self.f_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size,))
+
+        n = -1
+
+        for i, (f_parameters, f_parameters_available, f_labels) in enumerate(zip(self.f_parameters, self.f_parameters_available, self.f_labels)):
+            if self.f_cutoff_optimizable[i] and self.cutoffs_optimizable:
+                n += 1
+                self.f_cutoff[i] -= delta
+                res[n] -= self.f_term(e_powers, n_powers) / delta / 2
+                self.f_cutoff[i] += 2 * delta
+                res[n] += self.f_term(e_powers, n_powers) / delta / 2
+                self.f_cutoff[i] -= delta
+
+            n_start = n
+            L = self.f_cutoff[i]
+            for label in f_labels:
+                for e1 in range(1, self.neu + self.ned):
+                    for e2 in range(e1):
+                        n = n_start
+                        r_e1I = n_powers[label, e1, 1]
+                        r_e2I = n_powers[label, e2, 1]
+                        if r_e1I < L and r_e2I < L:
+                            f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % f_parameters.shape[0]
+                            cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
+                            for j1 in range(f_parameters.shape[0]):
+                                for j2 in range(f_parameters.shape[1]):
+                                    for j3 in range(f_parameters.shape[2]):
+                                        for j4 in range(j3, f_parameters.shape[3]):
+                                            if f_parameters_available[j1, j2, j3, j4]:
+                                                n += 1
+                                                if f_set == j1:
+                                                    en_part = n_powers[label, e1, j3] * n_powers[label, e2, j4]
+                                                    if j3 != j4:
+                                                        en_part += n_powers[label, e1, j4] * n_powers[label, e2, j3]
+                                                    res[n] += en_part * e_powers[e1, e2, j2] * cutoff
+        return res
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'u_term_gradient_parameters_d1')
+def jastrow_u_term_gradient_parameters_d1(self, e_powers, e_vectors):
+    """Gradient w.r.t the parameters
+    :param e_vectors: e-e vectors
+    :param e_powers: powers of e-e distances
+    :return:
+    """
+    def impl(self, e_powers, e_vectors) -> np.ndarray:
+        if not self.u_cutoff:
+            return np.zeros((0, (self.neu + self.ned) * 3))
+
+        C = self.trunc
+        L = self.u_cutoff
+        size = self.u_parameters_available.sum() + (self.u_cutoff_optimizable and self.cutoffs_optimizable)
+        res = np.zeros(shape=(size, (self.neu + self.ned), 3))
+
+        n = -1
+        if self.u_cutoff_optimizable and self.cutoffs_optimizable:
+            n += 1
+            self.u_cutoff -= delta
+            res[n] -= self.u_term_gradient(e_powers, e_vectors).reshape((self.neu + self.ned), 3) / delta / 2
+            self.u_cutoff += 2 * delta
+            res[n] += self.u_term_gradient(e_powers, e_vectors).reshape((self.neu + self.ned), 3) / delta / 2
+            self.u_cutoff -= delta
+
+        for e1 in range(1, self.neu + self.ned):
+            for e2 in range(e1):
+                n = int(self.u_cutoff_optimizable and self.cutoffs_optimizable) - 1
+                r = e_powers[e1, e2, 1]
+                if r < self.u_cutoff:
+                    r_vec = e_vectors[e1, e2] / r
+                    u_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.u_parameters.shape[0]
+                    cutoff = (r - L) ** C
+                    for j1 in range(self.u_parameters.shape[0]):
+                        for j2 in range(self.u_parameters.shape[1]):
+                            if self.u_parameters_available[j1, j2]:
+                                n += 1
+                                if u_set == j1:
+                                    poly = e_powers[e1, e2, j2]
+                                    gradient = r_vec * cutoff * (C / (r - L) + j2 / r) * poly
+                                    res[n, e1, :] += gradient
+                                    res[n, e2, :] -= gradient
+        return res.reshape(size, (self.neu + self.ned) * 3)
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'chi_term_gradient_parameters_d1')
+def jastrow_chi_term_gradient_parameters_d1(self, n_powers, n_vectors):
+    """Gradient w.r.t the parameters
+    :param n_vectors: e-n vectors
+    :param n_powers: powers of e-n distances
+    :return:
+    """
+    def impl(self, n_powers, n_vectors) -> np.ndarray:
+        if not self.chi_cutoff.any():
+            return np.zeros((0, (self.neu + self.ned) * 3))
+
+        C = self.trunc
+        size = sum([
+            chi_parameters_available.sum() + (chi_cutoff_optimizable and self.cutoffs_optimizable)
+            for chi_parameters_available, chi_cutoff_optimizable
+            in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size, (self.neu + self.ned), 3))
+
+        n = -1
+        for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)):
+            if self.chi_cutoff_optimizable[i] and self.cutoffs_optimizable:
+                n += 1
+                self.chi_cutoff[i] -= delta
+                res[n] -= self.chi_term_gradient(n_powers, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
+                self.chi_cutoff[i] += 2 * delta
+                res[n] += self.chi_term_gradient(n_powers, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
+                self.chi_cutoff[i] -= delta
+
+            n_start = n
+            L = self.chi_cutoff[i]
+            for label in chi_labels:
+                for e1 in range(self.neu + self.ned):
+                    n = n_start
+                    r = n_powers[label, e1, 1]
+                    if r < L:
+                        r_vec = n_vectors[label, e1] / r
+                        chi_set = int(e1 >= self.neu) % chi_parameters.shape[0]
+                        cutoff = (r - L) ** C
+                        for j1 in range(chi_parameters.shape[0]):
+                            for j2 in range(chi_parameters.shape[1]):
+                                if chi_parameters_available[j1, j2]:
+                                    n += 1
+                                    if chi_set == j1:
+                                        poly = n_powers[label, e1, j2]
+                                        res[n, e1, :] += r_vec * cutoff * (C / (r - L) + j2 / r) * poly
+        return res.reshape(size, (self.neu + self.ned) * 3)
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'f_term_gradient_parameters_d1')
+def jastrow_f_term_gradient_parameters_d1(self, e_powers, n_powers, e_vectors, n_vectors):
+    """Gradient w.r.t the parameters
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    :param e_powers: powers of e-e distances
+    :param n_powers: powers of e-n distances
+    :return:
+    """
+    def impl(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
+        if not self.f_cutoff.any():
+            return np.zeros((0, (self.neu + self.ned) * 3))
+
+        C = self.trunc
+        size = sum([
+            f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
+            for f_parameters_available, f_cutoff_optimizable
+            in zip(self.f_parameters_available, self.f_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size, (self.neu + self.ned), 3))
+
+        n = -1
+        for i, (f_parameters, f_parameters_available, f_labels) in enumerate(zip(self.f_parameters, self.f_parameters_available, self.f_labels)):
+            if self.f_cutoff_optimizable[i] and self.cutoffs_optimizable:
+                n += 1
+                self.f_cutoff[i] -= delta
+                res[n] -= self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
+                self.f_cutoff[i] += 2 * delta
+                res[n] += self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
+                self.f_cutoff[i] -= delta
+
+            n_start = n
+            L = self.f_cutoff[i]
+            for label in f_labels:
+                for e1 in range(1, self.neu + self.ned):
+                    for e2 in range(e1):
+                        n = n_start
+                        r_e1I = n_powers[label, e1, 1]
+                        r_e2I = n_powers[label, e2, 1]
+                        r_ee = e_powers[e1, e2, 1]
+                        r_e1I_vec = n_vectors[label, e1] / r_e1I
+                        r_e2I_vec = n_vectors[label, e2] / r_e2I
+                        r_ee_vec = e_vectors[e1, e2] / r_ee
+                        cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
+                        if r_e1I < L and r_e2I < L:
+                            f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % f_parameters.shape[0]
+                            for j1 in range(f_parameters.shape[0]):
+                                for j2 in range(f_parameters.shape[1]):
+                                    for j3 in range(f_parameters.shape[2]):
+                                        for j4 in range(j3, f_parameters.shape[3]):
+                                            if f_parameters_available[j1, j2, j3, j4]:
+                                                n += 1
+                                                if f_set == j1:
+                                                    poly_1 = cutoff * e_powers[e1, e2, j2] * n_powers[label, e1, j3] * n_powers[label, e2, j4]
+                                                    poly_2 = cutoff * e_powers[e1, e2, j2] * n_powers[label, e1, j4] * n_powers[label, e2, j3]
+                                                    # workaround to not create temporary 1-d numpy array
+                                                    for t1 in range(3):
+                                                        e1_gradient = r_e1I_vec[t1] * (C / (r_e1I - L) + j3 / r_e1I)
+                                                        e2_gradient = r_e2I_vec[t1] * (C / (r_e2I - L) + j4 / r_e2I)
+                                                        ee_gradient = r_ee_vec[t1] * j2 / r_ee
+                                                        res[n, e1, t1] += (e1_gradient + ee_gradient) * poly_1
+                                                        res[n, e2, t1] += (e2_gradient - ee_gradient) * poly_1
+
+                                                        if j3 != j4:
+                                                            e1_gradient = r_e1I_vec[t1] * (C / (r_e1I - L) + j4 / r_e1I)
+                                                            e2_gradient = r_e2I_vec[t1] * (C / (r_e2I - L) + j3 / r_e2I)
+                                                            res[n, e1, t1] += (e1_gradient + ee_gradient) * poly_2
+                                                            res[n, e2, t1] += (e2_gradient - ee_gradient) * poly_2
+        return res.reshape(size, (self.neu + self.ned) * 3)
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'u_term_laplacian_parameters_d1')
+def jastrow_u_term_laplacian_parameters_d1(self, e_powers):
+    """Laplacian w.r.t the parameters
+    :param e_powers: powers of e-e distances
+    :return:
+    """
+    def impl(self, e_powers) -> np.ndarray:
+        if not self.u_cutoff:
+            return np.zeros((0, ))
+
+        C = self.trunc
+        L = self.u_cutoff
+        size = self.u_parameters_available.sum() + (self.u_cutoff_optimizable and self.cutoffs_optimizable)
+        res = np.zeros(shape=(size, ))
+
+        n = -1
+        if self.u_cutoff_optimizable and self.cutoffs_optimizable:
+            n += 1
+            self.u_cutoff -= delta
+            res[n] -= self.u_term_laplacian(e_powers) / delta / 2
+            self.u_cutoff += 2 * delta
+            res[n] += self.u_term_laplacian(e_powers) / delta / 2
+            self.u_cutoff -= delta
+
+        for e1 in range(1, self.neu + self.ned):
+            for e2 in range(e1):
+                n = int(self.u_cutoff_optimizable and self.cutoffs_optimizable) - 1
+                r = e_powers[e1, e2, 1]
+                if r < self.u_cutoff:
+                    u_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.u_parameters.shape[0]
+                    cutoff = (r - L) ** C
+                    for j1 in range(self.u_parameters.shape[0]):
+                        for j2 in range(self.u_parameters.shape[1]):
+                            if self.u_parameters_available[j1, j2]:
+                                n += 1
+                                if u_set == j1:
+                                    poly = e_powers[e1, e2, j2]
+                                    res[n] += 2 * cutoff * (
+                                        C*(C - 1)/(r-L)**2 +
+                                        2 * C/(r-L) * (j2 + 1) / r +
+                                        j2 * (j2 + 1) / r**2
+                                    ) * poly
+        return res
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'chi_term_laplacian_parameters_d1')
+def jastrow_chi_term_laplacian_parameters_d1(self, n_powers):
+    """Laplacian w.r.t the parameters
+    :param n_powers: powers of e-n distances
+    :return:
+    """
+    def impl(self, n_powers) -> np.ndarray:
+        if not self.chi_cutoff.any():
+            return np.zeros((0, ))
+
+        C = self.trunc
+        size = sum([
+            chi_parameters_available.sum() + (chi_cutoff_optimizable and self.cutoffs_optimizable)
+            for chi_parameters_available, chi_cutoff_optimizable
+            in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size, ))
+
+        n = -1
+        for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)):
+            if self.chi_cutoff_optimizable[i] and self.cutoffs_optimizable:
+                n += 1
+                self.chi_cutoff[i] -= delta
+                res[n] -= self.chi_term_laplacian(n_powers) / delta / 2
+                self.chi_cutoff[i] += 2 * delta
+                res[n] += self.chi_term_laplacian(n_powers) / delta / 2
+                self.chi_cutoff[i] -= delta
+
+            n_start = n
+            L = self.chi_cutoff[i]
+            for label in chi_labels:
+                for e1 in range(self.neu + self.ned):
+                    n = n_start
+                    r = n_powers[label, e1, 1]
+                    if r < L:
+                        chi_set = int(e1 >= self.neu) % chi_parameters.shape[0]
+                        cutoff = (r - L) ** C
+                        for j1 in range(chi_parameters.shape[0]):
+                            for j2 in range(chi_parameters.shape[1]):
+                                if chi_parameters_available[j1, j2]:
+                                    n += 1
+                                    if chi_set == j1:
+                                        poly = n_powers[label, e1, j2]
+                                        res[n] += cutoff * (
+                                            C*(C - 1)/(r-L)**2 +
+                                            2 * C/(r-L) * (j2 + 1) / r +
+                                            j2 * (j2 + 1) / r**2
+                                        ) * poly
+        return res
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'f_term_laplacian_parameters_d1')
+def jastrow_f_term_laplacian_parameters_d1(self, e_powers, n_powers, e_vectors, n_vectors):
+    """Laplacian w.r.t the parameters
+    :param e_powers: powers of e-e distances
+    :param n_powers: powers of e-n distances
+    :return:
+    """
+    def impl(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
+        if not self.f_cutoff.any():
+            return np.zeros((0, ))
+
+        size = sum([
+            f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
+            for f_parameters_available, f_cutoff_optimizable
+            in zip(self.f_parameters_available, self.f_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size, ))
+
+        n = -1
+        C = self.trunc
+        for i, (f_parameters, f_parameters_available, f_labels) in enumerate(zip(self.f_parameters, self.f_parameters_available, self.f_labels)):
+            if self.f_cutoff_optimizable[i] and self.cutoffs_optimizable:
+                n += 1
+                self.f_cutoff[i] -= delta
+                res[n] -= self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                self.f_cutoff[i] += 2 * delta
+                res[n] += self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                self.f_cutoff[i] -= delta
+
+            n_start = n
+            L = self.f_cutoff[i]
+            for label in f_labels:
+                r_e1I_vec_dot_r_e2I_vec = n_vectors[label] @ n_vectors[label].T
+                for e1 in range(1, self.neu + self.ned):
+                    for e2 in range(e1):
+                        n = n_start
+                        # r_e1I_vec = n_vectors[label, e1]
+                        # r_e2I_vec = n_vectors[label, e2]
+                        # r_ee_vec = e_vectors[e1, e2]
+                        r_e1I = n_powers[label, e1, 1]
+                        r_e2I = n_powers[label, e2, 1]
+                        r_ee = e_powers[e1, e2, 1]
+                        cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
+                        vec_1 = 1 - r_e1I_vec_dot_r_e2I_vec[e1, e2] / r_e1I**2
+                        vec_2 = 1 - r_e1I_vec_dot_r_e2I_vec[e1, e2] / r_e2I**2
+                        if r_e1I < L and r_e2I < L:
+                            f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % f_parameters.shape[0]
+                            for j1 in range(f_parameters.shape[0]):
+                                for j2 in range(f_parameters.shape[1]):
+                                    for j3 in range(f_parameters.shape[2]):
+                                        for j4 in range(j3, f_parameters.shape[3]):
+                                            if f_parameters_available[j1, j2, j3, j4]:
+                                                n += 1
+                                                if f_set == j1:
+                                                    poly = cutoff * e_powers[e1, e2, j2] * n_powers[label, e1, j3] * n_powers[label, e2, j4]
+                                                    diff_1 = (
+                                                        (C * r_e1I / (r_e1I - L) + j3) / r_e1I**2 +
+                                                        (C * r_e2I / (r_e2I - L) + j4) / r_e2I**2 +
+                                                        2 * j2 / r_ee**2
+                                                    )
+                                                    diff_2 = (
+                                                        C * (C - 1) / (r_e1I - L) ** 2 +
+                                                        C * (C - 1) / (r_e2I - L) ** 2 +
+                                                        (j3 * (j3-1) / r_e1I**2 + j4 * (j4-1) / r_e2I**2 + 2 * j2 * (j2-1) / r_ee**2) +
+                                                        2 * C / (r_e1I - L) * j3 / r_e1I +
+                                                        2 * C / (r_e2I - L) * j4 / r_e2I
+                                                    )
+                                                    dot_product = (
+                                                        vec_1 * (C * r_e1I / (r_e1I - L) + j3) +
+                                                        vec_2 * (C * r_e2I / (r_e2I - L) + j4)
+                                                    ) * j2 / r_ee**2
+                                                    res[n] += (diff_2 + 2 * diff_1 + 2 * dot_product) * poly
+                                                    if j3 != j4:
+                                                        poly = cutoff  * e_powers[e1, e2, j2] * n_powers[label, e1, j4] * n_powers[label, e2, j3]
+                                                        diff_1 = (
+                                                            (C * r_e1I / (r_e1I - L) + j4) / r_e1I**2 +
+                                                            (C * r_e2I / (r_e2I - L) + j3) / r_e2I**2 +
+                                                            2 * j2 / r_ee**2
+                                                        )
+                                                        diff_2 = (
+                                                            C * (C - 1) / (r_e1I - L) ** 2 +
+                                                            C * (C - 1) / (r_e2I - L) ** 2 +
+                                                            (j4 * (j4 - 1) / r_e1I**2 + j3 * (j3 - 1) / r_e2I**2 + 2 * j2 * (j2 - 1) / r_ee**2) +
+                                                            2 * C / (r_e1I - L) * j4 / r_e1I +
+                                                            2 * C / (r_e2I - L) * j3 / r_e2I
+                                                        )
+                                                        dot_product = (
+                                                            vec_1 * (C * r_e1I / (r_e1I - L) + j4) +
+                                                            vec_2 * (C * r_e2I / (r_e2I - L) + j3)
+                                                        ) * j2 / r_ee**2
+                                                        res[n] += (diff_2 + 2 * diff_1 + 2 * dot_product) * poly
+        return res
+    return impl
+
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'value_parameters_d1')
+def jastrow_value_parameters_d1(self, e_vectors, n_vectors):
+    """First derivatives logarithm Jastrow w.r.t the parameters
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    """
+    def impl(self, e_vectors, n_vectors) -> np.ndarray:
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        return self.parameters_projector.T @ np.concatenate((
+            self.u_term_parameters_d1(e_powers),
+            self.chi_term_parameters_d1(n_powers),
+            self.f_term_parameters_d1(e_powers, n_powers),
+        ))
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'gradient_parameters_d1')
+def jastrow_gradient_parameters_d1(self, e_vectors, n_vectors):
+    """First derivatives of Jastrow gradient w.r.t the parameters
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    :return:
+    """
+    def impl(self, e_vectors, n_vectors) -> np.ndarray:
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        return self.parameters_projector.T @ np.concatenate((
+            self.u_term_gradient_parameters_d1(e_powers, e_vectors),
+            self.chi_term_gradient_parameters_d1(n_powers, n_vectors),
+            self.f_term_gradient_parameters_d1(e_powers, n_powers, e_vectors, n_vectors),
+        ))
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'laplacian_parameters_d1')
+def jastrow_laplacian_parameters_d1(self, e_vectors, n_vectors):
+    """First derivatives of Jastrow laplacian w.r.t the parameters
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    :return:
+    """
+    def impl(self, e_vectors, n_vectors) -> np.ndarray:
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        return self.parameters_projector.T @ np.concatenate((
+            self.u_term_laplacian_parameters_d1(e_powers),
+            self.chi_term_laplacian_parameters_d1(n_powers),
+            self.f_term_laplacian_parameters_d1(e_powers, n_powers, e_vectors, n_vectors),
+        ))
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'u_term_parameters_d2')
+def jastrow_u_term_parameters_d2(self, e_powers):
+    def impl(self, e_powers) -> np.ndarray:
+        pass
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'chi_term_parameters_d2')
+def jastrow_chi_term_parameters_d2(self, e_powers):
+    """Second derivatives of wfn w.r.t. u-term parameters
+    :param e_powers: powers of e-e distances
+    """
+    def impl(self, e_powers) -> np.ndarray:
+        pass
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'f_term_parameters_d2')
+def jastrow_f_term_parameters_d2(self, e_powers):
+    """Second derivatives of wfn w.r.t. chi-term parameters
+    :param n_powers: powers of e-n distances
+    """
+    def impl(self, e_powers) -> np.ndarray:
+        pass
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'value_parameters_d2')
+def jastrow_value_parameters_d2(self, e_vectors, n_vectors):
+    """Second derivatives Jastrow w.r.t the parameters
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    """
+    def impl(self, e_vectors, n_vectors) -> np.ndarray:
+        e_powers = self.ee_powers(e_vectors)
+        n_powers = self.en_powers(n_vectors)
+
+        return self.parameters_projector.T @ block_diag((
+            self.u_term_parameters_d2(e_powers),
+            self.chi_term_parameters_d2(n_powers),
+            self.f_term_parameters_d2(e_powers, n_powers),
+        )) @ self.parameters_projector
+    return impl
+
+
+
 # This associates the proxy with MyStruct_t for the given set of fields.
 # Notice how we are not constraining the type of each field.
 # Field types remain generic.
@@ -676,5 +1690,5 @@ def jastrow_new(neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutof
     self.no_dup_u_term = no_dup_u_term
     self.no_dup_chi_term = no_dup_chi_term
     self.cutoffs_optimizable = True
-    # self.fix_optimizable()
+    self.fix_optimizable()
     return self
