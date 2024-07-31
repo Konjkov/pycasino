@@ -4,7 +4,7 @@ import numba as nb
 from casino.abstract import AbstractWfn
 from casino.slater_class import Slater
 from casino.jastrow_class import Jastrow
-from casino.backflow import Backflow
+from casino.backflow_class import Backflow
 from casino.overload import block_diag
 from casino.ppotential import PPotential
 
