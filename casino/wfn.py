@@ -6,7 +6,7 @@ from numba.core.extending import overload_method
 
 from casino import delta
 from casino.slater import Slater, Slater_t
-from casino.jastrow import Jastrow
+from casino.jastrow import Jastrow, Jastrow_t
 from casino.backflow import Backflow
 from casino.overload import block_diag
 from casino.ppotential import PPotential
@@ -25,7 +25,7 @@ Wfn_t = Wfn_class_t([
     ('atom_charges', nb.float64[::1]),
     ('nuclear_repulsion', nb.float64),
     ('slater', Slater_t),
-    ('jastrow', nb.optional(Jastrow.class_type.instance_type)),
+    ('jastrow', nb.optional(Jastrow_t)),
     ('backflow', nb.optional(Backflow.class_type.instance_type)),
     ('ppotential', nb.optional(PPotential.class_type.instance_type)),
 ])

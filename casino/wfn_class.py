@@ -3,7 +3,7 @@ import numba as nb
 
 from casino.abstract import AbstractWfn
 from casino.slater_class import Slater
-from casino.jastrow import Jastrow
+from casino.jastrow_class import Jastrow
 from casino.backflow import Backflow
 from casino.overload import block_diag
 from casino.ppotential import PPotential
