@@ -48,16 +48,16 @@ class Wfn(structref.StructRefProxy):
 
     @property
     def jastrow(self):
-        return wfn_jastrow_py(self)
+        return wfn_jastrow_get(self)
 
     @property
     def backflow(self):
-        return wfn_backflow_py(self)
+        return wfn_backflow_get(self)
 
     @property
     def nuclear_repulsion(self) -> float:
         """Value of n-n repulsion."""
-        return wfn_nuclear_repulsion_py(self)
+        return wfn_nuclear_repulsion_get(self)
 
     def energy(self, r_e) -> float:
         """Local energy.
@@ -123,19 +123,19 @@ class Wfn(structref.StructRefProxy):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def wfn_jastrow_py(self) -> float:
+def wfn_jastrow_get(self) -> float:
     """Jastrow."""
     return self.jastrow
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def wfn_backflow_py(self) -> float:
+def wfn_backflow_get(self) -> float:
     """Backflow."""
     return self.backflow
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def wfn_nuclear_repulsion_py(self) -> float:
+def wfn_nuclear_repulsion_get(self) -> float:
     """Value of n-n repulsion."""
     return self.nuclear_repulsion
 

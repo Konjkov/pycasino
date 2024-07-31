@@ -120,6 +120,36 @@ class Jastrow(structref.StructRefProxy):
         chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_labels, chi_cusp,
         f_parameters, f_parameters_optimizable, f_cutoff, f_labels, no_dup_u_term, no_dup_chi_term)
 
+    @property
+    def u_cutoff(self):
+        return jastrow_u_cutoff_get(self)
+
+    @property
+    def cutoffs_optimizable(self):
+        jastrow_cutoffs_optimizable_get(self)
+
+    @cutoffs_optimizable.setter
+    def cutoffs_optimizable(self, value):
+        jastrow_cutoffs_optimizable_set(self, value)
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def jastrow_u_cutoff_get(self) -> float:
+    """u_cuoff."""
+    return self.u_cutoff
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def jastrow_cutoffs_optimizable_get(self):
+    """cutoffs_optimizable getter."""
+    return self.cutoffs_optimizable
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def jastrow_cutoffs_optimizable_set(self, value):
+    """cutoffs_optimizable setter."""
+    self.cutoffs_optimizable = value
+
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Jastrow_class_t, 'fix_optimizable')

@@ -90,38 +90,38 @@ class Cusp(structref.StructRefProxy):
 
     @property
     def orbital_sign(self):
-        return cusp_orbital_sign(self)
+        return cusp_orbital_sign_get(self)
 
     @property
     def shift(self):
-        return cusp_shift(self)
+        return cusp_shift_get(self)
 
     @property
     def rc(self):
-        return cusp_rc(self)
+        return cusp_rc_get(self)
 
     @property
     def alpha(self):
-        return cusp_alpha(self)
+        return cusp_alpha_get(self)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def cusp_orbital_sign(self):
+def cusp_orbital_sign_get(self):
     return self.orbital_sign
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def cusp_shift(self):
+def cusp_shift_get(self):
     return self.shift
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def cusp_rc(self):
+def cusp_rc_get(self):
     return self.rc
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def cusp_alpha(self):
+def cusp_alpha_get(self):
     return self.alpha
 
 
