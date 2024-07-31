@@ -1,7 +1,6 @@
 import numpy as np
 import numba as nb
 from numpy.polynomial.polynomial import polyval
-
 from numba.core import types
 from numba.experimental import structref
 from numba.core.extending import overload_method
