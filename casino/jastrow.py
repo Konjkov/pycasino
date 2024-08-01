@@ -112,7 +112,7 @@ Jastrow_t = Jastrow_class_t([
 
 class Jastrow(structref.StructRefProxy):
 
-    def __new__(self, neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutoff,
+    def __new__(cls, neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutoff,
         chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_labels, chi_cusp,
         f_parameters, f_parameters_optimizable, f_cutoff, f_labels, no_dup_u_term, no_dup_chi_term):
         return jastrow_new(neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutoff,
@@ -649,6 +649,18 @@ def jastrow_laplacian(self, e_vectors, n_vectors):
             self.chi_term_laplacian(n_powers) +
             self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
         )
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'set_u_parameters_for_emin')
+def jastrow_set_u_parameters_for_emin(self):
+    """Set u-term dependent parameters for CASINO emin."""
+    def impl(self):
+        C = self.trunc
+        L = self.u_cutoff
+        Gamma = 1 / np.array([4, 2, 4][:self.u_parameters.shape[0]])
+        self.u_parameters[:, 0] = -L * Gamma / (-L) ** C / C
     return impl
 
 

@@ -6,7 +6,7 @@ from casino.slater_class import Slater
 from casino.jastrow_class import Jastrow
 from casino.backflow_class import Backflow
 from casino.overload import block_diag
-from casino.ppotential import PPotential
+from casino.ppotential_class import PPotential
 
 spec = [
     ('neu', nb.int64),
