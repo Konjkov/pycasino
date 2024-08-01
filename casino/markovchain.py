@@ -2,6 +2,7 @@ import numpy as np
 import numba as nb
 import numba_mpi as nb_mpi
 
+from math import erfc
 from numba.core import types
 from numba.experimental import structref
 from numba.core.extending import overload_method
@@ -379,7 +380,7 @@ def dmcmarkovchain_limiting_velocity(self, r_e):
     def impl(self, r_e):
         ne = self.wfn.neu + self.wfn.ned
         drift_velocity = self.wfn.drift_velocity(r_e).reshape(ne, 3)
-        if self.nucleus_gf_mods:
+        if self.nucleus_gf_mods and self.wfn.ppotential is None:
             a_v_t = np.sum(drift_velocity**2) * self.step_size * self.alimit_vector(r_e, drift_velocity)
             velocity = drift_velocity * (np.sqrt(1 + 2 * a_v_t) - 1) / a_v_t
         else:
@@ -415,7 +416,7 @@ def dmcmarkovchain_ebe_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
         moved = False
         ne = self.wfn.neu + self.wfn.ned
         _, drift_velocity = self.limiting_velocity(r_e)
-        if self.nucleus_gf_mods:
+        if self.nucleus_gf_mods and self.wfn.ppotential is None:
             # random step according to
             # C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
             next_r_e = np.copy(r_e)
@@ -517,7 +518,7 @@ def dmcmarkovchain_cbc_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
         p = 0
         age_p = 1.1 ** max(0, age - 50)
         ne = self.wfn.neu + self.wfn.ned
-        if self.nucleus_gf_mods:
+        if self.nucleus_gf_mods and self.wfn.ppotential is None:
             # random step according to
             # C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
@@ -630,7 +631,7 @@ def dmcmarkovchain_random_step(self):
                 next_velocity_list.append(next_velocity)
                 next_wfn_value_list.append(next_wfn_value)
                 next_branching_energy_list.append(next_branching_energy)
-        if self.wfn.ppotential.is_pseudoatom.any() and self.use_tmove:
+        if self.wfn.ppotential is not None and self.use_tmove:
             for i in range(len(next_r_e_list)):
                 next_r_e_list[i], next_wfn_value_list[i], next_velocity_list[i], next_energy_list[i], next_branching_energy_list[i] = self.t_move(
                     next_r_e_list[i], next_wfn_value_list[i], next_velocity_list[i], next_energy_list[i], next_branching_energy_list[i])
@@ -732,7 +733,7 @@ def dmcmarkovchain_load_balancing(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def dmcmarkovchain_random_walk_py(self, steps, decorr_period):
+def dmcmarkovchain_random_walk_py(self, steps):
     """DMC random walk.
     :param steps: number of steps to walk
     :return: energy, number of config transfers
@@ -772,7 +773,7 @@ def dmcmarkovchain_new(r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, 
     self.alimit = alimit
     self.step_size = step_size
     self.target_weight = target_weight
-    self.nucleus_gf_mods = nucleus_gf_mods and not self.wfn.ppotential.is_pseudoatom.any()
+    self.nucleus_gf_mods = nucleus_gf_mods
     self.use_tmove = use_tmove
     self.age_list = nb.typed.List.empty_list(age_type)
     self.r_e_list = nb.typed.List.empty_list(r_e_type)
