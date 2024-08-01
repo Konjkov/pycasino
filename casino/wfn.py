@@ -109,7 +109,7 @@ class Wfn(structref.StructRefProxy):
         :param opt_det_coeff: optimize coefficients of the determinants
         :return:
         """
-        return wfn_value_parameters_d1_py(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True)
+        return wfn_value_parameters_d1_py(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff)
 
     def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
         """First-order derivatives of local energy w.r.t parameters.
@@ -119,7 +119,7 @@ class Wfn(structref.StructRefProxy):
         :param opt_det_coeff: optimize coefficients of the determinants
         :return:
         """
-        return wfn_energy_parameters_d1_py(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True)
+        return wfn_energy_parameters_d1_py(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -218,7 +218,7 @@ def wfn_drift_velocity(self, r_e):
     drift velocity = 1/2 * 'drift or quantum force'
     where D is diffusion constant = 1/2
     """
-    def impl(self, n_vectors: np.ndarray):
+    def impl(self, r_e):
         e_vectors, n_vectors = self._relative_coordinates(r_e)
 
         if self.backflow is not None:
@@ -242,13 +242,13 @@ def wfn_drift_velocity(self, r_e):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, 't_move')
-def wfn_t_move(self, r_e):
+def wfn_t_move(self, r_e, step_size):
     """T-move
     :param r_e: electron positions - array(nelec, 3)
     :param step_size: DMC step size
     :return: next electrons positions
     """
-    def impl(self, n_vectors: np.ndarray):
+    def impl(self, r_e, step_size):
         if self.ppotential is not None:
             moved = False
             next_r_e = r_e.copy()
