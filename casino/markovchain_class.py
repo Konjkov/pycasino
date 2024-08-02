@@ -3,16 +3,7 @@ import numba as nb
 import numba_mpi as nb_mpi
 
 from math import erfc
-from casino.wfn_class import Wfn
-
-vmc_spec = [
-    ('r_e', nb.float64[:, :]),
-    ('cond', nb.int64),
-    ('step_size', nb.float64),
-    ('wfn', Wfn.class_type.instance_type),
-    ('method', nb.int64),
-    ('probability_density', nb.float64),
-]
+from casino.wfn import Wfn, Wfn_t
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -48,133 +39,6 @@ def laplace_multivariate_distribution(zeta):
         mod_xi * cos_theta_xi
     ])
 
-
-@nb.experimental.jitclass(vmc_spec)
-class VMCMarkovChain:
-
-    def __init__(self, r_e, step_size, wfn, method):
-        """Markov chain Monte Carlo.
-        :param r_e: initial position
-        :param step_size: time step size
-        :param wfn: instance of Wfn class
-        :param method: vmc method: (1) - EBES (work in progress), (3) - CBCS.
-        :return:
-        """
-        self.r_e = r_e
-        self.cond = 0
-        self.step_size = step_size
-        self.wfn = wfn
-        self.method = method
-        self.probability_density = self.wfn.value(self.r_e) ** 2
-
-    def random_step(self):
-        """Wrapper"""
-        if self.method == 1:
-            self.gibbs_random_step()
-        elif self.method == 3:
-            self.simple_random_step()
-
-    def simple_random_step(self):
-        """Simple random walker with random N-dim square proposal density in
-        configuration-by-configuration sampling (CBCS).
-        """
-        ne = self.wfn.neu + self.wfn.ned
-        next_r_e = self.r_e + self.step_size * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-        next_probability_density = self.wfn.value(next_r_e) ** 2
-        self.cond = next_probability_density / self.probability_density > np.random.random()
-        if self.cond:
-            self.r_e, self.probability_density = next_r_e, next_probability_density
-
-    def gibbs_random_step(self):
-        """Simple random walker with electron-by-electron sampling (EBES)
-        """
-        ne = self.wfn.neu + self.wfn.ned
-        self.cond = 0
-        for i in range(ne):
-            next_r_e = np.copy(self.r_e)
-            next_r_e[i] += self.step_size * np.random.uniform(-1, 1, 3)
-            next_probability_density = self.wfn.value(next_r_e) ** 2
-            cond = next_probability_density / self.probability_density > np.random.random()
-            self.cond += cond
-            if cond:
-                self.r_e, self.probability_density = next_r_e, next_probability_density
-
-    def biased_random_step(self):
-        """Biased random walker with diffusion-drift proposed step
-        diffusion step s proportional to sqrt(2*D*dt)
-        drift step is proportional to D*F*dt
-        where D is diffusion constant = 1/2
-        """
-        ne = self.wfn.neu + self.wfn.ned
-        v_forth = self.wfn.drift_velocity(self.r_e)
-        move = np.sqrt(self.step_size) * np.random.normal(0, 1, ne * 3) + self.step_size * v_forth
-        next_r_e = self.r_e + move.reshape((ne, 3))
-        next_probability_density = self.wfn.value(next_r_e) ** 2
-        green_forth = np.exp(-np.sum((next_r_e.ravel() - self.r_e.ravel() - self.step_size * v_forth) ** 2) / 2 / self.step_size)
-        green_back = np.exp(-np.sum((self.r_e.ravel() - next_r_e.ravel() - self.step_size * self.wfn.drift_velocity(next_r_e)) ** 2) / 2 / self.step_size)
-        self.cond = (green_back * next_probability_density) / (green_forth * self.probability_density) > np.random.random()
-        if self.cond:
-            self.r_e, self.probability_density = next_r_e, next_probability_density
-
-    def bbk_random_step(self):
-        """Brünger–Brooks–Karplus (13 B. Brünger, C. L. Brooks, and M. Karplus, Chem. Phys. Lett. 105, 495 1984).
-        """
-        raise NotImplementedError
-
-    def force_interpolation_random_step(self):
-        """M. P. Allen and D. J. Tildesley, Computer Simulation of Liquids Oxford University Press, Oxford, 1989 and references in Sec. 9.3.
-        """
-        raise NotImplementedError
-
-    def splitting_random_step(self):
-        """J. A. Izaguirre, D. P. Catarello, J. M. Wozniak, and R. D. Skeel, J. Chem. Phys. 114, 2090 2001.
-        """
-        raise NotImplementedError
-
-    def ricci_ciccotti_random_step(self):
-        """A. Ricci and G. Ciccotti, Mol. Phys. 101, 1927 2003.
-        """
-        raise NotImplementedError
-
-    def random_walk(self, steps, decorr_period):
-        """Metropolis-Hastings random walk.
-        :param steps: number of steps to walk
-        :param decorr_period: decorrelation period
-        :return:
-        """
-        # reset if parameters changed
-        self.probability_density = self.wfn.value(self.r_e) ** 2
-        condition = np.empty(shape=(steps, ), dtype=np.int_)
-        position = np.empty(shape=(steps, ) + self.r_e.shape)
-
-        for i in range(steps):
-            cond = 0
-            for _ in range(decorr_period):
-                self.random_step()
-                cond += self.cond
-            condition[i], position[i] = cond, self.r_e
-
-        return condition, position
-
-    def vmc_energy(self, condition, position):
-        """VMC energy.
-        :param condition: accept/reject conditions
-        :param position: random walk positions
-        :return:
-        """
-        # FIXME: very slow
-        first_res = self.wfn.energy(position[0])
-        res = np.empty(shape=condition.shape + np.shape(first_res))
-        res[0] = first_res
-
-        for i in range(1, condition.shape[0]):
-            if condition[i]:
-                res[i] = self.wfn.energy(position[i])
-            else:
-                res[i] = res[i-1]
-        return res
-
-
 efficiency_type = nb.types.float64
 wfn_value_type = nb.types.float64
 energy_type = nb.types.float64
@@ -199,7 +63,7 @@ dmc_spec = [
     ('energy_t', energy_type),
     ('ntransfers_tot', nb.int64),
     ('efficiency_list', nb.types.ListType(efficiency_type)),
-    ('wfn', Wfn.class_type.instance_type),
+    ('wfn', Wfn_t),
 ]
 
 
@@ -614,22 +478,3 @@ class DMCMarkovChain:
                 self.load_balancing()
 
         return energy
-
-
-def vmc_observable(condition, position, observable, *args):
-    """VMC observable.
-    :param observable: observable quantity
-    :param condition: accept/reject conditions
-    :param position: random walk positions
-    :return:
-    """
-    first_res = observable(position[0], *args)
-    res = np.empty(shape=condition.shape + np.shape(first_res))
-    res[0] = first_res
-
-    for i in range(1, condition.shape[0]):
-        if condition[i]:
-            res[i] = observable(position[i], *args)
-        else:
-            res[i] = res[i-1]
-    return res

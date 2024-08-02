@@ -17,6 +17,7 @@ from casino.jastrow import Jastrow
 from casino.gjastrow import Gjastrow
 from casino.backflow import Backflow
 from casino.markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
+from casino.markovchain_class import DMCMarkovChain
 from casino.wfn import Wfn
 from casino.ppotential import PPotential
 from casino.readers import CasinoConfig

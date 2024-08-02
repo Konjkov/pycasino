@@ -16,7 +16,7 @@ setup(
     install_requires=[
         'numba>=0.59.0',
         'mpi4py>=3.1.0',
-        'numba-mpi>=0.40',
+        'numba-mpi==1.0.0',
         'pyblock>=0.6.0',
         'numpy>=1.24.0',
         'scipy>=1.10.0',
