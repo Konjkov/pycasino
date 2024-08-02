@@ -642,8 +642,9 @@ def dmcmarkovchain_random_step(self):
         self.wfn_value_list = next_wfn_value_list
         self.branching_energy_list = next_branching_energy_list
         if nb_mpi.size() == 1:
-            self.step_eff = sum_acceptance_probability / len(self.energy_list) * self.step_size
-            self.best_estimate_energy = sum(self.energy_list) / len(self.energy_list)
+            walkers = len(self.energy_list)
+            total_energy = sum(self.energy_list)
+            total_acceptance_probability = sum_acceptance_probability
         else:
             energy_list_len = np.empty(1, dtype=np.int_)
             energy_list_sum = np.empty(1, dtype=np.float_)
@@ -651,10 +652,13 @@ def dmcmarkovchain_random_step(self):
             nb_mpi.allreduce(len(self.energy_list), energy_list_len)
             nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
             nb_mpi.allreduce(sum_acceptance_probability, total_sum_acceptance_probability)
-            self.step_eff = total_sum_acceptance_probability[0] / energy_list_len[0] * self.step_size
-            self.best_estimate_energy = energy_list_sum[0] / energy_list_len[0]
+            walkers = energy_list_len[0]
+            total_energy = energy_list_sum[0]
+            total_acceptance_probability = total_sum_acceptance_probability[0]
+        self.best_estimate_energy = total_energy / walkers
+        self.step_eff = total_acceptance_probability / walkers * self.step_size
         # UNR (11)
-        self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) * self.step_size / self.step_eff
+        self.energy_t = self.best_estimate_energy - np.log(walkers / self.target_weight) * self.step_size / self.step_eff
     return impl
 
 
@@ -761,12 +765,8 @@ def dmcmarkovchain_random_walk_py(self, steps):
 structref.define_proxy(DMCMarkovChain, DMCMarkovChain_class_t, ['method',
     'alimit', 'step_size', 'step_eff', 'target_weight', 'nucleus_gf_mods', 'use_tmove',
     'age_list', 'r_e_list', 'wfn_value_list', 'velocity_list', 'energy_list',
-    'branching_energy_list',
-    'best_estimate_energy',
-    'energy_t',
-    'ntransfers_tot',
-    'efficiency_list',
-    'wfn',
+    'branching_energy_list', 'best_estimate_energy', 'energy_t', 'ntransfers_tot',
+    'efficiency_list', 'wfn',
 ])
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -792,13 +792,19 @@ def dmcmarkovchain_new(r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, 
         self.velocity_list.append(self.limiting_velocity(r_e)[0])
         self.energy_list.append(self.wfn.energy(r_e))
         self.branching_energy_list.append(self.wfn.energy(r_e))
-    energy_list_len = np.empty(1, dtype=np.int_)
-    energy_list_sum = np.empty(1, dtype=np.float_)
-    nb_mpi.allreduce(len(self.energy_list), energy_list_len)
-    nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
+    if nb_mpi.size() == 1:
+        walkers = len(self.energy_list)
+        total_energy = sum(self.energy_list)
+    else:
+        energy_list_len = np.empty(1, dtype=np.int_)
+        energy_list_sum = np.empty(1, dtype=np.float_)
+        nb_mpi.allreduce(len(self.energy_list), energy_list_len)
+        nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
+        walkers = energy_list_len[0]
+        total_energy = energy_list_sum[0]
     self.step_eff = self.step_size  # first guess
-    self.best_estimate_energy = energy_list_sum[0] / energy_list_len[0]
-    self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) / self.step_eff
+    self.best_estimate_energy = total_energy / walkers
+    self.energy_t = self.best_estimate_energy - np.log(walkers / self.target_weight) / self.step_eff
     self.ntransfers_tot = 0
     self.efficiency_list = nb.typed.List.empty_list(efficiency_type)
     return self
