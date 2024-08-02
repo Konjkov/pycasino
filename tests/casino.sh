@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# method="CBCS"
+method="CBCS"
 # method="EBES"
 # operation="Slater"
 # operation="Jastrow"
-# operation="Backflow"
+operation="Backflow"
 # operation="Jastrow_varmin"
 # operation="Jastrow_emin"
 # operation="Backflow_varmin"
@@ -22,7 +22,7 @@
 # path="gwfn/O3/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/B2H6/HF/cc-pVQZ/${method}/${operation}/"
 
-# PP="HF"
+PP="HF"
 # PP="DF"
 # path="ppotential_${PP}/H/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
 # path="ppotential_${PP}/B/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
@@ -35,7 +35,7 @@
 
 # path="Goodharts_law"
 
-# path="stowfn/He/HF/QZ4P/${method}/${operation}/"
+path="stowfn/He/HF/QZ4P/${method}/${operation}/"
 # path="stowfn/Be/HF/QZ4P/${method}/${operation}/"
 # path="stowfn/N/HF/QZ4P/${method}/${operation}/"
 # path="stowfn/Ne/HF/QZ4P/${method}/${operation}/"
@@ -50,6 +50,8 @@
 # ../casino/plot/plot.py stowfn/He/HF/QZ4P/CBCS/Backflow/ u
 
 # /usr/bin/time -v pycasino $path
-# pycasino $path
+# NUMBA_DEBUG_CACHE=1 pycasino $path
+pycasino $path
+# python3 -m profila annotate -- /home/vladimir/.local/bin/pycasino $path
 # /usr/bin/time -v mpiexec pycasino $path
 # mpiexec pycasino $path

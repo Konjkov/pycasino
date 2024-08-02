@@ -641,14 +641,18 @@ def dmcmarkovchain_random_step(self):
         self.velocity_list = next_velocity_list
         self.wfn_value_list = next_wfn_value_list
         self.branching_energy_list = next_branching_energy_list
-        energy_list_len = np.empty(1, dtype=np.int_)
-        energy_list_sum = np.empty(1, dtype=np.float_)
-        total_sum_acceptance_probability = np.empty(1, dtype=np.float_)
-        nb_mpi.allreduce(len(self.energy_list), energy_list_len)
-        nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
-        nb_mpi.allreduce(sum_acceptance_probability, total_sum_acceptance_probability)
-        self.step_eff = total_sum_acceptance_probability[0] / energy_list_len[0] * self.step_size
-        self.best_estimate_energy = energy_list_sum[0] / energy_list_len[0]
+        if nb_mpi.size() == 1:
+            self.step_eff = sum_acceptance_probability / len(self.energy_list) * self.step_size
+            self.best_estimate_energy = sum(self.energy_list) / len(self.energy_list)
+        else:
+            energy_list_len = np.empty(1, dtype=np.int_)
+            energy_list_sum = np.empty(1, dtype=np.float_)
+            total_sum_acceptance_probability = np.empty(1, dtype=np.float_)
+            nb_mpi.allreduce(len(self.energy_list), energy_list_len)
+            nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
+            nb_mpi.allreduce(sum_acceptance_probability, total_sum_acceptance_probability)
+            self.step_eff = total_sum_acceptance_probability[0] / energy_list_len[0] * self.step_size
+            self.best_estimate_energy = energy_list_sum[0] / energy_list_len[0]
         # UNR (11)
         self.energy_t = self.best_estimate_energy - np.log(energy_list_len[0] / self.target_weight) * self.step_size / self.step_eff
     return impl
@@ -701,34 +705,34 @@ def dmcmarkovchain_load_balancing(self):
     def impl(self):
         if nb_mpi.size() == 1:
             self.efficiency_list.append(1)
-            return
-        rank = nb_mpi.rank()
-        walkers = np.zeros(shape=(nb_mpi.size(),), dtype=np.int_)
-        walkers[rank] = len(self.energy_list)
-        # FIXME: use MPI_IN_PLACE
-        nb_mpi.allgather(walkers[rank:rank+1], walkers, 1)
-        self.efficiency_list.append(walkers.mean() / np.max(walkers))
-        # round down
-        walkers = (walkers - walkers.mean()).astype(np.int_)
-        self.ntransfers_tot += np.abs(walkers).sum() // 2
-        rank_1 = 0
-        rank_2 = 1
-        while rank_2 < nb_mpi.size():
-            count = min(abs(walkers[rank_1]), abs(walkers[rank_2]))
-            if walkers[rank_1] > 0 > walkers[rank_2]:
-                self.redistribute_walker(rank_1, rank_2, count)
-                walkers[rank_1] -= count
-                walkers[rank_2] += count
-            elif walkers[rank_2] > 0 > walkers[rank_1]:
-                self.redistribute_walker(rank_2, rank_1, count)
-                walkers[rank_2] -= count
-                walkers[rank_1] += count
-            else:
-                rank_2 += 1
-            if walkers[rank_1] == 0:
-                rank_1 += 1
-            if walkers[rank_2] == 0:
-                rank_2 += 1
+        else:
+            rank = nb_mpi.rank()
+            walkers = np.zeros(shape=(nb_mpi.size(),), dtype=np.int_)
+            walkers[rank] = len(self.energy_list)
+            # FIXME: use MPI_IN_PLACE
+            nb_mpi.allgather(walkers[rank:rank+1], walkers, 1)
+            self.efficiency_list.append(walkers.mean() / np.max(walkers))
+            # round down
+            walkers = (walkers - walkers.mean()).astype(np.int_)
+            self.ntransfers_tot += np.abs(walkers).sum() // 2
+            rank_1 = 0
+            rank_2 = 1
+            while rank_2 < nb_mpi.size():
+                count = min(abs(walkers[rank_1]), abs(walkers[rank_2]))
+                if walkers[rank_1] > 0 > walkers[rank_2]:
+                    self.redistribute_walker(rank_1, rank_2, count)
+                    walkers[rank_1] -= count
+                    walkers[rank_2] += count
+                elif walkers[rank_2] > 0 > walkers[rank_1]:
+                    self.redistribute_walker(rank_2, rank_1, count)
+                    walkers[rank_2] -= count
+                    walkers[rank_1] += count
+                else:
+                    rank_2 += 1
+                if walkers[rank_1] == 0:
+                    rank_1 += 1
+                if walkers[rank_2] == 0:
+                    rank_2 += 1
     return impl
 
 
