@@ -11,15 +11,15 @@ import scipy as sp
 from scipy.optimize import least_squares, minimize, curve_fit, OptimizeWarning
 import matplotlib.pyplot as plt
 
+from casino.wfn import Wfn
 from casino.cusp import CuspFactory
 from casino.slater import Slater
 from casino.jastrow import Jastrow
 from casino.gjastrow import Gjastrow
 from casino.backflow import Backflow
-from casino.markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
-from casino.markovchain_class import DMCMarkovChain
-from casino.wfn import Wfn
 from casino.ppotential import PPotential
+from casino.markovchain import VMCMarkovChain, vmc_observable
+from casino.markovchain_class import DMCMarkovChain
 from casino.readers import CasinoConfig
 from casino.sem import correlated_sem
 

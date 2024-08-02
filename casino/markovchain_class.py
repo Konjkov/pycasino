@@ -87,7 +87,7 @@ class DMCMarkovChain:
         self.alimit = alimit
         self.step_size = step_size
         self.target_weight = target_weight
-        self.nucleus_gf_mods = nucleus_gf_mods and not self.wfn.ppotential.is_pseudoatom.any()
+        self.nucleus_gf_mods = nucleus_gf_mods and self.wfn.ppotential is None
         self.use_tmove = use_tmove
         self.age_list = nb.typed.List.empty_list(age_type)
         self.r_e_list = nb.typed.List.empty_list(r_e_type)
@@ -373,7 +373,7 @@ class DMCMarkovChain:
                 next_velocity_list.append(next_velocity)
                 next_wfn_value_list.append(next_wfn_value)
                 next_branching_energy_list.append(next_branching_energy)
-        if self.wfn.ppotential.is_pseudoatom.any() and self.use_tmove:
+        if self.wfn.ppotential is not None and self.use_tmove:
             for i in range(len(next_r_e_list)):
                 next_r_e_list[i], next_wfn_value_list[i], next_velocity_list[i], next_energy_list[i], next_branching_energy_list[i] = self.t_move(
                     next_r_e_list[i], next_wfn_value_list[i], next_velocity_list[i], next_energy_list[i], next_branching_energy_list[i])

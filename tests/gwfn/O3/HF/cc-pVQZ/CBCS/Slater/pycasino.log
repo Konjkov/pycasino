@@ -9,20 +9,59 @@
  ##::::::::::: ##::::. ######:: ##:::: ##:. ######::'####: ##::. ##:. #######::
  .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
 
-                          Python Quantum Package
-                   v0.1.0 [Konjkov Vladimir] (30 August 2023)
+                     Python Quantum Monte Carlo Package
+                        v 0.2.0 [Vladimir Konkov]
 
-    Main Author : V.V. Konjkov
+    Main Author : Vladimir Konkov
  ------------------------------------------------------------------------------
+ Started 2024/08/02 20:26:16
 
- Python 3.10.6 (main, May 29 2023, 11:10:38) [GCC 11.3.0]
- Numba 0.57.0
- Numpy 1.24.3
+ Python 3.10.12 (main, Jul 29 2024, 16:56:48) [GCC 11.4.0]
+ Numba 0.59.0
+ Numpy 1.26.4
+ Scipy 1.11.3
 
  Running in parallel using 4 MPI processes.
 
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  12
+ NED (num down spin electrons)            :  12
+ RUNTYPE (type of run)                    :  vmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  F
+ BACKFLOW (use backflow corrections)      :  F
+ USE_ORBMODS (use orbitals modifications) :  F
+ E_OFFSET (energy offset)                 :  0.0000
+ CHECKPOINT (checkpointing level)         :  1
+ CON_LOC (Dir to read/write config.*)     :  ./
+ RELATIVISTIC                             :  F
+
+ VMC input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  1.0000E-02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  10000000
+ VMC_NCONFIG_WRITE (num configs to write) :  0
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  1
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
  Gaussian cusp correction
  ========================
+ Activated.
 
  Verbose print out flagged (turn off with cusp_info : F)
 
@@ -35,7 +74,7 @@
  Value of s part of orbital at nucleus     :  -5.245000601115
  Optimum corrected s orbital at nucleus    :  -5.297144833395
  Maximum deviation from ideal local energy :   0.571397251492
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.000024458020
 
  Orbital 2 at position of ion 1
  Sign of orbital at nucleus                : positive
@@ -44,7 +83,7 @@
  Value of s part of orbital at nucleus     :  -0.025012509389
  Optimum corrected s orbital at nucleus    :  -0.025224301525
  Maximum deviation from ideal local energy :   0.818829414965
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.006876403286
 
  Orbital 3 at position of ion 1
  Sign of orbital at nucleus                : positive
@@ -53,7 +92,7 @@
  Value of s part of orbital at nucleus     :   0.019234293939
  Optimum corrected s orbital at nucleus    :   0.019405332895
  Maximum deviation from ideal local energy :   0.670284292160
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.978528586135
 
  Orbital 4 at position of ion 1
  Sign of orbital at nucleus                : positive
@@ -62,7 +101,7 @@
  Value of s part of orbital at nucleus     :  -0.852683606911
  Optimum corrected s orbital at nucleus    :  -0.861256516859
  Maximum deviation from ideal local energy :   0.490188028430
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.873421347429
 
  Orbital 5 at position of ion 1
  Sign of orbital at nucleus                : positive
@@ -71,7 +110,7 @@
  Value of s part of orbital at nucleus     :   0.229836305880
  Optimum corrected s orbital at nucleus    :   0.231936688021
  Maximum deviation from ideal local energy :   0.582903975879
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.990744377863
 
  Orbital 6 at position of ion 1
  Sign of orbital at nucleus                : positive
@@ -80,7 +119,7 @@
  Value of s part of orbital at nucleus     :  -0.689581216893
  Optimum corrected s orbital at nucleus    :  -0.695051138050
  Maximum deviation from ideal local energy :   0.941504000606
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.093359027885
 
  Orbital 7 at position of ion 1
  Orbital s component effectively zero at this nucleus.
@@ -92,7 +131,7 @@
  Value of s part of orbital at nucleus     :  -0.136828167820
  Optimum corrected s orbital at nucleus    :  -0.137588747224
  Maximum deviation from ideal local energy :   1.629493308802
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.241901693220
 
  Orbital 9 at position of ion 1
  Sign of orbital at nucleus                : positive
@@ -101,7 +140,7 @@
  Value of s part of orbital at nucleus     :  -0.014481882390
  Optimum corrected s orbital at nucleus    :  -0.014487580955
  Maximum deviation from ideal local energy :   2.866431596047
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.451827280886
 
  Orbital 10 at position of ion 1
  Orbital s component effectively zero at this nucleus.
@@ -113,7 +152,7 @@
  Value of s part of orbital at nucleus     :  -0.081016847729
  Optimum corrected s orbital at nucleus    :  -0.081277467887
  Maximum deviation from ideal local energy :   2.408971707234
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.393121710403
 
  Orbital 12 at position of ion 1
  Sign of orbital at nucleus                : positive
@@ -122,7 +161,7 @@
  Value of s part of orbital at nucleus     :   0.208374817592
  Optimum corrected s orbital at nucleus    :   0.208765369759
  Maximum deviation from ideal local energy :   2.808760207133
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.454334747850
 
  Orbital 1 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -131,7 +170,7 @@
  Value of s part of orbital at nucleus     :  -0.024517993790
  Optimum corrected s orbital at nucleus    :  -0.024780691133
  Maximum deviation from ideal local energy :   0.481559112458
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.009640223216
 
  Orbital 2 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -140,7 +179,7 @@
  Value of s part of orbital at nucleus     :   5.241287453167
  Optimum corrected s orbital at nucleus    :   5.294011535700
  Maximum deviation from ideal local energy :   0.552331282519
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.000014273983
 
  Orbital 3 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -149,7 +188,7 @@
  Value of s part of orbital at nucleus     :  -0.002667703800
  Optimum corrected s orbital at nucleus    :  -0.002702859061
  Maximum deviation from ideal local energy :   0.351128284304
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.077221683654
 
  Orbital 4 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -158,7 +197,7 @@
  Value of s part of orbital at nucleus     :  -0.620037411115
  Optimum corrected s orbital at nucleus    :  -0.626445736936
  Maximum deviation from ideal local energy :   0.479226359600
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.889047105564
 
  Orbital 5 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -167,7 +206,7 @@
  Value of s part of orbital at nucleus     :  -0.808756306855
  Optimum corrected s orbital at nucleus    :  -0.816679419300
  Maximum deviation from ideal local energy :   0.518047817827
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.974863225056
 
  Orbital 6 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -176,7 +215,7 @@
  Value of s part of orbital at nucleus     :   0.541619172334
  Optimum corrected s orbital at nucleus    :   0.545758127004
  Maximum deviation from ideal local energy :   1.081347788648
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.133361779253
 
  Orbital 7 at position of ion 2
  Orbital s component effectively zero at this nucleus.
@@ -188,7 +227,7 @@
  Value of s part of orbital at nucleus     :  -0.240446838136
  Optimum corrected s orbital at nucleus    :  -0.241446344915
  Maximum deviation from ideal local energy :   2.109008442592
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.343097944287
 
  Orbital 9 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -197,7 +236,7 @@
  Value of s part of orbital at nucleus     :  -0.180931493859
  Optimum corrected s orbital at nucleus    :  -0.182000703443
  Maximum deviation from ideal local energy :   1.472050582361
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.207273026746
 
  Orbital 10 at position of ion 2
  Orbital s component effectively zero at this nucleus.
@@ -209,7 +248,7 @@
  Value of s part of orbital at nucleus     :   0.009558651555
  Optimum corrected s orbital at nucleus    :   0.009674131306
  Maximum deviation from ideal local energy :   5.442699592582
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   6.235998151579
 
  Orbital 12 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -218,7 +257,7 @@
  Value of s part of orbital at nucleus     :  -0.026094873676
  Optimum corrected s orbital at nucleus    :  -0.026314352092
  Maximum deviation from ideal local energy :   2.844060096728
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.202953961825
 
  Orbital 1 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -227,7 +266,7 @@
  Value of s part of orbital at nucleus     :  -0.018633284997
  Optimum corrected s orbital at nucleus    :  -0.018837141934
  Maximum deviation from ideal local energy :   0.446899091349
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.009036515635
 
  Orbital 2 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -236,7 +275,7 @@
  Value of s part of orbital at nucleus     :  -0.002806467365
  Optimum corrected s orbital at nucleus    :  -0.002825451996
  Maximum deviation from ideal local energy :   0.839148817316
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.915800352127
 
  Orbital 3 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -245,7 +284,7 @@
  Value of s part of orbital at nucleus     :  -5.248529754356
  Optimum corrected s orbital at nucleus    :  -5.300325716613
  Maximum deviation from ideal local energy :   0.583416930837
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.999952572819
 
  Orbital 4 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -254,7 +293,7 @@
  Value of s part of orbital at nucleus     :  -0.394786672240
  Optimum corrected s orbital at nucleus    :  -0.398836978147
  Maximum deviation from ideal local energy :   0.681878505610
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.823071779030
 
  Orbital 5 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -263,7 +302,7 @@
  Value of s part of orbital at nucleus     :   0.694867534735
  Optimum corrected s orbital at nucleus    :   0.701565148566
  Maximum deviation from ideal local energy :   0.453205435443
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.905129182295
 
  Orbital 6 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -272,7 +311,7 @@
  Value of s part of orbital at nucleus     :   0.702835498785
  Optimum corrected s orbital at nucleus    :   0.708664523869
  Maximum deviation from ideal local energy :   0.791137303165
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.048350712790
 
  Orbital 7 at position of ion 3
  Orbital s component effectively zero at this nucleus.
@@ -284,7 +323,7 @@
  Value of s part of orbital at nucleus     :  -0.026605543766
  Optimum corrected s orbital at nucleus    :  -0.026372947308
  Maximum deviation from ideal local energy :   6.896758917258
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.907947069124
 
  Orbital 9 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -293,7 +332,7 @@
  Value of s part of orbital at nucleus     :   0.432086607339
  Optimum corrected s orbital at nucleus    :   0.434624908815
  Maximum deviation from ideal local energy :   1.473608872946
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.210549514310
 
  Orbital 10 at position of ion 3
  Orbital s component effectively zero at this nucleus.
@@ -305,7 +344,7 @@
  Value of s part of orbital at nucleus     :  -0.032119703290
  Optimum corrected s orbital at nucleus    :  -0.032075683973
  Maximum deviation from ideal local energy :   4.323833033656
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.655882240419
 
  Orbital 12 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -314,7 +353,7 @@
  Value of s part of orbital at nucleus     :  -0.012304959590
  Optimum corrected s orbital at nucleus    :  -0.012349017337
  Maximum deviation from ideal local energy :   7.159612603686
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   5.277486459105
 
  DOWN SPIN
 
@@ -325,7 +364,7 @@
  Value of s part of orbital at nucleus     :  -5.245000601122
  Optimum corrected s orbital at nucleus    :  -5.297144833398
  Maximum deviation from ideal local energy :   0.571397251652
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.000024458024
 
  Orbital 2 at position of ion 1
  Sign of orbital at nucleus                : positive
@@ -334,7 +373,7 @@
  Value of s part of orbital at nucleus     :  -0.025012509536
  Optimum corrected s orbital at nucleus    :  -0.025224301676
  Maximum deviation from ideal local energy :   0.818829405094
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.006876403470
 
  Orbital 3 at position of ion 1
  Sign of orbital at nucleus                : positive
@@ -343,7 +382,7 @@
  Value of s part of orbital at nucleus     :   0.019234293833
  Optimum corrected s orbital at nucleus    :   0.019405332786
  Maximum deviation from ideal local energy :   0.670284295923
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.978528584653
 
  Orbital 4 at position of ion 1
  Sign of orbital at nucleus                : positive
@@ -352,7 +391,7 @@
  Value of s part of orbital at nucleus     :   0.852683606957
  Optimum corrected s orbital at nucleus    :   0.861256516932
  Maximum deviation from ideal local energy :   0.490187991584
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.873421347510
 
  Orbital 5 at position of ion 1
  Sign of orbital at nucleus                : positive
@@ -361,7 +400,7 @@
  Value of s part of orbital at nucleus     :  -0.229836305904
  Optimum corrected s orbital at nucleus    :  -0.231936688434
  Maximum deviation from ideal local energy :   0.582904383966
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.990744377990
 
  Orbital 6 at position of ion 1
  Sign of orbital at nucleus                : positive
@@ -370,7 +409,7 @@
  Value of s part of orbital at nucleus     :  -0.689581216863
  Optimum corrected s orbital at nucleus    :  -0.695051138021
  Maximum deviation from ideal local energy :   0.941504000797
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.093359027983
 
  Orbital 7 at position of ion 1
  Orbital s component effectively zero at this nucleus.
@@ -382,7 +421,7 @@
  Value of s part of orbital at nucleus     :  -0.136828167794
  Optimum corrected s orbital at nucleus    :  -0.137588747769
  Maximum deviation from ideal local energy :   1.629492851876
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.241901692931
 
  Orbital 9 at position of ion 1
  Sign of orbital at nucleus                : positive
@@ -391,7 +430,7 @@
  Value of s part of orbital at nucleus     :  -0.014481882450
  Optimum corrected s orbital at nucleus    :  -0.014487581013
  Maximum deviation from ideal local energy :   2.866431621480
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.451827284072
 
  Orbital 10 at position of ion 1
  Orbital s component effectively zero at this nucleus.
@@ -403,7 +442,7 @@
  Value of s part of orbital at nucleus     :   0.081016847732
  Optimum corrected s orbital at nucleus    :   0.081277467935
  Maximum deviation from ideal local energy :   2.408971646318
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.393121710506
 
  Orbital 12 at position of ion 1
  Sign of orbital at nucleus                : positive
@@ -412,7 +451,7 @@
  Value of s part of orbital at nucleus     :  -0.208374817521
  Optimum corrected s orbital at nucleus    :  -0.208765369523
  Maximum deviation from ideal local energy :   2.808760206932
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.454334747966
 
  Orbital 1 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -421,7 +460,7 @@
  Value of s part of orbital at nucleus     :  -0.018633284884
  Optimum corrected s orbital at nucleus    :  -0.018837141822
  Maximum deviation from ideal local energy :   0.446899077456
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.009036515037
 
  Orbital 2 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -430,7 +469,7 @@
  Value of s part of orbital at nucleus     :  -0.002806467394
  Optimum corrected s orbital at nucleus    :  -0.002825452014
  Maximum deviation from ideal local energy :   0.839148620046
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.915800351225
 
  Orbital 3 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -439,7 +478,7 @@
  Value of s part of orbital at nucleus     :  -5.248529754365
  Optimum corrected s orbital at nucleus    :  -5.300325716620
  Maximum deviation from ideal local energy :   0.583416930877
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.999952572816
 
  Orbital 4 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -448,7 +487,7 @@
  Value of s part of orbital at nucleus     :   0.394786672205
  Optimum corrected s orbital at nucleus    :   0.398836978095
  Maximum deviation from ideal local energy :   0.681878553763
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.823071779012
 
  Orbital 5 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -457,7 +496,7 @@
  Value of s part of orbital at nucleus     :  -0.694867534698
  Optimum corrected s orbital at nucleus    :  -0.701565148673
  Maximum deviation from ideal local energy :   0.453205390987
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.905129182218
 
  Orbital 6 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -466,7 +505,7 @@
  Value of s part of orbital at nucleus     :   0.702835498806
  Optimum corrected s orbital at nucleus    :   0.708664523889
  Maximum deviation from ideal local energy :   0.791137303288
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.048350712822
 
  Orbital 7 at position of ion 2
  Orbital s component effectively zero at this nucleus.
@@ -478,7 +517,7 @@
  Value of s part of orbital at nucleus     :  -0.026605543924
  Optimum corrected s orbital at nucleus    :  -0.026372947466
  Maximum deviation from ideal local energy :   6.896758885217
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.907947066368
 
  Orbital 9 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -487,7 +526,7 @@
  Value of s part of orbital at nucleus     :   0.432086607376
  Optimum corrected s orbital at nucleus    :   0.434624908160
  Maximum deviation from ideal local energy :   1.473609049227
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.210549514312
 
  Orbital 10 at position of ion 2
  Orbital s component effectively zero at this nucleus.
@@ -499,7 +538,7 @@
  Value of s part of orbital at nucleus     :   0.032119703312
  Optimum corrected s orbital at nucleus    :   0.032075684014
  Maximum deviation from ideal local energy :   4.323832973570
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.655882241009
 
  Orbital 12 at position of ion 2
  Sign of orbital at nucleus                : positive
@@ -508,7 +547,7 @@
  Value of s part of orbital at nucleus     :   0.012304959570
  Optimum corrected s orbital at nucleus    :   0.012349017318
  Maximum deviation from ideal local energy :   7.159612583984
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   5.277486455112
 
  Orbital 1 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -517,7 +556,7 @@
  Value of s part of orbital at nucleus     :  -0.024517993938
  Optimum corrected s orbital at nucleus    :  -0.024780691281
  Maximum deviation from ideal local energy :   0.481559118456
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.009640222741
 
  Orbital 2 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -526,7 +565,7 @@
  Value of s part of orbital at nucleus     :   5.241287453174
  Optimum corrected s orbital at nucleus    :   5.294011535696
  Maximum deviation from ideal local energy :   0.552331282597
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.000014273984
 
  Orbital 3 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -535,7 +574,7 @@
  Value of s part of orbital at nucleus     :  -0.002667703832
  Optimum corrected s orbital at nucleus    :  -0.002702859093
  Maximum deviation from ideal local energy :   0.351128241665
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.077221678478
 
  Orbital 4 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -544,7 +583,7 @@
  Value of s part of orbital at nucleus     :   0.620037411092
  Optimum corrected s orbital at nucleus    :   0.626445736869
  Maximum deviation from ideal local energy :   0.479226371908
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.889047105471
 
  Orbital 5 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -553,7 +592,7 @@
  Value of s part of orbital at nucleus     :   0.808756306866
  Optimum corrected s orbital at nucleus    :   0.816679419247
  Maximum deviation from ideal local energy :   0.518047840944
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.974863225032
 
  Orbital 6 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -562,7 +601,7 @@
  Value of s part of orbital at nucleus     :   0.541619172331
  Optimum corrected s orbital at nucleus    :   0.545758127000
  Maximum deviation from ideal local energy :   1.081347789129
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.133361779317
 
  Orbital 7 at position of ion 3
  Orbital s component effectively zero at this nucleus.
@@ -574,7 +613,7 @@
  Value of s part of orbital at nucleus     :  -0.240446838110
  Optimum corrected s orbital at nucleus    :  -0.241446344889
  Maximum deviation from ideal local energy :   2.109008442677
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.343097944276
 
  Orbital 9 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -583,7 +622,7 @@
  Value of s part of orbital at nucleus     :  -0.180931493945
  Optimum corrected s orbital at nucleus    :  -0.182000703532
  Maximum deviation from ideal local energy :   1.472050579891
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   8.207273026518
 
  Orbital 10 at position of ion 3
  Orbital s component effectively zero at this nucleus.
@@ -595,7 +634,7 @@
  Value of s part of orbital at nucleus     :  -0.009558651553
  Optimum corrected s orbital at nucleus    :  -0.009674131305
  Maximum deviation from ideal local energy :   5.442699394254
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   6.235998154298
 
  Orbital 12 at position of ion 3
  Sign of orbital at nucleus                : positive
@@ -604,7 +643,7 @@
  Value of s part of orbital at nucleus     :   0.026094873647
  Optimum corrected s orbital at nucleus    :   0.026314352060
  Maximum deviation from ideal local energy :   2.844060341000
- Effective nuclear charge                  :   8.000000000000
+ Effective nuclear charge                  :   7.202953961074
 
  Maximum deviation from ideal (averaged over orbitals) :   1.758990751337.
 
@@ -616,11 +655,12 @@
  BEGIN VMC CALCULATION
  =====================
 
-Running VMC equilibration (5000 moves).
-Performing time-step optimization.
-Optimized step size: 0.05645
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Optimized step size: 0.07581
+ DTVMC: 0.00192
 
-Starting VMC.
+ Starting VMC.
 
  =========================================================================
  In block : 1
@@ -628,26 +668,26 @@ Starting VMC.
 
   Block average energies (au)
 
-  Total energy                       (au) =        -224.444146690000
-  Standard error                        +/-           0.019931874552
+  Total energy                       (au) =        -224.426065236961
+  Standard error                        +/-           0.022659609199
 
   Constant energy contributions      (au) =          69.026999696574
 
-  Variance of local energy           (au) =          51.088262093266
+  Variance of local energy           (au) =          51.556446082228
   Standard error                        +/-           0.000000000000
 
- Time taken in block    : : :       1051.2362
+ Time taken in block    : : :       1554.8004
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
 
- -224.444146690000 +/- 0.019931874552      On-the-fly reblocking method
+ -224.426065236961 +/- 0.022659609199      On-the-fly reblocking method
 
- Sample variance of E_L (au^2/sim.cell) : 51.088262093266
+ Sample variance of E_L (au^2/sim.cell) : 51.556446082228
 
 
  =========================================================================
 
- Total PyCasino real time : : :    1074.3799
+ Total PyCasino real time : : :    1556.8414
