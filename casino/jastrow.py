@@ -71,13 +71,13 @@ class Jastrow_class_t(types.StructRef):
         return tuple((name, types.unliteral(typ)) for name, typ in fields)
 
 
-labels_type = nb.int64[:]
-u_parameters_type = nb.float64[:, :]
-chi_parameters_type = nb.float64[:, :]
-f_parameters_type = nb.float64[:, :, :, :]
-u_parameters_mask_type = nb.boolean[:, :]
-chi_parameters_mask_type = nb.boolean[:, :]
-f_parameters_mask_type = nb.boolean[:, :, :, :]
+labels_type = nb.int64[::1]
+u_parameters_type = nb.float64[:, ::1]
+chi_parameters_type = nb.float64[:, ::1]
+f_parameters_type = nb.float64[:, :, :, ::1]
+u_parameters_mask_type = nb.boolean[:, ::1]
+chi_parameters_mask_type = nb.boolean[:, ::1]
+f_parameters_mask_type = nb.boolean[:, :, :, ::1]
 
 Jastrow_t = Jastrow_class_t([
     ('neu', nb.int64),
@@ -102,10 +102,10 @@ Jastrow_t = Jastrow_class_t([
     ('f_labels', nb.types.ListType(labels_type)),
     ('max_ee_order', nb.int64),
     ('max_en_order', nb.int64),
-    ('chi_cusp', nb.boolean[:]),
-    ('no_dup_u_term', nb.boolean[:]),
-    ('no_dup_chi_term', nb.boolean[:]),
-    ('parameters_projector', nb.float64[:, :]),
+    ('chi_cusp', nb.boolean[::1]),
+    ('no_dup_u_term', nb.boolean[::1]),
+    ('no_dup_chi_term', nb.boolean[::1]),
+    ('parameters_projector', nb.float64[:, ::1]),
     ('cutoffs_optimizable', nb.boolean),
 ])
 

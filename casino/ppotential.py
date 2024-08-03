@@ -12,9 +12,9 @@ class PPotential_class_t(types.StructRef):
         return tuple((name, types.unliteral(typ)) for name, typ in fields)
 
 
-ppotential_type = nb.float64[:, :]
-weight_type = nb.float64[:]
-quadrature_type = nb.float64[:, :]
+ppotential_type = nb.float64[:, ::1]
+weight_type = nb.float64[::1]
+quadrature_type = nb.float64[:, ::1]
 
 
 PPotential_t = PPotential_class_t([
@@ -22,12 +22,12 @@ PPotential_t = PPotential_class_t([
     ('ned', nb.int64),
     ('lcutofftol', nb.float64),
     ('nlcutofftol', nb.float64),
-    ('atom_charges', nb.float64[:]),
-    ('vmc_nonlocal_grid', nb.int64[:]),
-    ('dmc_nonlocal_grid', nb.int64[:]),
-    ('local_angular_momentum', nb.int64[:]),
+    ('atom_charges', nb.float64[::1]),
+    ('vmc_nonlocal_grid', nb.int64[::1]),
+    ('dmc_nonlocal_grid', nb.int64[::1]),
+    ('local_angular_momentum', nb.int64[::1]),
     ('ppotential', nb.types.ListType(ppotential_type)),
-    ('is_pseudoatom', nb.boolean[:]),
+    ('is_pseudoatom', nb.boolean[::1]),
     ('weight', nb.types.ListType(weight_type)),
     ('quadrature', nb.types.ListType(quadrature_type)),
 ])

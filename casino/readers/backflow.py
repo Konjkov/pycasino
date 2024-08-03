@@ -7,13 +7,13 @@ import numba as nb
 from casino.backflow import construct_c_matrix
 from casino.overload import rref
 
-labels_type = nb.int64[:]
-mu_parameters_type = nb.float64[:, :]
-mu_parameters_optimizable_type = nb.boolean[:, :]
-phi_parameters_type = nb.float64[:, :, :, :]
-phi_parameters_optimizable_type = nb.boolean[:, :, :, :]
-theta_parameters_type = nb.float64[:, :, :, :]
-theta_parameters_optimizable_type = nb.boolean[:, :, :, :]
+labels_type = nb.int64[::1]
+mu_parameters_type = nb.float64[:, ::1]
+mu_parameters_optimizable_type = nb.boolean[:, ::1]
+phi_parameters_type = nb.float64[:, :, :, ::1]
+phi_parameters_optimizable_type = nb.boolean[:, :, :, ::1]
+theta_parameters_type = nb.float64[:, :, :, ::1]
+theta_parameters_optimizable_type = nb.boolean[:, :, :, ::1]
 
 backflow_template = """\
  START BACKFLOW

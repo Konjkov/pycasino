@@ -193,15 +193,15 @@ class Backflow_class_t(types.StructRef):
         return tuple((name, types.unliteral(typ)) for name, typ in fields)
 
 
-labels_type = nb.int64[:]
-eta_parameters_type = nb.float64[:, :]
-mu_parameters_type = nb.float64[:, :]
-phi_parameters_type = nb.float64[:, :, :, :]
-theta_parameters_type = nb.float64[:, :, :, :]
-eta_parameters_mask_type = nb.boolean[:, :]
-mu_parameters_mask_type = nb.boolean[:, :]
-phi_parameters_mask_type = nb.boolean[:, :, :, :]
-theta_parameters_mask_type = nb.boolean[:, :, :, :]
+labels_type = nb.int64[::1]
+eta_parameters_type = nb.float64[:, ::1]
+mu_parameters_type = nb.float64[:, ::1]
+phi_parameters_type = nb.float64[:, :, :, ::1]
+theta_parameters_type = nb.float64[:, :, :, ::1]
+eta_parameters_mask_type = nb.boolean[:, ::1]
+mu_parameters_mask_type = nb.boolean[:, ::1]
+phi_parameters_mask_type = nb.boolean[:, :, :, ::1]
+theta_parameters_mask_type = nb.boolean[:, :, :, ::1]
 
 Backflow_t = Backflow_class_t([
     ('neu', nb.int64),
@@ -229,12 +229,12 @@ Backflow_t = Backflow_class_t([
     ('phi_labels', nb.types.ListType(labels_type)),
     ('max_ee_order', nb.int64),
     ('max_en_order', nb.int64),
-    ('mu_cusp', nb.boolean[:]),
-    ('phi_cusp', nb.boolean[:]),
-    ('phi_irrotational', nb.boolean[:]),
+    ('mu_cusp', nb.boolean[::1]),
+    ('phi_cusp', nb.boolean[::1]),
+    ('phi_irrotational', nb.boolean[::1]),
     ('ae_cutoff', nb.float64[:]),
     ('ae_cutoff_optimizable', nb.boolean[:]),
-    ('parameters_projector', nb.float64[:, :]),
+    ('parameters_projector', nb.float64[:, ::1]),
     ('cutoffs_optimizable', nb.boolean),
 ])
 
