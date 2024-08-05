@@ -270,6 +270,71 @@ def wfn_energy(self, r_e):
     return impl
 
 
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'value_parameters_d1')
+def wfn_value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
+    """First-order derivatives of the wave function value w.r.t parameters.
+    :param r_e: electron coordinates - array(nelec, 3)
+    :param opt_jastrow: optimize jastrow parameters
+    :param opt_backflow: optimize backflow parameters
+    :param opt_det_coeff: optimize coefficients of the determinants
+    :return:
+    """
+    def impl(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
+        res = np.zeros(0)
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        if self.jastrow is not None and opt_jastrow:
+            res = np.concatenate((
+                res, self.jastrow.value_parameters_d1(e_vectors, n_vectors)
+            ))
+        if self.backflow is not None and opt_backflow:
+            b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
+            res = np.concatenate((
+                res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v)
+            ))
+        if self.slater.det_coeff.size > 1 and opt_det_coeff:
+            if self.backflow is not None:
+                n_vectors = self.backflow.value(e_vectors, n_vectors) + n_vectors
+            res = np.concatenate((
+                res, self.slater.value_parameters_d1(n_vectors)
+            ))
+        return res
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'nonlocal_energy_parameters_d1')
+def wfn_nonlocal_energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
+    """First-order derivatives of pseudopotential energy w.r.t parameters.
+    :param r_e: electron coordinates - array(nelec, 3)
+    :param opt_jastrow: optimize jastrow parameters
+    :param opt_backflow: optimize backflow parameters
+    :param opt_det_coeff: optimize coefficients of the determinants
+    :return:
+    """
+    def impl(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        grid = self.ppotential.integration_grid(n_vectors)
+        potential = self.ppotential.get_ppotential(n_vectors)
+        value_parameters_d1 = self.value_parameters_d1(r_e, opt_jastrow, opt_backflow, opt_det_coeff)
+        res = np.zeros(shape=(value_parameters_d1.size,))
+        for atom in range(n_vectors.shape[0]):
+            if self.ppotential.is_pseudoatom[atom]:
+                for e1 in range(self.neu + self.ned):
+                    if potential[atom][e1, 0] or potential[atom][e1, 1]:
+                        for q in range(grid.shape[2]):
+                            cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
+                            r_e_q = r_e.copy()
+                            r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
+                            value_q = self.value(r_e_q)
+                            value_parameters_d1_q = self.value_parameters_d1(r_e_q, opt_jastrow, opt_backflow, opt_det_coeff)
+                            weight = self.ppotential.weight[atom][q]
+                            for l in range(2):
+                                res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q * (value_parameters_d1_q - value_parameters_d1)
+        return res / self.value(r_e)
+    return impl
+
+
 Wfn_t = Wfn_class_t([
     ('neu', nb.int64),
     ('ned', nb.int64),
@@ -387,6 +452,7 @@ class Wfn(structref.StructRefProxy):
             ))
         return res
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
         """First-order derivatives of the wave function value w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
@@ -395,59 +461,6 @@ class Wfn(structref.StructRefProxy):
         :param opt_det_coeff: optimize coefficients of the determinants
         :return:
         """
-        return wfn_value_parameters_d1_py(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff)
-
-    def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
-        """First-order derivatives of local energy w.r.t parameters.
-        :param r_e: electron coordinates - array(nelec, 3)
-        :param opt_jastrow: optimize jastrow parameters
-        :param opt_backflow: optimize backflow parameters
-        :param opt_det_coeff: optimize coefficients of the determinants
-        :return:
-        """
-        return wfn_energy_parameters_d1_py(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff)
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def wfn_value_parameters_d1_py(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
-    """First-order derivatives of the wave function value w.r.t parameters.
-    :param r_e: electron coordinates - array(nelec, 3)
-    :param opt_jastrow: optimize jastrow parameters
-    :param opt_backflow: optimize backflow parameters
-    :param opt_det_coeff: optimize coefficients of the determinants
-    :return:
-    """
-    res = np.zeros(0)
-    e_vectors, n_vectors = self._relative_coordinates(r_e)
-    if self.jastrow is not None and opt_jastrow:
-        res = np.concatenate((
-            res, self.jastrow.value_parameters_d1(e_vectors, n_vectors)
-        ))
-    if self.backflow is not None and opt_backflow:
-        b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
-        res = np.concatenate((
-            res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v)
-        ))
-    if self.slater.det_coeff.size > 1 and opt_det_coeff:
-        if self.backflow is not None:
-            n_vectors = self.backflow.value(e_vectors, n_vectors) + n_vectors
-        res = np.concatenate((
-            res, self.slater.value_parameters_d1(n_vectors)
-        ))
-    return res
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Wfn_class_t, 'value_parameters_d1')
-def wfn_value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
-    """First-order derivatives of the wave function value w.r.t parameters.
-    :param r_e: electron coordinates - array(nelec, 3)
-    :param opt_jastrow: optimize jastrow parameters
-    :param opt_backflow: optimize backflow parameters
-    :param opt_det_coeff: optimize coefficients of the determinants
-    :return:
-    """
-    def impl(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
         res = np.zeros(0)
         e_vectors, n_vectors = self._relative_coordinates(r_e)
         if self.jastrow is not None and opt_jastrow:
@@ -466,40 +479,16 @@ def wfn_value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_
                 res, self.slater.value_parameters_d1(n_vectors)
             ))
         return res
-    return impl
 
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Wfn_class_t, 'nonlocal_energy_parameters_d1')
-def wfn_nonlocal_energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
-    """First-order derivatives of pseudopotential energy w.r.t parameters.
-    :param r_e: electron coordinates - array(nelec, 3)
-    :param opt_jastrow: optimize jastrow parameters
-    :param opt_backflow: optimize backflow parameters
-    :param opt_det_coeff: optimize coefficients of the determinants
-    :return:
-    """
-    def impl(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
-        e_vectors, n_vectors = self._relative_coordinates(r_e)
-        grid = self.ppotential.integration_grid(n_vectors)
-        potential = self.ppotential.get_ppotential(n_vectors)
-        value_parameters_d1 = self.value_parameters_d1(r_e, opt_jastrow, opt_backflow, opt_det_coeff)
-        res = np.zeros(shape=(value_parameters_d1.size,))
-        for atom in range(n_vectors.shape[0]):
-            if self.ppotential.is_pseudoatom[atom]:
-                for e1 in range(self.neu + self.ned):
-                    if potential[atom][e1, 0] or potential[atom][e1, 1]:
-                        for q in range(grid.shape[2]):
-                            cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
-                            r_e_q = r_e.copy()
-                            r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
-                            value_q = self.value(r_e_q)
-                            value_parameters_d1_q = self.value_parameters_d1(r_e_q, opt_jastrow, opt_backflow, opt_det_coeff)
-                            weight = self.ppotential.weight[atom][q]
-                            for l in range(2):
-                                res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q * (value_parameters_d1_q - value_parameters_d1)
-        return res / self.value(r_e)
-    return impl
+    def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
+        """First-order derivatives of local energy w.r.t parameters.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
+        :return:
+        """
+        return wfn_energy_parameters_d1_py(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)

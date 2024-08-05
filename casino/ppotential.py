@@ -35,10 +35,8 @@ PPotential_t = PPotential_class_t([
 
 class PPotential(structref.StructRefProxy):
 
-    def __new__(cls, neu, ned, lcutofftol, nlcutofftol, atom_charges,
-        vmc_nonlocal_grid, dmc_nonlocal_grid, local_angular_momentum, ppotential, is_pseudoatom):
-        return ppotential_new(neu, ned, lcutofftol, nlcutofftol, atom_charges, vmc_nonlocal_grid,
-        dmc_nonlocal_grid, local_angular_momentum, ppotential, is_pseudoatom)
+    def __new__(cls, *args, **kwargs):
+        return ppotential_init(*args, **kwargs)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -212,17 +210,11 @@ def ppotential_legendre(self, l, x):
     return impl
 
 
-# This associates the proxy with MyStruct_t for the given set of fields.
-# Notice how we are not constraining the type of each field.
-# Field types remain generic.
-structref.define_proxy(PPotential, PPotential_class_t, ['neu', 'ned',
-    'lcutofftol', 'nlcutofftol', 'atom_charges', 'vmc_nonlocal_grid',
-    'dmc_nonlocal_grid', 'local_angular_momentum', 'ppotential',
-    'is_pseudoatom', 'weight', 'quadrature'])
+structref.define_boxing(PPotential_class_t, PPotential)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def ppotential_new(neu, ned, lcutofftol, nlcutofftol, atom_charges, vmc_nonlocal_grid,
+def ppotential_init(neu, ned, lcutofftol, nlcutofftol, atom_charges, vmc_nonlocal_grid,
         dmc_nonlocal_grid, local_angular_momentum, ppotential, is_pseudoatom
     ):
     self = structref.new(PPotential_t)
