@@ -241,14 +241,8 @@ Backflow_t = Backflow_class_t([
 
 class Backflow(structref.StructRefProxy):
 
-    def __new__(cls, neu, ned, trunc, eta_parameters, eta_parameters_optimizable, eta_cutoff,
-        mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cusp, mu_labels,
-        phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable,
-        phi_cutoff, phi_cusp, phi_labels, phi_irrotational, ae_cutoff, ae_cutoff_optimizable):
-        return backflow_new(neu, ned, trunc, eta_parameters, eta_parameters_optimizable, eta_cutoff,
-        mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cusp, mu_labels,
-        phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable,
-        phi_cutoff, phi_cusp, phi_labels, phi_irrotational, ae_cutoff, ae_cutoff_optimizable)
+    def __new__(cls, *args, **kwargs):
+        return backflow_init(*args, **kwargs)
 
     @property
     def cutoffs_optimizable(self):
@@ -2370,19 +2364,11 @@ def backflow_value_parameters_d2(self, e_vectors, n_vectors):
 # This associates the proxy with MyStruct_t for the given set of fields.
 # Notice how we are not constraining the type of each field.
 # Field types remain generic.
-structref.define_proxy(Backflow, Backflow_class_t, ['neu', 'ned',
-    'trunc', 'eta_parameters', 'mu_parameters', 'phi_parameters', 'theta_parameters',
-    'eta_parameters_optimizable', 'mu_parameters_optimizable', 'mu_parameters_available',
-    'phi_parameters_optimizable', 'theta_parameters_optimizable', 'eta_parameters_available',
-    'phi_parameters_available', 'theta_parameters_available', 'eta_cutoff',
-    'eta_cutoff_optimizable', 'mu_cutoff', 'mu_cutoff_optimizable', 'phi_cutoff',
-    'phi_cutoff_optimizable', 'mu_labels', 'phi_labels', 'max_ee_order', 'max_en_order',
-    'mu_cusp', 'phi_cusp', 'phi_irrotational', 'ae_cutoff', 'ae_cutoff_optimizable',
-    'parameters_projector', 'cutoffs_optimizable'])
+structref.define_proxy(Backflow, Backflow_class_t, list(dict(Backflow_t._fields)))
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def backflow_new(neu, ned, trunc, eta_parameters, eta_parameters_optimizable, eta_cutoff,
+def backflow_init(neu, ned, trunc, eta_parameters, eta_parameters_optimizable, eta_cutoff,
         mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cusp, mu_labels,
         phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable,
         phi_cutoff, phi_cusp, phi_labels, phi_irrotational, ae_cutoff, ae_cutoff_optimizable

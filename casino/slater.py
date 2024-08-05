@@ -42,15 +42,8 @@ Slater_t = Slater_class_t([
 
 class Slater(structref.StructRefProxy):
 
-    def __new__(cls, neu, ned,
-            nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders,
-            primitives, coefficients, exponents, mo_up, mo_down,
-            permutation_up, permutation_down, coeff, cusp):
-        """Slater multideterminant wavefunction."""
-        return slater_new(neu, ned,
-            nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders,
-            primitives, coefficients, exponents, mo_up, mo_down,
-            permutation_up, permutation_down, coeff, cusp)
+    def __new__(cls, *args, **kwargs):
+        return slater_init(*args, **kwargs)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -793,19 +786,30 @@ def slater_hessian_parameters_d1(self, n_vectors: np.ndarray):
 # This associates the proxy with MyStruct_t for the given set of fields.
 # Notice how we are not constraining the type of each field.
 # Field types remain generic.
-structref.define_proxy(Slater, Slater_class_t, ['neu', 'ned',
-    'nbasis_functions', 'first_shells', 'orbital_types', 'shell_moments',
-    'slater_orders', 'primitives', 'coefficients', 'exponents',
-    'permutation_up', 'permutation_down', 'mo_up', 'mo_down', 'det_coeff',
-    'cusp', 'norm', 'parameters_projector'])
+structref.define_proxy(Slater, Slater_class_t, list(dict(Slater_t._fields)))
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def slater_new(neu, ned,
+def slater_init(neu, ned,
         nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders,
         primitives, coefficients, exponents, mo_up, mo_down,
         permutation_up, permutation_down, coeff, cusp
     ):
+    """ Slater multideterminant wavefunction.
+    :param neu: number of up electrons
+    :param ned: number of down electrons
+    :param nbasis_functions:
+    :param first_shells:
+    :param orbital_types:
+    :param shell_moments:
+    :param slater_orders:
+    :param primitives:
+    :param coefficients:
+    :param exponents:
+    :param mo_up:
+    :param mo_down:
+    :param coeff:
+    """
     self = structref.new(Slater_t)
     self.neu = neu
     self.ned = ned

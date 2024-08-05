@@ -28,15 +28,8 @@ VMCMarkovChain_t = VMCMarkovChain_class_t([
 
 class VMCMarkovChain(structref.StructRefProxy):
 
-    def __new__(cls, r_e, step_size, wfn, method):
-        """Markov chain Monte Carlo.
-        :param r_e: initial position
-        :param step_size: time step size
-        :param wfn: instance of Wfn class
-        :param method: vmc method: (1) - EBES (work in progress), (3) - CBCS.
-        :return:
-        """
-        return vmcmarkovchain_new(r_e, step_size, wfn, method)
+    def __new__(cls, *args, **kwargs):
+        return vmcmarkovchain_init(*args, **kwargs)
 
     def bbk_random_step(self):
         """Brünger–Brooks–Karplus (13 B. Brünger, C. L. Brooks, and M. Karplus, Chem. Phys. Lett. 105, 495 1984).
@@ -155,11 +148,18 @@ def vmcmarkovchain_vmc_energy(self, condition, position):
 # This associates the proxy with MyStruct_t for the given set of fields.
 # Notice how we are not constraining the type of each field.
 # Field types remain generic.
-structref.define_proxy(VMCMarkovChain, VMCMarkovChain_class_t, ['r_e', 'cond', 'step_size', 'wfn', 'method', 'probability_density'])
+structref.define_proxy(VMCMarkovChain, VMCMarkovChain_class_t, list(dict(VMCMarkovChain_t._fields)))
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def vmcmarkovchain_new(r_e, step_size, wfn, method):
+def vmcmarkovchain_init(r_e, step_size, wfn, method):
+    """Markov chain Monte Carlo.
+    :param r_e: initial position
+    :param step_size: time step size
+    :param wfn: instance of Wfn class
+    :param method: vmc method: (1) - EBES (work in progress), (3) - CBCS.
+    :return:
+    """
     self = structref.new(VMCMarkovChain_t)
     self.r_e = r_e
     self.cond = 0
@@ -260,19 +260,8 @@ DMCMarkovChain_t = DMCMarkovChain_class_t([
 
 class DMCMarkovChain(structref.StructRefProxy):
 
-    def __new__(cls, r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
-        """Markov chain Monte Carlo.
-        :param r_e_list: initial positions of walkers
-        :param alimit: parameter required by DMC drift-velocity- and energy-limiting schemes
-        :param nucleus_gf_mods:
-        :param use_tmove: use T-move
-        :param step_size: time step size
-        :param target_weight: target weight of walkers
-        :param wfn: instance of Wfn class
-        :param method: dmc method: (1) - EBES, (2) - CBCS.
-        :return:
-        """
-        return dmcmarkovchain_new(r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method)
+    def __new__(cls, *args, **kwargs):
+        return dmcmarkovchain_init(*args, **kwargs)
 
     @property
     def best_estimate_energy(self) -> float:
@@ -762,15 +751,21 @@ def dmcmarkovchain_random_walk_py(self, steps):
 # This associates the proxy with MyStruct_t for the given set of fields.
 # Notice how we are not constraining the type of each field.
 # Field types remain generic.
-structref.define_proxy(DMCMarkovChain, DMCMarkovChain_class_t, ['method',
-    'alimit', 'step_size', 'step_eff', 'target_weight', 'nucleus_gf_mods', 'use_tmove',
-    'age_list', 'r_e_list', 'wfn_value_list', 'velocity_list', 'energy_list',
-    'branching_energy_list', 'best_estimate_energy', 'energy_t', 'ntransfers_tot',
-    'efficiency_list', 'wfn',
-])
+structref.define_proxy(DMCMarkovChain, DMCMarkovChain_class_t, list(dict(DMCMarkovChain_t._fields)))
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def dmcmarkovchain_new(r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
+def dmcmarkovchain_init(r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
+    """Markov chain Monte Carlo.
+    :param r_e_list: initial positions of walkers
+    :param alimit: parameter required by DMC drift-velocity- and energy-limiting schemes
+    :param nucleus_gf_mods:
+    :param use_tmove: use T-move
+    :param step_size: time step size
+    :param target_weight: target weight of walkers
+    :param wfn: instance of Wfn class
+    :param method: dmc method: (1) - EBES, (2) - CBCS.
+    :return:
+    """
     self = structref.new(DMCMarkovChain_t)
     self.wfn = wfn
     self.method = method

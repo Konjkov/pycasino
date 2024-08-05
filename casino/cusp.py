@@ -79,14 +79,8 @@ class Cusp(structref.StructRefProxy):
         POLYPRINT=.true. ! Include cusp polynomial coefficients in CUSP_INFO output.
     """
 
-    def __new__(cls, neu, ned, orbitals_up, orbitals_down, rc, shift, orbital_sign, alpha,
-            mo, first_shells, shell_moments, primitives, coefficients, exponents, is_pseudoatom,
-    ):
-        norm = np.exp(-(math.lgamma(neu + 1) + math.lgamma(ned + 1)) / (neu + ned) / 2)
-        return structref.StructRefProxy.__new__(
-            cls, neu, ned, orbitals_up, orbitals_down, rc, shift, orbital_sign, alpha, norm,
-            mo, first_shells, shell_moments, primitives, coefficients, exponents, is_pseudoatom
-        )
+    def __new__(cls, *args, **kwargs):
+        return cusp_init(*args, **kwargs)
 
     @property
     def orbital_sign(self):
@@ -521,10 +515,29 @@ def cusp_tressian(self, n_vectors: np.ndarray):
 # This associates the proxy with MyStruct_t for the given set of fields.
 # Notice how we are not constraining the type of each field.
 # Field types remain generic.
-structref.define_proxy(Cusp, Cusp_class_t, ['neu', 'ned',
-        'orbitals_up', 'orbitals_down', 'rc', 'shift', 'orbital_sign',
-        'alpha', 'norm', 'mo', 'first_shells', 'shell_moments', 'primitives',
-        'coefficients', 'exponents', 'is_pseudoatom'])
+structref.define_proxy(Cusp, Cusp_class_t, list(dict(Cusp_t._fields)))
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def cusp_init(neu, ned, orbitals_up, orbitals_down, rc, shift, orbital_sign, alpha,
+    mo, first_shells, shell_moments, primitives, coefficients, exponents, is_pseudoatom):
+    self = structref.new(Cusp_t)
+    self.neu = neu
+    self.ned = ned
+    self.norm = np.exp(-(math.lgamma(neu + 1) + math.lgamma(ned + 1)) / (neu + ned) / 2)
+    self.orbitals_up = orbitals_up
+    self.orbitals_down = orbitals_down
+    self.rc = rc
+    self.shift = shift
+    self.orbital_sign = orbital_sign
+    self.alpha = alpha
+    self.mo = mo
+    self.first_shells = first_shells
+    self.shell_moments = shell_moments
+    self.primitives = primitives
+    self.coefficients = coefficients
+    self.exponents = exponents
+    self.is_pseudoatom = is_pseudoatom
+    return self
 
 
 class CuspFactory:

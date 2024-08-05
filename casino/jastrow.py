@@ -112,12 +112,8 @@ Jastrow_t = Jastrow_class_t([
 
 class Jastrow(structref.StructRefProxy):
 
-    def __new__(cls, neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutoff,
-        chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_labels, chi_cusp,
-        f_parameters, f_parameters_optimizable, f_cutoff, f_labels, no_dup_u_term, no_dup_chi_term):
-        return jastrow_new(neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutoff,
-        chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_labels, chi_cusp,
-        f_parameters, f_parameters_optimizable, f_cutoff, f_labels, no_dup_u_term, no_dup_chi_term)
+    def __new__(cls, *args, **kwargs):
+        return jastrow_init(*args, **kwargs)
 
     @property
     def u_cutoff(self):
@@ -1680,17 +1676,11 @@ def jastrow_value_parameters_d2(self, e_vectors, n_vectors):
 # This associates the proxy with MyStruct_t for the given set of fields.
 # Notice how we are not constraining the type of each field.
 # Field types remain generic.
-structref.define_proxy(Jastrow, Jastrow_class_t, ['neu', 'ned',
-    'trunc', 'u_parameters', 'chi_parameters', 'f_parameters',
-    'u_parameters_optimizable', 'chi_parameters_optimizable', 'f_parameters_optimizable',
-    'u_parameters_available', 'chi_parameters_available', 'f_parameters_available',
-    'u_cutoff', 'u_cutoff_optimizable', 'chi_cutoff', 'chi_cutoff_optimizable', 'f_cutoff', 'f_cutoff_optimizable',
-    'chi_labels', 'f_labels', 'max_ee_order', 'max_en_order', 'chi_cusp', 'no_dup_u_term', 'no_dup_chi_term',
-    'parameters_projector', 'cutoffs_optimizable'])
+structref.define_proxy(Jastrow, Jastrow_class_t, list(dict(Jastrow_t._fields)))
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def jastrow_new(neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutoff,
+def jastrow_init(neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutoff,
         chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_labels, chi_cusp,
         f_parameters, f_parameters_optimizable, f_cutoff, f_labels, no_dup_u_term, no_dup_chi_term
     ):

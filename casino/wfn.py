@@ -18,128 +18,6 @@ class Wfn_class_t(types.StructRef):
         return tuple((name, types.unliteral(typ)) for name, typ in fields)
 
 
-Wfn_t = Wfn_class_t([
-    ('neu', nb.int64),
-    ('ned', nb.int64),
-    ('atom_positions', nb.float64[:, ::1]),
-    ('atom_charges', nb.float64[::1]),
-    ('nuclear_repulsion', nb.float64),
-    ('slater', Slater_t),
-    ('jastrow', nb.optional(Jastrow_t)),
-    ('backflow', nb.optional(Backflow_t)),
-    ('ppotential', nb.optional(PPotential_t)),
-])
-
-
-class Wfn(structref.StructRefProxy):
-
-    def __new__(cls, neu, ned, atom_positions, atom_charges, slater, jastrow, backflow, ppotential):
-        """Wave function in general form.
-        :param neu: number of up electrons
-        :param ned: number of down electrons
-        :param atom_positions: atomic positions
-        :param atom_charges: atomic charges
-        :param slater: instance of Slater class
-        :param jastrow: instance of Jastrow class
-        :param backflow: instance of Backflow class
-        :param ppotential: instance of Pseudopotential class
-        """
-        return wfn_new(neu, ned, atom_positions, atom_charges, slater, jastrow, backflow, ppotential)
-
-    @property
-    def jastrow(self):
-        return wfn_jastrow_get(self)
-
-    @property
-    def backflow(self):
-        return wfn_backflow_get(self)
-
-    @property
-    def nuclear_repulsion(self) -> float:
-        """Value of n-n repulsion."""
-        return wfn_nuclear_repulsion_get(self)
-
-    def energy(self, r_e) -> float:
-        """Local energy.
-        :param r_e: electron coordinates - array(nelec, 3)
-        """
-        return wfn_energy_py(self, r_e)
-
-    def get_parameters(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True, all_parameters=False):
-        """Get WFN parameters to be optimized
-        :param opt_jastrow: optimize jastrow parameters
-        :param opt_backflow: optimize backflow parameters
-        :param opt_det_coeff: optimize coefficients of the determinants
-        :param all_parameters: optimize all parameters or only independent
-        """
-        return wfn_get_parameters_py(self, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
-
-    def set_parameters(self, parameters, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True, all_parameters=False):
-        """Update optimized parameters
-        :param parameters: parameters to update
-        :param opt_jastrow: optimize jastrow parameters
-        :param opt_backflow: optimize backflow parameters
-        :param opt_det_coeff: optimize coefficients of the determinants
-        :param all_parameters: optimize all parameters or only independent
-        """
-        wfn_set_parameters_py(self, parameters, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
-
-    def set_parameters_projector(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
-        """Update parameters projector
-        :param opt_jastrow: optimize jastrow parameters
-        :param opt_backflow: optimize backflow parameters
-        :param opt_det_coeff: optimize coefficients of the determinants
-        """
-        wfn_set_parameters_projector_py(self, opt_jastrow, opt_backflow, opt_det_coeff)
-
-    def get_parameters_scale(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True, all_parameters=False):
-        """Characteristic scale of each optimized parameter.
-        :param opt_jastrow: optimize jastrow parameters
-        :param opt_backflow: optimize backflow parameters
-        :param opt_det_coeff: optimize coefficients of the determinants
-        :param all_parameters: optimize all parameters or only independent
-        """
-        return wfn_get_parameters_scale_py(self, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
-
-    def value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
-        """First-order derivatives of the wave function value w.r.t parameters.
-        :param r_e: electron coordinates - array(nelec, 3)
-        :param opt_jastrow: optimize jastrow parameters
-        :param opt_backflow: optimize backflow parameters
-        :param opt_det_coeff: optimize coefficients of the determinants
-        :return:
-        """
-        return wfn_value_parameters_d1_py(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff)
-
-    def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
-        """First-order derivatives of local energy w.r.t parameters.
-        :param r_e: electron coordinates - array(nelec, 3)
-        :param opt_jastrow: optimize jastrow parameters
-        :param opt_backflow: optimize backflow parameters
-        :param opt_det_coeff: optimize coefficients of the determinants
-        :return:
-        """
-        return wfn_energy_parameters_d1_py(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff)
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def wfn_jastrow_get(self) -> float:
-    """Jastrow."""
-    return self.jastrow
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def wfn_backflow_get(self) -> float:
-    """Backflow."""
-    return self.backflow
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def wfn_nuclear_repulsion_get(self) -> float:
-    """Value of n-n repulsion."""
-    return self.nuclear_repulsion
-
-
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, '_relative_coordinates')
 def wfn__relative_coordinates(self, r_e):
@@ -382,14 +260,6 @@ def wfn_kinetic_energy(self, r_e):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def wfn_energy_py(self, r_e):
-    """Local energy.
-    :param r_e: electron coordinates - array(nelec, 3)
-    """
-    return self.kinetic_energy(r_e) + self.local_potential(r_e) + self.nonlocal_potential(r_e)
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, 'energy')
 def wfn_energy(self, r_e):
     """Local energy.
@@ -400,60 +270,128 @@ def wfn_energy(self, r_e):
     return impl
 
 
-@nb.njit(nogil=True, parallel=False, cache=True)
-def wfn_get_parameters_py(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True, all_parameters=False):
-    """Get WFN parameters to be optimized
-    :param opt_jastrow: optimize jastrow parameters
-    :param opt_backflow: optimize backflow parameters
-    :param opt_det_coeff: optimize coefficients of the determinants
-    :param all_parameters: optimize all parameters or only independent
-    """
-    res = np.zeros(0)
-    if self.jastrow is not None and opt_jastrow:
-        res = np.concatenate((
-            res, self.jastrow.get_parameters(all_parameters)
-        ))
-    if self.backflow is not None and opt_backflow:
-        res = np.concatenate((
-            res, self.backflow.get_parameters(all_parameters)
-        ))
-    if self.slater.det_coeff.size > 1 and opt_det_coeff:
-        res = np.concatenate((
-            res, self.slater.get_parameters(all_parameters)
-        ))
-    return res
+Wfn_t = Wfn_class_t([
+    ('neu', nb.int64),
+    ('ned', nb.int64),
+    ('atom_positions', nb.float64[:, ::1]),
+    ('atom_charges', nb.float64[::1]),
+    ('nuclear_repulsion', nb.float64),
+    ('slater', Slater_t),
+    ('jastrow', nb.optional(Jastrow_t)),
+    ('backflow', nb.optional(Backflow_t)),
+    ('ppotential', nb.optional(PPotential_t)),
+])
 
 
-@nb.njit(nogil=True, parallel=False, cache=True)
-def wfn_set_parameters_py(self, parameters, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True, all_parameters=False):
-    """Update optimized parameters
-    :param parameters: parameters to update
-    :param opt_jastrow: optimize jastrow parameters
-    :param opt_backflow: optimize backflow parameters
-    :param opt_det_coeff: optimize coefficients of the determinants
-    :param all_parameters: optimize all parameters or only independent
-    """
-    if self.jastrow is not None and opt_jastrow:
-        parameters = self.jastrow.set_parameters(parameters, all_parameters=all_parameters)
-    if self.backflow is not None and opt_backflow:
-        parameters = self.backflow.set_parameters(parameters, all_parameters=all_parameters)
-    if self.slater.det_coeff.size > 1 and opt_det_coeff:
-        self.slater.set_parameters(parameters, all_parameters=all_parameters)
+class Wfn(structref.StructRefProxy):
 
+    def __new__(cls, *args, **kwargs):
+        return wfn_init(*args, **kwargs)
 
-@nb.njit(nogil=True, parallel=False, cache=True)
-def wfn_set_parameters_projector_py(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
-    """Update parameters projector
-    :param opt_jastrow: optimize jastrow parameters
-    :param opt_backflow: optimize backflow parameters
-    :param opt_det_coeff: optimize coefficients of the determinants
-    """
-    if self.jastrow is not None and opt_jastrow:
-        self.jastrow.set_parameters_projector()
-    if self.backflow is not None and opt_backflow:
-        self.backflow.set_parameters_projector()
-    if self.slater.det_coeff.size > 1 and opt_det_coeff:
-        self.slater.set_parameters_projector()
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def jastrow(self):
+        return self.jastrow
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def backflow(self):
+        return self.backflow
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def nuclear_repulsion(self) -> float:
+        """Value of n-n repulsion."""
+        return self.nuclear_repulsion
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def energy(self, r_e) -> float:
+        """Local energy.
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        return self.kinetic_energy(r_e) + self.local_potential(r_e) + self.nonlocal_potential(r_e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def get_parameters(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True, all_parameters=False):
+        """Get WFN parameters to be optimized
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
+        :param all_parameters: optimize all parameters or only independent
+        """
+        res = np.zeros(0)
+        if self.jastrow is not None and opt_jastrow:
+            res = np.concatenate((
+                res, self.jastrow.get_parameters(all_parameters)
+            ))
+        if self.backflow is not None and opt_backflow:
+            res = np.concatenate((
+                res, self.backflow.get_parameters(all_parameters)
+            ))
+        if self.slater.det_coeff.size > 1 and opt_det_coeff:
+            res = np.concatenate((
+                res, self.slater.get_parameters(all_parameters)
+            ))
+        return res
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def set_parameters(self, parameters, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True, all_parameters=False):
+        """Update optimized parameters
+        :param parameters: parameters to update
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
+        :param all_parameters: optimize all parameters or only independent
+        """
+        if self.jastrow is not None and opt_jastrow:
+            parameters = self.jastrow.set_parameters(parameters, all_parameters=all_parameters)
+        if self.backflow is not None and opt_backflow:
+            parameters = self.backflow.set_parameters(parameters, all_parameters=all_parameters)
+        if self.slater.det_coeff.size > 1 and opt_det_coeff:
+            self.slater.set_parameters(parameters, all_parameters=all_parameters)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def set_parameters_projector(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
+        """Update parameters projector
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
+        """
+        if self.jastrow is not None and opt_jastrow:
+            self.jastrow.set_parameters_projector()
+        if self.backflow is not None and opt_backflow:
+            self.backflow.set_parameters_projector()
+        if self.slater.det_coeff.size > 1 and opt_det_coeff:
+            self.slater.set_parameters_projector()
+
+    def get_parameters_scale(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True, all_parameters=False):
+        """Characteristic scale of each optimized parameter.
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
+        :param all_parameters: optimize all parameters or only independent
+        """
+        return wfn_get_parameters_scale_py(self, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
+
+    def value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
+        """First-order derivatives of the wave function value w.r.t parameters.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
+        :return:
+        """
+        return wfn_value_parameters_d1_py(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff)
+
+    def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
+        """First-order derivatives of local energy w.r.t parameters.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
+        :return:
+        """
+        return wfn_energy_parameters_d1_py(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -643,16 +581,24 @@ def wfn_energy_parameters_d1_py(self, r_e, opt_jastrow=True, opt_backflow=True, 
         res -= self.nonlocal_energy_parameters_d1(r_e, opt_jastrow, opt_backflow, opt_det_coeff)
     return -res
 
-
 # This associates the proxy with MyStruct_t for the given set of fields.
 # Notice how we are not constraining the type of each field.
 # Field types remain generic.
-structref.define_proxy(Wfn, Wfn_class_t, ['neu', 'ned',
-    'atom_positions', 'atom_charges', 'slater', 'jastrow', 'backflow', 'ppotential'])
+structref.define_proxy(Wfn, Wfn_class_t, list(dict(Wfn_t._fields)))
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def wfn_new(neu, ned, atom_positions, atom_charges, slater, jastrow, backflow, ppotential):
+def wfn_init(neu, ned, atom_positions, atom_charges, slater, jastrow, backflow, ppotential):
+    """Wave function in general form.
+    :param neu: number of up electrons
+    :param ned: number of down electrons
+    :param atom_positions: atomic positions
+    :param atom_charges: atomic charges
+    :param slater: instance of Slater class
+    :param jastrow: instance of Jastrow class
+    :param backflow: instance of Backflow class
+    :param ppotential: instance of Pseudopotential class
+    """
     self = structref.new(Wfn_t)
     self.neu = neu
     self.ned = ned
