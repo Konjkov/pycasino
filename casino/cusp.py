@@ -83,40 +83,24 @@ class Cusp(structref.StructRefProxy):
         return cusp_init(*args, **kwargs)
 
     @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def orbital_sign(self):
-        return cusp_orbital_sign_get(self)
+        return self.orbital_sign
 
     @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def shift(self):
-        return cusp_shift_get(self)
+        return self.shift
 
     @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def rc(self):
-        return cusp_rc_get(self)
+        return self.rc
 
     @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def alpha(self):
-        return cusp_alpha_get(self)
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def cusp_orbital_sign_get(self):
-    return self.orbital_sign
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def cusp_shift_get(self):
-    return self.shift
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def cusp_rc_get(self):
-    return self.rc
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def cusp_alpha_get(self):
-    return self.alpha
+        return self.alpha
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -512,10 +496,8 @@ def cusp_tressian(self, n_vectors: np.ndarray):
     return impl
 
 
-# This associates the proxy with MyStruct_t for the given set of fields.
-# Notice how we are not constraining the type of each field.
-# Field types remain generic.
-structref.define_proxy(Cusp, Cusp_class_t, list(dict(Cusp_t._fields)))
+structref.define_boxing(Cusp_class_t, Cusp)
+
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 def cusp_init(neu, ned, orbitals_up, orbitals_down, rc, shift, orbital_sign, alpha,

@@ -16,45 +16,6 @@ class VMCMarkovChain_class_t(types.StructRef):
         return tuple((name, types.unliteral(typ)) for name, typ in fields)
 
 
-VMCMarkovChain_t = VMCMarkovChain_class_t([
-    ('r_e', nb.float64[:, ::1]),
-    ('cond', nb.int64),
-    ('step_size', nb.float64),
-    ('wfn', Wfn_t),
-    ('method', nb.int64),
-    ('probability_density', nb.float64),
-])
-
-
-class VMCMarkovChain(structref.StructRefProxy):
-
-    def __new__(cls, *args, **kwargs):
-        return vmcmarkovchain_init(*args, **kwargs)
-
-    def bbk_random_step(self):
-        """Brünger–Brooks–Karplus (13 B. Brünger, C. L. Brooks, and M. Karplus, Chem. Phys. Lett. 105, 495 1984).
-        """
-        raise NotImplementedError
-
-    def force_interpolation_random_step(self):
-        """M. P. Allen and D. J. Tildesley, Computer Simulation of Liquids Oxford University Press, Oxford, 1989 and references in Sec. 9.3.
-        """
-        raise NotImplementedError
-
-    def splitting_random_step(self):
-        """J. A. Izaguirre, D. P. Catarello, J. M. Wozniak, and R. D. Skeel, J. Chem. Phys. 114, 2090 2001.
-        """
-        raise NotImplementedError
-
-    def ricci_ciccotti_random_step(self):
-        """A. Ricci and G. Ciccotti, Mol. Phys. 101, 1927 2003.
-        """
-        raise NotImplementedError
-
-    def random_walk(self, steps, decorr_period):
-        return vmcmarkovchain_random_walk_py(self, steps, decorr_period)
-
-
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(VMCMarkovChain_class_t, 'random_step')
 def vmcmarkovchain_random_step(self):
@@ -102,27 +63,6 @@ def vmcmarkovchain_gibbs_random_step(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def vmcmarkovchain_random_walk_py(self, steps, decorr_period):
-    """Metropolis-Hastings random walk.
-    :param steps: number of steps to walk
-    :param decorr_period: decorrelation period
-    :return:
-    """
-    self.probability_density = self.wfn.value(self.r_e) ** 2
-    condition = np.empty(shape=(steps,), dtype=np.int_)
-    position = np.empty(shape=(steps,) + self.r_e.shape)
-
-    for i in range(steps):
-        cond = 0
-        for _ in range(decorr_period):
-            self.random_step()
-            cond += self.cond
-        condition[i], position[i] = cond, self.r_e
-
-    return condition, position
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(VMCMarkovChain_class_t, 'vmc_energy')
 def vmcmarkovchain_vmc_energy(self, condition, position):
     """VMC energy.
@@ -145,10 +85,63 @@ def vmcmarkovchain_vmc_energy(self, condition, position):
     return impl
 
 
-# This associates the proxy with MyStruct_t for the given set of fields.
-# Notice how we are not constraining the type of each field.
-# Field types remain generic.
-structref.define_proxy(VMCMarkovChain, VMCMarkovChain_class_t, list(dict(VMCMarkovChain_t._fields)))
+VMCMarkovChain_t = VMCMarkovChain_class_t([
+    ('r_e', nb.float64[:, ::1]),
+    ('cond', nb.int64),
+    ('step_size', nb.float64),
+    ('wfn', Wfn_t),
+    ('method', nb.int64),
+    ('probability_density', nb.float64),
+])
+
+
+class VMCMarkovChain(structref.StructRefProxy):
+
+    def __new__(cls, *args, **kwargs):
+        return vmcmarkovchain_init(*args, **kwargs)
+
+    def bbk_random_step(self):
+        """Brünger–Brooks–Karplus (13 B. Brünger, C. L. Brooks, and M. Karplus, Chem. Phys. Lett. 105, 495 1984).
+        """
+        raise NotImplementedError
+
+    def force_interpolation_random_step(self):
+        """M. P. Allen and D. J. Tildesley, Computer Simulation of Liquids Oxford University Press, Oxford, 1989 and references in Sec. 9.3.
+        """
+        raise NotImplementedError
+
+    def splitting_random_step(self):
+        """J. A. Izaguirre, D. P. Catarello, J. M. Wozniak, and R. D. Skeel, J. Chem. Phys. 114, 2090 2001.
+        """
+        raise NotImplementedError
+
+    def ricci_ciccotti_random_step(self):
+        """A. Ricci and G. Ciccotti, Mol. Phys. 101, 1927 2003.
+        """
+        raise NotImplementedError
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def random_walk(self, steps, decorr_period):
+        """Metropolis-Hastings random walk.
+        :param steps: number of steps to walk
+        :param decorr_period: decorrelation period
+        :return:
+        """
+        self.probability_density = self.wfn.value(self.r_e) ** 2
+        condition = np.empty(shape=(steps,), dtype=np.int_)
+        position = np.empty(shape=(steps,) + self.r_e.shape)
+
+        for i in range(steps):
+            cond = 0
+            for _ in range(decorr_period):
+                self.random_step()
+                cond += self.cond
+            condition[i], position[i] = cond, self.r_e
+
+        return condition, position
+
+
+structref.define_boxing(VMCMarkovChain_class_t, VMCMarkovChain)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)

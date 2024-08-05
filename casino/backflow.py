@@ -245,24 +245,14 @@ class Backflow(structref.StructRefProxy):
         return backflow_init(*args, **kwargs)
 
     @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def cutoffs_optimizable(self):
-        backflow_cutoffs_optimizable_get(self)
+        return self.cutoffs_optimizable
 
     @cutoffs_optimizable.setter
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def cutoffs_optimizable(self, value):
-        backflow_cutoffs_optimizable_set(self, value)
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def backflow_cutoffs_optimizable_get(self):
-    """cutoffs_optimizable getter."""
-    return self.cutoffs_optimizable
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def backflow_cutoffs_optimizable_set(self, value):
-    """cutoffs_optimizable setter."""
-    self.cutoffs_optimizable = value
+        self.cutoffs_optimizable = value
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -2361,10 +2351,7 @@ def backflow_value_parameters_d2(self, e_vectors, n_vectors):
     return impl
 
 
-# This associates the proxy with MyStruct_t for the given set of fields.
-# Notice how we are not constraining the type of each field.
-# Field types remain generic.
-structref.define_proxy(Backflow, Backflow_class_t, list(dict(Backflow_t._fields)))
+structref.define_boxing(Backflow_class_t, Backflow)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)

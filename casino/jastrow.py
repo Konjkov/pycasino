@@ -116,34 +116,19 @@ class Jastrow(structref.StructRefProxy):
         return jastrow_init(*args, **kwargs)
 
     @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def u_cutoff(self):
-        return jastrow_u_cutoff_get(self)
+        return self.u_cutoff
 
     @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def cutoffs_optimizable(self):
-        jastrow_cutoffs_optimizable_get(self)
+        return self.cutoffs_optimizable
 
     @cutoffs_optimizable.setter
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def cutoffs_optimizable(self, value):
-        jastrow_cutoffs_optimizable_set(self, value)
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def jastrow_u_cutoff_get(self) -> float:
-    """u_cuoff."""
-    return self.u_cutoff
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def jastrow_cutoffs_optimizable_get(self):
-    """cutoffs_optimizable getter."""
-    return self.cutoffs_optimizable
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def jastrow_cutoffs_optimizable_set(self, value):
-    """cutoffs_optimizable setter."""
-    self.cutoffs_optimizable = value
+        self.cutoffs_optimizable = value
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -1672,11 +1657,7 @@ def jastrow_value_parameters_d2(self, e_vectors, n_vectors):
     return impl
 
 
-
-# This associates the proxy with MyStruct_t for the given set of fields.
-# Notice how we are not constraining the type of each field.
-# Field types remain generic.
-structref.define_proxy(Jastrow, Jastrow_class_t, list(dict(Jastrow_t._fields)))
+structref.define_boxing(Jastrow_class_t, Jastrow)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)

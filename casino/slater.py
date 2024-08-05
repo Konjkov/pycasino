@@ -40,12 +40,6 @@ Slater_t = Slater_class_t([
 ])
 
 
-class Slater(structref.StructRefProxy):
-
-    def __new__(cls, *args, **kwargs):
-        return slater_init(*args, **kwargs)
-
-
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'value_matrix')
 def slater_value_matrix(self, n_vectors: np.ndarray):
@@ -783,10 +777,15 @@ def slater_hessian_parameters_d1(self, n_vectors: np.ndarray):
         return (self.parameters_projector.T @ (res / delta / 2)).reshape(-1, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
     return impl
 
-# This associates the proxy with MyStruct_t for the given set of fields.
-# Notice how we are not constraining the type of each field.
-# Field types remain generic.
-structref.define_proxy(Slater, Slater_class_t, list(dict(Slater_t._fields)))
+
+class Slater(structref.StructRefProxy):
+
+    def __new__(cls, *args, **kwargs):
+        return slater_init(*args, **kwargs)
+
+
+structref.define_boxing(Slater_class_t, Slater)
+
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)

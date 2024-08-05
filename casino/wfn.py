@@ -364,6 +364,7 @@ class Wfn(structref.StructRefProxy):
         if self.slater.det_coeff.size > 1 and opt_det_coeff:
             self.slater.set_parameters_projector()
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def get_parameters_scale(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True, all_parameters=False):
         """Characteristic scale of each optimized parameter.
         :param opt_jastrow: optimize jastrow parameters
@@ -371,7 +372,20 @@ class Wfn(structref.StructRefProxy):
         :param opt_det_coeff: optimize coefficients of the determinants
         :param all_parameters: optimize all parameters or only independent
         """
-        return wfn_get_parameters_scale_py(self, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
+        res = np.zeros(0)
+        if self.jastrow is not None and opt_jastrow:
+            res = np.concatenate((
+                res, self.jastrow.get_parameters_scale(all_parameters)
+            ))
+        if self.backflow is not None and opt_backflow:
+            res = np.concatenate((
+                res, self.backflow.get_parameters_scale(all_parameters)
+            ))
+        if self.slater.det_coeff.size > 1 and opt_det_coeff:
+            res = np.concatenate((
+                res, self.slater.get_parameters_scale(all_parameters)
+            ))
+        return res
 
     def value_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
         """First-order derivatives of the wave function value w.r.t parameters.
@@ -392,30 +406,6 @@ class Wfn(structref.StructRefProxy):
         :return:
         """
         return wfn_energy_parameters_d1_py(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff)
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def wfn_get_parameters_scale_py(self, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True, all_parameters=False):
-    """Characteristic scale of each optimized parameter.
-    :param opt_jastrow: optimize jastrow parameters
-    :param opt_backflow: optimize backflow parameters
-    :param opt_det_coeff: optimize coefficients of the determinants
-    :param all_parameters: optimize all parameters or only independent
-    """
-    res = np.zeros(0)
-    if self.jastrow is not None and opt_jastrow:
-        res = np.concatenate((
-            res, self.jastrow.get_parameters_scale(all_parameters)
-        ))
-    if self.backflow is not None and opt_backflow:
-        res = np.concatenate((
-            res, self.backflow.get_parameters_scale(all_parameters)
-        ))
-    if self.slater.det_coeff.size > 1 and opt_det_coeff:
-        res = np.concatenate((
-            res, self.slater.get_parameters_scale(all_parameters)
-        ))
-    return res
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -581,10 +571,8 @@ def wfn_energy_parameters_d1_py(self, r_e, opt_jastrow=True, opt_backflow=True, 
         res -= self.nonlocal_energy_parameters_d1(r_e, opt_jastrow, opt_backflow, opt_det_coeff)
     return -res
 
-# This associates the proxy with MyStruct_t for the given set of fields.
-# Notice how we are not constraining the type of each field.
-# Field types remain generic.
-structref.define_proxy(Wfn, Wfn_class_t, list(dict(Wfn_t._fields)))
+
+structref.define_boxing(Wfn_class_t, Wfn)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
