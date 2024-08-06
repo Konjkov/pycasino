@@ -230,6 +230,7 @@ r_e_type = nb.types.float64[:, :]
 velocity_type = nb.types.float64[:, :]
 
 DMCMarkovChain_t = DMCMarkovChain_class_t([
+    ('mpi_size', nb.int64),
     ('method', nb.int64),
     ('alimit', nb.float64),
     ('step_size', nb.float64),
@@ -257,61 +258,52 @@ class DMCMarkovChain(structref.StructRefProxy):
         return dmcmarkovchain_init(*args, **kwargs)
 
     @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def best_estimate_energy(self) -> float:
-        return dmcmarkovchain_best_estimate_energy_get(self)
+        return self.best_estimate_energy
 
     @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def energy_t(self) -> float:
-        return dmcmarkovchain_energy_t_get(self)
+        return self.energy_t
 
     @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def step_eff(self) -> float:
-        return dmcmarkovchain_step_eff_get(self)
+        return self.step_eff
 
     @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def step_size(self) -> float:
-        return dmcmarkovchain_step_size_get(self)
+        return self.step_size
 
     @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def ntransfers_tot(self) -> float:
-        return dmcmarkovchain_ntransfers_tot_get(self)
+        return self.ntransfers_tot
 
     @property
-    def efficiency_list(self) -> float:
-        return dmcmarkovchain_efficiency_list_get(self)
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def efficiency_list(self) -> list:
+        return self.efficiency_list
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def random_walk(self, steps):
-        return dmcmarkovchain_random_walk_py(self, steps)
+        """DMC random walk.
+        :param steps: number of steps to walk
+        :return: energy, number of config transfers
+        """
+        self.ntransfers_tot = 0
+        self.efficiency_list = nb.typed.List.empty_list(efficiency_type)
+        energy = np.empty(shape=(steps,))
 
+        for i in range(steps):
+            self.random_step()
+            energy[i] = self.best_estimate_energy
+            if i % 500 == 0:
+                self.load_balancing()
 
-@nb.njit(nogil=True, parallel=False, cache=True)
-def dmcmarkovchain_best_estimate_energy_get(self) -> float:
-    return self.best_estimate_energy
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def dmcmarkovchain_energy_t_get(self) -> float:
-    return self.energy_t
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def dmcmarkovchain_step_eff_get(self) -> float:
-    return self.step_eff
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def dmcmarkovchain_step_size_get(self) -> float:
-    return self.step_size
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def dmcmarkovchain_ntransfers_tot_get(self) -> float:
-    return self.step_size
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def dmcmarkovchain_efficiency_list_get(self):
-    return self.efficiency_list
+        return energy
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -623,7 +615,7 @@ def dmcmarkovchain_random_step(self):
         self.velocity_list = next_velocity_list
         self.wfn_value_list = next_wfn_value_list
         self.branching_energy_list = next_branching_energy_list
-        if nb_mpi.size() == 1:
+        if self.mpi_size == 1:
             walkers = len(self.energy_list)
             total_energy = sum(self.energy_list)
             total_acceptance_probability = sum_acceptance_probability
@@ -689,11 +681,11 @@ def dmcmarkovchain_redistribute_walker(self, from_rank, to_rank, count):
 def dmcmarkovchain_load_balancing(self):
     """Redistribute walkers across processes."""
     def impl(self):
-        if nb_mpi.size() == 1:
+        if self.mpi_size == 1:
             self.efficiency_list.append(1)
         else:
             rank = nb_mpi.rank()
-            walkers = np.zeros(shape=(nb_mpi.size(),), dtype=np.int_)
+            walkers = np.zeros(shape=(self.mpi_size,), dtype=np.int_)
             walkers[rank] = len(self.energy_list)
             # FIXME: use MPI_IN_PLACE
             nb_mpi.allgather(walkers[rank:rank+1], walkers, 1)
@@ -703,7 +695,7 @@ def dmcmarkovchain_load_balancing(self):
             self.ntransfers_tot += np.abs(walkers).sum() // 2
             rank_1 = 0
             rank_2 = 1
-            while rank_2 < nb_mpi.size():
+            while rank_2 < self.mpi_size:
                 count = min(abs(walkers[rank_1]), abs(walkers[rank_2]))
                 if walkers[rank_1] > 0 > walkers[rank_2]:
                     self.redistribute_walker(rank_1, rank_2, count)
@@ -722,29 +714,8 @@ def dmcmarkovchain_load_balancing(self):
     return impl
 
 
-@nb.njit(nogil=True, parallel=False, cache=True)
-def dmcmarkovchain_random_walk_py(self, steps):
-    """DMC random walk.
-    :param steps: number of steps to walk
-    :return: energy, number of config transfers
-    """
-    self.ntransfers_tot = 0
-    self.efficiency_list = nb.typed.List.empty_list(efficiency_type)
-    energy = np.empty(shape=(steps,))
+structref.define_boxing(DMCMarkovChain_class_t, DMCMarkovChain)
 
-    for i in range(steps):
-        self.random_step()
-        energy[i] = self.best_estimate_energy
-        if i % 500 == 0:
-            self.load_balancing()
-
-    return energy
-
-
-# This associates the proxy with MyStruct_t for the given set of fields.
-# Notice how we are not constraining the type of each field.
-# Field types remain generic.
-structref.define_proxy(DMCMarkovChain, DMCMarkovChain_class_t, list(dict(DMCMarkovChain_t._fields)))
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 def dmcmarkovchain_init(r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
@@ -760,6 +731,7 @@ def dmcmarkovchain_init(r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size,
     :return:
     """
     self = structref.new(DMCMarkovChain_t)
+    self.mpi_size = nb_mpi.size()
     self.wfn = wfn
     self.method = method
     self.alimit = alimit
@@ -780,7 +752,7 @@ def dmcmarkovchain_init(r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size,
         self.velocity_list.append(self.limiting_velocity(r_e)[0])
         self.energy_list.append(self.wfn.energy(r_e))
         self.branching_energy_list.append(self.wfn.energy(r_e))
-    if nb_mpi.size() == 1:
+    if self.mpi_size == 1:
         walkers = len(self.energy_list)
         total_energy = sum(self.energy_list)
     else:
