@@ -6,6 +6,7 @@ from numba.experimental import structref
 from numba.core.extending import overload_method
 
 from casino import delta, delta_2, delta_3
+from casino.abstract import AbstractSlater
 from casino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from casino.cusp import Cusp, Cusp_t
 from casino.harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
@@ -778,7 +779,7 @@ def slater_hessian_parameters_d1(self, n_vectors: np.ndarray):
     return impl
 
 
-class Slater(structref.StructRefProxy):
+class Slater(structref.StructRefProxy, AbstractSlater):
 
     def __new__(cls, *args, **kwargs):
         return slater_init(*args, **kwargs)

@@ -6,6 +6,7 @@ from numba.experimental import structref
 from numba.core.extending import overload_method
 
 from casino import delta
+from casino.abstract import AbstractBackflow
 from casino.overload import block_diag, rref
 
 eye3 = np.eye(3)
@@ -239,7 +240,7 @@ Backflow_t = Backflow_class_t([
 ])
 
 
-class Backflow(structref.StructRefProxy):
+class Backflow(structref.StructRefProxy, AbstractBackflow):
 
     def __new__(cls, *args, **kwargs):
         return backflow_init(*args, **kwargs)

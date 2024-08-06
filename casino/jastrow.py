@@ -6,6 +6,7 @@ from numba.experimental import structref
 from numba.core.extending import overload_method
 
 from casino import delta
+from casino.abstract import AbstractJastrow
 from casino.overload import block_diag, rref
 
 
@@ -110,7 +111,7 @@ Jastrow_t = Jastrow_class_t([
 ])
 
 
-class Jastrow(structref.StructRefProxy):
+class Jastrow(structref.StructRefProxy, AbstractJastrow):
 
     def __new__(cls, *args, **kwargs):
         return jastrow_init(*args, **kwargs)

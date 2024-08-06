@@ -41,7 +41,7 @@ Cusp_t = Cusp_class_t([
     ('is_pseudoatom', nb.boolean[::1]),
 ])
 
-class Cusp(structref.StructRefProxy):
+class Cusp(structref.StructRefProxy, AbstractCusp):
     """Scheme for adding electron–nucleus cusps to Gaussian orbitals
     A. Ma, M. D. Towler, N. D. Drummond and R. J. Needs
 

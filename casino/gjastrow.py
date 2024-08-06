@@ -1,14 +1,24 @@
 import numpy as np
 import numba as nb
+from numba.core import types
+from numba.experimental import structref
+from numba.core.extending import overload_method
 
-from casino.abstract import AbstractJastrow
+# from casino.abstract import AbstractJastrow
+
+
+@structref.register
+class Gjastrow_class_t(types.StructRef):
+    def preprocess_fields(self, fields):
+        return tuple((name, types.unliteral(typ)) for name, typ in fields)
+
 
 shape_type = nb.types.ListType(nb.int64)
 linear_parameters_type = nb.float64[:]
 constants_type = nb.types.DictType(nb.types.unicode_type, nb.float64)
 parameters_type = nb.types.ListType(nb.types.DictType(nb.types.unicode_type, nb.float64))
 
-spec = [
+Gjastrow_t = Gjastrow_class_t([
     ('neu', nb.int64),
     ('ned', nb.int64),
     ('rank', nb.int64[:, :]),
@@ -25,33 +35,13 @@ spec = [
     ('en_cutoff_parameters', parameters_type),
     ('linear_parameters', nb.types.ListType(linear_parameters_type)),
     ('linear_parameters_shape', nb.types.ListType(shape_type)),
-]
+])
 
 
-@nb.experimental.jitclass(spec)
-class Gjastrow(AbstractJastrow):
+class Gjastrow(structref.StructRefProxy):
 
-    def __init__(
-            self, neu, ned, rank, cusp, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type,
-            ee_constants, en_constants, ee_basis_parameters, en_basis_parameters, ee_cutoff_parameters,
-            en_cutoff_parameters, linear_parameters, linear_parameters_shape
-    ):
-        self.neu = neu
-        self.ned = ned
-        self.rank = rank
-        self.cusp = cusp
-        self.ee_basis_type = ee_basis_type
-        self.en_basis_type = en_basis_type
-        self.ee_cutoff_type = ee_cutoff_type
-        self.en_cutoff_type = en_cutoff_type
-        self.ee_constants = ee_constants
-        self.en_constants = en_constants
-        self.ee_basis_parameters = ee_basis_parameters
-        self.en_basis_parameters = en_basis_parameters
-        self.ee_cutoff_parameters = ee_cutoff_parameters
-        self.en_cutoff_parameters = en_cutoff_parameters
-        self.linear_parameters = linear_parameters
-        self.linear_parameters_shape = linear_parameters_shape
+    def __new__(cls, *args, **kwargs):
+        return gjastrow_init(*args, **kwargs)
 
     def ee_powers(self, e_vectors: np.ndarray):
         """Powers of e-e distances
@@ -154,3 +144,29 @@ class Gjastrow(AbstractJastrow):
         n_powers = self.en_powers(n_vectors)
 
         return self.term_2_0(e_powers, e_vectors)
+
+structref.define_boxing(Gjastrow_class_t, Gjastrow)
+
+def __init__(
+        neu, ned, rank, cusp, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type,
+        ee_constants, en_constants, ee_basis_parameters, en_basis_parameters, ee_cutoff_parameters,
+        en_cutoff_parameters, linear_parameters, linear_parameters_shape
+    ):
+        self = structref.new(Gjastrow_t)
+        self.neu = neu
+        self.ned = ned
+        self.rank = rank
+        self.cusp = cusp
+        self.ee_basis_type = ee_basis_type
+        self.en_basis_type = en_basis_type
+        self.ee_cutoff_type = ee_cutoff_type
+        self.en_cutoff_type = en_cutoff_type
+        self.ee_constants = ee_constants
+        self.en_constants = en_constants
+        self.ee_basis_parameters = ee_basis_parameters
+        self.en_basis_parameters = en_basis_parameters
+        self.ee_cutoff_parameters = ee_cutoff_parameters
+        self.en_cutoff_parameters = en_cutoff_parameters
+        self.linear_parameters = linear_parameters
+        self.linear_parameters_shape = linear_parameters_shape
+        return self

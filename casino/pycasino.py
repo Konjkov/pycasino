@@ -15,7 +15,7 @@ from casino.wfn import Wfn
 from casino.cusp import CuspFactory
 from casino.slater import Slater
 from casino.jastrow import Jastrow
-from casino.gjastrow import Gjastrow
+# from casino.gjastrow import Gjastrow
 from casino.backflow import Backflow
 from casino.ppotential import PPotential
 from casino.markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable

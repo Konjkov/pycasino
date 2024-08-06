@@ -4,7 +4,7 @@ from numba.core import types
 from numba.experimental import structref
 from numba.core.extending import overload_method
 
-from casino import delta
+from casino.abstract import AbstractWfn
 from casino.slater import Slater, Slater_t
 from casino.jastrow import Jastrow, Jastrow_t
 from casino.backflow import Backflow, Backflow_t
@@ -352,6 +352,11 @@ class Wfn(structref.StructRefProxy):
 
     def __new__(cls, *args, **kwargs):
         return wfn_init(*args, **kwargs)
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def slater(self):
+        return self.slater
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)

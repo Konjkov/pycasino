@@ -80,7 +80,14 @@ class Profiler(Casino):
         start = default_timer()
         self.wfn.slater.profile_tressian(self.dr, self.steps // 10, self.atom_positions, self.r_e)
         end = default_timer()
-        logger.info(' slater tressian                   %8.1f', (end - start) * 10)
+        logger.info(' slater tressian                   %8.1f * 10', (end - start))
+        # stats = rtsys.get_allocation_stats()
+        # logger.info(f'{stats} total: {stats[0] - stats[1]}')
+
+        start = default_timer()
+        self.wfn.slater.profile_tressian_v2(self.dr, self.steps // 10, self.atom_positions, self.r_e)
+        end = default_timer()
+        logger.info(' slater tressian v2                %8.1f * 10', (end - start))
         # stats = rtsys.get_allocation_stats()
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
@@ -136,17 +143,17 @@ class Profiler(Casino):
         start = default_timer()
         self.wfn.backflow.profile_value_parameters_d1(self.dr, self.steps // 10, self.atom_positions, self.r_e)
         end = default_timer()
-        logger.info(' backflow value parameters d1      %8.1f', (end - start) * 10)
+        logger.info(' backflow value parameters d1      %8.1f * 10', (end - start))
 
         start = default_timer()
         self.wfn.backflow.profile_laplacian_parameters_d1(self.dr, self.steps // 10, self.atom_positions, self.r_e)
         end = default_timer()
-        logger.info(' backflow laplacian parameters d1  %8.1f', (end - start) * 10)
+        logger.info(' backflow laplacian parameters d1  %8.1f * 10', (end - start))
 
-        start = default_timer()
-        self.wfn.backflow.profile_gradient_parameters_d1(self.dr, self.steps // 10, self.atom_positions, self.r_e)
-        end = default_timer()
-        logger.info(' backflow gradient parameters d1   %8.1f', (end - start) * 10)
+        # start = default_timer()
+        # self.wfn.backflow.profile_gradient_parameters_d1(self.dr, self.steps // 100, self.atom_positions, self.r_e)
+        # end = default_timer()
+        # logger.info(' backflow gradient parameters d1   %8.1f * 100', (end - start))
 
     def markovchain_profiling(self):
 
@@ -160,7 +167,7 @@ class Profiler(Casino):
 
 if __name__ == '__main__':
     """Profiling"""
-    for mol in ('He', 'He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
+    for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
         path = f'../tests/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
         logger.info('%s:', mol)
         profiler = Profiler(path)
