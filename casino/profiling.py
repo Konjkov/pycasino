@@ -84,10 +84,10 @@ class Profiler(Casino):
         # stats = rtsys.get_allocation_stats()
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
-        start = default_timer()
-        self.wfn.slater.profile_tressian_v2(self.dr, self.steps // 10, self.atom_positions, self.r_e)
-        end = default_timer()
-        logger.info(' slater tressian v2                %8.1f * 10', (end - start))
+        # start = default_timer()
+        # self.wfn.slater.profile_tressian_v2(self.dr, self.steps // 10, self.atom_positions, self.r_e)
+        # end = default_timer()
+        # logger.info(' slater tressian v2                %8.1f * 10', (end - start))
         # stats = rtsys.get_allocation_stats()
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
@@ -150,10 +150,10 @@ class Profiler(Casino):
         end = default_timer()
         logger.info(' backflow laplacian parameters d1  %8.1f * 10', (end - start))
 
-        # start = default_timer()
-        # self.wfn.backflow.profile_gradient_parameters_d1(self.dr, self.steps // 100, self.atom_positions, self.r_e)
-        # end = default_timer()
-        # logger.info(' backflow gradient parameters d1   %8.1f * 100', (end - start))
+        start = default_timer()
+        self.wfn.backflow.profile_gradient_parameters_d1(self.dr, self.steps // 100, self.atom_positions, self.r_e)
+        end = default_timer()
+        logger.info(' backflow gradient parameters d1   %8.1f * 100', (end - start))
 
     def markovchain_profiling(self):
 
@@ -174,7 +174,7 @@ if __name__ == '__main__':
         profiler.slater_profiling()
         profiler.jastrow_profiling()
         profiler.backflow_profiling()
-        profiler.markovchain_profiling()
+        # profiler.markovchain_profiling()
 
     for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
         path = f'../tests/gwfn/{mol}/HF/cc-pVQZ/CBCS/Jastrow/'

@@ -365,10 +365,10 @@ def slater_value(self, n_vectors: np.ndarray):
 @overload_method(Slater_class_t, 'gradient')
 def slater_gradient(self, n_vectors: np.ndarray):
     """Gradient ∇φ/φ w.r.t e-coordinates.
-    Derivative of determinant of symmetric matrix w.r.t. a scalar
-    ∇ln(det(A)) = tr(A^-1 @ ∇A)
+    Derivative of determinant of symmetric matrix w.r.t a scalar
+    ∇ln(det(A)) = tr(A^-1 • ∇A)
     where matrix ∇A is column-wise gradient of A
-    then using np.trace(A @ B) = np.sum(A * B.T)
+    then using np.trace(A • B) = np.sum(A * B.T)
     Read for details:
     "Simple formalism for efficient derivatives and multi-determinant expansions in quantum Monte Carlo"
     C. Filippi, R. Assaraf, S. Moroni
@@ -380,8 +380,9 @@ def slater_gradient(self, n_vectors: np.ndarray):
         val = 0.0
         grad = np.zeros(shape=(self.neu + self.ned) * 3)
         for i in range(self.det_coeff.size):
-            tr_grad_u = (np.linalg.pinv(wfn_u[self.permutation_up[i]]) * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
-            tr_grad_d = (np.linalg.pinv(wfn_d[self.permutation_down[i]]) * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
+            # pinv is slower then inv
+            tr_grad_u = (np.linalg.inv(wfn_u[self.permutation_up[i]]) * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
+            tr_grad_d = (np.linalg.inv(wfn_d[self.permutation_down[i]]) * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             grad += c * np.concatenate((tr_grad_u.ravel(), tr_grad_d.ravel()))
@@ -398,9 +399,9 @@ def slater_laplacian(self, n_vectors: np.ndarray):
     Δln(det(A)) = sum(tr(slater^-1 * B(n)) over n
     where matrix B(n) is zero with exception to the n-th column
     as tr(A) + tr(B) = tr(A + B)
-    Δln(det(A)) = tr(slater^-1 @ B)
+    Δln(det(A)) = tr(slater^-1 • B)
     where the matrix Bij = ∆phi i (rj)
-    then using np.trace(A @ B) = np.sum(A * B.T) = np.tensordot(A, B.T)
+    then using np.trace(A • B) = np.sum(A * B.T) = np.tensordot(A, B.T)
     Read for details:
     "Simple formalism for efficient derivatives and multi-determinant expansions in quantum Monte Carlo"
     C. Filippi, R. Assaraf, S. Moroni
@@ -411,8 +412,9 @@ def slater_laplacian(self, n_vectors: np.ndarray):
         lap_u, lap_d = self.laplacian_matrix(n_vectors)
         val = lap = 0
         for i in range(self.det_coeff.size):
-            tr_lap_u = (np.linalg.pinv(wfn_u[self.permutation_up[i]]) * lap_u[self.permutation_up[i]].T).sum()
-            tr_lap_d = (np.linalg.pinv(wfn_d[self.permutation_down[i]]) * lap_d[self.permutation_down[i]].T).sum()
+            # pinv is slower then inv
+            tr_lap_u = (np.linalg.inv(wfn_u[self.permutation_up[i]]) * lap_u[self.permutation_up[i]].T).sum()
+            tr_lap_d = (np.linalg.inv(wfn_d[self.permutation_down[i]]) * lap_d[self.permutation_down[i]].T).sum()
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             lap += c * (tr_lap_u + tr_lap_d)
@@ -433,7 +435,7 @@ def slater_hessian(self, n_vectors: np.ndarray):
     https://math.stackexchange.com/questions/2325807/second-derivative-of-a-determinant
     in case of x and y is a coordinates of different electrons first term is zero
     in other case a sum of last two terms is zero.
-    Also using np.trace(A @ B) = np.sum(A * B.T) and np.trace(A ⊗ B) = np.trace(A) @ np.trace(B)
+    Also using np.trace(A • B) = np.sum(A * B.T) and np.trace(A ⊗ B) = np.trace(A) @ np.trace(B)
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
     """
     def impl(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -444,9 +446,9 @@ def slater_hessian(self, n_vectors: np.ndarray):
         grad = np.zeros(shape=(self.neu + self.ned) * 3)
         hess = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         for i in range(self.det_coeff.size):
-
-            inv_wfn_u = np.linalg.pinv(wfn_u[self.permutation_up[i]])
-            inv_wfn_d = np.linalg.pinv(wfn_d[self.permutation_down[i]])
+            # pinv is slower then inv
+            inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
+            inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
             tr_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_grad_d = (inv_wfn_d * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
             tr_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
@@ -504,8 +506,9 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
         hess = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         tress = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
         for i in range(self.det_coeff.size):
-            inv_wfn_u = np.linalg.pinv(wfn_u[self.permutation_up[i]])
-            inv_wfn_d = np.linalg.pinv(wfn_d[self.permutation_down[i]])
+            # pinv is slower then inv
+            inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
+            inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
             tr_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_grad_d = (inv_wfn_d * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
             tr_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
