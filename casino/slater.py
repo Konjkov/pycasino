@@ -787,6 +787,11 @@ class Slater(structref.StructRefProxy, AbstractSlater):
     def __new__(cls, *args, **kwargs):
         return slater_init(*args, **kwargs)
 
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def cusp(self):
+        return self.cusp
+
 
 structref.define_boxing(Slater_class_t, Slater)
 

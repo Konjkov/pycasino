@@ -178,6 +178,14 @@ class AbstractCusp:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.hessian(n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def profile_tressian(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.tressian(n_vectors)
+
 
 class AbstractWfn:
 
