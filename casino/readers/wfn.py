@@ -5,7 +5,7 @@ import numba as nb
 from math import factorial, pi, sqrt
 
 
-ppotential_type = nb.float64[:, :]
+ppotential_type = nb.float64[:, ::1]
 
 SLATER_TYPE = 1
 GAUSSIAN_TYPE = 0

@@ -526,8 +526,8 @@ class CuspFactory:
 
     def __init__(
             self, neu, ned, cusp_threshold, mo_up, mo_down, permutation_up, permutation_down,
-            first_shells, shell_moments, primitives, coefficients, exponents, atom_positions, atom_charges, unrestricted,
-            is_pseudoatom,
+            first_shells, shell_moments, primitives, coefficients, exponents, atom_positions,
+            atom_charges, unrestricted, is_pseudoatom,
     ):
         self.neu = neu
         self.ned = ned

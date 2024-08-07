@@ -78,7 +78,7 @@ class Casino:
         self.config.read()
         self.neu, self.ned = self.config.input.neu, self.config.input.ned
 
-        if self.config.input.cusp_correction:
+        if self.config.input.cusp_correction and not self.config.wfn.is_pseudoatom.all():
             cusp_factory = CuspFactory(
                 self.config.input.neu, self.config.input.ned, self.config.input.cusp_threshold, self.config.wfn.mo_up, self.config.wfn.mo_down,
                 self.config.mdet.permutation_up, self.config.mdet.permutation_down,
