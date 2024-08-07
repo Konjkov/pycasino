@@ -175,6 +175,15 @@ class Profiler(Casino):
 if __name__ == '__main__':
     """Profiling"""
     for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
+        path = f'../tests/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
+        logger.info('%s:', mol)
+        profiler = Profiler(path)
+        profiler.slater_profiling()
+        profiler.jastrow_profiling()
+        profiler.backflow_profiling()
+        # profiler.markovchain_profiling()/
+
+    for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
         path = f'../tests/gwfn/{mol}/HF/cc-pVQZ/CBCS/Jastrow/'
         logger.info('%s:', mol)
         profiler = Profiler(path)

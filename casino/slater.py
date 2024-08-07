@@ -9,7 +9,7 @@ from casino import delta, delta_2, delta_3
 from casino.abstract import AbstractSlater
 from casino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 from casino.cusp import Cusp, Cusp_t
-from casino.harmonics import angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
+from casino.harmonics import value_angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
 
 
 @structref.register
@@ -55,7 +55,7 @@ def slater_value_matrix(self, n_vectors: np.ndarray):
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
                 r2 = n_vectors[atom, i] @ n_vectors[atom, i]
-                angular_1 = angular_part(x, y, z)
+                angular_1 = value_angular_part(x, y, z)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
                     radial_1 = 0.0
@@ -96,7 +96,7 @@ def slater_gradient_matrix(self, n_vectors: np.ndarray):
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
                 r2 = n_vectors[atom, i] @ n_vectors[atom, i]
-                angular_1 = angular_part(x, y, z)
+                angular_1 = value_angular_part(x, y, z)
                 angular_2 = gradient_angular_part(x, y, z)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
@@ -148,7 +148,7 @@ def slater_laplacian_matrix(self, n_vectors: np.ndarray):
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
                 r2 = n_vectors[atom, i] @ n_vectors[atom, i]
-                angular_1 = angular_part(x, y, z)
+                angular_1 = value_angular_part(x, y, z)
                 for nshell in range(self.first_shells[atom]-1, self.first_shells[atom+1]-1):
                     l = self.shell_moments[nshell]
                     radial_1 = 0.0
@@ -194,7 +194,7 @@ def slater_hessian_matrix(self, n_vectors: np.ndarray):
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
                 r2 = n_vectors[atom, i] @ n_vectors[atom, i]
-                angular_1 = angular_part(x, y, z)
+                angular_1 = value_angular_part(x, y, z)
                 angular_2 = gradient_angular_part(x, y, z)
                 angular_3 = hessian_angular_part(x, y, z)
                 # angular_3 = hessian_angular_part_square(x, y, z)
@@ -268,7 +268,7 @@ def slater_tressian_matrix(self, n_vectors: np.ndarray):
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
                 r2 = n_vectors[atom, i] @ n_vectors[atom, i]
-                angular_1 = angular_part(x, y, z)
+                angular_1 = value_angular_part(x, y, z)
                 angular_2 = gradient_angular_part(x, y, z)
                 angular_3 = hessian_angular_part(x, y, z)
                 angular_4 = tressian_angular_part(x, y, z)

@@ -11,7 +11,7 @@ from numba.core.extending import overload_method
 from scipy.optimize import minimize
 from numpy.polynomial.polynomial import polyval
 from casino.abstract import AbstractCusp
-from casino.harmonics import angular_part
+from casino.harmonics import value_angular_part
 from casino.readers import CasinoConfig
 
 logger = logging.getLogger(__name__)
@@ -604,7 +604,7 @@ class CuspFactory:
                 for orb_atom in range(self.atom_positions.shape[0]):
                     x, y, z = self.atom_positions[atom] - self.atom_positions[orb_atom]
                     r2 = x * x + y * y + z * z
-                    angular = angular_part(x, y, z)
+                    angular = value_angular_part(x, y, z)
                     for nshell in range(self.first_shells[orb_atom] - 1, self.first_shells[orb_atom + 1] - 1):
                         l = self.shell_moments[nshell]
                         radial = 0.0
@@ -1146,6 +1146,7 @@ class TestCuspFactory:
         alpha = np.moveaxis(alpha, -1, 0)
         # because different normalization
         alpha[0] += np.where(alpha[0], np.log(self.norm / self.casino_norm), 0)
+        alpha = np.ascontiguousarray(alpha)
         return Cusp(
             self.neu, self.ned, self.neu, self.ned, rc, shift, orbital_sign, alpha,
             self.mo, self.first_shells, self.shell_moments, self.primitives, self.coefficients, self.exponents,
