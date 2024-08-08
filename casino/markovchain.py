@@ -100,6 +100,16 @@ class VMCMarkovChain(structref.StructRefProxy):
     def __new__(cls, *args, **kwargs):
         return vmcmarkovchain_init(*args, **kwargs)
 
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def step_size(self) -> float:
+        return self.step_size
+
+    @step_size.setter
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def step_size(self, value):
+        self.step_size = value
+
     def bbk_random_step(self):
         """Brünger–Brooks–Karplus (13 B. Brünger, C. L. Brooks, and M. Karplus, Chem. Phys. Lett. 105, 495 1984).
         """
