@@ -486,6 +486,26 @@ class Wfn(structref.StructRefProxy):
         return res
 
     @nb.njit(nogil=True, parallel=False, cache=True)
+    def value_parameters_d2(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
+        """Second-order derivatives of the wave function value w.r.t parameters.
+        1/wfn * d²wfn/dp² - 1/wfn * dwfn/dp * 1/wfn * dwfn/dp
+        :param r_e: electron coordinates - array(nelec, 3)
+        :param opt_jastrow: optimize jastrow parameters
+        :param opt_backflow: optimize backflow parameters
+        :param opt_det_coeff: optimize coefficients of the determinants
+        :return:
+        """
+        res = []
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        if self.jastrow is not None and opt_jastrow:
+            res.append(self.jastrow.value_parameters_d2(e_vectors, n_vectors))
+        if self.backflow is not None and opt_backflow:
+            raise NotImplementedError
+        if self.slater.det_coeff.size > 1 and opt_det_coeff:
+            raise NotImplementedError
+        return block_diag(res)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def energy_parameters_d1(self, r_e, opt_jastrow=True, opt_backflow=True, opt_det_coeff=True):
         """First-order derivatives of local energy w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)

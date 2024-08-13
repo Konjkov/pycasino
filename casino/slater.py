@@ -785,7 +785,47 @@ def slater_hessian_parameters_d1(self, n_vectors: np.ndarray):
 class Slater(structref.StructRefProxy, AbstractSlater):
 
     def __new__(cls, *args, **kwargs):
-        return slater_init(*args, **kwargs)
+        """ Slater multideterminant wavefunction.
+        :param neu: number of up electrons
+        :param ned: number of down electrons
+        :param nbasis_functions:
+        :param first_shells:
+        :param orbital_types:
+        :param shell_moments:
+        :param slater_orders:
+        :param primitives:
+        :param coefficients:
+        :param exponents:
+        :param mo_up:
+        :param mo_down:
+        :param coeff: determinant coefficients
+        """
+        @nb.njit(nogil=True, parallel=False, cache=True)
+        def init(neu, ned, nbasis_functions, first_shells, orbital_types,
+            shell_moments, slater_orders, primitives, coefficients, exponents,
+            mo_up, mo_down, permutation_up, permutation_down, coeff, cusp
+        ):
+            self = structref.new(Slater_t)
+            self.neu = neu
+            self.ned = ned
+            self.nbasis_functions = nbasis_functions
+            self.first_shells = first_shells
+            self.orbital_types = orbital_types
+            self.shell_moments = shell_moments
+            self.slater_orders = slater_orders
+            self.primitives = primitives
+            self.coefficients = coefficients
+            self.exponents = exponents
+            self.permutation_up = permutation_up
+            self.permutation_down = permutation_down
+            self.mo_up = mo_up[:np.max(permutation_up) + 1 if neu else 0]
+            self.mo_down = mo_down[:np.max(permutation_down) + 1 if ned else 0]
+            self.det_coeff = coeff
+            self.cusp = cusp
+            self.norm = np.exp(-(math.lgamma(neu + 1) + math.lgamma(ned + 1)) / (neu + ned) / 2)
+            self.parameters_projector = np.zeros(shape=(0, 0))
+            return self
+        return init(*args, **kwargs)
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
@@ -794,47 +834,3 @@ class Slater(structref.StructRefProxy, AbstractSlater):
 
 
 structref.define_boxing(Slater_class_t, Slater)
-
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def slater_init(neu, ned,
-        nbasis_functions, first_shells, orbital_types, shell_moments, slater_orders,
-        primitives, coefficients, exponents, mo_up, mo_down,
-        permutation_up, permutation_down, coeff, cusp
-    ):
-    """ Slater multideterminant wavefunction.
-    :param neu: number of up electrons
-    :param ned: number of down electrons
-    :param nbasis_functions:
-    :param first_shells:
-    :param orbital_types:
-    :param shell_moments:
-    :param slater_orders:
-    :param primitives:
-    :param coefficients:
-    :param exponents:
-    :param mo_up:
-    :param mo_down:
-    :param coeff:
-    """
-    self = structref.new(Slater_t)
-    self.neu = neu
-    self.ned = ned
-    self.nbasis_functions = nbasis_functions
-    self.first_shells = first_shells
-    self.orbital_types = orbital_types
-    self.shell_moments = shell_moments
-    self.slater_orders = slater_orders
-    self.primitives = primitives
-    self.coefficients = coefficients
-    self.exponents = exponents
-    self.permutation_up = permutation_up
-    self.permutation_down = permutation_down
-    self.mo_up = mo_up[:np.max(permutation_up) + 1 if neu else 0]
-    self.mo_down = mo_down[:np.max(permutation_down) + 1 if ned else 0]
-    self.det_coeff = coeff
-    self.cusp = cusp
-    self.norm = np.exp(-(math.lgamma(neu + 1) + math.lgamma(ned + 1)) / (neu + ned) / 2)
-    self.parameters_projector = np.zeros(shape=(0, 0))
-    return self

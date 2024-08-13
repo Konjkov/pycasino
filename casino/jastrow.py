@@ -1612,30 +1612,93 @@ def jastrow_laplacian_parameters_d1(self, e_vectors, n_vectors):
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Jastrow_class_t, 'u_term_parameters_d2')
 def jastrow_u_term_parameters_d2(self, e_powers):
+    """Second derivatives of wfn w.r.t. u-term parameters
+    :param e_powers: powers of e-e distances
+    """
     def impl(self, e_powers) -> np.ndarray:
-        pass
+        if not self.u_cutoff:
+            return np.zeros((0, 0))
+
+        size = self.u_parameters_available.sum() + (self.u_cutoff_optimizable and self.cutoffs_optimizable)
+        res = np.zeros(shape=(size, size))
+
+        n = 0
+        if self.u_cutoff_optimizable and self.cutoffs_optimizable:
+            self.u_cutoff -= delta
+            res[n] -= self.u_term_parameters_d1(e_powers) / delta / 2
+            self.u_cutoff += 2 * delta
+            res[n] += self.u_term_parameters_d1(e_powers) / delta / 2
+            self.u_cutoff -= delta
+            res[:, n] = res[n, :]
+
+        return res
     return impl
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Jastrow_class_t, 'chi_term_parameters_d2')
-def jastrow_chi_term_parameters_d2(self, e_powers):
-    """Second derivatives of wfn w.r.t. u-term parameters
-    :param e_powers: powers of e-e distances
+def jastrow_chi_term_parameters_d2(self, n_powers):
+    """Second derivatives of wfn w.r.t. chi-term parameters
+    :param n_powers: powers of e-n distances
     """
-    def impl(self, e_powers) -> np.ndarray:
-        pass
+    def impl(self, n_powers) -> np.ndarray:
+        if not self.chi_cutoff.any():
+            return np.zeros((0, 0))
+
+        size = sum([
+            chi_parameters_available.sum() + (chi_cutoff_optimizable and self.cutoffs_optimizable)
+            for chi_parameters_available, chi_cutoff_optimizable
+            in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size, size))
+
+        n = 0
+        for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)):
+            if self.chi_cutoff_optimizable[i] and self.cutoffs_optimizable:
+                self.chi_cutoff[i] -= delta
+                res[n] -= self.chi_term_parameters_d1(n_powers) / delta / 2
+                self.chi_cutoff[i] += 2 * delta
+                res[n] += self.chi_term_parameters_d1(n_powers) / delta / 2
+                self.chi_cutoff[i] -= delta
+                res[:, n] = res[n, :]
+                n += 1
+            n += chi_parameters_available.sum()
+
+        return res
     return impl
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Jastrow_class_t, 'f_term_parameters_d2')
-def jastrow_f_term_parameters_d2(self, e_powers):
-    """Second derivatives of wfn w.r.t. chi-term parameters
+def jastrow_f_term_parameters_d2(self, e_powers, n_powers):
+    """Second derivatives of wfn w.r.t. f-term parameters
+    :param e_powers: powers of e-e distances
     :param n_powers: powers of e-n distances
     """
-    def impl(self, e_powers) -> np.ndarray:
-        pass
+    def impl(self, e_powers, n_powers) -> np.ndarray:
+        if not self.f_cutoff.any():
+            return np.zeros((0, 0))
+
+        size = sum([
+            f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
+            for f_parameters_available, f_cutoff_optimizable
+            in zip(self.f_parameters_available, self.f_cutoff_optimizable)
+        ])
+        res = np.zeros(shape=(size, size))
+
+        n = 0
+        for i, (f_parameters, f_parameters_available, f_labels) in enumerate(zip(self.f_parameters, self.f_parameters_available, self.f_labels)):
+            if self.f_cutoff_optimizable[i] and self.cutoffs_optimizable:
+                self.f_cutoff[i] -= delta
+                res[n] -= self.f_term_parameters_d1(e_powers, n_powers) / delta / 2
+                self.f_cutoff[i] += 2 * delta
+                res[n] += self.f_term_parameters_d1(e_powers, n_powers) / delta / 2
+                self.f_cutoff[i] -= delta
+                res[:, n] = res[n, :]
+                n += 1
+            n += f_parameters_available.sum()
+
+        return res
     return impl
 
 
