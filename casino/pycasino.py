@@ -803,6 +803,8 @@ class Casino:
             options = dict(initial_trust_radius=0.1, max_trust_radius=1, eta=0.15, gtol=1e-3)
         else:
             options = dict(disp=self.root)
+        # Desired error not necessarily achieved due to precision loss.
+        # https://github.com/scipy/scipy/issues/15643
         res = minimize(fun, x0=x0 / scale, method=method, jac=jac, hess=hess, callback=callback, options=options)
         logger.info(f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac):.5e}\n')
         parameters = res.x * scale
