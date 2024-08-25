@@ -351,7 +351,30 @@ Wfn_t = Wfn_class_t([
 class Wfn(structref.StructRefProxy):
 
     def __new__(cls, *args, **kwargs):
-        return wfn_init(*args, **kwargs)
+        """Wave function in general form.
+        :param neu: number of up electrons
+        :param ned: number of down electrons
+        :param atom_positions: atomic positions
+        :param atom_charges: atomic charges
+        :param slater: instance of Slater class
+        :param jastrow: instance of Jastrow class
+        :param backflow: instance of Backflow class
+        :param ppotential: instance of Pseudopotential class
+        """
+        @nb.njit(nogil=True, parallel=False, cache=True)
+        def init(neu, ned, atom_positions, atom_charges, slater, jastrow, backflow, ppotential):
+            self = structref.new(Wfn_t)
+            self.neu = neu
+            self.ned = ned
+            self.atom_positions = atom_positions
+            self.atom_charges = atom_charges
+            self.nuclear_repulsion = self._get_nuclear_repulsion()
+            self.slater = slater
+            self.jastrow = jastrow
+            self.backflow = backflow
+            self.ppotential = ppotential
+            return self
+        return init(*args, **kwargs)
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
@@ -576,28 +599,3 @@ class Wfn(structref.StructRefProxy):
 
 
 structref.define_boxing(Wfn_class_t, Wfn)
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def wfn_init(neu, ned, atom_positions, atom_charges, slater, jastrow, backflow, ppotential):
-    """Wave function in general form.
-    :param neu: number of up electrons
-    :param ned: number of down electrons
-    :param atom_positions: atomic positions
-    :param atom_charges: atomic charges
-    :param slater: instance of Slater class
-    :param jastrow: instance of Jastrow class
-    :param backflow: instance of Backflow class
-    :param ppotential: instance of Pseudopotential class
-    """
-    self = structref.new(Wfn_t)
-    self.neu = neu
-    self.ned = ned
-    self.atom_positions = atom_positions
-    self.atom_charges = atom_charges
-    self.nuclear_repulsion = self._get_nuclear_repulsion()
-    self.slater = slater
-    self.jastrow = jastrow
-    self.backflow = backflow
-    self.ppotential = ppotential
-    return self

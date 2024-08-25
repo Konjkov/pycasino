@@ -72,66 +72,6 @@ class Jastrow_class_t(types.StructRef):
         return tuple((name, types.unliteral(typ)) for name, typ in fields)
 
 
-labels_type = nb.int64[::1]
-u_parameters_type = nb.float64[:, ::1]
-chi_parameters_type = nb.float64[:, ::1]
-f_parameters_type = nb.float64[:, :, :, ::1]
-u_parameters_mask_type = nb.boolean[:, ::1]
-chi_parameters_mask_type = nb.boolean[:, ::1]
-f_parameters_mask_type = nb.boolean[:, :, :, ::1]
-
-Jastrow_t = Jastrow_class_t([
-    ('neu', nb.int64),
-    ('ned', nb.int64),
-    ('trunc', nb.int64),
-    ('u_parameters', u_parameters_type),
-    ('chi_parameters', nb.types.ListType(chi_parameters_type)),
-    ('f_parameters', nb.types.ListType(f_parameters_type)),
-    ('u_parameters_optimizable', u_parameters_mask_type),
-    ('chi_parameters_optimizable', nb.types.ListType(chi_parameters_mask_type)),
-    ('f_parameters_optimizable', nb.types.ListType(f_parameters_mask_type)),
-    ('u_parameters_available', u_parameters_mask_type),
-    ('chi_parameters_available', nb.types.ListType(chi_parameters_mask_type)),
-    ('f_parameters_available', nb.types.ListType(f_parameters_mask_type)),
-    ('u_cutoff', nb.float64),
-    ('u_cutoff_optimizable', nb.boolean),
-    ('chi_cutoff', nb.float64[:]),
-    ('chi_cutoff_optimizable', nb.boolean[:]),
-    ('f_cutoff', nb.float64[:]),
-    ('f_cutoff_optimizable', nb.boolean[:]),
-    ('chi_labels', nb.types.ListType(labels_type)),
-    ('f_labels', nb.types.ListType(labels_type)),
-    ('max_ee_order', nb.int64),
-    ('max_en_order', nb.int64),
-    ('chi_cusp', nb.boolean[::1]),
-    ('no_dup_u_term', nb.boolean[::1]),
-    ('no_dup_chi_term', nb.boolean[::1]),
-    ('parameters_projector', nb.float64[:, ::1]),
-    ('cutoffs_optimizable', nb.boolean),
-])
-
-
-class Jastrow(structref.StructRefProxy, AbstractJastrow):
-
-    def __new__(cls, *args, **kwargs):
-        return jastrow_init(*args, **kwargs)
-
-    @property
-    @nb.njit(nogil=True, parallel=False, cache=True)
-    def u_cutoff(self):
-        return self.u_cutoff
-
-    @property
-    @nb.njit(nogil=True, parallel=False, cache=True)
-    def cutoffs_optimizable(self):
-        return self.cutoffs_optimizable
-
-    @cutoffs_optimizable.setter
-    @nb.njit(nogil=True, parallel=False, cache=True)
-    def cutoffs_optimizable(self, value):
-        self.cutoffs_optimizable = value
-
-
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Jastrow_class_t, 'fix_optimizable')
 def jastrow_fix_optimizable(self):
@@ -1721,50 +1661,107 @@ def jastrow_value_parameters_d2(self, e_vectors, n_vectors):
     return impl
 
 
-structref.define_boxing(Jastrow_class_t, Jastrow)
+labels_type = nb.int64[::1]
+u_parameters_type = nb.float64[:, ::1]
+chi_parameters_type = nb.float64[:, ::1]
+f_parameters_type = nb.float64[:, :, :, ::1]
+u_parameters_mask_type = nb.boolean[:, ::1]
+chi_parameters_mask_type = nb.boolean[:, ::1]
+f_parameters_mask_type = nb.boolean[:, :, :, ::1]
+
+Jastrow_t = Jastrow_class_t([
+    ('neu', nb.int64),
+    ('ned', nb.int64),
+    ('trunc', nb.int64),
+    ('u_parameters', u_parameters_type),
+    ('chi_parameters', nb.types.ListType(chi_parameters_type)),
+    ('f_parameters', nb.types.ListType(f_parameters_type)),
+    ('u_parameters_optimizable', u_parameters_mask_type),
+    ('chi_parameters_optimizable', nb.types.ListType(chi_parameters_mask_type)),
+    ('f_parameters_optimizable', nb.types.ListType(f_parameters_mask_type)),
+    ('u_parameters_available', u_parameters_mask_type),
+    ('chi_parameters_available', nb.types.ListType(chi_parameters_mask_type)),
+    ('f_parameters_available', nb.types.ListType(f_parameters_mask_type)),
+    ('u_cutoff', nb.float64),
+    ('u_cutoff_optimizable', nb.boolean),
+    ('chi_cutoff', nb.float64[:]),
+    ('chi_cutoff_optimizable', nb.boolean[:]),
+    ('f_cutoff', nb.float64[:]),
+    ('f_cutoff_optimizable', nb.boolean[:]),
+    ('chi_labels', nb.types.ListType(labels_type)),
+    ('f_labels', nb.types.ListType(labels_type)),
+    ('max_ee_order', nb.int64),
+    ('max_en_order', nb.int64),
+    ('chi_cusp', nb.boolean[::1]),
+    ('no_dup_u_term', nb.boolean[::1]),
+    ('no_dup_chi_term', nb.boolean[::1]),
+    ('parameters_projector', nb.float64[:, ::1]),
+    ('cutoffs_optimizable', nb.boolean),
+])
 
 
-@nb.njit(nogil=True, parallel=False, cache=True)
-def jastrow_init(neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutoff,
+class Jastrow(structref.StructRefProxy, AbstractJastrow):
+
+    def __new__(cls, *args, **kwargs):
+        @nb.njit(nogil=True, parallel=False, cache=True)
+        def init(neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutoff,
         chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_labels, chi_cusp,
-        f_parameters, f_parameters_optimizable, f_cutoff, f_labels, no_dup_u_term, no_dup_chi_term
-    ):
-    self = structref.new(Jastrow_t)
-    self.neu = neu
-    self.ned = ned
-    self.trunc = trunc
-    # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
-    self.u_cutoff = u_cutoff[0]['value']
-    self.u_cutoff_optimizable = u_cutoff[0]['optimizable']
-    self.u_parameters = u_parameters
-    self.u_parameters_optimizable = u_parameters_optimizable
-    self.u_parameters_available = np.ones_like(u_parameters_optimizable)
-    # spin dep (0->u=d; 1->u/=d)
-    self.chi_labels = chi_labels
-    self.chi_cutoff = chi_cutoff['value']
-    self.chi_cutoff_optimizable = chi_cutoff['optimizable']
-    self.chi_parameters = chi_parameters
-    self.chi_parameters_optimizable = chi_parameters_optimizable
-    self.chi_parameters_available = nb.typed.List.empty_list(chi_parameters_mask_type)
-    # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
-    self.f_labels = f_labels
-    self.f_cutoff = f_cutoff['value']
-    self.f_cutoff_optimizable = f_cutoff['optimizable']
-    self.f_parameters = f_parameters
-    self.f_parameters_optimizable = f_parameters_optimizable
-    self.f_parameters_available = nb.typed.List.empty_list(f_parameters_mask_type)
+        f_parameters, f_parameters_optimizable, f_cutoff, f_labels, no_dup_u_term, no_dup_chi_term):
+            self = structref.new(Jastrow_t)
+            self.neu = neu
+            self.ned = ned
+            self.trunc = trunc
+            # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
+            self.u_cutoff = u_cutoff[0]['value']
+            self.u_cutoff_optimizable = u_cutoff[0]['optimizable']
+            self.u_parameters = u_parameters
+            self.u_parameters_optimizable = u_parameters_optimizable
+            self.u_parameters_available = np.ones_like(u_parameters_optimizable)
+            # spin dep (0->u=d; 1->u/=d)
+            self.chi_labels = chi_labels
+            self.chi_cutoff = chi_cutoff['value']
+            self.chi_cutoff_optimizable = chi_cutoff['optimizable']
+            self.chi_parameters = chi_parameters
+            self.chi_parameters_optimizable = chi_parameters_optimizable
+            self.chi_parameters_available = nb.typed.List.empty_list(chi_parameters_mask_type)
+            # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
+            self.f_labels = f_labels
+            self.f_cutoff = f_cutoff['value']
+            self.f_cutoff_optimizable = f_cutoff['optimizable']
+            self.f_parameters = f_parameters
+            self.f_parameters_optimizable = f_parameters_optimizable
+            self.f_parameters_available = nb.typed.List.empty_list(f_parameters_mask_type)
 
-    self.max_ee_order = max((
-        self.u_parameters.shape[1],
-        max([p.shape[1] for p in self.f_parameters]) if self.f_parameters else 0,
-    ))
-    self.max_en_order = max((
-        max([p.shape[1] for p in self.chi_parameters]) if self.chi_parameters else 0,
-        max([p.shape[2] for p in self.f_parameters]) if self.f_parameters else 0,
-    ))
-    self.chi_cusp = chi_cusp
-    self.no_dup_u_term = no_dup_u_term
-    self.no_dup_chi_term = no_dup_chi_term
-    self.cutoffs_optimizable = True
-    self.fix_optimizable()
-    return self
+            self.max_ee_order = max((
+                self.u_parameters.shape[1],
+                max([p.shape[1] for p in self.f_parameters]) if self.f_parameters else 0,
+            ))
+            self.max_en_order = max((
+                max([p.shape[1] for p in self.chi_parameters]) if self.chi_parameters else 0,
+                max([p.shape[2] for p in self.f_parameters]) if self.f_parameters else 0,
+            ))
+            self.chi_cusp = chi_cusp
+            self.no_dup_u_term = no_dup_u_term
+            self.no_dup_chi_term = no_dup_chi_term
+            self.cutoffs_optimizable = True
+            self.fix_optimizable()
+            return self
+        return init(*args, **kwargs)
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def u_cutoff(self):
+        return self.u_cutoff
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def cutoffs_optimizable(self):
+        return self.cutoffs_optimizable
+
+    @cutoffs_optimizable.setter
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def cutoffs_optimizable(self, value):
+        self.cutoffs_optimizable = value
+
+
+structref.define_boxing(Jastrow_class_t, Jastrow)

@@ -883,6 +883,7 @@ class Casino:
             else:
                 # rescale parameters so that S is the Pearson correlation matrix
                 scale = 1 / np.std(wfn_gradient, axis=0)
+                # FIXME: remove zero scale
                 S = overlap_matrix(wfn_gradient * scale)
                 H = hamiltonian_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
                 # logger.info(f'epsilon:\n{np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]}')

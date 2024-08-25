@@ -741,6 +741,7 @@ def dmcmarkovchain_init(r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size,
     :return:
     """
     self = structref.new(DMCMarkovChain_t)
+    # FIXME: Cannot cache as it uses dynamic globals such as ctypes pointers
     self.mpi_size = nb_mpi.size()
     self.wfn = wfn
     self.method = method
@@ -768,6 +769,7 @@ def dmcmarkovchain_init(r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size,
     else:
         energy_list_len = np.empty(1, dtype=np.int_)
         energy_list_sum = np.empty(1, dtype=np.float_)
+        # FIXME: Cannot cache as it uses dynamic globals such as ctypes pointers
         nb_mpi.allreduce(len(self.energy_list), energy_list_len)
         nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
         walkers = energy_list_len[0]
