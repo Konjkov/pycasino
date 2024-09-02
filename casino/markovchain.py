@@ -265,6 +265,59 @@ DMCMarkovChain_t = DMCMarkovChain_class_t([
 class DMCMarkovChain(structref.StructRefProxy):
 
     def __new__(cls, *args, **kwargs):
+        """Markov chain Monte Carlo.
+        :param r_e_list: initial positions of walkers
+        :param alimit: parameter required by DMC drift-velocity- and energy-limiting schemes
+        :param nucleus_gf_mods:
+        :param use_tmove: use T-move
+        :param step_size: time step size
+        :param target_weight: target weight of walkers
+        :param wfn: instance of Wfn class
+        :param method: dmc method: (1) - EBES, (2) - CBCS.
+        :return:
+        """
+        @nb.njit(nogil=True, parallel=False, cache=True)
+        def dmcmarkovchain_init(r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
+            self = structref.new(DMCMarkovChain_t)
+            # FIXME: Cannot cache as it uses dynamic globals such as ctypes pointers
+            self.mpi_size = nb_mpi.size()
+            self.wfn = wfn
+            self.method = method
+            self.alimit = alimit
+            self.step_size = step_size
+            self.target_weight = target_weight
+            self.nucleus_gf_mods = nucleus_gf_mods
+            self.use_tmove = use_tmove
+            self.age_list = nb.typed.List.empty_list(age_type)
+            self.r_e_list = nb.typed.List.empty_list(r_e_type)
+            self.wfn_value_list = nb.typed.List.empty_list(wfn_value_type)
+            self.velocity_list = nb.typed.List.empty_list(velocity_type)
+            self.energy_list = nb.typed.List.empty_list(energy_type)
+            self.branching_energy_list = nb.typed.List.empty_list(energy_type)
+            for r_e in r_e_list:
+                self.age_list.append(0)
+                self.r_e_list.append(r_e)
+                self.wfn_value_list.append(self.wfn.value(r_e))
+                self.velocity_list.append(self.limiting_velocity(r_e)[0])
+                self.energy_list.append(self.wfn.energy(r_e))
+                self.branching_energy_list.append(self.wfn.energy(r_e))
+            if self.mpi_size == 1:
+                walkers = len(self.energy_list)
+                total_energy = sum(self.energy_list)
+            else:
+                energy_list_len = np.empty(1, dtype=np.int_)
+                energy_list_sum = np.empty(1, dtype=np.float_)
+                # FIXME: Cannot cache as it uses dynamic globals such as ctypes pointers
+                nb_mpi.allreduce(len(self.energy_list), energy_list_len)
+                nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
+                walkers = energy_list_len[0]
+                total_energy = energy_list_sum[0]
+            self.step_eff = self.step_size  # first guess
+            self.best_estimate_energy = total_energy / walkers
+            self.energy_t = self.best_estimate_energy - np.log(walkers / self.target_weight) / self.step_eff
+            self.ntransfers_tot = 0
+            self.efficiency_list = nb.typed.List.empty_list(efficiency_type)
+            return self
         return dmcmarkovchain_init(*args, **kwargs)
 
     @property
@@ -725,58 +778,3 @@ def dmcmarkovchain_load_balancing(self):
 
 
 structref.define_boxing(DMCMarkovChain_class_t, DMCMarkovChain)
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def dmcmarkovchain_init(r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
-    """Markov chain Monte Carlo.
-    :param r_e_list: initial positions of walkers
-    :param alimit: parameter required by DMC drift-velocity- and energy-limiting schemes
-    :param nucleus_gf_mods:
-    :param use_tmove: use T-move
-    :param step_size: time step size
-    :param target_weight: target weight of walkers
-    :param wfn: instance of Wfn class
-    :param method: dmc method: (1) - EBES, (2) - CBCS.
-    :return:
-    """
-    self = structref.new(DMCMarkovChain_t)
-    # FIXME: Cannot cache as it uses dynamic globals such as ctypes pointers
-    self.mpi_size = nb_mpi.size()
-    self.wfn = wfn
-    self.method = method
-    self.alimit = alimit
-    self.step_size = step_size
-    self.target_weight = target_weight
-    self.nucleus_gf_mods = nucleus_gf_mods
-    self.use_tmove = use_tmove
-    self.age_list = nb.typed.List.empty_list(age_type)
-    self.r_e_list = nb.typed.List.empty_list(r_e_type)
-    self.wfn_value_list = nb.typed.List.empty_list(wfn_value_type)
-    self.velocity_list = nb.typed.List.empty_list(velocity_type)
-    self.energy_list = nb.typed.List.empty_list(energy_type)
-    self.branching_energy_list = nb.typed.List.empty_list(energy_type)
-    for r_e in r_e_list:
-        self.age_list.append(0)
-        self.r_e_list.append(r_e)
-        self.wfn_value_list.append(self.wfn.value(r_e))
-        self.velocity_list.append(self.limiting_velocity(r_e)[0])
-        self.energy_list.append(self.wfn.energy(r_e))
-        self.branching_energy_list.append(self.wfn.energy(r_e))
-    if self.mpi_size == 1:
-        walkers = len(self.energy_list)
-        total_energy = sum(self.energy_list)
-    else:
-        energy_list_len = np.empty(1, dtype=np.int_)
-        energy_list_sum = np.empty(1, dtype=np.float_)
-        # FIXME: Cannot cache as it uses dynamic globals such as ctypes pointers
-        nb_mpi.allreduce(len(self.energy_list), energy_list_len)
-        nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
-        walkers = energy_list_len[0]
-        total_energy = energy_list_sum[0]
-    self.step_eff = self.step_size  # first guess
-    self.best_estimate_energy = total_energy / walkers
-    self.energy_t = self.best_estimate_energy - np.log(walkers / self.target_weight) / self.step_eff
-    self.ntransfers_tot = 0
-    self.efficiency_list = nb.typed.List.empty_list(efficiency_type)
-    return self
