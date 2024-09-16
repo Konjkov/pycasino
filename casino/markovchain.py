@@ -98,7 +98,24 @@ VMCMarkovChain_t = VMCMarkovChain_class_t([
 class VMCMarkovChain(structref.StructRefProxy):
 
     def __new__(cls, *args, **kwargs):
-        return vmcmarkovchain_init(*args, **kwargs)
+        """Markov chain Monte Carlo.
+        :param r_e: initial position
+        :param step_size: time step size
+        :param wfn: instance of Wfn class
+        :param method: vmc method: (1) - EBES (work in progress), (3) - CBCS.
+        :return:
+        """
+        @nb.njit(nogil=True, parallel=False, cache=True)
+        def init(r_e, step_size, wfn, method):
+            self = structref.new(VMCMarkovChain_t)
+            self.r_e = r_e
+            self.cond = 0
+            self.step_size = step_size
+            self.wfn = wfn
+            self.method = method
+            self.probability_density = wfn.value(r_e) ** 2
+            return self
+        return init(*args, **kwargs)
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
@@ -154,30 +171,12 @@ class VMCMarkovChain(structref.StructRefProxy):
 structref.define_boxing(VMCMarkovChain_class_t, VMCMarkovChain)
 
 
-@nb.njit(nogil=True, parallel=False, cache=True)
-def vmcmarkovchain_init(r_e, step_size, wfn, method):
-    """Markov chain Monte Carlo.
-    :param r_e: initial position
-    :param step_size: time step size
-    :param wfn: instance of Wfn class
-    :param method: vmc method: (1) - EBES (work in progress), (3) - CBCS.
-    :return:
-    """
-    self = structref.new(VMCMarkovChain_t)
-    self.r_e = r_e
-    self.cond = 0
-    self.step_size = step_size
-    self.wfn = wfn
-    self.method = method
-    self.probability_density = wfn.value(r_e) ** 2
-    return self
-
-
 def vmc_observable(condition, position, observable, *args):
     """VMC observable.
-    :param observable: observable quantity
     :param condition: accept/reject conditions
     :param position: random walk positions
+    :param observable: observable function
+    :param *args: arguments of observable function
     :return:
     """
     first_res = observable(position[0], *args)
@@ -277,7 +276,7 @@ class DMCMarkovChain(structref.StructRefProxy):
         :return:
         """
         @nb.njit(nogil=True, parallel=False, cache=True)
-        def dmcmarkovchain_init(r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
+        def init(r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
             self = structref.new(DMCMarkovChain_t)
             # FIXME: Cannot cache as it uses dynamic globals such as ctypes pointers
             self.mpi_size = nb_mpi.size()
@@ -318,7 +317,7 @@ class DMCMarkovChain(structref.StructRefProxy):
             self.ntransfers_tot = 0
             self.efficiency_list = nb.typed.List.empty_list(efficiency_type)
             return self
-        return dmcmarkovchain_init(*args, **kwargs)
+        return init(*args, **kwargs)
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
