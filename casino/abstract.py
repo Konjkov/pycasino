@@ -238,52 +238,46 @@ class AbstractWfn:
         return res / delta / delta / val
 
     @nb.njit(nogil=True, parallel=False, cache=True)
-    def value_parameters_numerical_d1(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters=False):
+    def value_parameters_numerical_d1(self, r_e, all_parameters=False):
         """First-order derivatives of log wfn value w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
-        :param opt_jastrow: optimize jastrow parameters
-        :param opt_backflow: optimize backflow parameters
-        :param opt_det_coeff: optimize coefficients of the determinants
         :param all_parameters: optimize all parameters or only independent
         :return:
         """
-        scale = self.get_parameters_scale(opt_jastrow, opt_backflow)
-        parameters = self.get_parameters(opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
+        scale = self.get_parameters_scale()
+        parameters = self.get_parameters(all_parameters)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
             parameters[i] -= delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
+            self.set_parameters(parameters, all_parameters)
             res[i] -= self.value(r_e) / scale[i]
             parameters[i] += 2 * delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
+            self.set_parameters(parameters, all_parameters)
             res[i] += self.value(r_e) / scale[i]
             parameters[i] -= delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters)
+            self.set_parameters(parameters, all_parameters)
 
         return res / delta / 2 / self.value(r_e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
-    def energy_parameters_numerical_d1(self, r_e, opt_jastrow, opt_backflow, opt_det_coeff, all_parameters=False):
+    def energy_parameters_numerical_d1(self, r_e, all_parameters=False):
         """First-order derivatives of local energy w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
-        :param opt_jastrow: optimize jastrow parameters
-        :param opt_backflow: optimize backflow parameters
-        :param opt_det_coeff: optimize coefficients of the determinants
         :param all_parameters: optimize all parameters or only independent
         :return:
         """
-        scale = self.get_parameters_scale(opt_jastrow, opt_backflow)
-        parameters = self.get_parameters(opt_jastrow, opt_backflow, all_parameters, opt_det_coeff)
+        scale = self.get_parameters_scale()
+        parameters = self.get_parameters(all_parameters)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
             parameters[i] -= delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters, opt_det_coeff)
+            self.set_parameters(parameters, all_parameters)
             res[i] -= self.energy(r_e) / scale[i]
             parameters[i] += 2 * delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters, opt_det_coeff)
+            self.set_parameters(parameters, all_parameters)
             res[i] += self.energy(r_e) / scale[i]
             parameters[i] -= delta * scale[i]
-            self.set_parameters(parameters, opt_jastrow, opt_backflow, all_parameters, opt_det_coeff)
+            self.set_parameters(parameters, all_parameters)
 
         return res / delta / 2
 

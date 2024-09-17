@@ -171,21 +171,20 @@ class VMCMarkovChain(structref.StructRefProxy):
 structref.define_boxing(VMCMarkovChain_class_t, VMCMarkovChain)
 
 
-def vmc_observable(condition, position, observable, *args):
+def vmc_observable(condition, position, observable):
     """VMC observable.
-    :param condition: accept/reject conditions
+    :param condition: accepted step
     :param position: random walk positions
     :param observable: observable function
-    :param *args: arguments of observable function
     :return:
     """
-    first_res = observable(position[0], *args)
+    first_res = observable(position[0])
     res = np.empty(shape=condition.shape + np.shape(first_res))
     res[0] = first_res
 
     for i in range(1, condition.shape[0]):
         if condition[i]:
-            res[i] = observable(position[i], *args)
+            res[i] = observable(position[i])
         else:
             res[i] = res[i-1]
     return res
