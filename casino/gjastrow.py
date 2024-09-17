@@ -1,18 +1,28 @@
 import numpy as np
 import numba as nb
+from numba.core import types
+from numba.experimental import structref
+from numba.core.extending import overload_method
 
-from casino.abstract import AbstractJastrow
+# from casino.abstract import AbstractJastrow
+
+
+@structref.register
+class Gjastrow_class_t(types.StructRef):
+    def preprocess_fields(self, fields):
+        return tuple((name, types.unliteral(typ)) for name, typ in fields)
+
 
 shape_type = nb.types.ListType(nb.int64)
-linear_parameters_type = nb.float64[:]
+linear_parameters_type = nb.float64[::1]
 constants_type = nb.types.DictType(nb.types.unicode_type, nb.float64)
 parameters_type = nb.types.ListType(nb.types.DictType(nb.types.unicode_type, nb.float64))
 
-spec = [
+Gjastrow_t = Gjastrow_class_t([
     ('neu', nb.int64),
     ('ned', nb.int64),
-    ('rank', nb.int64[:, :]),
-    ('cusp', nb.boolean[:, :]),
+    ('rank', nb.int64[:, ::1]),
+    ('cusp', nb.boolean[:, ::1]),
     ('ee_basis_type', nb.types.ListType(nb.types.unicode_type)),
     ('en_basis_type', nb.types.ListType(nb.types.unicode_type)),
     ('ee_cutoff_type', nb.types.ListType(nb.types.unicode_type)),
@@ -25,34 +35,38 @@ spec = [
     ('en_cutoff_parameters', parameters_type),
     ('linear_parameters', nb.types.ListType(linear_parameters_type)),
     ('linear_parameters_shape', nb.types.ListType(shape_type)),
-]
+])
 
 
-@nb.experimental.jitclass(spec)
-class Gjastrow(AbstractJastrow):
+class Gjastrow(structref.StructRefProxy, AbstractJastrow):
 
-    def __init__(
-            self, neu, ned, rank, cusp, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type,
+    def __new__(cls, *args, **kwargs):
+        def init(
+            neu, ned, rank, cusp, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type,
             ee_constants, en_constants, ee_basis_parameters, en_basis_parameters, ee_cutoff_parameters,
             en_cutoff_parameters, linear_parameters, linear_parameters_shape
-    ):
-        self.neu = neu
-        self.ned = ned
-        self.rank = rank
-        self.cusp = cusp
-        self.ee_basis_type = ee_basis_type
-        self.en_basis_type = en_basis_type
-        self.ee_cutoff_type = ee_cutoff_type
-        self.en_cutoff_type = en_cutoff_type
-        self.ee_constants = ee_constants
-        self.en_constants = en_constants
-        self.ee_basis_parameters = ee_basis_parameters
-        self.en_basis_parameters = en_basis_parameters
-        self.ee_cutoff_parameters = ee_cutoff_parameters
-        self.en_cutoff_parameters = en_cutoff_parameters
-        self.linear_parameters = linear_parameters
-        self.linear_parameters_shape = linear_parameters_shape
+        ):
+            self = structref.new(Gjastrow_t)
+            self.neu = neu
+            self.ned = ned
+            self.rank = rank
+            self.cusp = cusp
+            self.ee_basis_type = ee_basis_type
+            self.en_basis_type = en_basis_type
+            self.ee_cutoff_type = ee_cutoff_type
+            self.en_cutoff_type = en_cutoff_type
+            self.ee_constants = ee_constants
+            self.en_constants = en_constants
+            self.ee_basis_parameters = ee_basis_parameters
+            self.en_basis_parameters = en_basis_parameters
+            self.ee_cutoff_parameters = ee_cutoff_parameters
+            self.en_cutoff_parameters = en_cutoff_parameters
+            self.linear_parameters = linear_parameters
+            self.linear_parameters_shape = linear_parameters_shape
+            return self
+        return init(*args, **kwargs)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def ee_powers(self, e_vectors: np.ndarray):
         """Powers of e-e distances
         :param e_vectors: e-e vectors - array(nelec, nelec, 3)
@@ -79,6 +93,7 @@ class Gjastrow(AbstractJastrow):
                             res[i, j, k, channel] = (1/(r + a)) ** k
         return res
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def en_powers(self, n_vectors: np.ndarray):
         """Powers of e-n distances
         :param n_vectors: e-n vectors - array(natom, nelec, 3)
@@ -105,6 +120,7 @@ class Gjastrow(AbstractJastrow):
                             res[i, j, k, channel] = (1/(r + a)) ** k
         return res
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def term_2_0(self, e_powers: np.ndarray, e_vectors: np.ndarray) -> float:
         """Jastrow term rank [2, 0]
         :param e_powers: powers of e-e distances
@@ -143,14 +159,17 @@ class Gjastrow(AbstractJastrow):
                         pass
         return res
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def value(self, e_vectors, n_vectors) -> float:
         """Jastrow
         :param e_vectors: electrons coordinates
         :param n_vectors: nucleus coordinates
         :return:
         """
-
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
         return self.term_2_0(e_powers, e_vectors)
+
+
+structref.define_boxing(Gjastrow_class_t, Gjastrow)

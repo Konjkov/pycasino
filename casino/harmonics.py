@@ -3,7 +3,7 @@ import numba as nb
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def angular_part(x, y, z):
+def value_angular_part(x, y, z):
     """Angular part of WFN.
     :return:
     """

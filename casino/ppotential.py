@@ -1,77 +1,51 @@
 import numpy as np
 import numba as nb
 
+from numba.core import types
+from numba.experimental import structref
+from numba.core.extending import overload_method
 
-ppotential_type = nb.float64[:, :]
-weight_type = nb.float64[:]
-quadrature_type = nb.float64[:, :]
 
-ppotential_spec = [
+@structref.register
+class PPotential_class_t(types.StructRef):
+    def preprocess_fields(self, fields):
+        return tuple((name, types.unliteral(typ)) for name, typ in fields)
+
+
+ppotential_type = nb.float64[:, ::1]
+weight_type = nb.float64[::1]
+quadrature_type = nb.float64[:, ::1]
+
+
+PPotential_t = PPotential_class_t([
     ('neu', nb.int64),
     ('ned', nb.int64),
     ('lcutofftol', nb.float64),
     ('nlcutofftol', nb.float64),
-    ('atom_charges', nb.float64[:]),
-    ('vmc_nonlocal_grid', nb.int64[:]),
-    ('dmc_nonlocal_grid', nb.int64[:]),
-    ('local_angular_momentum', nb.int64[:]),
+    ('atom_charges', nb.float64[::1]),
+    ('vmc_nonlocal_grid', nb.int64[::1]),
+    ('dmc_nonlocal_grid', nb.int64[::1]),
+    ('local_angular_momentum', nb.int64[::1]),
     ('ppotential', nb.types.ListType(ppotential_type)),
-    ('is_pseudoatom', nb.boolean[:]),
+    ('is_pseudoatom', nb.boolean[::1]),
     ('weight', nb.types.ListType(weight_type)),
     ('quadrature', nb.types.ListType(quadrature_type)),
-]
+])
 
 
-@nb.experimental.jitclass(ppotential_spec)
-class PPotential:
+class PPotential(structref.StructRefProxy):
 
-    def __init__(self, neu, ned, lcutofftol, nlcutofftol, atom_charges, vmc_nonlocal_grid, dmc_nonlocal_grid, local_angular_momentum, ppotential, is_pseudoatom):
-        """Pseudopotential.
-        For more details
-        https://vallico.net/casinoqmc/pplib/
-        https://pseudopotentiallibrary.org/
-        :param neu: number of up electrons
-        :param ned: number of down electrons
-        :param lcutofftol: cutoff radius for the local part of the pseudopotential
-        :param nlcutofftol: cutoff radius for the nonlocal part of the pseudopotential
-        :param vmc_nonlocal_grid: VMC grid for nonlocal integration
-        :param dmc_nonlocal_grid: DMC grid for nonlocal integration
-        :param local_angular_momentum:
-        :param ppotential: tabulated pseudopotential Casino style
-        """
-        self.neu = neu
-        self.ned = ned
-        self.lcutofftol = lcutofftol
-        self.nlcutofftol = nlcutofftol
-        self.atom_charges = atom_charges
-        self.vmc_nonlocal_grid = vmc_nonlocal_grid
-        self.dmc_nonlocal_grid = dmc_nonlocal_grid
-        self.local_angular_momentum = local_angular_momentum
-        self.ppotential = ppotential
-        self.is_pseudoatom = is_pseudoatom
-        self.weight = nb.typed.List.empty_list(weight_type)
-        self.quadrature = nb.typed.List.empty_list(quadrature_type)
-        self.generate_quadratures()
-        # make s-d and p-d
-        for atom in range(len(self.ppotential)):
-            if not self.is_pseudoatom[atom]:
-                continue
-            atom_pp = self.ppotential[atom]
-            local_angular_momentum = self.local_angular_momentum[atom]
-            atom_pp[1] -= atom_pp[local_angular_momentum + 1]
-            atom_pp[2] -= atom_pp[local_angular_momentum + 1]
-            r_nlcutoff_1 = atom_pp.shape[1] - np.argmax(np.abs(atom_pp[1, ::-1]) > self.nlcutofftol)
-            r_nlcutoff_2 = atom_pp.shape[1] - np.argmax(np.abs(atom_pp[2, ::-1]) > self.nlcutofftol)
-            atom_pp[1, r_nlcutoff_1:] = 0
-            atom_pp[2, r_nlcutoff_2:] = 0
-            atom_pp[local_angular_momentum + 1] += atom_charges[atom]
-            r_lcutoff = atom_pp.shape[1] - np.argmax(np.abs(atom_pp[3, ::-1]) > self.lcutofftol)
-            atom_pp[local_angular_momentum + 1, r_lcutoff:] = 0
+    def __new__(cls, *args, **kwargs):
+        return ppotential_init(*args, **kwargs)
 
-    def generate_quadratures(self):
-        """Formulae from "Nonlocal pseudopotentials and diffusion monte carlo"
-        Lubos Mitas, Eric L. Shirley, David M. Ceperley J. Chem. Phys. 95, 3467 (1991).
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(PPotential_class_t, 'generate_quadratures')
+def ppotential_generate_quadratures(self):
+    """Formulae from "Nonlocal pseudopotentials and diffusion monte carlo"
+    Lubos Mitas, Eric L. Shirley, David M. Ceperley J. Chem. Phys. 95, 3467 (1991).
+    """
+    def impl(self):
         for vmc_nonlocal_grid in self.vmc_nonlocal_grid:
             vmc_nonlocal_grid = vmc_nonlocal_grid or 4
             if vmc_nonlocal_grid == 1:
@@ -127,21 +101,29 @@ class PPotential:
                 quadrature = [[0.0, 0.0, 0.0]]
             self.weight.append(np.array(weight, dtype=np.float_))
             self.quadrature.append(np.array(quadrature, dtype=np.float_))
+    return impl
 
-    @staticmethod
-    def to_cartesian(theta: float, phi: float) -> list:
-        """Converts a spherical coordinate (theta, phi) into a cartesian one (x, y, z)."""
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(PPotential_class_t, 'to_cartesian')
+def ppotential_to_cartesian(self, theta: float, phi: float):
+    """Converts a spherical coordinate (theta, phi) into a cartesian one (x, y, z)."""
+    def impl(self, theta: float, phi: float) -> list:
         x = np.cos(phi) * np.sin(theta)
         y = np.sin(phi) * np.sin(theta)
         z = np.cos(theta)
         return [x, y, z]
+    return impl
 
-    @staticmethod
-    def random_rotation_matrix():
-        """Creates a random rotation matrix.
-        Algorithm taken from "Fast Random Rotation Matrices" (James Avro, 1992):
-        https://doi.org/10.1016/B978-0-08-050755-2.50034-8
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(PPotential_class_t, 'random_rotation_matrix')
+def ppotential_random_rotation_matrix(self):
+    """Creates a random rotation matrix.
+    Algorithm taken from "Fast Random Rotation Matrices" (James Avro, 1992):
+    https://doi.org/10.1016/B978-0-08-050755-2.50034-8
+    """
+    def impl(self):
         # FIXME: use sp.stats.special_ortho_group(3)
         rand = np.random.uniform(0, 1, 3)
         theta = rand[0] * 2.0 * np.pi
@@ -158,11 +140,16 @@ class PPotential:
         r = np.sqrt(rand[2])
         v = np.array((np.sin(phi) * r, np.cos(phi) * r, np.sqrt(1 - rand[2])))
         return (2 * np.outer(v, v) - np.eye(3)) @ R
+    return impl
 
-    def get_ppotential(self, n_vectors: np.ndarray) -> np.ndarray:
-        """Value φ(r)
-        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(PPotential_class_t, 'get_ppotential')
+def ppotential_get_ppotential(self, n_vectors: np.ndarray) -> np.ndarray:
+    """Value φ(r)
+    :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+    """
+    def impl(self, n_vectors: np.ndarray):
         res = nb.typed.List.empty_list(ppotential_type)
         for atom in range(n_vectors.shape[0]):
             if self.is_pseudoatom[atom]:
@@ -181,11 +168,16 @@ class PPotential:
             else:
                 res.append(np.zeros(shape=(self.neu + self.ned, 0)))
         return res
+    return impl
 
-    def integration_grid(self, n_vectors: np.ndarray) -> np.ndarray:
-        """Nonlocal PP grid.
-        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(PPotential_class_t, 'integration_grid')
+def ppotential_integration_grid(self, n_vectors: np.ndarray):
+    """Nonlocal PP grid.
+    :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+    """
+    def impl(self, n_vectors: np.ndarray) -> np.ndarray:
         grid = np.zeros(shape=(n_vectors.shape[0], self.neu + self.ned, self.quadrature[0].shape[0], 3))
         for atom in range(n_vectors.shape[0]):
             if self.is_pseudoatom[atom]:
@@ -194,9 +186,14 @@ class PPotential:
                     rotation_marix = self.random_rotation_matrix()
                     grid[atom, i] = self.quadrature[atom] @ rotation_marix.T * r
         return grid
+    return impl
 
-    def legendre(self, l, x):
-        """Legendre polynomial (2 * l + 1) times"""
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(PPotential_class_t, 'legendre')
+def ppotential_legendre(self, l, x):
+    """Legendre polynomial (2 * l + 1) times"""
+    def impl(self, l, x):
         if l == 0:
             res = 1
         elif l == 1:
@@ -210,3 +207,43 @@ class PPotential:
         else:
             res = 0
         return res
+    return impl
+
+
+structref.define_boxing(PPotential_class_t, PPotential)
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def ppotential_init(neu, ned, lcutofftol, nlcutofftol, atom_charges, vmc_nonlocal_grid,
+        dmc_nonlocal_grid, local_angular_momentum, ppotential, is_pseudoatom
+    ):
+    self = structref.new(PPotential_t)
+    self.neu = neu
+    self.ned = ned
+    self.lcutofftol = lcutofftol
+    self.nlcutofftol = nlcutofftol
+    self.atom_charges = atom_charges
+    self.vmc_nonlocal_grid = vmc_nonlocal_grid
+    self.dmc_nonlocal_grid = dmc_nonlocal_grid
+    self.local_angular_momentum = local_angular_momentum
+    self.ppotential = ppotential
+    self.is_pseudoatom = is_pseudoatom
+    self.weight = nb.typed.List.empty_list(weight_type)
+    self.quadrature = nb.typed.List.empty_list(quadrature_type)
+    self.generate_quadratures()
+    # make s-d and p-d
+    for atom in range(len(self.ppotential)):
+        if not self.is_pseudoatom[atom]:
+            continue
+        atom_pp = self.ppotential[atom]
+        local_angular_momentum = self.local_angular_momentum[atom]
+        atom_pp[1] -= atom_pp[local_angular_momentum + 1]
+        atom_pp[2] -= atom_pp[local_angular_momentum + 1]
+        r_nlcutoff_1 = atom_pp.shape[1] - np.argmax(np.abs(atom_pp[1, ::-1]) > self.nlcutofftol)
+        r_nlcutoff_2 = atom_pp.shape[1] - np.argmax(np.abs(atom_pp[2, ::-1]) > self.nlcutofftol)
+        atom_pp[1, r_nlcutoff_1:] = 0
+        atom_pp[2, r_nlcutoff_2:] = 0
+        atom_pp[local_angular_momentum + 1] += atom_charges[atom]
+        r_lcutoff = atom_pp.shape[1] - np.argmax(np.abs(atom_pp[3, ::-1]) > self.lcutofftol)
+        atom_pp[local_angular_momentum + 1, r_lcutoff:] = 0
+    return self

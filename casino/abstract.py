@@ -1,4 +1,5 @@
 import numpy as np
+import numba as nb
 from abc import ABC, abstractmethod
 from casino import delta, delta_2, delta_3
 from casino.overload import random_step
@@ -6,23 +7,7 @@ from casino.overload import random_step
 
 class AbstractCusp:
 
-    def __init__(self, neu, ned, orbitals_up, orbitals_down):
-        """
-        :param neu: number of up electrons
-        :param ned: number of down electrons
-        """
-        self.neu = neu
-        self.ned = ned
-        self.orbitals_up = orbitals_up
-        self.orbitals_down = orbitals_down
-
-    # @abstractmethod
-    def value(self, n_vectors: np.ndarray):
-        """Value φ(r)
-        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        """
-
-    # @abstractmethod
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_gradient(self, n_vectors: np.ndarray):
         """Cusp part of gradient"""
         gradient = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3))
@@ -39,7 +24,7 @@ class AbstractCusp:
 
         return gradient[:self.orbitals_up, :self.neu] / delta / 2, gradient[self.orbitals_up:, self.neu:] / delta / 2
 
-    # @abstractmethod
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_laplacian(self, n_vectors: np.ndarray):
         """Cusp part of laplacian"""
         laplacian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned))
@@ -59,7 +44,7 @@ class AbstractCusp:
 
         return laplacian[:self.orbitals_up, :self.neu] / delta_2 / delta_2, laplacian[self.orbitals_up:, self.neu:] / delta_2 / delta_2
 
-    # @abstractmethod
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_hessian(self, n_vectors: np.ndarray):
         """Cusp part of hessian"""
         hessian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3, 3))
@@ -105,7 +90,7 @@ class AbstractCusp:
 
         return hessian[:self.orbitals_up, :self.neu] / delta_2 / delta_2 / 4, hessian[self.orbitals_up:, self.neu:] / delta_2 / delta_2 / 4
 
-    # @abstractmethod
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_tressian(self, n_vectors: np.ndarray):
         """Cusp part of tressian"""
         tressian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3, 3, 3))
@@ -161,6 +146,7 @@ class AbstractCusp:
 
         return tressian[:self.orbitals_up, :self.neu] / delta_3 / delta_3 / delta_3 / 8, tressian[self.orbitals_up:, self.neu:] / delta_3 / delta_3 / delta_3 / 8
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_value(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -168,6 +154,7 @@ class AbstractCusp:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.value(n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_gradient(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -175,6 +162,7 @@ class AbstractCusp:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.gradient(n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_laplacian(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -182,6 +170,7 @@ class AbstractCusp:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.laplacian(n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_hessian(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -189,23 +178,113 @@ class AbstractCusp:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.hessian(n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def profile_tressian(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.tressian(n_vectors)
+
+
+class AbstractWfn:
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def numerical_gradient(self, r_e):
+        """Numerical gradient of log wfn value w.r.t e-coordinates
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        val = self.value(r_e)
+        res = np.zeros((self.neu + self.ned, 3))
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        for i in range(self.neu + self.ned):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+                res[i, j] -= self.value(r_e)
+                e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
+                n_vectors[:, i, j] += 2 * delta
+                res[i, j] += self.value(r_e)
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+
+        return res.ravel() / delta / 2 / val
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def numerical_laplacian(self, r_e):
+        """Numerical laplacian  of log wfn value w.r.t e-coordinates
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        val = self.value(r_e)
+        res = - 6 * (self.neu + self.ned) * self.value(r_e)
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        for i in range(self.neu + self.ned):
+            for j in range(3):
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+                res += self.value(r_e)
+                e_vectors[i, :, j] += 2 * delta
+                e_vectors[:, i, j] -= 2 * delta
+                n_vectors[:, i, j] += 2 * delta
+                res += self.value(r_e)
+                e_vectors[i, :, j] -= delta
+                e_vectors[:, i, j] += delta
+                n_vectors[:, i, j] -= delta
+
+        return res / delta / delta / val
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def value_parameters_numerical_d1(self, r_e, all_parameters=False):
+        """First-order derivatives of log wfn value w.r.t parameters.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :param all_parameters: optimize all parameters or only independent
+        :return:
+        """
+        scale = self.get_parameters_scale()
+        parameters = self.get_parameters(all_parameters)
+        res = np.zeros(shape=parameters.shape)
+        for i in range(parameters.size):
+            parameters[i] -= delta * scale[i]
+            self.set_parameters(parameters, all_parameters)
+            res[i] -= self.value(r_e) / scale[i]
+            parameters[i] += 2 * delta * scale[i]
+            self.set_parameters(parameters, all_parameters)
+            res[i] += self.value(r_e) / scale[i]
+            parameters[i] -= delta * scale[i]
+            self.set_parameters(parameters, all_parameters)
+
+        return res / delta / 2 / self.value(r_e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def energy_parameters_numerical_d1(self, r_e, all_parameters=False):
+        """First-order derivatives of local energy w.r.t parameters.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :param all_parameters: optimize all parameters or only independent
+        :return:
+        """
+        scale = self.get_parameters_scale()
+        parameters = self.get_parameters(all_parameters)
+        res = np.zeros(shape=parameters.shape)
+        for i in range(parameters.size):
+            parameters[i] -= delta * scale[i]
+            self.set_parameters(parameters, all_parameters)
+            res[i] -= self.energy(r_e) / scale[i]
+            parameters[i] += 2 * delta * scale[i]
+            self.set_parameters(parameters, all_parameters)
+            res[i] += self.energy(r_e) / scale[i]
+            parameters[i] -= delta * scale[i]
+            self.set_parameters(parameters, all_parameters)
+
+        return res / delta / 2
+
 
 class AbstractSlater:
 
-    def __init__(self, neu, ned):
-        """
-        :param neu: number of up electrons
-        :param ned: number of down electrons
-        """
-        self.neu = neu
-        self.ned = ned
-
-    # @abstractmethod
-    def value(self, n_vectors: np.ndarray) -> float:
-        """Value φ(r)
-        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        """
-
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_gradient(self, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient ∇φ(r)/φ(r) w.r.t. e-coordinates.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
@@ -222,6 +301,7 @@ class AbstractSlater:
 
         return res.ravel() / delta / 2 / val
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_laplacian(self, n_vectors: np.ndarray) -> float:
         """Laplacian Δφ(r)/φ(r) w.r.t. e-coordinates.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
@@ -238,6 +318,7 @@ class AbstractSlater:
 
         return res / delta / delta / val
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_hessian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Hessian H(φ(r))/φ(r) w.r.t. e-coordinates.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
@@ -274,7 +355,7 @@ class AbstractSlater:
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta_2 / delta_2 / 4 / val
 
-    # @abstractmethod
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_tressian(self, n_vectors: np.ndarray) -> np.ndarray:
         """Third-order partial derivatives T(φ(r))/φ(r) w.r.t. e-coordinates.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
@@ -327,6 +408,7 @@ class AbstractSlater:
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta_3 / delta_3 / delta_3 / 8 / val
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_value(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -334,6 +416,7 @@ class AbstractSlater:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.value(n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_gradient(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -341,6 +424,7 @@ class AbstractSlater:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.gradient(n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_laplacian(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -348,6 +432,7 @@ class AbstractSlater:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.laplacian(n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_hessian(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -355,6 +440,7 @@ class AbstractSlater:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.hessian(n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_tressian(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -362,6 +448,7 @@ class AbstractSlater:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.tressian(n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_tressian_v2(self, dr, steps: int, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -372,21 +459,7 @@ class AbstractSlater:
 
 class AbstractJastrow:
 
-    def __init__(self, neu, ned):
-        """
-        :param neu: number of up electrons
-        :param ned: number of down electrons
-        """
-        self.neu = neu
-        self.ned = ned
-
-    # @abstractmethod
-    def value(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> float:
-        """Value
-        :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
-        :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-        """
-
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_gradient(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient w.r.t. e-coordinates.
         :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
@@ -410,6 +483,7 @@ class AbstractJastrow:
 
         return res.ravel() / delta / 2
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_laplacian(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> float:
         """Laplacian w.r.t. e-coordinates.
         :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
@@ -432,6 +506,7 @@ class AbstractJastrow:
 
         return res / delta / delta
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def value_parameters_numerical_d1(self, e_vectors, n_vectors, all_parameters) -> np.ndarray:
         """Numerical first derivatives of Jastrow value w.r.t. the parameters
         :param e_vectors: e-e vectors
@@ -453,6 +528,7 @@ class AbstractJastrow:
 
         return res / delta / 2
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def gradient_parameters_numerical_d1(self, e_vectors, n_vectors, all_parameters) -> np.ndarray:
         """Numerical first derivatives of Jastrow gradient w.r.t. the parameters
         :param e_vectors: e-e vectors
@@ -474,6 +550,7 @@ class AbstractJastrow:
 
         return res / delta / 2
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def laplacian_parameters_numerical_d1(self, e_vectors, n_vectors, all_parameters) -> np.ndarray:
         """Numerical first derivatives of Jastrow laplacian w.r.t. the parameters
         :param e_vectors: e-e vectors
@@ -495,6 +572,7 @@ class AbstractJastrow:
 
         return res / delta / 2
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_value(self, dr, steps, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -503,6 +581,7 @@ class AbstractJastrow:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.value(e_vectors, n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_gradient(self, dr, steps, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -511,6 +590,7 @@ class AbstractJastrow:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.gradient(e_vectors, n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_laplacian(self, dr, steps, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -519,6 +599,7 @@ class AbstractJastrow:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.laplacian(e_vectors, n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_value_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -527,6 +608,7 @@ class AbstractJastrow:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.value_parameters_d1(e_vectors, n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_gradient_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -535,6 +617,7 @@ class AbstractJastrow:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.gradient_parameters_d1(e_vectors, n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_laplacian_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -546,18 +629,7 @@ class AbstractJastrow:
 
 class AbstractBackflow:
 
-    def __init__(self, neu, ned):
-        """
-        :param neu: number of up electrons
-        :param ned: number of down electrons
-        """
-        self.neu = neu
-        self.ned = ned
-
-    # @abstractmethod
-    def value(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
-        """Value"""
-
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_gradient(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
         """Gradient w.r.t. e-coordinates.
         :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
@@ -582,6 +654,7 @@ class AbstractBackflow:
 
         return res.reshape((self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_laplacian(self, e_vectors: np.ndarray, n_vectors: np.ndarray) -> np.ndarray:
         """Laplacian w.r.t. e-coordinates.
         :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
@@ -605,6 +678,7 @@ class AbstractBackflow:
 
         return res.ravel() / delta / delta
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def value_parameters_numerical_d1(self, e_vectors, n_vectors, all_parameters) -> np.ndarray:
         """Numerical first derivatives of backflow value w.r.t. the parameters
         :param e_vectors: e-e vectors
@@ -626,6 +700,7 @@ class AbstractBackflow:
 
         return res.reshape(parameters.size, (self.neu + self.ned) * 3) / delta / 2
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def gradient_parameters_numerical_d1(self, e_vectors, n_vectors, all_parameters) -> np.ndarray:
         """Numerical first derivatives of backflow gradient w.r.t. the parameters
         :param e_vectors: e-e vectors
@@ -647,6 +722,7 @@ class AbstractBackflow:
 
         return res / delta / 2
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def laplacian_parameters_numerical_d1(self, e_vectors, n_vectors, all_parameters) -> np.ndarray:
         """Numerical first derivatives of backflow laplacian w.r.t. the parameters
         :param e_vectors: e-e vectors
@@ -668,6 +744,7 @@ class AbstractBackflow:
 
         return res / delta / 2
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_value(self, dr, steps, atom_positions, r_initial):
         """auxiliary code"""
         for _ in range(steps):
@@ -676,6 +753,7 @@ class AbstractBackflow:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.value(e_vectors, n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_gradient(self, dr, steps, atom_positions, r_initial):
         """auxiliary code"""
         for _ in range(steps):
@@ -684,6 +762,7 @@ class AbstractBackflow:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.gradient(e_vectors, n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_laplacian(self, dr, steps, atom_positions, r_initial):
         """auxiliary code"""
         for _ in range(steps):
@@ -692,6 +771,7 @@ class AbstractBackflow:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.laplacian(e_vectors, n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_value_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -700,6 +780,7 @@ class AbstractBackflow:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.value_parameters_d1(e_vectors, n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_gradient_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):
@@ -708,6 +789,7 @@ class AbstractBackflow:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.gradient_parameters_d1(e_vectors, n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def profile_laplacian_parameters_d1(self, dr, steps, atom_positions, r_initial) -> None:
         """auxiliary code"""
         for _ in range(steps):

@@ -1,6 +1,6 @@
 # Quantum Monte Carlo package
 
-The Pycasino program implements some of the methods from the well-known [Casino](https://vallico.net/casinoqmc/) program.
+The Pycasino is python implementation of the well-known [Casino](https://vallico.net/casinoqmc/) program.
 
 ## Basic functionality
 
@@ -11,6 +11,7 @@ The Pycasino program implements some of the methods from the well-known [Casino]
 5. partial Ma CUSP correction (no rc optimization yet)
 6. MPI parallelization
 7. support VMC and DMC energy calculation, varmin and emin optimization
+8. pseudopotential
 
 ## List of supported keywords in input file
 

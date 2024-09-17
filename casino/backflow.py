@@ -1,6 +1,9 @@
 import numpy as np
 import numba as nb
 from numpy.polynomial.polynomial import polyval
+from numba.core import types
+from numba.experimental import structref
+from numba.core.extending import overload_method
 
 from casino import delta
 from casino.abstract import AbstractBackflow
@@ -185,18 +188,23 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
     return c, cutoff_constraints
 
 
-labels_type = nb.int64[:]
-eta_parameters_type = nb.float64[:, :]
-mu_parameters_type = nb.float64[:, :]
-phi_parameters_type = nb.float64[:, :, :, :]
-theta_parameters_type = nb.float64[:, :, :, :]
-eta_parameters_mask_type = nb.boolean[:, :]
-mu_parameters_mask_type = nb.boolean[:, :]
-phi_parameters_mask_type = nb.boolean[:, :, :, :]
-theta_parameters_mask_type = nb.boolean[:, :, :, :]
+@structref.register
+class Backflow_class_t(types.StructRef):
+    def preprocess_fields(self, fields):
+        return tuple((name, types.unliteral(typ)) for name, typ in fields)
 
 
-spec = [
+labels_type = nb.int64[::1]
+eta_parameters_type = nb.float64[:, ::1]
+mu_parameters_type = nb.float64[:, ::1]
+phi_parameters_type = nb.float64[:, :, :, ::1]
+theta_parameters_type = nb.float64[:, :, :, ::1]
+eta_parameters_mask_type = nb.boolean[:, ::1]
+mu_parameters_mask_type = nb.boolean[:, ::1]
+phi_parameters_mask_type = nb.boolean[:, :, :, ::1]
+theta_parameters_mask_type = nb.boolean[:, :, :, ::1]
+
+Backflow_t = Backflow_class_t([
     ('neu', nb.int64),
     ('ned', nb.int64),
     ('trunc', nb.int64),
@@ -222,72 +230,88 @@ spec = [
     ('phi_labels', nb.types.ListType(labels_type)),
     ('max_ee_order', nb.int64),
     ('max_en_order', nb.int64),
-    ('mu_cusp', nb.boolean[:]),
-    ('phi_cusp', nb.boolean[:]),
-    ('phi_irrotational', nb.boolean[:]),
+    ('mu_cusp', nb.boolean[::1]),
+    ('phi_cusp', nb.boolean[::1]),
+    ('phi_irrotational', nb.boolean[::1]),
     ('ae_cutoff', nb.float64[:]),
     ('ae_cutoff_optimizable', nb.boolean[:]),
-    ('parameters_projector', nb.float64[:, :]),
+    ('parameters_projector', nb.float64[:, ::1]),
     ('cutoffs_optimizable', nb.boolean),
-]
+])
 
 
-@nb.experimental.jitclass(spec)
-class Backflow(AbstractBackflow):
+class Backflow(structref.StructRefProxy, AbstractBackflow):
 
-    def __init__(
-        self, neu, ned, trunc, eta_parameters, eta_parameters_optimizable, eta_cutoff,
-        mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cusp, mu_labels,
-        phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable,
-        phi_cutoff, phi_cusp, phi_labels, phi_irrotational, ae_cutoff, ae_cutoff_optimizable
-    ):
-        """Backflow trasformation."""
-        self.neu = neu
-        self.ned = ned
-        self.trunc = trunc
-        # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
-        self.eta_cutoff = eta_cutoff['value']
-        self.eta_cutoff_optimizable = eta_cutoff['optimizable']
-        self.eta_parameters = eta_parameters
-        self.eta_parameters_optimizable = eta_parameters_optimizable
-        self.eta_parameters_available = np.ones_like(eta_parameters_optimizable)
-        # spin dep (0->u=d; 1->u/=d)
-        self.mu_cusp = mu_cusp
-        self.mu_labels = mu_labels
-        self.mu_cutoff = mu_cutoff['value']
-        self.mu_cutoff_optimizable = mu_cutoff['optimizable']
-        self.mu_parameters = mu_parameters
-        self.mu_parameters_optimizable = mu_parameters_optimizable
-        self.mu_parameters_available = nb.typed.List.empty_list(mu_parameters_mask_type)
-        # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
-        self.phi_irrotational = phi_irrotational
-        self.phi_cusp = phi_cusp
-        self.phi_labels = phi_labels
-        self.phi_cutoff = phi_cutoff['value']
-        self.phi_cutoff_optimizable = phi_cutoff['optimizable']
-        self.phi_parameters = phi_parameters
-        self.theta_parameters = theta_parameters
-        self.phi_parameters_optimizable = phi_parameters_optimizable
-        self.theta_parameters_optimizable = theta_parameters_optimizable
-        self.phi_parameters_available = nb.typed.List.empty_list(phi_parameters_mask_type)
-        self.theta_parameters_available = nb.typed.List.empty_list(theta_parameters_mask_type)
+    def __new__(cls, *args, **kwargs):
+        @nb.njit(nogil=True, parallel=False, cache=True)
+        def backflow_init(
+                neu, ned, trunc, eta_parameters, eta_parameters_optimizable, eta_cutoff,
+                mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cusp, mu_labels,
+                phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable,
+                phi_cutoff, phi_cusp, phi_labels, phi_irrotational, ae_cutoff, ae_cutoff_optimizable):
+            self = structref.new(Backflow_t)
+            self.neu = neu
+            self.ned = ned
+            self.trunc = trunc
+            # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
+            self.eta_cutoff = eta_cutoff['value']
+            self.eta_cutoff_optimizable = eta_cutoff['optimizable']
+            self.eta_parameters = eta_parameters
+            self.eta_parameters_optimizable = eta_parameters_optimizable
+            self.eta_parameters_available = np.ones_like(eta_parameters_optimizable)
+            # spin dep (0->u=d; 1->u/=d)
+            self.mu_cusp = mu_cusp
+            self.mu_labels = mu_labels
+            self.mu_cutoff = mu_cutoff['value']
+            self.mu_cutoff_optimizable = mu_cutoff['optimizable']
+            self.mu_parameters = mu_parameters
+            self.mu_parameters_optimizable = mu_parameters_optimizable
+            self.mu_parameters_available = nb.typed.List.empty_list(mu_parameters_mask_type)
+            # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
+            self.phi_irrotational = phi_irrotational
+            self.phi_cusp = phi_cusp
+            self.phi_labels = phi_labels
+            self.phi_cutoff = phi_cutoff['value']
+            self.phi_cutoff_optimizable = phi_cutoff['optimizable']
+            self.phi_parameters = phi_parameters
+            self.theta_parameters = theta_parameters
+            self.phi_parameters_optimizable = phi_parameters_optimizable
+            self.theta_parameters_optimizable = theta_parameters_optimizable
+            self.phi_parameters_available = nb.typed.List.empty_list(phi_parameters_mask_type)
+            self.theta_parameters_available = nb.typed.List.empty_list(theta_parameters_mask_type)
 
-        self.max_ee_order = max((
-            self.eta_parameters.shape[1],
-            max([p.shape[1] for p in self.phi_parameters]) if self.phi_parameters else 0,
-        ))
-        self.max_en_order = max((
-            max([p.shape[1] for p in self.mu_parameters]) if self.mu_parameters else 0,
-            max([p.shape[2] for p in self.phi_parameters]) if self.phi_parameters else 0,
-            2
-        ))
-        self.ae_cutoff = ae_cutoff
-        self.ae_cutoff_optimizable = ae_cutoff_optimizable
-        self.cutoffs_optimizable = True
-        self.fix_optimizable()
+            self.max_ee_order = max((
+                self.eta_parameters.shape[1],
+                max([p.shape[1] for p in self.phi_parameters]) if self.phi_parameters else 0,
+            ))
+            self.max_en_order = max((
+                max([p.shape[1] for p in self.mu_parameters]) if self.mu_parameters else 0,
+                max([p.shape[2] for p in self.phi_parameters]) if self.phi_parameters else 0,
+                2
+            ))
+            self.ae_cutoff = ae_cutoff
+            self.ae_cutoff_optimizable = ae_cutoff_optimizable
+            self.cutoffs_optimizable = True
+            self.fix_optimizable()
+            return self
+        return backflow_init(*args, **kwargs)
 
-    def fix_optimizable(self):
-        """Set parameter fixed if there is no corresponded spin-pairs"""
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def cutoffs_optimizable(self):
+        return self.cutoffs_optimizable
+
+    @cutoffs_optimizable.setter
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def cutoffs_optimizable(self, value):
+        self.cutoffs_optimizable = value
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'fix_optimizable')
+def backflow_fix_optimizable(self):
+    """Set parameter fixed if there is no corresponded spin-pairs"""
+    def impl(self):
         if self.neu + self.ned == 1:
             # H-atom
             for i in range(len(self.eta_cutoff_optimizable)):
@@ -351,12 +375,17 @@ class Backflow(AbstractBackflow):
                 if self.ned < ee_order:
                     theta_parameters_available[2] = False
             self.theta_parameters_available.append(theta_parameters_available)
+    return impl
 
-    def ee_powers(self, e_vectors):
-        """Powers of e-e distances
-        :param e_vectors: e-e vectors - array(nelec, nelec, 3)
-        :return:
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'ee_powers')
+def backflow_ee_powers(self, e_vectors: np.ndarray):
+    """Powers of e-e distances
+    :param e_vectors: e-e vectors - array(nelec, nelec, 3)
+    :return:
+    """
+    def impl(self, e_vectors: np.ndarray) -> np.ndarray:
         res = np.ones(shape=(e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
         for i in range(1, e_vectors.shape[0]):
             for j in range(i):
@@ -364,12 +393,17 @@ class Backflow(AbstractBackflow):
                 for k in range(1, self.max_ee_order):
                     res[i, j, k] = res[j, i, k] = r_ee ** k
         return res
+    return impl
 
-    def en_powers(self, n_vectors):
-        """Powers of e-n distances
-        :param n_vectors: e-n vectors - array(natom, nelec, 3)
-        :return:
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'en_powers')
+def backflow_en_powers(self, n_vectors: np.ndarray):
+    """Powers of e-n distances
+    :param n_vectors: e-n vectors - array(natom, nelec, 3)
+    :return:
+    """
+    def impl(self, n_vectors: np.ndarray) -> np.ndarray:
         res = np.ones(shape=(n_vectors.shape[0], n_vectors.shape[1], self.max_en_order))
         for i in range(n_vectors.shape[0]):
             for j in range(n_vectors.shape[1]):
@@ -377,9 +411,14 @@ class Backflow(AbstractBackflow):
                 for k in range(1, self.max_en_order):
                     res[i, j, k] = r_eI ** k
         return res
+    return impl
 
-    def ae_multiplier(self, n_vectors, n_powers):
-        """Zeroing the backflow displacement at AE atoms."""
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'ae_multiplier')
+def backflow_ae_multiplier(self, n_vectors, n_powers):
+    """Zeroing the backflow displacement at AE atoms."""
+    def impl(self, n_vectors, n_powers):
         res = np.ones(shape=(2, self.neu + self.ned, 3))
         for i in range(n_vectors.shape[0]):
             Lg = self.ae_cutoff[i]
@@ -388,12 +427,17 @@ class Backflow(AbstractBackflow):
                 if r < Lg:
                     res[1, j] = (r/Lg)**2 * (6 - 8 * (r/Lg) + 3 * (r/Lg)**2)
         return res.reshape(2, (self.neu + self.ned) * 3)
+    return impl
 
-    def ae_multiplier_gradient(self, n_vectors, n_powers):
-        """Zeroing the backflow displacement at AE atoms.
-        Gradient of spherically symmetric function (in 3-D space) is:
-            ∇(f) = df/dr * r_vec/r
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'ae_multiplier_gradient')
+def backflow_ae_multiplier_gradient(self, n_vectors, n_powers):
+    """Zeroing the backflow displacement at AE atoms.
+    Gradient of spherically symmetric function (in 3-D space) is:
+        ∇(f) = df/dr * r_vec/r
+    """
+    def impl(self, n_vectors, n_powers):
         res = np.zeros(shape=(2, self.neu + self.ned, 3, self.neu + self.ned, 3))
         for i in range(n_vectors.shape[0]):
             Lg = self.ae_cutoff[i]
@@ -403,12 +447,17 @@ class Backflow(AbstractBackflow):
                 if r < Lg:
                     res[1, j, :, j, :] = 12*r_vec/Lg**2 * (1 - r/Lg)**2
         return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+    return impl
 
-    def ae_multiplier_laplacian(self, n_vectors, n_powers):
-        """Zeroing the backflow displacement at AE atoms.
-        Laplace operator of spherically symmetric function (in 3-D space) is:
-            ∇²(f) = d²f/dr² + 2/r * df/dr
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'ae_multiplier_laplacian')
+def backflow_ae_multiplier_laplacian(self, n_vectors, n_powers):
+    """Zeroing the backflow displacement at AE atoms.
+    Laplace operator of spherically symmetric function (in 3-D space) is:
+        ∇²(f) = d²f/dr² + 2/r * df/dr
+    """
+    def impl(self, n_vectors, n_powers):
         res = np.zeros(shape=(2, self.neu + self.ned, 3))
         for i in range(n_vectors.shape[0]):
             Lg = self.ae_cutoff[i]
@@ -417,13 +466,18 @@ class Backflow(AbstractBackflow):
                 if r < Lg:
                     res[1, j] = 12/Lg**2 * (3 - 8 * (r/Lg) + 5 * (r/Lg)**2)
         return res.reshape(2, (self.neu + self.ned) * 3)
+    return impl
 
-    def eta_term(self, e_powers, e_vectors):
-        """
-        :param e_vectors: e-e vectors
-        :param e_powers: powers of e-e distances
-        :return: displacements of electrons - array(nelec, 3)
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'eta_term')
+def backflow_eta_term(self, e_powers, e_vectors):
+    """
+    :param e_vectors: e-e vectors
+    :param e_powers: powers of e-e distances
+    :return: displacements of electrons - array(nelec, 3)
+    """
+    def impl(self, e_powers, e_vectors):
         ae_cutoff_condition = 1
         res = np.zeros(shape=(2, self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
@@ -442,13 +496,18 @@ class Backflow(AbstractBackflow):
                     res[ae_cutoff_condition, e1] += bf
                     res[ae_cutoff_condition, e2] -= bf
         return res.reshape(2, (self.neu + self.ned) * 3)
+    return impl
 
-    def mu_term(self, n_powers, n_vectors):
-        """
-        :param n_vectors: e-n vectors
-        :param n_powers: powers of e-n distances
-        :return: displacements of electrons - array(2, nelec, 3)
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'mu_term')
+def backflow_mu_term(self, n_powers, n_vectors):
+    """
+    :param n_vectors: e-n vectors
+    :param n_powers: powers of e-n distances
+    :return: displacements of electrons - array(2, nelec, 3)
+    """
+    def impl(self, n_powers, n_vectors):
         C = self.trunc
         res = np.zeros(shape=(2, self.neu + self.ned, 3))
         for parameters, L, mu_labels in zip(self.mu_parameters, self.mu_cutoff, self.mu_labels):
@@ -464,15 +523,20 @@ class Backflow(AbstractBackflow):
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         res[ae_cutoff_condition, e1] += (1 - r/L) ** C * r_vec * polyval(r, parameters[mu_set])
         return res.reshape(2, (self.neu + self.ned) * 3)
+    return impl
 
-    def phi_term(self, e_powers, n_powers, e_vectors, n_vectors):
-        """
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :param e_powers: powers of e-e distances
-        :param n_powers: powers of e-n distances
-        :return: displacements of electrons - array(2, nelec, 3)
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'phi_term')
+def backflow_phi_term(self, e_powers, n_powers, e_vectors, n_vectors):
+    """
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    :param e_powers: powers of e-e distances
+    :param n_powers: powers of e-n distances
+    :return: displacements of electrons - array(2, nelec, 3)
+    """
+    def impl(self, e_powers, n_powers, e_vectors, n_vectors):
         C = self.trunc
         res = np.zeros(shape=(2, self.neu + self.ned, 3))
         for phi_parameters, theta_parameters, L, phi_labels in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_labels):
@@ -500,14 +564,19 @@ class Backflow(AbstractBackflow):
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
                             res[ae_cutoff_condition, e1] += (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * (phi_poly * r_ee_vec + theta_poly * r_e1I_vec)
         return res.reshape(2, (self.neu + self.ned) * 3)
+    return impl
 
-    def eta_term_gradient(self, e_powers, e_vectors):
-        """
-        :param e_vectors: e-e vectors
-        :param e_powers: powers of e-e distances
-        Gradient of spherically symmetric function (in 3-D space) is df/dr * (x, y, z)
-        :return: partial derivatives of displacements of electrons - array(nelec * 3, nelec * 3)
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'eta_term_gradient')
+def backflow_eta_term_gradient(self, e_powers, e_vectors):
+    """
+    :param e_vectors: e-e vectors
+    :param e_powers: powers of e-e distances
+    Gradient of spherically symmetric function (in 3-D space) is df/dr * (x, y, z)
+    :return: partial derivatives of displacements of electrons - array(nelec * 3, nelec * 3)
+    """
+    def impl(self, e_powers, e_vectors):
         ae_cutoff_condition = 1
         res = np.zeros(shape=(2, self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
@@ -537,13 +606,18 @@ class Backflow(AbstractBackflow):
                     res[ae_cutoff_condition, e2, :, e2, :] += bf
 
         return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+    return impl
 
-    def mu_term_gradient(self, n_powers, n_vectors):
-        """
-        :param n_vectors: e-n vectors
-        :param n_powers: powers of e-n distances
-        :return: partial derivatives of displacements of electrons - array(2, nelec * 3, nelec * 3)
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'mu_term_gradient')
+def backflow_mu_term_gradient(self, n_powers, n_vectors):
+    """
+    :param n_vectors: e-n vectors
+    :param n_powers: powers of e-n distances
+    :return: partial derivatives of displacements of electrons - array(2, nelec * 3, nelec * 3)
+    """
+    def impl(self, n_powers, n_vectors):
         C = self.trunc
         res = np.zeros(shape=(2, self.neu + self.ned, 3, self.neu + self.ned, 3))
         for parameters, L, mu_labels in zip(self.mu_parameters, self.mu_cutoff, self.mu_labels):
@@ -567,13 +641,13 @@ class Backflow(AbstractBackflow):
                         )
 
         return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+    return impl
 
-    def phi_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
-        """
-        :param e_vectors: e-e vectors
-        :param e_powers: powers of e-e distances
-        :return: partial derivatives of displacements of electrons - array(2, nelec * 3, nelec * 3)
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'phi_term_gradient')
+def backflow_phi_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
+    def impl(self, e_powers, n_powers, e_vectors, n_vectors):
         C = self.trunc
         res = np.zeros(shape=(2, self.neu + self.ned, 3, self.neu + self.ned, 3))
         for phi_parameters, theta_parameters, L, phi_labels in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_labels):
@@ -630,15 +704,20 @@ class Backflow(AbstractBackflow):
                             )
 
         return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+    return impl
 
-    def eta_term_laplacian(self, e_powers, e_vectors):
-        """
-        :param e_vectors: e-e vectors
-        :param e_powers: powers of e-e distances
-        Laplace operator of spherically symmetric function (in 3-D space) is
-            ∇²(f) = d²f/dr² + 2/r * df/dr
-        :return: vector laplacian - array(nelec * 3)
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'eta_term_laplacian')
+def backflow_eta_term_laplacian(self, e_powers, e_vectors):
+    """
+    :param e_vectors: e-e vectors
+    :param e_powers: powers of e-e distances
+    Laplace operator of spherically symmetric function (in 3-D space) is
+        ∇²(f) = d²f/dr² + 2/r * df/dr
+    :return: vector laplacian - array(nelec * 3)
+    """
+    def impl(self, e_powers, e_vectors):
         ae_cutoff_condition = 1
         res = np.zeros(shape=(2, self.neu + self.ned, 3))
         if not self.eta_cutoff.any():
@@ -668,15 +747,13 @@ class Backflow(AbstractBackflow):
                     res[ae_cutoff_condition, e2] -= bf
 
         return res.reshape(2, (self.neu + self.ned) * 3)
+    return impl
 
-    def mu_term_laplacian(self, n_powers, n_vectors):
-        """
-        :param n_vectors: e-n vectors
-        :param n_powers: powers of e-n distances
-        Laplace operator of spherically symmetric function (in 3-D space) is
-            ∇²(f) = d²f/dr² + 2/r * df/dr
-        :return: vector laplacian - array(2, nelec * 3)
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'mu_term_laplacian')
+def backflow_mu_term_laplacian(self, n_powers, n_vectors):
+    def impl(self, n_powers, n_vectors):
         C = self.trunc
         res = np.zeros(shape=(2, self.neu + self.ned, 3))
         for parameters, L, mu_labels in zip(self.mu_parameters, self.mu_cutoff, self.mu_labels):
@@ -691,30 +768,35 @@ class Backflow(AbstractBackflow):
                             p = parameters[mu_set, k] * n_powers[label, e1, k]
                             poly += p
                             poly_diff += k * p
-                            poly_diff_2 += k * (k-1) * p
+                            poly_diff_2 += k * (k - 1) * p
                         # cutoff_condition
                         # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
-                        res[ae_cutoff_condition, e1] += (1 - r/L)**C * (
-                            4*(poly_diff - C*r/(L - r) * poly) +
-                            (C*(C - 1)*r**2/(L - r)**2*poly - 2*C*r/(L - r)*poly_diff + poly_diff_2)
-                        ) * r_vec / r**2
+                        res[ae_cutoff_condition, e1] += (1 - r / L) ** C * (
+                                4 * (poly_diff - C * r / (L - r) * poly) +
+                                (C * (C - 1) * r ** 2 / (L - r) ** 2 * poly - 2 * C * r / (L - r) * poly_diff + poly_diff_2)
+                        ) * r_vec / r ** 2
 
         return res.reshape(2, (self.neu + self.ned) * 3)
+    return impl
 
-    def phi_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
-        """
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :param e_powers: powers of e-e distances
-        :param n_powers: powers of e-n distances
-        phi-term is a product of two spherically symmetric functions f(r_eI) and g(r_ee) so using
-            ∇²(f*g) = ∇²(f)*g + 2*∇(f)*∇(g) + f*∇²(g)
-        Laplace operator of spherically symmetric function (in 3-D space) is
-            ∇²(f) = d²f/dr² + 2/r * df/dr
-        :return: vector laplacian - array(2, nelec * 3)
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'phi_term_laplacian')
+def backflow_phi_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
+    """
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    :param e_powers: powers of e-e distances
+    :param n_powers: powers of e-n distances
+    phi-term is a product of two spherically symmetric functions f(r_eI) and g(r_ee) so using
+        ∇²(f*g) = ∇²(f)*g + 2*∇(f)*∇(g) + f*∇²(g)
+    Laplace operator of spherically symmetric function (in 3-D space) is
+        ∇²(f) = d²f/dr² + 2/r * df/dr
+    :return: vector laplacian - array(2, nelec * 3)
+    """
+    def impl(self, e_powers, n_powers, e_vectors, n_vectors):
         C = self.trunc
         res = np.zeros(shape=(2, self.neu + self.ned, 3))
         for phi_parameters, theta_parameters, L, phi_labels in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_labels):
@@ -815,14 +897,18 @@ class Backflow(AbstractBackflow):
                             )
 
         return res.reshape(2, (self.neu + self.ned) * 3)
+    return impl
 
-    def value(self, e_vectors, n_vectors):
-        """Backflow displacements
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return: backflow displacement array(nelec * 3)
-        """
 
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'value')
+def backflow_value(self, e_vectors, n_vectors):
+    """Backflow displacements
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    :return: backflow displacement array(nelec * 3)
+    """
+    def impl(self, e_vectors, n_vectors):
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
@@ -837,13 +923,18 @@ class Backflow(AbstractBackflow):
             ae_value * ae_multiplier,
             axis=0
         ).reshape((self.neu + self.ned), 3)
+    return impl
 
-    def gradient(self, e_vectors, n_vectors):
-        """Gradient with respect to e-coordinates
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return:
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'gradient')
+def backflow_gradient(self, e_vectors, n_vectors):
+    """Gradient with respect to e-coordinates
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    :return:
+    """
+    def impl(self, e_vectors, n_vectors):
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
@@ -873,13 +964,18 @@ class Backflow(AbstractBackflow):
         ) + np.eye((self.neu + self.ned) * 3)
 
         return gradient, value
+    return impl
 
-    def laplacian(self, e_vectors, n_vectors):
-        """Backflow laplacian, gradient, value
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return:
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'laplacian')
+def backflow_laplacian(self, e_vectors, n_vectors):
+    """Backflow laplacian, gradient, value
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    :return:
+    """
+    def impl(self, e_vectors, n_vectors):
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
@@ -922,18 +1018,28 @@ class Backflow(AbstractBackflow):
         )
 
         return laplacian, gradient, value
+    return impl
 
-    def fix_eta_parameters(self):
-        """Fix eta-term dependent parameters"""
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'fix_eta_parameters')
+def backflow_fix_eta_parameters(self):
+    """Fix eta-term dependent parameters"""
+    def impl(self):
         C = self.trunc
         L = self.eta_cutoff[0]
         self.eta_parameters[0, 1] = C * self.eta_parameters[0, 0] / L
         if self.eta_parameters.shape[0] == 3:
             L = self.eta_cutoff[2] or self.eta_cutoff[0]
             self.eta_parameters[2, 1] = C * self.eta_parameters[2, 0] / L
+    return impl
 
-    def fix_mu_parameters(self):
-        """Fix mu-term dependent parameters"""
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'fix_mu_parameters')
+def backflow_fix_mu_parameters(self):
+    """Fix mu-term dependent parameters"""
+    def impl(self):
         C = self.trunc
         for mu_parameters, L, mu_cusp in zip(self.mu_parameters, self.mu_cutoff, self.mu_cusp):
             if mu_cusp:
@@ -942,9 +1048,14 @@ class Backflow(AbstractBackflow):
             else:
                 # PP atoms (Lμ,I * d1,I = C * d0,I)
                 mu_parameters[:, 1] = C * mu_parameters[:, 0] / L
+    return impl
 
-    def fix_phi_parameters(self):
-        """Fix phi-term dependent parameters"""
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'fix_phi_parameters')
+def backflow_fix_phi_parameters(self):
+    """Fix phi-term dependent parameters"""
+    def impl(self):
         for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cusp, self.phi_irrotational):
             for spin_dep in range(phi_parameters.shape[0]):
                 c, _ = construct_c_matrix(self.trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
@@ -988,10 +1099,14 @@ class Backflow(AbstractBackflow):
                                 theta_parameters[spin_dep, m, l, k] = x[p]
                                 p += 1
                             temp += 1
+    return impl
 
-    def get_parameters_mask(self) -> np.ndarray:
-        """Optimizable mask of each parameter.
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'get_parameters_mask')
+def backflow_get_parameters_mask(self):
+    """Optimizable mask of each parameter."""
+    def impl(self) -> np.ndarray:
         res = []
         if self.eta_cutoff.any():
             for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
@@ -1033,15 +1148,19 @@ class Backflow(AbstractBackflow):
                 res.append(1)
 
         return np.array(res)
+    return impl
 
-    def get_parameters_scale(self, all_parameters):
-        """Characteristic scale of each variable. Setting x_scale is equivalent
-        to reformulating the problem in scaled variables xs = x / x_scale.
-        An alternative view is that the size of a trust region along j-th
-        dimension is proportional to x_scale[j].
-        The purpose of this method is to reformulate the optimization problem
-        with dimensionless variables having only one dimensional parameter - cutoff length.
-        """
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'get_parameters_scale')
+def backflow_get_parameters_scale(self, all_parameters):
+    """Characteristic scale of each variable. Setting x_scale is equivalent
+    to reformulating the problem in scaled variables xs = x / x_scale.
+    An alternative view is that the size of a trust region along j-th
+    dimension is proportional to x_scale[j].
+    The purpose of this method is to reformulate the optimization problem
+    with dimensionless variables having only one dimensional parameter - cutoff length.
+    """
+    def impl(self, all_parameters):
         res = []
         ne = self.neu + self.ned
         if self.eta_cutoff.any():
@@ -1084,14 +1203,18 @@ class Backflow(AbstractBackflow):
                 res.append(1)
 
         return np.array(res)
+    return impl
 
-    def get_parameters_constraints(self):
-        """Returns parameters in the following order
-        eta-cutoff, eta-linear parameters,
-        for every mu-set: mu-cutoff, mu-linear parameters,
-        for every phi/theta-set: phi-cutoff, phi-linear parameters, theta-linear parameters.
-        :return:
-        """
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'get_parameters_constraints')
+def backflow_get_parameters_constraints(self):
+    """Returns parameters in the following order
+    eta-cutoff, eta-linear parameters,
+    for every mu-set: mu-cutoff, mu-linear parameters,
+    for every phi/theta-set: phi-cutoff, phi-linear parameters, theta-linear parameters.
+    :return:
+    """
+    def impl(self):
         a_list = []
         b_list = []
 
@@ -1223,23 +1346,33 @@ class Backflow(AbstractBackflow):
             a_list.append(np.zeros(shape=(0, self.ae_cutoff_optimizable.sum())))
 
         return block_diag(a_list), np.array(b_list)
+    return impl
 
-    def set_parameters_projector(self):
-        """Set Projector matrix"""
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'set_parameters_projector')
+def backflow_set_parameters_projector(self):
+    """Set Projector matrix"""
+    def impl(self):
         a, b = self.get_parameters_constraints()
         p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
         mask_idx = np.argwhere(self.get_parameters_mask()).ravel()
         inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
         self.parameters_projector = p[:, mask_idx] @ inv_p
+    return impl
 
-    def get_parameters(self, all_parameters):
-        """Returns parameters in the following order:
-        eta-cutoff(s), eta-linear parameters,
-        for every mu-set: mu-cutoff, mu-linear parameters,
-        for every phi/theta-set: phi-cutoff, phi-linear parameters, theta-linear parameters.
-        :param all_parameters:
-        :return:
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'get_parameters')
+def backflow_get_parameters(self, all_parameters):
+    """Returns parameters in the following order:
+    eta-cutoff(s), eta-linear parameters,
+    for every mu-set: mu-cutoff, mu-linear parameters,
+    for every phi/theta-set: phi-cutoff, phi-linear parameters, theta-linear parameters.
+    :param all_parameters:
+    :return:
+    """
+    def impl(self, all_parameters):
         res = []
         if self.eta_cutoff.any():
             for eta_cutoff, eta_cutoff_optimizable in zip(self.eta_cutoff, self.eta_cutoff_optimizable):
@@ -1281,16 +1414,21 @@ class Backflow(AbstractBackflow):
                 res.append(self.ae_cutoff[i])
 
         return np.array(res)
+    return impl
 
-    def set_parameters(self, parameters, all_parameters):
-        """Set parameters in the following order:
-        eta-cutoff(s), eta-linear parameters,
-        for every mu-set: mu-cutoff, mu-linear parameters,
-        for every phi/theta-set: phi-cutoff, phi-linear parameters, theta-linear parameters.
-        :param parameters:
-        :param all_parameters:
-        :return:
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'set_parameters')
+def backflow_set_parameters(self, parameters, all_parameters):
+    """Set parameters in the following order:
+    eta-cutoff(s), eta-linear parameters,
+    for every mu-set: mu-cutoff, mu-linear parameters,
+    for every phi/theta-set: phi-cutoff, phi-linear parameters, theta-linear parameters.
+    :param parameters:
+    :param all_parameters:
+    :return:
+    """
+    def impl(self, parameters, all_parameters):
         n = 0
         if self.eta_cutoff.any():
             for j1 in range(self.eta_cutoff.shape[0]):
@@ -1346,12 +1484,17 @@ class Backflow(AbstractBackflow):
                 n += 1
 
         return parameters[n:]
+    return impl
 
-    def eta_term_d1(self, e_powers, e_vectors):
-        """First derivatives of log wfn w.r.t eta-term parameters
-        :param e_vectors: e-e vectors
-        :param e_powers: powers of e-e distances
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'eta_term_d1')
+def backflow_eta_term_d1(self, e_powers, e_vectors):
+    """First derivatives of log wfn w.r.t eta-term parameters
+    :param e_vectors: e-e vectors
+    :param e_powers: powers of e-e distances
+    """
+    def impl(self, e_powers, e_vectors):
         C = self.trunc
         ae_cutoff_condition = 1
         if not self.eta_cutoff.any():
@@ -1388,12 +1531,17 @@ class Backflow(AbstractBackflow):
                                     res[n, ae_cutoff_condition, e2] -= bf
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
+    return impl
 
-    def mu_term_d1(self, n_powers, n_vectors):
-        """First derivatives of log wfn w.r.t mu-term parameters
-        :param n_vectors: e-n vectors
-        :param n_powers: powers of e-n distances
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'mu_term_d1')
+def backflow_mu_term_d1(self, n_powers, n_vectors):
+    """First derivatives of log wfn w.r.t mu-term parameters
+    :param n_vectors: e-n vectors
+    :param n_powers: powers of e-n distances
+    """
+    def impl(self, n_powers, n_vectors):
         C = self.trunc
         if not self.mu_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
@@ -1437,14 +1585,19 @@ class Backflow(AbstractBackflow):
                                         res[n, ae_cutoff_condition, e1] += poly * (1 - r / L) ** C * r_vec
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
+    return impl
 
-    def phi_term_d1(self, e_powers, n_powers, e_vectors, n_vectors):
-        """First derivatives of log wfn w.r.t phi-term parameters
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :param e_powers: powers of e-e distances
-        :param n_powers: powers of e-n distances
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'phi_term_d1')
+def backflow_phi_term_d1(self, e_powers, n_powers, e_vectors, n_vectors):
+    """First derivatives of log wfn w.r.t phi-term parameters
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    :param e_powers: powers of e-e distances
+    :param n_powers: powers of e-n distances
+    """
+    def impl(self, e_powers, n_powers, e_vectors, n_vectors):
         C = self.trunc
         if not self.phi_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
@@ -1499,12 +1652,17 @@ class Backflow(AbstractBackflow):
                                 n += dn
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
+    return impl
 
-    def ae_multiplier_d1(self, n_vectors, n_powers):
-        """First derivatives of log wfn w.r.t ae_cutoff
-        :param n_vectors: e-n vectors
-        :param n_powers: powers of e-n distances
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'ae_multiplier_d1')
+def backflow_ae_multiplier_d1(self, n_vectors, n_powers):
+    """First derivatives of log wfn w.r.t ae_cutoff
+    :param n_vectors: e-n vectors
+    :param n_powers: powers of e-n distances
+    """
+    def impl(self, n_vectors, n_powers):
         size = self.cutoffs_optimizable and self.ae_cutoff_optimizable.sum()
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3))
         n = -1
@@ -1518,12 +1676,17 @@ class Backflow(AbstractBackflow):
                         res[n, 1, j] = -12/Lg * (r/Lg)**2 * (1 - r/Lg)**2
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
+    return impl
 
-    def eta_term_gradient_d1(self, e_powers, e_vectors):
-        """First derivatives of log wfn w.r.t eta-term parameters
-        :param e_vectors: e-e vectors
-        :param e_powers: powers of e-e distances
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'eta_term_gradient_d1')
+def backflow_eta_term_gradient_d1(self, e_powers, e_vectors):
+    """First derivatives of log wfn w.r.t eta-term parameters
+    :param e_vectors: e-e vectors
+    :param e_powers: powers of e-e distances
+    """
+    def impl(self, e_powers, e_vectors):
         C = self.trunc
         ae_cutoff_condition = 1
         if not self.eta_cutoff.any():
@@ -1567,12 +1730,17 @@ class Backflow(AbstractBackflow):
                                     res[n, ae_cutoff_condition, e2, :, e2, :] += bf
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+    return impl
 
-    def mu_term_gradient_d1(self, n_powers, n_vectors):
-        """First derivatives of log wfn w.r.t mu-term parameters
-        :param n_vectors: e-n vectors
-        :param n_powers: powers of e-n distances
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'mu_term_gradient_d1')
+def backflow_mu_term_gradient_d1(self, n_powers, n_vectors):
+    """First derivatives of log wfn w.r.t mu-term parameters
+    :param n_vectors: e-n vectors
+    :param n_powers: powers of e-n distances
+    """
+    def impl(self, n_powers, n_vectors):
         C = self.trunc
         if not self.mu_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
@@ -1620,14 +1788,19 @@ class Backflow(AbstractBackflow):
                                         ) * poly
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+    return impl
 
-    def phi_term_gradient_d1(self, e_powers, n_powers, e_vectors, n_vectors):
-        """First derivatives of log wfn w.r.t phi-term parameters
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :param e_powers: powers of e-e distances
-        :param n_powers: powers of e-n distances
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'phi_term_gradient_d1')
+def backflow_phi_term_gradient_d1(self, e_powers, n_powers, e_vectors, n_vectors):
+    """First derivatives of log wfn w.r.t phi-term parameters
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    :param e_powers: powers of e-e distances
+    :param n_powers: powers of e-n distances
+    """
+    def impl(self, e_powers, n_powers, e_vectors, n_vectors):
         C = self.trunc
         if not self.phi_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
@@ -1702,12 +1875,17 @@ class Backflow(AbstractBackflow):
                                 n += dn
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+    return impl
 
-    def ae_multiplier_gradient_d1(self, n_vectors, n_powers):
-        """First derivatives of gradient w.r.t ae_cutoff
-        :param n_vectors: e-n vectors
-        :param n_powers: powers of e-n distances
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'ae_multiplier_gradient_d1')
+def backflow_ae_multiplier_gradient_d1(self, n_vectors, n_powers):
+    """First derivatives of gradient w.r.t ae_cutoff
+    :param n_vectors: e-n vectors
+    :param n_powers: powers of e-n distances
+    """
+    def impl(self, n_vectors, n_powers):
         size = self.cutoffs_optimizable and self.ae_cutoff_optimizable.sum()
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3, self.neu + self.ned, 3))
         n = -1
@@ -1722,12 +1900,17 @@ class Backflow(AbstractBackflow):
                         res[n, 1, j, :, j, :] = -24 * r_vec/Lg**3 * (1 - 3*(r/Lg) + 2*(r/Lg)**2)
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+    return impl
 
-    def eta_term_laplacian_d1(self, e_powers, e_vectors):
-        """First derivatives of laplacian w.r.t eta-term parameters
-        :param e_vectors: e-e vectors
-        :param e_powers: powers of e-e distances
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'eta_term_laplacian_d1')
+def backflow_eta_term_laplacian_d1(self, e_powers, e_vectors):
+    """First derivatives of laplacian w.r.t eta-term parameters
+    :param e_vectors: e-e vectors
+    :param e_powers: powers of e-e distances
+    """
+    def impl(self, e_powers, e_vectors):
         C = self.trunc
         ae_cutoff_condition = 1
         if not self.eta_cutoff.any():
@@ -1768,12 +1951,17 @@ class Backflow(AbstractBackflow):
                                     res[n, ae_cutoff_condition, e2] -= bf
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
+    return impl
 
-    def mu_term_laplacian_d1(self, n_powers, n_vectors):
-        """First derivatives of log wfn w.r.t mu-term parameters
-        :param n_vectors: e-n vectors
-        :param n_powers: powers of e-n distances
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'mu_term_laplacian_d1')
+def backflow_mu_term_laplacian_d1(self, n_powers, n_vectors):
+    """First derivatives of log wfn w.r.t mu-term parameters
+    :param n_vectors: e-n vectors
+    :param n_powers: powers of e-n distances
+    """
+    def impl(self, n_powers, n_vectors):
         C = self.trunc
         if not self.mu_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
@@ -1820,14 +2008,19 @@ class Backflow(AbstractBackflow):
                                         ) * r_vec * poly / r
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
+    return impl
 
-    def phi_term_laplacian_d1(self, e_powers, n_powers, e_vectors, n_vectors):
-        """First derivatives of laplacian w.r.t phi-term parameters
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :param e_powers: powers of e-e distances
-        :param n_powers: powers of e-n distances
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'phi_term_laplacian_d1')
+def backflow_phi_term_laplacian_d1(self, e_powers, n_powers, e_vectors, n_vectors):
+    """First derivatives of laplacian w.r.t phi-term parameters
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    :param e_powers: powers of e-e distances
+    :param n_powers: powers of e-n distances
+    """
+    def impl(self, e_powers, n_powers, e_vectors, n_vectors):
         C = self.trunc
         if not self.phi_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
@@ -1927,12 +2120,17 @@ class Backflow(AbstractBackflow):
                                 n += dn
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
+    return impl
 
-    def ae_multiplier_laplacian_d1(self, n_vectors, n_powers):
-        """First derivatives of laplacian w.r.t ae_cutoff
-        :param n_vectors: e-n vectors
-        :param n_powers: powers of e-n distances
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'ae_multiplier_laplacian_d1')
+def backflow_ae_multiplier_laplacian_d1(self, n_vectors, n_powers):
+    """First derivatives of laplacian w.r.t ae_cutoff
+    :param n_vectors: e-n vectors
+    :param n_powers: powers of e-n distances
+    """
+    def impl(self, n_vectors, n_powers):
         size = self.cutoffs_optimizable and self.ae_cutoff_optimizable.sum()
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3))
         n = -1
@@ -1946,12 +2144,17 @@ class Backflow(AbstractBackflow):
                         res[n, 1, j] = -24/Lg**3 * (3 - 12 * (r/Lg) + 10 * (r/Lg)**2)
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
+    return impl
 
-    def value_parameters_d1(self, e_vectors, n_vectors):
-        """First derivatives of backflow w.r.t the parameters
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'value_parameters_d1')
+def backflow_value_parameters_d1(self, e_vectors, n_vectors):
+    """First derivatives of backflow w.r.t the parameters
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    """
+    def impl(self, e_vectors, n_vectors):
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
@@ -1974,13 +2177,18 @@ class Backflow(AbstractBackflow):
             np.sum(phi_term_d1 * ae_multiplier, axis=1),
             np.sum(ae_value * ae_multiplier_d1, axis=1),
         ))
+    return impl
 
-    def gradient_parameters_d1(self, e_vectors, n_vectors) -> tuple[np.ndarray, np.ndarray]:
-        """First derivatives of backflow gradient w.r.t. the parameters
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return:
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'gradient_parameters_d1')
+def backflow_gradient_parameters_d1(self, e_vectors, n_vectors):
+    """First derivatives of backflow gradient w.r.t. the parameters
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    :return:
+    """
+    def impl(self, e_vectors, n_vectors):
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
@@ -2023,13 +2231,18 @@ class Backflow(AbstractBackflow):
         ))
 
         return gradient, value
+    return impl
 
-    def laplacian_parameters_d1(self, e_vectors, n_vectors) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """First derivatives of backflow laplacian w.r.t the parameters
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :return:
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'laplacian_parameters_d1')
+def backflow_laplacian_parameters_d1(self, e_vectors, n_vectors):
+    """First derivatives of backflow laplacian w.r.t the parameters
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    :return:
+    """
+    def impl(self, e_vectors, n_vectors):
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
@@ -2090,25 +2303,34 @@ class Backflow(AbstractBackflow):
         ))
 
         return laplacian, gradient, value
+    return impl
 
-    def eta_term_d2(self, e_powers, e_vectors):
-        """Second derivatives of logarithm wfn w.r.t eta-term parameters
-        :param e_vectors: e-e vectors
-        :param e_powers: powers of e-e distances
-        """
-        ae_cutoff_condition = 1
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'eta_term_d2')
+def backflow_eta_term_d2(self, e_powers, e_vectors):
+    """Second derivatives of logarithm wfn w.r.t eta-term parameters
+    :param e_vectors: e-e vectors
+    :param e_powers: powers of e-e distances
+    """
+    def impl(self, e_powers, e_vectors):
         if not self.eta_cutoff.any():
             return np.zeros(shape=(0, 0, 2, (self.neu + self.ned) * 3))
 
         size = self.eta_parameters_available.sum() + (self.cutoffs_optimizable and self.eta_cutoff_optimizable.sum())
         res = np.zeros(shape=(size, size, 2, (self.neu + self.ned), 3))
         return res
+    return impl
 
-    def mu_term_d2(self, n_powers, n_vectors):
-        """Second derivatives of logarithm wfn w.r.t mu-term parameters
-        :param n_vectors: e-n vectors
-        :param n_powers: powers of e-n distances
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'mu_term_d2')
+def backflow_mu_term_d2(self, n_powers, n_vectors):
+    """Second derivatives of logarithm wfn w.r.t mu-term parameters
+    :param n_vectors: e-n vectors
+    :param n_powers: powers of e-n distances
+    """
+    def impl(self, n_powers, n_vectors):
         if not self.mu_cutoff.any():
             return np.zeros(shape=(0, 0, 2, (self.neu + self.ned) * 3))
 
@@ -2119,14 +2341,19 @@ class Backflow(AbstractBackflow):
         ])
         res = np.zeros(shape=(size, size, 2, (self.neu + self.ned), 3))
         return res
+    return impl
 
-    def phi_term_d2(self, e_powers, n_powers, e_vectors, n_vectors):
-        """Second derivatives of logarithm wfn w.r.t phi-term parameters
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        :param e_powers: powers of e-e distances
-        :param n_powers: powers of e-n distances
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'phi_term_d2')
+def backflow_phi_term_d2(self, e_powers, n_powers, e_vectors, n_vectors):
+    """Second derivatives of logarithm wfn w.r.t phi-term parameters
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    :param e_powers: powers of e-e distances
+    :param n_powers: powers of e-n distances
+    """
+    def impl(self, e_powers, n_powers, e_vectors, n_vectors):
         if not self.phi_cutoff.any():
             return np.zeros(shape=(0, 0, 2, (self.neu + self.ned) * 3))
 
@@ -2137,22 +2364,32 @@ class Backflow(AbstractBackflow):
         ])
         res = np.zeros(shape=(size, size, 2, (self.neu + self.ned), 3))
         return res
+    return impl
 
-    def ae_multiplier_d2(self, n_vectors, n_powers):
-        """Second derivatives of logarithm wfn w.r.t ae_cutoff
-        :param n_vectors: e-n vectors
-        :param n_powers: powers of e-n distances
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'ae_multiplier_d2')
+def backflow_ae_multiplier_d2(self, n_vectors, n_powers):
+    """Second derivatives of logarithm wfn w.r.t ae_cutoff
+    :param n_vectors: e-n vectors
+    :param n_powers: powers of e-n distances
+    """
+    def impl(self, n_vectors, n_powers):
         size = self.cutoffs_optimizable and self.ae_cutoff_optimizable.sum()
         res = np.zeros(shape=(size, size, 2, (self.neu + self.ned), 3))
 
         return res.reshape(size, size, 2, (self.neu + self.ned) * 3)
+    return impl
 
-    def value_parameters_d2(self, e_vectors, n_vectors) -> np.ndarray:
-        """Second derivatives backflow w.r.t the parameters
-        :param e_vectors: e-e vectors
-        :param n_vectors: e-n vectors
-        """
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'value_parameters_d2')
+def backflow_value_parameters_d2(self, e_vectors, n_vectors):
+    """Second derivatives backflow w.r.t the parameters
+    :param e_vectors: e-e vectors
+    :param n_vectors: e-n vectors
+    """
+    def impl(self, e_vectors, n_vectors):
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
@@ -2163,3 +2400,7 @@ class Backflow(AbstractBackflow):
             np.sum(self.mu_term_parameters_d2(n_powers, n_vectors) * ae_multiplier, axis=2),
             np.sum(self.phi_term_parameters_d2(e_powers, n_powers, e_vectors, n_vectors) * ae_multiplier, axis=2),
         )) @ self.parameters_projector
+    return impl
+
+
+structref.define_boxing(Backflow_class_t, Backflow)

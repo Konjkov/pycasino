@@ -9,18 +9,55 @@
  ##::::::::::: ##::::. ######:: ##:::: ##:. ######::'####: ##::. ##:. #######::
  .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
 
-                          Python Quantum Package
-                   v0.1.0 [Konkov Vladimir] (30 August 2023)
+                     Python Quantum Monte Carlo Package
+                        v 0.2.0 [Vladimir Konkov]
 
-    Main Author : V.V. Konkov
+    Main Author : Vladimir Konkov
  ------------------------------------------------------------------------------
+ Started 2024/08/14 13:06:33
 
- Python 3.10.6 (main, May 29 2023, 11:10:38) [GCC 11.3.0]
- Numba 0.57.1
- Numpy 1.24.3
- Scipy 1.10.1
+ Python 3.10.12 (main, Jul 29 2024, 16:56:48) [GCC 11.4.0]
+ Numba 0.59.0
+ Numpy 1.26.4
+ Scipy 1.11.3
 
  Running in parallel using 4 MPI processes.
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  9
+ NED (num down spin electrons)            :  9
+ RUNTYPE (type of run)                    :  vmc_opt
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  T
+ BACKFLOW (use backflow corrections)      :  F
+ USE_ORBMODS (use orbitals modifications) :  F
+ E_OFFSET (energy offset)                 :  0.0000
+ CHECKPOINT (checkpointing level)         :  1
+ CON_LOC (Dir to read/write config.*)     :  ./
+ RELATIVISTIC                             :  F
+
+ VMC/optimization input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  1.0000E-02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  100000
+ VMC_NCONFIG_WRITE (num configs to write) :  100000
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  10
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
 
  Gaussian cusp correction
  ========================
@@ -29,37 +66,37 @@
  BEGIN VMC CALCULATION
  =====================
 
-Running VMC equilibration (5000 moves).
-Performing time-step optimization.
-Optimized step size: 0.03795
-DTVMC: 0.00048
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Optimized step size: 0.03856
+ DTVMC: 0.00050
 
-Starting VMC.
+ Starting VMC.
 
  =========================================================================
  In block : 1
-  Number of VMC steps           = 1000000
+  Number of VMC steps           = 100000
 
   Block average energies (au)
 
-  Total energy                       (au) =        -526.812638509738
-  Standard error                        +/-           0.024843296290
+  Total energy                       (au) =        -526.836514772550
+  Standard error                        +/-           0.068944631007
 
   Constant energy contributions      (au) =           0.000000000000
 
-  Variance of local energy           (au) =         133.417948986355
+  Variance of local energy           (au) =         126.881947371970
   Standard error                        +/-           0.000000000000
 
- Time taken in block    : : :       383.9253
+ Time taken in block    : : :       31.1510
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
 
- -526.812638509738 +/- 0.024843296290      On-the-fly reblocking method
+ -526.836514772550 +/- 0.068944631007      On-the-fly reblocking method
 
- Sample variance of E_L (au^2/sim.cell) : 133.417948986355
+ Sample variance of E_L (au^2/sim.cell) : 126.881947371970
 
 
  ==========================================
@@ -70,67 +107,57 @@ Starting VMC.
  Optimization start
  ==================
    Iteration     Total nfev        Cost      Cost reduction    Step norm     Optimality
-       0              1         3.4597e+02                                    1.27e+07
-       1              2         1.5269e+01      3.31e+02       1.29e-01       3.69e+05
-       2              3         1.4484e+01      7.85e-01       3.40e-02       1.70e+04
-       3              4         1.4483e+01      1.25e-03       4.44e-03       1.51e+03
+       0              1         3.5727e+02                                    1.26e+07
+       1              2         2.7232e+02      8.50e+01       7.88e-04       8.48e+06
+       2              3         1.6582e+02      1.06e+02       1.47e-03       6.58e+06
+       3              4         9.0955e+01      7.49e+01       2.31e-03       1.01e+06
+       4              5         5.3212e+01      3.77e+01       3.41e-03       7.39e+05
+       5              6         3.2052e+01      2.12e+01       7.05e-03       1.13e+05
+       6              7         2.2200e+01      9.85e+00       1.63e-02       1.12e+05
+       7              8         1.8361e+01      3.84e+00       2.30e-02       5.74e+04
+       8              9         1.6141e+01      2.22e+00       3.18e-02       2.64e+04
+       9             10         1.5009e+01      1.13e+00       8.06e-02       9.44e+03
+      10             11         1.4287e+01      7.22e-01       3.42e-02       5.28e+03
+      11             12         1.4031e+01      2.56e-01       1.90e-02       2.82e+03
+      12             13         1.4030e+01      2.30e-05       3.60e-04       2.14e+01
 `ftol` termination condition is satisfied.
-Function evaluations 4, initial cost 3.4597e+02, final cost 1.4483e+01, first-order optimality 1.51e+03.
-Jacobian matrix at the solution:
-[-3.04303249e-15  5.68663339e-15  3.39640316e-15 -7.43739292e-15
- -6.66955202e-14 -9.27570909e-15 -2.82765313e-13  2.16255103e-13
- -2.98252978e-15  6.42595310e-15  1.05226761e-14  1.19253940e-15
-  6.34027231e-14 -8.51434834e-14 -3.45712579e-13  1.37628376e-12
-  4.04776213e-17  2.23956409e-16  3.99097422e-17 -7.81834042e-16
-  3.50107721e-16  4.49426940e-15  1.33702294e-14 -2.68650968e-14
- -6.93785296e-14 -8.12462986e-14 -8.70880257e-14  5.55564839e-14
-  7.17193416e-14  3.81658083e-14 -2.23047891e-14  1.74842398e-13
-  4.59534988e-14 -9.73584235e-14  7.64192976e-14 -5.03777642e-14
-  1.69037548e-13 -5.56465238e-13 -2.34484787e-14 -8.03309490e-13
- -8.68735412e-13 -1.91118943e-13 -2.46102445e-13 -6.81461643e-14
- -3.74668616e-13  7.40419637e-14 -1.91539584e-14  9.29198620e-13
-  5.81766102e-13 -6.16458919e-13 -1.08409495e-13  3.35805908e-13
-  1.83665207e-13  7.83185783e-14 -5.26608801e-14  5.35334976e-14
-  3.66787845e-14 -2.89128366e-14  2.37240556e-13 -1.67252665e-13
- -2.12532996e-13 -1.46496220e-13  5.88433693e-13 -3.85921339e-14
- -1.29896307e-13  1.42977115e-13  1.04198534e-12 -1.08738050e-13
- -1.59200226e-13  5.45696821e-16  7.92975356e-13  7.60464900e-13
-  8.21773938e-13 -1.78015398e-13  1.79273684e-12  3.31399406e-13]
+Function evaluations 13, initial cost 3.5727e+02, final cost 1.4030e+01, first-order optimality 2.14e+01.
+Norm of Jacobian at the solution: 4.83348e-12
 
  BEGIN VMC CALCULATION
  =====================
 
-Running VMC equilibration (5000 moves).
-Performing time-step optimization.
-Optimized step size: 0.03868
-DTVMC: 0.00050
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Optimized step size: 0.03847
+ DTVMC: 0.00049
 
-Starting VMC.
+ Starting VMC.
 
  =========================================================================
  In block : 1
-  Number of VMC steps           = 1000000
+  Number of VMC steps           = 100000
 
   Block average energies (au)
 
-  Total energy                       (au) =        -527.376182013212
-  Standard error                        +/-           0.008868567627
+  Total energy                       (au) =        -527.424379117828
+  Standard error                        +/-           0.026469166004
 
   Constant energy contributions      (au) =           0.000000000000
 
-  Variance of local energy           (au) =          13.716423985294
+  Variance of local energy           (au) =          14.682645887587
   Standard error                        +/-           0.000000000000
 
- Time taken in block    : : :       297.5681
+ Time taken in block    : : :       32.7640
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
 
- -527.376182013212 +/- 0.008868567627      On-the-fly reblocking method
+ -527.424379117828 +/- 0.026469166004      On-the-fly reblocking method
 
- Sample variance of E_L (au^2/sim.cell) : 13.716423985294
+ Sample variance of E_L (au^2/sim.cell) : 14.682645887587
 
 
  ==========================================
@@ -141,69 +168,48 @@ Starting VMC.
  Optimization start
  ==================
    Iteration     Total nfev        Cost      Cost reduction    Step norm     Optimality
-       0              1         1.3083e+01                                    9.22e+04
-       1              4         1.3000e+01      8.35e-02       1.05e-01       1.34e+05
-       2              5         1.2928e+01      7.16e-02       1.05e-01       2.22e+05
+       0              1         1.3418e+01                                    3.48e+05
+       1              4         1.3365e+01      5.27e-02       2.46e-01       1.37e+05
 `ftol` termination condition is satisfied.
-Function evaluations 5, initial cost 1.3083e+01, final cost 1.2928e+01, first-order optimality 2.22e+05.
-Jacobian matrix at the solution:
-[ 8.17700074e-18 -3.46647377e-15 -4.98194375e-15  2.31327490e-14
-  1.81833926e-14 -2.52509835e-14 -5.70178926e-14  3.51176084e-13
-  5.51997346e-13  5.54245538e-15  8.83703333e-15  2.13750173e-14
-  3.06203418e-14  2.82518897e-14  2.31672175e-13 -3.41660780e-13
-  8.33883860e-13  1.36093090e-17 -2.52142439e-16  5.54532253e-16
-  7.92699240e-17  8.31229530e-16 -7.99710076e-15 -2.14654072e-14
-  1.76935089e-14  5.83693094e-14 -2.16421325e-17  2.34701929e-13
- -1.47751962e-13 -1.08242020e-13  3.80074638e-14  9.65641789e-15
- -1.31014275e-13  3.39012018e-14  3.31220917e-14 -8.35907343e-15
-  1.93090770e-13  1.45421453e-13  3.90042718e-13 -1.42340184e-13
-  2.34659979e-12 -1.33516345e-13 -3.36341657e-13 -5.44311547e-13
- -1.18303944e-14  4.15561203e-13  2.18797425e-13 -2.87536750e-13
- -2.05216793e-12 -2.84354883e-12 -4.47602702e-13 -3.69954023e-13
- -2.71888894e-13 -6.37703046e-14  1.52722777e-13 -7.23444771e-14
- -6.97266245e-15 -1.27278525e-13  1.40419587e-14  2.03552730e-14
-  5.91899862e-14  3.89553634e-14  1.49543666e-14 -6.24165182e-13
- -2.04218793e-13 -9.04000999e-13 -1.15123385e-12 -7.06880598e-14
- -2.79955330e-13  3.42648150e-13  4.96379471e-14 -2.55428176e-13
-  1.62967808e-13 -7.22897653e-14  2.42876808e-12  9.60470970e-12
-  9.27833526e-13 -5.72758665e-12  4.10868211e-13]
+Function evaluations 4, initial cost 1.3418e+01, final cost 1.3365e+01, first-order optimality 1.37e+05.
+Norm of Jacobian at the solution: 3.97907e-12
 
  BEGIN VMC CALCULATION
  =====================
 
-Running VMC equilibration (5000 moves).
-Performing time-step optimization.
-Optimized step size: 0.03914
-DTVMC: 0.00051
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Optimized step size: 0.03801
+ DTVMC: 0.00048
 
-Starting VMC.
+ Starting VMC.
 
  =========================================================================
  In block : 1
-  Number of VMC steps           = 1000000
+  Number of VMC steps           = 100000
 
   Block average energies (au)
 
-  Total energy                       (au) =        -527.379982635554
-  Standard error                        +/-           0.009516334295
+  Total energy                       (au) =        -527.378996825609
+  Standard error                        +/-           0.025362375376
 
   Constant energy contributions      (au) =           0.000000000000
 
-  Variance of local energy           (au) =          14.061159469628
+  Variance of local energy           (au) =          13.779088964342
   Standard error                        +/-           0.000000000000
 
- Time taken in block    : : :       297.0488
+ Time taken in block    : : :       32.7823
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
 
- -527.379982635554 +/- 0.009516334295      On-the-fly reblocking method
+ -527.378996825609 +/- 0.025362375376      On-the-fly reblocking method
 
- Sample variance of E_L (au^2/sim.cell) : 14.061159469628
+ Sample variance of E_L (au^2/sim.cell) : 13.779088964342
 
 
  =========================================================================
 
- Total PyCasino real time : : :    2425.1895
+ Total PyCasino real time : : :    632.5100

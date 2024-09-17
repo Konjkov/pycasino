@@ -7,11 +7,11 @@ import numba as nb
 from casino.jastrow import construct_a_matrix
 from casino.overload import rref
 
-labels_type = nb.int64[:]
-chi_parameters_type = nb.float64[:, :]
-chi_parameters_optimizable_type = nb.boolean[:, :]
-f_parameters_type = nb.float64[:, :, :, :]
-f_parameters_optimizable_type = nb.boolean[:, :, :, :]
+labels_type = nb.int64[::1]
+chi_parameters_type = nb.float64[:, ::1]
+chi_parameters_optimizable_type = nb.boolean[:, ::1]
+f_parameters_type = nb.float64[:, :, :, ::1]
+f_parameters_optimizable_type = nb.boolean[:, :, :, ::1]
 
 jastrow_template = """\
  START JASTROW
