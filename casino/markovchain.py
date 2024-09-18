@@ -135,26 +135,25 @@ class VMCMarkovChain(structref.StructRefProxy):
         :return:
         """
         self.probability_density = self.wfn.value(self.r_e) ** 2
-        condition = np.empty(shape=(steps,), dtype=np.bool_)
-        position = np.empty(shape=(steps,) + self.r_e.shape)
-        position.fill(np.nan)
-        position[0] = self.r_e  # the value will be rewritten if the first step is taken
+        position = np.full(shape=(steps,) + self.r_e.shape, fill_value=np.nan)
+        # the following value will be rewritten if the first step is taken
+        position[0] = self.r_e
 
         for i in range(steps):
             cond = False
             for _ in range(decorr_period):
                 cond |= self.random_step()
-            condition[i], position[i] = cond, self.r_e
+            if cond:
+                position[i] = self.r_e
 
-        return condition, position
+        return position
 
 
 structref.define_boxing(VMCMarkovChain_class_t, VMCMarkovChain)
 
 
-def vmc_observable(condition, position, observable):
+def vmc_observable(position, observable):
     """VMC observable.
-    :param condition: accepted step
     :param position: random walk positions
     :param observable: observable function
     :return:
@@ -164,10 +163,10 @@ def vmc_observable(condition, position, observable):
     res[0] = res_0
 
     for i in range(1, position.shape[0]):
-        if condition[i]:
-            res[i] = observable(position[i])
-        else:
+        if np.isnan(position[i, 0, 0]):
             res[i] = res[i-1]
+        else:
+            res[i] = observable(position[i])
     return res
 
 
