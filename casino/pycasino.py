@@ -24,8 +24,15 @@ from casino.sem import correlated_sem
 
 logger = logging.getLogger(__name__)
 
-# np.seterr(all='warn')
 double_size = MPI.DOUBLE.Get_size()
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def expand(np_array):
+    """Set NaN to previous value"""
+    for i in range(1, np_array.shape[0]):
+        if np.isnan(np_array[i]).all():
+            np_array[i] = np_array[i-1]
 
 
 # @nb.njit(nogil=True, parallel=False, cache=True)
@@ -329,6 +336,7 @@ class Casino:
             )
             position = self.vmc_energy_accumulation()
             r_e_list = position[-self.config.input.vmc_nconfig_write // self.mpi_comm.size:]
+            expand(r_e_list)
             self.dmc_markovchain = DMCMarkovChain(
                 r_e_list, self.config.input.alimit, self.config.input.nucleus_gf_mods, self.config.input.use_tmove,
                 self.config.input.dtdmc, self.config.input.dmc_target_weight, self.wfn, self.config.input.dmc_method,

@@ -32,6 +32,7 @@ os.environ["NUMBA_NUM_THREADS"] = "1"  # numba
 
 import numpy as np
 
+np.seterr(all='warn')
 np.random.seed(31415926)
 np.set_printoptions(threshold=sys.maxsize)
 
