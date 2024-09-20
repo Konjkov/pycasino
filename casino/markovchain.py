@@ -19,7 +19,7 @@ class VMCMarkovChain_class_t(types.StructRef):
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(VMCMarkovChain_class_t, 'random_step')
 def vmcmarkovchain_random_step(self):
-    """Random step wrapper.
+    """VMC random step wrapper.
     :return: step is accepted
     """
     def impl(self):
@@ -407,18 +407,18 @@ def dmcmarkovchain_limiting_velocity(self, r_e):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(DMCMarkovChain_class_t, 't_move')
-def dmcmarkovchain_t_move(self, r_e_list, wfn_value_list, velocity_list, energy_list, branching_energy_list):
+def dmcmarkovchain_t_move(self):
     """T-move."""
-    def impl(self, r_e_list, wfn_value_list, velocity_list, energy_list, branching_energy_list):
-        for i in range(len(r_e_list))
-            moved, r_e = self.wfn.t_move(r_e_list[i], self.step_size)
+    def impl(self):
+        for i in range(len(self.r_e_list)):
+            moved, r_e = self.wfn.t_move(self.r_e_list[i], self.step_size)
             if moved:
-                wfn_value_list[i] = self.wfn.value(r_e)
+                self.wfn_value_list[i] = self.wfn.value(r_e)
                 energy = self.wfn.energy(r_e)
                 velocity, drift_velocity = self.limiting_velocity(r_e)
-                energy_list[i] = energy
-                velocity_list[i] = velocity
-                branching_energy_list[i] = self.branching(energy, velocity, drift_velocity)
+                self.energy_list[i] = energy
+                self.velocity_list[i] = velocity
+                self.branching_energy_list[i] = self.branching(energy, velocity, drift_velocity)
     return impl
 
 
@@ -626,7 +626,7 @@ def dmcmarkovchain_branching(self, energy, next_velocity, drift_velocity):
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(DMCMarkovChain_class_t, 'random_step')
 def dmcmarkovchain_random_step(self):
-    """Random step"""
+    """DMC random step"""
     def impl(self):
         sum_acceptance_probability = 0
         next_age_list = nb.typed.List.empty_list(age_type)
@@ -654,7 +654,7 @@ def dmcmarkovchain_random_step(self):
         self.wfn_value_list = next_wfn_value_list
         self.branching_energy_list = next_branching_energy_list
         if self.wfn.ppotential is not None and self.use_tmove:
-            self.t_move(self.r_e_list, self.wfn_value_list, self.velocity_list, self.energy_list, self.branching_energy_list)
+            self.t_move()
         if self.mpi_size == 1:
             walkers = len(self.energy_list)
             total_energy = sum(self.energy_list)
