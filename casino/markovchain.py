@@ -407,18 +407,17 @@ def dmcmarkovchain_limiting_velocity(self, r_e):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(DMCMarkovChain_class_t, 't_move')
-def dmcmarkovchain_t_move(self):
+def dmcmarkovchain_t_move(self, r_e, wfn_value, velocity, energy, branching_energy):
     """T-move."""
-    def impl(self):
-        for i in range(len(self.r_e_list)):
-            moved, r_e = self.wfn.t_move(self.r_e_list[i], self.step_size)
-            if moved:
-                self.wfn_value_list[i] = self.wfn.value(r_e)
-                energy = self.wfn.energy(r_e)
-                velocity, drift_velocity = self.limiting_velocity(r_e)
-                self.energy_list[i] = energy
-                self.velocity_list[i] = velocity
-                self.branching_energy_list[i] = self.branching(energy, velocity, drift_velocity)
+    def impl(self, r_e, wfn_value, velocity, energy, branching_energy):
+        moved, r_e = self.wfn.t_move(r_e, self.step_size)
+        if moved:
+            wfn_value = self.wfn.value(r_e)
+            velocity, drift_velocity = self.limiting_velocity(r_e)
+            energy = self.wfn.energy(r_e)
+            branching_energy = self.branching(energy, velocity, drift_velocity)
+            return r_e, wfn_value, velocity, energy, branching_energy
+        return r_e, wfn_value, velocity, energy, branching_energy
     return impl
 
 
@@ -636,25 +635,27 @@ def dmcmarkovchain_random_step(self):
         next_energy_list = nb.typed.List.empty_list(energy_type)
         next_branching_energy_list = nb.typed.List.empty_list(energy_type)
         for age, r_e, wfn_value, velocity, energy, branching_energy in zip(self.age_list, self.r_e_list, self.wfn_value_list, self.velocity_list, self.energy_list, self.branching_energy_list):
-            p, moved, r_e, wfn_value, velocity, energy, next_branching_energy = self.drift_diffusion(age, r_e, wfn_value, velocity, energy, branching_energy)
+            p, moved, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy = self.drift_diffusion(age, r_e, wfn_value, velocity, energy, branching_energy)
             # branching UNR (23)
             weight = np.exp(self.step_eff * (next_branching_energy + branching_energy) / 2)
             for _ in range(int(weight + np.random.random())):
                 sum_acceptance_probability += p
                 next_age_list.append(0 if moved else age + 1)
-                next_r_e_list.append(r_e)
-                next_energy_list.append(energy)
-                next_velocity_list.append(velocity)
-                next_wfn_value_list.append(wfn_value)
+                next_r_e_list.append(next_r_e)
+                next_energy_list.append(next_energy)
+                next_velocity_list.append(next_velocity)
+                next_wfn_value_list.append(next_wfn_value)
                 next_branching_energy_list.append(next_branching_energy)
+        if self.wfn.ppotential is not None and self.use_tmove:
+            for i in range(len(next_r_e_list)):
+                next_r_e_list[i], next_wfn_value_list[i], next_velocity_list[i], next_energy_list[i], next_branching_energy_list[i] = self.t_move(
+                    next_r_e_list[i], next_wfn_value_list[i], next_velocity_list[i], next_energy_list[i], next_branching_energy_list[i])
         self.age_list = next_age_list
         self.r_e_list = next_r_e_list
         self.energy_list = next_energy_list
         self.velocity_list = next_velocity_list
         self.wfn_value_list = next_wfn_value_list
         self.branching_energy_list = next_branching_energy_list
-        if self.wfn.ppotential is not None and self.use_tmove:
-            self.t_move()
         if self.mpi_size == 1:
             walkers = len(self.energy_list)
             total_energy = sum(self.energy_list)
