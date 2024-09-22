@@ -237,6 +237,7 @@ DMCMarkovChain_t = DMCMarkovChain_class_t([
     ('best_estimate_energy', energy_type),
     ('energy_t', energy_type),
     ('ntransfers_tot', nb.int64),
+    ('sum_acceptance_probability', nb.float64),
     ('efficiency_list', nb.types.ListType(efficiency_type)),
     ('wfn', Wfn_t),
 ])
@@ -296,6 +297,7 @@ class DMCMarkovChain(structref.StructRefProxy):
             self.best_estimate_energy = total_energy / walkers
             self.energy_t = self.best_estimate_energy - np.log(walkers / self.target_weight) / self.step_eff
             self.ntransfers_tot = 0
+            self.sum_acceptance_probability = 0
             self.efficiency_list = nb.typed.List.empty_list(efficiency_type)
             return self
         return init(*args, **kwargs)
@@ -669,14 +671,14 @@ def dmcmarkovchain_t_move(self):
 def dmcmarkovchain_random_step(self):
     """DMC random step"""
     def impl(self):
-        sum_acceptance_probability = 0
+        self.sum_acceptance_probability = 0
         self.weight_list = nb.typed.List.empty_list(weight_type)
         for i in range(len(self.r_e_list)):
             p, self.age_list[i], self.r_e_list[i], self.wfn_value_list[i], self.velocity_list[i], self.energy_list[i], self.branching_energy_list[i], weight = self.drift_diffusion(
                 self.age_list[i], self.r_e_list[i], self.wfn_value_list[i], self.velocity_list[i], self.energy_list[i], self.branching_energy_list[i]
             )
             self.weight_list.append(weight)
-            sum_acceptance_probability += p * weight
+            self.sum_acceptance_probability += p * weight
 
         self.branching()
 
@@ -686,14 +688,14 @@ def dmcmarkovchain_random_step(self):
         if self.mpi_size == 1:
             walkers = len(self.energy_list)
             total_energy = sum(self.energy_list)
-            total_acceptance_probability = sum_acceptance_probability
+            total_acceptance_probability = self.sum_acceptance_probability
         else:
             energy_list_len = np.empty(1, dtype=np.int_)
             energy_list_sum = np.empty(1, dtype=np.float_)
             total_sum_acceptance_probability = np.empty(1, dtype=np.float_)
             nb_mpi.allreduce(len(self.energy_list), energy_list_len)
             nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
-            nb_mpi.allreduce(sum_acceptance_probability, total_sum_acceptance_probability)
+            nb_mpi.allreduce(self.sum_acceptance_probability, total_sum_acceptance_probability)
             walkers = energy_list_len[0]
             total_energy = energy_list_sum[0]
             total_acceptance_probability = total_sum_acceptance_probability[0]
