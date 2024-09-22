@@ -210,12 +210,13 @@ class DMCMarkovChain_class_t(types.StructRef):
         return tuple((name, types.unliteral(typ)) for name, typ in fields)
 
 
-efficiency_type = nb.types.float64
-wfn_value_type = nb.types.float64
-energy_type = nb.types.float64
-age_type = nb.types.int64
-r_e_type = nb.types.float64[:, :]
-velocity_type = nb.types.float64[:, :]
+efficiency_type = nb.float64
+wfn_value_type = nb.float64
+energy_type = nb.float64
+age_type = nb.int64
+weight_type = nb.float64
+r_e_type = nb.float64[:, :]
+velocity_type = nb.float64[:, :]
 
 DMCMarkovChain_t = DMCMarkovChain_class_t([
     ('mpi_size', nb.int64),
@@ -232,6 +233,7 @@ DMCMarkovChain_t = DMCMarkovChain_class_t([
     ('velocity_list', nb.types.ListType(velocity_type)),
     ('energy_list', nb.types.ListType(energy_type)),
     ('branching_energy_list', nb.types.ListType(energy_type)),
+    ('weight_list', nb.types.ListType(weight_type)),
     ('best_estimate_energy', energy_type),
     ('energy_t', energy_type),
     ('ntransfers_tot', nb.int64),
@@ -406,18 +408,20 @@ def dmcmarkovchain_limiting_velocity(self, r_e):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(DMCMarkovChain_class_t, 't_move')
-def dmcmarkovchain_t_move(self, r_e, wfn_value, velocity, energy, branching_energy):
-    """T-move."""
-    def impl(self, r_e, wfn_value, velocity, energy, branching_energy):
-        moved, r_e = self.wfn.t_move(r_e, self.step_size)
-        if moved:
-            wfn_value = self.wfn.value(r_e)
-            velocity, drift_velocity = self.limiting_velocity(r_e)
-            energy = self.wfn.energy(r_e)
-            branching_energy = self.branching(energy, velocity, drift_velocity)
-            return r_e, wfn_value, velocity, energy, branching_energy
-        return r_e, wfn_value, velocity, energy, branching_energy
+@overload_method(DMCMarkovChain_class_t, 'branching_energy')
+def dmcmarkovchain_branching_energy(self, energy, next_velocity, drift_velocity):
+    """Branching energy."""
+    def impl(self, energy, next_velocity, drift_velocity):
+        ne = self.wfn.neu + self.wfn.ned
+        limiting_factor = np.linalg.norm(next_velocity) / np.linalg.norm(drift_velocity)
+        # Andrea Zen, Sandro Sorella, Michael J. Gillan, Angelos Michaelides and Dario Alfè
+        # Boosting the accuracy and speed of quantum Monte Carlo: Size consistency and time step
+        if np.abs(self.best_estimate_energy - energy) > 0.2 * np.sqrt(ne / self.step_size):
+            E_cut = np.sign(self.best_estimate_energy - energy) * 0.2 * np.sqrt(ne / self.step_size)
+        else:
+            E_cut = self.best_estimate_energy - energy
+        # branching UNR (39)
+        return (self.energy_t - self.best_estimate_energy) + E_cut * limiting_factor
     return impl
 
 
@@ -492,7 +496,9 @@ def dmcmarkovchain_ebe_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
                     # Casino manual (62)
                     p += p_i * np.sum(diffuse_step[i] ** 2)
                 else:
-                    return 0, False, r_e, wfn_value, velocity, energy, branching_energy
+                    # branching UNR (23)
+                    weight = np.exp(self.step_eff * branching_energy)
+                    return 0, age + 1, r_e, wfn_value, velocity, energy, branching_energy, weight
         else:
             # simple random step
             next_r_e = np.copy(r_e)
@@ -518,10 +524,14 @@ def dmcmarkovchain_ebe_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
                     # Casino manual (62)
                     p += p_i * np.sum(diffuse_step[i] ** 2)
                 else:
-                    return 0, False, r_e, wfn_value, velocity, energy, branching_energy
+                    # branching UNR (23)
+                    weight = np.exp(self.step_eff * branching_energy)
+                    return 0, age + 1, r_e, wfn_value, velocity, energy, branching_energy, weight
         next_energy = self.wfn.energy(next_r_e)
-        next_branching_energy = self.branching(next_energy, next_velocity, drift_velocity)
-        return p / np.sum(diffuse_step ** 2), moved, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
+        next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
+        # branching UNR (23)
+        weight = np.exp(self.step_eff * (next_branching_energy + branching_energy) / 2)
+        return p / np.sum(diffuse_step ** 2), 0 if moved else age + 1, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy, weight
     return impl
 
 
@@ -584,8 +594,10 @@ def dmcmarkovchain_cbc_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
                 p = min(1, age_p * (gf_back * next_wfn_value ** 2) / (gf_forth * wfn_value ** 2))
                 if p >= np.random.random():
                     next_energy = self.wfn.energy(next_r_e)
-                    next_branching_energy = self.branching(next_energy, next_velocity, drift_velocity)
-                    return p, True, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
+                    next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
+                    # branching UNR (23)
+                    weight = np.exp(self.step_eff * (next_branching_energy + branching_energy) / 2)
+                    return p, 0, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy, weight
         else:
             # simple random step
             next_r_e = np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape(ne, 3) + self.step_size * velocity + r_e
@@ -598,27 +610,57 @@ def dmcmarkovchain_cbc_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
                 p = min(1, age_p * (gf_back * next_wfn_value ** 2) / (gf_forth * wfn_value ** 2))
                 if p >= np.random.random():
                     next_energy = self.wfn.energy(next_r_e)
-                    next_branching_energy = self.branching(next_energy, next_velocity, drift_velocity)
-                    return p, True, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
-        return p, False, r_e, wfn_value, velocity, energy, branching_energy
+                    next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
+                    # branching UNR (23)
+                    weight = np.exp(self.step_eff * (next_branching_energy + branching_energy) / 2)
+                    return p, 0, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy, weight
+        # branching UNR (23)
+        weight = np.exp(self.step_eff * branching_energy)
+        return p, age + 1, r_e, wfn_value, velocity, energy, branching_energy, weight
     return impl
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(DMCMarkovChain_class_t, 'branching')
-def dmcmarkovchain_branching(self, energy, next_velocity, drift_velocity):
+def dmcmarkovchain_branching(self):
     """Branching step."""
-    def impl(self, energy, next_velocity, drift_velocity):
-        ne = self.wfn.neu + self.wfn.ned
-        limiting_factor = np.linalg.norm(next_velocity) / np.linalg.norm(drift_velocity)
-        # Andrea Zen, Sandro Sorella, Michael J. Gillan, Angelos Michaelides and Dario Alfè
-        # Boosting the accuracy and speed of quantum Monte Carlo: Size consistency and time step
-        if np.abs(self.best_estimate_energy - energy) > 0.2 * np.sqrt(ne / self.step_size):
-            E_cut = np.sign(self.best_estimate_energy - energy) * 0.2 * np.sqrt(ne / self.step_size)
-        else:
-            E_cut = self.best_estimate_energy - energy
-        # branching UNR (39)
-        return (self.energy_t - self.best_estimate_energy) + E_cut * limiting_factor
+    def impl(self):
+        deleted = 0
+        for i in range(len(self.weight_list)):
+            weight = int(self.weight_list[i] + np.random.random())
+            if weight == 0:
+                self.age_list.pop(i-deleted)
+                self.r_e_list.pop(i-deleted)
+                self.energy_list.pop(i-deleted)
+                self.velocity_list.pop(i-deleted)
+                self.wfn_value_list.pop(i-deleted)
+                self.branching_energy_list.pop(i-deleted)
+                deleted += 1
+            for _ in range(1, weight):
+                self.age_list.append(self.age_list[i-deleted])
+                self.r_e_list.append(self.r_e_list[i-deleted])
+                self.energy_list.append(self.energy_list[i-deleted])
+                self.velocity_list.append(self.velocity_list[i-deleted])
+                self.wfn_value_list.append(self.wfn_value_list[i-deleted])
+                self.branching_energy_list.append(self.branching_energy_list[i-deleted])
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(DMCMarkovChain_class_t, 't_move')
+def dmcmarkovchain_t_move(self):
+    """T-move."""
+    def impl(self):
+        for i in range(len(self.r_e_list)):
+            moved, r_e = self.wfn.t_move(self.r_e_list[i], self.step_size)
+            if moved:
+                self.r_e_list[i] = r_e
+                self.wfn_value_list[i] = self.wfn.value(r_e)
+                velocity, drift_velocity = self.limiting_velocity(r_e)
+                energy = self.wfn.energy(r_e)
+                self.energy_list[i] = energy
+                self.velocity_list[i] = velocity
+                self.branching_energy_list[i] = self.branching_energy(energy, velocity, drift_velocity)
     return impl
 
 
@@ -628,34 +670,19 @@ def dmcmarkovchain_random_step(self):
     """DMC random step"""
     def impl(self):
         sum_acceptance_probability = 0
-        next_age_list = nb.typed.List.empty_list(age_type)
-        next_r_e_list = nb.typed.List.empty_list(r_e_type)
-        next_wfn_value_list = nb.typed.List.empty_list(wfn_value_type)
-        next_velocity_list = nb.typed.List.empty_list(velocity_type)
-        next_energy_list = nb.typed.List.empty_list(energy_type)
-        next_branching_energy_list = nb.typed.List.empty_list(energy_type)
-        for age, r_e, wfn_value, velocity, energy, branching_energy in zip(self.age_list, self.r_e_list, self.wfn_value_list, self.velocity_list, self.energy_list, self.branching_energy_list):
-            p, moved, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy = self.drift_diffusion(age, r_e, wfn_value, velocity, energy, branching_energy)
-            # branching UNR (23)
-            weight = np.exp(self.step_eff * (next_branching_energy + branching_energy) / 2)
-            for _ in range(int(weight + np.random.random())):
-                sum_acceptance_probability += p
-                next_age_list.append(0 if moved else age + 1)
-                next_r_e_list.append(next_r_e)
-                next_energy_list.append(next_energy)
-                next_velocity_list.append(next_velocity)
-                next_wfn_value_list.append(next_wfn_value)
-                next_branching_energy_list.append(next_branching_energy)
+        self.weight_list = nb.typed.List.empty_list(weight_type)
+        for i in range(len(self.r_e_list)):
+            p, self.age_list[i], self.r_e_list[i], self.wfn_value_list[i], self.velocity_list[i], self.energy_list[i], self.branching_energy_list[i], weight = self.drift_diffusion(
+                self.age_list[i], self.r_e_list[i], self.wfn_value_list[i], self.velocity_list[i], self.energy_list[i], self.branching_energy_list[i]
+            )
+            self.weight_list.append(weight)
+            sum_acceptance_probability += p * weight
+
+        self.branching()
+
         if self.wfn.ppotential is not None and self.use_tmove:
-            for i in range(len(next_r_e_list)):
-                next_r_e_list[i], next_wfn_value_list[i], next_velocity_list[i], next_energy_list[i], next_branching_energy_list[i] = self.t_move(
-                    next_r_e_list[i], next_wfn_value_list[i], next_velocity_list[i], next_energy_list[i], next_branching_energy_list[i])
-        self.age_list = next_age_list
-        self.r_e_list = next_r_e_list
-        self.energy_list = next_energy_list
-        self.velocity_list = next_velocity_list
-        self.wfn_value_list = next_wfn_value_list
-        self.branching_energy_list = next_branching_energy_list
+            self.t_move()
+
         if self.mpi_size == 1:
             walkers = len(self.energy_list)
             total_energy = sum(self.energy_list)
@@ -685,30 +712,35 @@ def dmcmarkovchain_redistribute_walker(self, from_rank, to_rank, count):
         rank = nb_mpi.rank()
         if rank in (from_rank, to_rank):
             ne = self.wfn.neu + self.wfn.ned
+            age = np.empty(shape=(count, ), dtype=np.int_)
             r_e = np.empty(shape=(count, ne, 3))
-            energy = np.empty(shape=(count,))
+            energy = np.empty(shape=(count, ))
             velocity = np.empty(shape=(count, ne, 3))
             wfn_value = np.empty(shape=(count,))
             branching_energy = np.empty(shape=(count, ))
             if rank == from_rank:
                 for i in range(count):
+                    age[i] = self.age_list.pop()
                     r_e[i] = self.r_e_list.pop()
                     energy[i] = self.energy_list.pop()
                     velocity[i] = self.velocity_list.pop()
                     wfn_value[i] = self.wfn_value_list.pop()
                     branching_energy[i] = self.branching_energy_list.pop()
+                nb_mpi.send(age, dest=to_rank)
                 nb_mpi.send(r_e, dest=to_rank)
                 nb_mpi.send(energy, dest=to_rank)
                 nb_mpi.send(velocity, dest=to_rank)
                 nb_mpi.send(wfn_value, dest=to_rank)
                 nb_mpi.send(branching_energy, dest=to_rank)
             elif rank == to_rank:
+                nb_mpi.recv(age, source=from_rank)
                 nb_mpi.recv(r_e, source=from_rank)
                 nb_mpi.recv(energy, source=from_rank)
                 nb_mpi.recv(velocity, source=from_rank)
                 nb_mpi.recv(wfn_value, source=from_rank)
                 nb_mpi.recv(branching_energy, source=from_rank)
                 for i in range(count):
+                    self.age_list.append(age[i])
                     self.r_e_list.append(r_e[i])
                     self.energy_list.append(energy[i])
                     self.velocity_list.append(velocity[i])
