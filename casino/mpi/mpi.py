@@ -1,15 +1,49 @@
 import numba as nb
 import numpy as np
+from mpi4py import MPI
+from enum import IntEnum
 from numba.core import cgutils, types
 from numba.core.typing.ctypes_utils import get_pointer
 from numba.extending import overload_method
 from numba.experimental import structref
-from .header import MPI_COMM_WORLD, MPI_DTYPES, MPI_Operator, MPI_Initialized, MPI_Barrier, MPI_Comm_size, MPI_Comm_rank, MPI_Allreduce
+from .header import MPI_Initialized, MPI_Barrier, MPI_Comm_size, MPI_Comm_rank, MPI_Allreduce
+
+# https://mpi4py.readthedocs.io/en/stable/mpi4py.futures.html
+
+# Cannot cache compiled function "init" as it uses dynamic globals (such as ctypes pointers and large global arrays)
+class MPI_Communicators(IntEnum):
+    """Global Communicators."""
+    COMM_NULL = MPI._addressof(MPI.COMM_NULL)
+    COMM_SELF = MPI._addressof(MPI.COMM_SELF)
+    COMM_WORLD = MPI._addressof(MPI.COMM_WORLD)
+
+
+# Cannot cache compiled function "init" as it uses dynamic globals (such as ctypes pointers and large global arrays)
+class MPI_Operator(IntEnum):
+    """Global Reduction Operations."""
+    MAX = MPI._addressof(MPI.MAX)
+    MIN = MPI._addressof(MPI.MIN)
+    SUM = MPI._addressof(MPI.SUM)
+    PROD = MPI._addressof(MPI.PROD)
+    LAND = MPI._addressof(MPI.LAND)
+    BAND = MPI._addressof(MPI.BAND)
+
+
+# Cannot cache compiled function "init" as it uses dynamic globals (such as ctypes pointers and large global arrays)
+class MPI_DTYPES(IntEnum):
+    """Global Data Types."""
+    CHAR = MPI._addressof(MPI.CHAR)
+    INT32_T = MPI._addressof(MPI.INT32_T)
+    INT64_T = MPI._addressof(MPI.INT64_T)
+    FLOAT = MPI._addressof(MPI.FLOAT)
+    DOUBLE = MPI._addressof(MPI.DOUBLE)
+    C_FLOAT_COMPLEX = MPI._addressof(MPI.C_FLOAT_COMPLEX)
+    C_DOUBLE_COMPLEX = MPI._addressof(MPI.C_DOUBLE_COMPLEX)
+
 
 # Calling C code from Numba
 # https://numba.readthedocs.io/en/stable/user/cfunc.html#calling-c-code-from-numba
 # https://github.com/numba/numba/issues/4115
-
 # https://stackoverflow.com/questions/61509903/how-to-pass-array-pointer-to-numba-function
 @nb.extending.intrinsic
 def address_as_void_ptr(typingctx, data):
@@ -21,6 +55,7 @@ def address_as_void_ptr(typingctx, data):
         return val
     sig = types.voidptr(data)
     return sig, impl
+
 
 @nb.extending.intrinsic
 def val_to_void_ptr(typingctx, data):
@@ -61,7 +96,6 @@ def val_from_ptr(typingctx, data):
 
 
 # https://groups.google.com/g/mpi4py/c/jPqNrr_8UWY?pli=1
-
 @structref.register
 class Comm_class_t(types.StructRef):
     def preprocess_fields(self, fields):
@@ -130,24 +164,38 @@ def comm_Get_rank(self):
 def comm_allreduce(self, sendobj, operator=MPI_Operator.SUM):
     """int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count,
                      MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)."""
-    datatype = MPI_DTYPES.get(nb.typeof(sendobj))
     def impl(self, sendobj, operator=MPI_Operator.SUM):
-        recvobj = 0
-        sendobj_void_ptr = val_to_void_ptr(sendobj)
-        recvobj_void_ptr = val_to_void_ptr(recvobj)
+        sendobj_buf = np.array([sendobj])
+        recvobj_buf = np.zeros_like(sendobj_buf)
+        if sendobj_buf.dtype == np.dtype('uint8'):
+            datatype = self.MPI_DTYPES.CHAR
+        elif sendobj_buf.dtype == np.dtype('int32'):
+            datatype = self.MPI_DTYPES.INT32_T
+        elif sendobj_buf.dtype == np.dtype('int64'):
+            datatype = self.MPI_DTYPES.INT64_T
+        elif sendobj_buf.dtype == np.dtype('float32'):
+            datatype = self.MPI_DTYPES.FLOAT
+        elif sendobj_buf.dtype == np.dtype('float64'):
+            datatype = self.MPI_DTYPES.DOUBLE
+        elif sendobj_buf.dtype == np.dtype('complex64'):
+            datatype = self.MPI_DTYPES.C_FLOAT_COMPLEX
+        elif sendobj_buf.dtype == np.dtype('complex128'):
+            datatype = self.MPI_DTYPES.C_DOUBLE_COMPLEX
         status = MPI_Allreduce(
-            sendobj_void_ptr,
-            recvobj_void_ptr,
-            1,
+            sendobj_buf.ctypes.data,
+            recvobj_buf.ctypes.data,
+            sendobj_buf.size,
             self._mpi_addr(datatype),
             self._mpi_addr(operator),
             self._mpi_addr(self.MPI_Comm_World_ptr),
         )
-        return recvobj
+        return recvobj_buf[0]
     return impl
 
 
 Comm_t = Comm_class_t([
+    ('MPI_DTYPES', nb.types.IntEnumClass(MPI_DTYPES, nb.int64)),
+    ('MPI_Operator', nb.types.IntEnumClass(MPI_Operator, nb.int64)),
     ('MPI_Comm_World_ptr', nb.int64),
 ])
 
@@ -159,9 +207,11 @@ class Comm(structref.StructRefProxy):
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(MPI_Comm_World_ptr):
             self = structref.new(Comm_t)
+            self.MPI_DTYPES = MPI_DTYPES
+            self.MPI_Operator = MPI_Operator
             self.MPI_Comm_World_ptr = MPI_Comm_World_ptr
             return self
-        MPI_Comm_World_ptr = MPI_COMM_WORLD
+        MPI_Comm_World_ptr = MPI._addressof(MPI.COMM_WORLD)
         return init(MPI_Comm_World_ptr)
 
 

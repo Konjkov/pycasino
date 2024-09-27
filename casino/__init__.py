@@ -29,6 +29,7 @@ os.environ["MKL_NUM_THREADS"] = "1"  # mkl
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # accelerate
 os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
 os.environ["NUMBA_NUM_THREADS"] = "1"  # numba
+os.environ["NUMBA_FULL_TRACEBACKS"] = "1"
 
 import numpy as np
 

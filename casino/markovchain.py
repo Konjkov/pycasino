@@ -7,6 +7,7 @@ from numba.core import types
 from numba.experimental import structref
 from numba.core.extending import overload_method
 
+from casino.mpi import Comm, Comm_t
 from casino.wfn import Wfn, Wfn_t
 
 
@@ -240,6 +241,7 @@ DMCMarkovChain_t = DMCMarkovChain_class_t([
     ('sum_acceptance_probability', nb.float64),
     ('efficiency_list', nb.types.ListType(efficiency_type)),
     ('wfn', Wfn_t),
+    ('mpi_comm', Comm_t),
 ])
 
 
@@ -258,10 +260,10 @@ class DMCMarkovChain(structref.StructRefProxy):
         :return:
         """
         @nb.njit(nogil=True, parallel=False, cache=True)
-        def init(r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
+        def init(mpi_comm, r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
             self = structref.new(DMCMarkovChain_t)
-            # FIXME: Cannot cache as it uses dynamic globals such as ctypes pointers
-            self.mpi_size = nb_mpi.size()
+            self.mpi_comm = mpi_comm
+            self.mpi_size = mpi_comm.Get_size()
             self.wfn = wfn
             self.method = method
             self.alimit = alimit
@@ -284,23 +286,19 @@ class DMCMarkovChain(structref.StructRefProxy):
                 self.branching_energy_list.append(self.wfn.energy(r_e))
             if self.mpi_size == 1:
                 walkers = len(self.energy_list)
-                total_energy = sum(self.energy_list)
+                energy = sum(self.energy_list) / walkers
             else:
-                energy_list_len = np.empty(1, dtype=np.int_)
-                energy_list_sum = np.empty(1, dtype=np.float_)
-                # FIXME: Cannot cache as it uses dynamic globals such as ctypes pointers
-                nb_mpi.allreduce(len(self.energy_list), energy_list_len)
-                nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
-                walkers = energy_list_len[0]
-                total_energy = energy_list_sum[0]
+                walkers = self.mpi_comm.allreduce(len(self.energy_list))
+                energy = self.mpi_comm.allreduce(sum(self.energy_list)) / walkers
             self.step_eff = self.step_size  # first guess
-            self.best_estimate_energy = total_energy / walkers
+            self.best_estimate_energy = energy
             self.energy_t = self.best_estimate_energy - np.log(walkers / self.target_weight) / self.step_eff
             self.ntransfers_tot = 0
             self.sum_acceptance_probability = 0
             self.efficiency_list = nb.typed.List.empty_list(efficiency_type)
             return self
-        return init(*args, **kwargs)
+        mpi_comm = Comm()
+        return init(mpi_comm, *args, **kwargs)
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
@@ -692,20 +690,14 @@ def dmcmarkovchain_random_step(self):
 
         if self.mpi_size == 1:
             walkers = len(self.energy_list)
-            total_energy = sum(self.energy_list)
-            total_acceptance_probability = self.sum_acceptance_probability
+            energy = sum(self.energy_list) / walkers
+            acceptance_probability = self.sum_acceptance_probability / walkers
         else:
-            energy_list_len = np.empty(1, dtype=np.int_)
-            energy_list_sum = np.empty(1, dtype=np.float_)
-            total_sum_acceptance_probability = np.empty(1, dtype=np.float_)
-            nb_mpi.allreduce(len(self.energy_list), energy_list_len)
-            nb_mpi.allreduce(sum(self.energy_list), energy_list_sum)
-            nb_mpi.allreduce(self.sum_acceptance_probability, total_sum_acceptance_probability)
-            walkers = energy_list_len[0]
-            total_energy = energy_list_sum[0]
-            total_acceptance_probability = total_sum_acceptance_probability[0]
-        self.best_estimate_energy = total_energy / walkers
-        self.step_eff = total_acceptance_probability / walkers * self.step_size
+            walkers = self.mpi_comm.allreduce(len(self.energy_list))
+            energy = self.mpi_comm.allreduce(sum(self.energy_list)) / walkers
+            acceptance_probability = self.mpi_comm.allreduce(self.sum_acceptance_probability) / walkers
+        self.best_estimate_energy = energy
+        self.step_eff = acceptance_probability * self.step_size
         # UNR (11)
         self.energy_t = self.best_estimate_energy - np.log(walkers / self.target_weight) * self.step_size / self.step_eff
     return impl
@@ -716,7 +708,7 @@ def dmcmarkovchain_random_step(self):
 def dmcmarkovchain_redistribute_walker(self, from_rank, to_rank, count):
     """Redistribute count walkers from MPI from_rank to to_rank"""
     def impl(self, from_rank, to_rank, count):
-        rank = nb_mpi.rank()
+        rank = self.mpi_comm.Get_rank()
         if rank in (from_rank, to_rank):
             ne = self.wfn.neu + self.wfn.ned
             age = np.empty(shape=(count, ), dtype=np.int_)
@@ -764,7 +756,7 @@ def dmcmarkovchain_load_balancing(self):
         if self.mpi_size == 1:
             self.efficiency_list.append(1)
         else:
-            rank = nb_mpi.rank()
+            rank = self.mpi_comm.Get_rank()
             walkers = np.zeros(shape=(self.mpi_size,), dtype=np.int_)
             walkers[rank] = len(self.energy_list)
             # FIXME: use MPI_IN_PLACE
