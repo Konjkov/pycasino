@@ -11,7 +11,7 @@ setup(
     author='Vladimir Konkov',
     author_email='Konjkov.VV@gmail.com',
     license='MIT',
-    packages=['casino', 'casino.readers'],
+    packages=['casino', 'casino.readers', 'casino.mpi'],
     # https://scientific-python.org/specs/spec-0000/
     install_requires=[
         'numba>=0.59.0',

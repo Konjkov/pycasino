@@ -1,0 +1,123 @@
+import ctypes
+import numba as nb
+from enum import IntEnum
+from mpi4py import MPI
+
+# Cannot cache compiled function "init" as it uses dynamic globals (such as ctypes pointers and large global arrays)
+class MPI_Operator(IntEnum):
+    """Global Reduction Operations."""
+    MAX = MPI._addressof(MPI.MAX)
+    MIN = MPI._addressof(MPI.MIN)
+    SUM = MPI._addressof(MPI.SUM)
+    PROD = MPI._addressof(MPI.PROD)
+    LAND = MPI._addressof(MPI.LAND)
+    BAND = MPI._addressof(MPI.BAND)
+
+# Cannot cache compiled function "init" as it uses dynamic globals (such as ctypes pointers and large global arrays)
+MPI_DTYPES = {
+    nb.byte: MPI._addressof(MPI.CHAR),
+    nb.int32: MPI._addressof(MPI.INT32_T),
+    nb.int64: MPI._addressof(MPI.INT64_T),
+    nb.float32: MPI._addressof(MPI.FLOAT),
+    nb.float64: MPI._addressof(MPI.DOUBLE),
+    nb.complex64: MPI._addressof(MPI.C_FLOAT_COMPLEX),
+    nb.complex128: MPI._addressof(MPI.C_DOUBLE_COMPLEX),
+}
+
+LIB = ctypes.util.find_library('mpi')
+libmpi = ctypes.CDLL(LIB)
+
+# Cannot cache compiled function "init" as it uses dynamic globals (such as ctypes pointers and large global arrays)
+MPI_COMM_WORLD = MPI._addressof(MPI.COMM_WORLD)
+
+if MPI._sizeof(MPI.Comm) == ctypes.sizeof(ctypes.c_int32):
+    _MpiComm = ctypes.c_int32
+    _MpiDatatype = ctypes.c_int32
+    _MpiOp = ctypes.c_int32
+    _restype = ctypes.c_int32
+    _c_int_p = ctypes.POINTER(ctypes.c_int32)
+else:
+    _MpiComm = ctypes.c_int64
+    _MpiDatatype = ctypes.c_int64
+    _MpiOp = ctypes.c_int64
+    _restype = ctypes.c_int64
+    _c_int_p = ctypes.POINTER(ctypes.c_int64)
+
+_MpiStatusPtr = ctypes.c_void_p
+_MpiRequestPtr = ctypes.c_void_p
+
+MPI_Initialized = libmpi.MPI_Initialized
+MPI_Initialized.restype = _restype
+MPI_Initialized.argtypes = []
+
+MPI_Barrier = libmpi.MPI_Barrier
+MPI_Barrier.restype = _restype
+MPI_Barrier.argtypes = [_MpiComm]
+
+MPI_Comm_size = libmpi.MPI_Comm_size
+MPI_Comm_size.restype = _restype
+MPI_Comm_size.argtypes = [_MpiComm, _c_int_p]
+
+MPI_Comm_rank = libmpi.MPI_Comm_rank
+MPI_Comm_rank.restype = _restype
+MPI_Comm_rank.argtypes = [_MpiComm, _c_int_p]
+
+MPI_Allreduce = libmpi.MPI_Allreduce
+MPI_Allreduce.restype = _restype
+MPI_Allreduce.argtypes = [
+    ctypes.c_void_p,  # send data
+    ctypes.c_void_p,  # recv data
+    ctypes.c_int64,  # send count
+    _MpiDatatype,  # send data type
+    _MpiOp,  # operation
+    _MpiComm,  # communicator
+]
+
+# send_recv_args = [ctypes.c_void_p, ctypes.c_int, _MpiDatatype, ctypes.c_int, ctypes.c_int, _MpiComm]
+# send_recv_async_args = send_recv_args + [_MpiRequestPtr]
+
+# MPI_Send = libmpi.MPI_Send
+# MPI_Send.restype = _restype
+# MPI_Send.argtypes = send_recv_args
+
+# MPI_Recv = libmpi.MPI_Recv
+# MPI_Recv.restype = _restype
+# MPI_Recv.argtypes = send_recv_args + [_MpiStatusPtr]
+
+MPI_Scatter = libmpi.MPI_Scatter
+MPI_Scatter.restype = _restype
+MPI_Scatter.argtypes = [
+    ctypes.c_void_p,  # send data
+    ctypes.c_int,  # send count
+    _MpiDatatype,  # send data type
+    ctypes.c_void_p,  # recv data
+    ctypes.c_int,  # recv count
+    _MpiDatatype,  # recv data type
+    ctypes.c_int,  # root
+    _MpiComm,  # communicator
+]
+
+MPI_Gather = libmpi.MPI_Gather
+MPI_Gather.restype = _restype
+MPI_Gather.argtypes = [
+    ctypes.c_void_p,  # send data
+    ctypes.c_int,  # send count
+    _MpiDatatype,  # send data type
+    ctypes.c_void_p,  # recv data
+    ctypes.c_int,  # recv count
+    _MpiDatatype,  # recv data type
+    ctypes.c_int,  # root
+    _MpiComm,  # communicator
+]
+
+MPI_Allgather = libmpi.MPI_Allgather
+MPI_Allgather.restype = _restype
+MPI_Allgather.argtypes = [
+    ctypes.c_void_p,  # send data
+    ctypes.c_int,  # send count
+    _MpiDatatype,  # send data type
+    ctypes.c_void_p,  # recv data
+    ctypes.c_int,  # recv count
+    _MpiDatatype,  # recv data type
+    _MpiComm,  # communicator
+]
