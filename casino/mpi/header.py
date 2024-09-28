@@ -99,7 +99,7 @@ MPI_Allgather.argtypes = [
     _MpiDatatype,  # recv data type
     _MpiComm,  # communicator
 ]
-
+# int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
 MPI_Allreduce = libmpi.MPI_Allreduce
 MPI_Allreduce.restype = _restype
 MPI_Allreduce.argtypes = [

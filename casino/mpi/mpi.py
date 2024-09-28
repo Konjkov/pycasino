@@ -3,12 +3,11 @@ import numpy as np
 from mpi4py import MPI
 from enum import IntEnum
 from numba.core import cgutils, types
-from numba.core.typing.ctypes_utils import get_pointer
 from numba.extending import overload_method
 from numba.experimental import structref
-from .header import MPI_Initialized, MPI_Barrier, MPI_Comm_size, MPI_Comm_rank, MPI_Allreduce
+from .header import MPI_Initialized, MPI_Barrier, MPI_Comm_size, MPI_Comm_rank, MPI_Allreduce, MPI_Send
 
-# https://mpi4py.readthedocs.io/en/stable/mpi4py.futures.html
+# https://mpi4py.readthedocs.io/en/stable/
 
 # Cannot cache compiled function "init" as it uses dynamic globals (such as ctypes pointers and large global arrays)
 class MPI_Communicators(IntEnum):
@@ -30,7 +29,7 @@ class MPI_Operator(IntEnum):
 
 
 # Cannot cache compiled function "init" as it uses dynamic globals (such as ctypes pointers and large global arrays)
-class MPI_DTYPES(IntEnum):
+class MPI_Data_Types(IntEnum):
     """Global Data Types."""
     CHAR = MPI._addressof(MPI.CHAR)
     INT32_T = MPI._addressof(MPI.INT32_T)
@@ -53,18 +52,6 @@ def address_as_void_ptr(typingctx, data):
     def impl(context, builder, signature, args):
         val = builder.inttoptr(args[0], cgutils.voidptr_t)
         return val
-    sig = types.voidptr(data)
-    return sig, impl
-
-
-@nb.extending.intrinsic
-def val_to_void_ptr(typingctx, data):
-    """Returns void pointer to a variable.
-    :return: void* val
-    """
-    def impl(context, builder, signature, args):
-        ptr = cgutils.alloca_once_value(builder, args[0])
-        return ptr
     sig = types.voidptr(data)
     return sig, impl
 
@@ -114,6 +101,29 @@ def comm_mpi_addr(self, addr):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Comm_class_t, '_mpi_dtype')
+def comm_mpi_dtype(self, obj):
+    """MPI data type."""
+    def impl(self, obj):
+        if obj.dtype == np.dtype('uint8'):
+            datatype = self.MPI_Data_Types.CHAR
+        elif obj.dtype == np.dtype('int32'):
+            datatype = self.MPI_Data_Types.INT32_T
+        elif obj.dtype == np.dtype('int64'):
+            datatype = self.MPI_Data_Types.INT64_T
+        elif obj.dtype == np.dtype('float32'):
+            datatype = self.MPI_Data_Types.FLOAT
+        elif obj.dtype == np.dtype('float64'):
+            datatype = self.MPI_Data_Types.DOUBLE
+        elif obj.dtype == np.dtype('complex64'):
+            datatype = self.MPI_Data_Types.C_FLOAT_COMPLEX
+        elif obj.dtype == np.dtype('complex128'):
+            datatype = self.MPI_Data_Types.C_DOUBLE_COMPLEX
+        return datatype
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Comm_class_t, 'Initialized')
 def comm_Initialized(self):
     """int MPI_Initialized(int *flag)."""
@@ -130,7 +140,7 @@ def comm_Initialized(self):
 def comm_Barrier(self):
     """int MPI_Barrier(MPI_Comm comm)."""
     def impl(self):
-        status = MPI_Barrier(self._mpi_addr(self.MPI_Comm_World_ptr))
+        status = MPI_Barrier(self._mpi_addr(self.MPI_COMM_WORLD))
         assert status == 0
     return impl
 
@@ -141,7 +151,7 @@ def comm_Get_size(self):
     """int MPI_Comm_size(MPI_Comm comm, int *size)."""
     def impl(self):
         size_ptr = val_to_ptr(0)
-        status = MPI_Comm_size(self._mpi_addr(self.MPI_Comm_World_ptr), size_ptr)
+        status = MPI_Comm_size(self._mpi_addr(self.MPI_COMM_WORLD), size_ptr)
         assert status == 0
         return val_from_ptr(size_ptr)
     return impl
@@ -153,66 +163,149 @@ def comm_Get_rank(self):
     """int MPI_Comm_rank(MPI_Comm comm, int *rank)."""
     def impl(self):
         size_ptr = val_to_ptr(0)
-        status = MPI_Comm_rank(self._mpi_addr(self.MPI_Comm_World_ptr), size_ptr)
+        status = MPI_Comm_rank(self._mpi_addr(self.MPI_COMM_WORLD), size_ptr)
         assert status == 0
         return val_from_ptr(size_ptr)
     return impl
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Comm_class_t, 'Send')
+def comm_Send(self, data, dest, tag=0):
+    """int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)."""
+    def impl(self, data, dest, tag=0):
+        datatype = self._mpi_dtype(data)
+        status = MPI_Send(
+            data.ctypes.data,
+            data.size,
+            self._mpi_addr(datatype),
+            dest,
+            tag,
+            self._mpi_addr(MPI_COMM_WORLD),
+        )
+        assert status == 0
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Comm_class_t, 'allreduce')
 def comm_allreduce(self, sendobj, operator=MPI_Operator.SUM):
-    """int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count,
-                     MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)."""
+    """MPI.allreduce."""
     def impl(self, sendobj, operator=MPI_Operator.SUM):
         sendobj_buf = np.array([sendobj])
         recvobj_buf = np.zeros_like(sendobj_buf)
-        if sendobj_buf.dtype == np.dtype('uint8'):
-            datatype = self.MPI_DTYPES.CHAR
-        elif sendobj_buf.dtype == np.dtype('int32'):
-            datatype = self.MPI_DTYPES.INT32_T
-        elif sendobj_buf.dtype == np.dtype('int64'):
-            datatype = self.MPI_DTYPES.INT64_T
-        elif sendobj_buf.dtype == np.dtype('float32'):
-            datatype = self.MPI_DTYPES.FLOAT
-        elif sendobj_buf.dtype == np.dtype('float64'):
-            datatype = self.MPI_DTYPES.DOUBLE
-        elif sendobj_buf.dtype == np.dtype('complex64'):
-            datatype = self.MPI_DTYPES.C_FLOAT_COMPLEX
-        elif sendobj_buf.dtype == np.dtype('complex128'):
-            datatype = self.MPI_DTYPES.C_DOUBLE_COMPLEX
+        datatype = self._mpi_dtype(sendobj_buf)
         status = MPI_Allreduce(
             sendobj_buf.ctypes.data,
             recvobj_buf.ctypes.data,
             sendobj_buf.size,
             self._mpi_addr(datatype),
             self._mpi_addr(operator),
-            self._mpi_addr(self.MPI_Comm_World_ptr),
+            self._mpi_addr(self.MPI_COMM_WORLD),
         )
         return recvobj_buf[0]
     return impl
 
 
 Comm_t = Comm_class_t([
-    ('MPI_DTYPES', nb.types.IntEnumClass(MPI_DTYPES, nb.int64)),
+    ('MPI_Data_Types', nb.types.IntEnumClass(MPI_Data_Types, nb.int64)),
     ('MPI_Operator', nb.types.IntEnumClass(MPI_Operator, nb.int64)),
-    ('MPI_Comm_World_ptr', nb.int64),
+    ('MPI_COMM_WORLD', nb.int64),
 ])
 
 
 class Comm(structref.StructRefProxy):
 
-    def __new__(cls, *args, **kwargs):
-        """MPI communicator."""
+    def __new__(cls):
+        """Communication context."""
         @nb.njit(nogil=True, parallel=False, cache=True)
-        def init(MPI_Comm_World_ptr):
+        def init(MPI_COMM_WORLD):
             self = structref.new(Comm_t)
-            self.MPI_DTYPES = MPI_DTYPES
+            self.MPI_Data_Types = MPI_Data_Types
             self.MPI_Operator = MPI_Operator
-            self.MPI_Comm_World_ptr = MPI_Comm_World_ptr
+            self.MPI_COMM_WORLD = MPI_COMM_WORLD
             return self
-        MPI_Comm_World_ptr = MPI._addressof(MPI.COMM_WORLD)
-        return init(MPI_Comm_World_ptr)
+        MPI_COMM_WORLD = MPI._addressof(MPI.COMM_WORLD)
+        return init(MPI_COMM_WORLD)
 
 
 structref.define_boxing(Comm_class_t, Comm)
+#######################################
+
+@structref.register
+class NUMBA_MPI_class_t(types.StructRef):
+    def preprocess_fields(self, fields):
+        return tuple((name, types.unliteral(typ)) for name, typ in fields)
+
+
+NUMBA_MPI_t = NUMBA_MPI_class_t([
+    # communictors
+    ('MPI_COMM_WORLD', nb.int64),
+    # datatypes
+    ('MPI_CHAR', nb.int64),
+    ('MPI_INT32_T', nb.int64),
+    ('MPI_INT64_T', nb.int64),
+    ('MPI_FLOAT', nb.int64),
+    ('MPI_DOUBLE', nb.int64),
+    ('MPI_C_FLOAT_COMPLEX', nb.int64),
+    ('MPI_C_DOUBLE_COMPLEX', nb.int64),
+    # Operators
+    ('MPI_MAX', nb.int64),
+    ('MPI_MIN', nb.int64),
+    ('MPI_SUM', nb.int64),
+    ('MPI_PROD', nb.int64),
+    ('MPI_LAND', nb.int64),
+    ('MPI_BAND', nb.int64),
+])
+
+
+class NUMBA_MPI(structref.StructRefProxy):
+
+    def __new__(cls, *args, **kwargs):
+        """Message Passing Interface."""
+        @nb.njit(nogil=True, parallel=False, cache=True)
+        def init(*args):
+            self = structref.new(MPI_t)
+            (
+                # communictors
+                self.MPI_COMM_WORLD,
+                # datatypes
+                self.MPI_CHAR,
+                self.MPI_INT32_T,
+                self.MPI_INT64_T,
+                self.MPI_FLOAT,
+                self.MPI_DOUBLE,
+                self.MPI_C_FLOAT_COMPLEX,
+                self.MPI_C_DOUBLE_COMPLEX,
+                # Operators
+                self.MPI_MAX,
+                self.MPI_MIN,
+                self.MPI_SUM,
+                self.MPI_PROD,
+                self.MPI_LAND,
+                self.MPI_BAND,
+            ) = args
+            return self
+        args = (
+            # communictors
+            MPI._addressof(MPI.COMM_WORLD),
+            # datatypes
+            MPI._addressof(MPI.CHAR),
+            MPI._addressof(MPI.INT32_T),
+            MPI._addressof(MPI.INT64_T),
+            MPI._addressof(MPI.FLOAT),
+            MPI._addressof(MPI.DOUBLE),
+            MPI._addressof(MPI.C_FLOAT_COMPLEX),
+            MPI._addressof(MPI.C_DOUBLE_COMPLEX),
+            # Operators
+            MPI._addressof(MPI.MAX),
+            MPI._addressof(MPI.MIN),
+            MPI._addressof(MPI.SUM),
+            MPI._addressof(MPI.PROD),
+            MPI._addressof(MPI.LAND),
+            MPI._addressof(MPI.BAND),
+        )
+        return init(*args)
+
+
+structref.define_boxing(NUMBA_MPI_class_t, NUMBA_MPI)
