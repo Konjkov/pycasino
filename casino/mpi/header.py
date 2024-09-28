@@ -1,6 +1,5 @@
 import ctypes
-import numba as nb
-from enum import IntEnum
+import ctypes.util
 from mpi4py import MPI
 
 
@@ -22,6 +21,7 @@ else:
 
 _MpiStatusPtr = ctypes.c_void_p
 _MpiRequestPtr = ctypes.c_void_p
+
 # int MPI_Initialized(int *flag)
 MPI_Initialized = libmpi.MPI_Initialized
 MPI_Initialized.restype = _restype

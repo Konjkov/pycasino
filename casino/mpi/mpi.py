@@ -1,49 +1,13 @@
 import numba as nb
 import numpy as np
 from mpi4py import MPI
-from enum import IntEnum
 from numba.core import cgutils, types
 from numba.extending import overload_method
 from numba.experimental import structref
-from .header import MPI_Initialized, MPI_Barrier, MPI_Comm_size, MPI_Comm_rank, MPI_Allreduce, MPI_Send
+from .header import libmpi, MPI_Initialized, MPI_Barrier, MPI_Comm_size, MPI_Comm_rank, MPI_Allreduce, MPI_Send, MPI_Recv, MPI_Allgather
 
 # https://mpi4py.readthedocs.io/en/stable/
 
-# Cannot cache compiled function "init" as it uses dynamic globals (such as ctypes pointers and large global arrays)
-# class MPI_Communicators(IntEnum):
-#     """Global Communicators."""
-#     COMM_NULL = MPI._addressof(MPI.COMM_NULL)
-#     COMM_SELF = MPI._addressof(MPI.COMM_SELF)
-#     COMM_WORLD = MPI._addressof(MPI.COMM_WORLD)
-#
-#
-# # Cannot cache compiled function "init" as it uses dynamic globals (such as ctypes pointers and large global arrays)
-# class MPI_Operator(IntEnum):
-#     """Global Reduction Operations."""
-#     MAX = MPI._addressof(MPI.MAX)
-#     MIN = MPI._addressof(MPI.MIN)
-#     SUM = MPI._addressof(MPI.SUM)
-#     PROD = MPI._addressof(MPI.PROD)
-#     LAND = MPI._addressof(MPI.LAND)
-#     BAND = MPI._addressof(MPI.BAND)
-#
-#
-# # Cannot cache compiled function "init" as it uses dynamic globals (such as ctypes pointers and large global arrays)
-# class MPI_Data_Types(IntEnum):
-#     """Global Data Types."""
-#     CHAR = MPI._addressof(MPI.CHAR)
-#     INT32_T = MPI._addressof(MPI.INT32_T)
-#     INT64_T = MPI._addressof(MPI.INT64_T)
-#     FLOAT = MPI._addressof(MPI.FLOAT)
-#     DOUBLE = MPI._addressof(MPI.DOUBLE)
-#     C_FLOAT_COMPLEX = MPI._addressof(MPI.C_FLOAT_COMPLEX)
-#     C_DOUBLE_COMPLEX = MPI._addressof(MPI.C_DOUBLE_COMPLEX)
-
-
-# Calling C code from Numba
-# https://numba.readthedocs.io/en/stable/user/cfunc.html#calling-c-code-from-numba
-# https://github.com/numba/numba/issues/4115
-# https://stackoverflow.com/questions/61509903/how-to-pass-array-pointer-to-numba-function
 @nb.extending.intrinsic
 def address_as_void_ptr(typingctx, data):
     """Returns given memory address as a void pointer.
@@ -56,8 +20,6 @@ def address_as_void_ptr(typingctx, data):
     return sig, impl
 
 
-# https://github.com/numba/numba/issues/7399
-# https://stackoverflow.com/questions/51541302/how-to-wrap-a-cffi-function-in-numba-taking-pointers
 @nb.extending.intrinsic
 def val_to_ptr(typingctx, data):
     """Returns pointer to a variable.
@@ -129,7 +91,7 @@ def comm_Initialized(self):
     """MPI.Initialized."""
     def impl(self):
         flag_ptr = val_to_ptr(False)
-        status = MPI_Initialized(flag_ptr)
+        status = self.MPI_Initialized(flag_ptr)
         assert status == 0
         return val_from_ptr(flag_ptr)
     return impl
@@ -140,7 +102,7 @@ def comm_Initialized(self):
 def comm_Barrier(self):
     """MPI.Barrier."""
     def impl(self):
-        status = MPI_Barrier(self._mpi_addr(self.MPI_COMM_WORLD))
+        status = self.MPI_Barrier(self._mpi_addr(self.MPI_COMM_WORLD))
         assert status == 0
     return impl
 
@@ -151,7 +113,7 @@ def comm_Get_size(self):
     """MPI.Get_size."""
     def impl(self):
         size_ptr = val_to_ptr(0)
-        status = MPI_Comm_size(self._mpi_addr(self.MPI_COMM_WORLD), size_ptr)
+        status = self.MPI_Comm_size(self._mpi_addr(self.MPI_COMM_WORLD), size_ptr)
         assert status == 0
         return val_from_ptr(size_ptr)
     return impl
@@ -163,7 +125,7 @@ def comm_Get_rank(self):
     """MPI.Get_rank."""
     def impl(self):
         size_ptr = val_to_ptr(0)
-        status = MPI_Comm_rank(self._mpi_addr(self.MPI_COMM_WORLD), size_ptr)
+        status = self.MPI_Comm_rank(self._mpi_addr(self.MPI_COMM_WORLD), size_ptr)
         assert status == 0
         return val_from_ptr(size_ptr)
     return impl
@@ -174,14 +136,32 @@ def comm_Get_rank(self):
 def comm_Send(self, data, dest, tag=0):
     """MPI.Send."""
     def impl(self, data, dest, tag=0):
-        datatype = self._mpi_dtype(data)
-        status = MPI_Send(
+        status = self.MPI_Send(
             data.ctypes.data,
             data.size,
-            self._mpi_addr(datatype),
+            self._mpi_addr(self._mpi_dtype(data)),
             dest,
             tag,
             self._mpi_addr(self.MPI_COMM_WORLD),
+        )
+        assert status == 0
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Comm_class_t, 'Recv')
+def comm_Recv(self, data, dest, tag=0):
+    """MPI.Recv."""
+    def impl(self, data, dest, tag=0):
+        status_buffer = np.empty(5, dtype=np.intc)
+        status = self.MPI_Recv(
+            data.ctypes.data,
+            data.size,
+            self._mpi_addr(self._mpi_dtype(data)),
+            dest,
+            tag,
+            self._mpi_addr(self.MPI_COMM_WORLD),
+            status_buffer.ctypes.data,
         )
         assert status == 0
     return impl
@@ -196,37 +176,64 @@ def comm_allreduce(self, sendobj, operator=0):
             operator = self.MPI_SUM
         sendobj_buf = np.array([sendobj])
         recvobj_buf = np.zeros_like(sendobj_buf)
-        datatype = self._mpi_dtype(sendobj_buf)
-        status = MPI_Allreduce(
+        status = self.MPI_Allreduce(
             sendobj_buf.ctypes.data,
             recvobj_buf.ctypes.data,
             sendobj_buf.size,
-            self._mpi_addr(datatype),
+            self._mpi_addr(self._mpi_dtype(sendobj_buf)),
             self._mpi_addr(operator),
             self._mpi_addr(self.MPI_COMM_WORLD),
         )
+        assert status == 0
         return recvobj_buf[0]
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Comm_class_t, 'allgather')
+def comm_allgather(self, send_data, recv_data, count):
+    """MPI.allgather."""
+    def impl(self, send_data, recv_data, count):
+        status = self.MPI_Allgather(
+            send_data.ctypes.data,
+            send_data.size,
+            self._mpi_addr(self._mpi_dtype(send_data)),
+            recv_data.ctypes.data,
+            count,
+            self._mpi_addr(self._mpi_dtype(recv_data)),
+            self._mpi_addr(self.MPI_COMM_WORLD),
+        )
+        assert status == 0
     return impl
 
 
 Comm_t = Comm_class_t([
     # communictors
-    ('MPI_COMM_WORLD', nb.int64),
+    ('MPI_COMM_WORLD', nb.typeof(MPI._addressof(MPI.COMM_WORLD))),
     # datatypes
-    ('MPI_CHAR', nb.int64),
-    ('MPI_INT32_T', nb.int64),
-    ('MPI_INT64_T', nb.int64),
-    ('MPI_FLOAT', nb.int64),
-    ('MPI_DOUBLE', nb.int64),
-    ('MPI_C_FLOAT_COMPLEX', nb.int64),
-    ('MPI_C_DOUBLE_COMPLEX', nb.int64),
-    # Operators
-    ('MPI_MAX', nb.int64),
-    ('MPI_MIN', nb.int64),
-    ('MPI_SUM', nb.int64),
-    ('MPI_PROD', nb.int64),
-    ('MPI_LAND', nb.int64),
-    ('MPI_BAND', nb.int64),
+    ('MPI_CHAR', nb.typeof(MPI._addressof(MPI.CHAR))),
+    ('MPI_INT32_T', nb.typeof(MPI._addressof(MPI.INT32_T))),
+    ('MPI_INT64_T', nb.typeof(MPI._addressof(MPI.INT64_T))),
+    ('MPI_FLOAT', nb.typeof(MPI._addressof(MPI.FLOAT))),
+    ('MPI_DOUBLE', nb.typeof(MPI._addressof(MPI.DOUBLE))),
+    ('MPI_C_FLOAT_COMPLEX', nb.typeof(MPI._addressof(MPI.C_FLOAT_COMPLEX))),
+    ('MPI_C_DOUBLE_COMPLEX', nb.typeof(MPI._addressof(MPI.C_DOUBLE_COMPLEX))),
+    # operators
+    ('MPI_MAX', nb.typeof(MPI._addressof(MPI.MAX))),
+    ('MPI_MIN', nb.typeof(MPI._addressof(MPI.MIN))),
+    ('MPI_SUM', nb.typeof(MPI._addressof(MPI.SUM))),
+    ('MPI_PROD', nb.typeof(MPI._addressof(MPI.PROD))),
+    ('MPI_LAND', nb.typeof(MPI._addressof(MPI.LAND))),
+    ('MPI_BAND', nb.typeof(MPI._addressof(MPI.BAND))),
+    # functions
+    ('MPI_Initialized', nb.typeof(MPI_Initialized)),
+    ('MPI_Barrier', nb.typeof(MPI_Barrier)),
+    ('MPI_Comm_size', nb.typeof(MPI_Comm_size)),
+    ('MPI_Comm_rank', nb.typeof(MPI_Comm_rank)),
+    ('MPI_Send', nb.typeof(MPI_Send)),
+    ('MPI_Recv', nb.typeof(MPI_Recv)),
+    ('MPI_Allgather', nb.typeof(MPI_Allgather)),
+    ('MPI_Allreduce', nb.typeof(MPI_Allreduce)),
 ])
 
 
@@ -248,13 +255,22 @@ class Comm(structref.StructRefProxy):
                 self.MPI_DOUBLE,
                 self.MPI_C_FLOAT_COMPLEX,
                 self.MPI_C_DOUBLE_COMPLEX,
-                # Operators
+                # operators
                 self.MPI_MAX,
                 self.MPI_MIN,
                 self.MPI_SUM,
                 self.MPI_PROD,
                 self.MPI_LAND,
                 self.MPI_BAND,
+                # functions
+                self.MPI_Initialized,
+                self.MPI_Barrier,
+                self.MPI_Comm_size,
+                self.MPI_Comm_rank,
+                self.MPI_Send,
+                self.MPI_Recv,
+                self.MPI_Allgather,
+                self.MPI_Allreduce,
             ) = args
             return self
         args = (
@@ -268,13 +284,22 @@ class Comm(structref.StructRefProxy):
             MPI._addressof(MPI.DOUBLE),
             MPI._addressof(MPI.C_FLOAT_COMPLEX),
             MPI._addressof(MPI.C_DOUBLE_COMPLEX),
-            # Operators
+            # operators
             MPI._addressof(MPI.MAX),
             MPI._addressof(MPI.MIN),
             MPI._addressof(MPI.SUM),
             MPI._addressof(MPI.PROD),
             MPI._addressof(MPI.LAND),
             MPI._addressof(MPI.BAND),
+            # functions
+            libmpi.MPI_Initialized,
+            libmpi.MPI_Barrier,
+            libmpi.MPI_Comm_size,
+            libmpi.MPI_Comm_rank,
+            libmpi.MPI_Send,
+            libmpi.MPI_Recv,
+            libmpi.MPI_Allgather,
+            libmpi.MPI_Allreduce,
         )
         return init(*args)
 
