@@ -22,23 +22,23 @@ else:
 
 _MpiStatusPtr = ctypes.c_void_p
 _MpiRequestPtr = ctypes.c_void_p
-
+# int MPI_Initialized(int *flag)
 MPI_Initialized = libmpi.MPI_Initialized
 MPI_Initialized.restype = _restype
 MPI_Initialized.argtypes = []
-
+# int MPI_Barrier(MPI_Comm comm)
 MPI_Barrier = libmpi.MPI_Barrier
 MPI_Barrier.restype = _restype
 MPI_Barrier.argtypes = [_MpiComm]
-
+# int MPI_Comm_size(MPI_Comm comm, int *size)
 MPI_Comm_size = libmpi.MPI_Comm_size
 MPI_Comm_size.restype = _restype
 MPI_Comm_size.argtypes = [_MpiComm, _c_int_p]
-
+# int MPI_Comm_rank(MPI_Comm comm, int *rank)
 MPI_Comm_rank = libmpi.MPI_Comm_rank
 MPI_Comm_rank.restype = _restype
 MPI_Comm_rank.argtypes = [_MpiComm, _c_int_p]
-
+# int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
 MPI_Send = libmpi.MPI_Send
 MPI_Send.restype = _restype
 MPI_Send.argtypes = [
@@ -49,7 +49,7 @@ MPI_Send.argtypes = [
     ctypes.c_int,  # message tag
     _MpiComm,  # communicator
 ]
-
+# int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Status *status)
 MPI_Recv = libmpi.MPI_Recv
 MPI_Recv.restype = _restype
 MPI_Recv.argtypes = [
@@ -61,7 +61,7 @@ MPI_Recv.argtypes = [
     _MpiComm,  # communicator
     _MpiStatusPtr,  # status object
 ]
-
+# int MPI_Scatter(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm)
 MPI_Scatter = libmpi.MPI_Scatter
 MPI_Scatter.restype = _restype
 MPI_Scatter.argtypes = [
@@ -74,7 +74,7 @@ MPI_Scatter.argtypes = [
     ctypes.c_int,  # root
     _MpiComm,  # communicator
 ]
-
+# int MPI_Gather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm)
 MPI_Gather = libmpi.MPI_Gather
 MPI_Gather.restype = _restype
 MPI_Gather.argtypes = [
@@ -87,7 +87,7 @@ MPI_Gather.argtypes = [
     ctypes.c_int,  # root
     _MpiComm,  # communicator
 ]
-
+# int MPI_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, MPI_Comm comm)
 MPI_Allgather = libmpi.MPI_Allgather
 MPI_Allgather.restype = _restype
 MPI_Allgather.argtypes = [
