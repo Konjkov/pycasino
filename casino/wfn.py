@@ -440,6 +440,7 @@ class Wfn(structref.StructRefProxy):
         return self.nuclear_repulsion
 
     @nb.njit(nogil=True, parallel=False, cache=True)
+    # @nb.vectorize(signature='(),()->()', cache=True)
     def energy(self, r_e) -> float:
         """Local energy.
         :param r_e: electron coordinates - array(nelec, 3)
@@ -510,6 +511,7 @@ class Wfn(structref.StructRefProxy):
         return res
 
     @nb.njit(nogil=True, parallel=False, cache=True)
+    # @nb.vectorize(signature='(),()->()', cache=True)
     def value_parameters_d1(self, r_e):
         """First-order derivatives of the wave function value w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
@@ -535,6 +537,7 @@ class Wfn(structref.StructRefProxy):
         return res
 
     @nb.njit(nogil=True, parallel=False, cache=True)
+    # @nb.vectorize(signature='(),()->()', cache=True)
     def value_parameters_d2(self, r_e):
         """Second-order derivatives of the wave function value w.r.t parameters.
         1/wfn * d²wfn/dp² - 1/wfn * dwfn/dp * 1/wfn * dwfn/dp
@@ -552,6 +555,7 @@ class Wfn(structref.StructRefProxy):
         return block_diag(res)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
+    # @nb.vectorize(signature='(),()->()', cache=True)
     def energy_parameters_d1(self, r_e):
         """First-order derivatives of local energy w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)

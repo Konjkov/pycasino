@@ -1,8 +1,20 @@
+import os
+import sys
+import numba as nb
+import numpy as np
+import scipy as sp
+import datetime
+import logging
+from mpi4py import MPI
+
+
 __version__ = '0.2.0'
 __author__ = 'Vladimir Konkov'
 __credits__ = 'Research Institute for Pythonic Quantum Chemistry'
 
-disclamer = f"""
+
+# created with art python package
+logo = f"""
  ------------------------------------------------------------------------------
  ########::'##:::'##::'######:::::'###:::::'######::'####:'##::: ##::'#######::
  ##.... ##:. ##:'##::'##... ##:::'## ##:::'##... ##:. ##:: ###:: ##:'##.... ##:
@@ -17,20 +29,26 @@ disclamer = f"""
                         v {__version__} [{__author__}]
 
     Main Author : {__author__}
- ------------------------------------------------------------------------------"""
-# created with art python package
+ ------------------------------------------------------------------------------
+ Started {datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}
 
-import os
-import sys
+ Python {sys.version}
+ Numba {nb.__version__}
+ Numpy {np.__version__}
+ Scipy {sp.__version__}
+"""
 
 os.environ["OMP_NUM_THREADS"] = "1"  # openmp
 os.environ["OPENBLAS_NUM_THREADS"] = "1"  # openblas
 os.environ["MKL_NUM_THREADS"] = "1"  # mkl
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # accelerate
 os.environ["NUMEXPR_NUM_THREADS"] = "1"  # numexpr
+os.environ["NUMBA_NUM_THREADS"] = "1"  # numba
+os.environ["NUMBA_FULL_TRACEBACKS"] = "1"
+# os.environ['NUMBA_CAPTURED_ERRORS'] = 'new_style'
+# os.environ['NUMBA_DEBUG_CACHE'] = '1'
 
-import numpy as np
-
+np.seterr(all='warn')
 np.random.seed(31415926)
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -41,13 +59,6 @@ delta_2 = np.finfo(np.float_).eps ** (1/3)
 delta_3 = np.finfo(np.float_).eps ** (1/4)
 
 # np.show_config()
-
-# os.environ['NUMBA_CAPTURED_ERRORS'] = 'new_style'
-# os.environ['NUMBA_DEBUG_CACHE'] = '1'
-os.environ['NUMBA_NUM_THREADS'] = '1'
-
-import logging
-
 logging.basicConfig(
     level=logging.INFO,
     filename='pycasino.log',
@@ -56,8 +67,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
-from mpi4py import MPI
 
 if MPI.COMM_WORLD.rank == 0:
     # to redirect scipy.optimize stdout to log-file
@@ -68,21 +77,8 @@ else:
     logger.addHandler(logging.NullHandler())
     logger.propagate = False
 
-logger.info(disclamer)
+logger.info(logo)
 
-import datetime
-import numba as nb
-import scipy as sp
-
-now = datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')
-logger.info(f' Started {now}\n')
-
-logger.info(
-    f' Python {sys.version}\n'
-    f' Numba {nb.__version__}\n'
-    f' Numpy {np.__version__}\n'
-    f' Scipy {sp.__version__}\n'
-)
 if MPI.COMM_WORLD.size > 1:
     logger.info(' Running in parallel using %i MPI processes.\n', MPI.COMM_WORLD.size)
 else:

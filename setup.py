@@ -16,17 +16,18 @@ setup(
     install_requires=[
         'numba>=0.59.0',
         'mpi4py>=3.1.0',
-        'numba-mpi==1.0.0',
         'pyblock>=0.6.0',
         'numpy>=1.24.0',
         'scipy>=1.10.0',
         'sympy>=1.12.0',
+        'icc-rt',  # Intel(R) Compiler Runtime
+        'tbb',  # threading layer backed by Intel TBB
         'pyyaml>=6.0.0',  # for gjastrow reader
         'matplotlib>=3.6.0',
         'pandas>=2.0.2'   # for pyblock
     ],
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License',
         'Operating System :: POSIX :: Linux',

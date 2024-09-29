@@ -18,13 +18,24 @@ from casino.jastrow import Jastrow
 # from casino.gjastrow import Gjastrow
 from casino.backflow import Backflow
 from casino.ppotential import PPotential
-from casino.markovchain import VMCMarkovChain, DMCMarkovChain, vmc_observable
+from casino.vmc import VMCMarkovChain, vmc_observable
+from casino.dmc import DMCMarkovChain
 from casino.readers import CasinoConfig
 from casino.sem import correlated_sem
 
 logger = logging.getLogger(__name__)
 
+mpi_comm = MPI.COMM_WORLD
+
 double_size = MPI.DOUBLE.Get_size()
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def expand(np_array):
+    """Set NaN to previous value"""
+    for i in range(1, np_array.shape[0]):
+        if np.isnan(np_array[i]).all():
+            np_array[i] = np_array[i-1]
 
 
 # @nb.njit(nogil=True, parallel=False, cache=True)
@@ -72,8 +83,7 @@ class Casino:
         """Casino workflow.
         :param config_path: path to config file
         """
-        self.mpi_comm = MPI.COMM_WORLD
-        self.root = self.mpi_comm.rank == 0
+        self.root = mpi_comm.rank == 0
         self.config = CasinoConfig(config_path)
         self.config.read()
         self.neu, self.ned = self.config.input.neu, self.config.input.ned
@@ -202,7 +212,7 @@ class Casino:
         for x in range(4 * n):
             self.vmc_markovchain.step_size = approximate_step_size * (x + 1) / n
             condition, _ = self.vmc_markovchain.random_walk(1000000, 1)
-            acc_ration = condition.mean()
+            acc_ration = (np.isfinite(position[:, 0, 0])).mean()
             acc_ration /= (self.neu + self.ned)
             logger.info(
                 'step_size / approximate_step_size  = %.5f, acc_ratio = %.5f', self.vmc_markovchain.step_size / approximate_step_size, acc_ration
@@ -215,11 +225,11 @@ class Casino:
         step_size = self.approximate_step_size
         for i in range(1, xdata.size):
             self.vmc_markovchain.step_size = step_size * xdata[i]
-            condition, position = self.vmc_markovchain.random_walk(steps, 1)
-            acc_ration = condition.mean()
+            position = self.vmc_markovchain.random_walk(steps, 1)
+            acc_ration = (np.isfinite(position[:, 0, 0])).mean()
             if self.config.input.vmc_method == 1:
                 acc_ration /= (self.neu + self.ned)
-            ydata[i] = self.mpi_comm.allreduce(acc_ration) / self.mpi_comm.size
+            ydata[i] = mpi_comm.allreduce(acc_ration) / mpi_comm.size
 
         def f(ts, a, ts0):
             """Dependence of the acceptance probability on the step size in CBCS case looks like:
@@ -245,7 +255,7 @@ class Casino:
                     f' ydata: {ydata}\n'
                     f' set step size to approximate'
                 )
-        self.vmc_markovchain.step_size = self.mpi_comm.bcast(step_size)
+        self.vmc_markovchain.step_size = mpi_comm.bcast(step_size)
 
     @property
     def decorr_period(self):
@@ -296,7 +306,7 @@ class Casino:
                         self.wfn.jastrow.cutoffs_optimizable = not self.config.input.opt_plan[i].get('fix_cutoffs', False)
                     if self.wfn.backflow:
                         self.wfn.backflow.cutoffs_optimizable = not self.config.input.opt_plan[i].get('fix_cutoffs', False)
-                condition, position = self.vmc_energy_accumulation()
+                position = self.vmc_energy_accumulation()
                 logger.info(
                     f' ==========================================\n'
                     f' PERFORMING OPTIMIZATION CALCULATION No. {i+1}.\n'
@@ -326,8 +336,9 @@ class Casino:
                  ' PERFORMING A VMC CONFIGURATION-GENERATION CALCULATION.\n'
                  ' ======================================================\n\n'
             )
-            _, position = self.vmc_energy_accumulation()
-            r_e_list = position[-self.config.input.vmc_nconfig_write // self.mpi_comm.size:]
+            position = self.vmc_energy_accumulation()
+            r_e_list = position[-self.config.input.vmc_nconfig_write // mpi_comm.size:]
+            expand(r_e_list)
             self.dmc_markovchain = DMCMarkovChain(
                 r_e_list, self.config.input.alimit, self.config.input.nucleus_gf_mods, self.config.input.use_tmove,
                 self.config.input.dtdmc, self.config.input.dmc_target_weight, self.wfn, self.config.input.dmc_method,
@@ -346,7 +357,7 @@ class Casino:
         :param steps: burn-in period
         :return:
         """
-        condition, _ = self.vmc_markovchain.random_walk(steps, self.decorr_period)
+        self.vmc_markovchain.random_walk(steps, self.decorr_period)
         logger.info(
             f' Running VMC equilibration ({steps} moves).'
         )
@@ -370,30 +381,27 @@ class Casino:
 
         ne = self.neu + self.ned
         nblock = self.config.input.vmc_nblock
-        steps = self.config.input.vmc_nstep // nblock // self.mpi_comm.size * nblock * self.mpi_comm.size
-        nblock_steps = steps // nblock // self.mpi_comm.size
+        steps = self.config.input.vmc_nstep // nblock // mpi_comm.size * nblock * mpi_comm.size
+        nblock_steps = steps // nblock // mpi_comm.size
 
         logger.info(
             f' Starting VMC.\n'
         )
-        # condition = np.empty(shape=(nblock, nblock_steps), dtype=np.int_)
-        # position = np.empty(shape=(nblock, nblock_steps, ne, 3))
-
-        energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=self.mpi_comm)
+        energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
         # create energy numpy array whose data points to the shared buffer
         buffer, _ = energy_buffer.Shared_query(rank=0)
-        energy = np.ndarray(buffer=buffer, shape=(self.mpi_comm.size, nblock, nblock_steps))
+        energy = np.ndarray(buffer=buffer, shape=(mpi_comm.size, nblock, nblock_steps))
 
         for i in range(nblock):
             block_start = default_timer()
-            condition, position = self.vmc_markovchain.random_walk(nblock_steps, self.decorr_period)
-            energy[self.mpi_comm.rank, i] = vmc_observable(condition, position, self.wfn.energy)
+            position = self.vmc_markovchain.random_walk(nblock_steps, self.decorr_period)
+            energy[mpi_comm.rank, i] = vmc_observable(position, self.wfn.energy)
             # wait until all processes have written to the array
-            self.mpi_comm.Barrier()
+            mpi_comm.Barrier()
             if self.root:
                 energy_block_mean = np.mean(energy[:, i, :])
                 energy_block_var = np.var(energy[:, i, :])
-                energy_block_sem = np.mean(correlated_sem(energy[:, i, :])) / np.sqrt(self.mpi_comm.size)
+                energy_block_sem = np.mean(correlated_sem(energy[:, i, :])) / np.sqrt(mpi_comm.size)
                 block_stop = default_timer()
                 logger.info(
                     f' =========================================================================\n'
@@ -408,7 +416,7 @@ class Casino:
                     f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
                 )
         if self.root:
-            energy_sem = np.mean(correlated_sem(energy.reshape(self.mpi_comm.size, nblock * nblock_steps))) / np.sqrt(self.mpi_comm.size)
+            energy_sem = np.mean(correlated_sem(energy.reshape(mpi_comm.size, nblock * nblock_steps))) / np.sqrt(mpi_comm.size)
             logger.info(
                 f' =========================================================================\n'
                 f' FINAL RESULT:\n\n'
@@ -417,7 +425,7 @@ class Casino:
                 f' Sample variance of E_L (au^2/sim.cell) : {energy.var():.12f}\n\n'
             )
         energy_buffer.Free()
-        return condition, position
+        return position
 
     def dmc_energy_equilibration(self):
         """DMC energy equilibration"""
@@ -511,9 +519,9 @@ class Casino:
         """Check"""
         self.wfn.set_parameters_projector()
         self.wfn.opt_jastrow, self.wfn.opt_backflow, self.wfn.opt_det_coeff = False, False, False
-        condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
-        for cond, pos in zip(condition, position):
-            if cond:
+        position = self.vmc_markovchain.random_walk(steps // mpi_comm.size, self.decorr_period)
+        for pos in position:
+            if not np.isnan(pos.sum()):
                 e_vectors, n_vectors = self.wfn._relative_coordinates(pos)
                 logger.info(self.wfn.slater.cusp.gradient(n_vectors)[0] / self.wfn.slater.cusp.numerical_gradient(n_vectors)[0])
                 logger.info(self.wfn.slater.cusp.laplacian(n_vectors)[0] / self.wfn.slater.cusp.numerical_laplacian(n_vectors)[0])
@@ -541,37 +549,37 @@ class Casino:
             1 : display a termination report.
             2 : display progress during iterations.
         """
-        steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        start, stop = self.mpi_comm.rank * steps // self.mpi_comm.size, (self.mpi_comm.rank + 1) * steps // self.mpi_comm.size
+        steps = steps // mpi_comm.size * mpi_comm.size
+        start, stop = mpi_comm.rank * steps // mpi_comm.size, (mpi_comm.rank + 1) * steps // mpi_comm.size
         # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
         scale = np.sqrt(2) / np.sqrt(steps - 1)
         x0 = self.wfn.get_parameters()
         # FIXME: reuse from vmc_energy_accumulation run
-        condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
+        position = self.vmc_markovchain.random_walk(steps // mpi_comm.size, self.decorr_period)
         logger.info(
             ' Optimization start\n'
             ' =================='
         )
-        energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=self.mpi_comm)
+        energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
         # create energy numpy array whose data points to the shared buffer
         buffer, _ = energy_buffer.Shared_query(rank=0)
         energy = np.ndarray(buffer=buffer, shape=(steps, ))
-        energy_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=self.mpi_comm)
+        energy_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=mpi_comm)
         # create energy_gradient numpy array whose data points to the shared buffer
         buffer, _ = energy_gradient_buffer.Shared_query(rank=0)
         energy_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
 
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x)
-            energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-            self.mpi_comm.Barrier()
+            energy[start:stop] = vmc_observable(position, self.wfn.energy)
+            mpi_comm.Barrier()
             return scale * (energy - energy.mean())
 
         def jac(x, *args, **kwargs):
             self.wfn.set_parameters(x)
             self.wfn.set_parameters_projector()
-            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
-            self.mpi_comm.Barrier()
+            energy_gradient[start:stop] = vmc_observable(position, self.wfn.energy_parameters_d1)
+            mpi_comm.Barrier()
             return scale * (energy_gradient - energy_gradient.mean(axis=0))
 
         res = least_squares(
@@ -581,7 +589,7 @@ class Casino:
         parameters = res.x
         energy_buffer.Free()
         energy_gradient_buffer.Free()
-        self.mpi_comm.Bcast(parameters)
+        mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
         logger.info(
             f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac.mean(axis=0)):.5e}\n'
@@ -596,43 +604,43 @@ class Casino:
             1 : display a termination report.
             2 : display progress during iterations.
         """
-        steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        start, stop = self.mpi_comm.rank * steps // self.mpi_comm.size, (self.mpi_comm.rank + 1) * steps // self.mpi_comm.size
+        steps = steps // mpi_comm.size * mpi_comm.size
+        start, stop = mpi_comm.rank * steps // mpi_comm.size, (mpi_comm.rank + 1) * steps // mpi_comm.size
         x0 = self.wfn.get_parameters()
         # FIXME: reuse from vmc_energy_accumulation run
-        condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
+        position = self.vmc_markovchain.random_walk(steps // mpi_comm.size, self.decorr_period)
         logger.info(
             ' Optimization start\n'
             ' =================='
         )
-        wfn_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=self.mpi_comm)
+        wfn_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
         # create wfn numpy array whose data points to the shared buffer
         buffer, _ = wfn_buffer.Shared_query(rank=0)
         wfn = np.ndarray(buffer=buffer, shape=(steps, ))
-        wfn_0_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=self.mpi_comm)
+        wfn_0_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
         # create wfn_0 numpy array whose data points to the shared buffer
         buffer, _ = wfn_0_buffer.Shared_query(rank=0)
         wfn_0 = np.ndarray(buffer=buffer, shape=(steps, ))
-        energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=self.mpi_comm)
+        energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
         # create energy numpy array whose data points to the shared buffer
         buffer, _ = energy_buffer.Shared_query(rank=0)
         energy = np.ndarray(buffer=buffer, shape=(steps, ))
-        wfn_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=self.mpi_comm)
+        wfn_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=mpi_comm)
         # create wfn_gradient numpy array whose data points to the shared buffer
         buffer, _ = wfn_gradient_buffer.Shared_query(rank=0)
         wfn_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
-        energy_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=self.mpi_comm)
+        energy_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=mpi_comm)
         # create energy_gradient numpy array whose data points to the shared buffer
         buffer, _ = energy_gradient_buffer.Shared_query(rank=0)
         energy_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
-        wfn_0[start:stop] = vmc_observable(condition, position, self.wfn.value)
-        self.mpi_comm.Barrier()
+        wfn_0[start:stop] = vmc_observable(position, self.wfn.value)
+        mpi_comm.Barrier()
 
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x)
-            wfn[start:stop] = vmc_observable(condition, position, self.wfn.value)
-            energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-            self.mpi_comm.Barrier()
+            wfn[start:stop] = vmc_observable(position, self.wfn.value)
+            energy[start:stop] = vmc_observable(position, self.wfn.energy)
+            mpi_comm.Barrier()
             weights = (wfn / wfn_0)**2
             mean_energy = np.average(energy, weights=weights)
             ddof = np.average(weights, weights=weights)  # Delta Degrees of Freedom
@@ -654,11 +662,11 @@ class Casino:
             self.wfn.set_parameters(x)
             self.wfn.set_parameters_projector()
             # jac(x) call allways follows fun(x) call
-            # wfn[start:stop] = vmc_observable(condition, position, self.wfn.value)
-            # energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
-            self.mpi_comm.Barrier()
+            # wfn[start:stop] = vmc_observable(position, self.wfn.value)
+            # energy[start:stop] = vmc_observable(position, self.wfn.energy)
+            wfn_gradient[start:stop] = vmc_observable(position, self.wfn.value_parameters_d1)
+            energy_gradient[start:stop] = vmc_observable(position, self.wfn.energy_parameters_d1)
+            mpi_comm.Barrier()
             weights = (wfn / wfn_0)**2
             mean_energy = np.average(energy, weights=weights)
             mean_wfn_gradient = np.average(wfn_gradient, axis=0, weights=weights)
@@ -682,7 +690,7 @@ class Casino:
         energy_buffer.Free()
         wfn_gradient_buffer.Free()
         energy_gradient_buffer.Free()
-        self.mpi_comm.Bcast(parameters)
+        mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
         logger.info(
             f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac.mean(axis=0)):.5e}\n'
@@ -699,8 +707,8 @@ class Casino:
         energy = data['energy'] - data['energy_mean']
         wfn_gradient = data['wfn_gradient'] - data['wfn_gradient_mean']
         jacobian = 2 * wfn_gradient.T @ energy / parameters_size
-        self.mpi_comm.Allreduce(MPI.IN_PLACE, jacobian)
-        return jacobian / self.mpi_comm.size
+        mpi_comm.Allreduce(MPI.IN_PLACE, jacobian)
+        return jacobian / mpi_comm.size
 
     def energy_parameters_hessian(self, data):
         """Hessian estimators of local energy from
@@ -717,8 +725,8 @@ class Casino:
         # Umrigar and Filippi
         half_D = wfn_gradient.T @ data['energy_gradient']
         hessian = (A + B + half_D + half_D.T) / parameters_size
-        self.mpi_comm.Allreduce(MPI.IN_PLACE, hessian)
-        return hessian / self.mpi_comm.size
+        mpi_comm.Allreduce(MPI.IN_PLACE, hessian)
+        return hessian / mpi_comm.size
 
     def vmc_energy_minimization_newton(self, steps, method='Newton-CG'):
         """Minimize vmc energy by Newton or gradient descent methods.
@@ -733,11 +741,11 @@ class Casino:
         :param method: type of solver
         """
         data = dict()
-        steps = steps // self.mpi_comm.size * self.mpi_comm.size
+        steps = steps // mpi_comm.size * mpi_comm.size
         x0 = self.wfn.get_parameters()
         self.wfn.set_parameters(x0)
         # FIXME: reuse from vmc_energy_accumulation run
-        condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
+        position = self.vmc_markovchain.random_walk(steps // mpi_comm.size, self.decorr_period)
         logger.info(
             ' Optimization start\n'
             ' =================='
@@ -757,17 +765,17 @@ class Casino:
             """For Nelder-Mead, Powell, COBYLA and those listed in jac and hess methods."""
             callback.nfev += 1
             self.wfn.set_parameters(x * scale)
-            data['energy'] = vmc_observable(condition, position, self.wfn.energy)
+            data['energy'] = vmc_observable(position, self.wfn.energy)
             data['energy_mean'] = data['energy'].mean()
-            return self.mpi_comm.allreduce(data['energy_mean']) / self.mpi_comm.size
+            return mpi_comm.allreduce(data['energy_mean']) / mpi_comm.size
 
         def jac(x, *args):
             """Only for CG, BFGS, L-BFGS-B, TNC, SLSQP and those listed in hess method."""
             self.wfn.set_parameters(x * scale)
             self.wfn.set_parameters_projector()
-            data['energy'] = vmc_observable(condition, position, self.wfn.energy)
+            data['energy'] = vmc_observable(position, self.wfn.energy)
             data['energy_mean'] = data['energy'].mean()
-            data['wfn_gradient'] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            data['wfn_gradient'] = vmc_observable(position, self.wfn.value_parameters_d1)
             data['wfn_gradient_mean'] = np.mean(data['wfn_gradient'], axis=0)
             return self.energy_parameters_gradient(data) * scale
 
@@ -775,12 +783,12 @@ class Casino:
             """Only for Newton-CG, dogleg, trust-ncg, trust-krylov, trust-exact and trust-constr."""
             self.wfn.set_parameters(x * scale)
             self.wfn.set_parameters_projector()
-            data['energy'] = vmc_observable(condition, position, self.wfn.energy)
+            data['energy'] = vmc_observable(position, self.wfn.energy)
             data['energy_mean'] = data['energy'].mean()
-            data['wfn_gradient'] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
+            data['wfn_gradient'] = vmc_observable(position, self.wfn.value_parameters_d1)
             data['wfn_gradient_mean'] = np.mean(data['wfn_gradient'], axis=0)
-            data['wfn_hessian'] = vmc_observable(condition, position, self.wfn.value_parameters_d2)
-            data['energy_gradient'] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
+            data['wfn_hessian'] = vmc_observable(position, self.wfn.value_parameters_d2)
+            data['energy_gradient'] = vmc_observable(position, self.wfn.energy_parameters_d1)
             return self.energy_parameters_hessian(data) * np.outer(scale, scale)
 
         callback.nfev = 0
@@ -799,7 +807,7 @@ class Casino:
         res = minimize(fun, x0=x0 / scale, method=method, jac=jac, hess=hess, callback=callback, options=options)
         logger.info(f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac):.5e}\n')
         parameters = res.x * scale
-        self.mpi_comm.Bcast(parameters)
+        mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
 
     def vmc_energy_minimization_linear_method(self, steps):
@@ -822,8 +830,8 @@ class Casino:
         :param steps: number of configs
         """
         invert_S = False
-        steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        start, stop = self.mpi_comm.rank * steps // self.mpi_comm.size, (self.mpi_comm.rank + 1) * steps // self.mpi_comm.size
+        steps = steps // mpi_comm.size * mpi_comm.size
+        start, stop = mpi_comm.rank * steps // mpi_comm.size, (mpi_comm.rank + 1) * steps // mpi_comm.size
         x0 = self.wfn.get_parameters()
         if x0.all():
             self.wfn.set_parameters(x0)
@@ -835,32 +843,32 @@ class Casino:
             # starting from HF distribution
             pass
         # FIXME: reuse from vmc_energy_accumulation run
-        condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
+        position = self.vmc_markovchain.random_walk(steps // mpi_comm.size, self.decorr_period)
         logger.info(
             ' Optimization start\n'
             ' =================='
         )
         self.wfn.set_parameters_projector()
-        energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=self.mpi_comm)
+        energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
         # create energy numpy array whose data points to the shared buffer
         buffer, _ = energy_buffer.Shared_query(rank=0)
         energy = np.ndarray(buffer=buffer, shape=(steps, ))
-        wfn_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=self.mpi_comm)
+        wfn_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=mpi_comm)
         # create wfn_gradient numpy array whose data points to the shared buffer
         buffer, _ = wfn_gradient_buffer.Shared_query(rank=0)
         wfn_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
-        energy_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=self.mpi_comm)
+        energy_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=mpi_comm)
         # create energy_gradient numpy array whose data points to the shared buffer
         buffer, _ = energy_gradient_buffer.Shared_query(rank=0)
         energy_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
-        energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-        wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-        energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
-        self.mpi_comm.Barrier()
+        energy[start:stop] = vmc_observable(position, self.wfn.energy)
+        wfn_gradient[start:stop] = vmc_observable(position, self.wfn.value_parameters_d1)
+        energy_gradient[start:stop] = vmc_observable(position, self.wfn.energy_parameters_d1)
+        mpi_comm.Barrier()
         dp = np.empty_like(x0)
         if self.root:
             energy_0 = energy.mean()
-            sem = np.mean(correlated_sem(energy.reshape(self.mpi_comm.size, steps // self.mpi_comm.size))) / np.sqrt(self.mpi_comm.size)
+            sem = np.mean(correlated_sem(energy.reshape(mpi_comm.size, steps // mpi_comm.size))) / np.sqrt(mpi_comm.size)
             if invert_S:
                 scale = 1
                 S_inv_H = S_inv_H_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
@@ -895,7 +903,7 @@ class Casino:
                 self.wfn.set_parameters(x0)
                 dp = eigvector[1:] * eigvector[0] * scale
 
-        self.mpi_comm.Bcast(dp)
+        mpi_comm.Bcast(dp)
         if x0.all():
             logger.info(f'delta p / p\n{dp / x0}\n')
         else:
@@ -923,58 +931,58 @@ class Casino:
 
         :param steps: number of configs
         """
-        steps = steps // self.mpi_comm.size * self.mpi_comm.size
-        start, stop = self.mpi_comm.rank * steps // self.mpi_comm.size, (self.mpi_comm.rank + 1) * steps // self.mpi_comm.size
+        steps = steps // mpi_comm.size * mpi_comm.size
+        start, stop = mpi_comm.rank * steps // mpi_comm.size, (mpi_comm.rank + 1) * steps // mpi_comm.size
         x0 = self.wfn.get_parameters()
         self.wfn.set_parameters(x0)
         # FIXME: reuse from vmc_energy_accumulation run
-        condition, position = self.vmc_markovchain.random_walk(steps // self.mpi_comm.size, self.decorr_period)
+        position = self.vmc_markovchain.random_walk(steps // mpi_comm.size, self.decorr_period)
         logger.info(
             ' Optimization start\n'
             ' =================='
         )
-        energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=self.mpi_comm)
+        energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
         # create energy numpy array whose data points to the shared buffer
         buffer, _ = energy_buffer.Shared_query(rank=0)
         energy = np.ndarray(buffer=buffer, shape=(steps, ))
-        wfn_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=self.mpi_comm)
+        wfn_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=mpi_comm)
         # create wfn_gradient numpy array whose data points to the shared buffer
         buffer, _ = wfn_gradient_buffer.Shared_query(rank=0)
         wfn_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
-        energy_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=self.mpi_comm)
+        energy_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=mpi_comm)
         # create energy_gradient numpy array whose data points to the shared buffer
         buffer, _ = energy_gradient_buffer.Shared_query(rank=0)
         energy_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
 
         def fun(x, *args):
             self.wfn.set_parameters(x)
-            energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-            self.mpi_comm.Barrier()
+            energy[start:stop] = vmc_observable(position, self.wfn.energy)
+            mpi_comm.Barrier()
             logger.info(f'energy: {energy.mean()}')
             return energy.mean()
 
         def jac(x, *args):
             self.wfn.set_parameters(x)
             self.wfn.set_parameters_projector()
-            energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            self.mpi_comm.Barrier()
+            energy[start:stop] = vmc_observable(position, self.wfn.energy)
+            wfn_gradient[start:stop] = vmc_observable(position, self.wfn.value_parameters_d1)
+            mpi_comm.Barrier()
             if self.root:
                 energy[:] -= np.mean(energy)
                 wfn_gradient[:, :] -= np.mean(wfn_gradient, axis=0)
-            self.mpi_comm.Barrier()
+            mpi_comm.Barrier()
             return 2 * wfn_gradient.T @ energy / steps
 
         def hess(x, *args):
             self.wfn.set_parameters(x)
             self.wfn.set_parameters_projector()
-            energy[start:stop] = vmc_observable(condition, position, self.wfn.energy)
-            wfn_gradient[start:stop] = vmc_observable(condition, position, self.wfn.value_parameters_d1)
-            energy_gradient[start:stop] = vmc_observable(condition, position, self.wfn.energy_parameters_d1)
-            self.mpi_comm.Barrier()
+            energy[start:stop] = vmc_observable(position, self.wfn.energy)
+            wfn_gradient[start:stop] = vmc_observable(position, self.wfn.value_parameters_d1)
+            energy_gradient[start:stop] = vmc_observable(position, self.wfn.energy_parameters_d1)
+            mpi_comm.Barrier()
             if self.root:
                 wfn_gradient[:, :] -= np.mean(wfn_gradient, axis=0)
-            self.mpi_comm.Barrier()
+            mpi_comm.Barrier()
             S_diag = np.var(wfn_gradient, axis=0)
             H_diag = np.mean(wfn_gradient * (np.expand_dims(energy, 1) * wfn_gradient), axis=0) + np.mean(wfn_gradient * energy_gradient, axis=0)
             epsilon = H_diag / S_diag
@@ -991,7 +999,7 @@ class Casino:
         energy_buffer.Free()
         wfn_gradient_buffer.Free()
         energy_gradient_buffer.Free()
-        self.mpi_comm.Bcast(parameters)
+        mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
 
 
