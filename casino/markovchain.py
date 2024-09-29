@@ -1,6 +1,6 @@
 import numpy as np
 import numba as nb
-import numba_mpi as nb_mpi
+# import numba_mpi as nb_mpi
 
 from math import erfc
 from numba.core import types
@@ -725,19 +725,19 @@ def dmcmarkovchain_redistribute_walker(self, from_rank, to_rank, count):
                     velocity[i] = self.velocity_list.pop()
                     wfn_value[i] = self.wfn_value_list.pop()
                     branching_energy[i] = self.branching_energy_list.pop()
-                nb_mpi.send(age, dest=to_rank)
-                nb_mpi.send(r_e, dest=to_rank)
-                nb_mpi.send(energy, dest=to_rank)
-                nb_mpi.send(velocity, dest=to_rank)
-                nb_mpi.send(wfn_value, dest=to_rank)
-                nb_mpi.send(branching_energy, dest=to_rank)
+                self.mpi_comm.Send(age, dest=to_rank)
+                self.mpi_comm.Send(r_e, dest=to_rank)
+                self.mpi_comm.Send(energy, dest=to_rank)
+                self.mpi_comm.Send(velocity, dest=to_rank)
+                self.mpi_comm.Send(wfn_value, dest=to_rank)
+                self.mpi_comm.Send(branching_energy, dest=to_rank)
             elif rank == to_rank:
-                nb_mpi.recv(age, source=from_rank)
-                nb_mpi.recv(r_e, source=from_rank)
-                nb_mpi.recv(energy, source=from_rank)
-                nb_mpi.recv(velocity, source=from_rank)
-                nb_mpi.recv(wfn_value, source=from_rank)
-                nb_mpi.recv(branching_energy, source=from_rank)
+                self.mpi_comm.Recv(age, source=from_rank)
+                self.mpi_comm.Recv(r_e, source=from_rank)
+                self.mpi_comm.Recv(energy, source=from_rank)
+                self.mpi_comm.Recv(velocity, source=from_rank)
+                self.mpi_comm.Recv(wfn_value, source=from_rank)
+                self.mpi_comm.Recv(branching_energy, source=from_rank)
                 for i in range(count):
                     self.age_list.append(age[i])
                     self.r_e_list.append(r_e[i])
@@ -760,7 +760,7 @@ def dmcmarkovchain_load_balancing(self):
             walkers = np.zeros(shape=(self.mpi_size,), dtype=np.int_)
             walkers[rank] = len(self.energy_list)
             # FIXME: use MPI_IN_PLACE
-            nb_mpi.allgather(walkers[rank:rank+1], walkers, 1)
+            self.mpi_comm.Allgather(walkers[rank:rank+1], walkers, 1)
             self.efficiency_list.append(walkers.mean() / np.max(walkers))
             # round down
             walkers = (walkers - walkers.mean()).astype(np.int_)

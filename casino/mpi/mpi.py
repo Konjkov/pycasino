@@ -8,6 +8,10 @@ from .header import libmpi, MPI_Initialized, MPI_Barrier, MPI_Comm_size, MPI_Com
 
 # https://mpi4py.readthedocs.io/en/stable/
 
+ANY_TAG = MPI.ANY_TAG
+ANY_SOURCE = MPI.ANY_SOURCE
+
+
 @nb.extending.intrinsic
 def address_as_void_ptr(typingctx, data):
     """Returns given memory address as a void pointer.
@@ -135,6 +139,8 @@ def comm_Get_rank(self):
 @overload_method(Comm_class_t, 'Send')
 def comm_Send(self, data, dest, tag=0):
     """MPI.Send."""
+    # assert data.flags.c_contiguous
+    # https://stackoverflow.com/questions/34317197/mpi4py-sending-numpy-subarray-non-contiguous-memory-without-copy
     def impl(self, data, dest, tag=0):
         status = self.MPI_Send(
             data.ctypes.data,
@@ -150,15 +156,23 @@ def comm_Send(self, data, dest, tag=0):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Comm_class_t, 'Recv')
-def comm_Recv(self, data, dest, tag=0):
+def comm_Recv(self, data, source=ANY_SOURCE, tag=ANY_TAG):
     """MPI.Recv."""
-    def impl(self, data, dest, tag=0):
+    # assert data.flags.c_contiguous
+    def impl(self, data, source=ANY_SOURCE, tag=ANY_TAG):
+        # typedef struct _MPI_Status {
+        #   int count;
+        #   int cancelled;
+        #   int MPI_SOURCE;
+        #   int MPI_TAG;
+        #   int MPI_ERROR;
+        # } MPI_Status, *PMPI_Status;
         status_buffer = np.empty(5, dtype=np.intc)
         status = self.MPI_Recv(
             data.ctypes.data,
             data.size,
             self._mpi_addr(self._mpi_dtype(data)),
-            dest,
+            source,
             tag,
             self._mpi_addr(self.MPI_COMM_WORLD),
             status_buffer.ctypes.data,
@@ -168,31 +182,11 @@ def comm_Recv(self, data, dest, tag=0):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Comm_class_t, 'allreduce')
-def comm_allreduce(self, sendobj, operator=0):
-    """MPI.allreduce."""
-    def impl(self, sendobj, operator=0):
-        if operator == 0:
-            operator = self.MPI_SUM
-        sendobj_buf = np.array([sendobj])
-        recvobj_buf = np.zeros_like(sendobj_buf)
-        status = self.MPI_Allreduce(
-            sendobj_buf.ctypes.data,
-            recvobj_buf.ctypes.data,
-            sendobj_buf.size,
-            self._mpi_addr(self._mpi_dtype(sendobj_buf)),
-            self._mpi_addr(operator),
-            self._mpi_addr(self.MPI_COMM_WORLD),
-        )
-        assert status == 0
-        return recvobj_buf[0]
-    return impl
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Comm_class_t, 'allgather')
-def comm_allgather(self, send_data, recv_data, count):
-    """MPI.allgather."""
+@overload_method(Comm_class_t, 'Allgather')
+def comm_Allgather(self, send_data, recv_data, count):
+    """MPI.Allgather()."""
+    # assert send_data.flags.c_contiguous
+    # assert recv_data.flags.c_contiguous
     def impl(self, send_data, recv_data, count):
         status = self.MPI_Allgather(
             send_data.ctypes.data,
@@ -201,9 +195,32 @@ def comm_allgather(self, send_data, recv_data, count):
             recv_data.ctypes.data,
             count,
             self._mpi_addr(self._mpi_dtype(recv_data)),
+            self._mpi_addr(_MPI_Comm_World_ptr),
+        )
+        assert status == 0
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Comm_class_t, 'allreduce')
+def comm_allreduce(self, send_data, operator=0):
+    """MPI.allreduce."""
+    # assert send_data.flags.c_contiguous
+    def impl(self, send_data, operator=0):
+        if operator == 0:
+            operator = self.MPI_SUM
+        send_data_buf = np.array([send_data])
+        recv_data_buf = np.zeros_like(send_data_buf)
+        status = self.MPI_Allreduce(
+            send_data_buf.ctypes.data,
+            recv_data_buf.ctypes.data,
+            send_data_buf.size,
+            self._mpi_addr(self._mpi_dtype(send_data_buf)),
+            self._mpi_addr(operator),
             self._mpi_addr(self.MPI_COMM_WORLD),
         )
         assert status == 0
+        return recv_data_buf[0]
     return impl
 
 
@@ -225,7 +242,7 @@ Comm_t = Comm_class_t([
     ('MPI_PROD', nb.typeof(MPI._addressof(MPI.PROD))),
     ('MPI_LAND', nb.typeof(MPI._addressof(MPI.LAND))),
     ('MPI_BAND', nb.typeof(MPI._addressof(MPI.BAND))),
-    # functions
+    # communucator functions
     ('MPI_Initialized', nb.typeof(MPI_Initialized)),
     ('MPI_Barrier', nb.typeof(MPI_Barrier)),
     ('MPI_Comm_size', nb.typeof(MPI_Comm_size)),
@@ -262,7 +279,7 @@ class Comm(structref.StructRefProxy):
                 self.MPI_PROD,
                 self.MPI_LAND,
                 self.MPI_BAND,
-                # functions
+                # communucator functions
                 self.MPI_Initialized,
                 self.MPI_Barrier,
                 self.MPI_Comm_size,
@@ -291,7 +308,7 @@ class Comm(structref.StructRefProxy):
             MPI._addressof(MPI.PROD),
             MPI._addressof(MPI.LAND),
             MPI._addressof(MPI.BAND),
-            # functions
+            # communucator functions
             libmpi.MPI_Initialized,
             libmpi.MPI_Barrier,
             libmpi.MPI_Comm_size,

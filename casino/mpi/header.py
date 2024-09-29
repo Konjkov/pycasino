@@ -38,6 +38,16 @@ MPI_Comm_size.argtypes = [_MpiComm, _c_int_p]
 MPI_Comm_rank = libmpi.MPI_Comm_rank
 MPI_Comm_rank.restype = _restype
 MPI_Comm_rank.argtypes = [_MpiComm, _c_int_p]
+# int MPI_Bcast( void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm )
+MPI_Bcast = libmpi.MPI_Bcast
+MPI_Bcast.restype = _restype
+MPI_Bcast.argtypes = [
+    ctypes.c_void_p,  # starting address of buffer
+    ctypes.c_int,  # number of entries in buffer
+    _MpiDatatype,  # data type of buffer
+    ctypes.c_int,  # rank of broadcast root
+    _MpiComm,  # communicator
+]
 # int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
 MPI_Send = libmpi.MPI_Send
 MPI_Send.restype = _restype
