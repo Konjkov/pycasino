@@ -10,6 +10,7 @@ from .header import libmpi, MPI_Initialized, MPI_Barrier, MPI_Comm_size, MPI_Com
 
 ANY_TAG = MPI.ANY_TAG
 ANY_SOURCE = MPI.ANY_SOURCE
+IN_PLACE = MPI.IN_PLACE
 
 
 @nb.extending.intrinsic
@@ -195,7 +196,7 @@ def comm_Allgather(self, send_data, recv_data, count):
             recv_data.ctypes.data,
             count,
             self._mpi_addr(self._mpi_dtype(recv_data)),
-            self._mpi_addr(_MPI_Comm_World_ptr),
+            self._mpi_addr(self.MPI_COMM_WORLD),
         )
         assert status == 0
     return impl
@@ -235,13 +236,24 @@ Comm_t = Comm_class_t([
     ('MPI_DOUBLE', nb.typeof(MPI._addressof(MPI.DOUBLE))),
     ('MPI_C_FLOAT_COMPLEX', nb.typeof(MPI._addressof(MPI.C_FLOAT_COMPLEX))),
     ('MPI_C_DOUBLE_COMPLEX', nb.typeof(MPI._addressof(MPI.C_DOUBLE_COMPLEX))),
+    # The following are datatypes for the MPI functions MPI_MAXLOC and MPI_MINLOC
+    ('INT_INT', nb.typeof(MPI._addressof(MPI.INT_INT))),
+    ('FLOAT_INT', nb.typeof(MPI._addressof(MPI.FLOAT_INT))),
+    ('DOUBLE_INT', nb.typeof(MPI._addressof(MPI.DOUBLE_INT))),
     # operators
-    ('MPI_MAX', nb.typeof(MPI._addressof(MPI.MAX))),
-    ('MPI_MIN', nb.typeof(MPI._addressof(MPI.MIN))),
-    ('MPI_SUM', nb.typeof(MPI._addressof(MPI.SUM))),
-    ('MPI_PROD', nb.typeof(MPI._addressof(MPI.PROD))),
-    ('MPI_LAND', nb.typeof(MPI._addressof(MPI.LAND))),
-    ('MPI_BAND', nb.typeof(MPI._addressof(MPI.BAND))),
+    ('MPI_MAX', nb.typeof(MPI._addressof(MPI.MAX))),        # return the maximum
+    ('MPI_MIN', nb.typeof(MPI._addressof(MPI.MIN))),        # return the minimum
+    ('MPI_SUM', nb.typeof(MPI._addressof(MPI.SUM))),        # return the sum
+    ('MPI_PROD', nb.typeof(MPI._addressof(MPI.PROD))),      # return the product
+    ('MPI_LAND', nb.typeof(MPI._addressof(MPI.LAND))),      # return the logical and
+    ('MPI_LOR', nb.typeof(MPI._addressof(MPI.LOR))),        # return the logical or
+    ('MPI_LXOR', nb.typeof(MPI._addressof(MPI.LXOR))),      # return the logical exclusive or
+    ('MPI_BAND', nb.typeof(MPI._addressof(MPI.BAND))),      # return the bitwise and
+    ('MPI_BOR', nb.typeof(MPI._addressof(MPI.BOR))),        # return the bitwise or
+    ('MPI_BXOR', nb.typeof(MPI._addressof(MPI.BXOR))),      # return the bitwise exclusive or
+    ('MPI_MAXLOC', nb.typeof(MPI._addressof(MPI.MAXLOC))),  # return the maximum and the location
+    ('MPI_MINLOC', nb.typeof(MPI._addressof(MPI.MINLOC))),  # return the minimum and the location
+    ('MPI_NO_OP', nb.typeof(MPI._addressof(MPI.NO_OP))),    # perform no operation
     # communucator functions
     ('MPI_Initialized', nb.typeof(MPI_Initialized)),
     ('MPI_Barrier', nb.typeof(MPI_Barrier)),
@@ -272,13 +284,23 @@ class Comm(structref.StructRefProxy):
                 self.MPI_DOUBLE,
                 self.MPI_C_FLOAT_COMPLEX,
                 self.MPI_C_DOUBLE_COMPLEX,
+                self.INT_INT,
+                self.FLOAT_INT,
+                self.DOUBLE_INT,
                 # operators
                 self.MPI_MAX,
                 self.MPI_MIN,
                 self.MPI_SUM,
                 self.MPI_PROD,
                 self.MPI_LAND,
+                self.MPI_LOR,
+                self.MPI_LXOR,
                 self.MPI_BAND,
+                self.MPI_BOR,
+                self.MPI_BXOR,
+                self.MPI_MAX_LOC,
+                self.MPI_MIN_LOC,
+                self.MPI_NO_OP,
                 # communucator functions
                 self.MPI_Initialized,
                 self.MPI_Barrier,
@@ -301,13 +323,23 @@ class Comm(structref.StructRefProxy):
             MPI._addressof(MPI.DOUBLE),
             MPI._addressof(MPI.C_FLOAT_COMPLEX),
             MPI._addressof(MPI.C_DOUBLE_COMPLEX),
+            MPI._addressof(MPI.INT_INT),
+            MPI._addressof(MPI.FLOAT_INT),
+            MPI._addressof(MPI.DOUBLE_INT),
             # operators
             MPI._addressof(MPI.MAX),
             MPI._addressof(MPI.MIN),
             MPI._addressof(MPI.SUM),
             MPI._addressof(MPI.PROD),
             MPI._addressof(MPI.LAND),
+            MPI._addressof(MPI.LOR),
+            MPI._addressof(MPI.LXOR),
             MPI._addressof(MPI.BAND),
+            MPI._addressof(MPI.BOR),
+            MPI._addressof(MPI.BXOR),
+            MPI._addressof(MPI.MPI_MAXLOC),
+            MPI._addressof(MPI.MPI_MINLOC),
+            MPI._addressof(MPI.NO_OP),
             # communucator functions
             libmpi.MPI_Initialized,
             libmpi.MPI_Barrier,
