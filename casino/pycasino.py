@@ -370,10 +370,15 @@ class Casino:
         )
         self.equilibrate(self.config.input.vmc_equil_nstep)
 
-        if self.config.input.dtvmc:
+        if self.config.input.opt_dtvmc == 0:
             self.vmc_markovchain.step_size = np.sqrt(3 * self.config.input.dtvmc)
-        else:
+        elif self.config.input.opt_dtvmc == 1:
+            # to achieve an acceptance ratio of (roughly) 50% (EBES default).
             self.optimize_vmc_step(1000)
+        elif self.config.input.opt_dtvmc == 2:
+            # to maximize the diffusion constant with respect to dtvmc (CBCS default).
+            raise NotImplemented
+
         logger.info(
             f' Optimized step size: {self.vmc_markovchain.step_size:.5f}\n'
             f' DTVMC: {(self.vmc_markovchain.step_size**2)/3:.5f}\n'
