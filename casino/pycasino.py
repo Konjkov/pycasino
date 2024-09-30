@@ -329,7 +329,8 @@ class Casino:
                 self.config.jastrow.u_cutoff[0]['value'] = self.wfn.jastrow.u_cutoff
                 if self.root:
                     self.config.write('.', i + 1)
-            self.vmc_energy_accumulation()
+            if self.config.input.postfit_vmc:
+                self.vmc_energy_accumulation()
         elif self.config.input.runtype == 'vmc_dmc':
             logger.info(
                  ' ======================================================\n'

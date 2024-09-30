@@ -67,7 +67,7 @@ class Input:
         # General keywords
         self.read_int('neu')
         self.read_int('ned')
-        self.read_int('gautol', 7)
+        self.read_float('gautol', 7.0)
         self.read_str('atom_basis_type')
         self.read_str('runtype')
         self.read_bool('testrun', False)
@@ -78,8 +78,9 @@ class Input:
         self.read_int('vmc_nblock')
         self.read_int('vmc_nconfig_write')
         self.read_float('dtvmc', 0.02)
-        self.read_float('opt_dtvmc', True)
+        self.read_bool('opt_dtvmc', True)
         self.read_int('vmc_method', 1)
+        self.read_bool('postfit_vmc', True)
         # Optimization keywords
         self.read_opt_plan()
         self.read_int('opt_cycles', len(self.opt_plan))
@@ -184,7 +185,7 @@ class Input:
         if self.runtype == 'vmc_opt':
             msg += (
                 f' OPT_CYCLES (num optimization cycles)     :  {self.opt_cycles}\n'
-                f' POSTFIT_VMC (perform post-fit VMC calc)  :  T\n'
+                f' POSTFIT_VMC (perform post-fit VMC calc)  :  {to_fortran(self.postfit_vmc)}\n'
                 f' POSTFIT_KEEP_CFG (keep post-fit VMC cfgs):  F\n'
                 f' OPT_NOCTF_CYCLES (fixed cutoff cycles)   :  {self.opt_noctf_cycles}\n'
                 f' OPT_INFO (information level)             :  2\n'
@@ -192,7 +193,7 @@ class Input:
                 f' OPT_DET_COEFF (opt det coeffs)           :  {to_fortran(self.opt_det_coeff)}\n'
                 f' OPT_ORBITALS (opt orbitals)              :  {to_fortran(self.opt_orbitals)}\n'
                 f' OPT_BACKFLOW (opt backflow params)       :  {to_fortran(self.opt_backflow)}\n'
-                f' OPT_FIXNL (fix nonlocal energy)          :  F\n'
+                f' OPT_FIXNL (fix nonlocal energy)          :  {to_fortran(self.opt_fixnl)}\n'
                 f' OPT_MAXITER (max num iterations)         :  {self.opt_maxiter}\n'
                 f' OPT_MAXEVAL (max num evaluations)        :  {self.opt_maxeval}\n'
                 f' VM_SMOOTH_LIMITS (smooth limiting)       :  T\n'
