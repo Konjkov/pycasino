@@ -1,6 +1,5 @@
 import numpy as np
 import numba as nb
-from abc import ABC, abstractmethod
 from casino import delta, delta_2, delta_3
 from casino.overload import random_step
 

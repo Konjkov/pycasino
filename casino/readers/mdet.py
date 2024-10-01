@@ -39,16 +39,22 @@ class Mdet:
                         break
                     if mdet:
                         if line.startswith('MD'):
+                            #  MD
+                            #    4                                  ! Number of dets
+                            #    0.95003749699999995        1   0      ! c_1 ; label ; opt-flag
+                            #   -0.16308105069005557        2   1      ! c_2 ; label ; opt-flag
+                            #   * 1.0000000000000000        2   1      ! c_3/c_2 ; label ; opt-flag
+                            #   * 1.0000000000000000        2   1      ! c_4/c_2 ; label ; opt-flag
                             n_dets = int(f.readline().split()[0])
                             self.coeff = np.ones(n_dets)
                             self.permutation_up = np.stack([np.arange(self.neu)] * n_dets)
                             self.permutation_down = np.stack([np.arange(self.ned)] * n_dets)
                             for i in range(n_dets):
                                 line = f.readline().split()
-                                if line[0] == '*':
-                                    self.coeff[i] = coeff * float(line[1])
-                                else:
+                                if line[0] != '*':
                                     self.coeff[i] = coeff = float(line[0])
+                                else:
+                                    self.coeff[i] = coeff * float(line[1])
                         elif line.startswith('DET'):
                             # DET 2 1 PR 2 1 3 1
                             self.promote_lines.append(line)

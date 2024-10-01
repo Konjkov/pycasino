@@ -7,7 +7,7 @@ from numba.experimental import structref
 from numba.core.extending import overload_method
 
 from casino.mpi import Comm, Comm_t
-from casino.wfn import Wfn, Wfn_t
+from casino.wfn import Wfn_t
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
