@@ -14,9 +14,9 @@
 
     Main Author : Vladimir Konkov
  ------------------------------------------------------------------------------
- Started 2024/08/22 07:42:04
+ Started 2024/10/01 10:18:19
 
- Python 3.10.12 (main, Jul 29 2024, 16:56:48) [GCC 11.4.0]
+ Python 3.10.12 (main, Sep 11 2024, 15:47:36) [GCC 11.4.0]
  Numba 0.59.0
  Numpy 1.26.4
  Scipy 1.11.3
@@ -38,7 +38,11 @@
  USE_JASTROW (use Jastrow factor)         :  T
  BACKFLOW (use backflow corrections)      :  T
  USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  T
+ NON_LOCAL_GRID (NL integration grid)     :  4
  E_OFFSET (energy offset)                 :  0.0000
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
  CHECKPOINT (checkpointing level)         :  1
  CON_LOC (Dir to read/write config.*)     :  ./
  RELATIVISTIC                             :  F
@@ -47,8 +51,8 @@
  ====================
  NEWRUN (start new run)                   :  T
  VMC_METHOD (choice of VMC algorithm)     :  3
- DTVMC (VMC time step)                    :  1.0000E-02
- OPT_DTVMC (VMC time-step optimization)   :  1
+ DTVMC (VMC time step)                    :  0.02
+ OPT_DTVMC (VMC time-step optimization)   :  True
  VMC_NSTEP (num VMC steps)                :  100000
  VMC_NCONFIG_WRITE (num configs to write) :  100000
  VMC_NBLOCK (num VMC blocks)              :  1
@@ -56,6 +60,23 @@
  VMC_DECORR_PERIOD (length of inner loop) :  10
  VMC_AVE_PERIOD (hist reduction factor)   :  1
  VMC_SAMPLING                             :  standard
+ OPT_CYCLES (num optimization cycles)     :  2
+ POSTFIT_VMC (perform post-fit VMC calc)  :  T
+ POSTFIT_KEEP_CFG (keep post-fit VMC cfgs):  F
+ OPT_NOCTF_CYCLES (fixed cutoff cycles)   :  0
+ OPT_INFO (information level)             :  2
+ OPT_JASTROW (opt Jastrow factor)         :  T
+ OPT_DET_COEFF (opt det coeffs)           :  F
+ OPT_ORBITALS (opt orbitals)              :  F
+ OPT_BACKFLOW (opt backflow params)       :  T
+ OPT_FIXNL (fix nonlocal energy)          :  T
+ OPT_MAXITER (max num iterations)         :  10
+ OPT_MAXEVAL (max num evaluations)        :  200
+ VM_SMOOTH_LIMITS (smooth limiting)       :  T
+ VM_REWEIGHT (reweighting)                :  F
+ VM_FILTER (filter outlying configs)      :  F
+ VM_USE_E_GUESS (use guess energy)        :  F
+ EMIN_XI_VALUE (xi parameter)             :  1.0
  MAKEMOVIE                                :  F
  FORCES                                   :  F
 
@@ -71,8 +92,8 @@
 
  Running VMC equilibration (5000 moves).
  Performing time-step optimization.
- Optimized step size: 0.79631
- DTVMC: 0.21137
+ Optimized step size: 0.78451
+ DTVMC: 0.20515
 
  Starting VMC.
 
@@ -82,24 +103,24 @@
 
   Block average energies (au)
 
-  Total energy                       (au) =          -2.537801933490
-  Standard error                        +/-           0.001568605845
+  Total energy                       (au) =          -2.538599403289
+  Standard error                        +/-           0.001600983350
 
   Constant energy contributions      (au) =           0.000000000000
 
-  Variance of local energy           (au) =           0.176325097087
+  Variance of local energy           (au) =           0.181868189077
   Standard error                        +/-           0.000000000000
 
- Time taken in block    : : :       10.2102
+ Time taken in block    : : :       10.2716
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
 
- -2.537801933490 +/- 0.001568605845      On-the-fly reblocking method
+ -2.538599403289 +/- 0.001600983350      On-the-fly reblocking method
 
- Sample variance of E_L (au^2/sim.cell) : 0.176325097087
+ Sample variance of E_L (au^2/sim.cell) : 0.181868189077
 
 
  ==========================================
@@ -110,22 +131,23 @@
  Optimization start
  ==================
    Iteration     Total nfev        Cost      Cost reduction    Step norm     Optimality
-       0              1         1.3521e-01                                    5.68e+05
-       1              2         2.8787e-02      1.06e-01       1.29e-01       1.23e+05
-       2              3         2.3939e-02      4.85e-03       2.92e-01       5.86e+04
-       3              4         2.3489e-02      4.50e-04       2.68e-01       3.73e+04
-       4              8         2.3392e-02      9.70e-05       1.13e-03       1.64e+04
+       0              1         1.3390e-01                                    5.33e+05
+       1              2         3.0546e-02      1.03e-01       1.17e-01       1.14e+05
+       2              6         3.0387e-02      1.59e-04       4.76e-03       2.24e+04
+       3              9         3.0385e-02      2.62e-06       5.71e-05       2.14e+04
+       4             11         3.0384e-02      2.92e-07       3.55e-06       2.14e+04
+       5             15         3.0384e-02      8.78e-07       1.39e-08       2.14e+04
 `ftol` termination condition is satisfied.
-Function evaluations 8, initial cost 1.3521e-01, final cost 2.3392e-02, first-order optimality 1.64e+04.
-Norm of Jacobian at the solution: 3.89645e-12
+Function evaluations 15, initial cost 1.3390e-01, final cost 3.0384e-02, first-order optimality 2.14e+04.
+Norm of Jacobian at the solution: 1.06615e-11
 
  BEGIN VMC CALCULATION
  =====================
 
  Running VMC equilibration (5000 moves).
  Performing time-step optimization.
- Optimized step size: 0.80143
- DTVMC: 0.21410
+ Optimized step size: 0.80985
+ DTVMC: 0.21862
 
  Starting VMC.
 
@@ -135,24 +157,24 @@ Norm of Jacobian at the solution: 3.89645e-12
 
   Block average energies (au)
 
-  Total energy                       (au) =          -2.595040902354
-  Standard error                        +/-           0.000553544140
+  Total energy                       (au) =          -2.598394588877
+  Standard error                        +/-           0.000528803259
 
   Constant energy contributions      (au) =           0.000000000000
 
-  Variance of local energy           (au) =           0.019804388963
+  Variance of local energy           (au) =           0.023292291502
   Standard error                        +/-           0.000000000000
 
- Time taken in block    : : :       11.2011
+ Time taken in block    : : :       11.0952
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
 
- -2.595040902354 +/- 0.000553544140      On-the-fly reblocking method
+ -2.598394588877 +/- 0.000528803259      On-the-fly reblocking method
 
- Sample variance of E_L (au^2/sim.cell) : 0.019804388963
+ Sample variance of E_L (au^2/sim.cell) : 0.023292291502
 
 
  ==========================================
@@ -163,24 +185,22 @@ Norm of Jacobian at the solution: 3.89645e-12
  Optimization start
  ==================
    Iteration     Total nfev        Cost      Cost reduction    Step norm     Optimality
-       0              1         2.2135e-02                                    1.28e+04
-       1              3         2.1680e-02      4.55e-04       6.44e-01       1.70e+05
-       2              4         2.0176e-02      1.50e-03       1.63e-01       2.76e+04
-       3              8         2.0162e-02      1.46e-05       7.20e-03       2.83e+04
-       4              9         2.0152e-02      9.68e-06       1.53e-03       1.70e+04
-       5             10         2.0150e-02      1.88e-06       3.93e-04       1.54e+04
-       6             12         2.0149e-02      9.77e-07       2.36e-05       1.53e+04
+       0              1         2.5893e-02                                    3.47e+04
+       1              7         2.5801e-02      9.14e-05       3.42e-02       2.45e+04
+       2              8         2.5777e-02      2.43e-05       8.21e-03       2.23e+04
+       3              9         2.5771e-02      5.81e-06       2.03e-03       2.17e+04
+       4             14         2.5769e-02      1.89e-06       1.98e-06       2.17e+04
 `ftol` termination condition is satisfied.
-Function evaluations 12, initial cost 2.2135e-02, final cost 2.0149e-02, first-order optimality 1.53e+04.
-Norm of Jacobian at the solution: 3.12709e-12
+Function evaluations 14, initial cost 2.5893e-02, final cost 2.5769e-02, first-order optimality 2.17e+04.
+Norm of Jacobian at the solution: 6.42087e-12
 
  BEGIN VMC CALCULATION
  =====================
 
  Running VMC equilibration (5000 moves).
  Performing time-step optimization.
- Optimized step size: 0.77300
- DTVMC: 0.19918
+ Optimized step size: 0.78738
+ DTVMC: 0.20666
 
  Starting VMC.
 
@@ -190,26 +210,26 @@ Norm of Jacobian at the solution: 3.12709e-12
 
   Block average energies (au)
 
-  Total energy                       (au) =          -2.596213888716
-  Standard error                        +/-           0.000541912685
+  Total energy                       (au) =          -2.598680909977
+  Standard error                        +/-           0.000533182428
 
   Constant energy contributions      (au) =           0.000000000000
 
-  Variance of local energy           (au) =           0.022420439597
+  Variance of local energy           (au) =           0.023203277412
   Standard error                        +/-           0.000000000000
 
- Time taken in block    : : :       10.4276
+ Time taken in block    : : :       11.2580
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
 
- -2.596213888716 +/- 0.000541912685      On-the-fly reblocking method
+ -2.598680909977 +/- 0.000533182428      On-the-fly reblocking method
 
- Sample variance of E_L (au^2/sim.cell) : 0.022420439597
+ Sample variance of E_L (au^2/sim.cell) : 0.023203277412
 
 
  =========================================================================
 
- Total PyCasino real time : : :    2342.9377
+ Total PyCasino real time : : :    1254.4686

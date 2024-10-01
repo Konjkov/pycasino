@@ -318,6 +318,8 @@ class Casino:
                     else:
                         self.vmc_unreweighted_variance_minimization(vmc_nconfig_write)
                 elif opt_method == 'madmin':
+                    # https://optimization.cbe.cornell.edu/index.php?title=Optimization_with_absolute_values
+                    # use scipy.optimize.linprog
                     raise NotImplemented
                 elif opt_method == 'emin':
                     if self.config.input.emin_method == 'newton':
@@ -584,7 +586,10 @@ class Casino:
         def jac(x, *args, **kwargs):
             self.wfn.set_parameters(x)
             self.wfn.set_parameters_projector()
-            energy_gradient[start:stop] = vmc_observable(position, self.wfn.energy_parameters_d1)
+            if self.config.input.opt_fixnl:
+                energy_gradient[start:stop] = vmc_observable(position, self.wfn.kinetic_energy_parameters_d1)
+            else:
+                energy_gradient[start:stop] = vmc_observable(position, self.wfn.energy_parameters_d1)
             mpi_comm.Barrier()
             return scale * (energy_gradient - energy_gradient.mean(axis=0))
 
@@ -671,7 +676,10 @@ class Casino:
             # wfn[start:stop] = vmc_observable(position, self.wfn.value)
             # energy[start:stop] = vmc_observable(position, self.wfn.energy)
             wfn_gradient[start:stop] = vmc_observable(position, self.wfn.value_parameters_d1)
-            energy_gradient[start:stop] = vmc_observable(position, self.wfn.energy_parameters_d1)
+            if self.config.input.opt_fixnl:
+                energy_gradient[start:stop] = vmc_observable(position, self.wfn.kinetic_energy_parameters_d1)
+            else:
+                energy_gradient[start:stop] = vmc_observable(position, self.wfn.energy_parameters_d1)
             mpi_comm.Barrier()
             weights = (wfn / wfn_0)**2
             mean_energy = np.average(energy, weights=weights)
@@ -869,7 +877,10 @@ class Casino:
         energy_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
         energy[start:stop] = vmc_observable(position, self.wfn.energy)
         wfn_gradient[start:stop] = vmc_observable(position, self.wfn.value_parameters_d1)
-        energy_gradient[start:stop] = vmc_observable(position, self.wfn.energy_parameters_d1)
+        if self.config.input.opt_fixnl:
+            energy_gradient[start:stop] = vmc_observable(position, self.wfn.kinetic_energy_parameters_d1)
+        else:
+            energy_gradient[start:stop] = vmc_observable(position, self.wfn.energy_parameters_d1)
         mpi_comm.Barrier()
         dp = np.empty_like(x0)
         if self.root:
@@ -883,7 +894,7 @@ class Casino:
                 S_inv_H[1:, 1:] += stabilization * np.eye(x0.size)
                 eigvals, eigvectors = sp.linalg.eig(S_inv_H)
             else:
-                # rescale parameters so that S is the Pearson correlation matrix
+                # rescale parameters so that S becomes the Pearson correlation matrix
                 scale = 1 / np.std(wfn_gradient, axis=0)
                 # FIXME: remove zero scale
                 S = overlap_matrix(wfn_gradient * scale)
@@ -984,7 +995,10 @@ class Casino:
             self.wfn.set_parameters_projector()
             energy[start:stop] = vmc_observable(position, self.wfn.energy)
             wfn_gradient[start:stop] = vmc_observable(position, self.wfn.value_parameters_d1)
-            energy_gradient[start:stop] = vmc_observable(position, self.wfn.energy_parameters_d1)
+            if self.config.input.opt_fixnl:
+                energy_gradient[start:stop] = vmc_observable(position, self.wfn.kinetic_energy_parameters_d1)
+            else:
+                energy_gradient[start:stop] = vmc_observable(position, self.wfn.energy_parameters_d1)
             mpi_comm.Barrier()
             if self.root:
                 wfn_gradient[:, :] -= np.mean(wfn_gradient, axis=0)

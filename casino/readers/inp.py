@@ -67,10 +67,10 @@ class Input:
         # General keywords
         self.read_int('neu')
         self.read_int('ned')
-        self.read_float('gautol', 7.0)
-        self.read_str('atom_basis_type')
         self.read_str('runtype')
         self.read_bool('testrun', False)
+        self.read_str('atom_basis_type')
+        self.read_float('gautol', 7.0)
         # VMC keywords
         self.read_int('vmc_equil_nstep')
         self.read_int('vmc_nstep')
@@ -80,20 +80,21 @@ class Input:
         self.read_float('dtvmc', 0.02)
         self.read_bool('opt_dtvmc', True)
         self.read_int('vmc_method', 1)
-        self.read_bool('postfit_vmc', True)
         # Optimization keywords
-        self.read_opt_plan()
-        self.read_int('opt_cycles', len(self.opt_plan))
         self.read_str('opt_method')
         self.read_str('emin_method', 'linear')
+        self.read_opt_plan()
+        self.read_int('opt_cycles', len(self.opt_plan))
+        self.read_bool('postfit_vmc', True)
+        self.read_int('opt_noctf_cycles', 0)
         self.read_bool('opt_jastrow', bool(self.opt_method))
-        self.read_bool('opt_backflow', False)
-        self.read_bool('opt_orbitals', False)
         self.read_bool('opt_det_coeff', False)
+        self.read_bool('opt_orbitals', False)
+        self.read_bool('opt_backflow', False)
+        self.read_bool('opt_fixnl', self.opt_method == 'varmin')
         self.read_int('opt_maxiter', 10)
         self.read_int('opt_maxeval', 200)
-        self.read_int('opt_noctf_cycles', 0)
-        self.read_bool('opt_fixnl', self.opt_method == 'varmin')
+        self.read_bool('vm_smooth_limit', True)
         self.read_bool('vm_reweight', False)
         self.read_bool('vm_w_max', 0.0)
         self.read_bool('vm_w_min', 0.0)
@@ -196,7 +197,7 @@ class Input:
                 f' OPT_FIXNL (fix nonlocal energy)          :  {to_fortran(self.opt_fixnl)}\n'
                 f' OPT_MAXITER (max num iterations)         :  {self.opt_maxiter}\n'
                 f' OPT_MAXEVAL (max num evaluations)        :  {self.opt_maxeval}\n'
-                f' VM_SMOOTH_LIMITS (smooth limiting)       :  T\n'
+                f' VM_SMOOTH_LIMITS (smooth limiting)       :  F\n'
                 f' VM_REWEIGHT (reweighting)                :  {to_fortran(self.vm_reweight)}\n'
                 f' VM_FILTER (filter outlying configs)      :  F\n'
                 f' VM_USE_E_GUESS (use guess energy)        :  F\n'
