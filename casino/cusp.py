@@ -1154,7 +1154,7 @@ class TestCuspFactory:
         )
         # atoms, MO - Optimum corrected s orbital at nucleus
         # phi_0 = np.concatenate((phi_0_up, phi_0_down), axis=1)
-        # wfn_0 = np.concatenate((wfn_0_up, wfn_0_down), axis=1)
+        np.concatenate((wfn_0_up, wfn_0_down), axis=1)
 
 
 if __name__ == '__main__':
