@@ -4,12 +4,11 @@ from numba.core import types
 from numba.experimental import structref
 from numba.core.extending import overload_method
 
-from casino.abstract import AbstractWfn
-from casino.slater import Slater, Slater_t
-from casino.jastrow import Jastrow, Jastrow_t
-from casino.backflow import Backflow, Backflow_t
+from casino.slater import Slater_t
+from casino.jastrow import Jastrow_t
+from casino.backflow import Backflow_t
 from casino.overload import block_diag
-from casino.ppotential import PPotential, PPotential_t
+from casino.ppotential import PPotential_t
 
 
 @structref.register

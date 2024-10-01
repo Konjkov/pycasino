@@ -2,9 +2,8 @@ import numpy as np
 import numba as nb
 from numba.core import types
 from numba.experimental import structref
-from numba.core.extending import overload_method
 
-# from casino.abstract import AbstractJastrow
+from casino.abstract import AbstractJastrow
 
 
 @structref.register
@@ -167,7 +166,7 @@ class Gjastrow(structref.StructRefProxy, AbstractJastrow):
         :return:
         """
         e_powers = self.ee_powers(e_vectors)
-        n_powers = self.en_powers(n_vectors)
+        # n_powers = self.en_powers(n_vectors)
 
         return self.term_2_0(e_powers, e_vectors)
 

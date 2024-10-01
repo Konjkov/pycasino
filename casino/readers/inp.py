@@ -36,10 +36,10 @@ class Input:
         value = []
         block_start = False
         for line in self.lines:
-            if line.startswith(f'%block opt_plan'):
+            if line.startswith('%block opt_plan'):
                 block_start = True
                 continue
-            elif line.startswith(f'%endblock opt_plan'):
+            elif line.startswith('%endblock opt_plan'):
                 break
             if block_start:
                 block_line = dict()
@@ -236,7 +236,7 @@ class Input:
                 f' FUTURE_WALKING                           :  F\n'
             )
         msg += (
-            f' MAKEMOVIE                                :  F\n'
-            f' FORCES                                   :  F\n'
+            ' MAKEMOVIE                                :  F\n'
+            ' FORCES                                   :  F\n'
         )
         return msg

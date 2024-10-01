@@ -5,10 +5,10 @@ from numba.core import types
 from numba.experimental import structref
 from numba.core.extending import overload_method
 
-from casino import delta, delta_2, delta_3
+from casino import delta
 from casino.abstract import AbstractSlater
 from casino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
-from casino.cusp import Cusp, Cusp_t
+from casino.cusp import Cusp_t
 from casino.harmonics import value_angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
 
 

@@ -131,7 +131,7 @@ class Casino:
             self.config.wfn.mo_up, self.config.wfn.mo_down, self.config.mdet.permutation_up, self.config.mdet.permutation_down, self.config.mdet.coeff, cusp
         )
 
-        jastrow = gjastrow = None
+        jastrow = None
         if self.config.jastrow:
             if self.config.input.use_jastrow:
                 jastrow = Jastrow(
@@ -211,7 +211,7 @@ class Casino:
         approximate_step_size = self.approximate_step_size
         for x in range(4 * n):
             self.vmc_markovchain.step_size = approximate_step_size * (x + 1) / n
-            condition, _ = self.vmc_markovchain.random_walk(1000000, 1)
+            position = self.vmc_markovchain.random_walk(1000000, 1)
             acc_ration = (np.isfinite(position[:, 0, 0])).mean()
             acc_ration /= (self.neu + self.ned)
             logger.info(
@@ -242,7 +242,7 @@ class Casino:
             return (np.exp(a/ts0) - 1) / (np.exp(a/ts0) + np.exp(ts/ts0) - 2)
 
         logger.info(
-            f' Performing time-step optimization.'
+            ' Performing time-step optimization.'
         )
         if self.root:
             warnings.simplefilter("error", OptimizeWarning)
@@ -286,12 +286,6 @@ class Casino:
                 self.config.write('.', 0)
             opt_method = self.config.input.opt_method
             opt_cycles = self.config.input.opt_cycles
-            vm_reweight = self.config.input.vm_reweight
-            opt_jastrow = self.config.input.opt_jastrow
-            opt_backflow = self.config.input.opt_backflow
-            opt_orbitals = self.config.input.opt_orbitals
-            opt_det_coeff = self.config.input.opt_det_coeff
-            vmc_nconfig_write = self.config.input.vmc_nconfig_write
             if self.config.input.opt_plan:
                 opt_cycles = len(self.config.input.opt_plan)
             for i in range(opt_cycles):
@@ -314,20 +308,20 @@ class Casino:
                 )
                 if opt_method == 'varmin':
                     if vm_reweight:
-                        self.vmc_reweighted_variance_minimization(vmc_nconfig_write)
+                        self.vmc_reweighted_variance_minimization(self.config.input.vmc_nconfig_write)
                     else:
-                        self.vmc_unreweighted_variance_minimization(vmc_nconfig_write)
+                        self.vmc_unreweighted_variance_minimization(self.config.input.vmc_nconfig_write)
                 elif opt_method == 'madmin':
                     # https://optimization.cbe.cornell.edu/index.php?title=Optimization_with_absolute_values
                     # use scipy.optimize.linprog
-                    raise NotImplemented
+                    raise NotImplementedError
                 elif opt_method == 'emin':
                     if self.config.input.emin_method == 'newton':
-                        self.vmc_energy_minimization_newton(vmc_nconfig_write)
+                        self.vmc_energy_minimization_newton(self.config.input.vmc_nconfig_write)
                     elif self.config.input.emin_method == 'linear':
-                        self.vmc_energy_minimization_linear_method(vmc_nconfig_write)
+                        self.vmc_energy_minimization_linear_method(self.config.input.vmc_nconfig_write)
                     elif self.config.input.emin_method == 'reconf':
-                        self.vmc_energy_minimization_stochastic_reconfiguration(vmc_nconfig_write)
+                        self.vmc_energy_minimization_stochastic_reconfiguration(self.config.input.vmc_nconfig_write)
                 self.config.jastrow.u_cutoff[0]['value'] = self.wfn.jastrow.u_cutoff
                 if self.root:
                     self.config.write('.', i + 1)
@@ -368,8 +362,8 @@ class Casino:
     def vmc_energy_accumulation(self):
         """VMC energy accumulation"""
         logger.info(
-            f' BEGIN VMC CALCULATION\n'
-            f' =====================\n'
+            ' BEGIN VMC CALCULATION\n'
+            ' =====================\n'
         )
         self.equilibrate(self.config.input.vmc_equil_nstep)
 
@@ -380,20 +374,19 @@ class Casino:
             self.optimize_vmc_step(1000)
         elif self.config.input.opt_dtvmc == 2:
             # to maximize the diffusion constant with respect to dtvmc (CBCS default).
-            raise NotImplemented
+            raise NotImplementedError
 
         logger.info(
             f' Optimized step size: {self.vmc_markovchain.step_size:.5f}\n'
             f' DTVMC: {(self.vmc_markovchain.step_size**2)/3:.5f}\n'
         )
 
-        ne = self.neu + self.ned
         nblock = self.config.input.vmc_nblock
         steps = self.config.input.vmc_nstep // nblock // mpi_comm.size * nblock * mpi_comm.size
         nblock_steps = steps // nblock // mpi_comm.size
 
         logger.info(
-            f' Starting VMC.\n'
+            ' Starting VMC.\n'
         )
         energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
         # create energy numpy array whose data points to the shared buffer
@@ -808,7 +801,7 @@ class Casino:
         callback.nfev = 0
         callback.iteration = 0
         logger.info(f'Optimization method: {method}')
-        logger.info(f'   Iteration     Total nfev        Energy             Grad norm')
+        logger.info('   Iteration     Total nfev        Energy             Grad norm')
         if method == 'TNC':
             options = dict(disp=self.root, scale=np.ones(shape=(x0.size, )), offset=np.zeros(shape=(x0.size, )), stepmx=1)
         elif method in ('dogleg', 'trust-ncg', 'trust-exact'):
