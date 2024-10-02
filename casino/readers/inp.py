@@ -174,7 +174,7 @@ class Input:
             f' NEWRUN (start new run)                   :  T\n'
             f' VMC_METHOD (choice of VMC algorithm)     :  {self.vmc_method}\n'
             f' DTVMC (VMC time step)                    :  {self.dtvmc}\n'
-            f' OPT_DTVMC (VMC time-step optimization)   :  {self.opt_dtvmc}\n'
+            f' OPT_DTVMC (VMC time-step optimization)   :  {to_fortran(self.opt_dtvmc)}\n'
             f' VMC_NSTEP (num VMC steps)                :  {self.vmc_nstep}\n'
             f' VMC_NCONFIG_WRITE (num configs to write) :  {self.vmc_nconfig_write}\n'
             f' VMC_NBLOCK (num VMC blocks)              :  {self.vmc_nblock}\n'

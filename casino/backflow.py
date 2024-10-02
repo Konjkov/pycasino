@@ -3,7 +3,7 @@ import numba as nb
 from numpy.polynomial.polynomial import polyval
 from numba.core import types
 from numba.experimental import structref
-from numba.core.extending import overload_method
+from numba.extending import overload_method
 
 from casino import delta
 from casino.abstract import AbstractBackflow

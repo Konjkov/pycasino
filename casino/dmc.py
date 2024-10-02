@@ -4,7 +4,7 @@ import numba as nb
 from math import erfc
 from numba.core import types
 from numba.experimental import structref
-from numba.core.extending import overload_method
+from numba.extending import overload_method
 
 from casino.mpi import Comm, Comm_t
 from casino.wfn import Wfn_t

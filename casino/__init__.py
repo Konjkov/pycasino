@@ -1,10 +1,10 @@
+import datetime
+import logging
 import os
 import sys
 import numba as nb
 import numpy as np
 import scipy as sp
-import datetime
-import logging
 from mpi4py import MPI
 
 

@@ -3,7 +3,7 @@ import numba as nb
 
 from numba.core import types
 from numba.experimental import structref
-from numba.core.extending import overload_method
+from numba.extending import overload_method
 
 
 @structref.register
