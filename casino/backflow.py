@@ -1,7 +1,6 @@
 import numpy as np
 import numba as nb
 from numpy.polynomial.polynomial import polyval
-from numba.core import types
 from numba.experimental import structref
 from numba.extending import overload_method
 
@@ -189,9 +188,9 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
 
 
 @structref.register
-class Backflow_class_t(types.StructRef):
+class Backflow_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
-        return tuple((name, types.unliteral(typ)) for name, typ in fields)
+        return tuple((name, nb.types.unliteral(typ)) for name, typ in fields)
 
 
 labels_type = nb.int64[::1]

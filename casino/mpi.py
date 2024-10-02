@@ -169,9 +169,9 @@ def val_from_ptr(typingctx, data):
 
 # https://groups.google.com/g/mpi4py/c/jPqNrr_8UWY?pli=1
 @structref.register
-class Comm_class_t(types.StructRef):
+class Comm_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
-        return tuple((name, types.unliteral(typ)) for name, typ in fields)
+        return tuple((name, nb.types.unliteral(typ)) for name, typ in fields)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)

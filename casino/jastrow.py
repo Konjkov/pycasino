@@ -1,7 +1,6 @@
 import numpy as np
 import numba as nb
 from numpy.polynomial.polynomial import polyval
-from numba.core import types
 from numba.experimental import structref
 from numba.extending import overload_method
 
@@ -67,9 +66,9 @@ def construct_a_matrix(trunc, f_parameters, f_cutoff, spin_dep, no_dup_u_term, n
     return a, cutoff_constraints
 
 @structref.register
-class Jastrow_class_t(types.StructRef):
+class Jastrow_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
-        return tuple((name, types.unliteral(typ)) for name, typ in fields)
+        return tuple((name, nb.types.unliteral(typ)) for name, typ in fields)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)

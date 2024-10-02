@@ -1,7 +1,6 @@
 import numpy as np
 import numba as nb
 
-from numba.core import types
 from numba.experimental import structref
 from numba.extending import overload_method
 
@@ -9,9 +8,9 @@ from casino.wfn import Wfn_t
 
 
 @structref.register
-class VMCMarkovChain_class_t(types.StructRef):
+class VMCMarkovChain_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
-        return tuple((name, types.unliteral(typ)) for name, typ in fields)
+        return tuple((name, nb.types.unliteral(typ)) for name, typ in fields)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
