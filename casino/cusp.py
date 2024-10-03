@@ -579,6 +579,7 @@ class CuspFactory:
                         for primitive in range(self.primitives[nshell]):
                             r = rc[atom, orb]
                             alpha = self.exponents[p + primitive]
+                            # FIXME: RuntimeWarning: underflow encountered in exp
                             exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                             s_part += exponent
                             s_derivative_part -= 2 * alpha * r * exponent
@@ -609,6 +610,7 @@ class CuspFactory:
                         radial = 0.0
                         if atom != orb_atom:
                             for primitive in range(self.primitives[nshell]):
+                                # FIXME: RuntimeWarning: underflow encountered in exp
                                 radial += self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r2)
                             for m in range(2 * l + 1):
                                 orbital[atom, orb, ao+m] += angular[l*l+m] * radial

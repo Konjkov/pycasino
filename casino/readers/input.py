@@ -98,6 +98,7 @@ class Input:
         self.read_bool('vm_reweight', False)
         self.read_bool('vm_w_max', 0.0)
         self.read_bool('vm_w_min', 0.0)
+        self.read_bool('emin_xi_value', 1.0)
         # DMC keywords
         self.read_float('dmc_target_weight')
         self.read_int('dmc_equil_nstep')
@@ -162,12 +163,12 @@ class Input:
             f' NON_LOCAL_GRID (NL integration grid)     :  {self.non_local_grid}\n'
             f' E_OFFSET (energy offset)                 :  0.0000\n'
             # f' ESUPERCELL                               :  F\n'
-            # f' GAUTOL  (Gaussian evaluation tolerance)  :  7.0\n'
+            f' GAUTOL  (Gaussian evaluation tolerance)  :  {self.gautol}\n'
             f' SPARSE                                   :  F\n'
             f' DIPOLE_MOMENT                            :  F\n'
-            f' CHECKPOINT (checkpointing level)         :  1\n'
+            # f' CHECKPOINT (checkpointing level)         :  1\n'
             # f' CHECKPOINT_NCPU (chkpnt group size)      :  4\n'
-            f' CON_LOC (Dir to read/write config.*)     :  ./\n'
+            # f' CON_LOC (Dir to read/write config.*)     :  ./\n'
             f' RELATIVISTIC                             :  F\n'
             f'\n {runtype}\n'
             f' ====================\n'
@@ -201,7 +202,7 @@ class Input:
                 f' VM_REWEIGHT (reweighting)                :  {to_fortran(self.vm_reweight)}\n'
                 f' VM_FILTER (filter outlying configs)      :  F\n'
                 f' VM_USE_E_GUESS (use guess energy)        :  F\n'
-                f' EMIN_XI_VALUE (xi parameter)             :  1.0\n'
+                f' EMIN_XI_VALUE (xi parameter)             :  {self.emin_xi_value}\n'
             )
         elif self.runtype == 'vmc_dmc':
             msg += (
