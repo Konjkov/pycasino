@@ -40,7 +40,7 @@ def laplace_multivariate_distribution(zeta):
         mod_xi_sin_theta_xi * np.cos(phi_xi),
         mod_xi_sin_theta_xi * np.sin(phi_xi),
         mod_xi * cos_theta_xi
-    ])
+    ])  # fmt: skip
 
 
 @structref.register
