@@ -1,5 +1,6 @@
 import os
 import sys
+import datetime
 import logging
 import warnings
 import argparse
@@ -22,6 +23,38 @@ from casino.vmc import VMCMarkovChain, vmc_observable
 from casino.dmc import DMCMarkovChain
 from casino.readers import CasinoConfig
 from casino.sem import correlated_sem
+
+
+__version__ = '0.2.0'
+__author__ = 'Vladimir Konkov'
+__credits__ = 'Research Institute for Pythonic Quantum Chemistry'
+
+
+# created with art python package
+logo = f"""
+ ------------------------------------------------------------------------------
+ ########::'##:::'##::'######:::::'###:::::'######::'####:'##::: ##::'#######::
+ ##.... ##:. ##:'##::'##... ##:::'## ##:::'##... ##:. ##:: ###:: ##:'##.... ##:
+ ##:::: ##::. ####::: ##:::..:::'##:. ##:: ##:::..::: ##:: ####: ##: ##:::: ##:
+ ########::::. ##:::: ##:::::::'##:::. ##:. ######::: ##:: ## ## ##: ##:::: ##:
+ ##.....:::::: ##:::: ##::::::: #########::..... ##:: ##:: ##. ####: ##:::: ##:
+ ##::::::::::: ##:::: ##::: ##: ##.... ##:'##::: ##:: ##:: ##:. ###: ##:::: ##:
+ ##::::::::::: ##::::. ######:: ##:::: ##:. ######::'####: ##::. ##:. #######::
+ .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
+
+                     Python Quantum Monte Carlo Package
+                        v {__version__} [{__author__}]
+
+    Main Author : {__author__}
+ ------------------------------------------------------------------------------
+ Started {datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}
+
+ Python {sys.version}
+ Numba {nb.__version__}
+ Numpy {np.__version__}
+ Scipy {sp.__version__}
+"""
+
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +116,11 @@ class Casino:
         """Casino workflow.
         :param config_path: path to config file
         """
+        logger.info(logo)
+        if MPI.COMM_WORLD.size > 1:
+            logger.info(' Running in parallel using %i MPI processes.\n', MPI.COMM_WORLD.size)
+        else:
+            logger.info(' Sequential run: not using MPI.\n')
         self.root = mpi_comm.rank == 0
         self.config = CasinoConfig(config_path)
         self.config.read()
@@ -127,7 +165,7 @@ class Casino:
         slater = Slater(
             self.config.input.neu, self.config.input.ned,
             self.config.wfn.nbasis_functions, self.config.wfn.first_shells, self.config.wfn.orbital_types, self.config.wfn.shell_moments,
-            self.config.wfn.slater_orders, self.config.wfn.primitives, self.config.wfn.coefficients, self.config.wfn.exponents,
+            self.config.wfn.slater_orders, self.config.wfn.primitives, self.config.wfn.coefficients, self.config.wfn.exponents, self.config.input.gautol,
             self.config.wfn.mo_up, self.config.wfn.mo_down, self.config.mdet.permutation_up, self.config.mdet.permutation_down, self.config.mdet.coeff, cusp
         )
 

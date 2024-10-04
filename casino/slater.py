@@ -28,6 +28,7 @@ Slater_t = Slater_class_t([
     ('primitives', nb.int64[::1]),
     ('coefficients', nb.float64[::1]),
     ('exponents', nb.float64[::1]),
+    ('gautol', nb.float64),
     ('permutation_up', nb.int64[:, ::1]),
     ('permutation_down', nb.int64[:, ::1]),
     ('mo_up', nb.float64[:, ::1]),
@@ -60,7 +61,8 @@ def slater_value_matrix(self, n_vectors: np.ndarray):
                     radial_1 = 0.0
                     if self.orbital_types[nshell] == GAUSSIAN_TYPE:
                         for primitive in range(self.primitives[nshell]):
-                            radial_1 += self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r2)
+                            alpha = self.exponents[p + primitive]
+                            radial_1 += self.coefficients[p + primitive] * np.exp(-alpha * r2)
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
                         for primitive in range(self.primitives[nshell]):
@@ -795,13 +797,14 @@ class Slater(structref.StructRefProxy, AbstractSlater):
         :param primitives:
         :param coefficients:
         :param exponents:
+        :param gautol:
         :param mo_up:
         :param mo_down:
         :param coeff: determinant coefficients
         """
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(neu, ned, nbasis_functions, first_shells, orbital_types,
-            shell_moments, slater_orders, primitives, coefficients, exponents,
+            shell_moments, slater_orders, primitives, coefficients, exponents, gautol,
             mo_up, mo_down, permutation_up, permutation_down, coeff, cusp
         ):
             self = structref.new(Slater_t)
@@ -815,6 +818,7 @@ class Slater(structref.StructRefProxy, AbstractSlater):
             self.primitives = primitives
             self.coefficients = coefficients
             self.exponents = exponents
+            self.gautol = gautol
             self.permutation_up = permutation_up
             self.permutation_down = permutation_down
             self.mo_up = mo_up[:np.max(permutation_up) + 1 if neu else 0]
