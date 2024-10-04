@@ -35,7 +35,7 @@ def laplace_multivariate_distribution(zeta):
     mod_xi = -np.log(np.prod(np.random.random(3))) / (2 * zeta)
     cos_theta_xi = 1 - 2 * np.random.random()
     phi_xi = 2 * np.pi * np.random.random()
-    mod_xi_sin_theta_xi = mod_xi * np.sqrt(1 - cos_theta_xi ** 2)
+    mod_xi_sin_theta_xi = mod_xi * np.sqrt(1 - cos_theta_xi**2)
     return np.array([
         mod_xi_sin_theta_xi * np.cos(phi_xi),
         mod_xi_sin_theta_xi * np.sin(phi_xi),
@@ -57,34 +57,35 @@ weight_type = nb.float64
 r_e_type = nb.float64[:, :]
 velocity_type = nb.float64[:, ::1]
 
-DMCMarkovChain_t = DMCMarkovChain_class_t([
-    ('mpi_size', nb.int64),
-    ('method', nb.int64),
-    ('alimit', nb.float64),
-    ('step_size', nb.float64),
-    ('step_eff', nb.float64),
-    ('target_weight', nb.float64),
-    ('nucleus_gf_mods', nb.boolean),
-    ('use_tmove', nb.boolean),
-    ('age_list', nb.types.ListType(age_type)),
-    ('r_e_list', nb.types.ListType(r_e_type)),
-    ('wfn_value_list', nb.types.ListType(wfn_value_type)),
-    ('velocity_list', nb.types.ListType(velocity_type)),
-    ('energy_list', nb.types.ListType(energy_type)),
-    ('branching_energy_list', nb.types.ListType(energy_type)),
-    ('weight_list', nb.types.ListType(weight_type)),
-    ('best_estimate_energy', energy_type),
-    ('energy_t', energy_type),
-    ('ntransfers_tot', nb.int64),
-    ('sum_acceptance_probability', nb.float64),
-    ('efficiency_list', nb.types.ListType(efficiency_type)),
-    ('wfn', Wfn_t),
-    ('mpi_comm', Comm_t),
-])
+DMCMarkovChain_t = DMCMarkovChain_class_t(
+    [
+        ('mpi_size', nb.int64),
+        ('method', nb.int64),
+        ('alimit', nb.float64),
+        ('step_size', nb.float64),
+        ('step_eff', nb.float64),
+        ('target_weight', nb.float64),
+        ('nucleus_gf_mods', nb.boolean),
+        ('use_tmove', nb.boolean),
+        ('age_list', nb.types.ListType(age_type)),
+        ('r_e_list', nb.types.ListType(r_e_type)),
+        ('wfn_value_list', nb.types.ListType(wfn_value_type)),
+        ('velocity_list', nb.types.ListType(velocity_type)),
+        ('energy_list', nb.types.ListType(energy_type)),
+        ('branching_energy_list', nb.types.ListType(energy_type)),
+        ('weight_list', nb.types.ListType(weight_type)),
+        ('best_estimate_energy', energy_type),
+        ('energy_t', energy_type),
+        ('ntransfers_tot', nb.int64),
+        ('sum_acceptance_probability', nb.float64),
+        ('efficiency_list', nb.types.ListType(efficiency_type)),
+        ('wfn', Wfn_t),
+        ('mpi_comm', Comm_t),
+    ]
+)
 
 
 class DMCMarkovChain(structref.StructRefProxy):
-
     def __new__(cls, *args, **kwargs):
         """Markov chain Monte Carlo.
         :param r_e_list: initial positions of walkers
@@ -97,6 +98,7 @@ class DMCMarkovChain(structref.StructRefProxy):
         :param method: dmc method: (1) - EBES, (2) - CBCS.
         :return:
         """
+
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(mpi_comm, r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
             self = structref.new(DMCMarkovChain_t)
@@ -135,6 +137,7 @@ class DMCMarkovChain(structref.StructRefProxy):
             self.sum_acceptance_probability = 0
             self.efficiency_list = nb.typed.List.empty_list(efficiency_type)
             return self
+
         mpi_comm = Comm()
         return init(mpi_comm, *args, **kwargs)
 
@@ -191,16 +194,44 @@ class DMCMarkovChain(structref.StructRefProxy):
 @overload_method(DMCMarkovChain_class_t, 'drift_diffusion')
 def dmcmarkovchain_drift_diffusion(self):
     """Wrapper for drift-diffusion step."""
+
     def impl(self):
         self.sum_acceptance_probability = 0
         self.weight_list = nb.typed.List.empty_list(weight_type)
         for i in range(len(self.r_e_list)):
             if self.method == 1:
-                self.age_list[i], self.r_e_list[i], self.wfn_value_list[i], self.velocity_list[i], self.energy_list[i], self.branching_energy_list[i] = self.ebe_drift_diffusion(
-                    self.age_list[i], self.r_e_list[i], self.wfn_value_list[i], self.velocity_list[i], self.energy_list[i], self.branching_energy_list[i])
+                (
+                    self.age_list[i],
+                    self.r_e_list[i],
+                    self.wfn_value_list[i],
+                    self.velocity_list[i],
+                    self.energy_list[i],
+                    self.branching_energy_list[i],
+                ) = self.ebe_drift_diffusion(
+                    self.age_list[i],
+                    self.r_e_list[i],
+                    self.wfn_value_list[i],
+                    self.velocity_list[i],
+                    self.energy_list[i],
+                    self.branching_energy_list[i],
+                )
             elif self.method == 2:
-                self.age_list[i], self.r_e_list[i], self.wfn_value_list[i], self.velocity_list[i], self.energy_list[i], self.branching_energy_list[i] = self.cbc_drift_diffusion(
-                    self.age_list[i], self.r_e_list[i], self.wfn_value_list[i], self.velocity_list[i], self.energy_list[i], self.branching_energy_list[i])
+                (
+                    self.age_list[i],
+                    self.r_e_list[i],
+                    self.wfn_value_list[i],
+                    self.velocity_list[i],
+                    self.energy_list[i],
+                    self.branching_energy_list[i],
+                ) = self.cbc_drift_diffusion(
+                    self.age_list[i],
+                    self.r_e_list[i],
+                    self.wfn_value_list[i],
+                    self.velocity_list[i],
+                    self.energy_list[i],
+                    self.branching_energy_list[i],
+                )
+
     return impl
 
 
@@ -212,10 +243,11 @@ def dmcmarkovchain_alimit_vector(self, r_e, velocity):
     :param velocity: drift velocity
     :return:
     """
+
     def impl(self, r_e, velocity):
         ne = self.wfn.neu + self.wfn.ned
         n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
-        r = np.sqrt(np.sum(n_vectors ** 2, axis=2))
+        r = np.sqrt(np.sum(n_vectors**2, axis=2))
         # find the nearest nucleus for each electron
         idx = np.argmin(r, axis=0)
         res = np.empty(shape=(ne, 3))
@@ -223,6 +255,7 @@ def dmcmarkovchain_alimit_vector(self, r_e, velocity):
             Z2_z2 = (self.wfn.atom_charges[idx[i]] * r[idx[i], i]) ** 2
             res[i] = (1 + (velocity[i] @ n_vectors[idx[i], i]) / np.linalg.norm(velocity[i]) / r[idx[i], i]) / 2 + Z2_z2 / 10 / (4 + Z2_z2)
         return res
+
     return impl
 
 
@@ -237,6 +270,7 @@ def dmcmarkovchain_limiting_velocity(self, r_e):
     :param r_e: position of walker
     :return: velocity, limiting_factor
     """
+
     def impl(self, r_e):
         ne = self.wfn.neu + self.wfn.ned
         drift_velocity = self.wfn.drift_velocity(r_e).reshape(ne, 3)
@@ -247,6 +281,7 @@ def dmcmarkovchain_limiting_velocity(self, r_e):
             a_v_t = np.sum(drift_velocity**2) * self.step_size * self.alimit
             velocity = drift_velocity * (np.sqrt(1 + 2 * a_v_t) - 1) / a_v_t
         return velocity, drift_velocity
+
     return impl
 
 
@@ -254,6 +289,7 @@ def dmcmarkovchain_limiting_velocity(self, r_e):
 @overload_method(DMCMarkovChain_class_t, 'branching_energy')
 def dmcmarkovchain_branching_energy(self, energy, next_velocity, drift_velocity):
     """Branching energy."""
+
     def impl(self, energy, next_velocity, drift_velocity):
         ne = self.wfn.neu + self.wfn.ned
         limiting_factor = np.linalg.norm(next_velocity) / np.linalg.norm(drift_velocity)
@@ -265,6 +301,7 @@ def dmcmarkovchain_branching_energy(self, energy, next_velocity, drift_velocity)
             E_cut = self.best_estimate_energy - energy
         # branching UNR (39)
         return (self.energy_t - self.best_estimate_energy) + E_cut * limiting_factor
+
     return impl
 
 
@@ -272,6 +309,7 @@ def dmcmarkovchain_branching_energy(self, energy, next_velocity, drift_velocity)
 @overload_method(DMCMarkovChain_class_t, 'ebe_drift_diffusion')
 def dmcmarkovchain_ebe_drift_diffusion(self, age, r_e, wfn_value, velocity, energy, branching_energy):
     """EBES drift-diffusion step."""
+
     def impl(self, age, r_e, wfn_value, velocity, energy, branching_energy):
         p = 0
         age_p = 1.1 ** max(0, age - 20)
@@ -287,7 +325,7 @@ def dmcmarkovchain_ebe_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
             diffuse_step = np.zeros(shape=(ne, 3))
             for i in range(ne):
                 n_vectors = np.expand_dims(next_r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
-                r = np.sqrt(np.sum(n_vectors ** 2, axis=2))
+                r = np.sqrt(np.sum(n_vectors**2, axis=2))
                 # find the closest nucleus for each electron
                 idx = np.argmin(r, axis=0)
                 z = r[idx[i], i]
@@ -308,13 +346,12 @@ def dmcmarkovchain_ebe_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
                 # prevent crossing nodal surface
                 interim_wfn_value = self.wfn.value(interim_r_e)
                 if np.sign(wfn_value) == np.sign(interim_wfn_value):
-                    gf_forth = (
-                        (1 - q) * np.exp(-np.sum((interim_r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (2 * np.pi * self.step_size) ** 1.5 +
-                        q * zeta ** 3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(interim_r_e[i] - self.wfn.atom_positions[idx[i]]))
-                    )
+                    gf_forth = (1 - q) * np.exp(-np.sum((interim_r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (
+                        2 * np.pi * self.step_size
+                    ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(interim_r_e[i] - self.wfn.atom_positions[idx[i]]))
                     interim_velocity, interim_drift_velocity = self.limiting_velocity(interim_r_e)
                     n_vectors = np.expand_dims(interim_r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
-                    r = np.sqrt(np.sum(n_vectors ** 2, axis=2))
+                    r = np.sqrt(np.sum(n_vectors**2, axis=2))
                     # find the closest nucleus for each electron
                     idx = np.argmin(r, axis=0)
                     z = r[idx[i], i]
@@ -325,11 +362,10 @@ def dmcmarkovchain_ebe_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
                     drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[idx[i]]
                     q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
                     zeta = np.sqrt(self.wfn.atom_charges[idx[i]] ** 2 + 1 / self.step_size)
-                    gf_back = (
-                        (1 - q) * np.exp(-np.sum((next_r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (2 * np.pi * self.step_size) ** 1.5 +
-                        q * zeta ** 3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(next_r_e[i] - self.wfn.atom_positions[idx[i]]))
-                    )
-                    p_i = min(1, age_p * (gf_back * interim_wfn_value ** 2) / (gf_forth * next_wfn_value ** 2))
+                    gf_back = (1 - q) * np.exp(-np.sum((next_r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (
+                        2 * np.pi * self.step_size
+                    ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(next_r_e[i] - self.wfn.atom_positions[idx[i]]))
+                    p_i = min(1, age_p * (gf_back * interim_wfn_value**2) / (gf_forth * next_wfn_value**2))
                     if p_i >= np.random.random():
                         moved = True
                         next_r_e = interim_r_e
@@ -357,7 +393,7 @@ def dmcmarkovchain_ebe_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
                     gf_forth = np.exp(-np.sum((interim_r_e[i] - next_r_e[i] - self.step_size * next_velocity[i]) ** 2) / 2 / self.step_size)
                     interim_velocity, interim_drift_velocity = self.limiting_velocity(interim_r_e)
                     gf_back = np.exp(-np.sum((next_r_e[i] - interim_r_e[i] - self.step_size * interim_velocity[i]) ** 2) / 2 / self.step_size)
-                    p_i = min(1, age_p * (gf_back * interim_wfn_value ** 2) / (gf_forth * next_wfn_value ** 2))
+                    p_i = min(1, age_p * (gf_back * interim_wfn_value**2) / (gf_forth * next_wfn_value**2))
                     if p_i >= np.random.random():
                         moved = True
                         next_r_e = interim_r_e
@@ -374,10 +410,11 @@ def dmcmarkovchain_ebe_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
         next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
         # branching UNR (23)
         weight = np.exp(self.step_eff * (next_branching_energy + branching_energy) / 2)
-        p /= np.sum(diffuse_step ** 2)
+        p /= np.sum(diffuse_step**2)
         self.weight_list.append(weight)
         self.sum_acceptance_probability += p * weight
         return 0 if moved else age + 1, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
+
     return impl
 
 
@@ -385,6 +422,7 @@ def dmcmarkovchain_ebe_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
 @overload_method(DMCMarkovChain_class_t, 'cbc_drift_diffusion')
 def dmcmarkovchain_cbc_drift_diffusion(self, age, r_e, wfn_value, velocity, energy, branching_energy):
     """CBCS drift-diffusion step."""
+
     def impl(self, age, r_e, wfn_value, velocity, energy, branching_energy):
         p = 0
         age_p = 1.1 ** max(0, age - 50)
@@ -393,7 +431,7 @@ def dmcmarkovchain_cbc_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
             # random step according to
             # C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
-            r = np.sqrt(np.sum(n_vectors ** 2, axis=2))
+            r = np.sqrt(np.sum(n_vectors**2, axis=2))
             # find the closest nucleus for each electron
             idx = np.argmin(r, axis=0)
             gf_forth = 1
@@ -411,16 +449,15 @@ def dmcmarkovchain_cbc_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
                     next_r_e[i] = laplace_multivariate_distribution(zeta) + self.wfn.atom_positions[idx[i]]
                 else:
                     next_r_e[i] = np.random.normal(0, np.sqrt(self.step_size), 3) + drift_to
-                gf_forth *= (
-                    (1 - q) * np.exp(-np.sum((next_r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (2 * np.pi * self.step_size) ** 1.5 +
-                    q * zeta ** 3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(next_r_e[i] - self.wfn.atom_positions[idx[i]]))
-                )
+                gf_forth *= (1 - q) * np.exp(-np.sum((next_r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (
+                    2 * np.pi * self.step_size
+                ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(next_r_e[i] - self.wfn.atom_positions[idx[i]]))
             # prevent crossing nodal surface
             next_wfn_value = self.wfn.value(next_r_e)
             if np.sign(wfn_value) == np.sign(next_wfn_value):
                 next_velocity, drift_velocity = self.limiting_velocity(next_r_e)
                 n_vectors = np.expand_dims(next_r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
-                r = np.sqrt(np.sum(n_vectors ** 2, axis=2))
+                r = np.sqrt(np.sum(n_vectors**2, axis=2))
                 # find the closest nucleus for each electron
                 idx = np.argmin(r, axis=0)
                 gf_back = 1
@@ -433,11 +470,10 @@ def dmcmarkovchain_cbc_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
                     drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[idx[i]]
                     q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
                     zeta = np.sqrt(self.wfn.atom_charges[idx[i]] ** 2 + 1 / self.step_size)
-                    gf_back *= (
-                        (1 - q) * np.exp(-np.sum((r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (2 * np.pi * self.step_size) ** 1.5 +
-                        q * zeta ** 3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(r_e[i] - self.wfn.atom_positions[idx[i]]))
-                    )
-                p = min(1, age_p * (gf_back * next_wfn_value ** 2) / (gf_forth * wfn_value ** 2))
+                    gf_back *= (1 - q) * np.exp(-np.sum((r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (
+                        2 * np.pi * self.step_size
+                    ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(r_e[i] - self.wfn.atom_positions[idx[i]]))
+                p = min(1, age_p * (gf_back * next_wfn_value**2) / (gf_forth * wfn_value**2))
                 if p >= np.random.random():
                     next_energy = self.wfn.energy(next_r_e)
                     next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
@@ -455,7 +491,7 @@ def dmcmarkovchain_cbc_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
                 gf_forth = np.exp(-np.sum((next_r_e - r_e - self.step_size * velocity) ** 2) / 2 / self.step_size)
                 next_velocity, drift_velocity = self.limiting_velocity(next_r_e)
                 gf_back = np.exp(-np.sum((r_e - next_r_e - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
-                p = min(1, age_p * (gf_back * next_wfn_value ** 2) / (gf_forth * wfn_value ** 2))
+                p = min(1, age_p * (gf_back * next_wfn_value**2) / (gf_forth * wfn_value**2))
                 if p >= np.random.random():
                     next_energy = self.wfn.energy(next_r_e)
                     next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
@@ -469,6 +505,7 @@ def dmcmarkovchain_cbc_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
         self.weight_list.append(weight)
         self.sum_acceptance_probability += p * weight
         return age + 1, r_e, wfn_value, velocity, energy, branching_energy
+
     return impl
 
 
@@ -476,25 +513,27 @@ def dmcmarkovchain_cbc_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
 @overload_method(DMCMarkovChain_class_t, 'branching')
 def dmcmarkovchain_branching(self):
     """Branching step."""
+
     def impl(self):
         deleted = 0
         for i in range(len(self.weight_list)):
             weight = int(self.weight_list[i] + np.random.random())
             if weight == 0:
-                self.age_list.pop(i-deleted)
-                self.r_e_list.pop(i-deleted)
-                self.energy_list.pop(i-deleted)
-                self.velocity_list.pop(i-deleted)
-                self.wfn_value_list.pop(i-deleted)
-                self.branching_energy_list.pop(i-deleted)
+                self.age_list.pop(i - deleted)
+                self.r_e_list.pop(i - deleted)
+                self.energy_list.pop(i - deleted)
+                self.velocity_list.pop(i - deleted)
+                self.wfn_value_list.pop(i - deleted)
+                self.branching_energy_list.pop(i - deleted)
                 deleted += 1
             for _ in range(1, weight):
-                self.age_list.append(self.age_list[i-deleted])
-                self.r_e_list.append(self.r_e_list[i-deleted])
-                self.energy_list.append(self.energy_list[i-deleted])
-                self.velocity_list.append(self.velocity_list[i-deleted])
-                self.wfn_value_list.append(self.wfn_value_list[i-deleted])
-                self.branching_energy_list.append(self.branching_energy_list[i-deleted])
+                self.age_list.append(self.age_list[i - deleted])
+                self.r_e_list.append(self.r_e_list[i - deleted])
+                self.energy_list.append(self.energy_list[i - deleted])
+                self.velocity_list.append(self.velocity_list[i - deleted])
+                self.wfn_value_list.append(self.wfn_value_list[i - deleted])
+                self.branching_energy_list.append(self.branching_energy_list[i - deleted])
+
     return impl
 
 
@@ -502,6 +541,7 @@ def dmcmarkovchain_branching(self):
 @overload_method(DMCMarkovChain_class_t, 't_move')
 def dmcmarkovchain_t_move(self):
     """T-move."""
+
     def impl(self):
         if self.wfn.ppotential is not None and self.use_tmove:
             for i in range(len(self.r_e_list)):
@@ -514,6 +554,7 @@ def dmcmarkovchain_t_move(self):
                     self.energy_list[i] = energy
                     self.velocity_list[i] = velocity
                     self.branching_energy_list[i] = self.branching_energy(energy, velocity, drift_velocity)
+
     return impl
 
 
@@ -521,6 +562,7 @@ def dmcmarkovchain_t_move(self):
 @overload_method(DMCMarkovChain_class_t, 'random_step')
 def dmcmarkovchain_random_step(self):
     """DMC random step"""
+
     def impl(self):
         self.drift_diffusion()
         self.branching()
@@ -538,6 +580,7 @@ def dmcmarkovchain_random_step(self):
         self.step_eff = acceptance_probability * self.step_size
         # UNR (11)
         self.energy_t = self.best_estimate_energy - np.log(walkers / self.target_weight) * self.step_size / self.step_eff
+
     return impl
 
 
@@ -545,16 +588,17 @@ def dmcmarkovchain_random_step(self):
 @overload_method(DMCMarkovChain_class_t, 'redistribute_walker')
 def dmcmarkovchain_redistribute_walker(self, from_rank, to_rank, count):
     """Redistribute count walkers from MPI from_rank to to_rank"""
+
     def impl(self, from_rank, to_rank, count):
         rank = self.mpi_comm.Get_rank()
         if rank in (from_rank, to_rank):
             ne = self.wfn.neu + self.wfn.ned
-            age = np.empty(shape=(count, ), dtype=np.int_)
+            age = np.empty(shape=(count,), dtype=np.int_)
             r_e = np.empty(shape=(count, ne, 3))
-            energy = np.empty(shape=(count, ))
+            energy = np.empty(shape=(count,))
             velocity = np.empty(shape=(count, ne, 3))
             wfn_value = np.empty(shape=(count,))
-            branching_energy = np.empty(shape=(count, ))
+            branching_energy = np.empty(shape=(count,))
             if rank == from_rank:
                 for i in range(count):
                     age[i] = self.age_list.pop()
@@ -583,6 +627,7 @@ def dmcmarkovchain_redistribute_walker(self, from_rank, to_rank, count):
                     self.velocity_list.append(velocity[i])
                     self.wfn_value_list.append(wfn_value[i])
                     self.branching_energy_list.append(branching_energy[i])
+
     return impl
 
 
@@ -590,6 +635,7 @@ def dmcmarkovchain_redistribute_walker(self, from_rank, to_rank, count):
 @overload_method(DMCMarkovChain_class_t, 'load_balancing')
 def dmcmarkovchain_load_balancing(self):
     """Redistribute walkers across processes."""
+
     def impl(self):
         if self.mpi_size == 1:
             self.efficiency_list.append(1)
@@ -598,7 +644,7 @@ def dmcmarkovchain_load_balancing(self):
             walkers = np.zeros(shape=(self.mpi_size,), dtype=np.int_)
             walkers[rank] = len(self.energy_list)
             # FIXME: use MPI.IN_PLACE
-            self.mpi_comm.Allgather(walkers[rank:rank+1], walkers)
+            self.mpi_comm.Allgather(walkers[rank : rank + 1], walkers)
             self.efficiency_list.append(walkers.mean() / np.max(walkers))
             # round down
             walkers = (walkers - walkers.mean()).astype(np.int_)
@@ -621,6 +667,7 @@ def dmcmarkovchain_load_balancing(self):
                     rank_1 += 1
                 if walkers[rank_2] == 0:
                     rank_2 += 1
+
     return impl
 
 
