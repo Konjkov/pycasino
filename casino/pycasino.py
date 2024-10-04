@@ -128,11 +128,22 @@ class Casino:
 
         if self.config.input.cusp_correction and not self.config.wfn.is_pseudoatom.all():
             cusp_factory = CuspFactory(
-                self.config.input.neu, self.config.input.ned, self.config.input.cusp_threshold, self.config.wfn.mo_up, self.config.wfn.mo_down,
-                self.config.mdet.permutation_up, self.config.mdet.permutation_down,
-                self.config.wfn.first_shells, self.config.wfn.shell_moments, self.config.wfn.primitives,
-                self.config.wfn.coefficients, self.config.wfn.exponents,
-                self.config.wfn.atom_positions, self.config.wfn.atom_charges, self.config.wfn.unrestricted, self.config.wfn.is_pseudoatom
+                self.config.input.neu,
+                self.config.input.ned,
+                self.config.input.cusp_threshold,
+                self.config.wfn.mo_up,
+                self.config.wfn.mo_down,
+                self.config.mdet.permutation_up,
+                self.config.mdet.permutation_down,
+                self.config.wfn.first_shells,
+                self.config.wfn.shell_moments,
+                self.config.wfn.primitives,
+                self.config.wfn.coefficients,
+                self.config.wfn.exponents,
+                self.config.wfn.atom_positions,
+                self.config.wfn.atom_charges,
+                self.config.wfn.unrestricted,
+                self.config.wfn.is_pseudoatom,
             )
             cusp = cusp_factory.create()
             if self.config.input.cusp_info:
@@ -155,61 +166,115 @@ class Casino:
                          f' Number of points    :  {n_points[vmc_nonlocal_grid-1]}\n'
                     )
             ppotential = PPotential(
-                self.config.input.neu, self.config.input.ned, self.config.input.lcutofftol, self.config.input.nlcutofftol, self.config.wfn.atom_charges,
-                self.config.wfn.vmc_nonlocal_grid, self.config.wfn.dmc_nonlocal_grid, self.config.wfn.local_angular_momentum, self.config.wfn.ppotential,
-                self.config.wfn.is_pseudoatom
+                self.config.input.neu,
+                self.config.input.ned,
+                self.config.input.lcutofftol,
+                self.config.input.nlcutofftol,
+                self.config.wfn.atom_charges,
+                self.config.wfn.vmc_nonlocal_grid,
+                self.config.wfn.dmc_nonlocal_grid,
+                self.config.wfn.local_angular_momentum,
+                self.config.wfn.ppotential,
+                self.config.wfn.is_pseudoatom,
             )
         else:
             ppotential = None
 
         slater = Slater(
-            self.config.input.neu, self.config.input.ned,
-            self.config.wfn.nbasis_functions, self.config.wfn.first_shells, self.config.wfn.orbital_types, self.config.wfn.shell_moments,
-            self.config.wfn.slater_orders, self.config.wfn.primitives, self.config.wfn.coefficients, self.config.wfn.exponents, self.config.input.gautol,
-            self.config.wfn.mo_up, self.config.wfn.mo_down, self.config.mdet.permutation_up, self.config.mdet.permutation_down, self.config.mdet.coeff, cusp
+            self.config.input.neu,
+            self.config.input.ned,
+            self.config.wfn.nbasis_functions,
+            self.config.wfn.first_shells,
+            self.config.wfn.orbital_types,
+            self.config.wfn.shell_moments,
+            self.config.wfn.slater_orders,
+            self.config.wfn.primitives,
+            self.config.wfn.coefficients,
+            self.config.wfn.exponents,
+            self.config.input.gautol,
+            self.config.wfn.mo_up,
+            self.config.wfn.mo_down,
+            self.config.mdet.permutation_up,
+            self.config.mdet.permutation_down,
+            self.config.mdet.coeff, cusp,
         )
 
         jastrow = None
         if self.config.jastrow:
             if self.config.input.use_jastrow:
                 jastrow = Jastrow(
-                    self.config.input.neu, self.config.input.ned,
-                    self.config.jastrow.trunc, self.config.jastrow.u_parameters, self.config.jastrow.u_parameters_optimizable,
+                    self.config.input.neu,
+                    self.config.input.ned,
+                    self.config.jastrow.trunc,
+                    self.config.jastrow.u_parameters,
+                    self.config.jastrow.u_parameters_optimizable,
                     self.config.jastrow.u_cutoff,
-                    self.config.jastrow.chi_parameters, self.config.jastrow.chi_parameters_optimizable, self.config.jastrow.chi_cutoff,
-                    self.config.jastrow.chi_labels, self.config.jastrow.chi_cusp,
-                    self.config.jastrow.f_parameters, self.config.jastrow.f_parameters_optimizable, self.config.jastrow.f_cutoff, self.config.jastrow.f_labels,
-                    self.config.jastrow.no_dup_u_term, self.config.jastrow.no_dup_chi_term
+                    self.config.jastrow.chi_parameters,
+                    self.config.jastrow.chi_parameters_optimizable,
+                    self.config.jastrow.chi_cutoff,
+                    self.config.jastrow.chi_labels,
+                    self.config.jastrow.chi_cusp,
+                    self.config.jastrow.f_parameters,
+                    self.config.jastrow.f_parameters_optimizable,
+                    self.config.jastrow.f_cutoff,
+                    self.config.jastrow.f_labels,
+                    self.config.jastrow.no_dup_u_term,
+                    self.config.jastrow.no_dup_chi_term,
                 )
             elif self.config.input.use_gjastrow:
                 self.config.jastrow.write('.', 0)
                 # gjastrow = Gjastrow(
-                #     self.config.input.neu, self.config.input.ned, self.config.jastrow.rank, self.config.jastrow.cusp,
-                #     self.config.jastrow.ee_basis_type, self.config.jastrow.en_basis_type,
-                #     self.config.jastrow.ee_cutoff_type, self.config.jastrow.en_cutoff_type,
-                #     self.config.jastrow.ee_constants, self.config.jastrow.en_constants,
-                #     self.config.jastrow.ee_basis_parameters, self.config.jastrow.en_basis_parameters,
-                #     self.config.jastrow.ee_cutoff_parameters, self.config.jastrow.en_cutoff_parameters,
-                #     self.config.jastrow.linear_parameters, self.config.jastrow.linear_parameters_shape,
+                #     self.config.input.neu,
+                #     self.config.input.ned,
+                #     self.config.jastrow.rank,
+                #     self.config.jastrow.cusp,
+                #     self.config.jastrow.ee_basis_type,
+                #     self.config.jastrow.en_basis_type,
+                #     self.config.jastrow.ee_cutoff_type,
+                #     self.config.jastrow.en_cutoff_type,
+                #     self.config.jastrow.ee_constants,
+                #     self.config.jastrow.en_constants,
+                #     self.config.jastrow.ee_basis_parameters,
+                #     self.config.jastrow.en_basis_parameters,
+                #     self.config.jastrow.ee_cutoff_parameters,
+                #     self.config.jastrow.en_cutoff_parameters,
+                #     self.config.jastrow.linear_parameters,
+                #     self.config.jastrow.linear_parameters_shape,
                 # )
 
         if self.config.backflow:
             backflow = Backflow(
-                self.config.input.neu, self.config.input.ned,
-                self.config.backflow.trunc, self.config.backflow.eta_parameters, self.config.backflow.eta_parameters_optimizable,
+                self.config.input.neu,
+                self.config.input.ned,
+                self.config.backflow.trunc,
+                self.config.backflow.eta_parameters,
+                self.config.backflow.eta_parameters_optimizable,
                 self.config.backflow.eta_cutoff,
-                self.config.backflow.mu_parameters, self.config.backflow.mu_parameters_optimizable, self.config.backflow.mu_cutoff,
-                self.config.backflow.mu_cusp, self.config.backflow.mu_labels,
-                self.config.backflow.phi_parameters, self.config.backflow.phi_parameters_optimizable,
-                self.config.backflow.theta_parameters, self.config.backflow.theta_parameters_optimizable,
-                self.config.backflow.phi_cutoff, self.config.backflow.phi_cusp, self.config.backflow.phi_labels, self.config.backflow.phi_irrotational,
-                self.config.backflow.ae_cutoff, self.config.backflow.ae_cutoff_optimizable
+                self.config.backflow.mu_parameters,
+                self.config.backflow.mu_parameters_optimizable,
+                self.config.backflow.mu_cutoff,
+                self.config.backflow.mu_cusp,
+                self.config.backflow.mu_labels,
+                self.config.backflow.phi_parameters,
+                self.config.backflow.phi_parameters_optimizable,
+                self.config.backflow.theta_parameters,
+                self.config.backflow.theta_parameters_optimizable,
+                self.config.backflow.phi_cutoff,
+                self.config.backflow.phi_cusp,
+                self.config.backflow.phi_labels,
+                self.config.backflow.phi_irrotational,
+                self.config.backflow.ae_cutoff,
+                self.config.backflow.ae_cutoff_optimizable,
             )
         else:
             backflow = None
 
         self.wfn = Wfn(
-            self.config.input.neu, self.config.input.ned, self.config.wfn.atom_positions, self.config.wfn.atom_charges, slater, jastrow, backflow, ppotential
+            self.config.input.neu,
+            self.config.input.ned,
+            self.config.wfn.atom_positions,
+            self.config.wfn.atom_charges,
+            slater, jastrow, backflow, ppotential,
         )
 
         self.vmc_markovchain = VMCMarkovChain(
