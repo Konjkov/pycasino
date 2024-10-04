@@ -1,8 +1,8 @@
-import numpy as np
 import numba as nb
-from numpy.polynomial.polynomial import polyval
+import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
+from numpy.polynomial.polynomial import polyval
 
 from casino import delta
 from casino.abstract import AbstractJastrow
@@ -136,6 +136,7 @@ def jastrow_ee_powers(self, e_vectors: np.ndarray):
     :param e_vectors: e-e vectors - array(nelec, nelec, 3)
     :return: powers of e-e distances - array(nelec, nelec, max_ee_order)
     """
+
     def impl(self, e_vectors: np.ndarray) -> np.ndarray:
         res = np.ones(shape=(e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
         for i in range(1, self.neu + self.ned):
@@ -144,6 +145,7 @@ def jastrow_ee_powers(self, e_vectors: np.ndarray):
                 for k in range(1, self.max_ee_order):
                     res[i, j, k] = res[j, i, k] = r_ee ** k
         return res
+
     return impl
 
 
@@ -154,6 +156,7 @@ def jastrow_en_powers(self, n_vectors: np.ndarray):
     :param n_vectors: e-n vectors - array(natom, nelec, 3)
     :return: powers of e-n distances - array(natom, nelec, max_en_order)
     """
+
     def impl(self, n_vectors: np.ndarray) -> np.ndarray:
         res = np.ones(shape=(n_vectors.shape[0], n_vectors.shape[1], self.max_en_order))
         for i in range(n_vectors.shape[0]):
@@ -162,6 +165,7 @@ def jastrow_en_powers(self, n_vectors: np.ndarray):
                 for k in range(1, self.max_en_order):
                     res[i, j, k] = r_eI ** k
         return res
+
     return impl
 
 
@@ -172,6 +176,7 @@ def jastrow_u_term(self, e_powers: np.ndarray):
     :param e_powers: powers of e-e distances
     :return:
     """
+
     def impl(self, e_powers: np.ndarray) -> float:
         res = 0.0
         if not self.u_cutoff:
@@ -194,6 +199,7 @@ def jastrow_u_term(self, e_powers: np.ndarray):
                         poly += p * e_powers[e1, e2, k]
                     res += poly * (r - self.u_cutoff) ** C
         return res
+
     return impl
 
 
@@ -204,6 +210,7 @@ def jastrow_chi_term(self, n_powers: np.ndarray):
     :param n_powers: powers of e-n distances
     :return:
     """
+
     def impl(self, n_powers: np.ndarray) -> float:
         res = 0.0
         C = self.trunc
@@ -215,6 +222,7 @@ def jastrow_chi_term(self, n_powers: np.ndarray):
                         chi_set = int(e1 >= self.neu) % parameters.shape[0]
                         res += polyval(r, parameters[chi_set]) * (r - L) ** C
         return res
+
     return impl
 
 
@@ -226,6 +234,7 @@ def jastrow_f_term(self, e_powers, n_powers):
     :param n_powers: powers of e-n distances
     :return:
     """
+
     def impl(self, e_powers, n_powers) -> float:
         res = 0.0
         C = self.trunc
@@ -250,6 +259,7 @@ def jastrow_f_term(self, e_powers, n_powers):
                                         poly += parameters[f_set, n, m, l] * en_part * e_powers[e1, e2, n]
                             res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
         return res
+
     return impl
 
 
@@ -261,6 +271,7 @@ def jastrow_u_term_gradient(self, e_powers, e_vectors):
     :param e_vectors: e-e vectors
     :return:
     """
+
     def impl(self, e_powers, e_vectors) -> np.ndarray:
         res = np.zeros(shape=(self.neu + self.ned, 3))
 
@@ -289,6 +300,7 @@ def jastrow_u_term_gradient(self, e_powers, e_vectors):
                     res[e1, :] += gradient
                     res[e2, :] -= gradient
         return res.ravel()
+
     return impl
 
 
@@ -300,6 +312,7 @@ def jastrow_chi_term_gradient(self, n_powers, n_vectors):
     :param n_vectors: e-n vectors
     :return:
     """
+
     def impl(self, n_powers, n_vectors) -> np.ndarray:
         C = self.trunc
         res = np.zeros(shape=(self.neu + self.ned, 3))
@@ -313,6 +326,7 @@ def jastrow_chi_term_gradient(self, n_powers, n_vectors):
                         chi_set = int(e1 >= self.neu) % parameters.shape[0]
                         res[e1, :] += r_vec * (r-L) ** C * polyval(r, (C*r/(r-L) + k) * parameters[chi_set]) / r
         return res.ravel()
+
     return impl
 
 
@@ -326,6 +340,7 @@ def jastrow_f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
     :param n_vectors: e-n vectors
     :return:
     """
+
     def impl(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
         C = self.trunc
         res = np.zeros(shape=(self.neu + self.ned, 3))
@@ -369,6 +384,7 @@ def jastrow_f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
                                 res[e1, t1] += cutoff * (e1_gradient + ee_gradient)
                                 res[e2, t1] += cutoff * (e2_gradient - ee_gradient)
         return res.ravel()
+
     return impl
 
 
@@ -379,6 +395,7 @@ def jastrow_u_term_laplacian(self, e_powers):
     :param e_powers: powers of e-e distances
     :return:
     """
+
     def impl(self, e_powers) -> float:
         res = 0.0
         if not self.u_cutoff:
@@ -409,6 +426,7 @@ def jastrow_u_term_laplacian(self, e_powers):
                         poly_diff_2 + 2 * poly_diff
                     ) / r**2
         return 2 * res
+
     return impl
 
 
@@ -419,6 +437,7 @@ def jastrow_chi_term_laplacian(self, n_powers):
     :param n_powers: powers of e-n distances
     :return:
     """
+
     def impl(self, n_powers) -> float:
         res = 0.0
         C = self.trunc
@@ -432,6 +451,7 @@ def jastrow_chi_term_laplacian(self, n_powers):
                         chi_set = int(e1 >= self.neu) % parameters.shape[0]
                         res += (r-L) ** C * polyval(r, (C*(C-1)*r**2/(r-L)**2 + 2*C*r/(r-L)*(1 + k) + 2*k + k * k_1) * parameters[chi_set]) / r**2
         return res
+
     return impl
 
 
@@ -450,6 +470,7 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
     :param n_vectors: e-n vectors
     :return:
     """
+
     def impl(self, e_powers, n_powers, e_vectors, n_vectors) -> float:
         res = 0.0
         C = self.trunc
@@ -509,6 +530,7 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                             ) / r_ee**2
                             res += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product)
         return res
+
     return impl
 
 
@@ -521,6 +543,7 @@ def jastrow_value(self, e_vectors, n_vectors):
     :param neu: number of up electrons
     :return:
     """
+
     def impl(self, e_vectors, n_vectors) -> float:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
@@ -530,6 +553,7 @@ def jastrow_value(self, e_vectors, n_vectors):
             self.chi_term(n_powers) +
             self.f_term(e_powers, n_powers)
         )
+
     return impl
 
 
@@ -541,6 +565,7 @@ def jastrow_gradient(self, e_vectors, n_vectors):
     :param n_vectors: e-n vectors
     :return:
     """
+
     def impl(self, e_vectors, n_vectors) -> np.ndarray:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
@@ -550,6 +575,7 @@ def jastrow_gradient(self, e_vectors, n_vectors):
             self.chi_term_gradient(n_powers, n_vectors) +
             self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
         )
+
     return impl
 
 
@@ -561,6 +587,7 @@ def jastrow_laplacian(self, e_vectors, n_vectors):
     :param n_vectors: e-n vectors
     :return:
     """
+
     def impl(self, e_vectors, n_vectors) -> float:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
@@ -570,6 +597,7 @@ def jastrow_laplacian(self, e_vectors, n_vectors):
             self.chi_term_laplacian(n_powers) +
             self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
         )
+
     return impl
 
 
@@ -577,11 +605,13 @@ def jastrow_laplacian(self, e_vectors, n_vectors):
 @overload_method(Jastrow_class_t, 'set_u_parameters_for_emin')
 def jastrow_set_u_parameters_for_emin(self):
     """Set u-term dependent parameters for CASINO emin."""
+
     def impl(self):
         C = self.trunc
         L = self.u_cutoff
         Gamma = 1 / np.array([4, 2, 4][:self.u_parameters.shape[0]])
         self.u_parameters[:, 0] = -L * Gamma / (-L) ** C / C
+
     return impl
 
 
@@ -589,11 +619,13 @@ def jastrow_set_u_parameters_for_emin(self):
 @overload_method(Jastrow_class_t, 'fix_u_parameters')
 def jastrow_fix_u_parameters(self):
     """Fix u-term dependent parameters."""
+
     def impl(self):
         C = self.trunc
         L = self.u_cutoff
         Gamma = 1 / np.array([4, 2, 4][:self.u_parameters.shape[0]])
         self.u_parameters[:, 1] = Gamma / (-L) ** C + self.u_parameters[:, 0] * C / L
+
     return impl
 
 
@@ -601,6 +633,7 @@ def jastrow_fix_u_parameters(self):
 @overload_method(Jastrow_class_t, 'fix_chi_parameters')
 def jastrow_fix_chi_parameters(self):
     """Fix chi-term dependent parameters."""
+
     def impl(self):
         C = self.trunc
         for chi_parameters, L, chi_cusp in zip(self.chi_parameters, self.chi_cutoff, self.chi_cusp):
@@ -609,6 +642,7 @@ def jastrow_fix_chi_parameters(self):
                 pass
                 # FIXME: chi cusp not implemented
                 # chi_parameters[:, 1] -= charge / (-L) ** C
+
     return impl
 
 
@@ -625,6 +659,7 @@ def jastrow_fix_f_parameters(self):
     (f_en_order + 1) constraints imposed to prevent duplication of chi-term
     b-column has the sum of independent coefficients for each condition.
     """
+
     def impl(self):
         for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
             f_spin_dep = f_parameters.shape[0] - 1
@@ -658,6 +693,7 @@ def jastrow_fix_f_parameters(self):
                             f_parameters[:, n, m, l] = f_parameters[:, n, l, m] = x[:, p]
                             p += 1
                         temp += 1
+
     return impl
 
 
@@ -665,6 +701,7 @@ def jastrow_fix_f_parameters(self):
 @overload_method(Jastrow_class_t, 'get_parameters_mask')
 def jastrow_get_parameters_mask(self):
     """Mask optimizable parameters."""
+
     def impl(self) -> np.ndarray:
         res = []
         if self.u_cutoff:
@@ -696,6 +733,7 @@ def jastrow_get_parameters_mask(self):
                                     res.append(f_parameters_optimizable[j1, j2, j3, j4])
 
         return np.array(res)
+
     return impl
 
 
@@ -709,6 +747,7 @@ def jastrow_get_parameters_scale(self, all_parameters):
     The purpose of this method is to reformulate the optimization problem
     with dimensionless variables having only one dimensional parameter - scale.
     """
+
     def impl(self, all_parameters) -> np.ndarray:
         scale = []
         ne = self.neu + self.ned
@@ -741,6 +780,7 @@ def jastrow_get_parameters_scale(self, all_parameters):
                                     scale.append(2 / f_cutoff ** (j2 + j3 + j4) / ne ** 3)
 
         return np.array(scale)
+
     return impl
 
 
@@ -753,6 +793,7 @@ def jastrow_get_parameters_constraints(self):
     for every f-set: f-cutoff, f-linear parameters.
     :return:
     """
+
     def impl(self):
         a_list = []
         b_list = [0.0]
@@ -859,6 +900,7 @@ def jastrow_get_parameters_constraints(self):
             b_list += [0] * f_constrains_size * len(f_spin_deps)
 
         return block_diag(a_list), np.array(b_list[1:])
+
     return impl
 
 
@@ -866,12 +908,14 @@ def jastrow_get_parameters_constraints(self):
 @overload_method(Jastrow_class_t, 'set_parameters_projector')
 def jastrow_set_parameters_projector(self):
     """Set Projector matrix"""
+
     def impl(self):
         a, b = self.get_parameters_constraints()
         p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
         mask_idx = np.argwhere(self.get_parameters_mask()).ravel()
         inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
         self.parameters_projector = p[:, mask_idx] @ inv_p
+
     return impl
 
 
@@ -884,6 +928,7 @@ def jastrow_get_parameters(self, all_parameters):
     for every f-set: f-cutoff, f-linear parameters.
     :return:
     """
+
     def impl(self, all_parameters):
         res = []
         if self.u_cutoff:
@@ -915,6 +960,7 @@ def jastrow_get_parameters(self, all_parameters):
                                     res.append(f_parameters[j1, j2, j3, j4])
 
         return np.array(res)
+
     return impl
 
 
@@ -929,6 +975,7 @@ def jastrow_set_parameters(self, parameters, all_parameters):
     :param all_parameters:
     :return:
     """
+
     def impl(self, parameters, all_parameters):
         n = 0
         if self.u_cutoff:
@@ -974,6 +1021,7 @@ def jastrow_set_parameters(self, parameters, all_parameters):
                 self.fix_f_parameters()
 
         return parameters[n:]
+
     return impl
 
 
@@ -983,6 +1031,7 @@ def jastrow_u_term_parameters_d1(self, e_powers):
     """First derivatives of log wfn w.r.t u-term parameters
     :param e_powers: powers of e-e distances
     """
+
     def impl(self, e_powers) -> np.ndarray:
         if not self.u_cutoff:
             return np.zeros((0,))
@@ -1015,6 +1064,7 @@ def jastrow_u_term_parameters_d1(self, e_powers):
                                 if u_set == j1:
                                     res[n] += e_powers[e1, e2, j2] * cutoff
         return res
+
     return impl
 
 
@@ -1024,6 +1074,7 @@ def jastrow_chi_term_parameters_d1(self, n_powers):
     """First derivatives of log wfn w.r.t chi-term parameters
     :param n_powers: powers of e-n distances
     """
+
     def impl(self, n_powers) -> np.ndarray:
         if not self.chi_cutoff.any():
             return np.zeros((0,))
@@ -1062,6 +1113,7 @@ def jastrow_chi_term_parameters_d1(self, n_powers):
                                     if chi_set == j1:
                                         res[n] += n_powers[label, e1, j2] * cutoff
         return res
+
     return impl
 
 
@@ -1072,6 +1124,7 @@ def jastrow_f_term_parameters_d1(self, e_powers, n_powers):
     :param e_powers: powers of e-e distances
     :param n_powers: powers of e-n distances
     """
+
     def impl(self, e_powers, n_powers) -> np.ndarray:
         if not self.f_cutoff.any():
             return np.zeros((0,))
@@ -1118,6 +1171,7 @@ def jastrow_f_term_parameters_d1(self, e_powers, n_powers):
                                                         en_part += n_powers[label, e1, j4] * n_powers[label, e2, j3]
                                                     res[n] += en_part * e_powers[e1, e2, j2] * cutoff
         return res
+
     return impl
 
 
@@ -1129,6 +1183,7 @@ def jastrow_u_term_gradient_parameters_d1(self, e_powers, e_vectors):
     :param e_powers: powers of e-e distances
     :return:
     """
+
     def impl(self, e_powers, e_vectors) -> np.ndarray:
         if not self.u_cutoff:
             return np.zeros((0, (self.neu + self.ned) * 3))
@@ -1165,6 +1220,7 @@ def jastrow_u_term_gradient_parameters_d1(self, e_powers, e_vectors):
                                     res[n, e1, :] += gradient
                                     res[n, e2, :] -= gradient
         return res.reshape(size, (self.neu + self.ned) * 3)
+
     return impl
 
 
@@ -1176,6 +1232,7 @@ def jastrow_chi_term_gradient_parameters_d1(self, n_powers, n_vectors):
     :param n_powers: powers of e-n distances
     :return:
     """
+
     def impl(self, n_powers, n_vectors) -> np.ndarray:
         if not self.chi_cutoff.any():
             return np.zeros((0, (self.neu + self.ned) * 3))
@@ -1216,6 +1273,7 @@ def jastrow_chi_term_gradient_parameters_d1(self, n_powers, n_vectors):
                                         poly = n_powers[label, e1, j2]
                                         res[n, e1, :] += r_vec * cutoff * (C / (r - L) + j2 / r) * poly
         return res.reshape(size, (self.neu + self.ned) * 3)
+
     return impl
 
 
@@ -1229,6 +1287,7 @@ def jastrow_f_term_gradient_parameters_d1(self, e_powers, n_powers, e_vectors, n
     :param n_powers: powers of e-n distances
     :return:
     """
+
     def impl(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
         if not self.f_cutoff.any():
             return np.zeros((0, (self.neu + self.ned) * 3))
@@ -1289,6 +1348,7 @@ def jastrow_f_term_gradient_parameters_d1(self, e_powers, n_powers, e_vectors, n
                                                             res[n, e1, t1] += (e1_gradient + ee_gradient) * poly_2
                                                             res[n, e2, t1] += (e2_gradient - ee_gradient) * poly_2
         return res.reshape(size, (self.neu + self.ned) * 3)
+
     return impl
 
 
@@ -1299,9 +1359,10 @@ def jastrow_u_term_laplacian_parameters_d1(self, e_powers):
     :param e_powers: powers of e-e distances
     :return:
     """
+
     def impl(self, e_powers) -> np.ndarray:
         if not self.u_cutoff:
-            return np.zeros((0, ))
+            return np.zeros((0,))
 
         C = self.trunc
         L = self.u_cutoff
@@ -1336,6 +1397,7 @@ def jastrow_u_term_laplacian_parameters_d1(self, e_powers):
                                         j2 * (j2 + 1) / r**2
                                     ) * poly
         return res
+
     return impl
 
 
@@ -1346,9 +1408,10 @@ def jastrow_chi_term_laplacian_parameters_d1(self, n_powers):
     :param n_powers: powers of e-n distances
     :return:
     """
+
     def impl(self, n_powers) -> np.ndarray:
         if not self.chi_cutoff.any():
-            return np.zeros((0, ))
+            return np.zeros((0,))
 
         C = self.trunc
         size = sum([
@@ -1389,6 +1452,7 @@ def jastrow_chi_term_laplacian_parameters_d1(self, n_powers):
                                             j2 * (j2 + 1) / r**2
                                         ) * poly
         return res
+
     return impl
 
 
@@ -1400,9 +1464,10 @@ def jastrow_f_term_laplacian_parameters_d1(self, e_powers, n_powers, e_vectors, 
     :param n_powers: powers of e-n distances
     :return:
     """
+
     def impl(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
         if not self.f_cutoff.any():
-            return np.zeros((0, ))
+            return np.zeros((0,))
 
         size = sum([
             f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
@@ -1485,6 +1550,7 @@ def jastrow_f_term_laplacian_parameters_d1(self, e_powers, n_powers, e_vectors, 
                                                         ) * j2 / r_ee**2
                                                         res[n] += (diff_2 + 2 * diff_1 + 2 * dot_product) * poly
         return res
+
     return impl
 
 
@@ -1496,6 +1562,7 @@ def jastrow_value_parameters_d1(self, e_vectors, n_vectors):
     :param e_vectors: e-e vectors
     :param n_vectors: e-n vectors
     """
+
     def impl(self, e_vectors, n_vectors) -> np.ndarray:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
@@ -1505,6 +1572,7 @@ def jastrow_value_parameters_d1(self, e_vectors, n_vectors):
             self.chi_term_parameters_d1(n_powers),
             self.f_term_parameters_d1(e_powers, n_powers),
         ))
+
     return impl
 
 
@@ -1516,6 +1584,7 @@ def jastrow_gradient_parameters_d1(self, e_vectors, n_vectors):
     :param n_vectors: e-n vectors
     :return:
     """
+
     def impl(self, e_vectors, n_vectors) -> np.ndarray:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
@@ -1525,6 +1594,7 @@ def jastrow_gradient_parameters_d1(self, e_vectors, n_vectors):
             self.chi_term_gradient_parameters_d1(n_powers, n_vectors),
             self.f_term_gradient_parameters_d1(e_powers, n_powers, e_vectors, n_vectors),
         ))
+
     return impl
 
 
@@ -1536,6 +1606,7 @@ def jastrow_laplacian_parameters_d1(self, e_vectors, n_vectors):
     :param n_vectors: e-n vectors
     :return:
     """
+
     def impl(self, e_vectors, n_vectors) -> np.ndarray:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
@@ -1545,6 +1616,7 @@ def jastrow_laplacian_parameters_d1(self, e_vectors, n_vectors):
             self.chi_term_laplacian_parameters_d1(n_powers),
             self.f_term_laplacian_parameters_d1(e_powers, n_powers, e_vectors, n_vectors),
         ))
+
     return impl
 
 
@@ -1554,6 +1626,7 @@ def jastrow_u_term_parameters_d2(self, e_powers):
     """Second derivatives of wfn w.r.t. u-term parameters
     :param e_powers: powers of e-e distances
     """
+
     def impl(self, e_powers) -> np.ndarray:
         if not self.u_cutoff:
             return np.zeros((0, 0))
@@ -1571,6 +1644,7 @@ def jastrow_u_term_parameters_d2(self, e_powers):
             res[:, n] = res[n, :]
 
         return res
+
     return impl
 
 
@@ -1580,6 +1654,7 @@ def jastrow_chi_term_parameters_d2(self, n_powers):
     """Second derivatives of wfn w.r.t. chi-term parameters
     :param n_powers: powers of e-n distances
     """
+
     def impl(self, n_powers) -> np.ndarray:
         if not self.chi_cutoff.any():
             return np.zeros((0, 0))
@@ -1604,6 +1679,7 @@ def jastrow_chi_term_parameters_d2(self, n_powers):
             n += chi_parameters_available.sum()
 
         return res
+
     return impl
 
 
@@ -1614,6 +1690,7 @@ def jastrow_f_term_parameters_d2(self, e_powers, n_powers):
     :param e_powers: powers of e-e distances
     :param n_powers: powers of e-n distances
     """
+
     def impl(self, e_powers, n_powers) -> np.ndarray:
         if not self.f_cutoff.any():
             return np.zeros((0, 0))
@@ -1638,6 +1715,7 @@ def jastrow_f_term_parameters_d2(self, e_powers, n_powers):
             n += f_parameters_available.sum()
 
         return res
+
     return impl
 
 
@@ -1648,6 +1726,7 @@ def jastrow_value_parameters_d2(self, e_vectors, n_vectors):
     :param e_vectors: e-e vectors
     :param n_vectors: e-n vectors
     """
+
     def impl(self, e_vectors, n_vectors) -> np.ndarray:
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
@@ -1657,6 +1736,7 @@ def jastrow_value_parameters_d2(self, e_vectors, n_vectors):
             self.chi_term_parameters_d2(n_powers),
             self.f_term_parameters_d2(e_powers, n_powers),
         )) @ self.parameters_projector
+
     return impl
 
 
@@ -1668,39 +1748,40 @@ u_parameters_mask_type = nb.boolean[:, ::1]
 chi_parameters_mask_type = nb.boolean[:, ::1]
 f_parameters_mask_type = nb.boolean[:, :, :, ::1]
 
-Jastrow_t = Jastrow_class_t([
-    ('neu', nb.int64),
-    ('ned', nb.int64),
-    ('trunc', nb.int64),
-    ('u_parameters', u_parameters_type),
-    ('chi_parameters', nb.types.ListType(chi_parameters_type)),
-    ('f_parameters', nb.types.ListType(f_parameters_type)),
-    ('u_parameters_optimizable', u_parameters_mask_type),
-    ('chi_parameters_optimizable', nb.types.ListType(chi_parameters_mask_type)),
-    ('f_parameters_optimizable', nb.types.ListType(f_parameters_mask_type)),
-    ('u_parameters_available', u_parameters_mask_type),
-    ('chi_parameters_available', nb.types.ListType(chi_parameters_mask_type)),
-    ('f_parameters_available', nb.types.ListType(f_parameters_mask_type)),
-    ('u_cutoff', nb.float64),
-    ('u_cutoff_optimizable', nb.boolean),
-    ('chi_cutoff', nb.float64[:]),
-    ('chi_cutoff_optimizable', nb.boolean[:]),
-    ('f_cutoff', nb.float64[:]),
-    ('f_cutoff_optimizable', nb.boolean[:]),
-    ('chi_labels', nb.types.ListType(labels_type)),
-    ('f_labels', nb.types.ListType(labels_type)),
-    ('max_ee_order', nb.int64),
-    ('max_en_order', nb.int64),
-    ('chi_cusp', nb.boolean[::1]),
-    ('no_dup_u_term', nb.boolean[::1]),
-    ('no_dup_chi_term', nb.boolean[::1]),
-    ('parameters_projector', nb.float64[:, ::1]),
-    ('cutoffs_optimizable', nb.boolean),
-])
+Jastrow_t = Jastrow_class_t(
+    [
+        ('neu', nb.int64),
+        ('ned', nb.int64),
+        ('trunc', nb.int64),
+        ('u_parameters', u_parameters_type),
+        ('chi_parameters', nb.types.ListType(chi_parameters_type)),
+        ('f_parameters', nb.types.ListType(f_parameters_type)),
+        ('u_parameters_optimizable', u_parameters_mask_type),
+        ('chi_parameters_optimizable', nb.types.ListType(chi_parameters_mask_type)),
+        ('f_parameters_optimizable', nb.types.ListType(f_parameters_mask_type)),
+        ('u_parameters_available', u_parameters_mask_type),
+        ('chi_parameters_available', nb.types.ListType(chi_parameters_mask_type)),
+        ('f_parameters_available', nb.types.ListType(f_parameters_mask_type)),
+        ('u_cutoff', nb.float64),
+        ('u_cutoff_optimizable', nb.boolean),
+        ('chi_cutoff', nb.float64[:]),
+        ('chi_cutoff_optimizable', nb.boolean[:]),
+        ('f_cutoff', nb.float64[:]),
+        ('f_cutoff_optimizable', nb.boolean[:]),
+        ('chi_labels', nb.types.ListType(labels_type)),
+        ('f_labels', nb.types.ListType(labels_type)),
+        ('max_ee_order', nb.int64),
+        ('max_en_order', nb.int64),
+        ('chi_cusp', nb.boolean[::1]),
+        ('no_dup_u_term', nb.boolean[::1]),
+        ('no_dup_chi_term', nb.boolean[::1]),
+        ('parameters_projector', nb.float64[:, ::1]),
+        ('cutoffs_optimizable', nb.boolean),
+    ]
+)
 
 
 class Jastrow(structref.StructRefProxy, AbstractJastrow):
-
     def __new__(cls, *args, **kwargs):
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutoff,
@@ -1745,6 +1826,7 @@ class Jastrow(structref.StructRefProxy, AbstractJastrow):
             self.cutoffs_optimizable = True
             self.fix_optimizable()
             return self
+
         return init(*args, **kwargs)
 
     @property
