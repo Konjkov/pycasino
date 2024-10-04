@@ -2,16 +2,17 @@
 
 import logging
 import math
-import numpy as np
+
 import numba as nb
+import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
-
-from scipy.optimize import minimize
 from numpy.polynomial.polynomial import polyval
-from casino.abstract import AbstractCusp
-from casino.harmonics import value_angular_part
-from casino.readers import CasinoConfig
+from scipy.optimize import minimize
+
+from .abstract import AbstractCusp
+from .harmonics import value_angular_part
+from .readers import CasinoConfig
 
 logger = logging.getLogger(__name__)
 
@@ -111,9 +112,9 @@ def cusp_exp(self, atom, orbital, r):
             # FIXME: use polyval(r, self.alpha[:, atom, i])
             self.alpha[0, atom, orbital] +
             self.alpha[1, atom, orbital] * r +
-            self.alpha[2, atom, orbital] * r ** 2 +
-            self.alpha[3, atom, orbital] * r ** 3 +
-            self.alpha[4, atom, orbital] * r ** 4
+            self.alpha[2, atom, orbital] * r**2 +
+            self.alpha[3, atom, orbital] * r**3 +
+            self.alpha[4, atom, orbital] * r**4
         )
     return impl
 
