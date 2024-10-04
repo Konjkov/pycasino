@@ -1,29 +1,29 @@
-import os
-import sys
+import argparse
 import datetime
 import logging
+import os
+import sys
 import warnings
-import argparse
 from timeit import default_timer
-from mpi4py import MPI
+
+import matplotlib.pyplot as plt
 import numba as nb
 import numpy as np
 import scipy as sp
-from scipy.optimize import least_squares, minimize, curve_fit, OptimizeWarning
-import matplotlib.pyplot as plt
+from mpi4py import MPI
+from scipy.optimize import OptimizeWarning, curve_fit, least_squares, minimize
 
-from casino.wfn import Wfn
-from casino.cusp import CuspFactory
-from casino.slater import Slater
-from casino.jastrow import Jastrow
-# from casino.gjastrow import Gjastrow
-from casino.backflow import Backflow
-from casino.ppotential import PPotential
-from casino.vmc import VMCMarkovChain, vmc_observable
-from casino.dmc import DMCMarkovChain
-from casino.readers import CasinoConfig
-from casino.sem import correlated_sem
-
+# from .gjastrow import Gjastrow
+from .backflow import Backflow
+from .cusp import CuspFactory
+from .dmc import DMCMarkovChain
+from .jastrow import Jastrow
+from .ppotential import PPotential
+from .readers import CasinoConfig
+from .sem import correlated_sem
+from .slater import Slater
+from .vmc import VMCMarkovChain, vmc_observable
+from .wfn import Wfn
 
 __version__ = '0.2.0'
 __author__ = 'Vladimir Konkov'

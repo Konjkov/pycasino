@@ -1,12 +1,12 @@
-import numpy as np
-import numba as nb
-
 from math import erfc
+
+import numba as nb
+import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
-from casino.mpi import Comm, Comm_t
-from casino.wfn import Wfn_t
+from .mpi import Comm, Comm_t
+from .wfn import Wfn_t
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)

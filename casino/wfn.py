@@ -1,13 +1,13 @@
-import numpy as np
 import numba as nb
+import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
-from casino.slater import Slater_t
-from casino.jastrow import Jastrow_t
-from casino.backflow import Backflow_t
-from casino.overload import block_diag
-from casino.ppotential import PPotential_t
+from .backflow import Backflow_t
+from .jastrow import Jastrow_t
+from .overload import block_diag
+from .ppotential import PPotential_t
+from .slater import Slater_t
 
 
 @structref.register

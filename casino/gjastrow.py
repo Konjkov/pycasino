@@ -1,8 +1,8 @@
-import numpy as np
 import numba as nb
+import numpy as np
 from numba.experimental import structref
 
-from casino.abstract import AbstractJastrow
+from .abstract import AbstractJastrow
 
 
 @structref.register

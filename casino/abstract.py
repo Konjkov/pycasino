@@ -1,7 +1,8 @@
-import numpy as np
 import numba as nb
-from casino import delta, delta_2, delta_3
-from casino.overload import random_step
+import numpy as np
+
+from . import delta, delta_2, delta_3
+from .overload import random_step
 
 
 class AbstractCusp:

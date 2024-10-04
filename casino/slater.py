@@ -1,14 +1,15 @@
 import math
-import numpy as np
+
 import numba as nb
+import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
-from casino import delta
-from casino.abstract import AbstractSlater
-from casino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
-from casino.cusp import Cusp_t
-from casino.harmonics import value_angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
+from . import delta
+from .abstract import AbstractSlater
+from .cusp import Cusp_t
+from .harmonics import gradient_angular_part, hessian_angular_part, tressian_angular_part, value_angular_part
+from .readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 
 
 @structref.register
