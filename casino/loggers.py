@@ -1,8 +1,8 @@
-
 class StreamToLogger:
     """Fake file-like stream object that redirects writes to a logger instance.
     https://stackoverflow.com/questions/19425736/how-to-redirect-stdout-and-stderr-to-logger-in-python
     """
+
     def __init__(self, logger, level):
         self.logger = logger
         self.level = level
