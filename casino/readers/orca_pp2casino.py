@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-import os
 import argparse
+import os
+
 import numpy as np
 
 periodic = ['', 'H', 'He']
@@ -104,7 +105,7 @@ class PPotential:
         for l in range(1, self.ppotential.shape[0]):
             for i in range(self.ppotential.shape[1]):
                 r = self.ppotential[0, i]
-                self.ppotential[l, i] = np.nan_to_num(np.sum(self.d[l-1] * r ** (self.n[l-1] - 1) * np.exp(-self.alpha[l-1] * r**2)))
+                self.ppotential[l, i] = np.nan_to_num(np.sum(self.d[l - 1] * r ** (self.n[l - 1] - 1) * np.exp(-self.alpha[l - 1] * r**2)))
         self.ppotential[-1] -= self.pseudo_charge
         self.ppotential[1:-1] += self.ppotential[-1]
 
@@ -115,7 +116,7 @@ class PPotential:
             n_grid=self.ppotential.shape[1],
             atomic_number=self.atomic_number,
             pseudo_charge=self.pseudo_charge,
-            max_angular_momentum=self.ppotential.shape[0] - 2
+            max_angular_momentum=self.ppotential.shape[0] - 2,
         )
         with open(f'{self.atom_symbol.lower()}_pp.data', 'w') as f:
             f.write(header)
@@ -134,12 +135,12 @@ class PPotential:
 
 def main():
     parser = argparse.ArgumentParser('orca_pp2casino')
-    parser.add_argument("input_file", help="orca pseudopotential", type=str)
+    parser.add_argument('input_file', help='orca pseudopotential', type=str)
     args = parser.parse_args()
     pp = PPotential()
     pp.read(args.input_file)
     pp.write()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

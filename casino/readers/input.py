@@ -132,8 +132,10 @@ class Input:
 
     def log(self):
         """Write log"""
+
         def to_fortran(val):
             return 'T' if val else 'F'
+
         if self.runtype == 'vmc':
             runtype = 'VMC input parameters'
         elif self.runtype == 'vmc_opt':
@@ -239,5 +241,5 @@ class Input:
         msg += (
             ' MAKEMOVIE                                :  F\n'
             ' FORCES                                   :  F\n'
-        )
+        )  # fmt: skip
         return msg

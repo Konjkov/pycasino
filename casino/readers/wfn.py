@@ -1,9 +1,8 @@
 import os
-import numpy as np
-import numba as nb
-
 from math import factorial, pi, sqrt
 
+import numba as nb
+import numpy as np
 
 ppotential_type = nb.float64[:, ::1]
 
@@ -50,7 +49,7 @@ class FortranFile:
         result = list()
         while len(result) < n:
             line = self.f.readline()
-            result += map(float, [line[i * 20:(i + 1) * 20] for i in range(len(line) // 20)])
+            result += map(float, [line[i * 20 : (i + 1) * 20] for i in range(len(line) // 20)])
         return result
 
 
@@ -58,6 +57,7 @@ class Gwfn(FortranFile):
     """Gaussian wfn reader from gwfn.data file.
     CASINO manual: 7.10.1 gwfn.data file specification
     """
+
     # shell types (s/sp/p/d/f... 1/2/3/4/5...) -> l
     shell_map = {1: 0, 2: 1, 3: 1, 4: 2, 5: 3, 6: 4}
 
@@ -122,8 +122,8 @@ class Gwfn(FortranFile):
                 self.f.readline()  # skip line with -----------
                 if self.unrestricted:
                     mo = self.read_floats(2 * self.nbasis_functions * self.nbasis_functions)
-                    mo_up = mo[:self.nbasis_functions * self.nbasis_functions]
-                    mo_down = mo[self.nbasis_functions * self.nbasis_functions:]
+                    mo_up = mo[: self.nbasis_functions * self.nbasis_functions]
+                    mo_down = mo[self.nbasis_functions * self.nbasis_functions :]
                     self.mo_up = np.array(mo_up).reshape((self.nbasis_functions, self.nbasis_functions))
                     self.mo_down = np.array(mo_down).reshape((self.nbasis_functions, self.nbasis_functions))
                 else:
@@ -132,7 +132,7 @@ class Gwfn(FortranFile):
                     self.mo_down = np.copy(self.mo_up)
 
         self.orbital_types = np.full((self._nprimitives,), GAUSSIAN_TYPE, dtype=np.int_)
-        self.slater_orders = np.zeros((self._nprimitives, ), dtype=np.int_)
+        self.slater_orders = np.zeros((self._nprimitives,), dtype=np.int_)
         self.remove_premultiplied_factor()
 
         # Read pseudopotential from files
@@ -182,14 +182,14 @@ class Gwfn(FortranFile):
                         grid_points = self.read_int()
                     elif line.startswith('R(i) in atomic units'):
                         # FIXME: local channel not max angular momentum
-                        ppotential = np.zeros(shape=(local_angular_momentum+2, grid_points), dtype=float)
+                        ppotential = np.zeros(shape=(local_angular_momentum + 2, grid_points), dtype=float)
                         for i in range(grid_points):
                             ppotential[0, i] = self.read_float()
                     elif line.startswith('r*potential'):
                         # take X from r*potential (L=X) in Ry
                         angular_momentum = int(line.split()[1][3])
                         for i in range(grid_points):
-                            ppotential[angular_momentum+1, i] = self.read_float() * scale
+                            ppotential[angular_momentum + 1, i] = self.read_float() * scale
             for idx in ids:
                 ppotential_list[idx[0]] = ppotential.copy()
         self.ppotential = nb.typed.List.empty_list(ppotential_type)
@@ -211,9 +211,9 @@ class Gwfn(FortranFile):
         for shell_moment in self.shell_moments:
             l = shell_moment
             if l == 2:
-                self.mo_up[:, p:p+2*l+1] /= d_premultiplied_factor
-                self.mo_down[:, p:p+2*l+1] /= d_premultiplied_factor
-            p += 2*l+1
+                self.mo_up[:, p : p + 2 * l + 1] /= d_premultiplied_factor
+                self.mo_down[:, p : p + 2 * l + 1] /= d_premultiplied_factor
+            p += 2 * l + 1
 
 
 class Stowfn(FortranFile):
@@ -251,6 +251,7 @@ class Stowfn(FortranFile):
       polynorm[23] = .1875*sqrt(35./pi); // xxxx-6xxyy+yyyy    +4
       polynorm[24] = .75*sqrt(35./pi); // xxxy-xyyy            -4
     """
+
     # shell types (s/sp/p/d/f... 1/2/3/4/5...) -> l
     shell_map = {1: 0, 2: 1, 3: 1, 4: 2, 5: 3, 6: 4}
 
@@ -290,7 +291,7 @@ class Stowfn(FortranFile):
             elif line.startswith('Number of shells'):
                 self._nshell = self.read_int()
             elif line.startswith('Sequence number of first shell on each centre'):
-                self.first_shells = np.array(self.read_ints(self._natoms) + [self._nshell+1])
+                self.first_shells = np.array(self.read_ints(self._natoms) + [self._nshell + 1])
             elif line.startswith('Code for shell types'):
                 shell_types = self.read_ints(self._nshell)
                 # corrected shell_types
@@ -301,7 +302,7 @@ class Stowfn(FortranFile):
                 self.exponents = np.array(self.read_floats(self._nshell))
             elif line.startswith('Number of basis functions'):
                 self.nbasis_functions = self.read_int()
-            elif line.startswith('Number of molecular orbitals (\'MO\')'):
+            elif line.startswith("Number of molecular orbitals ('MO')"):
                 if self.unrestricted:
                     self.n_mo_up, self.n_mo_down = self.read_ints(2)
                 else:
@@ -337,18 +338,18 @@ class Stowfn(FortranFile):
             l = shell_moment
             n = slater_order + shell_moment + 1
             if shell_moment == 2:
-                self.mo_up[:, p:p+2*l+1] = self.mo_up[:, p+d_exchange_order]
-                self.mo_down[:, p:p+2*l+1] = self.mo_down[:, p+d_exchange_order]
-            l_dependent_norm = sqrt(2*l+1)/sqrt(4*pi) * (2*exponent)**n * sqrt(2*exponent/factorial(2*n))
+                self.mo_up[:, p : p + 2 * l + 1] = self.mo_up[:, p + d_exchange_order]
+                self.mo_down[:, p : p + 2 * l + 1] = self.mo_down[:, p + d_exchange_order]
+            l_dependent_norm = sqrt(2 * l + 1) / sqrt(4 * pi) * (2 * exponent) ** n * sqrt(2 * exponent / factorial(2 * n))
             # read CASINO distributive: examples/generic/gauss_dfg/README for details
             if shell_moment == 2:
-                m_dependent_norm = 1 / np.array((1, sqrt(3), sqrt(3), 2*sqrt(3), 2*sqrt(3)))
+                m_dependent_norm = 1 / np.array((1, sqrt(3), sqrt(3), 2 * sqrt(3), 2 * sqrt(3)))
             elif shell_moment == 3:
                 m_dependent_norm = 1 / np.array((1, sqrt(6), sqrt(6), sqrt(60), sqrt(60), sqrt(360), sqrt(360)))
             elif shell_moment == 4:
                 m_dependent_norm = 1 / np.array((1, sqrt(10), sqrt(10), sqrt(180), sqrt(180), sqrt(2520), sqrt(2520), sqrt(20160), sqrt(20160)))
             else:
-                m_dependent_norm = np.ones((2*l+1, ))
-            self.mo_up[:, p:p+2*l+1] *= l_dependent_norm * m_dependent_norm
-            self.mo_down[:, p:p+2*l+1] *= l_dependent_norm * m_dependent_norm
-            p += 2*l+1
+                m_dependent_norm = np.ones((2 * l + 1,))
+            self.mo_up[:, p : p + 2 * l + 1] *= l_dependent_norm * m_dependent_norm
+            self.mo_down[:, p : p + 2 * l + 1] *= l_dependent_norm * m_dependent_norm
+            p += 2 * l + 1
