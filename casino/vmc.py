@@ -1,10 +1,9 @@
-import numpy as np
 import numba as nb
-
+import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
-from casino.wfn import Wfn_t
+from .wfn import Wfn_t
 
 
 @structref.register
@@ -19,12 +18,14 @@ def vmcmarkovchain_random_step(self):
     """VMC random step wrapper.
     :return: step is accepted
     """
+
     def impl(self):
         if self.method == 1:
             return self.gibbs_random_step()
         elif self.method == 3:
             return self.simple_random_step()
         return False
+
     return impl
 
 
@@ -35,6 +36,7 @@ def vmcmarkovchain_simple_random_step(self):
     configuration-by-configuration sampling (CBCS).
     :return: step is accepted
     """
+
     def impl(self):
         cond = False
         ne = self.wfn.neu + self.wfn.ned
@@ -43,7 +45,9 @@ def vmcmarkovchain_simple_random_step(self):
         if next_probability_density / self.probability_density > np.random.random():
             cond, self.r_e, self.probability_density = True, next_r_e, next_probability_density
         return cond
+
     return impl
+
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(VMCMarkovChain_class_t, 'gibbs_random_step')
@@ -51,6 +55,7 @@ def vmcmarkovchain_gibbs_random_step(self):
     """Simple random walker with electron-by-electron sampling (EBES)
     :return: step is accepted
     """
+
     def impl(self):
         cond = False
         ne = self.wfn.neu + self.wfn.ned
@@ -61,20 +66,22 @@ def vmcmarkovchain_gibbs_random_step(self):
             if next_probability_density / self.probability_density > np.random.random():
                 cond, self.r_e, self.probability_density = True, next_r_e, next_probability_density
         return cond
+
     return impl
 
 
-VMCMarkovChain_t = VMCMarkovChain_class_t([
-    ('r_e', nb.float64[:, ::1]),
-    ('step_size', nb.float64),
-    ('wfn', Wfn_t),
-    ('method', nb.int64),
-    ('probability_density', nb.float64),
-])
+VMCMarkovChain_t = VMCMarkovChain_class_t(
+    [
+        ('r_e', nb.float64[:, ::1]),
+        ('step_size', nb.float64),
+        ('wfn', Wfn_t),
+        ('method', nb.int64),
+        ('probability_density', nb.float64),
+    ]
+)
 
 
 class VMCMarkovChain(structref.StructRefProxy):
-
     def __new__(cls, *args, **kwargs):
         """Markov chain Monte Carlo.
         :param r_e: initial position
@@ -83,6 +90,7 @@ class VMCMarkovChain(structref.StructRefProxy):
         :param method: vmc method: (1) - EBES (work in progress), (3) - CBCS.
         :return:
         """
+
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(r_e, step_size, wfn, method):
             self = structref.new(VMCMarkovChain_t)
@@ -92,6 +100,7 @@ class VMCMarkovChain(structref.StructRefProxy):
             self.method = method
             self.probability_density = wfn.value(r_e) ** 2
             return self
+
         return init(*args, **kwargs)
 
     @property
@@ -105,23 +114,19 @@ class VMCMarkovChain(structref.StructRefProxy):
         self.step_size = value
 
     def bbk_random_step(self):
-        """Brünger–Brooks–Karplus (13 B. Brünger, C. L. Brooks, and M. Karplus, Chem. Phys. Lett. 105, 495 1984).
-        """
+        """Brünger–Brooks–Karplus (13 B. Brünger, C. L. Brooks, and M. Karplus, Chem. Phys. Lett. 105, 495 1984)."""
         raise NotImplementedError
 
     def force_interpolation_random_step(self):
-        """M. P. Allen and D. J. Tildesley, Computer Simulation of Liquids Oxford University Press, Oxford, 1989 and references in Sec. 9.3.
-        """
+        """M. P. Allen and D. J. Tildesley, Computer Simulation of Liquids Oxford University Press, Oxford, 1989 and references in Sec. 9.3."""
         raise NotImplementedError
 
     def splitting_random_step(self):
-        """J. A. Izaguirre, D. P. Catarello, J. M. Wozniak, and R. D. Skeel, J. Chem. Phys. 114, 2090 2001.
-        """
+        """J. A. Izaguirre, D. P. Catarello, J. M. Wozniak, and R. D. Skeel, J. Chem. Phys. 114, 2090 2001."""
         raise NotImplementedError
 
     def ricci_ciccotti_random_step(self):
-        """A. Ricci and G. Ciccotti, Mol. Phys. 101, 1927 2003.
-        """
+        """A. Ricci and G. Ciccotti, Mol. Phys. 101, 1927 2003."""
         raise NotImplementedError
 
     @nb.njit(nogil=True, parallel=False, cache=True)
@@ -161,7 +166,7 @@ def vmc_observable(position, observable):
 
     for i in range(1, position.shape[0]):
         if np.isnan(position[i, 0, 0]):
-            res[i] = res[i-1]
+            res[i] = res[i - 1]
         else:
             res[i] = observable(position[i])
     return res
