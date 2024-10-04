@@ -1,9 +1,9 @@
 import os
-import numpy as np
-import numba as nb
-
 from collections import ChainMap
-from yaml import dump, safe_load, Dumper
+
+import numba as nb
+import numpy as np
+from yaml import Dumper, dump, safe_load
 from yaml.events import SequenceEndEvent
 
 
@@ -15,14 +15,13 @@ def dict_to_typed_dict(_dict, _type=nb.types.float64):
 
 
 class CaslDumper(Dumper):
-
     def expect_block_sequence_item(self, first=False):
         if not first and isinstance(self.event, SequenceEndEvent):
             self.indent = self.indents.pop()
             self.state = self.states.pop()
         else:
             self.write_indent()
-            self.write_indicator(u' ', True, indention=True)
+            self.write_indicator(' ', True, indention=True)
             self.states.append(self.expect_block_sequence_item)
             self.expect_node(sequence=True)
 
@@ -63,6 +62,7 @@ class Gjastrow:
     def get(self, term, *args):
         def list_or_dict(node):
             return dict(ChainMap(*node)) if isinstance(node, list) else node
+
         res = term
         for arg in args:
             if res := res.get(arg):
@@ -86,9 +86,7 @@ class Gjastrow:
 
     def get_cusp(self):
         """Load cusp."""
-        self.cusp = np.array(
-            [[term.get('e-e cusp') == 'T', term.get('e-n cusp') == 'T'] for term in self.terms]
-        )
+        self.cusp = np.array([[term.get('e-e cusp') == 'T', term.get('e-n cusp') == 'T'] for term in self.terms])
 
     def get_basis_type(self):
         """Load basis type."""
@@ -105,8 +103,7 @@ class Gjastrow:
             self.en_cutoff_type.append(self.get(term, 'e-n cutoff', 'Type') if n_rank > 0 else '')
 
     def get_constants(self):
-        """Load truncation constant.
-        """
+        """Load truncation constant."""
         for term in self.terms:
             e_rank, n_rank = term['Rank']
             if e_rank > 1 and term.get('e-e cutoff'):
@@ -126,30 +123,35 @@ class Gjastrow:
                 for channel in self.get(term, 'e-e basis', 'Parameters') or []:
                     self.ee_basis_parameters.append(
                         dict_to_typed_dict(
-                            {parameter: self.get(term, 'e-e basis', 'Parameters', channel, parameter)[0]
-                             for parameter in self.get(term, 'e-e basis', 'Parameters', channel)}
+                            {
+                                parameter: self.get(term, 'e-e basis', 'Parameters', channel, parameter)[0]
+                                for parameter in self.get(term, 'e-e basis', 'Parameters', channel)
+                            }
                         )
                     )
             if n_rank > 0:
                 for channel in self.get(term, 'e-n basis', 'Parameters') or []:
                     self.en_basis_parameters.append(
                         dict_to_typed_dict(
-                            {parameter: self.get(term, 'e-n basis', 'Parameters', channel, parameter)[0]
-                             for parameter in self.get(term, 'e-n basis', 'Parameters', channel)}
+                            {
+                                parameter: self.get(term, 'e-n basis', 'Parameters', channel, parameter)[0]
+                                for parameter in self.get(term, 'e-n basis', 'Parameters', channel)
+                            }
                         )
                     )
 
     def get_cutoff_parameters(self):
-        """Load cutoff parameters into 1-dimensional array.
-        """
+        """Load cutoff parameters into 1-dimensional array."""
         for term in self.terms:
             e_rank, n_rank = term['Rank']
             if e_rank > 1 and self.get(term, 'e-e cutoff'):
                 for channel in self.get(term, 'e-e cutoff', 'Parameters') or []:
                     self.ee_cutoff_parameters.append(
                         dict_to_typed_dict(
-                            {parameter: self.get(term, 'e-e cutoff', 'Parameters', channel, parameter)[0]
-                             for parameter in self.get(term, 'e-e cutoff', 'Parameters', channel)}
+                            {
+                                parameter: self.get(term, 'e-e cutoff', 'Parameters', channel, parameter)[0]
+                                for parameter in self.get(term, 'e-e cutoff', 'Parameters', channel)
+                            }
                         )
                     )
             else:
@@ -158,8 +160,10 @@ class Gjastrow:
                 for channel in self.get(term, 'e-n cutoff', 'Parameters') or []:
                     self.en_cutoff_parameters.append(
                         dict_to_typed_dict(
-                            {parameter: self.get(term, 'e-n cutoff', 'Parameters', channel, parameter)[0]
-                             for parameter in self.get(term, 'e-n cutoff', 'Parameters', channel)}
+                            {
+                                parameter: self.get(term, 'e-n cutoff', 'Parameters', channel, parameter)[0]
+                                for parameter in self.get(term, 'e-n cutoff', 'Parameters', channel)
+                            }
                         )
                     )
             else:
@@ -174,7 +178,7 @@ class Gjastrow:
             shape = [channels]
             if e_rank > 1:
                 e_order = self.get(term, 'e-e basis', 'Order')
-                shape += [e_order] * (e_rank * (e_rank-1) // 2)
+                shape += [e_order] * (e_rank * (e_rank - 1) // 2)
             if n_rank > 0:
                 n_order = self.get(term, 'e-n basis', 'Order')
                 shape += [n_order] * (e_rank * n_rank)
@@ -183,7 +187,7 @@ class Gjastrow:
             linear_parameters = np.zeros(shape=shape, dtype=float)
             for i, channel in enumerate(linear_parameters_data.values()):
                 for key, val in channel.items():
-                    j = tuple(map(lambda x: x-1, map(int, key.split('_')[1].split(','))))
+                    j = tuple(map(lambda x: x - 1, map(int, key.split('_')[1].split(','))))
                     linear_parameters[i, j] = val[0]
             self.linear_parameters.append(linear_parameters.ravel())
 
@@ -193,7 +197,7 @@ class Gjastrow:
         for i, term in enumerate(self.terms):
             for j, channel in enumerate(term['Linear parameters']):
                 ch1, ch2 = channel[8:].split('-')
-                G = 1/4 if ch1 == ch2 else 1/2
+                G = 1 / 4 if ch1 == ch2 else 1 / 2
                 if self.linear_parameters[j, 0]:
                     continue
                 if self.ee_cutoff_type[i] == 'polynomial':
@@ -201,7 +205,9 @@ class Gjastrow:
                     self.linear_parameters[j, 0] = C * (self.linear_parameters[j, 1] - G)
                 elif self.ee_cutoff_type[i] == 'alt polynomial':
                     C = self.ee_cutoff_parameters[j]['L'] / self.ee_constants[i]['C']
-                    self.linear_parameters[j, 0] = C * (self.linear_parameters[j, 1] - G/(-self.ee_cutoff_parameters[j]['L'])**self.ee_constants[i]['C'])
+                    self.linear_parameters[j, 0] = C * (
+                        self.linear_parameters[j, 1] - G / (-self.ee_cutoff_parameters[j]['L']) ** self.ee_constants[i]['C']
+                    )
 
     def read(self, base_path):
         """Read Gjastrow config from file"""
@@ -233,14 +239,14 @@ class Gjastrow:
                     'e-e basis': [{'Type': 'natural power'}, {'Order': 2}],
                     'e-e cusp': 'T',
                     'e-e cutoff': [{'Type': 'alt polynomial'}],
-                    'Rank': [2, 0]
+                    'Rank': [2, 0],
                 }
             elif i == 1:
                 jastrow[f'TERM {i+1}'] = {
                     'Rules': ['Z', '1=2'],
                     'e-n basis': [{'Type': 'natural power'}, {'Order': 2}],
                     'e-n cutoff': [{'Type': 'alt polynomial'}],
-                    'Rank': [1, 1]
+                    'Rank': [1, 1],
                 }
             elif i == 2:
                 jastrow[f'TERM {i+1}'] = {
@@ -248,7 +254,7 @@ class Gjastrow:
                     'e-e basis': [{'Type': 'natural power'}, {'Order': 4}],
                     'e-n basis': [{'Type': 'natural power'}, {'Order': 4}],
                     'e-n cutoff': [{'Type': 'alt polynomial'}],
-                    'Rank': [2, 1]
+                    'Rank': [2, 1],
                 }
         casl = {'JASTROW': jastrow}
         file_path = os.path.join(base_path, f'parameters.{version}.casl')

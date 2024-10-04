@@ -61,9 +61,9 @@ class Mdet:
                             _, n_det, spin, operation, from_orb, _, to_orb, _ = line.split()
                             if operation == 'PR':
                                 if spin == '1':
-                                    self.permutation_up[int(n_det)-1, int(from_orb)-1] = int(to_orb)-1
+                                    self.permutation_up[int(n_det) - 1, int(from_orb) - 1] = int(to_orb) - 1
                                 elif spin == '2':
-                                    self.permutation_down[int(n_det)-1, int(from_orb)-1] = int(to_orb)-1
+                                    self.permutation_down[int(n_det) - 1, int(from_orb) - 1] = int(to_orb) - 1
                 # normalisation
                 self.coeff /= np.linalg.norm(self.coeff)
 
