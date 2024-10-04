@@ -34,7 +34,7 @@ def construct_a_matrix(trunc, f_parameters, f_cutoff, spin_dep, no_dup_u_term, n
     parameters_size = (f_en_order + 1) * (f_en_order + 2) * (f_ee_order + 1) // 2
     a = np.zeros(shape=(n_constraints, parameters_size))
     # cutoff constraints column for projector matrix
-    cutoff_constraints = np.zeros(shape=(n_constraints, ))
+    cutoff_constraints = np.zeros(shape=(n_constraints,))
     p = 0
     for n in range(f_ee_order + 1):
         for m in range(f_en_order + 1):
@@ -65,6 +65,7 @@ def construct_a_matrix(trunc, f_parameters, f_cutoff, spin_dep, no_dup_u_term, n
                 p += 1
     return a, cutoff_constraints
 
+
 @structref.register
 class Jastrow_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
@@ -75,6 +76,7 @@ class Jastrow_class_t(nb.types.StructRef):
 @overload_method(Jastrow_class_t, 'fix_optimizable')
 def jastrow_fix_optimizable(self):
     """Set parameter optimisation to "fixed" if there is no corresponded spin-pairs"""
+
     def impl(self):
         if self.neu + self.ned == 1:
             # H-atom
@@ -126,6 +128,7 @@ def jastrow_fix_optimizable(self):
                 if self.ned < ee_order:
                     f_parameters_available[2] = False
             self.f_parameters_available.append(f_parameters_available)
+
     return impl
 
 
@@ -143,7 +146,7 @@ def jastrow_ee_powers(self, e_vectors: np.ndarray):
             for j in range(i):
                 r_ee = np.linalg.norm(e_vectors[i, j])
                 for k in range(1, self.max_ee_order):
-                    res[i, j, k] = res[j, i, k] = r_ee ** k
+                    res[i, j, k] = res[j, i, k] = r_ee**k
         return res
 
     return impl
@@ -163,7 +166,7 @@ def jastrow_en_powers(self, n_vectors: np.ndarray):
             for j in range(n_vectors.shape[1]):
                 r_eI = np.linalg.norm(n_vectors[i, j])
                 for k in range(1, self.max_en_order):
-                    res[i, j, k] = r_eI ** k
+                    res[i, j, k] = r_eI**k
         return res
 
     return impl
@@ -286,7 +289,7 @@ def jastrow_u_term_gradient(self, e_powers, e_vectors):
                 r = e_powers[e1, e2, 1]
                 if r < L:
                     r_vec = e_vectors[e1, e2] / r
-                    cusp_set = (int(e1 >= self.neu) + int(e2 >= self.neu))
+                    cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
                     u_set = cusp_set % parameters.shape[0]
                     poly = 0.0
                     for k in range(parameters.shape[1]):
@@ -1367,7 +1370,7 @@ def jastrow_u_term_laplacian_parameters_d1(self, e_powers):
         C = self.trunc
         L = self.u_cutoff
         size = self.u_parameters_available.sum() + (self.u_cutoff_optimizable and self.cutoffs_optimizable)
-        res = np.zeros(shape=(size, ))
+        res = np.zeros(shape=(size,))
 
         n = -1
         if self.u_cutoff_optimizable and self.cutoffs_optimizable:
@@ -1552,7 +1555,6 @@ def jastrow_f_term_laplacian_parameters_d1(self, e_powers, n_powers, e_vectors, 
         return res
 
     return impl
-
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
