@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 import logging
-
 from timeit import default_timer
-from numba.core.runtime import rtsys
-from casino.pycasino import Casino
 
+from numba.core.runtime import rtsys
+
+from .pycasino import Casino
 
 logger = logging.getLogger(__name__)
 
 
 class Profiler(Casino):
-
     def __init__(self, config_path):
         super().__init__(config_path)
         self.dr = 3.0  # AU
@@ -18,7 +17,6 @@ class Profiler(Casino):
         self.steps, self.atom_positions = self.config.input.vmc_nstep, self.config.wfn.atom_positions
 
     def cusp_profiling(self):
-
         start = default_timer()
         self.wfn.slater.cusp.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
@@ -55,7 +53,6 @@ class Profiler(Casino):
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
     def slater_profiling(self):
-
         start = default_timer()
         self.wfn.slater.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
@@ -99,7 +96,6 @@ class Profiler(Casino):
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
     def jastrow_profiling(self):
-
         start = default_timer()
         self.wfn.jastrow.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
@@ -131,7 +127,6 @@ class Profiler(Casino):
         logger.info(' jastrow gradient parameters d1    %8.1f', (end - start))
 
     def backflow_profiling(self):
-
         start = default_timer()
         self.wfn.backflow.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
         end = default_timer()
@@ -163,7 +158,6 @@ class Profiler(Casino):
         logger.info(' backflow gradient parameters d1   %8.1f * 100', (end - start))
 
     def markovchain_profiling(self):
-
         start = default_timer()
         self.vmc_markovchain.profiling_simple_random_walk(self.config.input.vmc_nstep, self.r_e, 1)
         end = default_timer()
