@@ -1,42 +1,8 @@
-import datetime
 import logging
 import os
 import sys
-import numba as nb
 import numpy as np
-import scipy as sp
 from mpi4py import MPI
-
-
-__version__ = '0.2.0'
-__author__ = 'Vladimir Konkov'
-__credits__ = 'Research Institute for Pythonic Quantum Chemistry'
-
-
-# created with art python package
-logo = f"""
- ------------------------------------------------------------------------------
- ########::'##:::'##::'######:::::'###:::::'######::'####:'##::: ##::'#######::
- ##.... ##:. ##:'##::'##... ##:::'## ##:::'##... ##:. ##:: ###:: ##:'##.... ##:
- ##:::: ##::. ####::: ##:::..:::'##:. ##:: ##:::..::: ##:: ####: ##: ##:::: ##:
- ########::::. ##:::: ##:::::::'##:::. ##:. ######::: ##:: ## ## ##: ##:::: ##:
- ##.....:::::: ##:::: ##::::::: #########::..... ##:: ##:: ##. ####: ##:::: ##:
- ##::::::::::: ##:::: ##::: ##: ##.... ##:'##::: ##:: ##:: ##:. ###: ##:::: ##:
- ##::::::::::: ##::::. ######:: ##:::: ##:. ######::'####: ##::. ##:. #######::
- .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
-
-                     Python Quantum Monte Carlo Package
-                        v {__version__} [{__author__}]
-
-    Main Author : {__author__}
- ------------------------------------------------------------------------------
- Started {datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}
-
- Python {sys.version}
- Numba {nb.__version__}
- Numpy {np.__version__}
- Scipy {sp.__version__}
-"""
 
 os.environ["OMP_NUM_THREADS"] = "1"  # openmp
 os.environ["OPENBLAS_NUM_THREADS"] = "1"  # openblas
@@ -76,10 +42,3 @@ if MPI.COMM_WORLD.rank == 0:
 else:
     logger.addHandler(logging.NullHandler())
     logger.propagate = False
-
-logger.info(logo)
-
-if MPI.COMM_WORLD.size > 1:
-    logger.info(' Running in parallel using %i MPI processes.\n', MPI.COMM_WORLD.size)
-else:
-    logger.info(' Sequential run: not using MPI.\n')

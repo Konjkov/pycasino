@@ -1,27 +1,60 @@
+import argparse
+import datetime
+import logging
 import os
 import sys
-import logging
 import warnings
-import argparse
 from timeit import default_timer
-from mpi4py import MPI
+
+import matplotlib.pyplot as plt
 import numba as nb
 import numpy as np
 import scipy as sp
-from scipy.optimize import least_squares, minimize, curve_fit, OptimizeWarning
-import matplotlib.pyplot as plt
+from mpi4py import MPI
+from scipy.optimize import OptimizeWarning, curve_fit, least_squares, minimize
 
-from casino.wfn import Wfn
-from casino.cusp import CuspFactory
-from casino.slater import Slater
-from casino.jastrow import Jastrow
-# from casino.gjastrow import Gjastrow
-from casino.backflow import Backflow
-from casino.ppotential import PPotential
-from casino.vmc import VMCMarkovChain, vmc_observable
-from casino.dmc import DMCMarkovChain
-from casino.readers import CasinoConfig
-from casino.sem import correlated_sem
+# from .gjastrow import Gjastrow
+from .backflow import Backflow
+from .cusp import CuspFactory
+from .dmc import DMCMarkovChain
+from .jastrow import Jastrow
+from .ppotential import PPotential
+from .readers import CasinoConfig
+from .sem import correlated_sem
+from .slater import Slater
+from .vmc import VMCMarkovChain, vmc_observable
+from .wfn import Wfn
+
+__version__ = '0.2.0'
+__author__ = 'Vladimir Konkov'
+__credits__ = 'Research Institute for Pythonic Quantum Chemistry'
+
+
+# created with art python package
+logo = f"""
+ ------------------------------------------------------------------------------
+ ########::'##:::'##::'######:::::'###:::::'######::'####:'##::: ##::'#######::
+ ##.... ##:. ##:'##::'##... ##:::'## ##:::'##... ##:. ##:: ###:: ##:'##.... ##:
+ ##:::: ##::. ####::: ##:::..:::'##:. ##:: ##:::..::: ##:: ####: ##: ##:::: ##:
+ ########::::. ##:::: ##:::::::'##:::. ##:. ######::: ##:: ## ## ##: ##:::: ##:
+ ##.....:::::: ##:::: ##::::::: #########::..... ##:: ##:: ##. ####: ##:::: ##:
+ ##::::::::::: ##:::: ##::: ##: ##.... ##:'##::: ##:: ##:: ##:. ###: ##:::: ##:
+ ##::::::::::: ##::::. ######:: ##:::: ##:. ######::'####: ##::. ##:. #######::
+ .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
+
+                     Python Quantum Monte Carlo Package
+                        v {__version__} [{__author__}]
+
+    Main Author : {__author__}
+ ------------------------------------------------------------------------------
+ Started {datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}
+
+ Python {sys.version}
+ Numba {nb.__version__}
+ Numpy {np.__version__}
+ Scipy {sp.__version__}
+"""
+
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +116,11 @@ class Casino:
         """Casino workflow.
         :param config_path: path to config file
         """
+        logger.info(logo)
+        if MPI.COMM_WORLD.size > 1:
+            logger.info(' Running in parallel using %i MPI processes.\n', MPI.COMM_WORLD.size)
+        else:
+            logger.info(' Sequential run: not using MPI.\n')
         self.root = mpi_comm.rank == 0
         self.config = CasinoConfig(config_path)
         self.config.read()
@@ -127,7 +165,7 @@ class Casino:
         slater = Slater(
             self.config.input.neu, self.config.input.ned,
             self.config.wfn.nbasis_functions, self.config.wfn.first_shells, self.config.wfn.orbital_types, self.config.wfn.shell_moments,
-            self.config.wfn.slater_orders, self.config.wfn.primitives, self.config.wfn.coefficients, self.config.wfn.exponents,
+            self.config.wfn.slater_orders, self.config.wfn.primitives, self.config.wfn.coefficients, self.config.wfn.exponents, self.config.input.gautol,
             self.config.wfn.mo_up, self.config.wfn.mo_down, self.config.mdet.permutation_up, self.config.mdet.permutation_down, self.config.mdet.coeff, cusp
         )
 
@@ -903,15 +941,19 @@ class Casino:
             eigval, eigvector = eigvals[idx], eigvectors[:, idx]
             logger.info(f'E_0 {energy_0:.8f} E_lin {eigval:.8f} dE {eigval - energy_0:.8f}')
             logger.info(f'eigvector[0] {np.abs(eigvector[0]):.8f}')
-            # uniform rescaling of normalized eigvector
-            # in case ξ = 0 is equivalent to multiplying by eigvector[0]
-            # in case ξ = 1 is equivalent to dividing by eigvector[0]
-            # as 1 / (1 + Q) = eigvector[0] ** 2
-            if x0.all():
-                dp = eigvector[1:] * eigvector[0] * scale
-            else:
+            # from "Implementation of the Linear Method for the optimization of Jastrow-Feenberg
+            # and Backflow Correlations" M. Motta, G. Bertaina, D. E. Galli, E. Vitali using (24)
+            # and eigvector is normalized solutions of H · Δp = E(p) * S · Δp
+            # and (1, Δp_i) = eigvector/eigvector[0] is properly rescaled Δp_i
+            # and 1 / (1 + Q) = eigvector[0] ** 2 then
+            # in case ξ = 0; Δp_i = eigvector[1:] * eigvector[0]
+            # in case ξ = 1; Δp_i = eigvector[1:] / eigvector[0]
+            if not x0.all():
                 self.wfn.set_parameters(x0)
-                dp = eigvector[1:] * eigvector[0] * scale
+            xi = self.config.input.emin_xi_value
+            Q = (1 / eigvector[0] ** 2) - 1
+            denominator = 1 + (1 - xi) * Q / (1 - xi + xi * np.sqrt(1 + Q))
+            dp = eigvector[1:] / eigvector[0] / denominator * scale
 
         mpi_comm.Bcast(dp)
         if x0.all():

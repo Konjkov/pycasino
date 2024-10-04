@@ -1,15 +1,14 @@
-import numpy as np
 import numba as nb
-from numba.core import types
+import numpy as np
 from numba.experimental import structref
 
-from casino.abstract import AbstractJastrow
+from .abstract import AbstractJastrow
 
 
 @structref.register
-class Gjastrow_class_t(types.StructRef):
+class Gjastrow_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
-        return tuple((name, types.unliteral(typ)) for name, typ in fields)
+        return tuple((name, nb.types.unliteral(typ)) for name, typ in fields)
 
 
 shape_type = nb.types.ListType(nb.int64)
@@ -17,33 +16,47 @@ linear_parameters_type = nb.float64[::1]
 constants_type = nb.types.DictType(nb.types.unicode_type, nb.float64)
 parameters_type = nb.types.ListType(nb.types.DictType(nb.types.unicode_type, nb.float64))
 
-Gjastrow_t = Gjastrow_class_t([
-    ('neu', nb.int64),
-    ('ned', nb.int64),
-    ('rank', nb.int64[:, ::1]),
-    ('cusp', nb.boolean[:, ::1]),
-    ('ee_basis_type', nb.types.ListType(nb.types.unicode_type)),
-    ('en_basis_type', nb.types.ListType(nb.types.unicode_type)),
-    ('ee_cutoff_type', nb.types.ListType(nb.types.unicode_type)),
-    ('en_cutoff_type', nb.types.ListType(nb.types.unicode_type)),
-    ('ee_constants', nb.types.ListType(constants_type)),
-    ('en_constants', nb.types.ListType(constants_type)),
-    ('ee_basis_parameters', parameters_type),
-    ('en_basis_parameters', parameters_type),
-    ('ee_cutoff_parameters', parameters_type),
-    ('en_cutoff_parameters', parameters_type),
-    ('linear_parameters', nb.types.ListType(linear_parameters_type)),
-    ('linear_parameters_shape', nb.types.ListType(shape_type)),
-])
+Gjastrow_t = Gjastrow_class_t(
+    [
+        ('neu', nb.int64),
+        ('ned', nb.int64),
+        ('rank', nb.int64[:, ::1]),
+        ('cusp', nb.boolean[:, ::1]),
+        ('ee_basis_type', nb.types.ListType(nb.types.unicode_type)),
+        ('en_basis_type', nb.types.ListType(nb.types.unicode_type)),
+        ('ee_cutoff_type', nb.types.ListType(nb.types.unicode_type)),
+        ('en_cutoff_type', nb.types.ListType(nb.types.unicode_type)),
+        ('ee_constants', nb.types.ListType(constants_type)),
+        ('en_constants', nb.types.ListType(constants_type)),
+        ('ee_basis_parameters', parameters_type),
+        ('en_basis_parameters', parameters_type),
+        ('ee_cutoff_parameters', parameters_type),
+        ('en_cutoff_parameters', parameters_type),
+        ('linear_parameters', nb.types.ListType(linear_parameters_type)),
+        ('linear_parameters_shape', nb.types.ListType(shape_type)),
+    ]
+)
 
 
 class Gjastrow(structref.StructRefProxy, AbstractJastrow):
-
     def __new__(cls, *args, **kwargs):
         def init(
-            neu, ned, rank, cusp, ee_basis_type, en_basis_type, ee_cutoff_type, en_cutoff_type,
-            ee_constants, en_constants, ee_basis_parameters, en_basis_parameters, ee_cutoff_parameters,
-            en_cutoff_parameters, linear_parameters, linear_parameters_shape
+            neu,
+            ned,
+            rank,
+            cusp,
+            ee_basis_type,
+            en_basis_type,
+            ee_cutoff_type,
+            en_cutoff_type,
+            ee_constants,
+            en_constants,
+            ee_basis_parameters,
+            en_basis_parameters,
+            ee_cutoff_parameters,
+            en_cutoff_parameters,
+            linear_parameters,
+            linear_parameters_shape,
         ):
             self = structref.new(Gjastrow_t)
             self.neu = neu
@@ -63,6 +76,7 @@ class Gjastrow(structref.StructRefProxy, AbstractJastrow):
             self.linear_parameters = linear_parameters
             self.linear_parameters_shape = linear_parameters_shape
             return self
+
         return init(*args, **kwargs)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
@@ -83,13 +97,13 @@ class Gjastrow(structref.StructRefProxy, AbstractJastrow):
                             a = self.ee_basis_parameters[channel].get('a')
                             b = self.ee_basis_parameters[channel].get('b')
                         if self.ee_basis_type[0] == 'natural power':
-                            res[i, j, k, channel] = r ** k
+                            res[i, j, k, channel] = r**k
                         elif self.ee_basis_type[0] == 'r/(r^b+a) power':
-                            res[i, j, k, channel] = (r/(r**b + a)) ** k
+                            res[i, j, k, channel] = (r / (r**b + a)) ** k
                         elif self.ee_basis_type[0] == 'r/(r+a) power':
-                            res[i, j, k, channel] = (r/(r + a)) ** k
+                            res[i, j, k, channel] = (r / (r + a)) ** k
                         elif self.ee_basis_type[0] == '1/(r+a) power':
-                            res[i, j, k, channel] = (1/(r + a)) ** k
+                            res[i, j, k, channel] = (1 / (r + a)) ** k
         return res
 
     @nb.njit(nogil=True, parallel=False, cache=True)
@@ -110,13 +124,13 @@ class Gjastrow(structref.StructRefProxy, AbstractJastrow):
                             a = self.en_basis_parameters[channel].get('a')
                             b = self.en_basis_parameters[channel].get('b')
                         if self.en_basis_type[0] == 'natural power':
-                            res[i, j, k, channel] = r ** k
+                            res[i, j, k, channel] = r**k
                         elif self.en_basis_type[0] == 'r/(r^b+a) power':
-                            res[i, j, k, channel] = (r/(r**b + a)) ** k
+                            res[i, j, k, channel] = (r / (r**b + a)) ** k
                         elif self.en_basis_type[0] == 'r/(r+a) power':
-                            res[i, j, k, channel] = (r/(r + a)) ** k
+                            res[i, j, k, channel] = (r / (r + a)) ** k
                         elif self.en_basis_type[0] == '1/(r+a) power':
-                            res[i, j, k, channel] = (1/(r + a)) ** k
+                            res[i, j, k, channel] = (1 / (r + a)) ** k
         return res
 
     @nb.njit(nogil=True, parallel=False, cache=True)
@@ -146,10 +160,10 @@ class Gjastrow(structref.StructRefProxy, AbstractJastrow):
 
                 if self.ee_cutoff_type == 'gaussian':
                     if r <= L_hard:
-                        res += poly * np.exp(-(r/L) ** 2)
+                        res += poly * np.exp(-((r / L) ** 2))
                 elif r <= L:
                     if self.ee_cutoff_type[0] == 'polynomial':
-                        res += poly * (1 - r/L) ** C
+                        res += poly * (1 - r / L) ** C
                     elif self.ee_cutoff_type == 'alt polynomial':
                         res += poly * (r - L) ** C
                     elif self.ee_cutoff_type == 'spline':

@@ -1,7 +1,7 @@
 import os
 import logging
 
-from .inp import Input
+from .input import Input
 from .wfn import Gwfn, Stowfn
 from .jastrow import Jastrow
 from .gjastrow import Gjastrow

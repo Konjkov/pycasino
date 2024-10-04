@@ -1,20 +1,19 @@
-import numpy as np
 import numba as nb
-from numba.core import types
+import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
-from casino.slater import Slater_t
-from casino.jastrow import Jastrow_t
-from casino.backflow import Backflow_t
-from casino.overload import block_diag
-from casino.ppotential import PPotential_t
+from .backflow import Backflow_t
+from .jastrow import Jastrow_t
+from .overload import block_diag
+from .ppotential import PPotential_t
+from .slater import Slater_t
 
 
 @structref.register
-class Wfn_class_t(types.StructRef):
+class Wfn_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
-        return tuple((name, types.unliteral(typ)) for name, typ in fields)
+        return tuple((name, nb.types.unliteral(typ)) for name, typ in fields)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -24,10 +23,12 @@ def wfn__relative_coordinates(self, r_e):
     :param r_e: electron positions
     :return: e-e vectors - array(nelec, nelec, 3), e-n vectors - array(natom, nelec, 3)
     """
+
     def impl(self, r_e):
         e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
         n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.atom_positions, 1)
         return e_vectors, n_vectors
+
     return impl
 
 
@@ -35,12 +36,14 @@ def wfn__relative_coordinates(self, r_e):
 @overload_method(Wfn_class_t, '_get_nuclear_repulsion')
 def wfn__get_nuclear_repulsion(self):
     """Value of n-n repulsion."""
+
     def impl(self) -> float:
         res = 0.0
         for atom1 in range(self.atom_positions.shape[0] - 1):
             for atom2 in range(atom1 + 1, self.atom_positions.shape[0]):
                 res += self.atom_charges[atom1] * self.atom_charges[atom2] / np.linalg.norm(self.atom_positions[atom1] - self.atom_positions[atom2])
         return res
+
     return impl
 
 
@@ -48,6 +51,7 @@ def wfn__get_nuclear_repulsion(self):
 @overload_method(Wfn_class_t, 'coulomb')
 def wfn_coulomb(self, r_e):
     """Value of e-e and e-n coulomb interaction."""
+
     def impl(self, r_e) -> float:
         res = 0.0
         e_vectors, n_vectors = self._relative_coordinates(r_e)
@@ -67,6 +71,7 @@ def wfn_coulomb(self, r_e):
                     for e1 in range(self.neu + self.ned):
                         res += potential[atom][e1, 2]
         return res
+
     return impl
 
 
@@ -76,6 +81,7 @@ def wfn_value(self, r_e):
     """Value of wave function.
     :param r_e: electron positions
     """
+
     def impl(self, r_e) -> float:
         res = 1
         e_vectors, n_vectors = self._relative_coordinates(r_e)
@@ -85,6 +91,7 @@ def wfn_value(self, r_e):
             n_vectors = self.backflow.value(e_vectors, n_vectors) + n_vectors
         res *= self.slater.value(n_vectors)
         return res
+
     return impl
 
 
@@ -95,6 +102,7 @@ def wfn_drift_velocity(self, r_e):
     drift velocity = 1/2 * 'drift or quantum force'
     where D is diffusion constant = 1/2
     """
+
     def impl(self, r_e):
         e_vectors, n_vectors = self._relative_coordinates(r_e)
 
@@ -114,6 +122,7 @@ def wfn_drift_velocity(self, r_e):
                 return s_g + j_g
             else:
                 return s_g
+
     return impl
 
 
@@ -125,6 +134,7 @@ def wfn_t_move(self, r_e, step_size):
     :param step_size: DMC step size
     :return: next electrons positions
     """
+
     def impl(self, r_e, step_size):
         if self.ppotential is not None:
             moved = False
@@ -159,6 +169,7 @@ def wfn_t_move(self, r_e, step_size):
                     next_r_e = t_grid[i]
             return moved, next_r_e
         return False, r_e
+
     return impl
 
 
@@ -168,8 +179,10 @@ def wfn_local_potential(self, r_e):
     """Local potential.
     :param r_e: electron positions - array(nelec, 3)
     """
+
     def impl(self, r_e) -> float:
         return self.coulomb(r_e) + self.nuclear_repulsion
+
     return impl
 
 
@@ -179,6 +192,7 @@ def wfn_nonlocal_potential(self, r_e):
     """Nonlocal (pseudopotential) energy Wφ/φ.
     :param r_e: electron positions - array(nelec, 3)
     """
+
     def impl(self, r_e) -> float:
         res = 0.0
         if self.ppotential is not None:
@@ -199,6 +213,7 @@ def wfn_nonlocal_potential(self, r_e):
                                 for l in range(2):
                                     res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_ratio
         return res
+
     return impl
 
 
@@ -222,6 +237,7 @@ def wfn_kinetic_energy(self, r_e):
     and np.trace(A @ B) = np.sum(A * B.T) and (A @ A.T).T = A @ A.T
     :return: local energy
     """
+
     def impl(self, r_e) -> float:
         with_F_and_T = True
         e_vectors, n_vectors = self._relative_coordinates(r_e)
@@ -234,18 +250,18 @@ def wfn_kinetic_energy(self, r_e):
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
                 j_l = self.jastrow.laplacian(e_vectors, n_vectors)
                 s_g = s_g @ b_g
-                F = np.sum((s_g + j_g)**2) / 2
+                F = np.sum((s_g + j_g) ** 2) / 2
                 T = (np.sum(s_g**2) - s_l - j_l) / 4
                 return 2 * T - F
             else:
-                return - s_l / 2
+                return -s_l / 2
         else:
             s_l = self.slater.laplacian(n_vectors)
             if self.jastrow is not None:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
                 j_l = self.jastrow.laplacian(e_vectors, n_vectors)
                 s_g = self.slater.gradient(n_vectors)
-                F = np.sum((s_g + j_g)**2) / 2
+                F = np.sum((s_g + j_g) ** 2) / 2
                 T = (np.sum(s_g**2) - s_l - j_l) / 4
                 return 2 * T - F
             elif with_F_and_T:
@@ -254,7 +270,8 @@ def wfn_kinetic_energy(self, r_e):
                 T = (np.sum(s_g**2) - s_l) / 4
                 return 2 * T - F
             else:
-                return - s_l / 2
+                return -s_l / 2
+
     return impl
 
 
@@ -264,8 +281,10 @@ def wfn_energy(self, r_e):
     """Local energy.
     :param r_e: electron coordinates - array(nelec, 3)
     """
+
     def impl(self, r_e) -> float:
         return self.kinetic_energy(r_e) + self.local_potential(r_e) + self.nonlocal_potential(r_e)
+
     return impl
 
 
@@ -276,25 +295,21 @@ def wfn_value_parameters_d1(self, r_e):
     :param r_e: electron coordinates - array(nelec, 3)
     :return:
     """
+
     def impl(self, r_e):
         res = np.zeros(0)
         e_vectors, n_vectors = self._relative_coordinates(r_e)
         if self.jastrow is not None and self.opt_jastrow:
-            res = np.concatenate((
-                res, self.jastrow.value_parameters_d1(e_vectors, n_vectors)
-            ))
+            res = np.concatenate((res, self.jastrow.value_parameters_d1(e_vectors, n_vectors)))
         if self.backflow is not None and self.opt_backflow:
             b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
-            res = np.concatenate((
-                res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v)
-            ))
+            res = np.concatenate((res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v)))
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
             if self.backflow is not None:
                 n_vectors = self.backflow.value(e_vectors, n_vectors) + n_vectors
-            res = np.concatenate((
-                res, self.slater.value_parameters_d1(n_vectors)
-            ))
+            res = np.concatenate((res, self.slater.value_parameters_d1(n_vectors)))
         return res
+
     return impl
 
 
@@ -305,6 +320,7 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
     :param r_e: electron coordinates - array(nelec, 3)
     :return:
     """
+
     def impl(self, r_e):
         res = np.zeros(0)
         e_vectors, n_vectors = self._relative_coordinates(r_e)
@@ -327,9 +343,9 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
             s_t, s_h, s_g = self.slater.tressian(b_v + n_vectors)
             s_g_d1 = b_v_d1 @ (s_h - np.outer(s_g, s_g))  # as hessian is d²ln(phi)/dxdy
             s_h_coordinates_d1 = s_t - np.expand_dims(np.expand_dims(s_g, 1), 2) * s_h  # d(d²ln(phi)/dydz)/dx
-            s_h_d1 = (
-                b_v_d1 @ s_h_coordinates_d1.reshape(s_h_coordinates_d1.shape[0], -1)
-            ).reshape(b_v_d1.shape[0], s_h_coordinates_d1.shape[1], s_h_coordinates_d1.shape[2])
+            s_h_d1 = (b_v_d1 @ s_h_coordinates_d1.reshape(s_h_coordinates_d1.shape[0], -1)).reshape(
+                b_v_d1.shape[0], s_h_coordinates_d1.shape[1], s_h_coordinates_d1.shape[2]
+            )
 
             parameters = self.backflow.get_parameters(all_parameters=True)
             bf_d1 = np.zeros(shape=parameters.shape)
@@ -363,6 +379,7 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
                 sl_d1 += s_g_d1 @ j_g
             res = np.concatenate((res, sl_d1))
         return -res
+
     return impl
 
 
@@ -373,6 +390,7 @@ def wfn_nonlocal_energy_parameters_d1(self, r_e):
     :param r_e: electron coordinates - array(nelec, 3)
     :return:
     """
+
     def impl(self, r_e):
         e_vectors, n_vectors = self._relative_coordinates(r_e)
         grid = self.ppotential.integration_grid(n_vectors)
@@ -391,30 +409,38 @@ def wfn_nonlocal_energy_parameters_d1(self, r_e):
                             value_parameters_d1_q = self.value_parameters_d1(r_e_q)
                             weight = self.ppotential.weight[atom][q]
                             for l in range(2):
-                                res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_q * (value_parameters_d1_q - value_parameters_d1)
+                                res += (
+                                    potential[atom][e1, l]
+                                    * self.ppotential.legendre(l, cos_theta)
+                                    * weight
+                                    * value_q
+                                    * (value_parameters_d1_q - value_parameters_d1)
+                                )
         return res / self.value(r_e)
+
     return impl
 
 
-Wfn_t = Wfn_class_t([
-    ('neu', nb.int64),
-    ('ned', nb.int64),
-    ('atom_positions', nb.float64[:, ::1]),
-    ('atom_charges', nb.float64[::1]),
-    ('nuclear_repulsion', nb.float64),
-    ('slater', Slater_t),
-    ('jastrow', nb.optional(Jastrow_t)),
-    ('backflow', nb.optional(Backflow_t)),
-    ('ppotential', nb.optional(PPotential_t)),
-    ('opt_jastrow', nb.boolean),
-    ('opt_backflow', nb.boolean),
-    ('opt_orbitals', nb.boolean),
-    ('opt_det_coeff', nb.boolean),
-])
+Wfn_t = Wfn_class_t(
+    [
+        ('neu', nb.int64),
+        ('ned', nb.int64),
+        ('atom_positions', nb.float64[:, ::1]),
+        ('atom_charges', nb.float64[::1]),
+        ('nuclear_repulsion', nb.float64),
+        ('slater', Slater_t),
+        ('jastrow', nb.optional(Jastrow_t)),
+        ('backflow', nb.optional(Backflow_t)),
+        ('ppotential', nb.optional(PPotential_t)),
+        ('opt_jastrow', nb.boolean),
+        ('opt_backflow', nb.boolean),
+        ('opt_orbitals', nb.boolean),
+        ('opt_det_coeff', nb.boolean),
+    ]
+)
 
 
 class Wfn(structref.StructRefProxy):
-
     def __new__(cls, *args, **kwargs):
         """Wave function in general form.
         :param neu: number of up electrons
@@ -426,6 +452,7 @@ class Wfn(structref.StructRefProxy):
         :param backflow: instance of Backflow class
         :param ppotential: instance of Pseudopotential class
         """
+
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(neu, ned, atom_positions, atom_charges, slater, jastrow, backflow, ppotential):
             self = structref.new(Wfn_t)
@@ -443,6 +470,7 @@ class Wfn(structref.StructRefProxy):
             self.opt_orbitals = False
             self.opt_det_coeff = False
             return self
+
         return init(*args, **kwargs)
 
     @property
@@ -521,17 +549,11 @@ class Wfn(structref.StructRefProxy):
         """
         res = np.zeros(0)
         if self.jastrow is not None and self.opt_jastrow:
-            res = np.concatenate((
-                res, self.jastrow.get_parameters(all_parameters)
-            ))
+            res = np.concatenate((res, self.jastrow.get_parameters(all_parameters)))
         if self.backflow is not None and self.opt_backflow:
-            res = np.concatenate((
-                res, self.backflow.get_parameters(all_parameters)
-            ))
+            res = np.concatenate((res, self.backflow.get_parameters(all_parameters)))
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
-            res = np.concatenate((
-                res, self.slater.get_parameters(all_parameters)
-            ))
+            res = np.concatenate((res, self.slater.get_parameters(all_parameters)))
         return res
 
     @nb.njit(nogil=True, parallel=False, cache=True)
@@ -564,17 +586,11 @@ class Wfn(structref.StructRefProxy):
         """
         res = np.zeros(0)
         if self.jastrow is not None and self.opt_jastrow:
-            res = np.concatenate((
-                res, self.jastrow.get_parameters_scale(all_parameters)
-            ))
+            res = np.concatenate((res, self.jastrow.get_parameters_scale(all_parameters)))
         if self.backflow is not None and self.opt_backflow:
-            res = np.concatenate((
-                res, self.backflow.get_parameters_scale(all_parameters)
-            ))
+            res = np.concatenate((res, self.backflow.get_parameters_scale(all_parameters)))
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
-            res = np.concatenate((
-                res, self.slater.get_parameters_scale(all_parameters)
-            ))
+            res = np.concatenate((res, self.slater.get_parameters_scale(all_parameters)))
         return res
 
     @nb.njit(nogil=True, parallel=False, cache=True)

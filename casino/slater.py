@@ -1,21 +1,23 @@
 import math
-import numpy as np
+
 import numba as nb
-from numba.core import types
+import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
-from casino import delta
-from casino.abstract import AbstractSlater
-from casino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
-from casino.cusp import Cusp_t
-from casino.harmonics import value_angular_part, gradient_angular_part, hessian_angular_part, tressian_angular_part
+from . import delta
+from .abstract import AbstractSlater
+from .cusp import Cusp_t
+from .harmonics import gradient_angular_part, hessian_angular_part, tressian_angular_part, value_angular_part
+from .readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
+
+log_10 = np.log(10)
 
 
 @structref.register
-class Slater_class_t(types.StructRef):
+class Slater_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
-        return tuple((name, types.unliteral(typ)) for name, typ in fields)
+        return tuple((name, nb.types.unliteral(typ)) for name, typ in fields)
 
 
 Slater_t = Slater_class_t([
@@ -29,6 +31,7 @@ Slater_t = Slater_class_t([
     ('primitives', nb.int64[::1]),
     ('coefficients', nb.float64[::1]),
     ('exponents', nb.float64[::1]),
+    ('gautol', nb.float64),
     ('permutation_up', nb.int64[:, ::1]),
     ('permutation_down', nb.int64[:, ::1]),
     ('mo_up', nb.float64[:, ::1]),
@@ -61,7 +64,9 @@ def slater_value_matrix(self, n_vectors: np.ndarray):
                     radial_1 = 0.0
                     if self.orbital_types[nshell] == GAUSSIAN_TYPE:
                         for primitive in range(self.primitives[nshell]):
-                            radial_1 += self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r2)
+                            alpha = self.exponents[p + primitive]
+                            if alpha * r2 < log_10 * self.gautol:
+                                radial_1 += self.coefficients[p + primitive] * np.exp(-alpha * r2)
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
                         for primitive in range(self.primitives[nshell]):
@@ -105,9 +110,10 @@ def slater_gradient_matrix(self, n_vectors: np.ndarray):
                     if self.orbital_types[nshell] == GAUSSIAN_TYPE:
                         for primitive in range(self.primitives[nshell]):
                             alpha = self.exponents[p + primitive]
-                            exponent = self.coefficients[p + primitive] * np.exp(-alpha * r2)
-                            radial_1 -= 2 * alpha * exponent
-                            radial_2 += exponent
+                            if alpha * r2 < log_10 * self.gautol:
+                                exponent = self.coefficients[p + primitive] * np.exp(-alpha * r2)
+                                radial_1 -= 2 * alpha * exponent
+                                radial_2 += exponent
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
                         n = self.slater_orders[nshell]
@@ -155,7 +161,8 @@ def slater_laplacian_matrix(self, n_vectors: np.ndarray):
                     if self.orbital_types[nshell] == GAUSSIAN_TYPE:
                         for primitive in range(self.primitives[nshell]):
                             alpha = self.exponents[p + primitive]
-                            radial_1 += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * self.coefficients[p + primitive] * np.exp(-alpha * r2)
+                            if alpha * r2 < log_10 * self.gautol:
+                                radial_1 += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * self.coefficients[p + primitive] * np.exp(-alpha * r2)
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
                         n = self.slater_orders[nshell]
@@ -208,11 +215,12 @@ def slater_hessian_matrix(self, n_vectors: np.ndarray):
                     if self.orbital_types[nshell] == GAUSSIAN_TYPE:
                         for primitive in range(self.primitives[nshell]):
                             alpha = self.exponents[p + primitive]
-                            exponent = self.coefficients[p + primitive] * np.exp(-alpha * r2)
-                            c = -2 * alpha
-                            radial_1 += c**2 * exponent
-                            radial_2 += c * exponent
-                            radial_3 += exponent
+                            if alpha * r2 < log_10 * self.gautol:
+                                exponent = self.coefficients[p + primitive] * np.exp(-alpha * r2)
+                                c = -2 * alpha
+                                radial_1 += c**2 * exponent
+                                radial_2 += c * exponent
+                                radial_3 += exponent
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
                         for primitive in range(self.primitives[nshell]):
@@ -281,12 +289,13 @@ def slater_tressian_matrix(self, n_vectors: np.ndarray):
                     if self.orbital_types[nshell] == GAUSSIAN_TYPE:
                         for primitive in range(self.primitives[nshell]):
                             alpha = self.exponents[p + primitive]
-                            exponent = self.coefficients[p + primitive] * np.exp(-alpha * r2)
-                            c = -2 * alpha
-                            radial_1 += c ** 3 * exponent
-                            radial_2 += c ** 2 * exponent
-                            radial_3 += c * exponent
-                            radial_4 += exponent
+                            if alpha * r2 < 2.303 * self.gautol:
+                                exponent = self.coefficients[p + primitive] * np.exp(-alpha * r2)
+                                c = -2 * alpha
+                                radial_1 += c ** 3 * exponent
+                                radial_2 += c ** 2 * exponent
+                                radial_3 += c * exponent
+                                radial_4 += exponent
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
                         for primitive in range(self.primitives[nshell]):
@@ -796,13 +805,14 @@ class Slater(structref.StructRefProxy, AbstractSlater):
         :param primitives:
         :param coefficients:
         :param exponents:
+        :param gautol:
         :param mo_up:
         :param mo_down:
         :param coeff: determinant coefficients
         """
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(neu, ned, nbasis_functions, first_shells, orbital_types,
-            shell_moments, slater_orders, primitives, coefficients, exponents,
+            shell_moments, slater_orders, primitives, coefficients, exponents, gautol,
             mo_up, mo_down, permutation_up, permutation_down, coeff, cusp
         ):
             self = structref.new(Slater_t)
@@ -816,6 +826,7 @@ class Slater(structref.StructRefProxy, AbstractSlater):
             self.primitives = primitives
             self.coefficients = coefficients
             self.exponents = exponents
+            self.gautol = gautol
             self.permutation_up = permutation_up
             self.permutation_down = permutation_down
             self.mo_up = mo_up[:np.max(permutation_up) + 1 if neu else 0]

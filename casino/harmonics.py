@@ -1,5 +1,5 @@
-import numpy as np
 import numba as nb
+import numpy as np
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -37,7 +37,7 @@ def value_angular_part(x, y, z):
         105.0 * y*z * (3.0 * x2 - y2),
         105.0 * (x2**2 - 6.0 * x2 * y2 + y2**2),
         420.0 * x*y * (x2 - y2)
-    ])
+    ])  # fmt: skip
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -75,7 +75,7 @@ def gradient_angular_part(x, y, z):
         630.0*x*y*z, 315.0*z*(x2 - y2), y*(315.0*x2 - 105.0*y2),
         x*(420.0*x2 - 1260.0*y2), y*(-1260.0*x2 + 420.0*y2), 0,
         y*(1260.0*x2 - 420.0*y2), x*(420.0*x2 - 1260.0*y2), 0,
-    ]).reshape(25, 3)
+    ]).reshape(25, 3)  # fmt: skip
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -115,7 +115,7 @@ def hessian_angular_part(x, y, z):
         630.0*y*z, 630.0*x*z, 630.0*x*y, -630.0*y*z, 315.0*x2 - 315.0*y2, 0,
         1260.0*x2 - 1260.0*y2, -2520.0*x*y, 0, -1260.0*x2 + 1260.0*y2, 0, 0,
         2520.0*x*y, 1260.0*x2 - 1260.0*y2, 0, -2520.0*x*y, 0, 0,
-    ]).reshape(25, 6)
+    ]).reshape(25, 6)  # fmt: skip
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -157,4 +157,4 @@ def tressian_angular_part(x, y, z):
         0, 630*z, 630*y, 0, 630*x, 0, -630*z, -630*y, 0, 0,
         2520*x, -2520*y, 0, -2520*x, 0, 0, 2520*y, 0, 0, 0,
         2520*y, 2520*x, 0, -2520*y, 0, 0, -2520*x, 0, 0, 0,
-    ]).reshape(25, 10)
+    ]).reshape(25, 10)  # fmt: skip

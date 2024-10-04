@@ -1,15 +1,13 @@
-import numpy as np
 import numba as nb
-
-from numba.core import types
+import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
 
 @structref.register
-class PPotential_class_t(types.StructRef):
+class PPotential_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
-        return tuple((name, types.unliteral(typ)) for name, typ in fields)
+        return tuple((name, nb.types.unliteral(typ)) for name, typ in fields)
 
 
 ppotential_type = nb.float64[:, ::1]
@@ -17,24 +15,25 @@ weight_type = nb.float64[::1]
 quadrature_type = nb.float64[:, ::1]
 
 
-PPotential_t = PPotential_class_t([
-    ('neu', nb.int64),
-    ('ned', nb.int64),
-    ('lcutofftol', nb.float64),
-    ('nlcutofftol', nb.float64),
-    ('atom_charges', nb.float64[::1]),
-    ('vmc_nonlocal_grid', nb.int64[::1]),
-    ('dmc_nonlocal_grid', nb.int64[::1]),
-    ('local_angular_momentum', nb.int64[::1]),
-    ('ppotential', nb.types.ListType(ppotential_type)),
-    ('is_pseudoatom', nb.boolean[::1]),
-    ('weight', nb.types.ListType(weight_type)),
-    ('quadrature', nb.types.ListType(quadrature_type)),
-])
+PPotential_t = PPotential_class_t(
+    [
+        ('neu', nb.int64),
+        ('ned', nb.int64),
+        ('lcutofftol', nb.float64),
+        ('nlcutofftol', nb.float64),
+        ('atom_charges', nb.float64[::1]),
+        ('vmc_nonlocal_grid', nb.int64[::1]),
+        ('dmc_nonlocal_grid', nb.int64[::1]),
+        ('local_angular_momentum', nb.int64[::1]),
+        ('ppotential', nb.types.ListType(ppotential_type)),
+        ('is_pseudoatom', nb.boolean[::1]),
+        ('weight', nb.types.ListType(weight_type)),
+        ('quadrature', nb.types.ListType(quadrature_type)),
+    ]
+)
 
 
 class PPotential(structref.StructRefProxy):
-
     def __new__(cls, *args, **kwargs):
         return ppotential_init(*args, **kwargs)
 
@@ -45,6 +44,7 @@ def ppotential_generate_quadratures(self):
     """Formulae from "Nonlocal pseudopotentials and diffusion monte carlo"
     Lubos Mitas, Eric L. Shirley, David M. Ceperley J. Chem. Phys. 95, 3467 (1991).
     """
+
     def impl(self):
         for vmc_nonlocal_grid in self.vmc_nonlocal_grid:
             vmc_nonlocal_grid = vmc_nonlocal_grid or 4
@@ -66,13 +66,13 @@ def ppotential_generate_quadratures(self):
                     quadrature += [
                         [p, p, 0.0], [p, 0.0, p], [0.0, p, p], [-p, p, 0.0], [-p, 0.0, p], [0.0, -p, p],
                         [p, -p, 0.0], [p, 0.0, -p], [0.0, p, -p], [-p, -p, 0.0], [-p, 0.0, -p], [0.0, -p, -p]
-                    ]
+                    ]  # fmt: skip
                 if vmc_nonlocal_grid >= 6:
                     q = 1 / np.sqrt(3)
                     weight = [1 / 21] * 6 + [4 / 105] * 12 + [27 / 840] * 8
                     quadrature += [
                         [q, q, q], [q, q, -q], [q, -q, q], [q, -q, -q], [-q, q, q], [-q, q, -q], [-q, -q, q], [-q, -q, -q]
-                    ]
+                    ]  # fmt: skip
                 if vmc_nonlocal_grid == 7:
                     r = 1 / np.sqrt(11)
                     s = 3 / np.sqrt(11)
@@ -81,7 +81,7 @@ def ppotential_generate_quadratures(self):
                         [r, r, s], [r, r, -s], [r, -r, s], [r, -r, -s], [-r, r, s], [-r, r, -s], [-r, -r, s], [-r, -r, -s],
                         [r, s, r], [r, s, -r], [r, -s, r], [r, -s, -r], [-r, s, r], [-r, s, -r], [-r, -s, r], [-r, -s, -r],
                         [s, r, r], [s, r, -r], [s, -r, r], [s, -r, -r], [-s, r, r], [-s, r, -r], [-s, -r, r], [-s, -r, -r]
-                    ]
+                    ]  # fmt: skip
             elif vmc_nonlocal_grid == 4:
                 # Icosahedron symmetry quadratures.
                 c1 = np.arctan(2)
@@ -94,13 +94,14 @@ def ppotential_generate_quadratures(self):
                     self.to_cartesian(c1, 4 * np.pi/5), self.to_cartesian(c2, 5 * np.pi/5),
                     self.to_cartesian(c1, 6 * np.pi/5), self.to_cartesian(c2, 7 * np.pi/5),
                     self.to_cartesian(c1, 8 * np.pi/5), self.to_cartesian(c2, 9 * np.pi/5)
-                ]
+                ]  # fmt: skip
             else:
                 # No grid
                 weight = [0.0]
                 quadrature = [[0.0, 0.0, 0.0]]
             self.weight.append(np.array(weight, dtype=np.float_))
             self.quadrature.append(np.array(quadrature, dtype=np.float_))
+
     return impl
 
 
@@ -108,11 +109,13 @@ def ppotential_generate_quadratures(self):
 @overload_method(PPotential_class_t, 'to_cartesian')
 def ppotential_to_cartesian(self, theta: float, phi: float):
     """Converts a spherical coordinate (theta, phi) into a cartesian one (x, y, z)."""
+
     def impl(self, theta: float, phi: float) -> list:
         x = np.cos(phi) * np.sin(theta)
         y = np.sin(phi) * np.sin(theta)
         z = np.cos(theta)
         return [x, y, z]
+
     return impl
 
 
@@ -123,6 +126,7 @@ def ppotential_random_rotation_matrix(self):
     Algorithm taken from "Fast Random Rotation Matrices" (James Avro, 1992):
     https://doi.org/10.1016/B978-0-08-050755-2.50034-8
     """
+
     def impl(self):
         # FIXME: use sp.stats.special_ortho_group(3)
         rand = np.random.uniform(0, 1, 3)
@@ -131,15 +135,12 @@ def ppotential_random_rotation_matrix(self):
         st = np.sin(theta)
         ct = np.cos(theta)
         # simple 2D rotation matrix with a random angle
-        R = np.array((
-            (ct, st, 0),
-            (-st, ct, 0),
-            (0, 0, 1)
-        ))
+        R = np.array(((ct, st, 0), (-st, ct, 0), (0, 0, 1)))
         # Householder matrix
         r = np.sqrt(rand[2])
         v = np.array((np.sin(phi) * r, np.cos(phi) * r, np.sqrt(1 - rand[2])))
         return (2 * np.outer(v, v) - np.eye(3)) @ R
+
     return impl
 
 
@@ -149,6 +150,7 @@ def ppotential_get_ppotential(self, n_vectors: np.ndarray) -> np.ndarray:
     """Value φ(r)
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
     """
+
     def impl(self, n_vectors: np.ndarray):
         res = nb.typed.List.empty_list(ppotential_type)
         for atom in range(n_vectors.shape[0]):
@@ -162,12 +164,13 @@ def ppotential_get_ppotential(self, n_vectors: np.ndarray) -> np.ndarray:
                     if idx == 1:
                         ppotential[i] = atom_pp[1:, idx] / atom_pp[0, idx]
                     else:
-                        di_dx = (r - atom_pp[0, idx-1]) / (atom_pp[0, idx] - atom_pp[0, idx-1])
-                        ppotential[i] = (atom_pp[1:, idx-1] + (atom_pp[1:, idx] - atom_pp[1:, idx-1]) * di_dx) / r
+                        di_dx = (r - atom_pp[0, idx - 1]) / (atom_pp[0, idx] - atom_pp[0, idx - 1])
+                        ppotential[i] = (atom_pp[1:, idx - 1] + (atom_pp[1:, idx] - atom_pp[1:, idx - 1]) * di_dx) / r
                 res.append(ppotential)
             else:
                 res.append(np.zeros(shape=(self.neu + self.ned, 0)))
         return res
+
     return impl
 
 
@@ -177,6 +180,7 @@ def ppotential_integration_grid(self, n_vectors: np.ndarray):
     """Nonlocal PP grid.
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
     """
+
     def impl(self, n_vectors: np.ndarray) -> np.ndarray:
         grid = np.zeros(shape=(n_vectors.shape[0], self.neu + self.ned, self.quadrature[0].shape[0], 3))
         for atom in range(n_vectors.shape[0]):
@@ -186,6 +190,7 @@ def ppotential_integration_grid(self, n_vectors: np.ndarray):
                     rotation_marix = self.random_rotation_matrix()
                     grid[atom, i] = self.quadrature[atom] @ rotation_marix.T * r
         return grid
+
     return impl
 
 
@@ -193,20 +198,22 @@ def ppotential_integration_grid(self, n_vectors: np.ndarray):
 @overload_method(PPotential_class_t, 'legendre')
 def ppotential_legendre(self, l, x):
     """Legendre polynomial (2 * l + 1) times"""
+
     def impl(self, l, x):
         if l == 0:
             res = 1
         elif l == 1:
             res = 3 * x
         elif l == 2:
-            res = 5 * (3 * x ** 2 - 1) / 2
+            res = 5 * (3 * x**2 - 1) / 2
         elif l == 3:
-            res = 7 * (5 * x ** 2 - 3) * x / 2
+            res = 7 * (5 * x**2 - 3) * x / 2
         elif l == 4:
-            res = 9 * (35 * x ** 4 - 30 * x ** 2 + 3) / 8
+            res = 9 * (35 * x**4 - 30 * x**2 + 3) / 8
         else:
             res = 0
         return res
+
     return impl
 
 
@@ -214,9 +221,9 @@ structref.define_boxing(PPotential_class_t, PPotential)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def ppotential_init(neu, ned, lcutofftol, nlcutofftol, atom_charges, vmc_nonlocal_grid,
-        dmc_nonlocal_grid, local_angular_momentum, ppotential, is_pseudoatom
-    ):
+def ppotential_init(
+    neu, ned, lcutofftol, nlcutofftol, atom_charges, vmc_nonlocal_grid, dmc_nonlocal_grid, local_angular_momentum, ppotential, is_pseudoatom
+):
     self = structref.new(PPotential_t)
     self.neu = neu
     self.ned = ned

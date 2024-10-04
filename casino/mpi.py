@@ -1,12 +1,12 @@
 import ctypes
 import ctypes.util
+
 import numba as nb
 import numpy as np
 from mpi4py import MPI
 from numba.core import cgutils, types
-from numba.extending import overload_method
 from numba.experimental import structref
-
+from numba.extending import overload_method
 
 LIB = ctypes.util.find_library('mpi')
 libmpi = ctypes.CDLL(LIB)
@@ -136,9 +136,11 @@ def address_as_void_ptr(typingctx, data):
     """Returns given memory address as a void pointer.
     :return: (void*) (long) addr.
     """
+
     def impl(context, builder, signature, args):
         val = builder.inttoptr(args[0], cgutils.voidptr_t)
         return val
+
     sig = types.voidptr(data)
     return sig, impl
 
@@ -148,9 +150,11 @@ def val_to_ptr(typingctx, data):
     """Returns pointer to a variable.
     :return: * val
     """
+
     def impl(context, builder, signature, args):
         ptr = cgutils.alloca_once_value(builder, args[0])
         return ptr
+
     sig = types.CPointer(data)(data)
     return sig, impl
 
@@ -160,18 +164,20 @@ def val_from_ptr(typingctx, data):
     """Returns value by pointer.
     :return: & ptr
     """
+
     def impl(context, builder, signature, args):
         val = builder.load(args[0])
         return val
+
     sig = data.dtype(data)
     return sig, impl
 
 
 # https://groups.google.com/g/mpi4py/c/jPqNrr_8UWY?pli=1
 @structref.register
-class Comm_class_t(types.StructRef):
+class Comm_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
-        return tuple((name, types.unliteral(typ)) for name, typ in fields)
+        return tuple((name, nb.types.unliteral(typ)) for name, typ in fields)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -180,8 +186,14 @@ def comm_mpi_addr(self, addr):
     """Return long value at given memory address.
     :return: (long) & (void*) (long) addr.
     """
+
     def impl(self, addr):
-        return nb.carray(address_as_void_ptr(addr), shape=(1,), dtype=np.intp,)[0]
+        return nb.carray(
+            address_as_void_ptr(addr),
+            shape=(1,),
+            dtype=np.intp,
+        )[0]
+
     return impl
 
 
@@ -189,6 +201,7 @@ def comm_mpi_addr(self, addr):
 @overload_method(Comm_class_t, '_mpi_dtype')
 def comm_mpi_dtype(self, obj):
     """MPI data type."""
+
     def impl(self, obj):
         if obj.dtype == np.dtype('uint8'):
             datatype = self.MPI_CHAR
@@ -205,6 +218,7 @@ def comm_mpi_dtype(self, obj):
         elif obj.dtype == np.dtype('complex128'):
             datatype = self.MPI_C_DOUBLE_COMPLEX
         return datatype
+
     return impl
 
 
@@ -214,12 +228,14 @@ def comm_is_initialized(self):
     """Indicate whether Init has been called.
     https://mpi4py.readthedocs.io/en/stable/reference/mpi4py.MPI.Is_initialized.html#mpi4py.MPI.Is_initialized
     """
+
     # FIXME: mpi4py.MPI function
     def impl(self):
         flag_ptr = val_to_ptr(False)
         status = self.MPI_Initialized(flag_ptr)
         assert status == 0
         return val_from_ptr(flag_ptr)
+
     return impl
 
 
@@ -229,9 +245,11 @@ def comm_Barrier(self):
     """Barrier synchronization.
     https://mpi4py.readthedocs.io/en/stable/reference/mpi4py.MPI.Comm.html#mpi4py.MPI.Comm.Barrier
     """
+
     def impl(self):
         status = self.MPI_Barrier(self._mpi_addr(self.MPI_COMM_WORLD))
         assert status == 0
+
     return impl
 
 
@@ -241,11 +259,13 @@ def comm_Get_size(self) -> int:
     """Return the number of processes in a communicator.
     https://mpi4py.readthedocs.io/en/stable/reference/mpi4py.MPI.Comm.html#mpi4py.MPI.Comm.Get_size
     """
+
     def impl(self):
         size_ptr = val_to_ptr(0)
         status = self.MPI_Comm_size(self._mpi_addr(self.MPI_COMM_WORLD), size_ptr)
         assert status == 0
         return val_from_ptr(size_ptr)
+
     return impl
 
 
@@ -255,11 +275,13 @@ def comm_Get_rank(self) -> int:
     """Return the rank of this process in a communicator.
     https://mpi4py.readthedocs.io/en/stable/reference/mpi4py.MPI.Comm.html#mpi4py.MPI.Comm.Get_rank
     """
+
     def impl(self):
         size_ptr = val_to_ptr(0)
         status = self.MPI_Comm_rank(self._mpi_addr(self.MPI_COMM_WORLD), size_ptr)
         assert status == 0
         return val_from_ptr(size_ptr)
+
     return impl
 
 
@@ -269,6 +291,7 @@ def comm_Send(self, data, dest, tag=0):
     """Blocking send.
     https://mpi4py.readthedocs.io/en/stable/reference/mpi4py.MPI.Comm.html#mpi4py.MPI.Comm.Send
     """
+
     # assert data.flags.c_contiguous
     # https://stackoverflow.com/questions/34317197/mpi4py-sending-numpy-subarray-non-contiguous-memory-without-copy
     def impl(self, data, dest, tag=0):
@@ -281,6 +304,7 @@ def comm_Send(self, data, dest, tag=0):
             self._mpi_addr(self.MPI_COMM_WORLD),
         )
         assert status == 0
+
     return impl
 
 
@@ -290,6 +314,7 @@ def comm_Recv(self, data, source=ANY_SOURCE, tag=ANY_TAG):
     """Blocking receive.
     https://mpi4py.readthedocs.io/en/stable/reference/mpi4py.MPI.Comm.html#mpi4py.MPI.Comm.Recv
     """
+
     # assert data.flags.c_contiguous
     def impl(self, data, source=ANY_SOURCE, tag=ANY_TAG):
         # typedef struct _MPI_Status {
@@ -310,6 +335,7 @@ def comm_Recv(self, data, source=ANY_SOURCE, tag=ANY_TAG):
             status_buffer.ctypes.data,
         )
         assert status == 0
+
     return impl
 
 
@@ -326,6 +352,7 @@ def comm_Allgather(self, send_data, recv_data):
     (as specified by the arguments sendcount, sendtype in group B and the arguments recvcount, recvtype in group A).
     In particular, one can move data in only one direction by specifying sendcount = 0 for the communication in the reverse direction.
     """
+
     # assert send_data.flags.c_contiguous
     # assert recv_data.flags.c_contiguous
     def impl(self, send_data, recv_data):
@@ -339,6 +366,7 @@ def comm_Allgather(self, send_data, recv_data):
             self._mpi_addr(self.MPI_COMM_WORLD),
         )
         assert status == 0
+
     return impl
 
 
@@ -348,6 +376,7 @@ def comm_allreduce(self, send_data, operator=0):
     """Reduce to All.
     https://mpi4py.readthedocs.io/en/stable/reference/mpi4py.MPI.Comm.html#mpi4py.MPI.Comm.allreduce
     """
+
     # assert send_data.flags.c_contiguous
     def impl(self, send_data, operator=0):
         if operator == 0:
@@ -364,54 +393,57 @@ def comm_allreduce(self, send_data, operator=0):
         )
         assert status == 0
         return recv_data_buf[0]
+
     return impl
 
 
-Comm_t = Comm_class_t([
-    # communictors
-    ('MPI_COMM_WORLD', nb.typeof(MPI._addressof(MPI.COMM_WORLD))),
-    # datatypes
-    ('MPI_CHAR', nb.typeof(MPI._addressof(MPI.CHAR))),
-    ('MPI_INT32_T', nb.typeof(MPI._addressof(MPI.INT32_T))),
-    ('MPI_INT64_T', nb.typeof(MPI._addressof(MPI.INT64_T))),
-    ('MPI_FLOAT', nb.typeof(MPI._addressof(MPI.FLOAT))),
-    ('MPI_DOUBLE', nb.typeof(MPI._addressof(MPI.DOUBLE))),
-    ('MPI_C_FLOAT_COMPLEX', nb.typeof(MPI._addressof(MPI.C_FLOAT_COMPLEX))),
-    ('MPI_C_DOUBLE_COMPLEX', nb.typeof(MPI._addressof(MPI.C_DOUBLE_COMPLEX))),
-    # The following are datatypes for the MPI functions MPI_MAXLOC and MPI_MINLOC
-    ('INT_INT', nb.typeof(MPI._addressof(MPI.INT_INT))),
-    ('FLOAT_INT', nb.typeof(MPI._addressof(MPI.FLOAT_INT))),
-    ('DOUBLE_INT', nb.typeof(MPI._addressof(MPI.DOUBLE_INT))),
-    # operators
-    ('MPI_MAX', nb.typeof(MPI._addressof(MPI.MAX))),        # return the maximum
-    ('MPI_MIN', nb.typeof(MPI._addressof(MPI.MIN))),        # return the minimum
-    ('MPI_SUM', nb.typeof(MPI._addressof(MPI.SUM))),        # return the sum
-    ('MPI_PROD', nb.typeof(MPI._addressof(MPI.PROD))),      # return the product
-    ('MPI_LAND', nb.typeof(MPI._addressof(MPI.LAND))),      # return the logical and
-    ('MPI_LOR', nb.typeof(MPI._addressof(MPI.LOR))),        # return the logical or
-    ('MPI_LXOR', nb.typeof(MPI._addressof(MPI.LXOR))),      # return the logical exclusive or
-    ('MPI_BAND', nb.typeof(MPI._addressof(MPI.BAND))),      # return the bitwise and
-    ('MPI_BOR', nb.typeof(MPI._addressof(MPI.BOR))),        # return the bitwise or
-    ('MPI_BXOR', nb.typeof(MPI._addressof(MPI.BXOR))),      # return the bitwise exclusive or
-    ('MPI_MAXLOC', nb.typeof(MPI._addressof(MPI.MAXLOC))),  # return the maximum and the location
-    ('MPI_MINLOC', nb.typeof(MPI._addressof(MPI.MINLOC))),  # return the minimum and the location
-    ('MPI_NO_OP', nb.typeof(MPI._addressof(MPI.NO_OP))),    # perform no operation
-    # communucator functions
-    ('MPI_Initialized', nb.typeof(MPI_Initialized)),
-    ('MPI_Barrier', nb.typeof(MPI_Barrier)),
-    ('MPI_Comm_size', nb.typeof(MPI_Comm_size)),
-    ('MPI_Comm_rank', nb.typeof(MPI_Comm_rank)),
-    ('MPI_Send', nb.typeof(MPI_Send)),
-    ('MPI_Recv', nb.typeof(MPI_Recv)),
-    ('MPI_Allgather', nb.typeof(MPI_Allgather)),
-    ('MPI_Allreduce', nb.typeof(MPI_Allreduce)),
-])
+Comm_t = Comm_class_t(
+    [
+        # communictors
+        ('MPI_COMM_WORLD', nb.typeof(MPI._addressof(MPI.COMM_WORLD))),
+        # datatypes
+        ('MPI_CHAR', nb.typeof(MPI._addressof(MPI.CHAR))),
+        ('MPI_INT32_T', nb.typeof(MPI._addressof(MPI.INT32_T))),
+        ('MPI_INT64_T', nb.typeof(MPI._addressof(MPI.INT64_T))),
+        ('MPI_FLOAT', nb.typeof(MPI._addressof(MPI.FLOAT))),
+        ('MPI_DOUBLE', nb.typeof(MPI._addressof(MPI.DOUBLE))),
+        ('MPI_C_FLOAT_COMPLEX', nb.typeof(MPI._addressof(MPI.C_FLOAT_COMPLEX))),
+        ('MPI_C_DOUBLE_COMPLEX', nb.typeof(MPI._addressof(MPI.C_DOUBLE_COMPLEX))),
+        # The following are datatypes for the MPI functions MPI_MAXLOC and MPI_MINLOC
+        ('INT_INT', nb.typeof(MPI._addressof(MPI.INT_INT))),
+        ('FLOAT_INT', nb.typeof(MPI._addressof(MPI.FLOAT_INT))),
+        ('DOUBLE_INT', nb.typeof(MPI._addressof(MPI.DOUBLE_INT))),
+        # operators
+        ('MPI_MAX', nb.typeof(MPI._addressof(MPI.MAX))),  # return the maximum
+        ('MPI_MIN', nb.typeof(MPI._addressof(MPI.MIN))),  # return the minimum
+        ('MPI_SUM', nb.typeof(MPI._addressof(MPI.SUM))),  # return the sum
+        ('MPI_PROD', nb.typeof(MPI._addressof(MPI.PROD))),  # return the product
+        ('MPI_LAND', nb.typeof(MPI._addressof(MPI.LAND))),  # return the logical and
+        ('MPI_LOR', nb.typeof(MPI._addressof(MPI.LOR))),  # return the logical or
+        ('MPI_LXOR', nb.typeof(MPI._addressof(MPI.LXOR))),  # return the logical exclusive or
+        ('MPI_BAND', nb.typeof(MPI._addressof(MPI.BAND))),  # return the bitwise and
+        ('MPI_BOR', nb.typeof(MPI._addressof(MPI.BOR))),  # return the bitwise or
+        ('MPI_BXOR', nb.typeof(MPI._addressof(MPI.BXOR))),  # return the bitwise exclusive or
+        ('MPI_MAXLOC', nb.typeof(MPI._addressof(MPI.MAXLOC))),  # return the maximum and the location
+        ('MPI_MINLOC', nb.typeof(MPI._addressof(MPI.MINLOC))),  # return the minimum and the location
+        ('MPI_NO_OP', nb.typeof(MPI._addressof(MPI.NO_OP))),  # perform no operation
+        # communucator functions
+        ('MPI_Initialized', nb.typeof(MPI_Initialized)),
+        ('MPI_Barrier', nb.typeof(MPI_Barrier)),
+        ('MPI_Comm_size', nb.typeof(MPI_Comm_size)),
+        ('MPI_Comm_rank', nb.typeof(MPI_Comm_rank)),
+        ('MPI_Send', nb.typeof(MPI_Send)),
+        ('MPI_Recv', nb.typeof(MPI_Recv)),
+        ('MPI_Allgather', nb.typeof(MPI_Allgather)),
+        ('MPI_Allreduce', nb.typeof(MPI_Allreduce)),
+    ]
+)
 
 
 class Comm(structref.StructRefProxy):
-
     def __new__(cls):
         """Communication context."""
+
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(*args):
             self = structref.new(Comm_t)
@@ -454,6 +486,7 @@ class Comm(structref.StructRefProxy):
                 self.MPI_Allreduce,
             ) = args
             return self
+
         args = (
             # communictors
             MPI._addressof(MPI.COMM_WORLD),
