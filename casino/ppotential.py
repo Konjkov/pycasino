@@ -79,7 +79,7 @@ def ppotential_generate_quadratures(self):
                         [r, r, s], [r, r, -s], [r, -r, s], [r, -r, -s], [-r, r, s], [-r, r, -s], [-r, -r, s], [-r, -r, -s],
                         [r, s, r], [r, s, -r], [r, -s, r], [r, -s, -r], [-r, s, r], [-r, s, -r], [-r, -s, r], [-r, -s, -r],
                         [s, r, r], [s, r, -r], [s, -r, r], [s, -r, -r], [-s, r, r], [-s, r, -r], [-s, -r, r], [-s, -r, -r]
-                    ]
+                    ]  # fmt: skip
             elif vmc_nonlocal_grid == 4:
                 # Icosahedron symmetry quadratures.
                 c1 = np.arctan(2)
@@ -92,7 +92,7 @@ def ppotential_generate_quadratures(self):
                     self.to_cartesian(c1, 4 * np.pi/5), self.to_cartesian(c2, 5 * np.pi/5),
                     self.to_cartesian(c1, 6 * np.pi/5), self.to_cartesian(c2, 7 * np.pi/5),
                     self.to_cartesian(c1, 8 * np.pi/5), self.to_cartesian(c2, 9 * np.pi/5)
-                ]
+                ]  # fmt: skip
             else:
                 # No grid
                 weight = [0.0]

@@ -22,24 +22,28 @@ class Cusp_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
         return tuple((name, nb.types.unliteral(typ)) for name, typ in fields)
 
-Cusp_t = Cusp_class_t([
-    ('neu', nb.int64),
-    ('ned', nb.int64),
-    ('orbitals_up', nb.int64),
-    ('orbitals_down', nb.int64),
-    ('rc', nb.float64[:, ::1]),
-    ('shift', nb.float64[:, ::1]),
-    ('orbital_sign', nb.int64[:, ::1]),
-    ('alpha', nb.float64[:, :, ::1]),
-    ('norm', nb.float64),
-    ('mo', nb.float64[:, ::1]),
-    ('first_shells', nb.int64[::1]),
-    ('shell_moments', nb.int64[::1]),
-    ('primitives', nb.int64[::1]),
-    ('coefficients', nb.float64[::1]),
-    ('exponents', nb.float64[::1]),
-    ('is_pseudoatom', nb.boolean[::1]),
-])
+
+Cusp_t = Cusp_class_t(
+    [
+        ('neu', nb.int64),
+        ('ned', nb.int64),
+        ('orbitals_up', nb.int64),
+        ('orbitals_down', nb.int64),
+        ('rc', nb.float64[:, ::1]),
+        ('shift', nb.float64[:, ::1]),
+        ('orbital_sign', nb.int64[:, ::1]),
+        ('alpha', nb.float64[:, :, ::1]),
+        ('norm', nb.float64),
+        ('mo', nb.float64[:, ::1]),
+        ('first_shells', nb.int64[::1]),
+        ('shell_moments', nb.int64[::1]),
+        ('primitives', nb.int64[::1]),
+        ('coefficients', nb.float64[::1]),
+        ('exponents', nb.float64[::1]),
+        ('is_pseudoatom', nb.boolean[::1]),
+    ]
+)
+
 
 class Cusp(structref.StructRefProxy, AbstractCusp):
     """Scheme for adding electron–nucleus cusps to Gaussian orbitals
@@ -107,6 +111,7 @@ class Cusp(structref.StructRefProxy, AbstractCusp):
 @overload_method(Cusp_class_t, 'exp')
 def cusp_exp(self, atom, orbital, r):
     """Exponent part"""
+
     def impl(self, atom, orbital, r) -> float:
         return self.orbital_sign[atom, orbital] * np.exp(
             # FIXME: use polyval(r, self.alpha[:, atom, i])
@@ -115,7 +120,8 @@ def cusp_exp(self, atom, orbital, r):
             self.alpha[2, atom, orbital] * r**2 +
             self.alpha[3, atom, orbital] * r**3 +
             self.alpha[4, atom, orbital] * r**4
-        )
+        )  # fmt: skip
+
     return impl
 
 
@@ -123,13 +129,15 @@ def cusp_exp(self, atom, orbital, r):
 @overload_method(Cusp_class_t, 'diff_1')
 def cusp_diff_1(self, atom, orbital, r):
     """f`(r) / r"""
+
     def impl(self, atom, orbital, r) -> float:
         return (
                self.alpha[1, atom, orbital] +
                2 * self.alpha[2, atom, orbital] * r +
                3 * self.alpha[3, atom, orbital] * r ** 2 +
                4 * self.alpha[4, atom, orbital] * r ** 3
-           ) / r
+           ) / r  # fmt: skip
+
     return impl
 
 
@@ -137,6 +145,7 @@ def cusp_diff_1(self, atom, orbital, r):
 @overload_method(Cusp_class_t, 'diff_2')
 def cusp_diff_2(self, atom, orbital, r):
     """f``(r) / r²"""
+
     def impl(self, atom, orbital, r) -> float:
         return (
                2 * self.alpha[2, atom, orbital] +
@@ -148,7 +157,8 @@ def cusp_diff_2(self, atom, orbital, r):
                    3 * self.alpha[3, atom, orbital] * r ** 2 +
                    4 * self.alpha[4, atom, orbital] * r ** 3
                ) ** 2
-           ) / r ** 2
+           ) / r ** 2  # fmt: skip
+
     return impl
 
 
@@ -156,6 +166,7 @@ def cusp_diff_2(self, atom, orbital, r):
 @overload_method(Cusp_class_t, 'diff_3')
 def cusp_diff_3(self, atom, orbital, r):
     """f```(r) / r³"""
+
     def impl(self, atom, orbital, r) -> float:
         return (
                6 * self.alpha[3, atom, orbital] +
@@ -175,7 +186,8 @@ def cusp_diff_3(self, atom, orbital, r):
                    3 * self.alpha[3, atom, orbital] * r ** 2 +
                    4 * self.alpha[4, atom, orbital] * r ** 3
                ) ** 3
-           ) / r ** 3
+           ) / r ** 3  # fmt: skip
+
     return impl
 
 
@@ -183,6 +195,7 @@ def cusp_diff_3(self, atom, orbital, r):
 @overload_method(Cusp_class_t, 'value')
 def cusp_value(self, n_vectors: np.ndarray):
     """Cusp correction for s-part of orbitals."""
+
     def impl(self, n_vectors: np.ndarray):
         value = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned))
         for i in range(self.orbitals_up):
@@ -227,7 +240,8 @@ def cusp_value(self, n_vectors: np.ndarray):
                         # subtract uncusped s-part
                         value[i, j] -= s_part * self.norm
 
-        return value[:self.orbitals_up, :self.neu], value[self.orbitals_up:, self.neu:]
+        return value[: self.orbitals_up, : self.neu], value[self.orbitals_up :, self.neu :]
+
     return impl
 
 
@@ -237,6 +251,7 @@ def cusp_gradient(self, n_vectors: np.ndarray):
     """Cusp part of gradient
     df(r)/dx = ri * f`(r) / r
     """
+
     def impl(self, n_vectors: np.ndarray):
         gradient = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3))
         for i in range(self.orbitals_up):
@@ -285,7 +300,8 @@ def cusp_gradient(self, n_vectors: np.ndarray):
                         # subtract uncusped s-part
                         gradient[i, j] -= n_vectors[atom, j] * s_part * self.norm
 
-        return gradient[:self.orbitals_up, :self.neu], gradient[self.orbitals_up:, self.neu:]
+        return gradient[: self.orbitals_up, : self.neu], gradient[self.orbitals_up :, self.neu :]
+
     return impl
 
 
@@ -296,6 +312,7 @@ def cusp_laplacian(self, n_vectors: np.ndarray):
     https://math.stackexchange.com/questions/1048973/laplacian-of-a-radial-function
     ∇²(f(r)) = f``(r) + 2 * f`(r) / r
     """
+
     def impl(self, n_vectors: np.ndarray):
         laplacian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned))
         for i in range(self.orbitals_up):
@@ -305,7 +322,7 @@ def cusp_laplacian(self, n_vectors: np.ndarray):
                     if not self.is_pseudoatom[atom]:
                         r = np.sqrt(n_vectors[atom, j] @ n_vectors[atom, j])
                         if r < self.rc[atom, i]:
-                            laplacian[i, j] = (2 * self.diff_1(atom, i, r) + self.diff_2(atom, i, r) * r ** 2) * self.exp(atom, i, r)
+                            laplacian[i, j] = (2 * self.diff_1(atom, i, r) + self.diff_2(atom, i, r) * r**2) * self.exp(atom, i, r)
 
                         s_part = 0.0
                         for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
@@ -328,7 +345,7 @@ def cusp_laplacian(self, n_vectors: np.ndarray):
                     if not self.is_pseudoatom[atom]:
                         r = np.sqrt(n_vectors[atom, j] @ n_vectors[atom, j])
                         if r < self.rc[atom, i]:
-                            laplacian[i, j] = (2 * self.diff_1(atom, i, r) + self.diff_2(atom, i, r) * r ** 2) * self.exp(atom, i, r)
+                            laplacian[i, j] = (2 * self.diff_1(atom, i, r) + self.diff_2(atom, i, r) * r**2) * self.exp(atom, i, r)
 
                         s_part = 0.0
                         for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
@@ -344,7 +361,8 @@ def cusp_laplacian(self, n_vectors: np.ndarray):
                         # subtract uncusped s-part
                         laplacian[i, j] -= s_part * self.norm
 
-        return laplacian[:self.orbitals_up, :self.neu], laplacian[self.orbitals_up:, self.neu:]
+        return laplacian[: self.orbitals_up, : self.neu], laplacian[self.orbitals_up :, self.neu :]
+
     return impl
 
 
@@ -355,6 +373,7 @@ def cusp_hessian(self, n_vectors: np.ndarray):
     https://sunlimingbit.wordpress.com/2018/09/23/hessian-of-radial-functions/
     d²f(r)/dxdy = ri ⊗ rj * f``(r) / r² + (δij - ri ⊗ rj / r²) * f`(r) / r
     """
+
     def impl(self, n_vectors: np.ndarray):
         hessian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3, 3))
         for i in range(self.orbitals_up):
@@ -365,9 +384,9 @@ def cusp_hessian(self, n_vectors: np.ndarray):
                         r = np.sqrt(n_vectors[atom, j] @ n_vectors[atom, j])
                         ri_rj = np.outer(n_vectors[atom, j], n_vectors[atom, j])
                         if r < self.rc[atom, i]:
-                            hessian[i, j, :, :] = (
-                                self.diff_2(atom, i, r) * ri_rj + self.diff_1(atom, i, r) * (np.eye(3) - ri_rj / r ** 2)
-                            ) * self.exp(atom, i, r)
+                            hessian[i, j, :, :] = (self.diff_2(atom, i, r) * ri_rj + self.diff_1(atom, i, r) * (np.eye(3) - ri_rj / r**2)) * self.exp(
+                                atom, i, r
+                            )
                         s_part = np.zeros(shape=(3, 3))
                         for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
                             l = self.shell_moments[nshell]
@@ -391,9 +410,9 @@ def cusp_hessian(self, n_vectors: np.ndarray):
                         r = np.sqrt(n_vectors[atom, j] @ n_vectors[atom, j])
                         ri_rj = np.outer(n_vectors[atom, j], n_vectors[atom, j])
                         if r < self.rc[atom, i]:
-                            hessian[i, j, :, :] = (
-                                self.diff_2(atom, i, r) * ri_rj + self.diff_1(atom, i, r) * (np.eye(3) - ri_rj / r ** 2)
-                            ) * self.exp(atom, i, r)
+                            hessian[i, j, :, :] = (self.diff_2(atom, i, r) * ri_rj + self.diff_1(atom, i, r) * (np.eye(3) - ri_rj / r**2)) * self.exp(
+                                atom, i, r
+                            )
 
                         s_part = np.zeros(shape=(3, 3))
                         for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
@@ -410,7 +429,8 @@ def cusp_hessian(self, n_vectors: np.ndarray):
                         # subtract uncusped s-part
                         hessian[i, j] -= s_part * self.norm
 
-        return hessian[:self.orbitals_up, :self.neu], hessian[self.orbitals_up:, self.neu:]
+        return hessian[: self.orbitals_up, : self.neu], hessian[self.orbitals_up :, self.neu :]
+
     return impl
 
 
@@ -422,6 +442,7 @@ def cusp_tressian(self, n_vectors: np.ndarray):
     (δik ⊗ rj + δjk ⊗ ri + δij ⊗ rk - 3 * ri ⊗ rj ⊗ rk / r²) * f``(r) / r² +
     (3 * ri ⊗ rj ⊗ rk / r**4 - δij ⊗ rk / r² - δik ⊗ rj / r² - δjk ⊗ ri / r²) * f`(r) / r
     """
+
     def impl(self, n_vectors: np.ndarray):
         tressian = np.zeros(shape=(self.orbitals_up + self.orbitals_down, self.neu + self.ned, 3, 3, 3))
 
@@ -433,15 +454,15 @@ def cusp_tressian(self, n_vectors: np.ndarray):
                         r = np.sqrt(n_vectors[atom, j] @ n_vectors[atom, j])
                         ri_rj_rk = np.expand_dims(np.outer(n_vectors[atom, j], n_vectors[atom, j]), 2) * n_vectors[atom, j]
                         kronecker = (
-                            np.expand_dims(np.eye(3), 2) * n_vectors[atom, j] +
-                            np.expand_dims(np.eye(3), 1) * np.expand_dims(n_vectors[atom, j], 1) +
-                            np.expand_dims(np.eye(3), 0) * np.expand_dims(np.expand_dims(n_vectors[atom, j], 1), 2)
+                            np.expand_dims(np.eye(3), 2) * n_vectors[atom, j]
+                            + np.expand_dims(np.eye(3), 1) * np.expand_dims(n_vectors[atom, j], 1)
+                            + np.expand_dims(np.eye(3), 0) * np.expand_dims(np.expand_dims(n_vectors[atom, j], 1), 2)
                         )
                         if r < self.rc[atom, i]:
                             tressian[i, j, :, :, :] = (
-                                self.diff_3(atom, i, r) * ri_rj_rk +
-                                self.diff_2(atom, i, r) * (kronecker - 3 * ri_rj_rk / r ** 2) +
-                                self.diff_1(atom, i, r) * (3 * ri_rj_rk / r ** 2 - kronecker) / r ** 2
+                                self.diff_3(atom, i, r) * ri_rj_rk
+                                + self.diff_2(atom, i, r) * (kronecker - 3 * ri_rj_rk / r**2)
+                                + self.diff_1(atom, i, r) * (3 * ri_rj_rk / r**2 - kronecker) / r**2
                             ) * self.exp(atom, i, r)
 
                         s_part = np.zeros(shape=(3, 3, 3))
@@ -453,7 +474,7 @@ def cusp_tressian(self, n_vectors: np.ndarray):
                                     alpha = self.exponents[p + primitive]
                                     exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                                     c = -2 * alpha
-                                    s_part += (ri_rj_rk * c + kronecker) * c ** 2 * exponent * self.mo[i, ao]
+                                    s_part += (ri_rj_rk * c + kronecker) * c**2 * exponent * self.mo[i, ao]
                             p += self.primitives[nshell]
                             ao += 2 * l + 1
                         tressian[i, j] -= s_part * self.norm
@@ -466,15 +487,15 @@ def cusp_tressian(self, n_vectors: np.ndarray):
                         r = np.sqrt(n_vectors[atom, j] @ n_vectors[atom, j])
                         ri_rj_rk = np.expand_dims(np.outer(n_vectors[atom, j], n_vectors[atom, j]), 2) * n_vectors[atom, j]
                         kronecker = (
-                                np.expand_dims(np.eye(3), 2) * n_vectors[atom, j] +
-                                np.expand_dims(np.eye(3), 1) * np.expand_dims(n_vectors[atom, j], 1) +
-                                np.expand_dims(np.eye(3), 0) * np.expand_dims(np.expand_dims(n_vectors[atom, j], 1), 2)
+                            np.expand_dims(np.eye(3), 2) * n_vectors[atom, j]
+                            + np.expand_dims(np.eye(3), 1) * np.expand_dims(n_vectors[atom, j], 1)
+                            + np.expand_dims(np.eye(3), 0) * np.expand_dims(np.expand_dims(n_vectors[atom, j], 1), 2)
                         )
                         if r < self.rc[atom, i]:
                             tressian[i, j, :, :, :] = (
-                                self.diff_3(atom, i, r) * ri_rj_rk +
-                                self.diff_2(atom, i, r) * (kronecker - 3 * ri_rj_rk / r ** 2) +
-                                self.diff_1(atom, i, r) * (3 * ri_rj_rk / r ** 2 - kronecker) / r ** 2
+                                self.diff_3(atom, i, r) * ri_rj_rk
+                                + self.diff_2(atom, i, r) * (kronecker - 3 * ri_rj_rk / r**2)
+                                + self.diff_1(atom, i, r) * (3 * ri_rj_rk / r**2 - kronecker) / r**2
                             ) * self.exp(atom, i, r)
 
                         s_part = np.zeros(shape=(3, 3, 3))
@@ -486,13 +507,14 @@ def cusp_tressian(self, n_vectors: np.ndarray):
                                     alpha = self.exponents[p + primitive]
                                     exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
                                     c = -2 * alpha
-                                    s_part += (ri_rj_rk * c + kronecker) * c ** 2 * exponent * self.mo[i, ao]
+                                    s_part += (ri_rj_rk * c + kronecker) * c**2 * exponent * self.mo[i, ao]
                             p += self.primitives[nshell]
                             ao += 2 * l + 1
                         # subtract uncusped s-part
                         tressian[i, j] -= s_part * self.norm
 
-        return tressian[:self.orbitals_up, :self.neu], tressian[self.orbitals_up:, self.neu:]
+        return tressian[: self.orbitals_up, : self.neu], tressian[self.orbitals_up :, self.neu :]
+
     return impl
 
 
@@ -500,8 +522,23 @@ structref.define_boxing(Cusp_class_t, Cusp)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def cusp_init(neu, ned, orbitals_up, orbitals_down, rc, shift, orbital_sign, alpha,
-    mo, first_shells, shell_moments, primitives, coefficients, exponents, is_pseudoatom):
+def cusp_init(
+    neu,
+    ned,
+    orbitals_up,
+    orbitals_down,
+    rc,
+    shift,
+    orbital_sign,
+    alpha,
+    mo,
+    first_shells,
+    shell_moments,
+    primitives,
+    coefficients,
+    exponents,
+    is_pseudoatom,
+):
     self = structref.new(Cusp_t)
     self.neu = neu
     self.ned = ned
@@ -523,11 +560,24 @@ def cusp_init(neu, ned, orbitals_up, orbitals_down, rc, shift, orbital_sign, alp
 
 
 class CuspFactory:
-
     def __init__(
-            self, neu, ned, cusp_threshold, mo_up, mo_down, permutation_up, permutation_down,
-            first_shells, shell_moments, primitives, coefficients, exponents, atom_positions,
-            atom_charges, unrestricted, is_pseudoatom,
+        self,
+        neu,
+        ned,
+        cusp_threshold,
+        mo_up,
+        mo_down,
+        permutation_up,
+        permutation_down,
+        first_shells,
+        shell_moments,
+        primitives,
+        coefficients,
+        exponents,
+        atom_positions,
+        atom_charges,
+        unrestricted,
+        is_pseudoatom,
     ):
         self.neu = neu
         self.ned = ned
@@ -535,7 +585,7 @@ class CuspFactory:
         self.orbitals_down = np.max(permutation_down) + 1 if ned else 0
         self.norm = np.exp(-(math.lgamma(self.neu + 1) + math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
         self.casino_norm = np.exp(-(math.lgamma(self.neu + 1) + math.lgamma(self.neu + 1)) / (self.neu + self.neu) / 2)
-        self.mo = np.concatenate((mo_up[:self.orbitals_up], mo_down[:self.orbitals_down]))
+        self.mo = np.concatenate((mo_up[: self.orbitals_up], mo_down[: self.orbitals_down]))
         self.first_shells = first_shells
         self.shell_moments = shell_moments
         self.primitives = primitives
@@ -562,7 +612,7 @@ class CuspFactory:
             ' Gaussian cusp correction\n'
             ' ========================\n'
             ' Activated.\n'
-        )
+        )  # fmt: skip
         self.is_pseudoatom = is_pseudoatom
 
     def phi(self, rc):
@@ -593,7 +643,7 @@ class CuspFactory:
         return (
             np.sum(orbital * self.mo, axis=2) * self.norm,
             np.sum(orbital_derivative * self.mo, axis=2) * self.norm,
-            np.sum(orbital_second_derivative * self.mo, axis=2) * self.norm
+            np.sum(orbital_second_derivative * self.mo, axis=2) * self.norm,
         )
 
     def eta_data(self):
@@ -614,7 +664,7 @@ class CuspFactory:
                                 # FIXME: RuntimeWarning: underflow encountered in exp
                                 radial += self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r2)
                             for m in range(2 * l + 1):
-                                orbital[atom, orb, ao+m] += angular[l*l+m] * radial
+                                orbital[atom, orb, ao + m] += angular[l * l + m] * radial
                         ao += 2 * l + 1
                         p += self.primitives[nshell]
         return np.sum(orbital * self.mo, axis=2) * self.norm
@@ -637,17 +687,17 @@ class CuspFactory:
         alpha = np.zeros(shape=(5, self.atom_positions.shape[0], self.mo.shape[0]))
         phi_rc, phi_diff_rc, phi_diff_2_rc = self.phi(rc)
         R = phi_tilde_0 - self.shift
-        X1 = np.log(np.abs(phi_rc - self.shift))                                  # (9)
-        X2 = phi_diff_rc / (phi_rc - self.shift)                                  # (10)
-        X3 = phi_diff_2_rc / (phi_rc - self.shift)                                # (11)
+        X1 = np.log(np.abs(phi_rc - self.shift))  # (9)
+        X2 = phi_diff_rc / (phi_rc - self.shift)  # (10)
+        X3 = phi_diff_2_rc / (phi_rc - self.shift)  # (11)
         X4 = -self.atom_charges[:, np.newaxis] * (self.shift + R + self.eta) / R  # (12)
-        X5 = np.log(np.abs(R))                                                    # (13)
+        X5 = np.log(np.abs(R))  # (13)
         # (14)
         alpha[0] = X5
         alpha[1] = X4
-        alpha[2] = 6*X1/rc**2 - 3*X2/rc + X3/2 - 3*X4/rc - 6*X5/rc**2 - X2**2/2
-        alpha[3] = -8*X1/rc**3 + 5*X2/rc**2 - X3/rc + 3*X4/rc**2 + 8*X5/rc**3 + X2**2/rc
-        alpha[4] = 3*X1/rc**4 - 2*X2/rc**3 + X3/2/rc**2 - X4/rc**3 - 3*X5/rc**4 - X2**2/2/rc**2
+        alpha[2] = 6 * X1 / rc**2 - 3 * X2 / rc + X3 / 2 - 3 * X4 / rc - 6 * X5 / rc**2 - X2**2 / 2
+        alpha[3] = -8 * X1 / rc**3 + 5 * X2 / rc**2 - X3 / rc + 3 * X4 / rc**2 + 8 * X5 / rc**3 + X2**2 / rc
+        alpha[4] = 3 * X1 / rc**4 - 2 * X2 / rc**3 + X3 / 2 / rc**2 - X4 / rc**3 - 3 * X5 / rc**4 - X2**2 / 2 / rc**2
         np.seterr(divide='warn', invalid='warn')
         # remove NaN from orbitals without s-part
         return np.nan_to_num(alpha, posinf=0, neginf=0)
@@ -660,7 +710,7 @@ class CuspFactory:
         R = self.phi_0 - self.shift
         phi_rc, phi_diff_rc, phi_diff_2_rc = self.phi(r)
         z_eff = self.atom_charges[:, np.newaxis] * (1 + self.eta / (R + self.shift))  # (16)
-        return - 0.5 * (2 * phi_diff_rc / r + phi_diff_2_rc) / phi_rc - z_eff / r     # (15)
+        return -0.5 * (2 * phi_diff_rc / r + phi_diff_2_rc) / phi_rc - z_eff / r  # (15)
 
     def phi_tilde_energy(self, r, alpha):
         """Effective one-electron local energy for corrected orbital.
@@ -668,9 +718,9 @@ class CuspFactory:
         :param r:
         :return: energy
         """
-        p = alpha[0] + alpha[1] * r + alpha[2] * r ** 2 + alpha[3] * r ** 3 + alpha[4] * r ** 4
-        p_diff_1 = alpha[1] + 2 * alpha[2] * r + 3 * alpha[3] * r ** 2 + 4 * alpha[4] * r ** 3
-        p_diff_2 = 2 * alpha[2] + 2 * 3 * alpha[3] * r + 3 * 4 * alpha[4] * r ** 2
+        p = alpha[0] + alpha[1] * r + alpha[2] * r**2 + alpha[3] * r**3 + alpha[4] * r**4
+        p_diff_1 = alpha[1] + 2 * alpha[2] * r + 3 * alpha[3] * r**2 + 4 * alpha[4] * r**3
+        p_diff_2 = 2 * alpha[2] + 2 * 3 * alpha[3] * r + 3 * 4 * alpha[4] * r**2
         R = self.orbital_sign * np.exp(p)
         np.seterr(divide='ignore', invalid='ignore')
         z_eff = self.atom_charges[:, np.newaxis] * (1 + self.eta / (R + self.shift))  # (16)
@@ -679,9 +729,9 @@ class CuspFactory:
         energy = np.where(
             r == 0,
             # apply L'Hôpital's rule to find energy limit at r=0 in (15)
-            -0.5 * R / (R + self.shift) * (3 * p_diff_2 + p_diff_1 ** 2),
-            -0.5 * R / (R + self.shift) * (2 * p_diff_1 / r + p_diff_2 + p_diff_1 ** 2) - z_eff / r
-        )  # (15)
+            -0.5 * R / (R + self.shift) * (3 * p_diff_2 + p_diff_1**2),
+            -0.5 * R / (R + self.shift) * (2 * p_diff_1 / r + p_diff_2 + p_diff_1**2) - z_eff / r,
+        )  # (15)  fmt: skip
         np.seterr(divide='warn', invalid='warn')
         return energy
 
@@ -691,7 +741,9 @@ class CuspFactory:
         :param beta0:
         :return:
         """
-        return (beta0 + np.where(self.atom_charges[:, np.newaxis] == 1, 0, polyval(r, self.beta) * r**2)) * self.atom_charges[:, np.newaxis] ** 2  # (17)
+        return (beta0 + np.where(self.atom_charges[:, np.newaxis] == 1, 0, polyval(r, self.beta) * r**2)) * self.atom_charges[
+            :, np.newaxis
+        ] ** 2  # (17)
 
     def get_energy_diff_max(self, alpha):
         """Maximum square deviation of phi_tilde energy from the ideal energy
@@ -841,8 +893,21 @@ class CuspFactory:
 
         alpha = self.alpha_data(self.phi_tilde_0)
         return Cusp(
-            self.neu, self.ned, self.orbitals_up, self.orbitals_down, self.rc, self.shift, self.orbital_sign, alpha,
-            self.mo, self.first_shells, self.shell_moments, self.primitives, self.coefficients, self.exponents, self.is_pseudoatom,
+            self.neu,
+            self.ned,
+            self.orbitals_up,
+            self.orbitals_down,
+            self.rc,
+            self.shift,
+            self.orbital_sign,
+            alpha,
+            self.mo,
+            self.first_shells,
+            self.shell_moments,
+            self.primitives,
+            self.coefficients,
+            self.exponents,
+            self.is_pseudoatom,
         )
 
     def cusp_info(self):
@@ -853,9 +918,7 @@ class CuspFactory:
         this may produce a lot of output.
         :return:
         """
-        logger.info(
-            ' Verbose print out flagged (turn off with cusp_info : F)\n'
-        )
+        logger.info(' Verbose print out flagged (turn off with cusp_info : F)\n')
         for i in range(2) if self.unrestricted else range(1):
             if self.unrestricted:
                 if i == 0:
@@ -866,9 +929,7 @@ class CuspFactory:
                 logger.info(' Spin restricted calculation.\n')
             for atom in range(self.atom_positions.shape[0]):
                 for orb in range(self.orbitals_up) if i == 0 else range(self.orbitals_up, self.orbitals_up + self.orbitals_down):
-                    logger.info(
-                        f' Orbital {orb + 1 if i == 0 else orb + 1 - self.orbitals_up} at position of ion {atom + 1}'
-                    )
+                    logger.info(f' Orbital {orb + 1 if i == 0 else orb + 1 - self.orbitals_up} at position of ion {atom + 1}')
                     if self.orb_mask[atom][orb]:
                         sign = 'positive' if self.orbital_sign[atom][orb] else 'negative'
                         z_eff = self.atom_charges[atom] * (1 + self.eta[atom][orb] / self.phi_0[atom][orb])
@@ -884,24 +945,18 @@ class CuspFactory:
                     else:
                         logger.info(' Orbital s component effectively zero at this nucleus.\n')
         nonzero_index = np.nonzero(self.orb_mask)
-        logger.info(
-            f' Maximum deviation from ideal (averaged over orbitals) : {np.mean(self.energy_diff_max[nonzero_index]):16.12f}.\n'
-        )
+        logger.info(f' Maximum deviation from ideal (averaged over orbitals) : {np.mean(self.energy_diff_max[nonzero_index]):16.12f}.\n')
 
 
 class TestCuspFactory:
-
-    def __init__(
-            self, neu, ned, mo_up, mo_down, permutation_up, permutation_down,
-            first_shells, shell_moments, primitives, coefficients, exponents
-    ):
+    def __init__(self, neu, ned, mo_up, mo_down, permutation_up, permutation_down, first_shells, shell_moments, primitives, coefficients, exponents):
         self.neu = neu
         self.ned = ned
         self.orbitals_up = np.max(permutation_up) + 1
         self.orbitals_down = np.max(permutation_down) + 1
         self.norm = np.exp(-(math.lgamma(self.neu + 1) + math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
         self.casino_norm = np.exp(-(math.lgamma(self.neu + 1) + math.lgamma(self.neu + 1)) / (self.neu + self.neu) / 2)
-        self.mo = np.concatenate((mo_up[:self.orbitals_up], mo_down[:self.orbitals_down]))
+        self.mo = np.concatenate((mo_up[: self.orbitals_up], mo_down[: self.orbitals_down]))
         self.first_shells = first_shells
         self.shell_moments = shell_moments
         self.primitives = primitives
@@ -910,7 +965,7 @@ class TestCuspFactory:
 
     def create(self):
         if self.neu == 1 and self.ned == 1:
-            is_pseudoatom = np.zeros(shape=(1, ), dtype=np.bool_)
+            is_pseudoatom = np.zeros(shape=(1,), dtype=np.bool_)
             # atoms, MO - Value of uncorrected orbital at nucleus
             wfn_0_up = wfn_0_down = np.array([[1.307524154011]])
             # atoms, MO
@@ -924,7 +979,7 @@ class TestCuspFactory:
                 [0.29141713, -2.0, 0.25262478, -0.098352818, 0.11124336],
             ]])  # fmt: skip
         elif self.neu == 2 and self.ned == 2:
-            is_pseudoatom = np.zeros(shape=(1, ), dtype=np.bool_)
+            is_pseudoatom = np.zeros(shape=(1,), dtype=np.bool_)
             wfn_0_up = wfn_0_down = np.array([[-3.447246814709, -0.628316785317]])
             shift_up = shift_down = np.array([[0.0, 0.0]])
             orbital_sign_up = orbital_sign_down = np.array([[-1, -1]])
@@ -934,7 +989,7 @@ class TestCuspFactory:
                 [-0.45510824, -4.0, -0.73882727, -0.89716308, -5.8491770]
             ]])  # fmt: skip
         elif self.neu == 5 and self.ned == 2:
-            is_pseudoatom = np.zeros(shape=(1, ), dtype=np.bool_)
+            is_pseudoatom = np.zeros(shape=(1,), dtype=np.bool_)
             wfn_0_up = np.array([[6.069114031640, -1.397116693472, 0.0, 0.0, 0.0]])
             wfn_0_down = np.array([[6.095832387803, 1.268342737910]])
             shift_up = np.array([[0.0, 0.0, 0.0, 0.0, 0.0]])
@@ -955,7 +1010,7 @@ class TestCuspFactory:
                 [0.24741402, -7.0, -0.36101513E+01, -0.11720244E+02, -0.17700238E+02],
             ]])  # fmt: skip
         elif self.neu == 5 and self.ned == 5:
-            is_pseudoatom = np.zeros(shape=(1, ), dtype=np.bool_)
+            is_pseudoatom = np.zeros(shape=(1,), dtype=np.bool_)
             wfn_0_up = wfn_0_down = np.array([[10.523069754656, 2.470734575103, 0.0, 0.0, 0.0]])
             shift_up = shift_down = np.array([[0.0, 0.0, 0.0, 0.0, 0.0]])
             orbital_sign_up = orbital_sign_down = np.array([[1, 1, 0, 0, 0]])
@@ -968,7 +1023,7 @@ class TestCuspFactory:
                 [0.0, 0.0, 0.0, 0.0, 0.0],
             ]])  # fmt: skip
         elif self.neu == 9 and self.ned == 9:
-            is_pseudoatom = np.zeros(shape=(1, ), dtype=np.bool_)
+            is_pseudoatom = np.zeros(shape=(1,), dtype=np.bool_)
             wfn_0_up = wfn_0_down = np.array([[20.515046538335, 5.824658914949, 0.0, 0.0, 0.0, -1.820248905891, 0.0, 0.0, 0.0]])  # fmt: skip
             shift_up = shift_down = np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])  # fmt: skip
             orbital_sign_up = orbital_sign_down = np.array([[1, 1, 0, 0, 0, -1, 0, 0, 0]])  # fmt: skip
@@ -985,7 +1040,7 @@ class TestCuspFactory:
                 [0.0, 0.0, 0.0, 0.0, 0.0],
             ]])  # fmt: skip
         elif self.neu == 18 and self.ned == 18:
-            is_pseudoatom = np.zeros(shape=(1, ), dtype=np.bool_)
+            is_pseudoatom = np.zeros(shape=(1,), dtype=np.bool_)
             wfn_0_up = wfn_0_down = np.array(([
                 [43.608490133788, -13.720841107516, 0.0, 0.0, 0.0, -5.505781654931, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.751185788791, 0.0, 0.0, 0.0],
             ]))  # fmt: skip
@@ -1013,7 +1068,7 @@ class TestCuspFactory:
                 [0.0, 0.0, 0.0, 0.0, 0.0],
             ]])  # fmt: skip
         elif self.neu == 12 and self.ned == 12:
-            is_pseudoatom = np.zeros(shape=(3, ), dtype=np.bool_)
+            is_pseudoatom = np.zeros(shape=(3,), dtype=np.bool_)
             wfn_0_up = np.array(([
                 [-5.245016636407, -0.025034008898,  0.019182670511, -0.839192164211,  0.229570396176, -0.697628545957, 0.0, -0.140965538444, -0.015299796091, 0.0, -0.084998032927,  0.220208807573],
                 [-0.024547538656,  5.241296804923, -0.002693454373, -0.611438043012, -0.806215116184,  0.550648084416, 0.0, -0.250758940038, -0.185619271170, 0.0,  0.007450966720, -0.023495021763],
@@ -1150,8 +1205,20 @@ class TestCuspFactory:
         alpha[0] += np.where(alpha[0], np.log(self.norm / self.casino_norm), 0)
         alpha = np.ascontiguousarray(alpha)
         return Cusp(
-            self.neu, self.ned, self.neu, self.ned, rc, shift, orbital_sign, alpha,
-            self.mo, self.first_shells, self.shell_moments, self.primitives, self.coefficients, self.exponents,
+            self.neu,
+            self.ned,
+            self.neu,
+            self.ned,
+            rc,
+            shift,
+            orbital_sign,
+            alpha,
+            self.mo,
+            self.first_shells,
+            self.shell_moments,
+            self.primitives,
+            self.coefficients,
+            self.exponents,
             is_pseudoatom,
         )
         # atoms, MO - Optimum corrected s orbital at nucleus
@@ -1170,18 +1237,36 @@ if __name__ == '__main__':
         config.read()
 
         cusp = CuspFactory(
-            config.input.neu, config.input.ned, config.input.cusp_threshold, config.wfn.mo_up, config.wfn.mo_down,
-            config.mdet.permutation_up, config.mdet.permutation_down,
-            config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
-            config.wfn.coefficients, config.wfn.exponents,
-            config.wfn.atom_positions, config.wfn.atom_charges, config.wfn.unrestricted, config.wfn.is_pseudoatom,
+            config.input.neu,
+            config.input.ned,
+            config.input.cusp_threshold,
+            config.wfn.mo_up,
+            config.wfn.mo_down,
+            config.mdet.permutation_up,
+            config.mdet.permutation_down,
+            config.wfn.first_shells,
+            config.wfn.shell_moments,
+            config.wfn.primitives,
+            config.wfn.coefficients,
+            config.wfn.exponents,
+            config.wfn.atom_positions,
+            config.wfn.atom_charges,
+            config.wfn.unrestricted,
+            config.wfn.is_pseudoatom,
         ).create(casino_rc=True, casino_phi_tilde_0=False)
 
         cusp_test = TestCuspFactory(
-            config.input.neu, config.input.ned, config.wfn.mo_up, config.wfn.mo_down,
-            config.mdet.permutation_up, config.mdet.permutation_down,
-            config.wfn.first_shells, config.wfn.shell_moments, config.wfn.primitives,
-            config.wfn.coefficients, config.wfn.exponents
+            config.input.neu,
+            config.input.ned,
+            config.wfn.mo_up,
+            config.wfn.mo_down,
+            config.mdet.permutation_up,
+            config.mdet.permutation_down,
+            config.wfn.first_shells,
+            config.wfn.shell_moments,
+            config.wfn.primitives,
+            config.wfn.coefficients,
+            config.wfn.exponents,
         ).create()
 
         print(
