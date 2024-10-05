@@ -49,7 +49,7 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
 
     parameters_size = 2 * (phi_parameters.shape[1] * phi_parameters.shape[2] * phi_parameters.shape[3])
     c = np.zeros((n_constraints, parameters_size))
-    cutoff_constraints = np.zeros(shape=(n_constraints, ))
+    cutoff_constraints = np.zeros(shape=(n_constraints,))
     p = 0
     # Do Phi bit of the constraint matrix.
     for m in range(phi_parameters.shape[1]):
@@ -74,12 +74,12 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
                 else:
                     if l == 0:  # 1b
                         c[k + m + offset + en_constrains, p] = -trunc / phi_cutoff
-                        cutoff_constraints[k + m + offset + en_constrains] += trunc * phi_parameters[spin_dep, m, l, k] / phi_cutoff ** 2
+                        cutoff_constraints[k + m + offset + en_constrains] += trunc * phi_parameters[spin_dep, m, l, k] / phi_cutoff**2
                     elif l == 1:  # 1b
                         c[k + m + offset + en_constrains, p] = 1
                     if k == 0:  # 1a
                         c[l + m + offset, p] = -trunc / phi_cutoff
-                        cutoff_constraints[l + m + offset] += trunc * phi_parameters[spin_dep, m, l, k] / phi_cutoff ** 2
+                        cutoff_constraints[l + m + offset] += trunc * phi_parameters[spin_dep, m, l, k] / phi_cutoff**2
                     elif k == 1:  # 1a
                         c[l + m + offset, p] = 1
                 p += 1
@@ -93,7 +93,7 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
                 if phi_cusp:
                     if l == 0:  # 2b
                         c[k + m + offset + ee_constrains + 2 * en_constrains, p] = -trunc / phi_cutoff
-                        cutoff_constraints[k + m + offset + ee_constrains + 2 * en_constrains] += trunc * theta_parameters[spin_dep, m, l, k] / phi_cutoff ** 2
+                        cutoff_constraints[k + m + offset + ee_constrains + 2 * en_constrains] += trunc * theta_parameters[spin_dep, m, l, k] / phi_cutoff**2
                         if m > 0:  # 3b
                             c[k + m - 1 + offset + ee_constrains + 4 * en_constrains - 1, p] = m
                     elif l == 1:  # 2b
@@ -107,7 +107,7 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
                 else:
                     if l == 0:  # 1a
                         c[k + m + offset + ee_constrains, p] = -trunc / phi_cutoff
-                        cutoff_constraints[l + m + offset + ee_constrains] += trunc * theta_parameters[spin_dep, m, l, k] / phi_cutoff ** 2
+                        cutoff_constraints[l + m + offset + ee_constrains] += trunc * theta_parameters[spin_dep, m, l, k] / phi_cutoff**2
                     elif l == 1:  # 1a
                         c[k + m + offset + ee_constrains, p] = 1
                 p += 1
@@ -148,7 +148,7 @@ def construct_c_matrix(trunc, phi_parameters, theta_parameters, phi_cutoff, spin
                     c[n, p] = trunc + k
                     if k < phi_en_order:
                         c[n, p + inc_k] = -phi_cutoff * (k + 1)
-                        cutoff_constraints[n] -= (k + 1) * phi_parameters[spin_dep, :, l, k+1].sum()
+                        cutoff_constraints[n] -= (k + 1) * phi_parameters[spin_dep, :, l, k + 1].sum()
                     p += 1
                     n += 1
             # ...for k=N_eN+1...
@@ -242,14 +242,31 @@ Backflow_t = Backflow_class_t(
 
 
 class Backflow(structref.StructRefProxy, AbstractBackflow):
-
     def __new__(cls, *args, **kwargs):
         @nb.njit(nogil=True, parallel=False, cache=True)
         def backflow_init(
-                neu, ned, trunc, eta_parameters, eta_parameters_optimizable, eta_cutoff,
-                mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cusp, mu_labels,
-                phi_parameters, phi_parameters_optimizable, theta_parameters, theta_parameters_optimizable,
-                phi_cutoff, phi_cusp, phi_labels, phi_irrotational, ae_cutoff, ae_cutoff_optimizable):
+            neu,
+            ned,
+            trunc,
+            eta_parameters,
+            eta_parameters_optimizable,
+            eta_cutoff,
+            mu_parameters,
+            mu_parameters_optimizable,
+            mu_cutoff,
+            mu_cusp,
+            mu_labels,
+            phi_parameters,
+            phi_parameters_optimizable,
+            theta_parameters,
+            theta_parameters_optimizable,
+            phi_cutoff,
+            phi_cusp,
+            phi_labels,
+            phi_irrotational,
+            ae_cutoff,
+            ae_cutoff_optimizable,
+        ):
             self = structref.new(Backflow_t)
             self.neu = neu
             self.ned = ned
@@ -295,6 +312,7 @@ class Backflow(structref.StructRefProxy, AbstractBackflow):
             self.cutoffs_optimizable = True
             self.fix_optimizable()
             return self
+
         return backflow_init(*args, **kwargs)
 
     @property
@@ -395,7 +413,7 @@ def backflow_ee_powers(self, e_vectors: np.ndarray):
             for j in range(i):
                 r_ee = np.linalg.norm(e_vectors[i, j])
                 for k in range(1, self.max_ee_order):
-                    res[i, j, k] = res[j, i, k] = r_ee ** k
+                    res[i, j, k] = res[j, i, k] = r_ee**k
         return res
 
     return impl
@@ -415,7 +433,7 @@ def backflow_en_powers(self, n_vectors: np.ndarray):
             for j in range(n_vectors.shape[1]):
                 r_eI = np.linalg.norm(n_vectors[i, j])
                 for k in range(1, self.max_en_order):
-                    res[i, j, k] = r_eI ** k
+                    res[i, j, k] = r_eI**k
         return res
 
     return impl
@@ -433,7 +451,7 @@ def backflow_ae_multiplier(self, n_vectors, n_powers):
             for j in range(self.neu + self.ned):
                 r = n_powers[i, j, 1]
                 if r < Lg:
-                    res[1, j] = (r/Lg)**2 * (6 - 8 * (r/Lg) + 3 * (r/Lg)**2)
+                    res[1, j] = (r / Lg) ** 2 * (6 - 8 * (r / Lg) + 3 * (r / Lg) ** 2)
         return res.reshape(2, (self.neu + self.ned) * 3)
 
     return impl
@@ -455,7 +473,7 @@ def backflow_ae_multiplier_gradient(self, n_vectors, n_powers):
                 r_vec = n_vectors[i, j]
                 r = n_powers[i, j, 1]
                 if r < Lg:
-                    res[1, j, :, j, :] = 12*r_vec/Lg**2 * (1 - r/Lg)**2
+                    res[1, j, :, j, :] = 12 * r_vec / Lg**2 * (1 - r / Lg) ** 2
         return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     return impl
@@ -476,7 +494,7 @@ def backflow_ae_multiplier_laplacian(self, n_vectors, n_powers):
             for j in range(self.neu + self.ned):
                 r = n_powers[i, j, 1]
                 if r < Lg:
-                    res[1, j] = 12/Lg**2 * (3 - 8 * (r/Lg) + 5 * (r/Lg)**2)
+                    res[1, j] = 12 / Lg**2 * (3 - 8 * (r / Lg) + 5 * (r / Lg) ** 2)
         return res.reshape(2, (self.neu + self.ned) * 3)
 
     return impl
@@ -506,7 +524,7 @@ def backflow_eta_term(self, e_powers, e_vectors):
                 eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
                 L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
                 if r < L:
-                    bf = (1 - r/L) ** C * r_vec * polyval(r, parameters[eta_set])
+                    bf = (1 - r / L) ** C * r_vec * polyval(r, parameters[eta_set])
                     res[ae_cutoff_condition, e1] += bf
                     res[ae_cutoff_condition, e2] -= bf
         return res.reshape(2, (self.neu + self.ned) * 3)
@@ -537,7 +555,7 @@ def backflow_mu_term(self, n_powers, n_vectors):
                         # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
-                        res[ae_cutoff_condition, e1] += (1 - r/L) ** C * r_vec * polyval(r, parameters[mu_set])
+                        res[ae_cutoff_condition, e1] += (1 - r / L) ** C * r_vec * polyval(r, parameters[mu_set])
         return res.reshape(2, (self.neu + self.ned) * 3)
 
     return impl
@@ -580,7 +598,9 @@ def backflow_phi_term(self, e_powers, n_powers, e_vectors, n_vectors):
                             # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
-                            res[ae_cutoff_condition, e1] += (1-r_e1I/L) ** C * (1-r_e2I/L) ** C * (phi_poly * r_ee_vec + theta_poly * r_e1I_vec)
+                            res[ae_cutoff_condition, e1] += (
+                                (1 - r_e1I / L) ** C * (1 - r_e2I / L) ** C * (phi_poly * r_ee_vec + theta_poly * r_e1I_vec)
+                            )
         return res.reshape(2, (self.neu + self.ned) * 3)
 
     return impl
@@ -617,9 +637,7 @@ def backflow_eta_term_gradient(self, e_powers, e_vectors):
                         poly += p
                         poly_diff += p * k
 
-                    bf = (1 - r/L)**C * (
-                        (poly_diff - C*r/(L - r)*poly) * np.outer(r_vec, r_vec)/r**2 + poly * eye3
-                    )
+                    bf = (1 - r / L) ** C * ((poly_diff - C * r / (L - r) * poly) * np.outer(r_vec, r_vec) / r**2 + poly * eye3)
                     res[ae_cutoff_condition, e1, :, e1, :] += bf
                     res[ae_cutoff_condition, e1, :, e2, :] -= bf
                     res[ae_cutoff_condition, e2, :, e1, :] -= bf
@@ -658,8 +676,8 @@ def backflow_mu_term_gradient(self, n_powers, n_vectors):
                         # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
-                        res[ae_cutoff_condition, e1, :, e1, :] += (1 - r/L)**C * (
-                            (poly_diff - C*r/(L - r)*poly) * np.outer(r_vec, r_vec)/r**2 + poly * eye3
+                        res[ae_cutoff_condition, e1, :, e1, :] += (1 - r / L) ** C * (
+                            (poly_diff - C * r / (L - r) * poly) * np.outer(r_vec, r_vec) / r**2 + poly * eye3
                         )
 
         return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
@@ -717,20 +735,23 @@ def backflow_phi_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
                             # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
-                            cutoff = (1-r_e1I/L) ** C * (1-r_e2I/L) ** C
+                            cutoff = (1 - r_e1I / L) ** C * (1 - r_e2I / L) ** C
                             r_ee_r_ee = np.outer(r_ee_vec, r_ee_vec)
                             r_ee_r_e1I = np.outer(r_ee_vec, r_e1I_vec)
                             res[ae_cutoff_condition, e1, :, e1, :] += cutoff * (
-                                (phi_poly_diff_e1I - C*r_e1I/(L - r_e1I)*phi_poly) * r_ee_r_e1I/r_e1I**2 +
-                                phi_poly_diff_ee * r_ee_r_ee / r_ee**2 + phi_poly * eye3 +
-                                (theta_poly_diff_e1I - C*r_e1I/(L - r_e1I) * theta_poly) * np.outer(r_e1I_vec, r_e1I_vec)/r_e1I**2 +
-                                theta_poly_diff_ee * r_ee_r_e1I.T / r_ee**2 + theta_poly * eye3
+                                (phi_poly_diff_e1I - C * r_e1I / (L - r_e1I) * phi_poly) * r_ee_r_e1I / r_e1I**2
+                                + phi_poly_diff_ee * r_ee_r_ee / r_ee**2
+                                + phi_poly * eye3
+                                + (theta_poly_diff_e1I - C * r_e1I / (L - r_e1I) * theta_poly) * np.outer(r_e1I_vec, r_e1I_vec) / r_e1I**2
+                                + theta_poly_diff_ee * r_ee_r_e1I.T / r_ee**2
+                                + theta_poly * eye3
                             )
                             res[ae_cutoff_condition, e1, :, e2, :] += cutoff * (
-                                (phi_poly_diff_e2I - C*r_e2I/(L - r_e2I)*phi_poly) * np.outer(r_ee_vec, r_e2I_vec)/r_e2I**2 -
-                                phi_poly_diff_ee * r_ee_r_ee / r_ee**2 - phi_poly * eye3 +
-                                (theta_poly_diff_e2I - C*r_e2I/(L - r_e2I) * theta_poly) * np.outer(r_e1I_vec, r_e2I_vec) / r_e2I**2 -
-                                theta_poly_diff_ee * r_ee_r_e1I.T / r_ee**2
+                                (phi_poly_diff_e2I - C * r_e2I / (L - r_e2I) * phi_poly) * np.outer(r_ee_vec, r_e2I_vec) / r_e2I**2
+                                - phi_poly_diff_ee * r_ee_r_ee / r_ee**2
+                                - phi_poly * eye3
+                                + (theta_poly_diff_e2I - C * r_e2I / (L - r_e2I) * theta_poly) * np.outer(r_e1I_vec, r_e2I_vec) / r_e2I**2
+                                - theta_poly_diff_ee * r_ee_r_e1I.T / r_ee**2
                             )
 
         return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
@@ -812,8 +833,8 @@ def backflow_mu_term_laplacian(self, n_powers, n_vectors):
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
                         res[ae_cutoff_condition, e1] += (1 - r / L) ** C * (
-                                4 * (poly_diff - C * r / (L - r) * poly) +
-                                (C * (C - 1) * r ** 2 / (L - r) ** 2 * poly - 2 * C * r / (L - r) * poly_diff + poly_diff_2)
+                            4 * (poly_diff - C * r / (L - r) * poly) +
+                            (C * (C - 1) * r ** 2 / (L - r) ** 2 * poly - 2 * C * r / (L - r) * poly_diff + poly_diff_2)
                         ) * r_vec / r ** 2
 
         return res.reshape(2, (self.neu + self.ned) * 3)
@@ -861,8 +882,8 @@ def backflow_phi_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                             theta_poly_diff_e1I_ee = theta_poly_diff_e2I_ee = 0.0
                             cutoff_diff_e1I = C * r_e1I / (L - r_e1I)
                             cutoff_diff_e2I = C * r_e2I / (L - r_e2I)
-                            cutoff_diff_e1I_2 = C * (C - 1) * r_e1I ** 2 / (L - r_e1I) ** 2
-                            cutoff_diff_e2I_2 = C * (C - 1) * r_e2I ** 2 / (L - r_e2I) ** 2
+                            cutoff_diff_e1I_2 = C * (C - 1) * r_e1I**2 / (L - r_e1I) ** 2
+                            cutoff_diff_e2I_2 = C * (C - 1) * r_e2I**2 / (L - r_e2I) ** 2
                             for m in range(phi_parameters.shape[1]):
                                 for l in range(phi_parameters.shape[2]):
                                     for k in range(phi_parameters.shape[3]):
@@ -880,13 +901,13 @@ def backflow_phi_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                         poly_diff_ee = m * poly
                                         phi_poly_diff_ee += poly_diff_ee * phi_p
                                         theta_poly_diff_ee += poly_diff_ee * theta_p
-                                        poly_diff_e1I_2 = k * (k-1) * poly
+                                        poly_diff_e1I_2 = k * (k - 1) * poly
                                         phi_poly_diff_e1I_2 += poly_diff_e1I_2 * phi_p
                                         theta_poly_diff_e1I_2 += poly_diff_e1I_2 * theta_p
-                                        poly_diff_e2I_2 = l * (l-1) * poly
+                                        poly_diff_e2I_2 = l * (l - 1) * poly
                                         phi_poly_diff_e2I_2 += poly_diff_e2I_2 * phi_p
                                         theta_poly_diff_e2I_2 += poly_diff_e2I_2 * theta_p
-                                        poly_diff_ee_2 = m * (m-1) * poly
+                                        poly_diff_ee_2 = m * (m - 1) * poly
                                         phi_poly_diff_ee_2 += poly_diff_ee_2 * phi_p
                                         theta_poly_diff_ee_2 += poly_diff_ee_2 * theta_p
                                         poly_diff_e1I_ee = k * m * poly
@@ -897,35 +918,43 @@ def backflow_phi_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                         theta_poly_diff_e2I_ee += poly_diff_e2I_ee * theta_p
 
                             phi_diff_1 = (
-                                (phi_poly_diff_e1I - phi_poly*cutoff_diff_e1I)/r_e1I**2 +
-                                (phi_poly_diff_e2I - phi_poly*cutoff_diff_e2I)/r_e2I**2 +
-                                4 * phi_poly_diff_ee/r_ee**2
+                                (phi_poly_diff_e1I - phi_poly * cutoff_diff_e1I) / r_e1I**2
+                                + (phi_poly_diff_e2I - phi_poly * cutoff_diff_e2I) / r_e2I**2
+                                + 4 * phi_poly_diff_ee / r_ee**2
                             )
                             phi_diff_2 = (
-                                phi_poly*cutoff_diff_e1I_2/r_e1I**2 - 2*phi_poly_diff_e1I*cutoff_diff_e1I/r_e1I**2 + phi_poly_diff_e1I_2/r_e1I**2 +
-                                phi_poly*cutoff_diff_e2I_2/r_e2I**2 - 2*phi_poly_diff_e2I*cutoff_diff_e2I/r_e2I**2 + phi_poly_diff_e2I_2/r_e2I**2 +
-                                2 * phi_poly_diff_ee_2/r_ee**2
+                                phi_poly * cutoff_diff_e1I_2 / r_e1I**2
+                                - 2 * phi_poly_diff_e1I * cutoff_diff_e1I / r_e1I**2
+                                + phi_poly_diff_e1I_2 / r_e1I**2
+                                + phi_poly * cutoff_diff_e2I_2 / r_e2I**2
+                                - 2 * phi_poly_diff_e2I * cutoff_diff_e2I / r_e2I**2
+                                + phi_poly_diff_e2I_2 / r_e2I**2
+                                + 2 * phi_poly_diff_ee_2 / r_ee**2
                             )
                             phi_dot_product = (
-                                (phi_poly_diff_e1I - phi_poly*cutoff_diff_e1I) * r_e1I_vec/r_e1I**2 -
-                                (phi_poly_diff_e2I - phi_poly*cutoff_diff_e2I) * r_e2I_vec/r_e2I**2 +
-                                (phi_poly_diff_e1I_ee - phi_poly_diff_ee*cutoff_diff_e1I) * r_ee_vec * (r_ee_vec @ r_e1I_vec)/r_e1I**2/r_ee**2 -
-                                (phi_poly_diff_e2I_ee - phi_poly_diff_ee*cutoff_diff_e2I) * r_ee_vec * (r_ee_vec @ r_e2I_vec)/r_e2I**2/r_ee**2
+                                (phi_poly_diff_e1I - phi_poly * cutoff_diff_e1I) * r_e1I_vec / r_e1I**2
+                                - (phi_poly_diff_e2I - phi_poly * cutoff_diff_e2I) * r_e2I_vec / r_e2I**2
+                                + (phi_poly_diff_e1I_ee - phi_poly_diff_ee * cutoff_diff_e1I) * r_ee_vec * (r_ee_vec @ r_e1I_vec) / r_e1I**2 / r_ee**2
+                                - (phi_poly_diff_e2I_ee - phi_poly_diff_ee * cutoff_diff_e2I) * r_ee_vec * (r_ee_vec @ r_e2I_vec) / r_e2I**2 / r_ee**2
                             )
                             theta_diff_1 = (
-                                2 * (theta_poly_diff_e1I - theta_poly*cutoff_diff_e1I)/r_e1I**2 +
-                                (theta_poly_diff_e2I - theta_poly*cutoff_diff_e2I)/r_e2I**2 +
-                                2 * theta_poly_diff_ee/r_ee**2
+                                2 * (theta_poly_diff_e1I - theta_poly * cutoff_diff_e1I) / r_e1I**2
+                                + (theta_poly_diff_e2I - theta_poly * cutoff_diff_e2I) / r_e2I**2
+                                + 2 * theta_poly_diff_ee / r_ee**2
                             )
                             theta_diff_2 = (
-                                theta_poly*cutoff_diff_e1I_2/r_e1I**2 - 2*theta_poly_diff_e1I*cutoff_diff_e1I/r_e1I**2 + theta_poly_diff_e1I_2/r_e1I**2 +
-                                theta_poly*cutoff_diff_e2I_2/r_e2I**2 - 2*theta_poly_diff_e2I*cutoff_diff_e2I/r_e2I**2 + theta_poly_diff_e2I_2/r_e2I**2 +
-                                2 * theta_poly_diff_ee_2/r_ee**2
+                                theta_poly * cutoff_diff_e1I_2 / r_e1I**2
+                                - 2 * theta_poly_diff_e1I * cutoff_diff_e1I / r_e1I**2
+                                + theta_poly_diff_e1I_2 / r_e1I**2
+                                + theta_poly * cutoff_diff_e2I_2 / r_e2I**2
+                                - 2 * theta_poly_diff_e2I * cutoff_diff_e2I / r_e2I**2
+                                + theta_poly_diff_e2I_2 / r_e2I**2
+                                + 2 * theta_poly_diff_ee_2 / r_ee**2
                             )
                             theta_dot_product = (
-                                (theta_poly_diff_e1I_ee - theta_poly_diff_ee*cutoff_diff_e1I) * r_e1I_vec * (r_e1I_vec @ r_ee_vec)/r_e1I**2 -
-                                (theta_poly_diff_e2I_ee - theta_poly_diff_ee*cutoff_diff_e2I) * r_e1I_vec * (r_e2I_vec @ r_ee_vec)/r_e2I**2 +
-                                theta_poly_diff_ee * r_ee_vec
+                                (theta_poly_diff_e1I_ee - theta_poly_diff_ee * cutoff_diff_e1I) * r_e1I_vec * (r_e1I_vec @ r_ee_vec) / r_e1I**2
+                                - (theta_poly_diff_e2I_ee - theta_poly_diff_ee * cutoff_diff_e2I) * r_e1I_vec * (r_e2I_vec @ r_ee_vec) / r_e2I**2
+                                + theta_poly_diff_ee * r_ee_vec
                             ) / r_ee**2
                             # cutoff_condition
                             # 0: AE cutoff exactly not applied
@@ -961,10 +990,7 @@ def backflow_value(self, e_vectors, n_vectors):
         ae_value = eta_term + mu_term + phi_term
         ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
 
-        return np.sum(
-            ae_value * ae_multiplier,
-            axis=0
-        ).reshape((self.neu + self.ned), 3)
+        return np.sum(ae_value * ae_multiplier, axis=0).reshape((self.neu + self.ned), 3)
 
     return impl
 
@@ -996,10 +1022,7 @@ def backflow_gradient(self, e_vectors, n_vectors):
         ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
         ae_multiplier_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
 
-        value = np.sum(
-            ae_value * ae_multiplier,
-            axis=0
-        ).reshape((self.neu + self.ned), 3)
+        value = np.sum(ae_value * ae_multiplier, axis=0).reshape((self.neu + self.ned), 3)
 
         gradient = np.sum(
             ae_multiplier_gradient * np.expand_dims(ae_value, 2) +
@@ -1045,10 +1068,7 @@ def backflow_laplacian(self, e_vectors, n_vectors):
         ae_multiplier_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
         ae_multiplier_laplacian = self.ae_multiplier_laplacian(n_vectors, n_powers)
 
-        value = np.sum(
-            ae_value * ae_multiplier,
-            axis=0
-        ).reshape((self.neu + self.ned), 3)
+        value = np.sum(ae_value * ae_multiplier, axis=0).reshape((self.neu + self.ned), 3)
 
         gradient = np.sum(
             ae_multiplier_gradient * np.expand_dims(ae_value, 2) +
@@ -1108,13 +1128,15 @@ def backflow_fix_phi_parameters(self):
     """Fix phi-term dependent parameters"""
 
     def impl(self):
-        for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cusp, self.phi_irrotational):
+        for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(
+            self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cusp, self.phi_irrotational
+        ):
             for spin_dep in range(phi_parameters.shape[0]):
                 c, _ = construct_c_matrix(self.trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
                 c, pivot_positions = rref(c)
-                c = c[:pivot_positions.size, :]
+                c = c[: pivot_positions.size, :]
 
-                b = np.zeros((c.shape[0], ))
+                b = np.zeros((c.shape[0],))
                 p = 0
                 for m in range(phi_parameters.shape[1]):
                     for l in range(phi_parameters.shape[2]):
@@ -1172,7 +1194,9 @@ def backflow_get_parameters_mask(self):
                         res.append(self.eta_parameters_optimizable[j1, j2])
 
         if self.mu_cutoff.any():
-            for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_parameters_available) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_parameters_available)):
+            for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_parameters_available) in enumerate(
+                zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_parameters_available)
+            ):
                 if mu_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
                 for j1 in range(mu_parameters.shape[0]):
@@ -1181,7 +1205,25 @@ def backflow_get_parameters_mask(self):
                             res.append(mu_parameters_optimizable[j1, j2])
 
         if self.phi_cutoff.any():
-            for i, (phi_parameters, phi_parameters_optimizable, phi_parameters_available, theta_parameters_optimizable, theta_parameters_available, phi_cutoff, phi_cutoff_optimizable) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.phi_parameters_available, self.theta_parameters_optimizable, self.theta_parameters_available, self.phi_cutoff, self.phi_cutoff_optimizable)):
+            for i, (
+                phi_parameters,
+                phi_parameters_optimizable,
+                phi_parameters_available,
+                theta_parameters_optimizable,
+                theta_parameters_available,
+                phi_cutoff,
+                phi_cutoff_optimizable,
+            ) in enumerate(
+                zip(
+                    self.phi_parameters,
+                    self.phi_parameters_optimizable,
+                    self.phi_parameters_available,
+                    self.theta_parameters_optimizable,
+                    self.theta_parameters_available,
+                    self.phi_cutoff,
+                    self.phi_cutoff_optimizable,
+                )
+            ):
                 if phi_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
                 for j1 in range(phi_parameters.shape[0]):
@@ -1205,6 +1247,7 @@ def backflow_get_parameters_mask(self):
 
     return impl
 
+
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Backflow_class_t, 'get_parameters_scale')
 def backflow_get_parameters_scale(self, all_parameters):
@@ -1226,19 +1269,39 @@ def backflow_get_parameters_scale(self, all_parameters):
             for j1 in range(self.eta_parameters.shape[0]):
                 for j2 in range(self.eta_parameters.shape[1]):
                     if (self.eta_parameters_optimizable[j1, j2] or all_parameters) and self.eta_parameters_available[j1, j2]:
-                        res.append(2 / self.eta_cutoff[0] ** j2 / ne ** 2)
+                        res.append(2 / self.eta_cutoff[0] ** j2 / ne**2)
 
         if self.mu_cutoff.any():
-            for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_parameters_available) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_parameters_available)):
+            for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_parameters_available) in enumerate(
+                zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_parameters_available)
+            ):
                 if mu_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
                 for j1 in range(mu_parameters.shape[0]):
                     for j2 in range(mu_parameters.shape[1]):
                         if (mu_parameters_optimizable[j1, j2] or all_parameters) and mu_parameters_available[j1, j2]:
-                            res.append(1 / mu_cutoff ** j2 / ne)
+                            res.append(1 / mu_cutoff**j2 / ne)
 
         if self.phi_cutoff.any():
-            for i, (phi_parameters, phi_parameters_optimizable, phi_parameters_available, theta_parameters_optimizable, theta_parameters_available, phi_cutoff, phi_cutoff_optimizable) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.phi_parameters_available, self.theta_parameters_optimizable, self.theta_parameters_available, self.phi_cutoff, self.phi_cutoff_optimizable)):
+            for i, (
+                phi_parameters,
+                phi_parameters_optimizable,
+                phi_parameters_available,
+                theta_parameters_optimizable,
+                theta_parameters_available,
+                phi_cutoff,
+                phi_cutoff_optimizable,
+            ) in enumerate(
+                zip(
+                    self.phi_parameters,
+                    self.phi_parameters_optimizable,
+                    self.phi_parameters_available,
+                    self.theta_parameters_optimizable,
+                    self.theta_parameters_available,
+                    self.phi_cutoff,
+                    self.phi_cutoff_optimizable,
+                )
+            ):
                 if phi_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
                 for j1 in range(phi_parameters.shape[0]):
@@ -1246,13 +1309,13 @@ def backflow_get_parameters_scale(self, all_parameters):
                         for j3 in range(phi_parameters.shape[2]):
                             for j4 in range(phi_parameters.shape[3]):
                                 if (phi_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and phi_parameters_available[j1, j2, j3, j4]:
-                                    res.append(2 / phi_cutoff ** (j2 + j3 + j4) / ne ** 3)
+                                    res.append(2 / phi_cutoff ** (j2 + j3 + j4) / ne**3)
 
                     for j2 in range(phi_parameters.shape[1]):
                         for j3 in range(phi_parameters.shape[2]):
                             for j4 in range(phi_parameters.shape[3]):
                                 if (theta_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and theta_parameters_available[j1, j2, j3, j4]:
-                                    res.append(2 / phi_cutoff ** (j2 + j3 + j4) / ne ** 3)
+                                    res.append(2 / phi_cutoff ** (j2 + j3 + j4) / ne**3)
 
         for ae_cutoff_optimizable in self.ae_cutoff_optimizable:
             if ae_cutoff_optimizable and self.cutoffs_optimizable:
@@ -1261,6 +1324,7 @@ def backflow_get_parameters_scale(self, all_parameters):
         return np.array(res)
 
     return impl
+
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Backflow_class_t, 'get_parameters_constraints')
@@ -1319,7 +1383,9 @@ def backflow_get_parameters_constraints(self):
                 ))
             a_list.append(eta_block)
 
-        for mu_parameters, mu_cutoff, mu_cutoff_optimizable, mu_cusp in zip(self.mu_parameters, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_cusp):
+        for mu_parameters, mu_cutoff, mu_cutoff_optimizable, mu_cusp in zip(
+            self.mu_parameters, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_cusp
+        ):
             if mu_cusp:
                 # AE atoms (d0,I = 0; Lμ,I * d1,I = C * d0,I) after differentiation on variables: d0, d1, L
                 # -d1 * dL + С * d(d0) - L * d(d1) = 0
@@ -1362,14 +1428,16 @@ def backflow_get_parameters_constraints(self):
             mu_block = block_diag([mu_matrix] * len(mu_spin_deps))
             if mu_cutoff_optimizable and self.cutoffs_optimizable:
                 # does not matter for AE atoms
-                mu_block = np.hstack((- np.array(mu_cutoff_matrix).reshape(-1, 1), mu_block))
+                mu_block = np.hstack((-np.array(mu_cutoff_matrix).reshape(-1, 1), mu_block))
             a_list.append(mu_block)
             if mu_cusp:
                 b_list += [0] * 2 * len(mu_spin_deps)
             else:
                 b_list += [0] * len(mu_spin_deps)
 
-        for phi_parameters, theta_parameters, phi_cutoff, phi_cutoff_optimizable, phi_cusp, phi_irrotational in zip(self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cutoff_optimizable, self.phi_cusp, self.phi_irrotational):
+        for phi_parameters, theta_parameters, phi_cutoff, phi_cutoff_optimizable, phi_cusp, phi_irrotational in zip(
+            self.phi_parameters, self.theta_parameters, self.phi_cutoff, self.phi_cutoff_optimizable, self.phi_cusp, self.phi_irrotational
+        ):
             phi_spin_deps = [0]
             if phi_parameters.shape[0] == 2:
                 phi_spin_deps = [0, 1]
@@ -1389,7 +1457,9 @@ def backflow_get_parameters_constraints(self):
             phi_list = []
             phi_cutoff_matrix = np.zeros(0)
             for spin_dep in phi_spin_deps:
-                phi_matrix, cutoff_constraints = construct_c_matrix(self.trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+                phi_matrix, cutoff_constraints = construct_c_matrix(
+                    self.trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational
+                )
                 phi_constrains_size, phi_parameters_size = phi_matrix.shape
                 phi_list.append(phi_matrix)
                 phi_cutoff_matrix = np.concatenate((phi_cutoff_matrix, cutoff_constraints))
@@ -1446,7 +1516,9 @@ def backflow_get_parameters(self, all_parameters):
                         res.append(self.eta_parameters[j1, j2])
 
         if self.mu_cutoff.any():
-            for mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_parameters_available in zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_parameters_available):
+            for mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cutoff_optimizable, mu_parameters_available in zip(
+                self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cutoff_optimizable, self.mu_parameters_available
+            ):
                 if mu_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(mu_cutoff)
                 for j1 in range(mu_parameters.shape[0]):
@@ -1455,7 +1527,25 @@ def backflow_get_parameters(self, all_parameters):
                             res.append(mu_parameters[j1, j2])
 
         if self.phi_cutoff.any():
-            for phi_parameters, phi_parameters_optimizable, phi_parameters_available, theta_parameters, theta_parameters_optimizable, theta_parameters_available, phi_cutoff, phi_cutoff_optimizable in zip(self.phi_parameters, self.phi_parameters_optimizable, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_optimizable, self.theta_parameters_available, self.phi_cutoff, self.phi_cutoff_optimizable):
+            for (
+                phi_parameters,
+                phi_parameters_optimizable,
+                phi_parameters_available,
+                theta_parameters,
+                theta_parameters_optimizable,
+                theta_parameters_available,
+                phi_cutoff,
+                phi_cutoff_optimizable,
+            ) in zip(
+                self.phi_parameters,
+                self.phi_parameters_optimizable,
+                self.phi_parameters_available,
+                self.theta_parameters,
+                self.theta_parameters_optimizable,
+                self.theta_parameters_available,
+                self.phi_cutoff,
+                self.phi_cutoff_optimizable,
+            ):
                 if phi_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(phi_cutoff)
                 for j1 in range(phi_parameters.shape[0]):
@@ -1508,7 +1598,9 @@ def backflow_set_parameters(self, parameters, all_parameters):
                 self.fix_eta_parameters()
 
         if self.mu_cutoff.any():
-            for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff_optimizable, mu_parameters_available) in enumerate(zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff_optimizable, self.mu_parameters_available)):
+            for i, (mu_parameters, mu_parameters_optimizable, mu_cutoff_optimizable, mu_parameters_available) in enumerate(
+                zip(self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff_optimizable, self.mu_parameters_available)
+            ):
                 if mu_cutoff_optimizable and self.cutoffs_optimizable:
                     self.mu_cutoff[i] = parameters[n]
                     n += 1
@@ -1521,7 +1613,25 @@ def backflow_set_parameters(self, parameters, all_parameters):
                 self.fix_mu_parameters()
 
         if self.phi_cutoff.any():
-            for i, (phi_parameters, phi_parameters_optimizable, phi_parameters_available, theta_parameters, theta_parameters_optimizable, phi_cutoff_optimizable, theta_parameters_available) in enumerate(zip(self.phi_parameters, self.phi_parameters_optimizable, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_optimizable, self.phi_cutoff_optimizable, self.theta_parameters_available)):
+            for i, (
+                phi_parameters,
+                phi_parameters_optimizable,
+                phi_parameters_available,
+                theta_parameters,
+                theta_parameters_optimizable,
+                phi_cutoff_optimizable,
+                theta_parameters_available,
+            ) in enumerate(
+                zip(
+                    self.phi_parameters,
+                    self.phi_parameters_optimizable,
+                    self.phi_parameters_available,
+                    self.theta_parameters,
+                    self.theta_parameters_optimizable,
+                    self.phi_cutoff_optimizable,
+                    self.theta_parameters_available,
+                )
+            ):
                 if phi_cutoff_optimizable and self.cutoffs_optimizable:
                     self.phi_cutoff[i] = parameters[n]
                     n += 1
@@ -1622,7 +1732,9 @@ def backflow_mu_term_d1(self, n_powers, n_vectors):
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3))
 
         n = -1
-        for i, (mu_parameters, mu_parameters_available, mu_labels) in enumerate(zip(self.mu_parameters, self.mu_parameters_available, self.mu_labels)):
+        for i, (mu_parameters, mu_parameters_available, mu_labels) in enumerate(
+            zip(self.mu_parameters, self.mu_parameters_available, self.mu_labels)
+        ):
             if self.mu_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.mu_cutoff[i] -= delta
@@ -1680,7 +1792,9 @@ def backflow_phi_term_d1(self, e_powers, n_powers, e_vectors, n_vectors):
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3))
 
         n = -1
-        for i, (phi_parameters, phi_parameters_available, theta_parameters, theta_parameters_available, phi_labels) in enumerate(zip(self.phi_parameters, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_available, self.phi_labels)):
+        for i, (phi_parameters, phi_parameters_available, theta_parameters, theta_parameters_available, phi_labels) in enumerate(
+            zip(self.phi_parameters, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_available, self.phi_labels)
+        ):
             if self.phi_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.phi_cutoff[i] -= delta
@@ -1745,7 +1859,7 @@ def backflow_ae_multiplier_d1(self, n_vectors, n_powers):
                 for j in range(self.neu + self.ned):
                     r = n_powers[i, j, 1]
                     if r < Lg:
-                        res[n, 1, j] = -12/Lg * (r/Lg)**2 * (1 - r/Lg)**2
+                        res[n, 1, j] = -12 / Lg * (r / Lg) ** 2 * (1 - r / Lg) ** 2
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
@@ -1795,9 +1909,7 @@ def backflow_eta_term_gradient_d1(self, e_powers, e_vectors):
                                 n += 1
                                 if eta_set == j1:
                                     poly = cutoff * e_powers[e1, e2, j2]
-                                    bf = (
-                                        (j2 / r - C / (L - r)) * outer_vec / r + eye3
-                                    ) * poly
+                                    bf = ((j2 / r - C / (L - r)) * outer_vec / r + eye3) * poly
                                     res[n, ae_cutoff_condition, e1, :, e1, :] += bf
                                     res[n, ae_cutoff_condition, e1, :, e2, :] -= bf
                                     res[n, ae_cutoff_condition, e2, :, e1, :] -= bf
@@ -1829,7 +1941,9 @@ def backflow_mu_term_gradient_d1(self, n_powers, n_vectors):
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3, (self.neu + self.ned), 3))
 
         n = -1
-        for i, (mu_parameters, mu_parameters_available, mu_labels) in enumerate(zip(self.mu_parameters, self.mu_parameters_available, self.mu_labels)):
+        for i, (mu_parameters, mu_parameters_available, mu_labels) in enumerate(
+            zip(self.mu_parameters, self.mu_parameters_available, self.mu_labels)
+        ):
             if self.mu_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.mu_cutoff[i] -= delta
@@ -1859,9 +1973,7 @@ def backflow_mu_term_gradient_d1(self, n_powers, n_vectors):
                                     n += 1
                                     if mu_set == j1:
                                         poly = cutoff * n_powers[label, e1, j2]
-                                        res[n, ae_cutoff_condition, e1, :, e1, :] += (
-                                            (j2 / r - C / (L - r)) * outer_vec / r + eye3
-                                        ) * poly
+                                        res[n, ae_cutoff_condition, e1, :, e1, :] += ((j2 / r - C / (L - r)) * outer_vec / r + eye3) * poly
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
@@ -1891,7 +2003,9 @@ def backflow_phi_term_gradient_d1(self, e_powers, n_powers, e_vectors, n_vectors
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3, (self.neu + self.ned), 3))
 
         n = -1
-        for i, (phi_parameters, phi_parameters_available, theta_parameters, theta_parameters_available, phi_labels) in enumerate(zip(self.phi_parameters, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_available, self.phi_labels)):
+        for i, (phi_parameters, phi_parameters_available, theta_parameters, theta_parameters_available, phi_labels) in enumerate(
+            zip(self.phi_parameters, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_available, self.phi_labels)
+        ):
             if self.phi_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.phi_cutoff[i] -= delta
@@ -1977,7 +2091,7 @@ def backflow_ae_multiplier_gradient_d1(self, n_vectors, n_powers):
                     r_vec = n_vectors[i, j]
                     r = n_powers[i, j, 1]
                     if r < Lg:
-                        res[n, 1, j, :, j, :] = -24 * r_vec/Lg**3 * (1 - 3*(r/Lg) + 2*(r/Lg)**2)
+                        res[n, 1, j, :, j, :] = -24 * r_vec / Lg**3 * (1 - 3 * (r / Lg) + 2 * (r / Lg) ** 2)
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
@@ -2058,7 +2172,9 @@ def backflow_mu_term_laplacian_d1(self, n_powers, n_vectors):
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3))
 
         n = -1
-        for i, (mu_parameters, mu_parameters_available, mu_labels) in enumerate(zip(self.mu_parameters, self.mu_parameters_available, self.mu_labels)):
+        for i, (mu_parameters, mu_parameters_available, mu_labels) in enumerate(
+            zip(self.mu_parameters, self.mu_parameters_available, self.mu_labels)
+        ):
             if self.mu_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.mu_cutoff[i] -= delta
@@ -2119,7 +2235,9 @@ def backflow_phi_term_laplacian_d1(self, e_powers, n_powers, e_vectors, n_vector
         res = np.zeros(shape=(size, 2, (self.neu + self.ned), 3))
 
         n = -1
-        for i, (phi_parameters, phi_parameters_available, theta_parameters, theta_parameters_available, phi_labels) in enumerate(zip(self.phi_parameters, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_available, self.phi_labels)):
+        for i, (phi_parameters, phi_parameters_available, theta_parameters, theta_parameters_available, phi_labels) in enumerate(
+            zip(self.phi_parameters, self.phi_parameters_available, self.theta_parameters, self.theta_parameters_available, self.phi_labels)
+        ):
             if self.phi_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.phi_cutoff[i] -= delta
@@ -2146,8 +2264,8 @@ def backflow_phi_term_laplacian_d1(self, e_powers, n_powers, e_vectors, n_vector
                             cutoff = (1 - r_e1I / L) ** C * (1 - r_e2I / L) ** C
                             cutoff_diff_e1I = C * r_e1I / (L - r_e1I)
                             cutoff_diff_e2I = C * r_e2I / (L - r_e2I)
-                            cutoff_diff_e1I_2 = C * (C - 1) * r_e1I ** 2 / (L - r_e1I) ** 2
-                            cutoff_diff_e2I_2 = C * (C - 1) * r_e2I ** 2 / (L - r_e2I) ** 2
+                            cutoff_diff_e1I_2 = C * (C - 1) * r_e1I**2 / (L - r_e1I) ** 2
+                            cutoff_diff_e2I_2 = C * (C - 1) * r_e2I**2 / (L - r_e2I) ** 2
                             # cutoff_condition
                             # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
@@ -2171,25 +2289,23 @@ def backflow_phi_term_laplacian_d1(self, e_powers, n_powers, e_vectors, n_vector
                                                         4 * j2 / r_ee**2
                                                     )
                                                     phi_diff_2 = (
-                                                        (cutoff_diff_e1I_2 - 2 * j4 * cutoff_diff_e1I + j4 * (j4 - 1)) / r_e1I**2 +
-                                                        (cutoff_diff_e2I_2 - 2 * j3 * cutoff_diff_e2I + j3 * (j3 - 1)) / r_e2I**2 +
-                                                        2 * j2 * (j2 - 1) / r_ee**2
+                                                        (cutoff_diff_e1I_2 - 2 * j4 * cutoff_diff_e1I + j4 * (j4 - 1)) / r_e1I**2
+                                                        + (cutoff_diff_e2I_2 - 2 * j3 * cutoff_diff_e2I + j3 * (j3 - 1)) / r_e2I**2
+                                                        + 2 * j2 * (j2 - 1) / r_ee**2
                                                     )
                                                     phi_dot_product = (
-                                                        (j4 - cutoff_diff_e1I) * r_e1I_vec / r_e1I**2 -
-                                                        (j3 - cutoff_diff_e2I) * r_e2I_vec / r_e2I**2 +
-                                                        (j4 - cutoff_diff_e1I) * j2 * vec_1 / r_e1I**2 / r_ee**2 -
-                                                        (j3 - cutoff_diff_e2I) * j2 * vec_2 / r_e2I**2 / r_ee**2
+                                                        (j4 - cutoff_diff_e1I) * r_e1I_vec / r_e1I**2
+                                                        - (j3 - cutoff_diff_e2I) * r_e2I_vec / r_e2I**2
+                                                        + (j4 - cutoff_diff_e1I) * j2 * vec_1 / r_e1I**2 / r_ee**2
+                                                        - (j3 - cutoff_diff_e2I) * j2 * vec_2 / r_e2I**2 / r_ee**2
                                                     )
                                                     theta_diff_1 = (
-                                                        2 * (j4 - cutoff_diff_e1I) / r_e1I**2 +
-                                                        (j3 - cutoff_diff_e2I) / r_e2I**2 +
-                                                        2 * j2 / r_ee**2
+                                                        2 * (j4 - cutoff_diff_e1I) / r_e1I**2 + (j3 - cutoff_diff_e2I) / r_e2I**2 + 2 * j2 / r_ee**2
                                                     )
                                                     theta_diff_2 = (
-                                                        (cutoff_diff_e1I_2 - 2 * j4 * cutoff_diff_e1I + j4 * (j4 - 1)) / r_e1I**2 +
-                                                        (cutoff_diff_e2I_2 - 2 * j3 * cutoff_diff_e2I + j3 * (j3 - 1)) / r_e2I**2 +
-                                                        2 * j2 * (j2 - 1) / r_ee**2
+                                                        (cutoff_diff_e1I_2 - 2 * j4 * cutoff_diff_e1I + j4 * (j4 - 1)) / r_e1I**2
+                                                        + (cutoff_diff_e2I_2 - 2 * j3 * cutoff_diff_e2I + j3 * (j3 - 1)) / r_e2I**2
+                                                        + 2 * j2 * (j2 - 1) / r_ee**2
                                                     )
                                                     theta_dot_product = (
                                                         (j4 - cutoff_diff_e1I) * vec_3 / r_e1I**2 -
@@ -2229,7 +2345,7 @@ def backflow_ae_multiplier_laplacian_d1(self, n_vectors, n_powers):
                 for j in range(self.neu + self.ned):
                     r = n_powers[i, j, 1]
                     if r < Lg:
-                        res[n, 1, j] = -24/Lg**3 * (3 - 12 * (r/Lg) + 10 * (r/Lg)**2)
+                        res[n, 1, j] = -24 / Lg**3 * (3 - 12 * (r / Lg) + 10 * (r / Lg) ** 2)
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
@@ -2261,12 +2377,14 @@ def backflow_value_parameters_d1(self, e_vectors, n_vectors):
 
         ae_multiplier_d1 = self.ae_multiplier_d1(n_vectors, n_powers)
 
-        return self.parameters_projector.T @ np.concatenate((
-            np.sum(eta_term_d1 * ae_multiplier, axis=1),
-            np.sum(mu_term_d1 * ae_multiplier, axis=1),
-            np.sum(phi_term_d1 * ae_multiplier, axis=1),
-            np.sum(ae_value * ae_multiplier_d1, axis=1),
-        ))
+        return self.parameters_projector.T @ np.concatenate(
+            (
+                np.sum(eta_term_d1 * ae_multiplier, axis=1),
+                np.sum(mu_term_d1 * ae_multiplier, axis=1),
+                np.sum(phi_term_d1 * ae_multiplier, axis=1),
+                np.sum(ae_value * ae_multiplier_d1, axis=1),
+            )
+        )
 
     return impl
 
@@ -2308,19 +2426,23 @@ def backflow_gradient_parameters_d1(self, e_vectors, n_vectors):
         ae_multiplier_d1 = self.ae_multiplier_d1(n_vectors, n_powers)
         ae_multiplier_gradient_d1 = self.ae_multiplier_gradient_d1(n_vectors, n_powers)
 
-        value = np.concatenate((
-            np.sum(eta_term_d1 * ae_multiplier, axis=1),
-            np.sum(mu_term_d1 * ae_multiplier, axis=1),
-            np.sum(phi_term_d1 * ae_multiplier, axis=1),
-            np.sum(ae_value * ae_multiplier_d1, axis=1),
-        ))
+        value = np.concatenate(
+            (
+                np.sum(eta_term_d1 * ae_multiplier, axis=1),
+                np.sum(mu_term_d1 * ae_multiplier, axis=1),
+                np.sum(phi_term_d1 * ae_multiplier, axis=1),
+                np.sum(ae_value * ae_multiplier_d1, axis=1),
+            )
+        )
 
-        gradient = np.concatenate((
-            np.sum(ae_multiplier_gradient * np.expand_dims(eta_term_d1, 3) + eta_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
-            np.sum(ae_multiplier_gradient * np.expand_dims(mu_term_d1, 3) + mu_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
-            np.sum(ae_multiplier_gradient * np.expand_dims(phi_term_d1, 3) + phi_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
-            np.sum(ae_multiplier_gradient_d1 * np.expand_dims(ae_value, 2) + ae_gradient * np.expand_dims(ae_multiplier_d1, 3), axis=1),
-        ))
+        gradient = np.concatenate(
+            (
+                np.sum(ae_multiplier_gradient * np.expand_dims(eta_term_d1, 3) + eta_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
+                np.sum(ae_multiplier_gradient * np.expand_dims(mu_term_d1, 3) + mu_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
+                np.sum(ae_multiplier_gradient * np.expand_dims(phi_term_d1, 3) + phi_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
+                np.sum(ae_multiplier_gradient_d1 * np.expand_dims(ae_value, 2) + ae_gradient * np.expand_dims(ae_multiplier_d1, 3), axis=1),
+            )
+        )
 
         return gradient, value
 
@@ -2375,19 +2497,23 @@ def backflow_laplacian_parameters_d1(self, e_vectors, n_vectors):
         ae_multiplier_gradient_d1 = self.ae_multiplier_gradient_d1(n_vectors, n_powers)
         ae_multiplier_laplacian_d1 = self.ae_multiplier_laplacian_d1(n_vectors, n_powers)
 
-        value = np.concatenate((
-            np.sum(eta_term_d1 * ae_multiplier, axis=1),
-            np.sum(mu_term_d1 * ae_multiplier, axis=1),
-            np.sum(phi_term_d1 * ae_multiplier, axis=1),
-            np.sum(ae_value * ae_multiplier_d1, axis=1),
-        ))
+        value = np.concatenate(
+            (
+                np.sum(eta_term_d1 * ae_multiplier, axis=1),
+                np.sum(mu_term_d1 * ae_multiplier, axis=1),
+                np.sum(phi_term_d1 * ae_multiplier, axis=1),
+                np.sum(ae_value * ae_multiplier_d1, axis=1),
+            )
+        )
 
-        gradient = np.concatenate((
-            np.sum(ae_multiplier_gradient * np.expand_dims(eta_term_d1, 3) + eta_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
-            np.sum(ae_multiplier_gradient * np.expand_dims(mu_term_d1, 3) + mu_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
-            np.sum(ae_multiplier_gradient * np.expand_dims(phi_term_d1, 3) + phi_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
-            np.sum(ae_multiplier_gradient_d1 * np.expand_dims(ae_value, 2) + ae_gradient * np.expand_dims(ae_multiplier_d1, 3), axis=1),
-        ))
+        gradient = np.concatenate(
+            (
+                np.sum(ae_multiplier_gradient * np.expand_dims(eta_term_d1, 3) + eta_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
+                np.sum(ae_multiplier_gradient * np.expand_dims(mu_term_d1, 3) + mu_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
+                np.sum(ae_multiplier_gradient * np.expand_dims(phi_term_d1, 3) + phi_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
+                np.sum(ae_multiplier_gradient_d1 * np.expand_dims(ae_value, 2) + ae_gradient * np.expand_dims(ae_multiplier_d1, 3), axis=1),
+            )
+        )
 
         laplacian = np.concatenate((
             np.sum(ae_multiplier_laplacian * eta_term_d1 + 2 * (eta_term_gradient_d1 * ae_multiplier_gradient).sum(axis=-1) + eta_term_laplacian_d1 * ae_multiplier, axis=1),
