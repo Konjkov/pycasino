@@ -68,7 +68,7 @@ def expand(np_array):
     """Set NaN to previous value"""
     for i in range(1, np_array.shape[0]):
         if np.isnan(np_array[i]).all():
-            np_array[i] = np_array[i-1]
+            np_array[i] = np_array[i - 1]
 
 
 # @nb.njit(nogil=True, parallel=False, cache=True)
@@ -111,7 +111,6 @@ def S_inv_H_matrix(wfn_gradient, energy, energy_gradient):
 
 
 class Casino:
-
     def __init__(self, config_path: str):
         """Casino workflow.
         :param config_path: path to config file
@@ -158,12 +157,12 @@ class Casino:
                     n_points = [1, 4, 6, 12, 18, 26, 50]
                     vmc_nonlocal_grid = vmc_nonlocal_grid or self.config.input.non_local_grid
                     logger.info(
-                         f' Non-local integration grids\n'
-                         f' ===========================\n'
-                         f' Ion type            :  {atom+1}\n'
-                         f' Non-local grid no.  :  {vmc_nonlocal_grid}\n'
-                         f' Lexact              :  {l_exact[vmc_nonlocal_grid-1]}\n'
-                         f' Number of points    :  {n_points[vmc_nonlocal_grid-1]}\n'
+                        f' Non-local integration grids\n'
+                        f' ===========================\n'
+                        f' Ion type            :  {atom+1}\n'
+                        f' Non-local grid no.  :  {vmc_nonlocal_grid}\n'
+                        f' Lexact              :  {l_exact[vmc_nonlocal_grid-1]}\n'
+                        f' Number of points    :  {n_points[vmc_nonlocal_grid-1]}\n'
                     )
             ppotential = PPotential(
                 self.config.input.neu,
@@ -196,7 +195,8 @@ class Casino:
             self.config.wfn.mo_down,
             self.config.mdet.permutation_up,
             self.config.mdet.permutation_down,
-            self.config.mdet.coeff, cusp,
+            self.config.mdet.coeff,
+            cusp,
         )
 
         jastrow = None
@@ -274,12 +274,17 @@ class Casino:
             self.config.input.ned,
             self.config.wfn.atom_positions,
             self.config.wfn.atom_charges,
-            slater, jastrow, backflow, ppotential,
+            slater,
+            jastrow,
+            backflow,
+            ppotential,
         )
 
         self.vmc_markovchain = VMCMarkovChain(
             self.initial_position(self.config.wfn.atom_positions, self.config.wfn.atom_charges),
-            self.approximate_step_size, self.wfn, self.config.input.vmc_method
+            self.approximate_step_size,
+            self.wfn,
+            self.config.input.vmc_method,
         )
 
     def initial_position(self, atom_positions, atom_charges):
@@ -316,7 +321,7 @@ class Casino:
             self.vmc_markovchain.step_size = approximate_step_size * (x + 1) / n
             position = self.vmc_markovchain.random_walk(1000000, 1)
             acc_ration = (np.isfinite(position[:, 0, 0])).mean()
-            acc_ration /= (self.neu + self.ned)
+            acc_ration /= self.neu + self.ned
             logger.info(
                 'step_size / approximate_step_size  = %.5f, acc_ratio = %.5f', self.vmc_markovchain.step_size / approximate_step_size, acc_ration
             )
@@ -331,7 +336,7 @@ class Casino:
             position = self.vmc_markovchain.random_walk(steps, 1)
             acc_ration = (np.isfinite(position[:, 0, 0])).mean()
             if self.config.input.vmc_method == 1:
-                acc_ration /= (self.neu + self.ned)
+                acc_ration /= self.neu + self.ned
             ydata[i] = mpi_comm.allreduce(acc_ration) / mpi_comm.size
 
         def f(ts, a, ts0):
@@ -342,13 +347,11 @@ class Casino:
             :param ts0: scale factor
             :return: acceptance probability
             """
-            return (np.exp(a/ts0) - 1) / (np.exp(a/ts0) + np.exp(ts/ts0) - 2)
+            return (np.exp(a / ts0) - 1) / (np.exp(a / ts0) + np.exp(ts / ts0) - 2)
 
-        logger.info(
-            ' Performing time-step optimization.'
-        )
+        logger.info(' Performing time-step optimization.')
         if self.root:
-            warnings.simplefilter("error", OptimizeWarning)
+            warnings.simplefilter('error', OptimizeWarning)
             try:
                 popt, pcov = curve_fit(f, xdata, ydata)
                 step_size *= popt[0]
@@ -357,7 +360,7 @@ class Casino:
                     f' time-step optimization failed for.\n'
                     f' ydata: {ydata}\n'
                     f' set step size to approximate'
-                )
+                )  # fmt: skip
         self.vmc_markovchain.step_size = mpi_comm.bcast(step_size)
 
     @property
@@ -369,14 +372,10 @@ class Casino:
             return self.config.input.vmc_decorr_period
 
     def run(self):
-        """Run Casino workflow.
-        """
+        """Run Casino workflow."""
         start = default_timer()
         if self.config.input.testrun:
-            logger.info(
-                ' TEST RUN only.\n'
-                ' Quitting.\n'
-            )
+            logger.info(' TEST RUN only.\n' ' Quitting.\n')
         elif self.config.input.runtype == 'vmc':
             logger.info(
                 ' ====================================\n'
@@ -437,11 +436,17 @@ class Casino:
                  ' ======================================================\n\n'
             )  # fmt: skip
             position = self.vmc_energy_accumulation()
-            r_e_list = position[-self.config.input.vmc_nconfig_write // mpi_comm.size:]
+            r_e_list = position[-self.config.input.vmc_nconfig_write // mpi_comm.size :]
             expand(r_e_list)
             self.dmc_markovchain = DMCMarkovChain(
-                r_e_list, self.config.input.alimit, self.config.input.nucleus_gf_mods, self.config.input.use_tmove,
-                self.config.input.dtdmc, self.config.input.dmc_target_weight, self.wfn, self.config.input.dmc_method,
+                r_e_list,
+                self.config.input.alimit,
+                self.config.input.nucleus_gf_mods,
+                self.config.input.use_tmove,
+                self.config.input.dtdmc,
+                self.config.input.dmc_target_weight,
+                self.wfn,
+                self.config.input.dmc_method,
             )
             self.dmc_energy_equilibration()
             self.dmc_energy_accumulation()
@@ -586,8 +591,8 @@ class Casino:
 
         for i in range(nblock):
             block_start = default_timer()
-            energy[block_steps * i:block_steps * (i + 1)] = self.dmc_markovchain.random_walk(block_steps)
-            energy_mean = energy[:block_steps * (i + 1)].mean()
+            energy[block_steps * i : block_steps * (i + 1)] = self.dmc_markovchain.random_walk(block_steps)
+            energy_mean = energy[: block_steps * (i + 1)].mean()
             block_stop = default_timer()
             logger.info(
                 f' =========================================================================\n'
@@ -609,13 +614,9 @@ class Casino:
     def distribution(self, energy):
         """Test whether energy distribution differs from a normal one."""
         from scipy import stats
+
         logger.info(f'skew = {stats.skewtest(energy)}, kurtosis = {stats.kurtosistest(energy)}')
-        plt.hist(
-            energy,
-            bins='auto',
-            range=(energy.mean() - 5 * energy.std(), energy.mean() + 5 * energy.std()),
-            density=True
-        )
+        plt.hist(energy, bins='auto', range=(energy.mean() - 5 * energy.std(), energy.mean() + 5 * energy.std()), density=True)
         plt.savefig('hist.png')
         plt.clf()
 
@@ -906,7 +907,7 @@ class Casino:
         logger.info(f'Optimization method: {method}')
         logger.info('   Iteration     Total nfev        Energy             Grad norm')
         if method == 'TNC':
-            options = dict(disp=self.root, scale=np.ones(shape=(x0.size, )), offset=np.zeros(shape=(x0.size, )), stepmx=1)
+            options = dict(disp=self.root, scale=np.ones(shape=(x0.size,)), offset=np.zeros(shape=(x0.size,)), stepmx=1)
         elif method in ('dogleg', 'trust-ncg', 'trust-exact'):
             # default 1:1000:0.15:1e-4
             options = dict(initial_trust_radius=0.1, max_trust_radius=1, eta=0.15, gtol=1e-3)
@@ -1124,7 +1125,6 @@ class Casino:
 
 
 def main():
-
     parser = argparse.ArgumentParser(
         description="This script run CASINO workflow.",
         formatter_class=argparse.RawTextHelpFormatter
