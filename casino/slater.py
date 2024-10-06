@@ -71,9 +71,10 @@ def slater_value_matrix(self, n_vectors: np.ndarray):
                                 radial_1 += self.coefficients[p + primitive] * np.exp(-alpha * r2)
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
+                        r_n = r ** self.slater_orders[nshell]
                         for primitive in range(self.primitives[nshell]):
                             minus_alpha_r = -self.exponents[p + primitive] * r
-                            radial_1 += r ** self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
+                            radial_1 += r_n * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
                         orbitals[i, ao + m] = angular_1[l * l + m] * radial_1
@@ -122,9 +123,10 @@ def slater_gradient_matrix(self, n_vectors: np.ndarray):
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
                         n = self.slater_orders[nshell]
+                        r_n = r**n
                         for primitive in range(self.primitives[nshell]):
                             minus_alpha_r = -self.exponents[p + primitive] * r
-                            exponent = r ** self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
+                            exponent = r_n * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
                             radial_1 += (minus_alpha_r + n) / r2 * exponent
                             radial_2 += exponent
                     p += self.primitives[nshell]
@@ -173,9 +175,10 @@ def slater_laplacian_matrix(self, n_vectors: np.ndarray):
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
                         n = self.slater_orders[nshell]
+                        r_n = r**n
                         for primitive in range(self.primitives[nshell]):
                             minus_alpha_r = -self.exponents[p + primitive] * r
-                            exponent = r**n * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
+                            exponent = r_n * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
                             radial_1 += (minus_alpha_r**2 + 2 * (l + n + 1) * minus_alpha_r + (2 * l + n + 1) * n) / r2 * exponent
                     p += self.primitives[nshell]
                     for m in range(2 * l + 1):
@@ -232,10 +235,11 @@ def slater_hessian_matrix(self, n_vectors: np.ndarray):
                                 radial_3 += exponent
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
+                        n = self.slater_orders[nshell]
+                        r_n = r**n
                         for primitive in range(self.primitives[nshell]):
-                            n = self.slater_orders[nshell]
                             minus_alpha_r = -self.exponents[p + primitive] * r
-                            exponent = r ** self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
+                            exponent = r_n * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
                             c = (minus_alpha_r + n) / r2
                             d = c**2 - c / r2 - n / r2**2
                             radial_1 += d * exponent
@@ -309,10 +313,11 @@ def slater_tressian_matrix(self, n_vectors: np.ndarray):
                                 radial_4 += exponent
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
+                        n = self.slater_orders[nshell]
+                        r_n = r**n
                         for primitive in range(self.primitives[nshell]):
-                            n = self.slater_orders[nshell]
                             minus_alpha_r = -self.exponents[p + primitive] * r
-                            exponent = r ** self.slater_orders[nshell] * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
+                            exponent = r_n * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
                             c = (minus_alpha_r + n) / r2
                             d = c**2 - c / r2 - n / r2**2
                             e = c**3 - 3 * c**2 / r2 - 3 * (n - 1) * c / r2**2 + 5 * n / r2**3
@@ -372,6 +377,7 @@ def slater_tressian_matrix(self, n_vectors: np.ndarray):
 def slater_value(self, n_vectors: np.ndarray):
     """Wave function value.
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+    :return: float
     """
 
     def impl(self, n_vectors: np.ndarray) -> float:
@@ -389,13 +395,13 @@ def slater_value(self, n_vectors: np.ndarray):
 def slater_gradient(self, n_vectors: np.ndarray):
     """Gradient ∇φ/φ w.r.t e-coordinates.
     Derivative of determinant of symmetric matrix w.r.t a scalar
-    ∇ln(det(A)) = tr(A^-1 • ∇A)
-    where matrix ∇A is column-wise gradient of A
-    then using np.trace(A • B) = np.sum(A * B.T)
+    dln(det(A))/dr = tr(A^-1 • dA/dr)
+    also using np.trace(A • B) = np.sum(A * B.T) = np.tensordot(A, B.T)
     Read for details:
     "Simple formalism for efficient derivatives and multi-determinant expansions in quantum Monte Carlo"
     C. Filippi, R. Assaraf, S. Moroni
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+    :return: vectors shape = (nelec * 3,)
     """
 
     def impl(self, n_vectors: np.ndarray) -> np.ndarray:
@@ -430,6 +436,7 @@ def slater_laplacian(self, n_vectors: np.ndarray):
     "Simple formalism for efficient derivatives and multi-determinant expansions in quantum Monte Carlo"
     C. Filippi, R. Assaraf, S. Moroni
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+    :return: float
     """
 
     def impl(self, n_vectors: np.ndarray) -> float:
@@ -453,16 +460,18 @@ def slater_laplacian(self, n_vectors: np.ndarray):
 @overload_method(Slater_class_t, 'hessian')
 def slater_hessian(self, n_vectors: np.ndarray):
     """Hessian H(φ)/φ w.r.t e-coordinates.
-    d²ln(det(A))/dxdy = (
-        tr(A^-1 • d²A/dxdy) +
-        tr(A^-1 • dA/dx) ⊗ tr(A^-1 • dA/dy) -
-        tr(A^-1 • dA/dx ⊗ A^-1 • dA/dy)
+    d²ln(det(A))/dr² = (
+        tr(A^-1 • d²A/dr²) +
+        tr(A^-1 • dA/dr) ⊗ tr(A^-1 • dA/dr) -
+        tr(A^-1 • dA/dr ⊗ A^-1 • dA/dr)
     )
+    where ⊗ - outer product, r - vector shape = (nelec * 3)
     https://math.stackexchange.com/questions/2325807/second-derivative-of-a-determinant
     in case of x and y is a coordinates of different electrons first term is zero
     in other case a sum of last two terms is zero.
     Also using np.trace(A • B) = np.sum(A * B.T) and np.trace(A ⊗ B) = np.trace(A) @ np.trace(B)
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+    :return: vectors shape = (nelec * 3, nelec * 3)
     """
 
     def impl(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -521,8 +530,9 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
         + tr(A^-1 • dA/dx ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dz) + tr(A^-1 • dA/dz ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dx)
         - 2 * tr(A^-1 • dA/dx) ⊗ tr(A^-1 • dA/dy) ⊗ tr(A^-1 • dA/dz)
     )
-    :param n_vectors: e-n vectors
-    :return:
+    where ⊗ - outer product, r - vector shape = (nelec * 3)
+    :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+    :return: vectors shape = (nelec * 3, nelec * 3, nelec * 3)
     """
 
     def impl(self, n_vectors: np.ndarray):
