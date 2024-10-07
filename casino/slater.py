@@ -396,7 +396,7 @@ def slater_gradient(self, n_vectors: np.ndarray):
     """Gradient ∇φ/φ w.r.t e-coordinates.
     Derivative of determinant of symmetric matrix w.r.t a scalar
     dln(det(A))/dr = tr(A^-1 • dA/dr)
-    also using np.trace(A • B) = np.sum(A * B.T) = np.tensordot(A, B.T)
+    then using np.trace(A • B) = np.sum(A * B.T) = np.tensordot(A, B.T)
     Read for details:
     "Simple formalism for efficient derivatives and multi-determinant expansions in quantum Monte Carlo"
     C. Filippi, R. Assaraf, S. Moroni
@@ -465,11 +465,11 @@ def slater_hessian(self, n_vectors: np.ndarray):
         tr(A^-1 • dA/dr) ⊗ tr(A^-1 • dA/dr) -
         tr(A^-1 • dA/dr ⊗ A^-1 • dA/dr)
     )
-    where ⊗ - outer product, r - vector shape = (nelec * 3)
     https://math.stackexchange.com/questions/2325807/second-derivative-of-a-determinant
-    in case of x and y is a coordinates of different electrons first term is zero
-    in other case a sum of last two terms is zero.
-    Also using np.trace(A • B) = np.sum(A * B.T) and np.trace(A ⊗ B) = np.trace(A) @ np.trace(B)
+    where ⊗ - kroneker product, r - vector shape = (nelec * 3)
+    then using tr(A • B) = np.sum(A * B.T) and tr(A ⊗ B) = tr(A) • tr(B)
+    in case of ri and rj is a coordinates of different electrons first term is zero
+    in case of ri and rj is a coordinates of same electrons a sum of last two terms is zero.
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
     :return: vectors shape = (nelec * 3, nelec * 3)
     """
@@ -489,24 +489,30 @@ def slater_hessian(self, n_vectors: np.ndarray):
             tr_grad_d = (inv_wfn_d * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
             tr_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
+            matrix_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, 1, self.neu, 3)
+            matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, 1, self.ned, 3)
 
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
 
-            # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
-            matrix_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
+            # tr(A^-1 @ d²A/dxdy)
             res_u = np.zeros(shape=(self.neu, 3, self.neu, 3))
+            # res_u = np.eye(self.neu).reshape(self.neu, 1, self.neu, 1) * tr_hess_u.reshape(self.neu, 3, 1, 3)
             for r1 in range(3):
                 for r2 in range(3):
-                    res_u[:, r1, :, r2] = np.diag(tr_hess_u[:, r1, r2]) - matrix_grad_u[:, :, r1].T * matrix_grad_u[:, :, r2]
+                    res_u[:, r1, :, r2] = np.diag(tr_hess_u[:, r1, r2])
+            # - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
+            res_u -= matrix_grad_u * np.transpose(matrix_grad_u, (2, 3, 0, 1))
             hess[: self.neu * 3, : self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3)
 
-            # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
-            matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
+            # tr(A^-1 @ d²A/dxdy)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3))
+            # res_d = np.eye(self.ned).reshape(self.ned, 1, self.ned, 1) * tr_hess_d.reshape(self.ned, 3, 1, 3)
             for r1 in range(3):
                 for r2 in range(3):
-                    res_d[:, r1, :, r2] = np.diag(tr_hess_d[:, r1, r2]) - matrix_grad_d[:, :, r1].T * matrix_grad_d[:, :, r2]
+                    res_d[:, r1, :, r2] = np.diag(tr_hess_d[:, r1, r2])
+            # - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
+            res_d -= matrix_grad_d * np.transpose(matrix_grad_d, (2, 3, 0, 1))
             hess[self.neu * 3 :, self.neu * 3 :] += c * res_d.reshape(self.ned * 3, self.ned * 3)
 
             # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
@@ -530,7 +536,7 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
         + tr(A^-1 • dA/dx ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dz) + tr(A^-1 • dA/dz ⊗ A^-1 • dA/dy ⊗ A^-1 • dA/dx)
         - 2 * tr(A^-1 • dA/dx) ⊗ tr(A^-1 • dA/dy) ⊗ tr(A^-1 • dA/dz)
     )
-    where ⊗ - outer product, r - vector shape = (nelec * 3)
+    where ⊗ - kroneker product, r - vector shape = (nelec * 3)
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
     :return: vectors shape = (nelec * 3, nelec * 3, nelec * 3)
     """
