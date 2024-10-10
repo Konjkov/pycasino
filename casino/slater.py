@@ -498,16 +498,12 @@ def slater_hessian(self, n_vectors: np.ndarray):
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
-            res_u = np.zeros(shape=(self.neu, 3, self.neu, 3))
-            for e in range(self.neu):
-                res_u[e, :, e, :] = tr_hess_u[e]
+            res_u = np.eye(self.neu).reshape(self.neu, 1, self.neu, 1) * tr_hess_u.reshape(self.neu, 3, 1, 3)
             hess[: self.neu * 3, : self.neu * 3] += c * (res_u - matrix_grad_u * matrix_grad_u.transpose((2, 3, 0, 1))).reshape(
                 self.neu * 3, self.neu * 3
             )
             # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
-            res_d = np.zeros(shape=(self.ned, 3, self.ned, 3))
-            for e in range(self.ned):
-                res_d[e, :, e, :] = tr_hess_d[e]
+            res_d = np.eye(self.ned).reshape(self.ned, 1, self.ned, 1) * tr_hess_d.reshape(self.ned, 3, 1, 3)
             hess[self.neu * 3 :, self.neu * 3 :] += c * (res_d - matrix_grad_d * matrix_grad_d.transpose((2, 3, 0, 1))).reshape(
                 self.ned * 3, self.ned * 3
             )
