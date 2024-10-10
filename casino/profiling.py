@@ -88,13 +88,6 @@ class Profiler(Casino):
         # stats = rtsys.get_allocation_stats()
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
-        # start = default_timer()
-        # self.wfn.slater.profile_tressian_v2(self.dr, self.steps // 10, self.atom_positions, self.r_e)
-        # end = default_timer()
-        # logger.info(' slater tressian v2                %8.1f * 10', (end - start))
-        # stats = rtsys.get_allocation_stats()
-        # logger.info(f'{stats} total: {stats[0] - stats[1]}')
-
     def jastrow_profiling(self):
         start = default_timer()
         self.wfn.jastrow.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
