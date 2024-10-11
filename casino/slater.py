@@ -41,6 +41,8 @@ Slater_t = Slater_class_t(
         ('cusp', nb.optional(Cusp_t)),
         ('norm', nb.float64),
         ('parameters_projector', nb.float64[:, ::1]),
+        ('const_eye_2d', nb.float64[:, ::1]),
+        ('const_eye_3d', nb.float64[:, :, ::1]),
     ]
 )
 
@@ -474,12 +476,13 @@ def slater_hessian(self, n_vectors: np.ndarray):
     """
 
     def impl(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        ne = self.neu + self.ned
         wfn_u, wfn_d = self.value_matrix(n_vectors)
         grad_u, grad_d = self.gradient_matrix(n_vectors)
         hess_u, hess_d = self.hessian_matrix(n_vectors)
         val = 0
-        grad = np.zeros(shape=(self.neu + self.ned) * 3)
-        hess = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
+        grad = np.zeros(shape=ne * 3)
+        hess = np.zeros(shape=(ne * 3, ne * 3))
         for i in range(self.det_coeff.size):
             inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
             inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
@@ -488,26 +491,19 @@ def slater_hessian(self, n_vectors: np.ndarray):
             tr_grad = np.concatenate((tr_grad_u, tr_grad_d)).ravel()
             tr_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
-            # tr_hess = np.concatenate((tr_hess_u, tr_hess_d))
+            tr_hess = self.const_eye_2d.reshape(ne, 1, ne, 1) * np.concatenate((tr_hess_u, tr_hess_d)).reshape(ne, 3, 1, 3)
             matrix_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, 1, self.neu, 3)
             matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, 1, self.ned, 3)
 
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             grad += c * tr_grad
-            # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
-            # res = np.eye(self.neu + self.ned).reshape(self.neu + self.ned, 1, self.neu + self.ned, 1) * tr_hess.reshape(self.neu + self.ned, 3, 1, 3)
-            hess[: self.neu * 3, : self.neu * 3] += c * (
-                np.eye(self.neu).reshape(self.neu, 1, self.neu, 1) * tr_hess_u.reshape(self.neu, 3, 1, 3)
-                - matrix_grad_u * matrix_grad_u.transpose((2, 3, 0, 1))
-            ).reshape(self.neu * 3, self.neu * 3)
-            # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
-            hess[self.neu * 3 :, self.neu * 3 :] += c * (
-                np.eye(self.ned).reshape(self.ned, 1, self.ned, 1) * tr_hess_d.reshape(self.ned, 3, 1, 3)
-                - matrix_grad_d * matrix_grad_d.transpose((2, 3, 0, 1))
-            ).reshape(self.ned * 3, self.ned * 3)
-            # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
-            hess += c * np.outer(tr_grad, tr_grad)
+            # tr(A^-1 @ d²A/dxdy) + tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
+            hess += c * (tr_hess.reshape(ne * 3, ne * 3) + np.outer(tr_grad, tr_grad))
+            # - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
+            hess[: self.neu * 3, : self.neu * 3] -= c * (matrix_grad_u * matrix_grad_u.transpose((2, 3, 0, 1))).reshape(self.neu * 3, self.neu * 3)
+            # - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
+            hess[self.neu * 3 :, self.neu * 3 :] -= c * (matrix_grad_d * matrix_grad_d.transpose((2, 3, 0, 1))).reshape(self.ned * 3, self.ned * 3)
 
         return hess / val, grad / val
 
@@ -531,14 +527,15 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
     """
 
     def impl(self, n_vectors: np.ndarray):
+        ne = self.neu + self.ned
         wfn_u, wfn_d = self.value_matrix(n_vectors)
         grad_u, grad_d = self.gradient_matrix(n_vectors)
         hess_u, hess_d = self.hessian_matrix(n_vectors)
         tress_u, tress_d = self.tressian_matrix(n_vectors)
         val = 0
-        grad = np.zeros(shape=(self.neu + self.ned) * 3)
-        hess = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
-        tress = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
+        grad = np.zeros(shape=ne * 3)
+        hess = np.zeros(shape=(ne * 3, ne * 3))
+        tress = np.zeros(shape=(ne * 3, ne * 3, ne * 3))
         for i in range(self.det_coeff.size):
             # pinv is slower then inv
             inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
@@ -548,7 +545,7 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
             tr_grad = np.concatenate((tr_grad_u, tr_grad_d)).ravel()
             tr_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
-            # tr_hess = np.concatenate((tr_hess_u, tr_hess_d))
+            # tr_hess = self.const_eye_2d.reshape(ne, 1, ne, 1) * np.concatenate((tr_hess_u, tr_hess_d)).reshape(ne, 3, 1, 3)
             tr_tress_u = (inv_wfn_u * tress_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_tress_d = (inv_wfn_d * tress_d[self.permutation_down[i]].T).T.sum(axis=0)
             # tr_tress = np.concatenate((tr_tress_u, tr_tress_d))
@@ -586,6 +583,8 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
             hess += c * partial_hess
 
             res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
+            for e in range(self.neu):
+                res_u[e, :, e, :, e, :] += tr_tress_u[e]
             for r1 in range(3):
                 for r2 in range(3):
                     for r3 in range(3):
@@ -607,12 +606,13 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
                         )
                         # tr(A^-1 @ d³A/dxdydz) - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx)
                         for e in range(self.neu):
-                            res_u[e, r1, e, r2, e, r3] += tr_tress_u[e, r1, r2, r3]
                             res_u[e, r1, e, r2, :, r3] -= matrix_hess_u[:, e, r1, r2] * matrix_grad_u[e, 0, :, r3]
                             res_u[e, r1, :, r2, e, r3] -= matrix_hess_u[:, e, r1, r3] * matrix_grad_u[e, 0, :, r2]
                             res_u[:, r1, e, r2, e, r3] -= matrix_hess_u[:, e, r2, r3] * matrix_grad_u[e, 0, :, r1]
             tress[: self.neu * 3, : self.neu * 3, : self.neu * 3] += c * res_u.reshape(self.neu * 3, self.neu * 3, self.neu * 3)
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
+            for e in range(self.ned):
+                res_d[e, :, e, :, e, :] += tr_tress_d[e]
             for r1 in range(3):
                 for r2 in range(3):
                     for r3 in range(3):
@@ -628,7 +628,6 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
                         )
                         # tr(A^-1 @ d³A/dxdydz) - tr(A^-1 * d²A/dxdy ⊗ A^-1 * dA/dz) - tr(A^-1 * dA²/dxdz ⊗ A^-1 * dA/dy) - tr(A^-1 * d²A/dydz ⊗ A^-1 * dA/dx)
                         for e in range(self.ned):
-                            res_d[e, r1, e, r2, e, r3] += tr_tress_d[e, r1, r2, r3]
                             res_d[e, r1, e, r2, :, r3] -= matrix_hess_d[:, e, r1, r2] * matrix_grad_d[e, 0, :, r3]
                             res_d[e, r1, :, r2, e, r3] -= matrix_hess_d[:, e, r1, r3] * matrix_grad_d[e, 0, :, r2]
                             res_d[:, r1, e, r2, e, r3] -= matrix_hess_d[:, e, r2, r3] * matrix_grad_d[e, 0, :, r1]
@@ -919,6 +918,9 @@ class Slater(structref.StructRefProxy, AbstractSlater):
             self.cusp = cusp
             self.norm = np.exp(-(math.lgamma(neu + 1) + math.lgamma(ned + 1)) / (neu + ned) / 2)
             self.parameters_projector = np.zeros(shape=(0, 0))
+            self.const_eye_2d = np.eye(neu + ned)
+            self.const_eye_3d = np.zeros(shape=(neu + ned, neu + ned, neu + ned))
+            np.fill_diagonal(self.const_eye_3d, 1)
             return self
 
         return init(*args, **kwargs)
@@ -927,6 +929,26 @@ class Slater(structref.StructRefProxy, AbstractSlater):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def cusp(self):
         return self.cusp
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def gradient(self, n_vectors):
+        return self.gradient(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def laplacian(self, n_vectors):
+        return self.laplacian(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def hessian(self, n_vectors):
+        return self.hessian(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def tressian(self, n_vectors):
+        return self.tressian(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def tressian_v2(self, n_vectors):
+        return self.tressian_v2(n_vectors)
 
 
 structref.define_boxing(Slater_class_t, Slater)

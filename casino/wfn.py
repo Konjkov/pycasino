@@ -473,6 +473,10 @@ class Wfn(structref.StructRefProxy):
 
         return init(*args, **kwargs)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def _relative_coordinates(self, r_e):
+        return self._relative_coordinates(r_e)
+
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
     def slater(self):
