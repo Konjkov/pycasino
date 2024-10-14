@@ -88,13 +88,6 @@ class Profiler(Casino):
         # stats = rtsys.get_allocation_stats()
         # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
-        # start = default_timer()
-        # self.wfn.slater.profile_tressian_v2(self.dr, self.steps // 10, self.atom_positions, self.r_e)
-        # end = default_timer()
-        # logger.info(' slater tressian v2                %8.1f * 10', (end - start))
-        # stats = rtsys.get_allocation_stats()
-        # logger.info(f'{stats} total: {stats[0] - stats[1]}')
-
     def jastrow_profiling(self):
         start = default_timer()
         self.wfn.jastrow.profile_value(self.dr, self.steps, self.atom_positions, self.r_e)
@@ -168,7 +161,7 @@ class Profiler(Casino):
 
 if __name__ == '__main__':
     """Profiling"""
-    for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
+    for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'O3', 'Kr'):
         path = f'../tests/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
         logger.info('%s:', mol)
         profiler = Profiler(path)
@@ -177,7 +170,7 @@ if __name__ == '__main__':
         profiler.backflow_profiling()
         # profiler.markovchain_profiling()/
 
-    for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
+    for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'O3', 'Kr'):
         path = f'../tests/gwfn/{mol}/HF/cc-pVQZ/CBCS/Jastrow/'
         logger.info('%s:', mol)
         profiler = Profiler(path)

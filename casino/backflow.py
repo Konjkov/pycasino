@@ -241,91 +241,6 @@ Backflow_t = Backflow_class_t(
 )
 
 
-class Backflow(structref.StructRefProxy, AbstractBackflow):
-    def __new__(cls, *args, **kwargs):
-        @nb.njit(nogil=True, parallel=False, cache=True)
-        def backflow_init(
-            neu,
-            ned,
-            trunc,
-            eta_parameters,
-            eta_parameters_optimizable,
-            eta_cutoff,
-            mu_parameters,
-            mu_parameters_optimizable,
-            mu_cutoff,
-            mu_cusp,
-            mu_labels,
-            phi_parameters,
-            phi_parameters_optimizable,
-            theta_parameters,
-            theta_parameters_optimizable,
-            phi_cutoff,
-            phi_cusp,
-            phi_labels,
-            phi_irrotational,
-            ae_cutoff,
-            ae_cutoff_optimizable,
-        ):
-            self = structref.new(Backflow_t)
-            self.neu = neu
-            self.ned = ned
-            self.trunc = trunc
-            # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
-            self.eta_cutoff = eta_cutoff['value']
-            self.eta_cutoff_optimizable = eta_cutoff['optimizable']
-            self.eta_parameters = eta_parameters
-            self.eta_parameters_optimizable = eta_parameters_optimizable
-            self.eta_parameters_available = np.ones_like(eta_parameters_optimizable)
-            # spin dep (0->u=d; 1->u/=d)
-            self.mu_cusp = mu_cusp
-            self.mu_labels = mu_labels
-            self.mu_cutoff = mu_cutoff['value']
-            self.mu_cutoff_optimizable = mu_cutoff['optimizable']
-            self.mu_parameters = mu_parameters
-            self.mu_parameters_optimizable = mu_parameters_optimizable
-            self.mu_parameters_available = nb.typed.List.empty_list(mu_parameters_mask_type)
-            # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
-            self.phi_irrotational = phi_irrotational
-            self.phi_cusp = phi_cusp
-            self.phi_labels = phi_labels
-            self.phi_cutoff = phi_cutoff['value']
-            self.phi_cutoff_optimizable = phi_cutoff['optimizable']
-            self.phi_parameters = phi_parameters
-            self.theta_parameters = theta_parameters
-            self.phi_parameters_optimizable = phi_parameters_optimizable
-            self.theta_parameters_optimizable = theta_parameters_optimizable
-            self.phi_parameters_available = nb.typed.List.empty_list(phi_parameters_mask_type)
-            self.theta_parameters_available = nb.typed.List.empty_list(theta_parameters_mask_type)
-
-            self.max_ee_order = max((
-                self.eta_parameters.shape[1],
-                max([p.shape[1] for p in self.phi_parameters]) if self.phi_parameters else 0,
-            ))
-            self.max_en_order = max((
-                max([p.shape[1] for p in self.mu_parameters]) if self.mu_parameters else 0,
-                max([p.shape[2] for p in self.phi_parameters]) if self.phi_parameters else 0,
-                2
-            ))
-            self.ae_cutoff = ae_cutoff
-            self.ae_cutoff_optimizable = ae_cutoff_optimizable
-            self.cutoffs_optimizable = True
-            self.fix_optimizable()
-            return self
-
-        return backflow_init(*args, **kwargs)
-
-    @property
-    @nb.njit(nogil=True, parallel=False, cache=True)
-    def cutoffs_optimizable(self):
-        return self.cutoffs_optimizable
-
-    @cutoffs_optimizable.setter
-    @nb.njit(nogil=True, parallel=False, cache=True)
-    def cutoffs_optimizable(self, value):
-        self.cutoffs_optimizable = value
-
-
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Backflow_class_t, 'fix_optimizable')
 def backflow_fix_optimizable(self):
@@ -2632,6 +2547,91 @@ def backflow_value_parameters_d2(self, e_vectors, n_vectors):
         )) @ self.parameters_projector
 
     return impl
+
+
+class Backflow(structref.StructRefProxy, AbstractBackflow):
+    def __new__(cls, *args, **kwargs):
+        @nb.njit(nogil=True, parallel=False, cache=True)
+        def backflow_init(
+            neu,
+            ned,
+            trunc,
+            eta_parameters,
+            eta_parameters_optimizable,
+            eta_cutoff,
+            mu_parameters,
+            mu_parameters_optimizable,
+            mu_cutoff,
+            mu_cusp,
+            mu_labels,
+            phi_parameters,
+            phi_parameters_optimizable,
+            theta_parameters,
+            theta_parameters_optimizable,
+            phi_cutoff,
+            phi_cusp,
+            phi_labels,
+            phi_irrotational,
+            ae_cutoff,
+            ae_cutoff_optimizable,
+        ):
+            self = structref.new(Backflow_t)
+            self.neu = neu
+            self.ned = ned
+            self.trunc = trunc
+            # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
+            self.eta_cutoff = eta_cutoff['value']
+            self.eta_cutoff_optimizable = eta_cutoff['optimizable']
+            self.eta_parameters = eta_parameters
+            self.eta_parameters_optimizable = eta_parameters_optimizable
+            self.eta_parameters_available = np.ones_like(eta_parameters_optimizable)
+            # spin dep (0->u=d; 1->u/=d)
+            self.mu_cusp = mu_cusp
+            self.mu_labels = mu_labels
+            self.mu_cutoff = mu_cutoff['value']
+            self.mu_cutoff_optimizable = mu_cutoff['optimizable']
+            self.mu_parameters = mu_parameters
+            self.mu_parameters_optimizable = mu_parameters_optimizable
+            self.mu_parameters_available = nb.typed.List.empty_list(mu_parameters_mask_type)
+            # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
+            self.phi_irrotational = phi_irrotational
+            self.phi_cusp = phi_cusp
+            self.phi_labels = phi_labels
+            self.phi_cutoff = phi_cutoff['value']
+            self.phi_cutoff_optimizable = phi_cutoff['optimizable']
+            self.phi_parameters = phi_parameters
+            self.theta_parameters = theta_parameters
+            self.phi_parameters_optimizable = phi_parameters_optimizable
+            self.theta_parameters_optimizable = theta_parameters_optimizable
+            self.phi_parameters_available = nb.typed.List.empty_list(phi_parameters_mask_type)
+            self.theta_parameters_available = nb.typed.List.empty_list(theta_parameters_mask_type)
+
+            self.max_ee_order = max((
+                self.eta_parameters.shape[1],
+                max([p.shape[1] for p in self.phi_parameters]) if self.phi_parameters else 0,
+            ))
+            self.max_en_order = max((
+                max([p.shape[1] for p in self.mu_parameters]) if self.mu_parameters else 0,
+                max([p.shape[2] for p in self.phi_parameters]) if self.phi_parameters else 0,
+                2
+            ))
+            self.ae_cutoff = ae_cutoff
+            self.ae_cutoff_optimizable = ae_cutoff_optimizable
+            self.cutoffs_optimizable = True
+            self.fix_optimizable()
+            return self
+
+        return backflow_init(*args, **kwargs)
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def cutoffs_optimizable(self):
+        return self.cutoffs_optimizable
+
+    @cutoffs_optimizable.setter
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def cutoffs_optimizable(self, value):
+        self.cutoffs_optimizable = value
 
 
 structref.define_boxing(Backflow_class_t, Backflow)
