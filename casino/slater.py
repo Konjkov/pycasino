@@ -41,8 +41,8 @@ Slater_t = Slater_class_t(
         ('cusp', nb.optional(Cusp_t)),
         ('norm', nb.float64),
         ('parameters_projector', nb.float64[:, ::1]),
-        ('const_eye_2d', nb.float64[:, ::1]),
-        ('const_eye_3d', nb.float64[:, :, ::1]),
+        # ('const_eye_2d', nb.float64[:, ::1]),
+        # ('const_eye_3d', nb.float64[:, :, ::1]),
     ]
 )
 
@@ -929,9 +929,9 @@ class Slater(structref.StructRefProxy, AbstractSlater):
             self.cusp = cusp
             self.norm = np.exp(-(math.lgamma(neu + 1) + math.lgamma(ned + 1)) / (neu + ned) / 2)
             self.parameters_projector = np.zeros(shape=(0, 0))
-            self.const_eye_2d = np.eye(neu + ned)
-            self.const_eye_3d = np.zeros(shape=(neu + ned, neu + ned, neu + ned))
-            np.fill_diagonal(self.const_eye_3d, 1)
+            # self.const_eye_2d = np.eye(neu + ned)
+            # self.const_eye_3d = np.zeros(shape=(neu + ned, neu + ned, neu + ned))
+            # np.fill_diagonal(self.const_eye_3d, 1)
             return self
 
         return init(*args, **kwargs)
