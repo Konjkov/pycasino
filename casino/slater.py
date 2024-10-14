@@ -572,8 +572,8 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
             matrix_hess_u = (inv_wfn_u @ hess_u[self.permutation_up[i]].reshape(self.neu, self.neu * 9)).reshape(self.neu, self.neu, 3, 3)
             matrix_hess_d = (inv_wfn_d @ hess_d[self.permutation_down[i]].reshape(self.ned, self.ned * 9)).reshape(self.ned, self.ned, 3, 3)
 
-            # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy)
-            partial_hess = np.outer(tr_grad, tr_grad)
+            # tr(A^-1 * dA/dx) ⊗ tr(A^-1 * dA/dy) + tr(A^-1 • dA/dx) ⊗ tr(A^-1 • dA/dy) / 3
+            partial_hess = np.outer(tr_grad, tr_grad) / 3
             res_u = np.zeros(shape=(self.neu, 3, self.neu, 3))
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3))
             # tr(A^-1 @ d²A/dxdy) - tr(A^-1 @ dA/dx ⊗ A^-1 @ dA/dy)
@@ -587,7 +587,7 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
             c = self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             grad += c * tr_grad
-            hess += c * partial_hess
+            hess += c * (partial_hess + 2 / 3 * np.outer(tr_grad, tr_grad))
             # tr(A^-1 * dA/dx) ⊗ Hessian_yz + tr(A^-1 * dA/dy) ⊗ Hessian_xz + tr(A^-1 * dA/dz) ⊗ Hessian_xy
             tress += c * (
                 # (1, 1, self.ned * 3) * (self.ned * 3, self.ned * 3, 1)
@@ -645,8 +645,6 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
                             res_d[e, r1, :, r2, e, r3] -= matrix_hess_d[:, e, r1, r3] * matrix_grad_d[e, :, r2]
                             res_d[:, r1, e, r2, e, r3] -= matrix_hess_d[:, e, r2, r3] * matrix_grad_d[e, :, r1]
             tress[self.neu * 3 :, self.neu * 3 :, self.neu * 3 :] += c * res_d.reshape(self.ned * 3, self.ned * 3, self.ned * 3)
-            # 2 * tr(A^-1 • dA/dx) ⊗ tr(A^-1 • dA/dy) ⊗ tr(A^-1 • dA/dz)
-            tress -= 2 * c * tr_grad * np.expand_dims(np.outer(tr_grad, tr_grad), 2)
 
         return tress / val, hess / val, grad / val
 
