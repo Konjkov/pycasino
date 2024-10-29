@@ -632,6 +632,7 @@ class Casino:
                 logger.info(self.wfn.slater.cusp.laplacian(n_vectors)[0] / self.wfn.slater.cusp.numerical_laplacian(n_vectors)[0])
                 logger.info(self.wfn.slater.cusp.hessian(n_vectors)[0] / self.wfn.slater.cusp.numerical_hessian(n_vectors)[0])
                 logger.info(self.wfn.slater.cusp.tressian(n_vectors)[0] / self.wfn.slater.cusp.numerical_tressian(n_vectors)[0])
+                logger.info(self.wfn.slater.hessian(n_vectors)[0] / self.wfn.slater.numerical_hessian(n_vectors))
                 logger.info(self.wfn.slater.tressian(n_vectors)[0] / self.wfn.slater.tressian_v2(n_vectors)[0])
                 logger.info(self.wfn.slater.tressian(n_vectors)[0] / self.wfn.slater.numerical_tressian(n_vectors))
                 if self.wfn.jastrow is not None:
