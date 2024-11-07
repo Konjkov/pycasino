@@ -139,6 +139,7 @@ class Backflow:
         return list(map(int, self.f.readline().split()))
 
     def __init__(self):
+        self.title = 'no title given'
         self.trunc = 0
         self.eta_parameters = np.zeros((0, 0), dtype=float)  # uu, ud, dd order
         self.eta_parameters_optimizable = np.zeros(shape=(0, 0), dtype=bool)  # uu, ud, dd order
@@ -338,7 +339,7 @@ class Backflow:
                 self.ae_cutoff[atom] = 0
                 self.ae_cutoff_optimizable[atom] = False
 
-    def write(self, title='no title given'):
+    def write(self):
         eta_term = ''
         if self.eta_cutoff['value'].any():
             eta_parameters_list = []
@@ -459,7 +460,7 @@ class Backflow:
         if ae_cutoff_list:
             ae_cutoffs = ae_cutoff_template.format(ae_cutoffs='\n '.join(ae_cutoff_list))
         backflow = backflow_template.format(
-            title=title,
+            title=self.title,
             trunc=self.trunc,
             terms=eta_term + mu_term + phi_term + ae_cutoffs,
         )

@@ -222,7 +222,7 @@ class Casino:
                     self.config.jastrow.no_dup_chi_term,
                 )
             elif self.config.input.use_gjastrow:
-                self.config.jastrow.write('.', 0)
+                pass
                 # gjastrow = Gjastrow(
                 #     self.config.input.neu,
                 #     self.config.input.ned,

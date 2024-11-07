@@ -105,23 +105,15 @@ def wfn_drift_velocity(self, r_e):
 
     def impl(self, r_e):
         e_vectors, n_vectors = self._relative_coordinates(r_e)
-
         if self.backflow is not None:
             b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
-            s_g = self.slater.gradient(b_v + n_vectors)
-            s_g = s_g @ b_g
-            if self.jastrow is not None:
-                j_g = self.jastrow.gradient(e_vectors, n_vectors)
-                return s_g + j_g
-            else:
-                return s_g
+            s_g = self.slater.gradient(b_v + n_vectors) @ b_g
         else:
             s_g = self.slater.gradient(n_vectors)
-            if self.jastrow is not None:
-                j_g = self.jastrow.gradient(e_vectors, n_vectors)
-                return s_g + j_g
-            else:
-                return s_g
+        if self.jastrow is not None:
+            return s_g + self.jastrow.gradient(e_vectors, n_vectors)
+        else:
+            return s_g
 
     return impl
 

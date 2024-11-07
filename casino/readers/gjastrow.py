@@ -42,6 +42,7 @@ class Gjastrow:
 
     def __init__(self):
         """init method"""
+        self.title = 'no title given'
         self.terms = []
         self.rank = np.zeros(shape=(0, 2))
         self.rules = []
@@ -229,9 +230,9 @@ class Gjastrow:
             self.get_linear_parameters()
             # self.fix_terms()
 
-    def write(self, base_path, version, title='no title given'):
+    def write(self, base_path, version):
         """Write Gjastrow config to file"""
-        jastrow = {'Title': title}
+        jastrow = {'Title': self.title}
         for i, term in enumerate(self.terms):
             if i == 0:
                 jastrow[f'TERM {i+1}'] = {
