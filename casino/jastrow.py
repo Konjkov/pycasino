@@ -315,9 +315,9 @@ def jastrow_chi_term_gradient(self, n_powers, n_vectors):
                 for e1 in range(self.neu + self.ned):
                     r = n_powers[label, e1, 1]
                     if r < L:
-                        r_vec = n_vectors[label, e1] / r
+                        r_vec = n_vectors[label, e1] / r / r
                         chi_set = int(e1 >= self.neu) % parameters.shape[0]
-                        res[e1, :] += r_vec * (r-L) ** C * polyval(r, (C*r/(r-L) + k) * parameters[chi_set]) / r
+                        res[e1, :] += r_vec * (r-L) ** C * polyval(r, (C*r/(r-L) + k) * parameters[chi_set])
         return res.ravel()
 
     return impl
@@ -338,6 +338,9 @@ def jastrow_f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
         C = self.trunc
         res = np.zeros(shape=(self.neu + self.ned, 3))
         for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
+            # k_e1I = np.arange(parameters.shape[3])
+            # k_e2I = np.expand_dims(np.arange(parameters.shape[2]), 1)
+            # k_ee = np.expand_dims(np.expand_dims(np.arange(parameters.shape[1]), 1), 2)
             for label in f_labels:
                 for e1 in range(1, self.neu + self.ned):
                     for e2 in range(e1):
@@ -345,18 +348,14 @@ def jastrow_f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
                         r_e2I = n_powers[label, e2, 1]
                         if r_e1I < L and r_e2I < L:
                             r_ee = e_powers[e1, e2, 1]
-                            r_ee_vec = e_vectors[e1, e2] / r_ee
-                            r_e1I_vec = n_vectors[label, e1] / r_e1I
-                            r_e2I_vec = n_vectors[label, e2] / r_e2I
+                            r_ee_vec = e_vectors[e1, e2] / r_ee / r_ee
+                            r_e1I_vec = n_vectors[label, e1] / r_e1I / r_e1I
+                            r_e2I_vec = n_vectors[label, e2] / r_e2I / r_e2I
                             cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
-                            # FIXME: polyval3d not supported
-                            # k0 = np.arange(parameters.shape[0])
-                            # k1 = np.arange(parameters.shape[1])
-                            # k2 = np.arange(parameters.shape[2])
-                            # e1_gradient_test = r_e1I_vec * polyval3d(r_ee, r_e1I, r_e2I, (C/(r_e1I - L) + k2) * parameters[f_set])/r_e1I
-                            # e2_gradient_test = r_e2I_vec * polyval3d(r_ee, r_e1I, r_e2I, (C/(r_e2I - L) + k1) * parameters[f_set])/r_e2I
-                            # ee_gradient = r_ee_vec * polyval3d(r_ee, r_e1I, r_e2I, k0[np.newaxis, np.newaxis, :] * parameters[f_set])/r_ee
+                            # e1_gradient_test = r_e1I_vec * polyval3d(r_ee, r_e1I, r_e2I, (C*r_e1I/(r_e1I - L) + k_e1I) * parameters[f_set])
+                            # e2_gradient_test = r_e2I_vec * polyval3d(r_ee, r_e1I, r_e2I, (C*r_e2I/(r_e2I - L) + k_e2I) * parameters[f_set])
+                            # ee_gradient_test = r_ee_vec * polyval3d(r_ee, r_e1I, r_e2I, k_ee * parameters[f_set])
                             # res[e1] += cutoff * (e1_gradient + ee_gradient)
                             # res[e2] += cutoff * (e2_gradient - ee_gradient)
                             poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
@@ -371,9 +370,9 @@ def jastrow_f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
                                         poly_diff_ee += n * p
                             # workaround do not create temporary 1-d numpy array
                             for t1 in range(3):
-                                e1_gradient = r_e1I_vec[t1] * (C/(r_e1I - L) * poly + poly_diff_e1I/r_e1I)
-                                e2_gradient = r_e2I_vec[t1] * (C/(r_e2I - L) * poly + poly_diff_e2I/r_e2I)
-                                ee_gradient = r_ee_vec[t1] * poly_diff_ee/r_ee
+                                e1_gradient = r_e1I_vec[t1] * (C*r_e1I/(r_e1I - L) * poly + poly_diff_e1I)
+                                e2_gradient = r_e2I_vec[t1] * (C*r_e2I/(r_e2I - L) * poly + poly_diff_e2I)
+                                ee_gradient = r_ee_vec[t1] * poly_diff_ee
                                 res[e1, t1] += cutoff * (e1_gradient + ee_gradient)
                                 res[e2, t1] += cutoff * (e2_gradient - ee_gradient)
         return res.ravel()
