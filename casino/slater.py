@@ -411,6 +411,7 @@ def slater_gradient(self, n_vectors: np.ndarray):
         grad = np.zeros(shape=(self.neu + self.ned) * 3)
         single_det = self.det_coeff.size == 1
         for i in range(self.det_coeff.size):
+            # einsum('ij,jik -> ik', np.linalg.inv(wfn_u[self.permutation_up[i]]), grad_u[self.permutation_up[i]])
             tr_grad_u = (np.linalg.inv(wfn_u[self.permutation_up[i]]) * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_grad_d = (np.linalg.inv(wfn_d[self.permutation_down[i]]) * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
             tr_grad = np.concatenate((tr_grad_u, tr_grad_d)).ravel()
@@ -446,6 +447,7 @@ def slater_laplacian(self, n_vectors: np.ndarray):
         val = lap = 0
         single_det = self.det_coeff.size == 1
         for i in range(self.det_coeff.size):
+            # einsum('ij,ji', np.linalg.inv(wfn_u[self.permutation_up[i]]), lap_u[self.permutation_up[i]])
             tr_lap_u = (np.linalg.inv(wfn_u[self.permutation_up[i]]) * lap_u[self.permutation_up[i]].T).sum()
             tr_lap_d = (np.linalg.inv(wfn_d[self.permutation_down[i]]) * lap_d[self.permutation_down[i]].T).sum()
             c = 1 if single_det else self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])

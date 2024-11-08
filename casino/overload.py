@@ -1,5 +1,6 @@
 import numba as nb
 import numpy as np
+from numpy.polynomial.polynomial import polyval
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -20,6 +21,24 @@ def block_diag(res_list):
         return res
     else:
         return np.zeros(shape=(0, 0))
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def polyval2d(x, y, c):
+    """Evaluate a 2-D polynomial on the Cartesian product of x and y."""
+    x, y = [np.asarray(a) for a in (x, y)]
+    if x.shape != y.shape:
+        raise ValueError('x, y are incompatible')
+    return polyval(y, polyval(x, c, tensor=True), tensor=False)
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def polyval3d(x, y, z, c):
+    """Evaluate a 3-D polynomial at points (x, y, z)."""
+    x, y, z = [np.asarray(a) for a in (x, y, z)]
+    if x.shape != y.shape != z.shape:
+        raise ValueError('x, y, z are incompatible')
+    return polyval(z, polyval(y, polyval(x, c, tensor=True), tensor=False), tensor=False)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
