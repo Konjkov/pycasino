@@ -6,7 +6,7 @@ from numpy.polynomial.polynomial import polyval
 
 from casino import delta
 from casino.abstract import AbstractJastrow
-from casino.overload import block_diag, polyval3d, rref
+from casino.overload import block_diag, rref
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -248,9 +248,20 @@ def jastrow_f_term(self, e_powers, n_powers):
                         r_e1I = n_powers[label, e1, 1]
                         r_e2I = n_powers[label, e2, 1]
                         if r_e1I < L and r_e2I < L:
-                            r_ee = e_powers[e1, e2, 1]
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
-                            res += (r_e1I - L)**C * (r_e2I - L)**C * polyval3d(r_ee, r_e1I, r_e2I, parameters[f_set])
+                            # FIXME: polyval3d not supported
+                            # r_ee = e_powers[e1, e2, 1]
+                            # res += (r_e1I - L)**C * (r_e2I - L)**C * polyval3d(r_ee, r_e1I, r_e2I, parameters[f_set])
+                            poly = 0.0
+                            for l in range(parameters.shape[3]):
+                                for m in range(l, parameters.shape[2]):
+                                    en_part = n_powers[label, e1, l] * n_powers[label, e2, m]
+                                    if l != m:
+                                        en_part += n_powers[label, e1, m] * n_powers[label, e2, l]
+                                    for n in range(parameters.shape[1]):
+                                        poly += parameters[f_set, n, m, l] * en_part * e_powers[e1, e2, n]
+                            res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
+
         return res
 
     return impl
@@ -278,7 +289,7 @@ def jastrow_u_term_gradient(self, e_powers, e_vectors):
             for e2 in range(e1):
                 r = e_powers[e1, e2, 1]
                 if r < L:
-                    r_vec = e_vectors[e1, e2] / r
+                    r_vec = e_vectors[e1, e2] / r**2
                     cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
                     u_set = cusp_set % parameters.shape[0]
                     poly = 0.0
@@ -287,7 +298,7 @@ def jastrow_u_term_gradient(self, e_powers, e_vectors):
                             p = parameters[u_set, k] * e_powers[e1, e2, k] * 2
                         else:
                             p = parameters[u_set, k] * e_powers[e1, e2, k]
-                        poly += (C/(r-L) + k/r) * p
+                        poly += (C*r/(r-L) + k) * p
 
                     gradient = r_vec * (r-L) ** C * poly
                     res[e1, :] += gradient
@@ -315,7 +326,7 @@ def jastrow_chi_term_gradient(self, n_powers, n_vectors):
                 for e1 in range(self.neu + self.ned):
                     r = n_powers[label, e1, 1]
                     if r < L:
-                        r_vec = n_vectors[label, e1] / r / r
+                        r_vec = n_vectors[label, e1] / r**2
                         chi_set = int(e1 >= self.neu) % parameters.shape[0]
                         res[e1, :] += r_vec * (r-L) ** C * polyval(r, (C*r/(r-L) + k) * parameters[chi_set])
         return res.ravel()
@@ -353,9 +364,9 @@ def jastrow_f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
                             r_e2I_vec = n_vectors[label, e2] / r_e2I / r_e2I
                             cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
-                            # e1_gradient_test = r_e1I_vec * polyval3d(r_ee, r_e1I, r_e2I, (C*r_e1I/(r_e1I - L) + k_e1I) * parameters[f_set])
-                            # e2_gradient_test = r_e2I_vec * polyval3d(r_ee, r_e1I, r_e2I, (C*r_e2I/(r_e2I - L) + k_e2I) * parameters[f_set])
-                            # ee_gradient_test = r_ee_vec * polyval3d(r_ee, r_e1I, r_e2I, k_ee * parameters[f_set])
+                            # e1_gradient = r_e1I_vec * polyval3d(r_ee, r_e2I, r_e1I, (C*r_e1I/(r_e1I - L) + k_e1I) * parameters[f_set])
+                            # e2_gradient = r_e2I_vec * polyval3d(r_ee, r_e2I, r_e1I, (C*r_e2I/(r_e2I - L) + k_e2I) * parameters[f_set])
+                            # ee_gradient = r_ee_vec * polyval3d(r_ee, r_e2I, r_e1I, k_ee * parameters[f_set])
                             # res[e1] += cutoff * (e1_gradient + ee_gradient)
                             # res[e2] += cutoff * (e2_gradient - ee_gradient)
                             poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
@@ -467,6 +478,9 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
         res = 0.0
         C = self.trunc
         for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
+            # k_e1I = np.arange(parameters.shape[3])
+            # k_e2I = np.expand_dims(np.arange(parameters.shape[2]), 1)
+            # k_ee = np.expand_dims(np.expand_dims(np.arange(parameters.shape[1]), 1), 2)
             for label in f_labels:
                 r_e1I_vec_dot_r_e2I_vec = n_vectors[label] @ n_vectors[label].T
                 for e1 in range(1, self.neu + self.ned):
@@ -499,7 +513,10 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                         poly_diff_ee_2 += n * (n-1) * p
                                         poly_diff_e1I_ee += l * n * p
                                         poly_diff_e2I_ee += m * n * p
-
+                            # poly = polyval3d(r_ee, r_e2I, r_e1I, parameters[f_set])
+                            # poly_diff_e1I = polyval3d(r_ee, r_e2I, r_e1I, k_e1I * parameters[f_set])
+                            # poly_diff_e2I = polyval3d(r_ee, r_e2I, r_e1I, k_e2I * parameters[f_set])
+                            # poly_diff_ee = polyval3d(r_ee, r_e2I, r_e1I, k_ee * parameters[f_set]
                             diff_1 = (
                                 (cutoff_diff_e1I * poly + poly_diff_e1I) / r_e1I**2 +
                                 (cutoff_diff_e2I * poly + poly_diff_e2I) / r_e2I**2 +
