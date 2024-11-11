@@ -2,7 +2,6 @@ import numba as nb
 import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
-from numpy.polynomial.polynomial import polyval
 
 from casino import delta
 from casino.abstract import AbstractJastrow
@@ -189,8 +188,8 @@ def jastrow_u_term(self, e_powers: np.ndarray):
         parameters = self.u_parameters
         for e1 in range(1, self.neu + self.ned):
             for e2 in range(e1):
-                r = e_powers[e1, e2, 1]
-                if r < self.u_cutoff:
+                r_ee = e_powers[e1, e2, 1]
+                if r_ee < self.u_cutoff:
                     cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
                     u_set = cusp_set % parameters.shape[0]
                     poly = 0.0
@@ -200,7 +199,7 @@ def jastrow_u_term(self, e_powers: np.ndarray):
                         else:
                             p = parameters[u_set, k]
                         poly += p * e_powers[e1, e2, k]
-                    res += poly * (r - self.u_cutoff) ** C
+                    res += poly * (r_ee - self.u_cutoff) ** C
         return res
 
     return impl
@@ -220,10 +219,13 @@ def jastrow_chi_term(self, n_powers: np.ndarray):
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
-                    r = n_powers[label, e1, 1]
-                    if r < L:
+                    r_eI = n_powers[label, e1, 1]
+                    if r_eI < L:
                         chi_set = int(e1 >= self.neu) % parameters.shape[0]
-                        res += polyval(r, parameters[chi_set]) * (r - L) ** C
+                        poly = 0.0
+                        for k in range(parameters.shape[1]):
+                            poly += parameters[chi_set, k] * n_powers[label, e1, k]
+                        res += poly * (r_eI - L) ** C
         return res
 
     return impl
@@ -249,9 +251,6 @@ def jastrow_f_term(self, e_powers, n_powers):
                         r_e2I = n_powers[label, e2, 1]
                         if r_e1I < L and r_e2I < L:
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
-                            # FIXME: polyval3d not supported
-                            # r_ee = e_powers[e1, e2, 1]
-                            # res += (r_e1I - L)**C * (r_e2I - L)**C * polyval3d(r_ee, r_e1I, r_e2I, parameters[f_set])
                             poly = 0.0
                             for l in range(parameters.shape[3]):
                                 for m in range(l, parameters.shape[2]):
@@ -261,7 +260,6 @@ def jastrow_f_term(self, e_powers, n_powers):
                                     for n in range(parameters.shape[1]):
                                         poly += parameters[f_set, n, m, l] * en_part * e_powers[e1, e2, n]
                             res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
-
         return res
 
     return impl
@@ -287,9 +285,9 @@ def jastrow_u_term_gradient(self, e_powers, e_vectors):
         parameters = self.u_parameters
         for e1 in range(1, self.neu + self.ned):
             for e2 in range(e1):
-                r = e_powers[e1, e2, 1]
-                if r < L:
-                    r_vec = e_vectors[e1, e2] / r**2
+                r_ee = e_powers[e1, e2, 1]
+                if r_ee < L:
+                    r_vec = e_vectors[e1, e2] / r_ee ** 2
                     cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
                     u_set = cusp_set % parameters.shape[0]
                     poly = 0.0
@@ -298,9 +296,8 @@ def jastrow_u_term_gradient(self, e_powers, e_vectors):
                             p = parameters[u_set, k] * e_powers[e1, e2, k] * 2
                         else:
                             p = parameters[u_set, k] * e_powers[e1, e2, k]
-                        poly += (C*r/(r-L) + k) * p
-
-                    gradient = r_vec * (r-L) ** C * poly
+                        poly += (C * r_ee /(r_ee - L) + k) * p
+                    gradient = r_vec * (r_ee - L) ** C * poly
                     res[e1, :] += gradient
                     res[e2, :] -= gradient
         return res.ravel()
@@ -324,11 +321,14 @@ def jastrow_chi_term_gradient(self, n_powers, n_vectors):
             k = np.arange(parameters.shape[1])
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
-                    r = n_powers[label, e1, 1]
-                    if r < L:
-                        r_vec = n_vectors[label, e1] / r**2
+                    r_eI = n_powers[label, e1, 1]
+                    if r_eI < L:
+                        r_vec = n_vectors[label, e1] / r_eI ** 2
                         chi_set = int(e1 >= self.neu) % parameters.shape[0]
-                        res[e1, :] += r_vec * (r-L) ** C * polyval(r, (C*r/(r-L) + k) * parameters[chi_set])
+                        poly = 0.0
+                        for k in range(parameters.shape[1]):
+                            poly += (C * r_eI / (r_eI - L) + k) * parameters[chi_set, k] * n_powers[label, e1, k]
+                        res[e1, :] += r_vec * (r_eI - L) ** C * poly
         return res.ravel()
 
     return impl
@@ -364,11 +364,6 @@ def jastrow_f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
                             r_e2I_vec = n_vectors[label, e2] / r_e2I / r_e2I
                             cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
-                            # e1_gradient = r_e1I_vec * polyval3d(r_ee, r_e2I, r_e1I, (C*r_e1I/(r_e1I - L) + k_e1I) * parameters[f_set])
-                            # e2_gradient = r_e2I_vec * polyval3d(r_ee, r_e2I, r_e1I, (C*r_e2I/(r_e2I - L) + k_e2I) * parameters[f_set])
-                            # ee_gradient = r_ee_vec * polyval3d(r_ee, r_e2I, r_e1I, k_ee * parameters[f_set])
-                            # res[e1] += cutoff * (e1_gradient + ee_gradient)
-                            # res[e2] += cutoff * (e2_gradient - ee_gradient)
                             poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
                             for l in range(parameters.shape[3]):
                                 for m in range(parameters.shape[2]):
@@ -409,8 +404,8 @@ def jastrow_u_term_laplacian(self, e_powers):
         parameters = self.u_parameters
         for e1 in range(1, self.neu + self.ned):
             for e2 in range(e1):
-                r = e_powers[e1, e2, 1]
-                if r < L:
+                r_ee = e_powers[e1, e2, 1]
+                if r_ee < L:
                     cusp_set = (int(e1 >= self.neu) + int(e2 >= self.neu))
                     u_set = cusp_set % parameters.shape[0]
                     poly = poly_diff = poly_diff_2 = 0.0
@@ -422,12 +417,11 @@ def jastrow_u_term_laplacian(self, e_powers):
                         poly += p
                         poly_diff += k * p
                         poly_diff_2 += k * (k-1) * p
-
-                    res += (r-L)**C * (
-                        C*(C-1)*r**2/(r-L)**2 * poly +
-                        2 * C*r/(r-L) * (poly + poly_diff) +
-                        poly_diff_2 + 2 * poly_diff
-                    ) / r**2
+                    res += (r_ee - L) ** C * (
+                            C * (C - 1) * r_ee ** 2 / (r_ee - L) ** 2 * poly +
+                            2 * C * r_ee / (r_ee - L) * (poly + poly_diff) +
+                            poly_diff_2 + 2 * poly_diff
+                    ) / r_ee ** 2
         return 2 * res
 
     return impl
@@ -445,14 +439,24 @@ def jastrow_chi_term_laplacian(self, n_powers):
         res = 0.0
         C = self.trunc
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
-            k = np.arange(parameters.shape[1])
-            k_1 = np.arange(-1, parameters.shape[1] - 1)
+            # k = np.arange(parameters.shape[1])
+            # k_1 = np.arange(-1, parameters.shape[1] - 1)
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
-                    r = n_powers[label, e1, 1]
-                    if r < L:
+                    r_eI = n_powers[label, e1, 1]
+                    if r_eI < L:
                         chi_set = int(e1 >= self.neu) % parameters.shape[0]
-                        res += (r-L) ** C * polyval(r, (C*(C-1)*r**2/(r-L)**2 + 2*C*r/(r-L)*(1 + k) + 2*k + k * k_1) * parameters[chi_set]) / r**2
+                        poly = poly_diff = poly_diff_2 = 0.0
+                        for k in range(parameters.shape[1]):
+                            p = parameters[chi_set, k] * n_powers[label, e1, k]
+                            poly += p
+                            poly_diff += k * p
+                            poly_diff_2 += k * (k - 1) * p
+                        res += (r_eI - L) ** C * (
+                                C * (C - 1) * r_eI ** 2 / (r_eI - L) ** 2 * poly +
+                                2 * C * r_eI / (r_eI - L) * (poly + poly_diff) +
+                                poly_diff_2 + 2 * poly_diff
+                        ) / r_eI ** 2
         return res
 
     return impl
@@ -490,8 +494,8 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                         # r_ee_vec = e_vectors[e1, e2]
                         r_e1I = n_powers[label, e1, 1]
                         r_e2I = n_powers[label, e2, 1]
-                        r_ee = e_powers[e1, e2, 1]
                         if r_e1I < L and r_e2I < L:
+                            r_ee = e_powers[e1, e2, 1]
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
                             # FIXME: polyval3d not supported
                             cutoff_diff_e1I = C*r_e1I/(r_e1I - L)
