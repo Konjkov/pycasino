@@ -33,11 +33,6 @@ PPotential_t = PPotential_class_t(
 )
 
 
-class PPotential(structref.StructRefProxy):
-    def __new__(cls, *args, **kwargs):
-        return ppotential_init(*args, **kwargs)
-
-
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(PPotential_class_t, 'generate_quadratures')
 def ppotential_generate_quadratures(self):
@@ -217,40 +212,55 @@ def ppotential_legendre(self, l, x):
     return impl
 
 
+class PPotential(structref.StructRefProxy):
+    def __new__(cls, config):
+        @nb.njit(nogil=True, parallel=False, cache=True)
+        def ppotential_init(
+            neu, ned, lcutofftol, nlcutofftol, atom_charges, vmc_nonlocal_grid, dmc_nonlocal_grid, local_angular_momentum, ppotential, is_pseudoatom
+        ):
+            self = structref.new(PPotential_t)
+            self.neu = neu
+            self.ned = ned
+            self.lcutofftol = lcutofftol
+            self.nlcutofftol = nlcutofftol
+            self.atom_charges = atom_charges
+            self.vmc_nonlocal_grid = vmc_nonlocal_grid
+            self.dmc_nonlocal_grid = dmc_nonlocal_grid
+            self.local_angular_momentum = local_angular_momentum
+            self.ppotential = ppotential
+            self.is_pseudoatom = is_pseudoatom
+            self.weight = nb.typed.List.empty_list(weight_type)
+            self.quadrature = nb.typed.List.empty_list(quadrature_type)
+            self.generate_quadratures()
+            # make s-d and p-d
+            for atom in range(len(self.ppotential)):
+                if not self.is_pseudoatom[atom]:
+                    continue
+                atom_pp = self.ppotential[atom]
+                local_angular_momentum = self.local_angular_momentum[atom]
+                atom_pp[1] -= atom_pp[local_angular_momentum + 1]
+                atom_pp[2] -= atom_pp[local_angular_momentum + 1]
+                r_nlcutoff_1 = atom_pp.shape[1] - np.argmax(np.abs(atom_pp[1, ::-1]) > self.nlcutofftol)
+                r_nlcutoff_2 = atom_pp.shape[1] - np.argmax(np.abs(atom_pp[2, ::-1]) > self.nlcutofftol)
+                atom_pp[1, r_nlcutoff_1:] = 0
+                atom_pp[2, r_nlcutoff_2:] = 0
+                atom_pp[local_angular_momentum + 1] += atom_charges[atom]
+                r_lcutoff = atom_pp.shape[1] - np.argmax(np.abs(atom_pp[3, ::-1]) > self.lcutofftol)
+                atom_pp[local_angular_momentum + 1, r_lcutoff:] = 0
+            return self
+
+        return ppotential_init(
+            config.input.neu,
+            config.input.ned,
+            config.input.lcutofftol,
+            config.input.nlcutofftol,
+            config.wfn.atom_charges,
+            config.wfn.vmc_nonlocal_grid,
+            config.wfn.dmc_nonlocal_grid,
+            config.wfn.local_angular_momentum,
+            config.wfn.ppotential,
+            config.wfn.is_pseudoatom,
+        )
+
+
 structref.define_boxing(PPotential_class_t, PPotential)
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def ppotential_init(
-    neu, ned, lcutofftol, nlcutofftol, atom_charges, vmc_nonlocal_grid, dmc_nonlocal_grid, local_angular_momentum, ppotential, is_pseudoatom
-):
-    self = structref.new(PPotential_t)
-    self.neu = neu
-    self.ned = ned
-    self.lcutofftol = lcutofftol
-    self.nlcutofftol = nlcutofftol
-    self.atom_charges = atom_charges
-    self.vmc_nonlocal_grid = vmc_nonlocal_grid
-    self.dmc_nonlocal_grid = dmc_nonlocal_grid
-    self.local_angular_momentum = local_angular_momentum
-    self.ppotential = ppotential
-    self.is_pseudoatom = is_pseudoatom
-    self.weight = nb.typed.List.empty_list(weight_type)
-    self.quadrature = nb.typed.List.empty_list(quadrature_type)
-    self.generate_quadratures()
-    # make s-d and p-d
-    for atom in range(len(self.ppotential)):
-        if not self.is_pseudoatom[atom]:
-            continue
-        atom_pp = self.ppotential[atom]
-        local_angular_momentum = self.local_angular_momentum[atom]
-        atom_pp[1] -= atom_pp[local_angular_momentum + 1]
-        atom_pp[2] -= atom_pp[local_angular_momentum + 1]
-        r_nlcutoff_1 = atom_pp.shape[1] - np.argmax(np.abs(atom_pp[1, ::-1]) > self.nlcutofftol)
-        r_nlcutoff_2 = atom_pp.shape[1] - np.argmax(np.abs(atom_pp[2, ::-1]) > self.nlcutofftol)
-        atom_pp[1, r_nlcutoff_1:] = 0
-        atom_pp[2, r_nlcutoff_2:] = 0
-        atom_pp[local_angular_momentum + 1] += atom_charges[atom]
-        r_lcutoff = atom_pp.shape[1] - np.argmax(np.abs(atom_pp[3, ::-1]) > self.lcutofftol)
-        atom_pp[local_angular_momentum + 1, r_lcutoff:] = 0
-    return self

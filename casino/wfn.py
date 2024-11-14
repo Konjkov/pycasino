@@ -433,20 +433,19 @@ Wfn_t = Wfn_class_t(
 
 
 class Wfn(structref.StructRefProxy):
-    def __new__(cls, *args, **kwargs):
-        """Wave function in general form.
-        :param neu: number of up electrons
-        :param ned: number of down electrons
-        :param atom_positions: atomic positions
-        :param atom_charges: atomic charges
-        :param slater: instance of Slater class
-        :param jastrow: instance of Jastrow class
-        :param backflow: instance of Backflow class
-        :param ppotential: instance of Pseudopotential class
-        """
-
+    def __new__(cls, config, slater, jastrow, backflow, ppotential):
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(neu, ned, atom_positions, atom_charges, slater, jastrow, backflow, ppotential):
+            """Wave function in general form.
+            :param neu: number of up electrons
+            :param ned: number of down electrons
+            :param atom_positions: atomic positions
+            :param atom_charges: atomic charges
+            :param slater: instance of Slater class
+            :param jastrow: instance of Jastrow class
+            :param backflow: instance of Backflow class
+            :param ppotential: instance of Pseudopotential class
+            """
             self = structref.new(Wfn_t)
             self.neu = neu
             self.ned = ned
@@ -463,7 +462,7 @@ class Wfn(structref.StructRefProxy):
             self.opt_det_coeff = False
             return self
 
-        return init(*args, **kwargs)
+        return init(config.input.neu, config.input.ned, config.wfn.atom_positions, config.wfn.atom_charges, slater, jastrow, backflow, ppotential)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def _relative_coordinates(self, r_e):

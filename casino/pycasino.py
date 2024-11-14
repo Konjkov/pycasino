@@ -13,10 +13,11 @@ import scipy as sp
 from mpi4py import MPI
 from scipy.optimize import OptimizeWarning, curve_fit, least_squares, minimize
 
-# from .gjastrow import Gjastrow
 from .backflow import Backflow
 from .cusp import CuspFactory
 from .dmc import DMCMarkovChain
+
+# from .gjastrow import Gjastrow
 from .jastrow import Jastrow
 from .ppotential import PPotential
 from .readers import CasinoConfig
@@ -126,24 +127,7 @@ class Casino:
         self.neu, self.ned = self.config.input.neu, self.config.input.ned
 
         if self.config.input.cusp_correction and not self.config.wfn.is_pseudoatom.all():
-            cusp_factory = CuspFactory(
-                self.config.input.neu,
-                self.config.input.ned,
-                self.config.input.cusp_threshold,
-                self.config.wfn.mo_up,
-                self.config.wfn.mo_down,
-                self.config.mdet.permutation_up,
-                self.config.mdet.permutation_down,
-                self.config.wfn.first_shells,
-                self.config.wfn.shell_moments,
-                self.config.wfn.primitives,
-                self.config.wfn.coefficients,
-                self.config.wfn.exponents,
-                self.config.wfn.atom_positions,
-                self.config.wfn.atom_charges,
-                self.config.wfn.unrestricted,
-                self.config.wfn.is_pseudoatom,
-            )
+            cusp_factory = CuspFactory(self.config)
             cusp = cusp_factory.create()
             if self.config.input.cusp_info:
                 cusp_factory.cusp_info()
@@ -164,121 +148,25 @@ class Casino:
                         f' Lexact              :  {l_exact[vmc_nonlocal_grid-1]}\n'
                         f' Number of points    :  {n_points[vmc_nonlocal_grid-1]}\n'
                     )
-            ppotential = PPotential(
-                self.config.input.neu,
-                self.config.input.ned,
-                self.config.input.lcutofftol,
-                self.config.input.nlcutofftol,
-                self.config.wfn.atom_charges,
-                self.config.wfn.vmc_nonlocal_grid,
-                self.config.wfn.dmc_nonlocal_grid,
-                self.config.wfn.local_angular_momentum,
-                self.config.wfn.ppotential,
-                self.config.wfn.is_pseudoatom,
-            )
+            ppotential = PPotential(self.config)
         else:
             ppotential = None
 
-        slater = Slater(
-            self.config.input.neu,
-            self.config.input.ned,
-            self.config.wfn.nbasis_functions,
-            self.config.wfn.first_shells,
-            self.config.wfn.orbital_types,
-            self.config.wfn.shell_moments,
-            self.config.wfn.slater_orders,
-            self.config.wfn.primitives,
-            self.config.wfn.coefficients,
-            self.config.wfn.exponents,
-            self.config.input.gautol,
-            self.config.wfn.mo_up,
-            self.config.wfn.mo_down,
-            self.config.mdet.permutation_up,
-            self.config.mdet.permutation_down,
-            self.config.mdet.coeff,
-            cusp,
-        )
+        slater = Slater(self.config, cusp)
 
         jastrow = None
         if self.config.jastrow:
             if self.config.input.use_jastrow:
-                jastrow = Jastrow(
-                    self.config.input.neu,
-                    self.config.input.ned,
-                    self.config.jastrow.trunc,
-                    self.config.jastrow.u_parameters,
-                    self.config.jastrow.u_parameters_optimizable,
-                    self.config.jastrow.u_cutoff,
-                    self.config.jastrow.chi_parameters,
-                    self.config.jastrow.chi_parameters_optimizable,
-                    self.config.jastrow.chi_cutoff,
-                    self.config.jastrow.chi_labels,
-                    self.config.jastrow.chi_cusp,
-                    self.config.jastrow.f_parameters,
-                    self.config.jastrow.f_parameters_optimizable,
-                    self.config.jastrow.f_cutoff,
-                    self.config.jastrow.f_labels,
-                    self.config.jastrow.no_dup_u_term,
-                    self.config.jastrow.no_dup_chi_term,
-                )
-            elif self.config.input.use_gjastrow:
-                pass
-                # gjastrow = Gjastrow(
-                #     self.config.input.neu,
-                #     self.config.input.ned,
-                #     self.config.jastrow.rank,
-                #     self.config.jastrow.cusp,
-                #     self.config.jastrow.ee_basis_type,
-                #     self.config.jastrow.en_basis_type,
-                #     self.config.jastrow.ee_cutoff_type,
-                #     self.config.jastrow.en_cutoff_type,
-                #     self.config.jastrow.ee_constants,
-                #     self.config.jastrow.en_constants,
-                #     self.config.jastrow.ee_basis_parameters,
-                #     self.config.jastrow.en_basis_parameters,
-                #     self.config.jastrow.ee_cutoff_parameters,
-                #     self.config.jastrow.en_cutoff_parameters,
-                #     self.config.jastrow.linear_parameters,
-                #     self.config.jastrow.linear_parameters_shape,
-                # )
+                jastrow = Jastrow(self.config)
+            # elif self.config.input.use_gjastrow:
+            #     gjastrow = Gjastrow(self.config)
 
         if self.config.backflow:
-            backflow = Backflow(
-                self.config.input.neu,
-                self.config.input.ned,
-                self.config.backflow.trunc,
-                self.config.backflow.eta_parameters,
-                self.config.backflow.eta_parameters_optimizable,
-                self.config.backflow.eta_cutoff,
-                self.config.backflow.mu_parameters,
-                self.config.backflow.mu_parameters_optimizable,
-                self.config.backflow.mu_cutoff,
-                self.config.backflow.mu_cusp,
-                self.config.backflow.mu_labels,
-                self.config.backflow.phi_parameters,
-                self.config.backflow.phi_parameters_optimizable,
-                self.config.backflow.theta_parameters,
-                self.config.backflow.theta_parameters_optimizable,
-                self.config.backflow.phi_cutoff,
-                self.config.backflow.phi_cusp,
-                self.config.backflow.phi_labels,
-                self.config.backflow.phi_irrotational,
-                self.config.backflow.ae_cutoff,
-                self.config.backflow.ae_cutoff_optimizable,
-            )
+            backflow = Backflow(self.config)
         else:
             backflow = None
 
-        self.wfn = Wfn(
-            self.config.input.neu,
-            self.config.input.ned,
-            self.config.wfn.atom_positions,
-            self.config.wfn.atom_charges,
-            slater,
-            jastrow,
-            backflow,
-            ppotential,
-        )
+        self.wfn = Wfn(self.config, slater, jastrow, backflow, ppotential)
 
         self.vmc_markovchain = VMCMarkovChain(
             self.initial_position(self.config.wfn.atom_positions, self.config.wfn.atom_charges),

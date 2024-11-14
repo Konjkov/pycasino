@@ -1786,7 +1786,8 @@ Jastrow_t = Jastrow_class_t(
 
 
 class Jastrow(structref.StructRefProxy, AbstractJastrow):
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, config):
+
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutoff,
         chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_labels, chi_cusp,
@@ -1831,7 +1832,25 @@ class Jastrow(structref.StructRefProxy, AbstractJastrow):
             self.fix_optimizable()
             return self
 
-        return init(*args, **kwargs)
+        return init(
+            config.input.neu,
+            config.input.ned,
+            config.jastrow.trunc,
+            config.jastrow.u_parameters,
+            config.jastrow.u_parameters_optimizable,
+            config.jastrow.u_cutoff,
+            config.jastrow.chi_parameters,
+            config.jastrow.chi_parameters_optimizable,
+            config.jastrow.chi_cutoff,
+            config.jastrow.chi_labels,
+            config.jastrow.chi_cusp,
+            config.jastrow.f_parameters,
+            config.jastrow.f_parameters_optimizable,
+            config.jastrow.f_cutoff,
+            config.jastrow.f_labels,
+            config.jastrow.no_dup_u_term,
+            config.jastrow.no_dup_chi_term,
+        )
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)

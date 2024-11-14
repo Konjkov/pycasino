@@ -857,28 +857,12 @@ def slater_hessian_parameters_d1(self, n_vectors: np.ndarray):
 
 
 class Slater(structref.StructRefProxy, AbstractSlater):
-    def __new__(cls, *args, **kwargs):
-        """Slater multideterminant wavefunction.
-        :param neu: number of up electrons
-        :param ned: number of down electrons
-        :param nbasis_functions:
-        :param first_shells:
-        :param orbital_types:
-        :param shell_moments:
-        :param slater_orders:
-        :param primitives:
-        :param coefficients:
-        :param exponents:
-        :param gautol:
-        :param mo_up:
-        :param mo_down:
-        :param coeff: determinant coefficients
-        """
-
+    def __new__(cls, config, cusp):
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(
             neu,
             ned,
+            gautol,
             nbasis_functions,
             first_shells,
             orbital_types,
@@ -887,7 +871,6 @@ class Slater(structref.StructRefProxy, AbstractSlater):
             primitives,
             coefficients,
             exponents,
-            gautol,
             mo_up,
             mo_down,
             permutation_up,
@@ -895,6 +878,22 @@ class Slater(structref.StructRefProxy, AbstractSlater):
             coeff,
             cusp,
         ):
+            """Slater multideterminant wavefunction.
+            :param neu: number of up electrons
+            :param ned: number of down electrons
+            :param gautol:
+            :param nbasis_functions:
+            :param first_shells:
+            :param orbital_types:
+            :param shell_moments:
+            :param slater_orders:
+            :param primitives:
+            :param coefficients:
+            :param exponents:
+            :param mo_up:
+            :param mo_down:
+            :param coeff: determinant coefficients
+            """
             self = structref.new(Slater_t)
             self.neu = neu
             self.ned = ned
@@ -915,12 +914,27 @@ class Slater(structref.StructRefProxy, AbstractSlater):
             self.cusp = cusp
             self.norm = np.exp(-(math.lgamma(neu + 1) + math.lgamma(ned + 1)) / (neu + ned) / 2)
             self.parameters_projector = np.zeros(shape=(0, 0))
-            # self.const_eye_2d = np.eye(neu + ned)
-            # self.const_eye_3d = np.zeros(shape=(neu + ned, neu + ned, neu + ned))
-            # np.fill_diagonal(self.const_eye_3d, 1)
             return self
 
-        return init(*args, **kwargs)
+        return init(
+            config.input.neu,
+            config.input.ned,
+            config.input.gautol,
+            config.wfn.nbasis_functions,
+            config.wfn.first_shells,
+            config.wfn.orbital_types,
+            config.wfn.shell_moments,
+            config.wfn.slater_orders,
+            config.wfn.primitives,
+            config.wfn.coefficients,
+            config.wfn.exponents,
+            config.wfn.mo_up,
+            config.wfn.mo_down,
+            config.mdet.permutation_up,
+            config.mdet.permutation_down,
+            config.mdet.coeff,
+            cusp,
+        )
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)

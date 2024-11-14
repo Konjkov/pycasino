@@ -2551,7 +2551,8 @@ def backflow_value_parameters_d2(self, e_vectors, n_vectors):
 
 
 class Backflow(structref.StructRefProxy, AbstractBackflow):
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, config):
+
         @nb.njit(nogil=True, parallel=False, cache=True)
         def backflow_init(
             neu,
@@ -2622,7 +2623,29 @@ class Backflow(structref.StructRefProxy, AbstractBackflow):
             self.fix_optimizable()
             return self
 
-        return backflow_init(*args, **kwargs)
+        return backflow_init(
+            config.input.neu,
+            config.input.ned,
+            config.backflow.trunc,
+            config.backflow.eta_parameters,
+            config.backflow.eta_parameters_optimizable,
+            config.backflow.eta_cutoff,
+            config.backflow.mu_parameters,
+            config.backflow.mu_parameters_optimizable,
+            config.backflow.mu_cutoff,
+            config.backflow.mu_cusp,
+            config.backflow.mu_labels,
+            config.backflow.phi_parameters,
+            config.backflow.phi_parameters_optimizable,
+            config.backflow.theta_parameters,
+            config.backflow.theta_parameters_optimizable,
+            config.backflow.phi_cutoff,
+            config.backflow.phi_cusp,
+            config.backflow.phi_labels,
+            config.backflow.phi_irrotational,
+            config.backflow.ae_cutoff,
+            config.backflow.ae_cutoff_optimizable,
+        )
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)

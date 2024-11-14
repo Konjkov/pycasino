@@ -560,40 +560,22 @@ def cusp_init(
 
 
 class CuspFactory:
-    def __init__(
-        self,
-        neu,
-        ned,
-        cusp_threshold,
-        mo_up,
-        mo_down,
-        permutation_up,
-        permutation_down,
-        first_shells,
-        shell_moments,
-        primitives,
-        coefficients,
-        exponents,
-        atom_positions,
-        atom_charges,
-        unrestricted,
-        is_pseudoatom,
-    ):
-        self.neu = neu
-        self.ned = ned
-        self.orbitals_up = np.max(permutation_up) + 1 if neu else 0
-        self.orbitals_down = np.max(permutation_down) + 1 if ned else 0
+    def __init__(self, config):
+        self.neu = config.input.neu
+        self.ned = config.input.ned
+        self.orbitals_up = np.max(config.mdet.permutation_up) + 1 if self.neu else 0
+        self.orbitals_down = np.max(config.mdet.permutation_down) + 1 if self.ned else 0
         self.norm = np.exp(-(math.lgamma(self.neu + 1) + math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
         self.casino_norm = np.exp(-(math.lgamma(self.neu + 1) + math.lgamma(self.neu + 1)) / (self.neu + self.neu) / 2)
-        self.mo = np.concatenate((mo_up[: self.orbitals_up], mo_down[: self.orbitals_down]))
-        self.first_shells = first_shells
-        self.shell_moments = shell_moments
-        self.primitives = primitives
-        self.coefficients = coefficients
-        self.exponents = exponents
-        self.atom_positions = atom_positions
-        self.atom_charges = atom_charges
-        self.cusp_threshold = cusp_threshold
+        self.mo = np.concatenate((config.wfn.mo_up[: self.orbitals_up], config.wfn.mo_down[: self.orbitals_down]))
+        self.first_shells = config.wfn.first_shells
+        self.shell_moments = config.wfn.shell_moments
+        self.primitives = config.wfn.primitives
+        self.coefficients = config.wfn.coefficients
+        self.exponents = config.wfn.exponents
+        self.atom_positions = config.wfn.atom_positions
+        self.atom_charges = config.wfn.atom_charges
+        self.cusp_threshold = config.input.cusp_threshold
         self.phi_0, _, _ = self.phi(np.zeros(shape=(self.atom_positions.shape[0], self.mo.shape[0])))
         self.orb_mask = np.abs(self.phi_0) > self.cusp_threshold
         self.beta = np.array([3.25819, -15.0126, 33.7308, -42.8705, 31.2276, -12.1316, 1.94692])
@@ -607,13 +589,13 @@ class CuspFactory:
         self.shift = np.zeros((self.atom_positions.shape[0], self.mo.shape[0]))
         # atoms, MO - contribution from Gaussians on other nuclei
         self.eta = self.eta_data()
-        self.unrestricted = unrestricted
+        self.unrestricted = config.wfn.unrestricted
         logger.info(
             ' Gaussian cusp correction\n'
             ' ========================\n'
             ' Activated.\n'
         )  # fmt: skip
-        self.is_pseudoatom = is_pseudoatom
+        self.is_pseudoatom = config.wfn.is_pseudoatom
 
     def phi(self, rc):
         """Wfn of single electron of s-orbitals on each atom"""
@@ -949,19 +931,19 @@ class CuspFactory:
 
 
 class TestCuspFactory:
-    def __init__(self, neu, ned, mo_up, mo_down, permutation_up, permutation_down, first_shells, shell_moments, primitives, coefficients, exponents):
-        self.neu = neu
-        self.ned = ned
-        self.orbitals_up = np.max(permutation_up) + 1
-        self.orbitals_down = np.max(permutation_down) + 1
+    def __init__(self, config):
+        self.neu = config.input.neu
+        self.ned = config.input.ned
+        self.orbitals_up = np.max(config.mdet.permutation_up) + 1
+        self.orbitals_down = np.max(config.mdet.permutation_down) + 1
         self.norm = np.exp(-(math.lgamma(self.neu + 1) + math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
         self.casino_norm = np.exp(-(math.lgamma(self.neu + 1) + math.lgamma(self.neu + 1)) / (self.neu + self.neu) / 2)
-        self.mo = np.concatenate((mo_up[: self.orbitals_up], mo_down[: self.orbitals_down]))
-        self.first_shells = first_shells
-        self.shell_moments = shell_moments
-        self.primitives = primitives
-        self.coefficients = coefficients
-        self.exponents = exponents
+        self.mo = np.concatenate((config.wfn.mo_up[: self.orbitals_up], config.wfn.mo_down[: self.orbitals_down]))
+        self.first_shells = config.wfn.first_shells
+        self.shell_moments = config.wfn.shell_moments
+        self.primitives = config.wfn.primitives
+        self.coefficients = config.wfn.coefficients
+        self.exponents = config.wfn.exponents
 
     def create(self):
         if self.neu == 1 and self.ned == 1:
@@ -1235,40 +1217,8 @@ if __name__ == '__main__':
 
         config = CasinoConfig(path)
         config.read()
-
-        cusp = CuspFactory(
-            config.input.neu,
-            config.input.ned,
-            config.input.cusp_threshold,
-            config.wfn.mo_up,
-            config.wfn.mo_down,
-            config.mdet.permutation_up,
-            config.mdet.permutation_down,
-            config.wfn.first_shells,
-            config.wfn.shell_moments,
-            config.wfn.primitives,
-            config.wfn.coefficients,
-            config.wfn.exponents,
-            config.wfn.atom_positions,
-            config.wfn.atom_charges,
-            config.wfn.unrestricted,
-            config.wfn.is_pseudoatom,
-        ).create(casino_rc=True, casino_phi_tilde_0=False)
-
-        cusp_test = TestCuspFactory(
-            config.input.neu,
-            config.input.ned,
-            config.wfn.mo_up,
-            config.wfn.mo_down,
-            config.mdet.permutation_up,
-            config.mdet.permutation_down,
-            config.wfn.first_shells,
-            config.wfn.shell_moments,
-            config.wfn.primitives,
-            config.wfn.coefficients,
-            config.wfn.exponents,
-        ).create()
-
+        cusp = CuspFactory(config).create(casino_rc=True, casino_phi_tilde_0=False)
+        cusp_test = TestCuspFactory(config).create()
         print(
             f'{mol}:',
             np.allclose(cusp.orbital_sign, cusp_test.orbital_sign),
