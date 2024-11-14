@@ -141,11 +141,10 @@ def jastrow_ee_powers(self, e_vectors: np.ndarray):
 
     def impl(self, e_vectors: np.ndarray) -> np.ndarray:
         res = np.ones(shape=(e_vectors.shape[0], e_vectors.shape[1], self.max_ee_order))
-        for i in range(1, self.neu + self.ned):
-            for j in range(i):
-                r_ee = np.linalg.norm(e_vectors[i, j])
-                for k in range(1, self.max_ee_order):
-                    res[i, j, k] = res[j, i, k] = r_ee**k
+        # res = np.linalg.norm(n_vectors, axis=2, keepdims=True) ** np.arange(self.max_ee_order)
+        r_ee = np.sqrt((e_vectors * e_vectors).sum(axis=2))
+        for k in range(1, self.max_ee_order):
+            res[:, :, k] = r_ee ** k
         return res
 
     return impl
@@ -161,11 +160,10 @@ def jastrow_en_powers(self, n_vectors: np.ndarray):
 
     def impl(self, n_vectors: np.ndarray) -> np.ndarray:
         res = np.ones(shape=(n_vectors.shape[0], n_vectors.shape[1], self.max_en_order))
-        for i in range(n_vectors.shape[0]):
-            for j in range(n_vectors.shape[1]):
-                r_eI = np.linalg.norm(n_vectors[i, j])
-                for k in range(1, self.max_en_order):
-                    res[i, j, k] = r_eI**k
+        # res = np.linalg.norm(n_vectors, axis=2, keepdims=True) ** np.arange(self.max_en_order)
+        r_eI = np.sqrt((n_vectors * n_vectors).sum(axis=2))
+        for k in range(1, self.max_en_order):
+            res[:, :, k] = r_eI ** k
         return res
 
     return impl
@@ -222,9 +220,7 @@ def jastrow_chi_term(self, n_powers: np.ndarray):
                     r_eI = n_powers[label, e1, 1]
                     if r_eI < L:
                         chi_set = int(e1 >= self.neu) % parameters.shape[0]
-                        poly = 0.0
-                        for k in range(parameters.shape[1]):
-                            poly += parameters[chi_set, k] * n_powers[label, e1, k]
+                        poly = parameters[chi_set] @ n_powers[label, e1]
                         res += poly * (r_eI - L) ** C
         return res
 
@@ -318,7 +314,7 @@ def jastrow_chi_term_gradient(self, n_powers, n_vectors):
         C = self.trunc
         res = np.zeros(shape=(self.neu + self.ned, 3))
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
-            k = np.arange(parameters.shape[1])
+            # k = np.arange(parameters.shape[1])
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
                     r_eI = n_powers[label, e1, 1]
@@ -418,9 +414,9 @@ def jastrow_u_term_laplacian(self, e_powers):
                         poly_diff += k * p
                         poly_diff_2 += k * (k-1) * p
                     res += (r_ee - L) ** C * (
-                            C * (C - 1) * r_ee ** 2 / (r_ee - L) ** 2 * poly +
-                            2 * C * r_ee / (r_ee - L) * (poly + poly_diff) +
-                            poly_diff_2 + 2 * poly_diff
+                        C * (C - 1) * r_ee ** 2 / (r_ee - L) ** 2 * poly +
+                        2 * C * r_ee / (r_ee - L) * (poly + poly_diff) +
+                        poly_diff_2 + 2 * poly_diff
                     ) / r_ee ** 2
         return 2 * res
 
@@ -453,9 +449,9 @@ def jastrow_chi_term_laplacian(self, n_powers):
                             poly_diff += k * p
                             poly_diff_2 += k * (k - 1) * p
                         res += (r_eI - L) ** C * (
-                                C * (C - 1) * r_eI ** 2 / (r_eI - L) ** 2 * poly +
-                                2 * C * r_eI / (r_eI - L) * (poly + poly_diff) +
-                                poly_diff_2 + 2 * poly_diff
+                            C * (C - 1) * r_eI ** 2 / (r_eI - L) ** 2 * poly +
+                            2 * C * r_eI / (r_eI - L) * (poly + poly_diff) +
+                            poly_diff_2 + 2 * poly_diff
                         ) / r_eI ** 2
         return res
 
@@ -517,10 +513,6 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                         poly_diff_ee_2 += n * (n-1) * p
                                         poly_diff_e1I_ee += l * n * p
                                         poly_diff_e2I_ee += m * n * p
-                            # poly = polyval3d(r_ee, r_e2I, r_e1I, parameters[f_set])
-                            # poly_diff_e1I = polyval3d(r_ee, r_e2I, r_e1I, k_e1I * parameters[f_set])
-                            # poly_diff_e2I = polyval3d(r_ee, r_e2I, r_e1I, k_e2I * parameters[f_set])
-                            # poly_diff_ee = polyval3d(r_ee, r_e2I, r_e1I, k_ee * parameters[f_set]
                             diff_1 = (
                                 (cutoff_diff_e1I * poly + poly_diff_e1I) / r_e1I**2 +
                                 (cutoff_diff_e2I * poly + poly_diff_e2I) / r_e2I**2 +

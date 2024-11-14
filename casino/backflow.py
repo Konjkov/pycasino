@@ -504,8 +504,6 @@ def backflow_phi_term(self, e_powers, n_powers, e_vectors, n_vectors):
                             phi_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % phi_parameters.shape[0]
                             phi_poly = theta_poly = 0.0
                             # r_ee = e_powers[e1, e2, m]
-                            # phi_poly = polyval3d(r_ee, r_e1I, r_e2I, phi_parameters[phi_set])
-                            # theta_poly = polyval3d(r_ee, r_e1I, r_e2I, theta_parameters[phi_set])
                             for m in range(phi_parameters.shape[1]):
                                 for l in range(phi_parameters.shape[2]):
                                     for k in range(phi_parameters.shape[3]):
