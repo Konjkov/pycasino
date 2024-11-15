@@ -215,12 +215,13 @@ def jastrow_chi_term(self, n_powers: np.ndarray):
         res = 0.0
         C = self.trunc
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
+            k_max = parameters.shape[1]
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
                     r_eI = n_powers[label, e1, 1]
                     if r_eI < L:
                         chi_set = int(e1 >= self.neu) % parameters.shape[0]
-                        poly = parameters[chi_set] @ n_powers[label, e1]
+                        poly = parameters[chi_set] @ n_powers[label, e1, :k_max]
                         res += poly * (r_eI - L) ** C
         return res
 

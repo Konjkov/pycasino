@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import importlib.metadata
 import logging
 import os
 import sys
@@ -16,8 +17,7 @@ from scipy.optimize import OptimizeWarning, curve_fit, least_squares, minimize
 from .backflow import Backflow
 from .cusp import CuspFactory
 from .dmc import DMCMarkovChain
-
-# from .gjastrow import Gjastrow
+from .gjastrow import Gjastrow
 from .jastrow import Jastrow
 from .ppotential import PPotential
 from .readers import CasinoConfig
@@ -26,9 +26,8 @@ from .slater import Slater
 from .vmc import VMCMarkovChain, vmc_observable
 from .wfn import Wfn
 
-__version__ = '0.3.0'
+__version__ = importlib.metadata.version('casino')
 __author__ = 'Vladimir Konkov'
-__credits__ = 'Research Institute for Pythonic Quantum Chemistry'
 
 
 # created with art python package
@@ -158,8 +157,8 @@ class Casino:
         if self.config.jastrow:
             if self.config.input.use_jastrow:
                 jastrow = Jastrow(self.config)
-            # elif self.config.input.use_gjastrow:
-            #     gjastrow = Gjastrow(self.config)
+            elif self.config.input.use_gjastrow:
+                jastrow = Gjastrow(self.config)
 
         if self.config.backflow:
             backflow = Backflow(self.config)
