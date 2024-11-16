@@ -16,8 +16,8 @@ HartreeFock_t = HartreeFock_class_t(
     [
         ('neu', nb.int64),
         ('ned', nb.int64),
-        ('atom_charges', nb.float64[:]),
-        ('atom_positions', nb.float64[:, :]),
+        ('atom_charges', nb.float64[::1]),
+        ('atom_positions', nb.float64[:, ::1]),
         ('nbasis_functions', nb.int64),
         ('first_shells', nb.int64[::1]),
         ('orbital_types', nb.int64[::1]),
@@ -31,6 +31,64 @@ HartreeFock_t = HartreeFock_class_t(
         ('norm', nb.float64),
     ]
 )
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(HartreeFock_class_t, 'fact2')
+def HartreeFock_fact2(self, n):
+    """n!!."""
+
+    def impl(self, n) -> float:
+        res = 1
+        for i in range(n, 0, -2):
+            res *= i
+        return res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(HartreeFock_class_t, 'binomial_coefficient')
+def HartreeFock_binomial_coefficient(self, n, k):
+    """Binomial coefficient."""
+
+    def impl(self, n, k) -> float:
+        return math.gamma(n + 1) / math.gamma(k + 1) / math.gamma(n - k + 1)
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(HartreeFock_class_t, 'binomial_prefactor')
+def HartreeFock_binomial_prefactor(self, k, l1, l2, PA, PB):
+    """The integral prefactor containing the binomial coefficients from Augspurger and Dykstra."""
+
+    def impl(self, k, l1, l2, PA, PB) -> float:
+        res = 0
+        for q in range(-min(k, 2 * l1 - k), min(k, 2 * l2 - k) + 1, 2):
+            res += (
+                self.binomial_coefficient(l1, (k + q) // 2)
+                * self.binomial_coefficient(l2, (k - q) // 2)
+                * PA ** (l1 - (k + q) // 2)
+                * PB ** (l2 - (k - q) // 2)
+            )
+        return res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(HartreeFock_class_t, 'S_angular')
+def HartreeFock_S_angular(self, l1, l2, PA, PB, gamma):
+    """Angular part of overlap integral."""
+
+    def impl(self, l1, l2, PA, PB, gamma) -> float:
+        res = 0
+        for i in range((l1 + l2) // 2 + 1):
+            res += self.binomial_prefactor(2 * i, l1, l2, PA, PB) * self.fact2(2 * i - 1) / (2 * gamma) ** i
+        return res
+
+    return impl
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -52,37 +110,41 @@ def HartreeFock_S(self):
 
     def impl(self) -> np.ndarray:
         s_matrix = np.zeros(shape=(self.nbasis_functions, self.nbasis_functions))
-        p_i = ao_i = 0
-        for atom_i in range(self.atom_charges.size):
-            A = self.atom_positions[atom_i]
-            for nshell_i in range(self.first_shells[atom_i] - 1, self.first_shells[atom_i + 1] - 1):
-                l_i = self.shell_moments[nshell_i]
-                p_j = ao_j = 0
-                for atom_j in range(self.atom_charges.size):
-                    B = self.atom_positions[atom_j]
+        p1 = ao1 = 0
+        for atom1 in range(self.atom_charges.size):
+            A = self.atom_positions[atom1]
+            for nshell1 in range(self.first_shells[atom1] - 1, self.first_shells[atom1 + 1] - 1):
+                l1 = self.shell_moments[nshell1]
+                p2 = ao2 = 0
+                for atom2 in range(self.atom_charges.size):
+                    B = self.atom_positions[atom2]
                     AB = np.linalg.norm(A - B)
-                    for nshell_j in range(self.first_shells[atom_j] - 1, self.first_shells[atom_j + 1] - 1):
-                        l_j = self.shell_moments[nshell_j]
-                        S = 0
-                        for primitive_i in range(self.primitives[nshell_i]):
-                            alpha_i = self.exponents[p_i + primitive_i]
-                            coeff_i = self.coefficients[p_i + primitive_i]
-                            for primitive_j in range(self.primitives[nshell_j]):
-                                alpha_j = self.exponents[p_j + primitive_j]
-                                coeff_j = self.coefficients[p_j + primitive_j]
-                                # P = (alpha_i * A + alpha_j * B) / (alpha_i + alpha_j)
-                                # PA = P - A
-                                # PB = P - B
-                                S += coeff_i * coeff_j * np.exp(-alpha_i * alpha_j * AB / (alpha_i + alpha_j)) * (np.pi / (alpha_i + alpha_j)) ** 1.5
-                        if l_i == l_j == 0:
-                            s_matrix[ao_i, ao_j] = S
-                        # for m_i in range(2 * l_i + 1):
-                        #     for m_j in range(2 * l_j + 1):
-                        #         s_matrix[ao_i + m_i, ao_j + m_j] = S
-                        ao_j += 2 * l_j + 1
-                        p_j += self.primitives[nshell_j]
-                ao_i += 2 * l_i + 1
-                p_i += self.primitives[nshell_i]
+                    for nshell2 in range(self.first_shells[atom2] - 1, self.first_shells[atom2 + 1] - 1):
+                        l2 = self.shell_moments[nshell2]
+                        for primitive1 in range(self.primitives[nshell1]):
+                            alpha1 = self.exponents[p1 + primitive1]
+                            coeff1 = self.coefficients[p1 + primitive1]
+                            for primitive2 in range(self.primitives[nshell2]):
+                                alpha2 = self.exponents[p2 + primitive2]
+                                coeff2 = self.coefficients[p2 + primitive2]
+                                gamma = alpha1 + alpha2
+                                P = (alpha1 * A + alpha2 * B) / gamma
+                                PA = P - A
+                                PB = P - B
+                                S_radial = coeff1 * coeff2 * np.exp(-alpha1 * alpha2 * AB / (alpha1 + alpha2)) * (np.pi / gamma) ** 1.5
+                                for m1 in range(2 * l1 + 1):
+                                    for m2 in range(2 * l2 + 1):
+                                        if l1 + l2 <= 1:
+                                            s_matrix[ao1 + m1, ao2 + m2] += (
+                                                S_radial
+                                                * self.S_angular(l1, l2, PA[0], PB[0], gamma)
+                                                * self.S_angular(l1, l2, PA[1], PB[1], gamma)
+                                                * self.S_angular(l1, l2, PA[2], PB[2], gamma)
+                                            )
+                        ao2 += 2 * l2 + 1
+                        p2 += self.primitives[nshell2]
+                ao1 += 2 * l1 + 1
+                p1 += self.primitives[nshell1]
         return s_matrix
 
     return impl
