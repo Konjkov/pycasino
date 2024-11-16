@@ -65,7 +65,7 @@ def HartreeFock_binomial_prefactor(self, k, l1, l2, PA, PB):
 
     def impl(self, k, l1, l2, PA, PB) -> float:
         res = 0
-        for q in range(-min(k, 2 * l1 - k), min(k, 2 * l2 - k) + 1, 2):
+        for q in range(-min(k, 2 * l2 - k), min(k, 2 * l1 - k) + 1, 2):
             res += (
                 self.binomial_coefficient(l1, (k + q) // 2)
                 * self.binomial_coefficient(l2, (k - q) // 2)
@@ -78,14 +78,118 @@ def HartreeFock_binomial_prefactor(self, k, l1, l2, PA, PB):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(HartreeFock_class_t, 'S_cartesian')
+def HartreeFock_S_cartesian(self, cart1, cart2, PA, PB, gamma):
+    """Cartesian part of overlap integral."""
+
+    def impl(self, cart1, cart2, PA, PB, gamma) -> float:
+        res = np.zeros(shape=(3,))
+        for i in range(0, cart1[0] + cart2[0] + 1, 2):
+            res[0] += self.binomial_prefactor(i, cart1[0], cart2[0], PA[0], PB[0]) * self.fact2(i - 1) / (2 * gamma) ** (i / 2)
+        for i in range(0, cart1[1] + cart2[1] + 1, 2):
+            res[1] += self.binomial_prefactor(i, cart1[1], cart2[1], PA[1], PB[1]) * self.fact2(i - 1) / (2 * gamma) ** (i / 2)
+        for i in range(0, cart1[2] + cart2[2] + 1, 2):
+            res[2] += self.binomial_prefactor(i, cart1[2], cart2[2], PA[2], PB[2]) * self.fact2(i - 1) / (2 * gamma) ** (i / 2)
+        return np.prod(res)
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(HartreeFock_class_t, 'harmonics')
+def HartreeFock_harmonics(self, l, m):
+    """Angular harmonics."""
+
+    def impl(self, l, m) -> list:
+        if l == 0:
+            return [(1.0, (0.0, 0.0, 0.0))]
+        elif l == 1:
+            if m == 0:
+                return [(1.0, (1.0, 0.0, 0.0))]
+            elif m == 1:
+                return [(1.0, (0.0, 1.0, 0.0))]
+            elif m == 2:
+                return [(1.0, (0.0, 0.0, 1.0))]
+        elif l == 2:
+            if m == 0:
+                # (3.0 * z2 - r2) / 2.0
+                return [(-0.5, (2.0, 0.0, 0.0)), (-0.5, (0.0, 2.0, 0.0)), (1.0, (0.0, 0.0, 2.0))]
+            elif m == 1:
+                # 3.0 * x*z
+                return [(3.0, (1.0, 0.0, 1.0))]
+            elif m == 2:
+                # 3.0 * y*z
+                return [(3.0, (0.0, 1.0, 1.0))]
+            elif m == 3:
+                # 3.0 * (x2 - y2)
+                return [(3.0, (2.0, 0.0, 0.0)), (-3.0, (0.0, 2.0, 0.0))]
+            elif m == 4:
+                # 6.0 * x*y
+                return [(6.0, (1.0, 1.0, 0.0))]
+        elif l == 3:
+            if m == 0:
+                # z * (5.0 * z2 - 3.0 * r2) / 2.0
+                return [(-1.5, (2.0, 0.0, 1.0)), (-1.5, (0.0, 2.0, 1.0)), (1.0, (0.0, 0.0, 3.0))]
+            elif m == 1:
+                # 1.5 * x * (5.0 * z2 - r2)
+                return [(-1.5, (3.0, 0.0, 0.0)), (-1.5, (1.0, 2.0, 0.0)), (6.0, (1.0, 0.0, 2.0))]
+            elif m == 2:
+                # 1.5 * y * (5.0 * z2 - r2)
+                return [(-1.5, (2.0, 1.0, 0.0)), (-1.5, (0.0, 3.0, 0.0)), (6.0, (0.0, 1.0, 2.0))]
+            elif m == 3:
+                # 15.0 * z * (x2 - y2)
+                return [(15.0, (2.0, 0.0, 1.0)), (-15.0, (0.0, 2.0, 1.0))]
+            elif m == 4:
+                # 30.0 * x * y * z
+                return [(30.0, (1.0, 1.0, 1.0))]
+            elif m == 5:
+                # 15.0 * x * (x2 - 3.0 * y2)
+                return [(15.0, (3.0, 0.0, 0.0)), (-45.0, (1.0, 2.0, 0.0))]
+            elif m == 6:
+                # 15.0 * y * (3.0 * x2 - y2)
+                return [(15.0, (2.0, 1.0, 0.0)), (-45.0, (0.0, 3.0, 0.0))]
+        elif l == 4:
+            if m == 0:
+                # (35.0 * z**4 - 30.0 * z2 * r2 + 3.0 * r2**2) / 8.0
+                return [(1.0, (0.0, 0.0, 0.0))]
+            elif m == 1:
+                # 2.5 * x*z * (7.0 * z2 - 3.0 * r2)
+                return [(1.0, (0.0, 0.0, 0.0))]
+            elif m == 2:
+                # 2.5 * y*z * (7.0 * z2 - 3.0 * r2)
+                return [(1.0, (0.0, 0.0, 0.0))]
+            elif m == 3:
+                # 7.5 * (x2 - y2) * (7.0 * z2 - r2)
+                return [(1.0, (0.0, 0.0, 0.0))]
+            elif m == 4:
+                # 15.0 * x*y * (7.0 * z2 - r2)
+                return [(1.0, (0.0, 0.0, 0.0))]
+            elif m == 5:
+                # 105.0 * x*z * (x2 - 3.0 * y2)
+                return [(1.0, (0.0, 0.0, 0.0))]
+            elif m == 6:
+                # 105.0 * y*z * (3.0 * x2 - y2)
+                return [(1.0, (0.0, 0.0, 0.0))]
+            elif m == 7:
+                # 105.0 * (x2**2 - 6.0 * x2 * y2 + y2**2)
+                return [(1.0, (0.0, 0.0, 0.0))]
+            elif m == 8:
+                # 420.0 * x*y * (x2 - y2)
+                return [(420.0, (3.0, 1.0, 0.0)), (-420.0, (1.0, 3.0, 0.0))]
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(HartreeFock_class_t, 'S_angular')
-def HartreeFock_S_angular(self, l1, l2, PA, PB, gamma):
+def HartreeFock_S_angular(self, l1, l2, m1, m2, PA, PB, gamma):
     """Angular part of overlap integral."""
 
-    def impl(self, l1, l2, PA, PB, gamma) -> float:
+    def impl(self, l1, l2, m1, m2, PA, PB, gamma) -> float:
         res = 0
-        for i in range((l1 + l2) // 2 + 1):
-            res += self.binomial_prefactor(2 * i, l1, l2, PA, PB) * self.fact2(2 * i - 1) / (2 * gamma) ** i
+        for c1, cart1 in self.harmonics(l1, m1):
+            for c2, cart2 in self.harmonics(l2, m2):
+                res += c1 * c2 * self.S_cartesian(cart1, cart2, PA, PB, gamma)
         return res
 
     return impl
@@ -134,13 +238,7 @@ def HartreeFock_S(self):
                                 S_radial = coeff1 * coeff2 * np.exp(-alpha1 * alpha2 * AB / (alpha1 + alpha2)) * (np.pi / gamma) ** 1.5
                                 for m1 in range(2 * l1 + 1):
                                     for m2 in range(2 * l2 + 1):
-                                        if l1 + l2 <= 1:
-                                            s_matrix[ao1 + m1, ao2 + m2] += (
-                                                S_radial
-                                                * self.S_angular(l1, l2, PA[0], PB[0], gamma)
-                                                * self.S_angular(l1, l2, PA[1], PB[1], gamma)
-                                                * self.S_angular(l1, l2, PA[2], PB[2], gamma)
-                                            )
+                                        s_matrix[ao1 + m1, ao2 + m2] += S_radial * self.S_angular(l1, l2, m1, m2, PA, PB, gamma)
                         ao2 += 2 * l2 + 1
                         p2 += self.primitives[nshell2]
                 ao1 += 2 * l1 + 1
