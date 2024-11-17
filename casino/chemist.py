@@ -2,6 +2,8 @@ import argparse
 import os
 import sys
 
+import numpy as np
+
 from .hartreefock import HartreeFock
 from .readers import CasinoConfig
 
@@ -16,7 +18,7 @@ class Chemist:
         self.hf = HartreeFock(self.config)
 
     def run(self):
-        print(self.hf.S())
+        print(np.diag(self.hf.S()))
 
 
 def main():
