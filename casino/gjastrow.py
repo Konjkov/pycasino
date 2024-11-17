@@ -39,7 +39,7 @@ Gjastrow_t = Gjastrow_class_t(
 
 
 class Gjastrow(structref.StructRefProxy, AbstractJastrow):
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, config):
         def init(
             neu,
             ned,
@@ -77,7 +77,24 @@ class Gjastrow(structref.StructRefProxy, AbstractJastrow):
             self.linear_parameters_shape = linear_parameters_shape
             return self
 
-        return init(*args, **kwargs)
+        return init(
+            config.input.neu,
+            config.input.ned,
+            config.jastrow.rank,
+            config.jastrow.cusp,
+            config.jastrow.ee_basis_type,
+            config.jastrow.en_basis_type,
+            config.jastrow.ee_cutoff_type,
+            config.jastrow.en_cutoff_type,
+            config.jastrow.ee_constants,
+            config.jastrow.en_constants,
+            config.jastrow.ee_basis_parameters,
+            config.jastrow.en_basis_parameters,
+            config.jastrow.ee_cutoff_parameters,
+            config.jastrow.en_cutoff_parameters,
+            config.jastrow.linear_parameters,
+            config.jastrow.linear_parameters_shape,
+        )
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def ee_powers(self, e_vectors: np.ndarray):

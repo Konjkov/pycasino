@@ -19,6 +19,7 @@ class Mdet:
 
     def __init__(self, neu, ned):
         n_dets = 1
+        self.title = 'no title given'
         self.neu = neu
         self.ned = ned
         self.coeff = np.ones(n_dets)
@@ -67,14 +68,14 @@ class Mdet:
                 # normalisation
                 self.coeff /= np.linalg.norm(self.coeff)
 
-    def write(self, title='no title given'):
+    def write(self):
         mdet = ''
         if self.coeff.size > 1:
             det_weights_list = []
             for coeff in self.coeff:
                 det_weights_list.append(f'{coeff: .16e}            1       0')
             mdet = mdet_template.format(
-                title=title,
+                title=self.title,
                 n_dets=self.coeff.size,
                 det_weights='\n  '.join(det_weights_list),
                 promote='\n  '.join(self.promote_lines),

@@ -1,12 +1,12 @@
-import os
 import logging
+import os
 
-from .input import Input
-from .wfn import Gwfn, Stowfn
-from .jastrow import Jastrow
-from .gjastrow import Gjastrow
-from .mdet import Mdet
 from .backflow import Backflow
+from .gjastrow import Gjastrow
+from .input import Input
+from .jastrow import Jastrow
+from .mdet import Mdet
+from .wfn import Gwfn, Stowfn
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ class CasinoConfig:
     """Casino inputs reader."""
 
     def __init__(self, base_path):
+        self.title = 'no title given'
         self.input = Input()
         self.base_path = base_path
         self.input.read(self.base_path)
@@ -58,7 +59,7 @@ class CasinoConfig:
         logger.info(self.input.log())
 
     def write(self, base_path, version):
-        correlation_data = correlation_data_template.format(title='no title given')
+        correlation_data = correlation_data_template.format(title=self.title)
 
         # if self.wfn:
         #     self.wfn.write()

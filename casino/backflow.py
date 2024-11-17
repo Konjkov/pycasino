@@ -2,7 +2,6 @@ import numba as nb
 import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
-from numpy.polynomial.polynomial import polyval
 
 from casino import delta
 from casino.abstract import AbstractBackflow
@@ -432,6 +431,7 @@ def backflow_eta_term(self, e_powers, e_vectors):
 
         C = self.trunc
         parameters = self.eta_parameters
+        k_max = parameters.shape[1]
         for e1 in range(1, self.neu + self.ned):
             for e2 in range(e1):
                 r_vec = e_vectors[e1, e2]
@@ -439,7 +439,8 @@ def backflow_eta_term(self, e_powers, e_vectors):
                 eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
                 L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
                 if r < L:
-                    bf = (1 - r / L) ** C * r_vec * polyval(r, parameters[eta_set])
+                    poly = parameters[eta_set] @ e_powers[e1, e2, :k_max]
+                    bf = (1 - r / L) ** C * poly * r_vec
                     res[ae_cutoff_condition, e1] += bf
                     res[ae_cutoff_condition, e2] -= bf
         return res.reshape(2, (self.neu + self.ned) * 3)
@@ -460,6 +461,7 @@ def backflow_mu_term(self, n_powers, n_vectors):
         C = self.trunc
         res = np.zeros(shape=(2, self.neu + self.ned, 3))
         for parameters, L, mu_labels in zip(self.mu_parameters, self.mu_cutoff, self.mu_labels):
+            k_max = parameters.shape[1]
             for label in mu_labels:
                 for e1 in range(self.neu + self.ned):
                     r_vec = n_vectors[label, e1]
@@ -470,7 +472,8 @@ def backflow_mu_term(self, n_powers, n_vectors):
                         # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
-                        res[ae_cutoff_condition, e1] += (1 - r / L) ** C * r_vec * polyval(r, parameters[mu_set])
+                        poly = parameters[mu_set] @ n_powers[label, e1, :k_max]
+                        res[ae_cutoff_condition, e1] += (1 - r / L) ** C * poly * r_vec
         return res.reshape(2, (self.neu + self.ned) * 3)
 
     return impl
@@ -2550,7 +2553,8 @@ def backflow_value_parameters_d2(self, e_vectors, n_vectors):
 
 
 class Backflow(structref.StructRefProxy, AbstractBackflow):
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, config):
+
         @nb.njit(nogil=True, parallel=False, cache=True)
         def backflow_init(
             neu,
@@ -2621,7 +2625,29 @@ class Backflow(structref.StructRefProxy, AbstractBackflow):
             self.fix_optimizable()
             return self
 
-        return backflow_init(*args, **kwargs)
+        return backflow_init(
+            config.input.neu,
+            config.input.ned,
+            config.backflow.trunc,
+            config.backflow.eta_parameters,
+            config.backflow.eta_parameters_optimizable,
+            config.backflow.eta_cutoff,
+            config.backflow.mu_parameters,
+            config.backflow.mu_parameters_optimizable,
+            config.backflow.mu_cutoff,
+            config.backflow.mu_cusp,
+            config.backflow.mu_labels,
+            config.backflow.phi_parameters,
+            config.backflow.phi_parameters_optimizable,
+            config.backflow.theta_parameters,
+            config.backflow.theta_parameters_optimizable,
+            config.backflow.phi_cutoff,
+            config.backflow.phi_cusp,
+            config.backflow.phi_labels,
+            config.backflow.phi_irrotational,
+            config.backflow.ae_cutoff,
+            config.backflow.ae_cutoff_optimizable,
+        )
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
