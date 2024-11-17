@@ -78,19 +78,19 @@ def HartreeFock_binomial_prefactor(self, k, l1, l2, PA, PB):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(HartreeFock_class_t, 'S_cartesian')
-def HartreeFock_S_cartesian(self, cart1, cart2, PA, PB, gamma):
+@overload_method(HartreeFock_class_t, 'overlap')
+def HartreeFock_overlap(self, lmn1, lmn2, PA, PB, gamma):
     """Cartesian part of overlap integral."""
 
-    def impl(self, cart1, cart2, PA, PB, gamma) -> float:
-        res = np.zeros(shape=(3,))
-        for i in range(0, cart1[0] + cart2[0] + 1, 2):
-            res[0] += self.binomial_prefactor(i, cart1[0], cart2[0], PA[0], PB[0]) * self.fact2(i - 1) / (2 * gamma) ** (i / 2)
-        for i in range(0, cart1[1] + cart2[1] + 1, 2):
-            res[1] += self.binomial_prefactor(i, cart1[1], cart2[1], PA[1], PB[1]) * self.fact2(i - 1) / (2 * gamma) ** (i / 2)
-        for i in range(0, cart1[2] + cart2[2] + 1, 2):
-            res[2] += self.binomial_prefactor(i, cart1[2], cart2[2], PA[2], PB[2]) * self.fact2(i - 1) / (2 * gamma) ** (i / 2)
-        return np.prod(res)
+    def impl(self, lmn1, lmn2, PA, PB, gamma) -> float:
+        overlap = np.zeros(shape=(3,))
+        for i in range(0, lmn1[0] + lmn2[0] + 1, 2):
+            overlap[0] += self.binomial_prefactor(i, lmn1[0], lmn2[0], PA[0], PB[0]) * self.fact2(i - 1) / (2 * gamma) ** (i / 2)
+        for i in range(0, lmn1[1] + lmn2[1] + 1, 2):
+            overlap[1] += self.binomial_prefactor(i, lmn1[1], lmn2[1], PA[1], PB[1]) * self.fact2(i - 1) / (2 * gamma) ** (i / 2)
+        for i in range(0, lmn1[2] + lmn2[2] + 1, 2):
+            overlap[2] += self.binomial_prefactor(i, lmn1[2], lmn2[2], PA[2], PB[2]) * self.fact2(i - 1) / (2 * gamma) ** (i / 2)
+        return overlap
 
     return impl
 
@@ -199,9 +199,48 @@ def HartreeFock_S_angular(self, l1, l2, m1, m2, PA, PB, gamma):
 
     def impl(self, l1, l2, m1, m2, PA, PB, gamma) -> float:
         res = 0
-        for c1, cart1 in self.harmonics(l1, m1):
-            for c2, cart2 in self.harmonics(l2, m2):
-                res += c1 * c2 * self.S_cartesian(cart1, cart2, PA, PB, gamma)
+        for c1, lmn1 in self.harmonics(l1, m1):
+            for c2, lmn2 in self.harmonics(l2, m2):
+                res += c1 * c2 * np.prod(self.overlap(lmn1, lmn2, PA, PB, gamma))
+        return res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(HartreeFock_class_t, 'T_angular')
+def HartreeFock_T_angular(self, l1, l2, m1, m2, PA, PB, alpha1, gamma):
+    """Angular part of electron kinetic energy."""
+
+    def impl(self, l1, l2, m1, m2, PA, PB, alpha1, gamma) -> float:
+        """Cartesian part of electron kinetic energy."""
+        res = 0
+        for c1, lmn1 in self.harmonics(l1, m1):
+            lmn1_plus = [x + 2 for x in lmn1]
+            lmn1_minus = [x - 2 for x in lmn1]
+            for c2, lmn2 in self.harmonics(l2, m2):
+                overlap_plus = self.overlap(lmn1_plus, lmn2, PA, PB, gamma)
+                overlap = self.overlap(lmn1, lmn2, PA, PB, gamma)
+                overlap_minus = self.overlap(lmn1_minus, lmn2, PA, PB, gamma)
+                res += (
+                    c1
+                    * c2
+                    * (
+                        4
+                        * alpha1**2
+                        * (
+                            overlap_plus[0] * overlap[1] * overlap[2]
+                            + overlap[0] * overlap_plus[1] * overlap[2]
+                            + overlap[0] * overlap[1] * overlap_plus[2]
+                        )
+                        - 2 * alpha1 * (2 * sum(lmn1) + 3) * overlap[0] * overlap[1] * overlap[2]
+                        + (
+                            lmn1[0] * (lmn1[0] - 1) * overlap_minus[0] * overlap[1] * overlap[2]
+                            + lmn1[1] * (lmn1[1] - 1) * overlap[0] * overlap_minus[1] * overlap[2]
+                            + lmn1[2] * (lmn1[2] - 1) * overlap[0] * overlap[1] * overlap_minus[2]
+                        )
+                    )
+                )
         return res
 
     return impl
@@ -266,8 +305,37 @@ def HartreeFock_T(self):
     """Electrons kinetic energy."""
 
     def impl(self) -> np.ndarray:
-        res = np.zeros(shape=(self.nbasis_functions, self.nbasis_functions))
-        return res
+        t_matrix = np.zeros(shape=(self.nbasis_functions, self.nbasis_functions))
+        p1 = ao1 = 0
+        for atom1 in range(self.atom_charges.size):
+            A = self.atom_positions[atom1]
+            for nshell1 in range(self.first_shells[atom1] - 1, self.first_shells[atom1 + 1] - 1):
+                l1 = self.shell_moments[nshell1]
+                p2 = ao2 = 0
+                for atom2 in range(self.atom_charges.size):
+                    B = self.atom_positions[atom2]
+                    AB = np.linalg.norm(A - B)
+                    for nshell2 in range(self.first_shells[atom2] - 1, self.first_shells[atom2 + 1] - 1):
+                        l2 = self.shell_moments[nshell2]
+                        for primitive1 in range(self.primitives[nshell1]):
+                            alpha1 = self.exponents[p1 + primitive1]
+                            coeff1 = self.coefficients[p1 + primitive1]
+                            for primitive2 in range(self.primitives[nshell2]):
+                                alpha2 = self.exponents[p2 + primitive2]
+                                coeff2 = self.coefficients[p2 + primitive2]
+                                gamma = alpha1 + alpha2
+                                P = (alpha1 * A + alpha2 * B) / gamma
+                                PA = P - A
+                                PB = P - B
+                                S_radial = coeff1 * coeff2 * np.exp(-alpha1 * alpha2 * AB / (alpha1 + alpha2)) * (np.pi / gamma) ** 1.5
+                                for m1 in range(2 * l1 + 1):
+                                    for m2 in range(2 * l2 + 1):
+                                        t_matrix[ao1 + m1, ao2 + m2] += S_radial * self.T_angular(l1, l2, m1, m2, PA, PB, alpha1, gamma)
+                        ao2 += 2 * l2 + 1
+                        p2 += self.primitives[nshell2]
+                ao1 += 2 * l1 + 1
+                p1 += self.primitives[nshell1]
+        return -t_matrix / 2
 
     return impl
 

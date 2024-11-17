@@ -19,6 +19,7 @@ class Chemist:
 
     def run(self):
         print(np.diag(self.hf.S()))
+        print(np.diag(self.hf.T()))
 
 
 def main():
