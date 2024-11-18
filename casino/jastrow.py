@@ -144,7 +144,7 @@ def jastrow_ee_powers(self, e_vectors: np.ndarray):
         # res = np.linalg.norm(n_vectors, axis=2, keepdims=True) ** np.arange(self.max_ee_order)
         r_ee = np.sqrt((e_vectors * e_vectors).sum(axis=2))
         for k in range(1, self.max_ee_order):
-            res[:, :, k] = r_ee ** k
+            res[:, :, k] = r_ee**k
         return res
 
     return impl
@@ -163,7 +163,7 @@ def jastrow_en_powers(self, n_vectors: np.ndarray):
         # res = np.linalg.norm(n_vectors, axis=2, keepdims=True) ** np.arange(self.max_en_order)
         r_eI = np.sqrt((n_vectors * n_vectors).sum(axis=2))
         for k in range(1, self.max_en_order):
-            res[:, :, k] = r_eI ** k
+            res[:, :, k] = r_eI**k
         return res
 
     return impl
@@ -284,7 +284,7 @@ def jastrow_u_term_gradient(self, e_powers, e_vectors):
             for e2 in range(e1):
                 r_ee = e_powers[e1, e2, 1]
                 if r_ee < L:
-                    r_vec = e_vectors[e1, e2] / r_ee ** 2
+                    r_vec = e_vectors[e1, e2] / r_ee**2
                     cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
                     u_set = cusp_set % parameters.shape[0]
                     poly = 0.0
@@ -293,7 +293,7 @@ def jastrow_u_term_gradient(self, e_powers, e_vectors):
                             p = parameters[u_set, k] * e_powers[e1, e2, k] * 2
                         else:
                             p = parameters[u_set, k] * e_powers[e1, e2, k]
-                        poly += (C * r_ee /(r_ee - L) + k) * p
+                        poly += (C * r_ee / (r_ee - L) + k) * p
                     gradient = r_vec * (r_ee - L) ** C * poly
                     res[e1, :] += gradient
                     res[e2, :] -= gradient
@@ -320,7 +320,7 @@ def jastrow_chi_term_gradient(self, n_powers, n_vectors):
                 for e1 in range(self.neu + self.ned):
                     r_eI = n_powers[label, e1, 1]
                     if r_eI < L:
-                        r_vec = n_vectors[label, e1] / r_eI ** 2
+                        r_vec = n_vectors[label, e1] / r_eI**2
                         chi_set = int(e1 >= self.neu) % parameters.shape[0]
                         poly = 0.0
                         for k in range(parameters.shape[1]):
@@ -373,8 +373,8 @@ def jastrow_f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
                                         poly_diff_ee += n * p
                             # workaround do not create temporary 1-d numpy array
                             for t1 in range(3):
-                                e1_gradient = r_e1I_vec[t1] * (C*r_e1I/(r_e1I - L) * poly + poly_diff_e1I)
-                                e2_gradient = r_e2I_vec[t1] * (C*r_e2I/(r_e2I - L) * poly + poly_diff_e2I)
+                                e1_gradient = r_e1I_vec[t1] * (C * r_e1I / (r_e1I - L) * poly + poly_diff_e1I)
+                                e2_gradient = r_e2I_vec[t1] * (C * r_e2I / (r_e2I - L) * poly + poly_diff_e2I)
                                 ee_gradient = r_ee_vec[t1] * poly_diff_ee
                                 res[e1, t1] += cutoff * (e1_gradient + ee_gradient)
                                 res[e2, t1] += cutoff * (e2_gradient - ee_gradient)
@@ -403,7 +403,7 @@ def jastrow_u_term_laplacian(self, e_powers):
             for e2 in range(e1):
                 r_ee = e_powers[e1, e2, 1]
                 if r_ee < L:
-                    cusp_set = (int(e1 >= self.neu) + int(e2 >= self.neu))
+                    cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
                     u_set = cusp_set % parameters.shape[0]
                     poly = poly_diff = poly_diff_2 = 0.0
                     for k in range(parameters.shape[1]):
@@ -413,12 +413,17 @@ def jastrow_u_term_laplacian(self, e_powers):
                             p = parameters[u_set, k] * e_powers[e1, e2, k]
                         poly += p
                         poly_diff += k * p
-                        poly_diff_2 += k * (k-1) * p
-                    res += (r_ee - L) ** C * (
-                        C * (C - 1) * r_ee ** 2 / (r_ee - L) ** 2 * poly +
-                        2 * C * r_ee / (r_ee - L) * (poly + poly_diff) +
-                        poly_diff_2 + 2 * poly_diff
-                    ) / r_ee ** 2
+                        poly_diff_2 += k * (k - 1) * p
+                    res += (
+                        (r_ee - L) ** C
+                        * (
+                            C * (C - 1) * r_ee**2 / (r_ee - L) ** 2 * poly
+                            + 2 * C * r_ee / (r_ee - L) * (poly + poly_diff)
+                            + poly_diff_2
+                            + 2 * poly_diff
+                        )
+                        / r_ee**2
+                    )
         return 2 * res
 
     return impl
@@ -449,11 +454,16 @@ def jastrow_chi_term_laplacian(self, n_powers):
                             poly += p
                             poly_diff += k * p
                             poly_diff_2 += k * (k - 1) * p
-                        res += (r_eI - L) ** C * (
-                            C * (C - 1) * r_eI ** 2 / (r_eI - L) ** 2 * poly +
-                            2 * C * r_eI / (r_eI - L) * (poly + poly_diff) +
-                            poly_diff_2 + 2 * poly_diff
-                        ) / r_eI ** 2
+                        res += (
+                            (r_eI - L) ** C
+                            * (
+                                C * (C - 1) * r_eI**2 / (r_eI - L) ** 2 * poly
+                                + 2 * C * r_eI / (r_eI - L) * (poly + poly_diff)
+                                + poly_diff_2
+                                + 2 * poly_diff
+                            )
+                            / r_eI**2
+                        )
         return res
 
     return impl
@@ -495,8 +505,8 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                             r_ee = e_powers[e1, e2, 1]
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
                             # FIXME: polyval3d not supported
-                            cutoff_diff_e1I = C*r_e1I/(r_e1I - L)
-                            cutoff_diff_e2I = C*r_e2I/(r_e2I - L)
+                            cutoff_diff_e1I = C * r_e1I / (r_e1I - L)
+                            cutoff_diff_e2I = C * r_e2I / (r_e2I - L)
                             poly = poly_diff_e1I = poly_diff_e2I = 0.0
                             poly_diff_ee = poly_diff_e1I_2 = poly_diff_e2I_2 = 0.0
                             poly_diff_ee_2 = poly_diff_e1I_ee = poly_diff_e2I_ee = 0.0
@@ -509,30 +519,32 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                         poly_diff_e1I += l * p
                                         poly_diff_e2I += m * p
                                         poly_diff_ee += n * p
-                                        poly_diff_e1I_2 += l * (l-1) * p
-                                        poly_diff_e2I_2 += m * (m-1) * p
-                                        poly_diff_ee_2 += n * (n-1) * p
+                                        poly_diff_e1I_2 += l * (l - 1) * p
+                                        poly_diff_e2I_2 += m * (m - 1) * p
+                                        poly_diff_ee_2 += n * (n - 1) * p
                                         poly_diff_e1I_ee += l * n * p
                                         poly_diff_e2I_ee += m * n * p
                             diff_1 = (
-                                (cutoff_diff_e1I * poly + poly_diff_e1I) / r_e1I**2 +
-                                (cutoff_diff_e2I * poly + poly_diff_e2I) / r_e2I**2 +
-                                2 * poly_diff_ee / r_ee**2
+                                (cutoff_diff_e1I * poly + poly_diff_e1I) / r_e1I**2
+                                + (cutoff_diff_e2I * poly + poly_diff_e2I) / r_e2I**2
+                                + 2 * poly_diff_ee / r_ee**2
                             )
                             diff_2 = (
-                                C*(C-1)/(r_e1I - L)**2 * poly +
-                                C*(C-1)/(r_e2I - L)**2 * poly +
-                                poly_diff_e1I_2 / r_e1I**2 + poly_diff_e2I_2 / r_e2I**2 + 2 * poly_diff_ee_2 / r_ee**2 +
-                                2 * cutoff_diff_e1I * poly_diff_e1I / r_e1I**2 +
-                                2 * cutoff_diff_e2I * poly_diff_e2I / r_e2I**2
+                                C * (C - 1) / (r_e1I - L) ** 2 * poly
+                                + C * (C - 1) / (r_e2I - L) ** 2 * poly
+                                + poly_diff_e1I_2 / r_e1I**2
+                                + poly_diff_e2I_2 / r_e2I**2
+                                + 2 * poly_diff_ee_2 / r_ee**2
+                                + 2 * cutoff_diff_e1I * poly_diff_e1I / r_e1I**2
+                                + 2 * cutoff_diff_e2I * poly_diff_e2I / r_e2I**2
                             )
                             # dot_product = (
                             #     (r_e1I_vec @ r_ee_vec) * (cutoff_diff_e1I * poly_diff_ee + poly_diff_e1I_ee) / r_e1I**2 -
                             #     (r_e2I_vec @ r_ee_vec) * (cutoff_diff_e2I * poly_diff_ee + poly_diff_e2I_ee) / r_e2I**2
                             # ) / r_ee**2
                             dot_product = (
-                                (1 - r_e1I_vec_dot_r_e2I_vec[e1, e2] / r_e1I**2) * (cutoff_diff_e1I * poly_diff_ee + poly_diff_e1I_ee) +
-                                (1 - r_e1I_vec_dot_r_e2I_vec[e1, e2] / r_e2I**2) * (cutoff_diff_e2I * poly_diff_ee + poly_diff_e2I_ee)
+                                (1 - r_e1I_vec_dot_r_e2I_vec[e1, e2] / r_e1I**2) * (cutoff_diff_e1I * poly_diff_ee + poly_diff_e1I_ee)
+                                + (1 - r_e1I_vec_dot_r_e2I_vec[e1, e2] / r_e2I**2) * (cutoff_diff_e2I * poly_diff_ee + poly_diff_e2I_ee)
                             ) / r_ee**2
                             res += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product)
         return res
@@ -554,11 +566,7 @@ def jastrow_value(self, e_vectors, n_vectors):
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        return (
-            self.u_term(e_powers) +
-            self.chi_term(n_powers) +
-            self.f_term(e_powers, n_powers)
-        )
+        return self.u_term(e_powers) + self.chi_term(n_powers) + self.f_term(e_powers, n_powers)
 
     return impl
 
@@ -577,9 +585,9 @@ def jastrow_gradient(self, e_vectors, n_vectors):
         n_powers = self.en_powers(n_vectors)
 
         return (
-            self.u_term_gradient(e_powers, e_vectors) +
-            self.chi_term_gradient(n_powers, n_vectors) +
-            self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
+            self.u_term_gradient(e_powers, e_vectors)
+            + self.chi_term_gradient(n_powers, n_vectors)
+            + self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
         )
 
     return impl
@@ -598,11 +606,7 @@ def jastrow_laplacian(self, e_vectors, n_vectors):
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        return (
-            self.u_term_laplacian(e_powers) +
-            self.chi_term_laplacian(n_powers) +
-            self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
-        )
+        return self.u_term_laplacian(e_powers) + self.chi_term_laplacian(n_powers) + self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
 
     return impl
 
@@ -615,7 +619,7 @@ def jastrow_set_u_parameters_for_emin(self):
     def impl(self):
         C = self.trunc
         L = self.u_cutoff
-        Gamma = 1 / np.array([4, 2, 4][:self.u_parameters.shape[0]])
+        Gamma = 1 / np.array([4, 2, 4][: self.u_parameters.shape[0]])
         self.u_parameters[:, 0] = -L * Gamma / (-L) ** C / C
 
     return impl
@@ -629,7 +633,7 @@ def jastrow_fix_u_parameters(self):
     def impl(self):
         C = self.trunc
         L = self.u_cutoff
-        Gamma = 1 / np.array([4, 2, 4][:self.u_parameters.shape[0]])
+        Gamma = 1 / np.array([4, 2, 4][: self.u_parameters.shape[0]])
         self.u_parameters[:, 1] = Gamma / (-L) ** C + self.u_parameters[:, 0] * C / L
 
     return impl
@@ -675,8 +679,8 @@ def jastrow_fix_f_parameters(self):
             a, _ = construct_a_matrix(self.trunc, f_parameters, L, 0, no_dup_u_term, no_dup_chi_term)
             a, pivot_positions = rref(a)
             # remove zero-rows
-            a = a[:pivot_positions.size, :]
-            b = np.zeros(shape=(f_spin_dep+1, a.shape[0]))
+            a = a[: pivot_positions.size, :]
+            b = np.zeros(shape=(f_spin_dep + 1, a.shape[0]))
             p = 0
             for n in range(f_ee_order + 1):
                 for m in range(f_en_order + 1):
@@ -719,7 +723,9 @@ def jastrow_get_parameters_mask(self):
                         res.append(self.u_parameters_optimizable[j1, j2])
 
         if self.chi_cutoff.any():
-            for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
+            for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(
+                self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available
+            ):
                 if chi_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
                 for j1 in range(chi_parameters.shape[0]):
@@ -728,7 +734,9 @@ def jastrow_get_parameters_mask(self):
                             res.append(chi_parameters_optimizable[j1, j2])
 
         if self.f_cutoff.any():
-            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available):
+            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(
+                self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available
+            ):
                 if f_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
                 for j1 in range(f_parameters.shape[0]):
@@ -763,19 +771,23 @@ def jastrow_get_parameters_scale(self, all_parameters):
             for j1 in range(self.u_parameters.shape[0]):
                 for j2 in range(self.u_parameters.shape[1]):
                     if (self.u_parameters_optimizable[j1, j2] or all_parameters) and self.u_parameters_available[j1, j2]:
-                        scale.append(2 / self.u_cutoff ** j2 / ne ** 2)
+                        scale.append(2 / self.u_cutoff**j2 / ne**2)
 
         if self.chi_cutoff.any():
-            for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
+            for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(
+                self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available
+            ):
                 if chi_cutoff_optimizable and self.cutoffs_optimizable:
                     scale.append(1)
                 for j1 in range(chi_parameters.shape[0]):
                     for j2 in range(chi_parameters.shape[1]):
                         if (chi_parameters_optimizable[j1, j2] or all_parameters) and chi_parameters_available[j1, j2]:
-                            scale.append(1 / chi_cutoff ** j2 / ne)
+                            scale.append(1 / chi_cutoff**j2 / ne)
 
         if self.f_cutoff.any():
-            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available):
+            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(
+                self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available
+            ):
                 if f_cutoff_optimizable and self.cutoffs_optimizable:
                     scale.append(1)
                 for j1 in range(f_parameters.shape[0]):
@@ -783,7 +795,7 @@ def jastrow_get_parameters_scale(self, all_parameters):
                         for j3 in range(f_parameters.shape[2]):
                             for j4 in range(j3, f_parameters.shape[3]):
                                 if (f_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and f_parameters_available[j1, j2, j3, j4]:
-                                    scale.append(2 / f_cutoff ** (j2 + j3 + j4) / ne ** 3)
+                                    scale.append(2 / f_cutoff ** (j2 + j3 + j4) / ne**3)
 
         return np.array(scale)
 
@@ -814,37 +826,36 @@ def jastrow_get_parameters_constraints(self):
             u_spin_deps = self.u_parameters.shape[0]
             c = 1 / (-self.u_cutoff) ** (self.trunc - 1)
             if u_spin_deps == 3:
-                u_b = [c/4, c/2, c/4]
+                u_b = [c / 4, c / 2, c / 4]
                 u_spin_deps = [0, 1, 2]
                 if self.neu < 2:
-                    u_b = [c/2, c/4]
+                    u_b = [c / 2, c / 4]
                     u_spin_deps = [x for x in u_spin_deps if x != 0]
                 if self.neu + self.ned < 2:
-                    u_b = [c/4, c/4]
+                    u_b = [c / 4, c / 4]
                     u_spin_deps = [x for x in u_spin_deps if x != 1]
                 if self.ned < 2:
-                    u_b = [c/4, c/2]
+                    u_b = [c / 4, c / 2]
                     u_spin_deps = [x for x in u_spin_deps if x != 2]
             elif u_spin_deps == 2:
-                u_b = [c/4, c/2]
+                u_b = [c / 4, c / 2]
                 u_spin_deps = [0, 1]
                 if self.neu < 2 and self.ned < 2:
-                    u_b = [c/2]
+                    u_b = [c / 2]
                     u_spin_deps = [x for x in u_spin_deps if x != 0]
                 if self.neu + self.ned < 2:
-                    u_b = [c/4]
+                    u_b = [c / 4]
                     u_spin_deps = [x for x in u_spin_deps if x != 1]
             else:
                 # FIXME: u_spin_deps == 1
-                u_b = [c/4]
+                u_b = [c / 4]
                 u_spin_deps = [0]
 
             u_block = block_diag([u_matrix] * len(u_spin_deps))
             if self.u_cutoff_optimizable and self.cutoffs_optimizable:
-                u_block = np.hstack((
-                    -((1 - self.trunc) * np.array(u_b) / self.u_cutoff + self.u_parameters[np.array(u_spin_deps), 1]).reshape(-1, 1),
-                    u_block
-                ))
+                u_block = np.hstack(
+                    (-((1 - self.trunc) * np.array(u_b) / self.u_cutoff + self.u_parameters[np.array(u_spin_deps), 1]).reshape(-1, 1), u_block)
+                )
             a_list.append(u_block)
             b_list += u_b
 
@@ -866,14 +877,13 @@ def jastrow_get_parameters_constraints(self):
 
             chi_block = block_diag([chi_matrix] * len(chi_spin_deps))
             if chi_cutoff_optimizable and self.cutoffs_optimizable:
-                chi_block = np.hstack((
-                    -chi_parameters[np.array(chi_spin_deps), 1].reshape(-1, 1),
-                    chi_block
-                ))
+                chi_block = np.hstack((-chi_parameters[np.array(chi_spin_deps), 1].reshape(-1, 1), chi_block))
             a_list.append(chi_block)
             b_list += [0] * len(chi_spin_deps)
 
-        for f_parameters, f_cutoff, f_cutoff_optimizable, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.f_cutoff_optimizable, self.no_dup_u_term, self.no_dup_chi_term):
+        for f_parameters, f_cutoff, f_cutoff_optimizable, no_dup_u_term, no_dup_chi_term in zip(
+            self.f_parameters, self.f_cutoff, self.f_cutoff_optimizable, self.no_dup_u_term, self.no_dup_chi_term
+        ):
             if f_parameters.shape[0] == 3:
                 f_spin_deps = [0, 1, 2]
                 if self.neu < 2:
@@ -946,7 +956,9 @@ def jastrow_get_parameters(self, all_parameters):
                         res.append(self.u_parameters[j1, j2])
 
         if self.chi_cutoff.any():
-            for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available):
+            for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(
+                self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available
+            ):
                 if chi_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(chi_cutoff)
                 for j1 in range(chi_parameters.shape[0]):
@@ -955,7 +967,9 @@ def jastrow_get_parameters(self, all_parameters):
                             res.append(chi_parameters[j1, j2])
 
         if self.f_cutoff.any():
-            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available):
+            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(
+                self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available
+            ):
                 if f_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(f_cutoff)
                 for j1 in range(f_parameters.shape[0]):
@@ -997,7 +1011,9 @@ def jastrow_set_parameters(self, parameters, all_parameters):
                 self.fix_u_parameters()
 
         if self.chi_cutoff.any():
-            for i, (chi_parameters, chi_parameters_optimizable, chi_cutoff_optimizable, chi_parameters_available) in enumerate(zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff_optimizable, self.chi_parameters_available)):
+            for i, (chi_parameters, chi_parameters_optimizable, chi_cutoff_optimizable, chi_parameters_available) in enumerate(
+                zip(self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff_optimizable, self.chi_parameters_available)
+            ):
                 if chi_cutoff_optimizable and self.cutoffs_optimizable:
                     # Sequence type is a pointer, but numeric type is not.
                     self.chi_cutoff[i] = parameters[n]
@@ -1011,7 +1027,9 @@ def jastrow_set_parameters(self, parameters, all_parameters):
                 self.fix_chi_parameters()
 
         if self.f_cutoff.any():
-            for i, (f_parameters, f_parameters_optimizable, f_cutoff_optimizable, f_parameters_available) in enumerate(zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff_optimizable, self.f_parameters_available)):
+            for i, (f_parameters, f_parameters_optimizable, f_cutoff_optimizable, f_parameters_available) in enumerate(
+                zip(self.f_parameters, self.f_parameters_optimizable, self.f_cutoff_optimizable, self.f_parameters_available)
+            ):
                 if f_cutoff_optimizable and self.cutoffs_optimizable:
                     # Sequence types is a pointer, but numeric types is not.
                     self.f_cutoff[i] = parameters[n]
@@ -1086,15 +1104,18 @@ def jastrow_chi_term_parameters_d1(self, n_powers):
             return np.zeros((0,))
 
         C = self.trunc
-        size = sum([
-            chi_parameters_available.sum() + (chi_cutoff_optimizable and self.cutoffs_optimizable)
-            for chi_parameters_available, chi_cutoff_optimizable
-            in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
-        ])
+        size = sum(
+            [
+                chi_parameters_available.sum() + (chi_cutoff_optimizable and self.cutoffs_optimizable)
+                for chi_parameters_available, chi_cutoff_optimizable in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
+            ]
+        )
         res = np.zeros(shape=(size,))
 
         n = -1
-        for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)):
+        for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(
+            zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)
+        ):
             if self.chi_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.chi_cutoff[i] -= delta
@@ -1136,11 +1157,12 @@ def jastrow_f_term_parameters_d1(self, e_powers, n_powers):
             return np.zeros((0,))
 
         C = self.trunc
-        size = sum([
-            f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
-            for f_parameters_available, f_cutoff_optimizable
-            in zip(self.f_parameters_available, self.f_cutoff_optimizable)
-        ])
+        size = sum(
+            [
+                f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
+                for f_parameters_available, f_cutoff_optimizable in zip(self.f_parameters_available, self.f_cutoff_optimizable)
+            ]
+        )
         res = np.zeros(shape=(size,))
 
         n = -1
@@ -1244,15 +1266,18 @@ def jastrow_chi_term_gradient_parameters_d1(self, n_powers, n_vectors):
             return np.zeros((0, (self.neu + self.ned) * 3))
 
         C = self.trunc
-        size = sum([
-            chi_parameters_available.sum() + (chi_cutoff_optimizable and self.cutoffs_optimizable)
-            for chi_parameters_available, chi_cutoff_optimizable
-            in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
-        ])
+        size = sum(
+            [
+                chi_parameters_available.sum() + (chi_cutoff_optimizable and self.cutoffs_optimizable)
+                for chi_parameters_available, chi_cutoff_optimizable in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
+            ]
+        )
         res = np.zeros(shape=(size, (self.neu + self.ned), 3))
 
         n = -1
-        for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)):
+        for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(
+            zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)
+        ):
             if self.chi_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.chi_cutoff[i] -= delta
@@ -1299,11 +1324,12 @@ def jastrow_f_term_gradient_parameters_d1(self, e_powers, n_powers, e_vectors, n
             return np.zeros((0, (self.neu + self.ned) * 3))
 
         C = self.trunc
-        size = sum([
-            f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
-            for f_parameters_available, f_cutoff_optimizable
-            in zip(self.f_parameters_available, self.f_cutoff_optimizable)
-        ])
+        size = sum(
+            [
+                f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
+                for f_parameters_available, f_cutoff_optimizable in zip(self.f_parameters_available, self.f_cutoff_optimizable)
+            ]
+        )
         res = np.zeros(shape=(size, (self.neu + self.ned), 3))
 
         n = -1
@@ -1397,11 +1423,7 @@ def jastrow_u_term_laplacian_parameters_d1(self, e_powers):
                                 n += 1
                                 if u_set == j1:
                                     poly = e_powers[e1, e2, j2]
-                                    res[n] += 2 * cutoff * (
-                                        C*(C - 1)/(r-L)**2 +
-                                        2 * C/(r-L) * (j2 + 1) / r +
-                                        j2 * (j2 + 1) / r**2
-                                    ) * poly
+                                    res[n] += 2 * cutoff * (C * (C - 1) / (r - L) ** 2 + 2 * C / (r - L) * (j2 + 1) / r + j2 * (j2 + 1) / r**2) * poly
         return res
 
     return impl
@@ -1420,15 +1442,18 @@ def jastrow_chi_term_laplacian_parameters_d1(self, n_powers):
             return np.zeros((0,))
 
         C = self.trunc
-        size = sum([
-            chi_parameters_available.sum() + (chi_cutoff_optimizable and self.cutoffs_optimizable)
-            for chi_parameters_available, chi_cutoff_optimizable
-            in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
-        ])
-        res = np.zeros(shape=(size, ))
+        size = sum(
+            [
+                chi_parameters_available.sum() + (chi_cutoff_optimizable and self.cutoffs_optimizable)
+                for chi_parameters_available, chi_cutoff_optimizable in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
+            ]
+        )
+        res = np.zeros(shape=(size,))
 
         n = -1
-        for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)):
+        for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(
+            zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)
+        ):
             if self.chi_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 n += 1
                 self.chi_cutoff[i] -= delta
@@ -1452,11 +1477,7 @@ def jastrow_chi_term_laplacian_parameters_d1(self, n_powers):
                                     n += 1
                                     if chi_set == j1:
                                         poly = n_powers[label, e1, j2]
-                                        res[n] += cutoff * (
-                                            C*(C - 1)/(r-L)**2 +
-                                            2 * C/(r-L) * (j2 + 1) / r +
-                                            j2 * (j2 + 1) / r**2
-                                        ) * poly
+                                        res[n] += cutoff * (C * (C - 1) / (r - L) ** 2 + 2 * C / (r - L) * (j2 + 1) / r + j2 * (j2 + 1) / r**2) * poly
         return res
 
     return impl
@@ -1475,12 +1496,13 @@ def jastrow_f_term_laplacian_parameters_d1(self, e_powers, n_powers, e_vectors, 
         if not self.f_cutoff.any():
             return np.zeros((0,))
 
-        size = sum([
-            f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
-            for f_parameters_available, f_cutoff_optimizable
-            in zip(self.f_parameters_available, self.f_cutoff_optimizable)
-        ])
-        res = np.zeros(shape=(size, ))
+        size = sum(
+            [
+                f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
+                for f_parameters_available, f_cutoff_optimizable in zip(self.f_parameters_available, self.f_cutoff_optimizable)
+            ]
+        )
+        res = np.zeros(shape=(size,))
 
         n = -1
         C = self.trunc
@@ -1520,40 +1542,42 @@ def jastrow_f_term_laplacian_parameters_d1(self, e_powers, n_powers, e_vectors, 
                                                 if f_set == j1:
                                                     poly = cutoff * e_powers[e1, e2, j2] * n_powers[label, e1, j3] * n_powers[label, e2, j4]
                                                     diff_1 = (
-                                                        (C * r_e1I / (r_e1I - L) + j3) / r_e1I**2 +
-                                                        (C * r_e2I / (r_e2I - L) + j4) / r_e2I**2 +
-                                                        2 * j2 / r_ee**2
+                                                        (C * r_e1I / (r_e1I - L) + j3) / r_e1I**2
+                                                        + (C * r_e2I / (r_e2I - L) + j4) / r_e2I**2
+                                                        + 2 * j2 / r_ee**2
                                                     )
                                                     diff_2 = (
-                                                        C * (C - 1) / (r_e1I - L) ** 2 +
-                                                        C * (C - 1) / (r_e2I - L) ** 2 +
-                                                        (j3 * (j3-1) / r_e1I**2 + j4 * (j4-1) / r_e2I**2 + 2 * j2 * (j2-1) / r_ee**2) +
-                                                        2 * C / (r_e1I - L) * j3 / r_e1I +
-                                                        2 * C / (r_e2I - L) * j4 / r_e2I
+                                                        C * (C - 1) / (r_e1I - L) ** 2
+                                                        + C * (C - 1) / (r_e2I - L) ** 2
+                                                        + (j3 * (j3 - 1) / r_e1I**2 + j4 * (j4 - 1) / r_e2I**2 + 2 * j2 * (j2 - 1) / r_ee**2)
+                                                        + 2 * C / (r_e1I - L) * j3 / r_e1I
+                                                        + 2 * C / (r_e2I - L) * j4 / r_e2I
                                                     )
                                                     dot_product = (
-                                                        vec_1 * (C * r_e1I / (r_e1I - L) + j3) +
-                                                        vec_2 * (C * r_e2I / (r_e2I - L) + j4)
-                                                    ) * j2 / r_ee**2
+                                                        (vec_1 * (C * r_e1I / (r_e1I - L) + j3) + vec_2 * (C * r_e2I / (r_e2I - L) + j4))
+                                                        * j2
+                                                        / r_ee**2
+                                                    )
                                                     res[n] += (diff_2 + 2 * diff_1 + 2 * dot_product) * poly
                                                     if j3 != j4:
-                                                        poly = cutoff  * e_powers[e1, e2, j2] * n_powers[label, e1, j4] * n_powers[label, e2, j3]
+                                                        poly = cutoff * e_powers[e1, e2, j2] * n_powers[label, e1, j4] * n_powers[label, e2, j3]
                                                         diff_1 = (
-                                                            (C * r_e1I / (r_e1I - L) + j4) / r_e1I**2 +
-                                                            (C * r_e2I / (r_e2I - L) + j3) / r_e2I**2 +
-                                                            2 * j2 / r_ee**2
+                                                            (C * r_e1I / (r_e1I - L) + j4) / r_e1I**2
+                                                            + (C * r_e2I / (r_e2I - L) + j3) / r_e2I**2
+                                                            + 2 * j2 / r_ee**2
                                                         )
                                                         diff_2 = (
-                                                            C * (C - 1) / (r_e1I - L) ** 2 +
-                                                            C * (C - 1) / (r_e2I - L) ** 2 +
-                                                            (j4 * (j4 - 1) / r_e1I**2 + j3 * (j3 - 1) / r_e2I**2 + 2 * j2 * (j2 - 1) / r_ee**2) +
-                                                            2 * C / (r_e1I - L) * j4 / r_e1I +
-                                                            2 * C / (r_e2I - L) * j3 / r_e2I
+                                                            C * (C - 1) / (r_e1I - L) ** 2
+                                                            + C * (C - 1) / (r_e2I - L) ** 2
+                                                            + (j4 * (j4 - 1) / r_e1I**2 + j3 * (j3 - 1) / r_e2I**2 + 2 * j2 * (j2 - 1) / r_ee**2)
+                                                            + 2 * C / (r_e1I - L) * j4 / r_e1I
+                                                            + 2 * C / (r_e2I - L) * j3 / r_e2I
                                                         )
                                                         dot_product = (
-                                                            vec_1 * (C * r_e1I / (r_e1I - L) + j4) +
-                                                            vec_2 * (C * r_e2I / (r_e2I - L) + j3)
-                                                        ) * j2 / r_ee**2
+                                                            (vec_1 * (C * r_e1I / (r_e1I - L) + j4) + vec_2 * (C * r_e2I / (r_e2I - L) + j3))
+                                                            * j2
+                                                            / r_ee**2
+                                                        )
                                                         res[n] += (diff_2 + 2 * diff_1 + 2 * dot_product) * poly
         return res
 
@@ -1572,11 +1596,13 @@ def jastrow_value_parameters_d1(self, e_vectors, n_vectors):
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        return self.parameters_projector.T @ np.concatenate((
-            self.u_term_parameters_d1(e_powers),
-            self.chi_term_parameters_d1(n_powers),
-            self.f_term_parameters_d1(e_powers, n_powers),
-        ))
+        return self.parameters_projector.T @ np.concatenate(
+            (
+                self.u_term_parameters_d1(e_powers),
+                self.chi_term_parameters_d1(n_powers),
+                self.f_term_parameters_d1(e_powers, n_powers),
+            )
+        )
 
     return impl
 
@@ -1594,11 +1620,13 @@ def jastrow_gradient_parameters_d1(self, e_vectors, n_vectors):
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        return self.parameters_projector.T @ np.concatenate((
-            self.u_term_gradient_parameters_d1(e_powers, e_vectors),
-            self.chi_term_gradient_parameters_d1(n_powers, n_vectors),
-            self.f_term_gradient_parameters_d1(e_powers, n_powers, e_vectors, n_vectors),
-        ))
+        return self.parameters_projector.T @ np.concatenate(
+            (
+                self.u_term_gradient_parameters_d1(e_powers, e_vectors),
+                self.chi_term_gradient_parameters_d1(n_powers, n_vectors),
+                self.f_term_gradient_parameters_d1(e_powers, n_powers, e_vectors, n_vectors),
+            )
+        )
 
     return impl
 
@@ -1616,11 +1644,13 @@ def jastrow_laplacian_parameters_d1(self, e_vectors, n_vectors):
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        return self.parameters_projector.T @ np.concatenate((
-            self.u_term_laplacian_parameters_d1(e_powers),
-            self.chi_term_laplacian_parameters_d1(n_powers),
-            self.f_term_laplacian_parameters_d1(e_powers, n_powers, e_vectors, n_vectors),
-        ))
+        return self.parameters_projector.T @ np.concatenate(
+            (
+                self.u_term_laplacian_parameters_d1(e_powers),
+                self.chi_term_laplacian_parameters_d1(n_powers),
+                self.f_term_laplacian_parameters_d1(e_powers, n_powers, e_vectors, n_vectors),
+            )
+        )
 
     return impl
 
@@ -1664,15 +1694,18 @@ def jastrow_chi_term_parameters_d2(self, n_powers):
         if not self.chi_cutoff.any():
             return np.zeros((0, 0))
 
-        size = sum([
-            chi_parameters_available.sum() + (chi_cutoff_optimizable and self.cutoffs_optimizable)
-            for chi_parameters_available, chi_cutoff_optimizable
-            in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
-        ])
+        size = sum(
+            [
+                chi_parameters_available.sum() + (chi_cutoff_optimizable and self.cutoffs_optimizable)
+                for chi_parameters_available, chi_cutoff_optimizable in zip(self.chi_parameters_available, self.chi_cutoff_optimizable)
+            ]
+        )
         res = np.zeros(shape=(size, size))
 
         n = 0
-        for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)):
+        for i, (chi_parameters, chi_parameters_available, chi_labels) in enumerate(
+            zip(self.chi_parameters, self.chi_parameters_available, self.chi_labels)
+        ):
             if self.chi_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 self.chi_cutoff[i] -= delta
                 res[n] -= self.chi_term_parameters_d1(n_powers) / delta / 2
@@ -1700,11 +1733,12 @@ def jastrow_f_term_parameters_d2(self, e_powers, n_powers):
         if not self.f_cutoff.any():
             return np.zeros((0, 0))
 
-        size = sum([
-            f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
-            for f_parameters_available, f_cutoff_optimizable
-            in zip(self.f_parameters_available, self.f_cutoff_optimizable)
-        ])
+        size = sum(
+            [
+                f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
+                for f_parameters_available, f_cutoff_optimizable in zip(self.f_parameters_available, self.f_cutoff_optimizable)
+            ]
+        )
         res = np.zeros(shape=(size, size))
 
         n = 0
@@ -1736,11 +1770,17 @@ def jastrow_value_parameters_d2(self, e_vectors, n_vectors):
         e_powers = self.ee_powers(e_vectors)
         n_powers = self.en_powers(n_vectors)
 
-        return self.parameters_projector.T @ block_diag((
-            self.u_term_parameters_d2(e_powers),
-            self.chi_term_parameters_d2(n_powers),
-            self.f_term_parameters_d2(e_powers, n_powers),
-        )) @ self.parameters_projector
+        return (
+            self.parameters_projector.T
+            @ block_diag(
+                (
+                    self.u_term_parameters_d2(e_powers),
+                    self.chi_term_parameters_d2(n_powers),
+                    self.f_term_parameters_d2(e_powers, n_powers),
+                )
+            )
+            @ self.parameters_projector
+        )
 
     return impl
 
@@ -1788,11 +1828,26 @@ Jastrow_t = Jastrow_class_t(
 
 class Jastrow(structref.StructRefProxy, AbstractJastrow):
     def __new__(cls, config):
-
         @nb.njit(nogil=True, parallel=False, cache=True)
-        def init(neu, ned, trunc, u_parameters, u_parameters_optimizable, u_cutoff,
-        chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_labels, chi_cusp,
-        f_parameters, f_parameters_optimizable, f_cutoff, f_labels, no_dup_u_term, no_dup_chi_term):
+        def init(
+            neu,
+            ned,
+            trunc,
+            u_parameters,
+            u_parameters_optimizable,
+            u_cutoff,
+            chi_parameters,
+            chi_parameters_optimizable,
+            chi_cutoff,
+            chi_labels,
+            chi_cusp,
+            f_parameters,
+            f_parameters_optimizable,
+            f_cutoff,
+            f_labels,
+            no_dup_u_term,
+            no_dup_chi_term,
+        ):
             self = structref.new(Jastrow_t)
             self.neu = neu
             self.ned = ned
@@ -1818,14 +1873,18 @@ class Jastrow(structref.StructRefProxy, AbstractJastrow):
             self.f_parameters_optimizable = f_parameters_optimizable
             self.f_parameters_available = nb.typed.List.empty_list(f_parameters_mask_type)
 
-            self.max_ee_order = max((
-                self.u_parameters.shape[1],
-                max([p.shape[1] for p in self.f_parameters]) if self.f_parameters else 0,
-            ))
-            self.max_en_order = max((
-                max([p.shape[1] for p in self.chi_parameters]) if self.chi_parameters else 0,
-                max([p.shape[2] for p in self.f_parameters]) if self.f_parameters else 0,
-            ))
+            self.max_ee_order = max(
+                (
+                    self.u_parameters.shape[1],
+                    max([p.shape[1] for p in self.f_parameters]) if self.f_parameters else 0,
+                )
+            )
+            self.max_en_order = max(
+                (
+                    max([p.shape[1] for p in self.chi_parameters]) if self.chi_parameters else 0,
+                    max([p.shape[2] for p in self.f_parameters]) if self.f_parameters else 0,
+                )
+            )
             self.chi_cusp = chi_cusp
             self.no_dup_u_term = no_dup_u_term
             self.no_dup_chi_term = no_dup_chi_term
