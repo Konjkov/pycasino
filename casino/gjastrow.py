@@ -2,7 +2,7 @@ import numba as nb
 import numpy as np
 from numba.experimental import structref
 
-from .abstract import AbstractJastrow
+from casino.abstract import AbstractJastrow
 
 
 @structref.register

@@ -10,9 +10,9 @@ from numba.extending import overload_method
 from numpy.polynomial.polynomial import polyval
 from scipy.optimize import minimize
 
-from .abstract import AbstractCusp
-from .harmonics import value_angular_part
-from .readers import CasinoConfig
+from casino.abstract import AbstractCusp
+from casino.harmonics import value_angular_part
+from casino.readers import CasinoConfig
 
 logger = logging.getLogger(__name__)
 

@@ -4,8 +4,8 @@ import sys
 
 import numpy as np
 
-from .hartreefock import HartreeFock
-from .readers import CasinoConfig
+from casino.hartreefock import HartreeFock
+from casino.readers import CasinoConfig
 
 
 class Chemist:

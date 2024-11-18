@@ -131,8 +131,8 @@ class Gwfn(FortranFile):
                     self.mo_up = np.array(mo_up).reshape((self.nbasis_functions, self.nbasis_functions))
                     self.mo_down = np.copy(self.mo_up)
 
-        self.orbital_types = np.full((self._nprimitives,), GAUSSIAN_TYPE, dtype=np.int_)
-        self.slater_orders = np.zeros((self._nprimitives,), dtype=np.int_)
+        self.orbital_types = np.full((self._nprimitives,), GAUSSIAN_TYPE, dtype=int)
+        self.slater_orders = np.zeros((self._nprimitives,), dtype=int)
         self.remove_premultiplied_factor()
 
         # Read pseudopotential from files
@@ -319,8 +319,8 @@ class Stowfn(FortranFile):
                 else:
                     self.mo_down = np.copy(self.mo_up)
 
-        self.orbital_types = np.full((self._nshell,), SLATER_TYPE, dtype=np.int_)
-        self.primitives = np.ones((self._nshell,), dtype=np.int_)
+        self.orbital_types = np.full((self._nshell,), SLATER_TYPE, dtype=int)
+        self.primitives = np.ones((self._nshell,), dtype=int)
         self.coefficients = np.ones((self._nshell,), dtype=float)
         self.normalize_orbitals()
 
