@@ -448,6 +448,10 @@ class HartreeFock(structref.StructRefProxy):
         )
 
     @nb.njit(nogil=True, parallel=False, cache=True)
+    def ERI(self):
+        return self.ERI()
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def S(self):
         return self.S()
 

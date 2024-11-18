@@ -321,7 +321,7 @@ class Stowfn(FortranFile):
 
         self.orbital_types = np.full((self._nshell,), SLATER_TYPE, dtype=np.int_)
         self.primitives = np.ones((self._nshell,), dtype=np.int_)
-        self.coefficients = np.ones((self._nshell,), dtype=np.float_)
+        self.coefficients = np.ones((self._nshell,), dtype=float)
         self.normalize_orbitals()
 
         # Read pseudopotential from files

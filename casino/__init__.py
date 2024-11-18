@@ -21,9 +21,9 @@ np.set_printoptions(threshold=sys.maxsize)
 
 # https://scicomp.stackexchange.com/questions/14355/choosing-epsilons
 # delta = np.sqrt(sys.float_info.epsilon)
-delta = np.finfo(np.float_).eps ** (1 / 2)
-delta_2 = np.finfo(np.float_).eps ** (1 / 3)
-delta_3 = np.finfo(np.float_).eps ** (1 / 4)
+delta = np.finfo(float).eps ** (1 / 2)
+delta_2 = np.finfo(float).eps ** (1 / 3)
+delta_3 = np.finfo(float).eps ** (1 / 4)
 
 # np.show_config()
 logging.basicConfig(level=logging.INFO, filename='pycasino.log', filemode='w', format='%(message)s')
