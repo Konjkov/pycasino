@@ -368,11 +368,16 @@ def HartreeFock_H(self):
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(HartreeFock_class_t, 'Fock')
 def HartreeFock_Fock(self):
-    """Fock matrix."""
+    """Fock matrix.
+
+    https://en.wikipedia.org/wiki/Fock_matrix
+    """
 
     def impl(self) -> np.ndarray:
-        res = np.zeros(shape=(self.nbasis_functions, self.nbasis_functions))
-        return res
+        h = self.T() + self.V()
+        JK = 0
+        fock = h + JK
+        return fock
 
     return impl
 

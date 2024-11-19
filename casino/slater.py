@@ -5,11 +5,11 @@ import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
-from . import delta
-from .abstract import AbstractSlater
-from .cusp import Cusp_t
-from .harmonics import gradient_angular_part, hessian_angular_part, tressian_angular_part, value_angular_part
-from .readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
+from casino import delta
+from casino.abstract import AbstractSlater
+from casino.cusp import Cusp_t
+from casino.harmonics import gradient_angular_part, hessian_angular_part, tressian_angular_part, value_angular_part
+from casino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 
 log_10 = np.log(10)
 
