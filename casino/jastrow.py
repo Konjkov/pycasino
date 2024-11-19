@@ -250,10 +250,8 @@ def jastrow_f_term(self, e_powers, n_powers):
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
                             poly = 0.0
                             for l in range(parameters.shape[3]):
-                                for m in range(l, parameters.shape[2]):
+                                for m in range(parameters.shape[2]):
                                     en_part = n_powers[label, e1, l] * n_powers[label, e2, m]
-                                    if l != m:
-                                        en_part += n_powers[label, e1, m] * n_powers[label, e2, l]
                                     for n in range(parameters.shape[1]):
                                         poly += parameters[f_set, n, m, l] * en_part * e_powers[e1, e2, n]
                             res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
@@ -504,7 +502,6 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                         if r_e1I < L and r_e2I < L:
                             r_ee = e_powers[e1, e2, 1]
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
-                            # FIXME: polyval3d not supported
                             cutoff_diff_e1I = C * r_e1I / (r_e1I - L)
                             cutoff_diff_e2I = C * r_e2I / (r_e2I - L)
                             poly = poly_diff_e1I = poly_diff_e2I = 0.0
