@@ -88,7 +88,7 @@ def wfn_value(self, r_e):
         if self.jastrow is not None:
             res *= np.exp(self.jastrow.value(e_vectors, n_vectors))
         if self.backflow is not None:
-            n_vectors = self.backflow.value(e_vectors, n_vectors) + n_vectors
+            n_vectors += self.backflow.value(e_vectors, n_vectors)
         res *= self.slater.value(n_vectors)
         return res
 

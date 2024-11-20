@@ -215,13 +215,14 @@ def jastrow_chi_term(self, n_powers: np.ndarray):
         res = 0.0
         C = self.trunc
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
-            k_max = parameters.shape[1]
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
                     r_eI = n_powers[label, e1, 1]
                     if r_eI < L:
                         chi_set = int(e1 >= self.neu) % parameters.shape[0]
-                        poly = parameters[chi_set] @ n_powers[label, e1, :k_max]
+                        poly = 0.0
+                        for k in range(parameters.shape[1]):
+                            poly += parameters[chi_set, k] * n_powers[label, e1, k]
                         res += poly * (r_eI - L) ** C
         return res
 
@@ -249,11 +250,10 @@ def jastrow_f_term(self, e_powers, n_powers):
                         if r_e1I < L and r_e2I < L:
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
                             poly = 0.0
-                            for l in range(parameters.shape[3]):
+                            for n in range(parameters.shape[1]):
                                 for m in range(parameters.shape[2]):
-                                    en_part = n_powers[label, e1, l] * n_powers[label, e2, m]
-                                    for n in range(parameters.shape[1]):
-                                        poly += parameters[f_set, n, m, l] * en_part * e_powers[e1, e2, n]
+                                    for l in range(parameters.shape[3]):
+                                        poly += parameters[f_set, n, m, l] * n_powers[label, e1, l] * n_powers[label, e2, m] * e_powers[e1, e2, n]
                             res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
         return res
 
@@ -313,7 +313,6 @@ def jastrow_chi_term_gradient(self, n_powers, n_vectors):
         C = self.trunc
         res = np.zeros(shape=(self.neu + self.ned, 3))
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
-            # k = np.arange(parameters.shape[1])
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
                     r_eI = n_powers[label, e1, 1]
@@ -344,9 +343,6 @@ def jastrow_f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
         C = self.trunc
         res = np.zeros(shape=(self.neu + self.ned, 3))
         for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
-            # k_e1I = np.arange(parameters.shape[3])
-            # k_e2I = np.expand_dims(np.arange(parameters.shape[2]), 1)
-            # k_ee = np.expand_dims(np.expand_dims(np.arange(parameters.shape[1]), 1), 2)
             for label in f_labels:
                 for e1 in range(1, self.neu + self.ned):
                     for e2 in range(e1):
@@ -360,11 +356,10 @@ def jastrow_f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
                             cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
                             poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
-                            for l in range(parameters.shape[3]):
+                            for n in range(parameters.shape[1]):
                                 for m in range(parameters.shape[2]):
-                                    en_part = n_powers[label, e1, l] * n_powers[label, e2, m]
-                                    for n in range(parameters.shape[1]):
-                                        p = parameters[f_set, n, m, l] * en_part * e_powers[e1, e2, n]
+                                    for l in range(parameters.shape[3]):
+                                        p = parameters[f_set, n, m, l] * n_powers[label, e1, l] * n_powers[label, e2, m] * e_powers[e1, e2, n]
                                         poly += p
                                         poly_diff_e1I += l * p
                                         poly_diff_e2I += m * p
@@ -439,8 +434,6 @@ def jastrow_chi_term_laplacian(self, n_powers):
         res = 0.0
         C = self.trunc
         for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
-            # k = np.arange(parameters.shape[1])
-            # k_1 = np.arange(-1, parameters.shape[1] - 1)
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
                     r_eI = n_powers[label, e1, 1]
@@ -487,9 +480,6 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
         res = 0.0
         C = self.trunc
         for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
-            # k_e1I = np.arange(parameters.shape[3])
-            # k_e2I = np.expand_dims(np.arange(parameters.shape[2]), 1)
-            # k_ee = np.expand_dims(np.expand_dims(np.arange(parameters.shape[1]), 1), 2)
             for label in f_labels:
                 r_e1I_vec_dot_r_e2I_vec = n_vectors[label] @ n_vectors[label].T
                 for e1 in range(1, self.neu + self.ned):
@@ -507,11 +497,10 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                             poly = poly_diff_e1I = poly_diff_e2I = 0.0
                             poly_diff_ee = poly_diff_e1I_2 = poly_diff_e2I_2 = 0.0
                             poly_diff_ee_2 = poly_diff_e1I_ee = poly_diff_e2I_ee = 0.0
-                            for l in range(parameters.shape[3]):
+                            for n in range(parameters.shape[1]):
                                 for m in range(parameters.shape[2]):
-                                    en_part = n_powers[label, e1, l] * n_powers[label, e2, m]
-                                    for n in range(parameters.shape[1]):
-                                        p = parameters[f_set, n, m, l] * en_part * e_powers[e1, e2, n]
+                                    for l in range(parameters.shape[3]):
+                                        p = parameters[f_set, n, m, l] * n_powers[label, e1, l] * n_powers[label, e2, m] * e_powers[e1, e2, n]
                                         poly += p
                                         poly_diff_e1I += l * p
                                         poly_diff_e2I += m * p
