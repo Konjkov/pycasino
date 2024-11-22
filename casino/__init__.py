@@ -1,9 +1,7 @@
-import logging
 import os
 import sys
 
 import numpy as np
-from mpi4py import MPI
 
 os.environ['OMP_NUM_THREADS'] = '1'  # openmp
 os.environ['OPENBLAS_NUM_THREADS'] = '1'  # openblas
@@ -26,16 +24,3 @@ delta_2 = np.finfo(float).eps ** (1 / 3)
 delta_3 = np.finfo(float).eps ** (1 / 4)
 
 # np.show_config()
-logging.basicConfig(level=logging.INFO, filename='pycasino.log', filemode='w', format='%(message)s')
-
-logger = logging.getLogger(__name__)
-
-if MPI.COMM_WORLD.rank == 0:
-    # to redirect scipy.optimize stdout to log-file
-    from casino.loggers import StreamToLogger
-
-    sys.stdout = StreamToLogger(logger, logging.INFO)
-    # sys.stderr = StreamToLogger(self.logger, logging.ERROR)
-else:
-    logger.addHandler(logging.NullHandler())
-    logger.propagate = False

@@ -246,14 +246,17 @@ def dmcmarkovchain_alimit_vector(self, r_e, velocity):
 
     def impl(self, r_e, velocity):
         ne = self.wfn.neu + self.wfn.ned
-        n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
-        r = np.sqrt(np.sum(n_vectors**2, axis=2))
-        # find the nearest nucleus for each electron
-        idx = np.argmin(r, axis=0)
-        res = np.empty(shape=(ne, 3))
-        for i in range(ne):
-            Z2_z2 = (self.wfn.atom_charges[idx[i]] * r[idx[i], i]) ** 2
-            res[i] = (1 + (velocity[i] @ n_vectors[idx[i], i]) / np.linalg.norm(velocity[i]) / r[idx[i], i]) / 2 + Z2_z2 / 10 / (4 + Z2_z2)
+        res = np.ones(shape=(ne, 3))
+        if self.nucleus_gf_mods and self.wfn.ppotential is None:
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
+            r = np.sqrt(np.sum(n_vectors**2, axis=2))
+            # find the nearest nucleus for each electron
+            idx = np.argmin(r, axis=0)
+            for i in range(ne):
+                Z2_z2 = (self.wfn.atom_charges[idx[i]] * r[idx[i], i]) ** 2
+                res[i] = (1 + (velocity[i] @ n_vectors[idx[i], i]) / np.linalg.norm(velocity[i]) / r[idx[i], i]) / 2 + Z2_z2 / 10 / (4 + Z2_z2)
+        else:
+            res *= self.alimit
         return res
 
     return impl
@@ -274,13 +277,9 @@ def dmcmarkovchain_limiting_velocity(self, r_e):
     def impl(self, r_e):
         ne = self.wfn.neu + self.wfn.ned
         drift_velocity = self.wfn.drift_velocity(r_e).reshape(ne, 3)
-        if self.nucleus_gf_mods and self.wfn.ppotential is None:
-            a_v_t = np.sum(drift_velocity**2) * self.step_size * self.alimit_vector(r_e, drift_velocity)
-            velocity = drift_velocity * (np.sqrt(1 + 2 * a_v_t) - 1) / a_v_t
-        else:
-            a_v_t = np.sum(drift_velocity**2) * self.step_size * self.alimit
-            velocity = drift_velocity * (np.sqrt(1 + 2 * a_v_t) - 1) / a_v_t
-        return velocity, drift_velocity
+        a_v_t = np.sum(drift_velocity**2) * self.step_size * self.alimit_vector(r_e, drift_velocity)
+        limit = (np.sqrt(1 + 2 * a_v_t) - 1) / a_v_t
+        return drift_velocity * limit, drift_velocity
 
     return impl
 
@@ -315,7 +314,7 @@ def dmcmarkovchain_ebe_drift_diffusion(self, age, r_e, wfn_value, velocity, ener
         age_p = 1.1 ** max(0, age - 20)
         moved = False
         ne = self.wfn.neu + self.wfn.ned
-        _, drift_velocity = self.limiting_velocity(r_e)
+        drift_velocity = self.wfn.drift_velocity(r_e).reshape(ne, 3)
         if self.nucleus_gf_mods and self.wfn.ppotential is None:
             # random step according to
             # C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.

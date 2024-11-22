@@ -56,11 +56,22 @@ logo = f"""
 """
 
 
+logging.basicConfig(level=logging.INFO, filename='pycasino.log', filemode='w', format='%(message)s')
 logger = logging.getLogger(__name__)
 
 mpi_comm = MPI.COMM_WORLD
 
 double_size = MPI.DOUBLE.Get_size()
+
+if MPI.COMM_WORLD.rank == 0:
+    # to redirect scipy.optimize stdout to log-file
+    from casino.loggers import StreamToLogger
+
+    sys.stdout = StreamToLogger(logger, logging.INFO)
+    # sys.stderr = StreamToLogger(self.logger, logging.ERROR)
+else:
+    logger.addHandler(logging.NullHandler())
+    logger.propagate = False
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)

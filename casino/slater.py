@@ -946,6 +946,22 @@ class Slater(structref.StructRefProxy, AbstractSlater):
         return self.value_matrix(n_vectors)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
+    def gradient_matrix(self, n_vectors):
+        return self.gradient_matrix(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def laplacian_matrix(self, n_vectors):
+        return self.laplacian_matrix(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def hessian_matrix(self, n_vectors):
+        return self.hessian_matrix(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def tressian_matrix(self, n_vectors):
+        return self.tressian_matrix(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def value(self, n_vectors):
         return self.value(n_vectors)
 
