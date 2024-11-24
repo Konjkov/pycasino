@@ -3,7 +3,7 @@ import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
-from .wfn import Wfn_t
+from casino.wfn import Wfn_t
 
 
 @structref.register

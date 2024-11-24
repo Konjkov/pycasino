@@ -5,11 +5,11 @@ import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
-from . import delta
-from .abstract import AbstractSlater
-from .cusp import Cusp_t
-from .harmonics import gradient_angular_part, hessian_angular_part, tressian_angular_part, value_angular_part
-from .readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
+from casino import delta
+from casino.abstract import AbstractSlater
+from casino.cusp import Cusp_t
+from casino.harmonics import gradient_angular_part, hessian_angular_part, tressian_angular_part, value_angular_part
+from casino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 
 log_10 = np.log(10)
 
@@ -594,29 +594,18 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
                 for r2 in range(3):
                     for r3 in range(3):
                         # tr(A^-1 • dA/dx • A^-1 • dA/dy • A^-1 • dA/dz) + tr(A^-1 • dA/dz • A^-1 • dA/dy • A^-1 • dA/dx)
-                        res_u[:, r1, :, r2, :, r3] += (
+                        res_u[:, r1, :, r2, :, r3] += 2 * (
                             # (1, 1, self.ned, 3, self.ned, 1)
                             np.expand_dims(matrix_grad_u[:, :, r2].T, 0)
                             # (self.ned, 1, 1, 1, self.ned, 3)
                             * np.expand_dims(matrix_grad_u[:, :, r3], 1)
                             # (self.ned, 3, self.ned, 1, 1, 1)
                             * np.expand_dims(matrix_grad_u[:, :, r1].T, 2)
-                        ) + (
-                            # (1, 1, self.ned, 1, self.ned, 3)
-                            np.expand_dims(matrix_grad_u[:, :, r3], 0)
-                            # (self.ned, 3, 1, 1, self.ned, 1)
-                            * np.expand_dims(matrix_grad_u[:, :, r1].T, 1)
-                            # (self.ned, 1, self.ned, 3, 1, 1)
-                            * np.expand_dims(matrix_grad_u[:, :, r2], 2)
                         )
-                        res_d[:, r1, :, r2, :, r3] += (
+                        res_d[:, r1, :, r2, :, r3] += 2 * (
                             np.expand_dims(matrix_grad_d[:, :, r2].T, 0)
                             * np.expand_dims(matrix_grad_d[:, :, r3], 1)
                             * np.expand_dims(matrix_grad_d[:, :, r1].T, 2)
-                        ) + (
-                            np.expand_dims(matrix_grad_d[:, :, r3], 0)
-                            * np.expand_dims(matrix_grad_d[:, :, r1].T, 1)
-                            * np.expand_dims(matrix_grad_d[:, :, r2], 2)
                         )
                         # tr(A^-1 • d³A/dxdydz) - tr(A^-1 • d²A/dxdy • A^-1 * dA/dz) - tr(A^-1 • dA²/dxdz • A^-1 • dA/dy) - tr(A^-1 • d²A/dydz • A^-1 * dA/dx)
                         for e in range(self.neu):
@@ -944,6 +933,22 @@ class Slater(structref.StructRefProxy, AbstractSlater):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def value_matrix(self, n_vectors):
         return self.value_matrix(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def gradient_matrix(self, n_vectors):
+        return self.gradient_matrix(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def laplacian_matrix(self, n_vectors):
+        return self.laplacian_matrix(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def hessian_matrix(self, n_vectors):
+        return self.hessian_matrix(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def tressian_matrix(self, n_vectors):
+        return self.tressian_matrix(n_vectors)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def value(self, n_vectors):

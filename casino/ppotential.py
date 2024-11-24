@@ -94,8 +94,8 @@ def ppotential_generate_quadratures(self):
                 # No grid
                 weight = [0.0]
                 quadrature = [[0.0, 0.0, 0.0]]
-            self.weight.append(np.array(weight, dtype=np.float_))
-            self.quadrature.append(np.array(quadrature, dtype=np.float_))
+            self.weight.append(np.array(weight))
+            self.quadrature.append(np.array(quadrature))
 
     return impl
 

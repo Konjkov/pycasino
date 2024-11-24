@@ -33,8 +33,6 @@
 # path="ppotential_${PP}/Ne/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
 # path="ppotential_${PP}/B2H6/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
 
-# path="Goodharts_law"
-
 # path="stowfn/He/HF/QZ4P/${method}/${operation}/"
 # path="stowfn/Be/HF/QZ4P/${method}/${operation}/"
 # path="stowfn/N/HF/QZ4P/${method}/${operation}/"
@@ -49,9 +47,10 @@
 
 # ../casino/plot/plot.py stowfn/He/HF/QZ4P/CBCS/Backflow/ u
 
-# /usr/bin/time -v pycasino $path
-# NUMBA_DEBUG_CACHE=1 pycasino $path
+# single thread
 # pycasino $path
-# python3 -m profila annotate -- /home/vladimir/.local/bin/pycasino $path
-# /usr/bin/time -v mpiexec pycasino $path
+# multiple thread
 # mpiexec pycasino $path
+# hybrid code
+# NUMBA_NUM_THREADS=4
+# mpiexec -n 2 --map-by slot:pe=${NUMBA_NUM_THREADS} pycasino $path

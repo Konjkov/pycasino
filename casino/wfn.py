@@ -3,11 +3,11 @@ import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
-from .backflow import Backflow_t
-from .jastrow import Jastrow_t
-from .overload import block_diag
-from .ppotential import PPotential_t
-from .slater import Slater_t
+from casino.backflow import Backflow_t
+from casino.jastrow import Jastrow_t
+from casino.overload import block_diag
+from casino.ppotential import PPotential_t
+from casino.slater import Slater_t
 
 
 @structref.register
@@ -88,7 +88,7 @@ def wfn_value(self, r_e):
         if self.jastrow is not None:
             res *= np.exp(self.jastrow.value(e_vectors, n_vectors))
         if self.backflow is not None:
-            n_vectors = self.backflow.value(e_vectors, n_vectors) + n_vectors
+            n_vectors += self.backflow.value(e_vectors, n_vectors)
         res *= self.slater.value(n_vectors)
         return res
 
@@ -239,8 +239,7 @@ def wfn_kinetic_energy(self, r_e):
             s_h, s_g = self.slater.hessian(b_v + n_vectors)
             s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
             if self.jastrow is not None:
-                j_g = self.jastrow.gradient(e_vectors, n_vectors)
-                j_l = self.jastrow.laplacian(e_vectors, n_vectors)
+                j_g, j_l = self.jastrow.laplacian(e_vectors, n_vectors)
                 s_g = s_g @ b_g
                 F = np.sum((s_g + j_g) ** 2) / 2
                 T = (np.sum(s_g**2) - s_l - j_l) / 4
@@ -250,8 +249,7 @@ def wfn_kinetic_energy(self, r_e):
         else:
             s_l = self.slater.laplacian(n_vectors)
             if self.jastrow is not None:
-                j_g = self.jastrow.gradient(e_vectors, n_vectors)
-                j_l = self.jastrow.laplacian(e_vectors, n_vectors)
+                j_g, j_l = self.jastrow.laplacian(e_vectors, n_vectors)
                 s_g = self.slater.gradient(n_vectors)
                 F = np.sum((s_g + j_g) ** 2) / 2
                 T = (np.sum(s_g**2) - s_l - j_l) / 4

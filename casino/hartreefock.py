@@ -5,6 +5,8 @@ import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
+from casino.overload import boys, comb, fact2
+
 
 @structref.register
 class HartreeFock_class_t(nb.types.StructRef):
@@ -34,31 +36,6 @@ HartreeFock_t = HartreeFock_class_t(
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(HartreeFock_class_t, 'fact2')
-def HartreeFock_fact2(self, n):
-    """n!!."""
-
-    def impl(self, n) -> float:
-        res = 1
-        for i in range(n, 0, -2):
-            res *= i
-        return res
-
-    return impl
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(HartreeFock_class_t, 'binomial_coefficient')
-def HartreeFock_binomial_coefficient(self, n, k):
-    """Binomial coefficient."""
-
-    def impl(self, n, k) -> float:
-        return math.gamma(n + 1) / math.gamma(k + 1) / math.gamma(n - k + 1)
-
-    return impl
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(HartreeFock_class_t, 'binomial_prefactor')
 def HartreeFock_binomial_prefactor(self, k, l1, l2, PA, PB):
     """The integral prefactor containing the binomial coefficients from Augspurger and Dykstra."""
@@ -66,12 +43,9 @@ def HartreeFock_binomial_prefactor(self, k, l1, l2, PA, PB):
     def impl(self, k, l1, l2, PA, PB) -> float:
         res = 0
         for q in range(-min(k, 2 * l2 - k), min(k, 2 * l1 - k) + 1, 2):
-            res += (
-                self.binomial_coefficient(l1, (k + q) // 2)
-                * self.binomial_coefficient(l2, (k - q) // 2)
-                * PA ** (l1 - (k + q) // 2)
-                * PB ** (l2 - (k - q) // 2)
-            )
+            i = (k + q) // 2
+            j = (k - q) // 2
+            res += comb(l1, i) * comb(l2, j) * PA ** (l1 - i) * PB ** (l2 - j)
         return res
 
     return impl
@@ -84,12 +58,12 @@ def HartreeFock_overlap(self, lmn1, lmn2, PA, PB, gamma):
 
     def impl(self, lmn1, lmn2, PA, PB, gamma) -> float:
         overlap = np.zeros(shape=(3,))
-        for i in range(0, lmn1[0] + lmn2[0] + 1, 2):
-            overlap[0] += self.binomial_prefactor(i, lmn1[0], lmn2[0], PA[0], PB[0]) * self.fact2(i - 1) / (2 * gamma) ** (i / 2)
-        for i in range(0, lmn1[1] + lmn2[1] + 1, 2):
-            overlap[1] += self.binomial_prefactor(i, lmn1[1], lmn2[1], PA[1], PB[1]) * self.fact2(i - 1) / (2 * gamma) ** (i / 2)
-        for i in range(0, lmn1[2] + lmn2[2] + 1, 2):
-            overlap[2] += self.binomial_prefactor(i, lmn1[2], lmn2[2], PA[2], PB[2]) * self.fact2(i - 1) / (2 * gamma) ** (i / 2)
+        for l in range(0, lmn1[0] + lmn2[0] + 1, 2):
+            overlap[0] += self.binomial_prefactor(l, lmn1[0], lmn2[0], PA[0], PB[0]) * fact2(l - 1) / (2 * gamma) ** (l / 2)
+        for m in range(0, lmn1[1] + lmn2[1] + 1, 2):
+            overlap[1] += self.binomial_prefactor(m, lmn1[1], lmn2[1], PA[1], PB[1]) * fact2(m - 1) / (2 * gamma) ** (m / 2)
+        for n in range(0, lmn1[2] + lmn2[2] + 1, 2):
+            overlap[2] += self.binomial_prefactor(n, lmn1[2], lmn2[2], PA[2], PB[2]) * fact2(n - 1) / (2 * gamma) ** (n / 2)
         return overlap
 
     return impl
@@ -222,25 +196,22 @@ def HartreeFock_T_angular(self, l1, l2, m1, m2, PA, PB, alpha1, gamma):
                 overlap_plus = self.overlap(lmn1_plus, lmn2, PA, PB, gamma)
                 overlap = self.overlap(lmn1, lmn2, PA, PB, gamma)
                 overlap_minus = self.overlap(lmn1_minus, lmn2, PA, PB, gamma)
-                res += (
-                    c1
-                    * c2
+                plus_term = (
+                    4
+                    * alpha1**2
                     * (
-                        4
-                        * alpha1**2
-                        * (
-                            overlap_plus[0] * overlap[1] * overlap[2]
-                            + overlap[0] * overlap_plus[1] * overlap[2]
-                            + overlap[0] * overlap[1] * overlap_plus[2]
-                        )
-                        - 2 * alpha1 * (2 * sum(lmn1) + 3) * overlap[0] * overlap[1] * overlap[2]
-                        + (
-                            lmn1[0] * (lmn1[0] - 1) * overlap_minus[0] * overlap[1] * overlap[2]
-                            + lmn1[1] * (lmn1[1] - 1) * overlap[0] * overlap_minus[1] * overlap[2]
-                            + lmn1[2] * (lmn1[2] - 1) * overlap[0] * overlap[1] * overlap_minus[2]
-                        )
+                        overlap_plus[0] * overlap[1] * overlap[2]
+                        + overlap[0] * overlap_plus[1] * overlap[2]
+                        + overlap[0] * overlap[1] * overlap_plus[2]
                     )
                 )
+                zero_term = 2 * alpha1 * (2 * sum(lmn1) + 3) * overlap[0] * overlap[1] * overlap[2]
+                minus_term = (
+                    lmn1[0] * (lmn1[0] - 1) * overlap_minus[0] * overlap[1] * overlap[2]
+                    + lmn1[1] * (lmn1[1] - 1) * overlap[0] * overlap_minus[1] * overlap[2]
+                    + lmn1[2] * (lmn1[2] - 1) * overlap[0] * overlap[1] * overlap_minus[2]
+                )
+                res += c1 * c2 * (plus_term - zero_term + minus_term)
         return res
 
     return impl
@@ -286,7 +257,7 @@ def HartreeFock_S(self):
                                 P = (alpha1 * A + alpha2 * B) / gamma
                                 PA = P - A
                                 PB = P - B
-                                S_radial = coeff1 * coeff2 * np.exp(-alpha1 * alpha2 * AB / (alpha1 + alpha2)) * (np.pi / gamma) ** 1.5
+                                S_radial = coeff1 * coeff2 * math.exp(-alpha1 * alpha2 * AB / (alpha1 + alpha2)) * (np.pi / gamma) ** 1.5
                                 for m1 in range(2 * l1 + 1):
                                     for m2 in range(2 * l2 + 1):
                                         s_matrix[ao1 + m1, ao2 + m2] += S_radial * self.S_angular(l1, l2, m1, m2, PA, PB, gamma)
@@ -327,7 +298,7 @@ def HartreeFock_T(self):
                                 P = (alpha1 * A + alpha2 * B) / gamma
                                 PA = P - A
                                 PB = P - B
-                                S_radial = coeff1 * coeff2 * np.exp(-alpha1 * alpha2 * AB / (alpha1 + alpha2)) * (np.pi / gamma) ** 1.5
+                                S_radial = coeff1 * coeff2 * math.exp(-alpha1 * alpha2 * AB / (alpha1 + alpha2)) * (np.pi / gamma) ** 1.5
                                 for m1 in range(2 * l1 + 1):
                                     for m2 in range(2 * l2 + 1):
                                         t_matrix[ao1 + m1, ao2 + m2] += S_radial * self.T_angular(l1, l2, m1, m2, PA, PB, alpha1, gamma)
@@ -346,8 +317,38 @@ def HartreeFock_V(self):
     """Electron-nuclear attraction."""
 
     def impl(self) -> np.ndarray:
-        res = np.zeros(shape=(self.nbasis_functions, self.nbasis_functions))
-        return res
+        v_matrix = np.zeros(shape=(self.nbasis_functions, self.nbasis_functions))
+        p1 = ao1 = 0
+        for atom1 in range(self.atom_charges.size):
+            A = self.atom_positions[atom1]
+            for nshell1 in range(self.first_shells[atom1] - 1, self.first_shells[atom1 + 1] - 1):
+                l1 = self.shell_moments[nshell1]
+                p2 = ao2 = 0
+                for atom2 in range(self.atom_charges.size):
+                    B = self.atom_positions[atom2]
+                    AB = np.linalg.norm(A - B)
+                    for nshell2 in range(self.first_shells[atom2] - 1, self.first_shells[atom2 + 1] - 1):
+                        l2 = self.shell_moments[nshell2]
+                        for primitive1 in range(self.primitives[nshell1]):
+                            alpha1 = self.exponents[p1 + primitive1]
+                            coeff1 = self.coefficients[p1 + primitive1]
+                            for primitive2 in range(self.primitives[nshell2]):
+                                alpha2 = self.exponents[p2 + primitive2]
+                                coeff2 = self.coefficients[p2 + primitive2]
+                                gamma = alpha1 + alpha2
+                                P = (alpha1 * A + alpha2 * B) / gamma
+                                S_radial = coeff1 * coeff2 * math.exp(-alpha1 * alpha2 * AB / (alpha1 + alpha2)) * (math.pi / gamma) ** 1.5
+                                for atom3 in range(self.atom_charges.size):
+                                    C = self.atom_positions[atom3]
+                                    PC = np.linalg.norm(P - C)
+                                    for m1 in range(2 * l1 + 1):
+                                        for m2 in range(2 * l2 + 1):
+                                            v_matrix[ao1 + m1, ao2 + m2] += S_radial * boys(0, gamma * PC**2) / (math.pi / gamma) ** 0.5
+                        ao2 += 2 * l2 + 1
+                        p2 += self.primitives[nshell2]
+                ao1 += 2 * l1 + 1
+                p1 += self.primitives[nshell1]
+        return v_matrix
 
     return impl
 
@@ -367,11 +368,16 @@ def HartreeFock_H(self):
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(HartreeFock_class_t, 'Fock')
 def HartreeFock_Fock(self):
-    """Fock matrix."""
+    """Fock matrix.
+
+    https://en.wikipedia.org/wiki/Fock_matrix
+    """
 
     def impl(self) -> np.ndarray:
-        res = np.zeros(shape=(self.nbasis_functions, self.nbasis_functions))
-        return res
+        h = self.T() + self.V()
+        JK = 0
+        fock = h + JK
+        return fock
 
     return impl
 
@@ -445,6 +451,10 @@ class HartreeFock(structref.StructRefProxy):
             config.wfn.mo_up,
             config.wfn.mo_down,
         )
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def ERI(self):
+        return self.ERI()
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def S(self):

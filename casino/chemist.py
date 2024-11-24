@@ -4,8 +4,8 @@ import sys
 
 import numpy as np
 
-from .hartreefock import HartreeFock
-from .readers import CasinoConfig
+from casino.hartreefock import HartreeFock
+from casino.readers import CasinoConfig
 
 
 class Chemist:
@@ -20,6 +20,7 @@ class Chemist:
     def run(self):
         print(np.diag(self.hf.S()))
         print(np.diag(self.hf.T()))
+        print(np.diag(self.hf.V()))
 
 
 def main():
