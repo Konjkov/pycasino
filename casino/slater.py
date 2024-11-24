@@ -594,29 +594,18 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
                 for r2 in range(3):
                     for r3 in range(3):
                         # tr(A^-1 • dA/dx • A^-1 • dA/dy • A^-1 • dA/dz) + tr(A^-1 • dA/dz • A^-1 • dA/dy • A^-1 • dA/dx)
-                        res_u[:, r1, :, r2, :, r3] += (
+                        res_u[:, r1, :, r2, :, r3] += 2 * (
                             # (1, 1, self.ned, 3, self.ned, 1)
                             np.expand_dims(matrix_grad_u[:, :, r2].T, 0)
                             # (self.ned, 1, 1, 1, self.ned, 3)
                             * np.expand_dims(matrix_grad_u[:, :, r3], 1)
                             # (self.ned, 3, self.ned, 1, 1, 1)
                             * np.expand_dims(matrix_grad_u[:, :, r1].T, 2)
-                        ) + (
-                            # (1, 1, self.ned, 1, self.ned, 3)
-                            np.expand_dims(matrix_grad_u[:, :, r3], 0)
-                            # (self.ned, 3, 1, 1, self.ned, 1)
-                            * np.expand_dims(matrix_grad_u[:, :, r1].T, 1)
-                            # (self.ned, 1, self.ned, 3, 1, 1)
-                            * np.expand_dims(matrix_grad_u[:, :, r2], 2)
                         )
-                        res_d[:, r1, :, r2, :, r3] += (
+                        res_d[:, r1, :, r2, :, r3] += 2 * (
                             np.expand_dims(matrix_grad_d[:, :, r2].T, 0)
                             * np.expand_dims(matrix_grad_d[:, :, r3], 1)
                             * np.expand_dims(matrix_grad_d[:, :, r1].T, 2)
-                        ) + (
-                            np.expand_dims(matrix_grad_d[:, :, r3], 0)
-                            * np.expand_dims(matrix_grad_d[:, :, r1].T, 1)
-                            * np.expand_dims(matrix_grad_d[:, :, r2], 2)
                         )
                         # tr(A^-1 • d³A/dxdydz) - tr(A^-1 • d²A/dxdy • A^-1 * dA/dz) - tr(A^-1 • dA²/dxdz • A^-1 • dA/dy) - tr(A^-1 • d²A/dydz • A^-1 * dA/dx)
                         for e in range(self.neu):
