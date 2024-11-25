@@ -70,6 +70,33 @@ def vmcmarkovchain_gibbs_random_step(self):
     return impl
 
 
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(VMCMarkovChain_class_t, 'random_walk')
+def vmcmarkovchain_random_walk(self, steps, decorr_period):
+    """Metropolis-Hastings random walk.
+    :param steps: number of steps to walk
+    :param decorr_period: decorrelation period
+    :return:
+    """
+
+    def impl(self, steps, decorr_period):
+        self.probability_density = self.wfn.value(self.r_e) ** 2
+        position = np.full(shape=(steps,) + self.r_e.shape, fill_value=np.nan)
+        # the following value will be rewritten as the first step is taken
+        position[0] = self.r_e
+
+        for i in range(steps):
+            cond = False
+            for _ in range(decorr_period):
+                cond |= self.random_step()
+            if cond:
+                position[i] = self.r_e
+
+        return position
+
+    return impl
+
+
 VMCMarkovChain_t = VMCMarkovChain_class_t(
     [
         ('r_e', nb.float64[:, ::1]),
@@ -131,24 +158,7 @@ class VMCMarkovChain(structref.StructRefProxy):
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def random_walk(self, steps, decorr_period):
-        """Metropolis-Hastings random walk.
-        :param steps: number of steps to walk
-        :param decorr_period: decorrelation period
-        :return:
-        """
-        self.probability_density = self.wfn.value(self.r_e) ** 2
-        position = np.full(shape=(steps,) + self.r_e.shape, fill_value=np.nan)
-        # the following value will be rewritten as the first step is taken
-        position[0] = self.r_e
-
-        for i in range(steps):
-            cond = False
-            for _ in range(decorr_period):
-                cond |= self.random_step()
-            if cond:
-                position[i] = self.r_e
-
-        return position
+        return self.random_walk(steps, decorr_period)
 
 
 structref.define_boxing(VMCMarkovChain_class_t, VMCMarkovChain)

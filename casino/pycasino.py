@@ -61,6 +61,13 @@ logger = logging.getLogger(__name__)
 
 mpi_comm = MPI.COMM_WORLD
 
+logger.info(logo)
+if MPI.COMM_WORLD.size > 1:
+    logger.info(' Running in parallel using %i MPI processes.\n', MPI.COMM_WORLD.size)
+else:
+    logger.info(' Sequential run: not using MPI.\n')
+    logger.info(' Using %i OpenMP threads on %s threading layer.\n', nb.config.NUMBA_NUM_THREADS, nb.config.THREADING_LAYER)
+
 double_size = MPI.DOUBLE.Get_size()
 
 if MPI.COMM_WORLD.rank == 0:
@@ -126,11 +133,6 @@ class Casino:
         """Casino workflow.
         :param config_path: path to config file
         """
-        logger.info(logo)
-        if MPI.COMM_WORLD.size > 1:
-            logger.info(' Running in parallel using %i MPI processes.\n', MPI.COMM_WORLD.size)
-        else:
-            logger.info(' Sequential run: not using MPI.\n')
         self.root = mpi_comm.rank == 0
         self.config = CasinoConfig(config_path)
         self.config.read()
