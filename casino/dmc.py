@@ -196,41 +196,10 @@ def dmcmarkovchain_drift_diffusion(self):
     """Wrapper for drift-diffusion step."""
 
     def impl(self):
-        self.sum_acceptance_probability = 0
-        self.weight_list = nb.typed.List.empty_list(weight_type)
-        for i in range(len(self.r_e_list)):
-            if self.method == 1:
-                (
-                    self.age_list[i],
-                    self.r_e_list[i],
-                    self.wfn_value_list[i],
-                    self.velocity_list[i],
-                    self.energy_list[i],
-                    self.branching_energy_list[i],
-                ) = self.ebe_drift_diffusion(
-                    self.age_list[i],
-                    self.r_e_list[i],
-                    self.wfn_value_list[i],
-                    self.velocity_list[i],
-                    self.energy_list[i],
-                    self.branching_energy_list[i],
-                )
-            elif self.method == 2:
-                (
-                    self.age_list[i],
-                    self.r_e_list[i],
-                    self.wfn_value_list[i],
-                    self.velocity_list[i],
-                    self.energy_list[i],
-                    self.branching_energy_list[i],
-                ) = self.cbc_drift_diffusion(
-                    self.age_list[i],
-                    self.r_e_list[i],
-                    self.wfn_value_list[i],
-                    self.velocity_list[i],
-                    self.energy_list[i],
-                    self.branching_energy_list[i],
-                )
+        if self.method == 1:
+            self.ebe_drift_diffusion()
+        elif self.method == 2:
+            self.cbc_drift_diffusion()
 
     return impl
 
@@ -306,204 +275,234 @@ def dmcmarkovchain_branching_energy(self, energy, next_velocity, drift_velocity)
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(DMCMarkovChain_class_t, 'ebe_drift_diffusion')
-def dmcmarkovchain_ebe_drift_diffusion(self, age, r_e, wfn_value, velocity, energy, branching_energy):
+def dmcmarkovchain_ebe_drift_diffusion(self):
     """EBES drift-diffusion step."""
 
-    def impl(self, age, r_e, wfn_value, velocity, energy, branching_energy):
-        p = 0
-        age_p = 1.1 ** max(0, age - 20)
-        moved = False
-        ne = self.wfn.neu + self.wfn.ned
-        drift_velocity = self.wfn.drift_velocity(r_e).reshape(ne, 3)
-        if self.nucleus_gf_mods and self.wfn.ppotential is None:
-            # random step according to
-            # C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
-            next_r_e = np.copy(r_e)
-            next_wfn_value = wfn_value
-            next_velocity = np.copy(velocity)
-            diffuse_step = np.zeros(shape=(ne, 3))
-            for i in range(ne):
-                n_vectors = np.expand_dims(next_r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
-                r = np.sqrt(np.sum(n_vectors**2, axis=2))
-                # find the closest nucleus for each electron
-                idx = np.argmin(r, axis=0)
-                z = r[idx[i], i]
-                e_z = n_vectors[idx[i], i] / z
-                v_z = next_velocity[i] @ e_z
-                v_rho_vec = next_velocity[i] - v_z * e_z
-                z_stroke = max(z + v_z * self.step_size, 0)
-                drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[idx[i]]
-                q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
-                zeta = np.sqrt(self.wfn.atom_charges[idx[i]] ** 2 + 1 / self.step_size)
-                interim_r_e = np.copy(next_r_e)
-                if q > np.random.random():
-                    diffuse_step[i] = laplace_multivariate_distribution(zeta)
-                    interim_r_e[i] = diffuse_step[i] + self.wfn.atom_positions[idx[i]]
-                else:
-                    diffuse_step[i] = np.random.normal(0, np.sqrt(self.step_size), 3)
-                    interim_r_e[i] = diffuse_step[i] + drift_to
-                # prevent crossing nodal surface
-                interim_wfn_value = self.wfn.value(interim_r_e)
-                if np.sign(wfn_value) == np.sign(interim_wfn_value):
-                    gf_forth = (1 - q) * np.exp(-np.sum((interim_r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (
-                        2 * np.pi * self.step_size
-                    ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(interim_r_e[i] - self.wfn.atom_positions[idx[i]]))
-                    interim_velocity, interim_drift_velocity = self.limiting_velocity(interim_r_e)
-                    n_vectors = np.expand_dims(interim_r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
+    def impl(self):
+        for i in range(len(self.r_e_list)):
+            p = 0
+            moved = False
+            r_e = self.r_e_list[i]
+            velocity = self.velocity_list[i]
+            wfn_value = self.wfn_value_list[i]
+            age_p = 1.1 ** max(0, self.age_list[i] - 20)
+            ne = self.wfn.neu + self.wfn.ned
+            drift_velocity = self.wfn.drift_velocity(r_e).reshape(ne, 3)
+            if self.nucleus_gf_mods and self.wfn.ppotential is None:
+                # random step according to
+                # C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
+                next_r_e = np.copy(r_e)
+                next_wfn_value = wfn_value
+                next_velocity = np.copy(velocity)
+                diffuse_step = np.zeros(shape=(ne, 3))
+                for e1 in range(ne):
+                    n_vectors = np.expand_dims(next_r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
                     r = np.sqrt(np.sum(n_vectors**2, axis=2))
                     # find the closest nucleus for each electron
                     idx = np.argmin(r, axis=0)
-                    z = r[idx[i], i]
-                    e_z = n_vectors[idx[i], i] / z
-                    v_z = interim_velocity[i] @ e_z
-                    v_rho_vec = interim_velocity[i] - v_z * e_z
+                    z = r[idx[e1], e1]
+                    e_z = n_vectors[idx[e1], e1] / z
+                    v_z = next_velocity[e1] @ e_z
+                    v_rho_vec = next_velocity[e1] - v_z * e_z
                     z_stroke = max(z + v_z * self.step_size, 0)
-                    drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[idx[i]]
+                    drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[idx[e1]]
                     q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
-                    zeta = np.sqrt(self.wfn.atom_charges[idx[i]] ** 2 + 1 / self.step_size)
-                    gf_back = (1 - q) * np.exp(-np.sum((next_r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (
-                        2 * np.pi * self.step_size
-                    ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(next_r_e[i] - self.wfn.atom_positions[idx[i]]))
-                    p_i = min(1, age_p * (gf_back * interim_wfn_value**2) / (gf_forth * next_wfn_value**2))
-                    if p_i >= np.random.random():
-                        moved = True
-                        next_r_e = interim_r_e
-                        next_velocity = interim_velocity
-                        next_wfn_value = interim_wfn_value
-                        drift_velocity[i] = interim_drift_velocity[i]
-                    # Casino manual (62)
-                    p += p_i * np.sum(diffuse_step[i] ** 2)
-                else:
-                    # branching UNR (23)
-                    self.weight_list.append(np.exp(self.step_eff * branching_energy))
-                    return age + 1, r_e, wfn_value, velocity, energy, branching_energy
-        else:
-            # simple random step
-            next_r_e = np.copy(r_e)
-            next_wfn_value = wfn_value
-            next_velocity = np.copy(velocity)
-            diffuse_step = np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape(ne, 3)
-            for i in range(ne):
-                interim_r_e = np.copy(next_r_e)
-                interim_r_e[i] += diffuse_step[i] + self.step_size * next_velocity[i]
-                interim_wfn_value = self.wfn.value(interim_r_e)
-                # prevent crossing nodal surface
-                if np.sign(wfn_value) == np.sign(interim_wfn_value):
-                    gf_forth = np.exp(-np.sum((interim_r_e[i] - next_r_e[i] - self.step_size * next_velocity[i]) ** 2) / 2 / self.step_size)
-                    interim_velocity, interim_drift_velocity = self.limiting_velocity(interim_r_e)
-                    gf_back = np.exp(-np.sum((next_r_e[i] - interim_r_e[i] - self.step_size * interim_velocity[i]) ** 2) / 2 / self.step_size)
-                    p_i = min(1, age_p * (gf_back * interim_wfn_value**2) / (gf_forth * next_wfn_value**2))
-                    if p_i >= np.random.random():
-                        moved = True
-                        next_r_e = interim_r_e
-                        next_velocity = interim_velocity
-                        next_wfn_value = interim_wfn_value
-                        drift_velocity[i] = interim_drift_velocity[i]
-                    # Casino manual (62)
-                    p += p_i * np.sum(diffuse_step[i] ** 2)
-                else:
-                    # branching UNR (23)
-                    self.weight_list.append(np.exp(self.step_eff * branching_energy))
-                    return age + 1, r_e, wfn_value, velocity, energy, branching_energy
-        next_energy = self.wfn.energy(next_r_e)
-        next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
-        # branching UNR (23)
-        weight = np.exp(self.step_eff * (next_branching_energy + branching_energy) / 2)
-        p /= np.sum(diffuse_step**2)
-        self.weight_list.append(weight)
-        self.sum_acceptance_probability += p * weight
-        return 0 if moved else age + 1, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
+                    zeta = np.sqrt(self.wfn.atom_charges[idx[e1]] ** 2 + 1 / self.step_size)
+                    interim_r_e = np.copy(next_r_e)
+                    if q > np.random.random():
+                        diffuse_step[e1] = laplace_multivariate_distribution(zeta)
+                        interim_r_e[e1] = diffuse_step[e1] + self.wfn.atom_positions[idx[e1]]
+                    else:
+                        diffuse_step[e1] = np.random.normal(0, np.sqrt(self.step_size), 3)
+                        interim_r_e[e1] = diffuse_step[e1] + drift_to
+                    # prevent crossing nodal surface
+                    interim_wfn_value = self.wfn.value(interim_r_e)
+                    if np.sign(wfn_value) == np.sign(interim_wfn_value):
+                        gf_forth = (1 - q) * np.exp(-np.sum((interim_r_e[e1] - drift_to) ** 2) / 2 / self.step_size) / (
+                            2 * np.pi * self.step_size
+                        ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(interim_r_e[e1] - self.wfn.atom_positions[idx[e1]]))
+                        interim_velocity, interim_drift_velocity = self.limiting_velocity(interim_r_e)
+                        n_vectors = np.expand_dims(interim_r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
+                        r = np.sqrt(np.sum(n_vectors**2, axis=2))
+                        # find the closest nucleus for each electron
+                        idx = np.argmin(r, axis=0)
+                        z = r[idx[e1], e1]
+                        e_z = n_vectors[idx[e1], e1] / z
+                        v_z = interim_velocity[e1] @ e_z
+                        v_rho_vec = interim_velocity[e1] - v_z * e_z
+                        z_stroke = max(z + v_z * self.step_size, 0)
+                        drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[idx[e1]]
+                        q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
+                        zeta = np.sqrt(self.wfn.atom_charges[idx[e1]] ** 2 + 1 / self.step_size)
+                        gf_back = (1 - q) * np.exp(-np.sum((next_r_e[e1] - drift_to) ** 2) / 2 / self.step_size) / (
+                            2 * np.pi * self.step_size
+                        ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(next_r_e[e1] - self.wfn.atom_positions[idx[e1]]))
+                        p_i = min(1, age_p * (gf_back * interim_wfn_value**2) / (gf_forth * next_wfn_value**2))
+                        if p_i >= np.random.random():
+                            moved = True
+                            next_r_e = interim_r_e
+                            next_velocity = interim_velocity
+                            next_wfn_value = interim_wfn_value
+                            drift_velocity[e1] = interim_drift_velocity[e1]
+                        # Casino manual (62)
+                        p += p_i * np.sum(diffuse_step[e1] ** 2)
+                    else:
+                        # branching UNR (23)
+                        self.age_list[i] += 1
+                        self.weight_list.append(np.exp(self.step_eff * self.branching_energy_list[i]))
+                        continue
+            else:
+                # simple random step
+                next_r_e = np.copy(r_e)
+                next_wfn_value = wfn_value
+                next_velocity = np.copy(velocity)
+                diffuse_step = np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape(ne, 3)
+                for e1 in range(ne):
+                    interim_r_e = np.copy(next_r_e)
+                    interim_r_e[e1] += diffuse_step[e1] + self.step_size * next_velocity[e1]
+                    interim_wfn_value = self.wfn.value(interim_r_e)
+                    # prevent crossing nodal surface
+                    if np.sign(wfn_value) == np.sign(interim_wfn_value):
+                        gf_forth = np.exp(-np.sum((interim_r_e[e1] - next_r_e[e1] - self.step_size * next_velocity[e1]) ** 2) / 2 / self.step_size)
+                        interim_velocity, interim_drift_velocity = self.limiting_velocity(interim_r_e)
+                        gf_back = np.exp(-np.sum((next_r_e[e1] - interim_r_e[e1] - self.step_size * interim_velocity[e1]) ** 2) / 2 / self.step_size)
+                        p_i = min(1, age_p * (gf_back * interim_wfn_value**2) / (gf_forth * next_wfn_value**2))
+                        if p_i >= np.random.random():
+                            moved = True
+                            next_r_e = interim_r_e
+                            next_velocity = interim_velocity
+                            next_wfn_value = interim_wfn_value
+                            drift_velocity[e1] = interim_drift_velocity[e1]
+                        # Casino manual (62)
+                        p += p_i * np.sum(diffuse_step[e1] ** 2)
+                    else:
+                        # branching UNR (23)
+                        self.age_list[i] += 1
+                        self.weight_list.append(np.exp(self.step_eff * self.branching_energy_list[i]))
+                        continue
+            next_energy = self.wfn.energy(next_r_e)
+            next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
+            # branching UNR (23)
+            weight = np.exp(self.step_eff * (next_branching_energy + self.branching_energy_list[i]) / 2)
+            p /= np.sum(diffuse_step**2)
+            self.weight_list.append(weight)
+            self.sum_acceptance_probability += p * weight
+            if moved:
+                self.age_list[i] = 0
+                self.r_e_list[i] = next_r_e
+                self.energy_list[i] = next_energy
+                self.velocity_list[i] = next_velocity
+                self.wfn_value_list[i] = next_wfn_value
+                self.branching_energy_list[i] = next_branching_energy
+            else:
+                self.age_list[i] += 1
 
     return impl
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(DMCMarkovChain_class_t, 'cbc_drift_diffusion')
-def dmcmarkovchain_cbc_drift_diffusion(self, age, r_e, wfn_value, velocity, energy, branching_energy):
+def dmcmarkovchain_cbc_drift_diffusion(self):
     """CBCS drift-diffusion step."""
 
-    def impl(self, age, r_e, wfn_value, velocity, energy, branching_energy):
-        p = 0
-        age_p = 1.1 ** max(0, age - 50)
-        ne = self.wfn.neu + self.wfn.ned
-        if self.nucleus_gf_mods and self.wfn.ppotential is None:
-            # random step according to
-            # C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
-            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
-            r = np.sqrt(np.sum(n_vectors**2, axis=2))
-            # find the closest nucleus for each electron
-            idx = np.argmin(r, axis=0)
-            gf_forth = 1
-            next_r_e = np.zeros(shape=(ne, 3))
-            for i in range(ne):
-                z = r[idx[i], i]
-                e_z = n_vectors[idx[i], i] / z
-                v_z = velocity[i] @ e_z
-                v_rho_vec = velocity[i] - v_z * e_z
-                z_stroke = max(z + v_z * self.step_size, 0)
-                drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[idx[i]]
-                q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
-                zeta = np.sqrt(self.wfn.atom_charges[idx[i]] ** 2 + 1 / self.step_size)
-                if q > np.random.random():
-                    next_r_e[i] = laplace_multivariate_distribution(zeta) + self.wfn.atom_positions[idx[i]]
-                else:
-                    next_r_e[i] = np.random.normal(0, np.sqrt(self.step_size), 3) + drift_to
-                gf_forth *= (1 - q) * np.exp(-np.sum((next_r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (
-                    2 * np.pi * self.step_size
-                ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(next_r_e[i] - self.wfn.atom_positions[idx[i]]))
-            # prevent crossing nodal surface
-            next_wfn_value = self.wfn.value(next_r_e)
-            if np.sign(wfn_value) == np.sign(next_wfn_value):
-                next_velocity, drift_velocity = self.limiting_velocity(next_r_e)
-                n_vectors = np.expand_dims(next_r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
+    def impl(self):
+        for i in range(len(self.r_e_list)):
+            p = 0
+            r_e = self.r_e_list[i]
+            velocity = self.velocity_list[i]
+            wfn_value = self.wfn_value_list[i]
+            age_p = 1.1 ** max(0, self.age_list[i] - 50)
+            ne = self.wfn.neu + self.wfn.ned
+            if self.nucleus_gf_mods and self.wfn.ppotential is None:
+                # random step according to
+                # C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
+                n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
                 r = np.sqrt(np.sum(n_vectors**2, axis=2))
                 # find the closest nucleus for each electron
                 idx = np.argmin(r, axis=0)
-                gf_back = 1
-                for i in range(ne):
-                    z = r[idx[i], i]
-                    e_z = n_vectors[idx[i], i] / z
-                    v_z = next_velocity[i] @ e_z
-                    v_rho_vec = next_velocity[i] - v_z * e_z
+                gf_forth = 1
+                next_r_e = np.zeros(shape=(ne, 3))
+                for e1 in range(ne):
+                    z = r[idx[e1], e1]
+                    e_z = n_vectors[idx[e1], e1] / z
+                    v_z = velocity[e1] @ e_z
+                    v_rho_vec = velocity[e1] - v_z * e_z
                     z_stroke = max(z + v_z * self.step_size, 0)
-                    drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[idx[i]]
+                    drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[idx[e1]]
                     q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
-                    zeta = np.sqrt(self.wfn.atom_charges[idx[i]] ** 2 + 1 / self.step_size)
-                    gf_back *= (1 - q) * np.exp(-np.sum((r_e[i] - drift_to) ** 2) / 2 / self.step_size) / (
+                    zeta = np.sqrt(self.wfn.atom_charges[idx[e1]] ** 2 + 1 / self.step_size)
+                    if q > np.random.random():
+                        next_r_e[e1] = laplace_multivariate_distribution(zeta) + self.wfn.atom_positions[idx[e1]]
+                    else:
+                        next_r_e[e1] = np.random.normal(0, np.sqrt(self.step_size), 3) + drift_to
+                    gf_forth *= (1 - q) * np.exp(-np.sum((next_r_e[e1] - drift_to) ** 2) / 2 / self.step_size) / (
                         2 * np.pi * self.step_size
-                    ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(r_e[i] - self.wfn.atom_positions[idx[i]]))
-                p = min(1, age_p * (gf_back * next_wfn_value**2) / (gf_forth * wfn_value**2))
-                if p >= np.random.random():
-                    next_energy = self.wfn.energy(next_r_e)
-                    next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
-                    # branching UNR (23)
-                    weight = np.exp(self.step_eff * (next_branching_energy + branching_energy) / 2)
-                    self.weight_list.append(weight)
-                    self.sum_acceptance_probability += p * weight
-                    return 0, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
-        else:
-            # simple random step
-            next_r_e = np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape(ne, 3) + self.step_size * velocity + r_e
-            # prevent crossing nodal surface
-            next_wfn_value = self.wfn.value(next_r_e)
-            if np.sign(wfn_value) == np.sign(next_wfn_value):
-                gf_forth = np.exp(-np.sum((next_r_e - r_e - self.step_size * velocity) ** 2) / 2 / self.step_size)
-                next_velocity, drift_velocity = self.limiting_velocity(next_r_e)
-                gf_back = np.exp(-np.sum((r_e - next_r_e - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
-                p = min(1, age_p * (gf_back * next_wfn_value**2) / (gf_forth * wfn_value**2))
-                if p >= np.random.random():
-                    next_energy = self.wfn.energy(next_r_e)
-                    next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
-                    # branching UNR (23)
-                    weight = np.exp(self.step_eff * (next_branching_energy + branching_energy) / 2)
-                    self.sum_acceptance_probability += p * weight
-                    self.weight_list.append(weight)
-                    return 0, next_r_e, next_wfn_value, next_velocity, next_energy, next_branching_energy
-        # branching UNR (23)
-        weight = np.exp(self.step_eff * branching_energy)
-        self.weight_list.append(weight)
-        self.sum_acceptance_probability += p * weight
-        return age + 1, r_e, wfn_value, velocity, energy, branching_energy
+                    ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(next_r_e[e1] - self.wfn.atom_positions[idx[e1]]))
+                # prevent crossing nodal surface
+                next_wfn_value = self.wfn.value(next_r_e)
+                if np.sign(wfn_value) == np.sign(next_wfn_value):
+                    next_velocity, drift_velocity = self.limiting_velocity(next_r_e)
+                    n_vectors = np.expand_dims(next_r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
+                    r = np.sqrt(np.sum(n_vectors**2, axis=2))
+                    # find the closest nucleus for each electron
+                    idx = np.argmin(r, axis=0)
+                    gf_back = 1
+                    for e1 in range(ne):
+                        z = r[idx[e1], e1]
+                        e_z = n_vectors[idx[e1], e1] / z
+                        v_z = next_velocity[e1] @ e_z
+                        v_rho_vec = next_velocity[e1] - v_z * e_z
+                        z_stroke = max(z + v_z * self.step_size, 0)
+                        drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[idx[e1]]
+                        q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
+                        zeta = np.sqrt(self.wfn.atom_charges[idx[e1]] ** 2 + 1 / self.step_size)
+                        gf_back *= (1 - q) * np.exp(-np.sum((r_e[e1] - drift_to) ** 2) / 2 / self.step_size) / (
+                            2 * np.pi * self.step_size
+                        ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(r_e[e1] - self.wfn.atom_positions[idx[e1]]))
+                    p = min(1, age_p * (gf_back * next_wfn_value**2) / (gf_forth * wfn_value**2))
+                    if p >= np.random.random():
+                        next_energy = self.wfn.energy(next_r_e)
+                        next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
+                        # branching UNR (23)
+                        weight = np.exp(self.step_eff * (next_branching_energy + self.branching_energy_list[i]) / 2)
+                        self.age_list[i] = 0
+                        self.r_e_list[i] = next_r_e
+                        self.energy_list[i] = next_energy
+                        self.velocity_list[i] = next_velocity
+                        self.wfn_value_list[i] = next_wfn_value
+                        self.branching_energy_list[i] = next_branching_energy
+                        self.weight_list.append(weight)
+                        self.sum_acceptance_probability += p * weight
+                        continue
+            else:
+                # simple random step
+                next_r_e = np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape(ne, 3) + self.step_size * velocity + r_e
+                # prevent crossing nodal surface
+                next_wfn_value = self.wfn.value(next_r_e)
+                if np.sign(wfn_value) == np.sign(next_wfn_value):
+                    gf_forth = np.exp(-np.sum((next_r_e - r_e - self.step_size * velocity) ** 2) / 2 / self.step_size)
+                    next_velocity, drift_velocity = self.limiting_velocity(next_r_e)
+                    gf_back = np.exp(-np.sum((r_e - next_r_e - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
+                    p = min(1, age_p * (gf_back * next_wfn_value**2) / (gf_forth * wfn_value**2))
+                    if p >= np.random.random():
+                        next_energy = self.wfn.energy(next_r_e)
+                        next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
+                        # branching UNR (23)
+                        weight = np.exp(self.step_eff * (next_branching_energy + self.branching_energy_list[i]) / 2)
+                        self.age_list[i] = 0
+                        self.r_e_list[i] = next_r_e
+                        self.energy_list[i] = next_energy
+                        self.velocity_list[i] = next_velocity
+                        self.wfn_value_list[i] = next_wfn_value
+                        self.branching_energy_list[i] = next_branching_energy
+                        self.weight_list.append(weight)
+                        self.sum_acceptance_probability += p * weight
+                        continue
+            # branching UNR (23)
+            weight = np.exp(self.step_eff * self.branching_energy_list[i])
+            self.age_list[i] += 1
+            self.weight_list.append(weight)
+            self.sum_acceptance_probability += p * weight
 
     return impl
 
@@ -563,6 +562,8 @@ def dmcmarkovchain_random_step(self):
     """DMC random step"""
 
     def impl(self):
+        self.sum_acceptance_probability = 0
+        self.weight_list = nb.typed.List.empty_list(weight_type)
         self.drift_diffusion()
         self.branching()
         self.t_move()
