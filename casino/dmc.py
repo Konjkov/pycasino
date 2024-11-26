@@ -44,7 +44,7 @@ def laplace_multivariate_distribution(zeta):
 
 
 @structref.register
-class DMCMarkovChain_class_t(nb.types.StructRef):
+class DMC_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
         return tuple((name, nb.types.unliteral(typ)) for name, typ in fields)
 
@@ -57,7 +57,7 @@ weight_type = nb.float64
 r_e_type = nb.float64[:, :]
 velocity_type = nb.float64[:, ::1]
 
-DMCMarkovChain_t = DMCMarkovChain_class_t(
+DMC_t = DMC_class_t(
     [
         ('mpi_size', nb.int64),
         ('method', nb.int64),
@@ -85,7 +85,7 @@ DMCMarkovChain_t = DMCMarkovChain_class_t(
 )
 
 
-class DMCMarkovChain(structref.StructRefProxy):
+class DMC(structref.StructRefProxy):
     def __new__(cls, *args, **kwargs):
         """Markov chain Monte Carlo.
         :param r_e_list: initial positions of walkers
@@ -101,7 +101,7 @@ class DMCMarkovChain(structref.StructRefProxy):
 
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(mpi_comm, r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
-            self = structref.new(DMCMarkovChain_t)
+            self = structref.new(DMC_t)
             self.mpi_comm = mpi_comm
             self.mpi_size = mpi_comm.Get_size()
             self.wfn = wfn
@@ -191,8 +191,8 @@ class DMCMarkovChain(structref.StructRefProxy):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(DMCMarkovChain_class_t, 'drift_diffusion')
-def dmcmarkovchain_drift_diffusion(self):
+@overload_method(DMC_class_t, 'drift_diffusion')
+def dmc_drift_diffusion(self):
     """Wrapper for drift-diffusion step."""
 
     def impl(self):
@@ -205,8 +205,8 @@ def dmcmarkovchain_drift_diffusion(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(DMCMarkovChain_class_t, 'alimit_vector')
-def dmcmarkovchain_alimit_vector(self, r_e, velocity):
+@overload_method(DMC_class_t, 'alimit_vector')
+def dmc_alimit_vector(self, r_e, velocity):
     """Parameter required by DMC drift-velocity- and energy-limiting schemes
     :param r_e: electrons positions
     :param velocity: drift velocity
@@ -232,8 +232,8 @@ def dmcmarkovchain_alimit_vector(self, r_e, velocity):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(DMCMarkovChain_class_t, 'limiting_velocity')
-def dmcmarkovchain_limiting_velocity(self, r_e):
+@overload_method(DMC_class_t, 'limiting_velocity')
+def dmc_limiting_velocity(self, r_e):
     """A significant source of error in DMC calculations comes from sampling electronic
     configurations near the nodal surface. Here both the drift velocity and local
     energy diverge, causing large time step errors and increasing the variance of
@@ -254,8 +254,8 @@ def dmcmarkovchain_limiting_velocity(self, r_e):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(DMCMarkovChain_class_t, 'branching_energy')
-def dmcmarkovchain_branching_energy(self, energy, next_velocity, drift_velocity):
+@overload_method(DMC_class_t, 'branching_energy')
+def dmc_branching_energy(self, energy, next_velocity, drift_velocity):
     """Branching energy."""
 
     def impl(self, energy, next_velocity, drift_velocity):
@@ -274,8 +274,8 @@ def dmcmarkovchain_branching_energy(self, energy, next_velocity, drift_velocity)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(DMCMarkovChain_class_t, 'ebe_drift_diffusion')
-def dmcmarkovchain_ebe_drift_diffusion(self):
+@overload_method(DMC_class_t, 'ebe_drift_diffusion')
+def dmc_ebe_drift_diffusion(self):
     """EBES drift-diffusion step."""
 
     def impl(self):
@@ -401,8 +401,8 @@ def dmcmarkovchain_ebe_drift_diffusion(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(DMCMarkovChain_class_t, 'cbc_drift_diffusion')
-def dmcmarkovchain_cbc_drift_diffusion(self):
+@overload_method(DMC_class_t, 'cbc_drift_diffusion')
+def dmc_cbc_drift_diffusion(self):
     """CBCS drift-diffusion step."""
 
     def impl(self):
@@ -508,8 +508,8 @@ def dmcmarkovchain_cbc_drift_diffusion(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(DMCMarkovChain_class_t, 'branching')
-def dmcmarkovchain_branching(self):
+@overload_method(DMC_class_t, 'branching')
+def dmc_branching(self):
     """Branching step."""
 
     def impl(self):
@@ -536,8 +536,8 @@ def dmcmarkovchain_branching(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(DMCMarkovChain_class_t, 't_move')
-def dmcmarkovchain_t_move(self):
+@overload_method(DMC_class_t, 't_move')
+def dmc_t_move(self):
     """T-move."""
 
     def impl(self):
@@ -557,8 +557,8 @@ def dmcmarkovchain_t_move(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(DMCMarkovChain_class_t, 'random_step')
-def dmcmarkovchain_random_step(self):
+@overload_method(DMC_class_t, 'random_step')
+def dmc_random_step(self):
     """DMC random step"""
 
     def impl(self):
@@ -585,8 +585,8 @@ def dmcmarkovchain_random_step(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(DMCMarkovChain_class_t, 'redistribute_walker')
-def dmcmarkovchain_redistribute_walker(self, from_rank, to_rank, count):
+@overload_method(DMC_class_t, 'redistribute_walker')
+def dmc_redistribute_walker(self, from_rank, to_rank, count):
     """Redistribute count walkers from MPI from_rank to to_rank"""
 
     def impl(self, from_rank, to_rank, count):
@@ -632,8 +632,8 @@ def dmcmarkovchain_redistribute_walker(self, from_rank, to_rank, count):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(DMCMarkovChain_class_t, 'load_balancing')
-def dmcmarkovchain_load_balancing(self):
+@overload_method(DMC_class_t, 'load_balancing')
+def dmc_load_balancing(self):
     """Redistribute walkers across processes."""
 
     def impl(self):
@@ -671,4 +671,4 @@ def dmcmarkovchain_load_balancing(self):
     return impl
 
 
-structref.define_boxing(DMCMarkovChain_class_t, DMCMarkovChain)
+structref.define_boxing(DMC_class_t, DMC)

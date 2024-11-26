@@ -7,14 +7,14 @@ from casino.wfn import Wfn_t
 
 
 @structref.register
-class VMCMarkovChain_class_t(nb.types.StructRef):
+class VMC_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
         return tuple((name, nb.types.unliteral(typ)) for name, typ in fields)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(VMCMarkovChain_class_t, 'random_step')
-def vmcmarkovchain_random_step(self):
+@overload_method(VMC_class_t, 'random_step')
+def vmc_random_step(self):
     """VMC random step wrapper.
     :return: step is accepted
     """
@@ -30,8 +30,8 @@ def vmcmarkovchain_random_step(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(VMCMarkovChain_class_t, 'simple_random_step')
-def vmcmarkovchain_simple_random_step(self):
+@overload_method(VMC_class_t, 'simple_random_step')
+def vmc_simple_random_step(self):
     """Simple random walker with random N-dim square proposal density in
     configuration-by-configuration sampling (CBCS).
     :return: step is accepted
@@ -50,8 +50,8 @@ def vmcmarkovchain_simple_random_step(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(VMCMarkovChain_class_t, 'gibbs_random_step')
-def vmcmarkovchain_gibbs_random_step(self):
+@overload_method(VMC_class_t, 'gibbs_random_step')
+def vmc_gibbs_random_step(self):
     """Simple random walker with electron-by-electron sampling (EBES)
     :return: step is accepted
     """
@@ -71,12 +71,12 @@ def vmcmarkovchain_gibbs_random_step(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(VMCMarkovChain_class_t, 'random_walk')
-def vmcmarkovchain_random_walk(self, steps, decorr_period):
+@overload_method(VMC_class_t, 'random_walk')
+def vmc_random_walk(self, steps, decorr_period):
     """Metropolis-Hastings random walk.
     :param steps: number of steps to walk
     :param decorr_period: decorrelation period
-    :return:
+    :return: ndarray of electron positions
     """
 
     def impl(self, steps, decorr_period):
@@ -97,7 +97,7 @@ def vmcmarkovchain_random_walk(self, steps, decorr_period):
     return impl
 
 
-VMCMarkovChain_t = VMCMarkovChain_class_t(
+VMC_t = VMC_class_t(
     [
         ('r_e', nb.float64[:, ::1]),
         ('step_size', nb.float64),
@@ -108,7 +108,7 @@ VMCMarkovChain_t = VMCMarkovChain_class_t(
 )
 
 
-class VMCMarkovChain(structref.StructRefProxy):
+class VMC(structref.StructRefProxy):
     def __new__(cls, *args, **kwargs):
         """Markov chain Monte Carlo.
         :param r_e: initial position
@@ -120,7 +120,7 @@ class VMCMarkovChain(structref.StructRefProxy):
 
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(r_e, step_size, wfn, method):
-            self = structref.new(VMCMarkovChain_t)
+            self = structref.new(VMC_t)
             self.r_e = r_e
             self.step_size = step_size
             self.wfn = wfn
@@ -160,23 +160,23 @@ class VMCMarkovChain(structref.StructRefProxy):
     def random_walk(self, steps, decorr_period):
         return self.random_walk(steps, decorr_period)
 
+    @staticmethod
+    def observable(observable, position):
+        """VMC observable.
+        :param observable: observable function
+        :param position: random walk positions
+        :return: observable values
+        """
+        res_0 = observable(position[0])
+        res = np.empty(shape=position.shape[:1] + np.shape(res_0))
+        res[0] = res_0
 
-structref.define_boxing(VMCMarkovChain_class_t, VMCMarkovChain)
+        for i in range(1, position.shape[0]):
+            if np.isnan(position[i, 0, 0]):
+                res[i] = res[i - 1]
+            else:
+                res[i] = observable(position[i])
+        return res
 
 
-def vmc_observable(position, observable):
-    """VMC observable.
-    :param position: random walk positions
-    :param observable: observable function
-    :return:
-    """
-    res_0 = observable(position[0])
-    res = np.empty(shape=position.shape[:1] + np.shape(res_0))
-    res[0] = res_0
-
-    for i in range(1, position.shape[0]):
-        if np.isnan(position[i, 0, 0]):
-            res[i] = res[i - 1]
-        else:
-            res[i] = observable(position[i])
-    return res
+structref.define_boxing(VMC_class_t, VMC)
