@@ -77,6 +77,18 @@ def polyval3d(x, y, z, c):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+def repeat(a, repeats):
+    """Repeat each element of an array after themselves along 0-axis."""
+    res = np.empty(shape=repeats.shape + a.shape[1:], dtype=a.dtype)
+    pos = 0
+    for i in range(repeats.size):
+        for _ in repeats[i]:
+            res[pos] = a[i]
+            pos += 1
+    return res
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 def rref(a: np.ndarray, tol=1e-12):
     """
     Construct RREF matrix which:

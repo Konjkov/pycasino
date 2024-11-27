@@ -6,6 +6,8 @@ from numba.experimental import structref
 from numba.extending import overload_method
 
 from casino.mpi import Comm, Comm_t
+
+# from casino.overload import repeat
 from casino.wfn import Wfn_t
 
 
@@ -53,7 +55,6 @@ efficiency_type = nb.float64
 wfn_value_type = nb.float64
 energy_type = nb.float64
 age_type = nb.int64
-weight_type = nb.float64
 r_e_type = nb.float64[:, :]
 velocity_type = nb.float64[:, ::1]
 
@@ -73,7 +74,7 @@ DMC_t = DMC_class_t(
         ('velocity_list', nb.types.ListType(velocity_type)),
         ('energy_list', nb.types.ListType(energy_type)),
         ('branching_energy_list', nb.types.ListType(energy_type)),
-        ('weight_list', nb.types.ListType(weight_type)),
+        ('weight_list', nb.float64[::1]),
         ('best_estimate_energy', energy_type),
         ('energy_t', energy_type),
         ('ntransfers_tot', nb.int64),
@@ -349,7 +350,7 @@ def dmc_ebe_drift_diffusion(self):
                     else:
                         # branching UNR (23)
                         self.age_list[i] += 1
-                        self.weight_list.append(np.exp(self.step_eff * self.branching_energy_list[i]))
+                        self.weight_list[i] = np.exp(self.step_eff * self.branching_energy_list[i])
                         continue
             else:
                 # simple random step
@@ -378,14 +379,14 @@ def dmc_ebe_drift_diffusion(self):
                     else:
                         # branching UNR (23)
                         self.age_list[i] += 1
-                        self.weight_list.append(np.exp(self.step_eff * self.branching_energy_list[i]))
+                        self.weight_list[i] = np.exp(self.step_eff * self.branching_energy_list[i])
                         continue
             next_energy = self.wfn.energy(next_r_e)
             next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
             # branching UNR (23)
             weight = np.exp(self.step_eff * (next_branching_energy + self.branching_energy_list[i]) / 2)
             p /= np.sum(diffuse_step**2)
-            self.weight_list.append(weight)
+            self.weight_list[i] = weight
             self.sum_acceptance_probability += p * weight
             if moved:
                 self.age_list[i] = 0
@@ -471,7 +472,7 @@ def dmc_cbc_drift_diffusion(self):
                         self.velocity_list[i] = next_velocity
                         self.wfn_value_list[i] = next_wfn_value
                         self.branching_energy_list[i] = next_branching_energy
-                        self.weight_list.append(weight)
+                        self.weight_list[i] = weight
                         self.sum_acceptance_probability += p * weight
                         continue
             else:
@@ -495,13 +496,13 @@ def dmc_cbc_drift_diffusion(self):
                         self.velocity_list[i] = next_velocity
                         self.wfn_value_list[i] = next_wfn_value
                         self.branching_energy_list[i] = next_branching_energy
-                        self.weight_list.append(weight)
+                        self.weight_list[i] = weight
                         self.sum_acceptance_probability += p * weight
                         continue
             # branching UNR (23)
             weight = np.exp(self.step_eff * self.branching_energy_list[i])
             self.age_list[i] += 1
-            self.weight_list.append(weight)
+            self.weight_list[i] = weight
             self.sum_acceptance_probability += p * weight
 
     return impl
@@ -514,9 +515,14 @@ def dmc_branching(self):
 
     def impl(self):
         deleted = 0
-        for i in range(len(self.weight_list)):
-            weight = int(self.weight_list[i] + np.random.random())
-            if weight == 0:
+        weight = (self.weight_list + np.random.random(self.weight_list.size)).astype(np.int64)
+        # self.age_list = np.repeat(self.age_list, weight)
+        # self.wfn_value_list = np.repeat(self.wfn_value_list, weight)
+        # self.branching_energy_list = np.repeat(self.branching_energy_list, weight)
+        # self.r_e_list = repeat(self.r_e_list, weight)
+        # self.velocity_list = repeat(self.velocity_list, weight)
+        for i in range(weight.size):
+            if weight[i] == 0:
                 self.age_list.pop(i - deleted)
                 self.r_e_list.pop(i - deleted)
                 self.energy_list.pop(i - deleted)
@@ -524,7 +530,7 @@ def dmc_branching(self):
                 self.wfn_value_list.pop(i - deleted)
                 self.branching_energy_list.pop(i - deleted)
                 deleted += 1
-            for _ in range(1, weight):
+            for _ in range(1, weight[i]):
                 self.age_list.append(self.age_list[i - deleted])
                 self.r_e_list.append(self.r_e_list[i - deleted])
                 self.energy_list.append(self.energy_list[i - deleted])
@@ -563,7 +569,11 @@ def dmc_random_step(self):
 
     def impl(self):
         self.sum_acceptance_probability = 0
-        self.weight_list = nb.typed.List.empty_list(weight_type)
+        self.weight_list = np.empty(
+            shape=len(
+                self.r_e_list,
+            )
+        )
         self.drift_diffusion()
         self.branching()
         self.t_move()
@@ -641,13 +651,13 @@ def dmc_load_balancing(self):
             self.efficiency_list.append(1)
         else:
             rank = self.mpi_comm.Get_rank()
-            walkers = np.zeros(shape=(self.mpi_size,), dtype=np.int_)
+            walkers = np.zeros(shape=(self.mpi_size,), dtype=np.int64)
             walkers[rank] = len(self.energy_list)
             # FIXME: use MPI.IN_PLACE
             self.mpi_comm.Allgather(walkers[rank : rank + 1], walkers)
             self.efficiency_list.append(walkers.mean() / np.max(walkers))
             # round down
-            walkers = (walkers - walkers.mean()).astype(np.int_)
+            walkers = (walkers - walkers.mean()).astype(np.int64)
             self.ntransfers_tot += np.abs(walkers).sum() // 2
             rank_1 = 0
             rank_2 = 1
