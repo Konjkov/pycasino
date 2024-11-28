@@ -6,8 +6,7 @@ from numba.experimental import structref
 from numba.extending import overload_method
 
 from casino.mpi import Comm, Comm_t
-
-# from casino.overload import repeat
+from casino.overload import repeat
 from casino.wfn import Wfn_t
 
 
@@ -52,11 +51,6 @@ class DMC_class_t(nb.types.StructRef):
 
 
 efficiency_type = nb.float64
-wfn_value_type = nb.float64
-energy_type = nb.float64
-age_type = nb.int64
-r_e_type = nb.float64[:, :]
-velocity_type = nb.float64[:, ::1]
 
 DMC_t = DMC_class_t(
     [
@@ -68,15 +62,15 @@ DMC_t = DMC_class_t(
         ('target_weight', nb.float64),
         ('nucleus_gf_mods', nb.boolean),
         ('use_tmove', nb.boolean),
-        ('age_list', nb.types.ListType(age_type)),
-        ('r_e_list', nb.types.ListType(r_e_type)),
-        ('wfn_value_list', nb.types.ListType(wfn_value_type)),
-        ('velocity_list', nb.types.ListType(velocity_type)),
-        ('energy_list', nb.types.ListType(energy_type)),
-        ('branching_energy_list', nb.types.ListType(energy_type)),
+        ('age_list', nb.int64[::1]),
+        ('r_e_list', nb.float64[:, :, ::1]),
+        ('wfn_value_list', nb.float64[::1]),
+        ('velocity_list', nb.float64[:, :, ::1]),
+        ('energy_list', nb.float64[::1]),
+        ('branching_energy_list', nb.float64[::1]),
         ('weight_list', nb.float64[::1]),
-        ('best_estimate_energy', energy_type),
-        ('energy_t', energy_type),
+        ('best_estimate_energy', nb.float64),
+        ('energy_t', nb.float64),
         ('ntransfers_tot', nb.int64),
         ('sum_acceptance_probability', nb.float64),
         ('efficiency_list', nb.types.ListType(efficiency_type)),
@@ -112,25 +106,23 @@ class DMC(structref.StructRefProxy):
             self.target_weight = target_weight
             self.nucleus_gf_mods = nucleus_gf_mods
             self.use_tmove = use_tmove
-            self.age_list = nb.typed.List.empty_list(age_type)
-            self.r_e_list = nb.typed.List.empty_list(r_e_type)
-            self.wfn_value_list = nb.typed.List.empty_list(wfn_value_type)
-            self.velocity_list = nb.typed.List.empty_list(velocity_type)
-            self.energy_list = nb.typed.List.empty_list(energy_type)
-            self.branching_energy_list = nb.typed.List.empty_list(energy_type)
-            for r_e in r_e_list:
-                self.age_list.append(0)
-                self.r_e_list.append(r_e)
-                self.wfn_value_list.append(self.wfn.value(r_e))
-                self.velocity_list.append(self.limiting_velocity(r_e)[0])
-                self.energy_list.append(self.wfn.energy(r_e))
-                self.branching_energy_list.append(self.wfn.energy(r_e))
+            self.r_e_list = np.ascontiguousarray(r_e_list)
+            self.age_list = np.zeros(shape=r_e_list.shape[:1], dtype=np.int64)
+            self.wfn_value_list = np.empty(shape=r_e_list.shape[:1])
+            self.velocity_list = np.empty(shape=r_e_list.shape)
+            self.energy_list = np.empty(shape=r_e_list.shape[:1])
+            self.branching_energy_list = np.empty(shape=r_e_list.shape[:1])
+            for i in range(r_e_list.shape[0]):
+                self.wfn_value_list[i] = self.wfn.value(r_e_list[i])
+                self.velocity_list[i] = self.limiting_velocity(r_e_list[i])[0]
+                self.energy_list[i] = self.wfn.energy(r_e_list[i])
+                self.branching_energy_list[i] = self.wfn.energy(r_e_list[i])
             if self.mpi_size == 1:
-                walkers = len(self.energy_list)
-                energy = sum(self.energy_list) / walkers
+                walkers = self.energy_list.size
+                energy = np.mean(self.energy_list)
             else:
-                walkers = self.mpi_comm.allreduce(len(self.energy_list))
-                energy = self.mpi_comm.allreduce(sum(self.energy_list)) / walkers
+                walkers = self.mpi_comm.allreduce(self.energy_list.size)
+                energy = self.mpi_comm.allreduce(np.mean(self.energy_list)) / self.mpi_size
             self.step_eff = self.step_size  # first guess
             self.best_estimate_energy = energy
             self.energy_t = self.best_estimate_energy - np.log(walkers / self.target_weight) / self.step_eff
@@ -280,7 +272,7 @@ def dmc_ebe_drift_diffusion(self):
     """EBES drift-diffusion step."""
 
     def impl(self):
-        for i in range(len(self.r_e_list)):
+        for i in range(self.r_e_list.shape[0]):
             p = 0
             moved = False
             r_e = self.r_e_list[i]
@@ -407,7 +399,7 @@ def dmc_cbc_drift_diffusion(self):
     """CBCS drift-diffusion step."""
 
     def impl(self):
-        for i in range(len(self.r_e_list)):
+        for i in range(self.r_e_list.shape[0]):
             p = 0
             r_e = self.r_e_list[i]
             velocity = self.velocity_list[i]
@@ -514,29 +506,13 @@ def dmc_branching(self):
     """Branching step."""
 
     def impl(self):
-        deleted = 0
         weight = (self.weight_list + np.random.random(self.weight_list.size)).astype(np.int64)
-        # self.age_list = np.repeat(self.age_list, weight)
-        # self.wfn_value_list = np.repeat(self.wfn_value_list, weight)
-        # self.branching_energy_list = np.repeat(self.branching_energy_list, weight)
-        # self.r_e_list = repeat(self.r_e_list, weight)
-        # self.velocity_list = repeat(self.velocity_list, weight)
-        for i in range(weight.size):
-            if weight[i] == 0:
-                self.age_list.pop(i - deleted)
-                self.r_e_list.pop(i - deleted)
-                self.energy_list.pop(i - deleted)
-                self.velocity_list.pop(i - deleted)
-                self.wfn_value_list.pop(i - deleted)
-                self.branching_energy_list.pop(i - deleted)
-                deleted += 1
-            for _ in range(1, weight[i]):
-                self.age_list.append(self.age_list[i - deleted])
-                self.r_e_list.append(self.r_e_list[i - deleted])
-                self.energy_list.append(self.energy_list[i - deleted])
-                self.velocity_list.append(self.velocity_list[i - deleted])
-                self.wfn_value_list.append(self.wfn_value_list[i - deleted])
-                self.branching_energy_list.append(self.branching_energy_list[i - deleted])
+        self.r_e_list = repeat(self.r_e_list, weight)
+        self.age_list = np.repeat(self.age_list, weight)
+        self.energy_list = np.repeat(self.energy_list, weight)
+        self.velocity_list = repeat(self.velocity_list, weight)
+        self.wfn_value_list = np.repeat(self.wfn_value_list, weight)
+        self.branching_energy_list = np.repeat(self.branching_energy_list, weight)
 
     return impl
 
@@ -548,7 +524,7 @@ def dmc_t_move(self):
 
     def impl(self):
         if self.wfn.ppotential is not None and self.use_tmove:
-            for i in range(len(self.r_e_list)):
+            for i in range(self.r_e_list.shape[0]):
                 moved, r_e = self.wfn.t_move(self.r_e_list[i], self.step_size)
                 if moved:
                     self.r_e_list[i] = r_e
@@ -569,22 +545,18 @@ def dmc_random_step(self):
 
     def impl(self):
         self.sum_acceptance_probability = 0
-        self.weight_list = np.empty(
-            shape=len(
-                self.r_e_list,
-            )
-        )
+        self.weight_list = np.empty(shape=self.r_e_list.shape[:1])
         self.drift_diffusion()
         self.branching()
         self.t_move()
 
         if self.mpi_size == 1:
-            walkers = len(self.energy_list)
-            energy = sum(self.energy_list) / walkers
+            walkers = self.energy_list.size
+            energy = np.mean(self.energy_list)
             acceptance_probability = self.sum_acceptance_probability / walkers
         else:
-            walkers = self.mpi_comm.allreduce(len(self.energy_list))
-            energy = self.mpi_comm.allreduce(sum(self.energy_list)) / walkers
+            walkers = self.mpi_comm.allreduce(self.energy_list.size)
+            energy = self.mpi_comm.allreduce(np.mean(self.energy_list)) / self.mpi_size
             acceptance_probability = self.mpi_comm.allreduce(self.sum_acceptance_probability) / walkers
         self.best_estimate_energy = energy
         self.step_eff = acceptance_probability * self.step_size
@@ -603,40 +575,49 @@ def dmc_redistribute_walker(self, from_rank, to_rank, count):
         rank = self.mpi_comm.Get_rank()
         if rank in (from_rank, to_rank):
             ne = self.wfn.neu + self.wfn.ned
-            age = np.empty(shape=(count,), dtype=np.int_)
-            r_e = np.empty(shape=(count, ne, 3))
-            energy = np.empty(shape=(count,))
-            velocity = np.empty(shape=(count, ne, 3))
-            wfn_value = np.empty(shape=(count,))
-            branching_energy = np.empty(shape=(count,))
             if rank == from_rank:
-                for i in range(count):
-                    age[i] = self.age_list.pop()
-                    r_e[i] = self.r_e_list.pop()
-                    energy[i] = self.energy_list.pop()
-                    velocity[i] = self.velocity_list.pop()
-                    wfn_value[i] = self.wfn_value_list.pop()
-                    branching_energy[i] = self.branching_energy_list.pop()
+                age = self.age_list[:count]
+                r_e = self.r_e_list[:count]
+                energy = self.energy_list[:count]
+                velocity = self.velocity_list[:count]
+                wfn_value = self.wfn_value_list[:count]
+                branching_energy = self.branching_energy_list[:count]
+
                 self.mpi_comm.Send(age, dest=to_rank)
                 self.mpi_comm.Send(r_e, dest=to_rank)
                 self.mpi_comm.Send(energy, dest=to_rank)
                 self.mpi_comm.Send(velocity, dest=to_rank)
                 self.mpi_comm.Send(wfn_value, dest=to_rank)
                 self.mpi_comm.Send(branching_energy, dest=to_rank)
+
+                self.age_list = self.age_list[count:]
+                self.r_e_list = self.r_e_list[count:]
+                self.energy_list = self.energy_list[count:]
+                self.velocity_list = self.velocity_list[count:]
+                self.wfn_value_list = self.wfn_value_list[count:]
+                self.branching_energy_list = self.branching_energy_list[count:]
+
             elif rank == to_rank:
+                age = np.empty(shape=(count,), dtype=np.int64)
+                r_e = np.empty(shape=(count, ne, 3))
+                energy = np.empty(shape=(count,))
+                velocity = np.empty(shape=(count, ne, 3))
+                wfn_value = np.empty(shape=(count,))
+                branching_energy = np.empty(shape=(count,))
+
                 self.mpi_comm.Recv(age, source=from_rank)
                 self.mpi_comm.Recv(r_e, source=from_rank)
                 self.mpi_comm.Recv(energy, source=from_rank)
                 self.mpi_comm.Recv(velocity, source=from_rank)
                 self.mpi_comm.Recv(wfn_value, source=from_rank)
                 self.mpi_comm.Recv(branching_energy, source=from_rank)
-                for i in range(count):
-                    self.age_list.append(age[i])
-                    self.r_e_list.append(r_e[i])
-                    self.energy_list.append(energy[i])
-                    self.velocity_list.append(velocity[i])
-                    self.wfn_value_list.append(wfn_value[i])
-                    self.branching_energy_list.append(branching_energy[i])
+
+                self.age_list = np.concatenate((self.age_list, age))
+                self.r_e_list = np.concatenate((self.r_e_list, r_e))
+                self.energy_list = np.concatenate((self.energy_list, energy))
+                self.velocity_list = np.concatenate((self.velocity_list, velocity))
+                self.wfn_value_list = np.concatenate((self.wfn_value_list, wfn_value))
+                self.branching_energy_list = np.concatenate((self.branching_energy_list, branching_energy))
 
     return impl
 
@@ -652,7 +633,7 @@ def dmc_load_balancing(self):
         else:
             rank = self.mpi_comm.Get_rank()
             walkers = np.zeros(shape=(self.mpi_size,), dtype=np.int64)
-            walkers[rank] = len(self.energy_list)
+            walkers[rank] = self.energy_list.size
             # FIXME: use MPI.IN_PLACE
             self.mpi_comm.Allgather(walkers[rank : rank + 1], walkers)
             self.efficiency_list.append(walkers.mean() / np.max(walkers))
