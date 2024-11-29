@@ -6,7 +6,6 @@ from numba.experimental import structref
 from numba.extending import overload_method
 
 from casino.mpi import Comm, Comm_t
-from casino.overload import repeat
 from casino.wfn import Wfn_t
 
 
@@ -98,7 +97,7 @@ class DMC(structref.StructRefProxy):
         def init(mpi_comm, r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
             self = structref.new(DMC_t)
             self.mpi_comm = mpi_comm
-            self.mpi_size = mpi_comm.Get_size()
+            self.mpi_size = mpi_comm.size
             self.wfn = wfn
             self.method = method
             self.alimit = alimit
@@ -507,10 +506,10 @@ def dmc_branching(self):
 
     def impl(self):
         weight = (self.weight_list + np.random.random(self.weight_list.size)).astype(np.int64)
-        self.r_e_list = repeat(self.r_e_list, weight)
+        self.r_e_list = np.repeat(self.r_e_list, weight)
         self.age_list = np.repeat(self.age_list, weight)
         self.energy_list = np.repeat(self.energy_list, weight)
-        self.velocity_list = repeat(self.velocity_list, weight)
+        self.velocity_list = np.repeat(self.velocity_list, weight)
         self.wfn_value_list = np.repeat(self.wfn_value_list, weight)
         self.branching_energy_list = np.repeat(self.branching_energy_list, weight)
 
@@ -572,7 +571,7 @@ def dmc_redistribute_walker(self, from_rank, to_rank, count):
     """Redistribute count walkers from MPI from_rank to to_rank"""
 
     def impl(self, from_rank, to_rank, count):
-        rank = self.mpi_comm.Get_rank()
+        rank = self.mpi_comm.rank
         if rank in (from_rank, to_rank):
             ne = self.wfn.neu + self.wfn.ned
             if rank == from_rank:
@@ -631,7 +630,7 @@ def dmc_load_balancing(self):
         if self.mpi_size == 1:
             self.efficiency_list.append(1)
         else:
-            rank = self.mpi_comm.Get_rank()
+            rank = self.mpi_comm.rank
             walkers = np.zeros(shape=(self.mpi_size,), dtype=np.int64)
             walkers[rank] = self.energy_list.size
             # FIXME: use MPI.IN_PLACE
