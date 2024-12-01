@@ -92,26 +92,27 @@ def expand(np_array):
 # @nb.njit(nogil=True, parallel=False, cache=True)
 def overlap_matrix(wfn_gradient):
     """Overlap matrix S.
+    <(X-<X>)(Y-<Y>)> = <XY> - <X><Y> = (X - <X>).T @ (Y - <Y>) / size
     As any covariance matrix it is symmetric and positive semi-definite.
     Cov(x1 + x2, y1 + y2) = Cov(x1, y1) + Cov(x1, y2) + Cov(x2, y1) + Cov(x2, y2)
     """
     size_0 = wfn_gradient.shape[0]
     size_1 = wfn_gradient.shape[1] + 1
     extended_wfn_gradient = np.ones(shape=(size_0, size_1))
-    extended_wfn_gradient[:, 1:] = wfn_gradient - np.mean(wfn_gradient, axis=0)
+    extended_wfn_gradient[:, 1:] = wfn_gradient
     return extended_wfn_gradient.T @ extended_wfn_gradient / size_0
 
 
 # @nb.njit(nogil=True, parallel=False, cache=True)
 def hamiltonian_matrix(wfn_gradient, energy, energy_gradient):
     """Hamiltonian matrix H.
-    <(X-<X>)(Y-<Y>)> = <XY> - <X><Y> = X.T @ Y / size
-    <(X-<X>)Z(Y-<Y>)> = <XYZ> - <XZ><Y> - <X><YZ> + <X><Y><Z> = X.T @ diag(Z) @ Y / size
+    <(X-<X>)(Y-<Y>)> = <XY> - <X><Y> = (X - <X>).T @ (Y - <Y>) / size
+    <(X-<X>)Z(Y-<Y>)> = <XYZ> - <XZ><Y> - <X><YZ> + <X><Y><Z> = (X - <X>).T @ diag(Z) @ (Y - <Y>) / size
     """
     size_0 = wfn_gradient.shape[0]
     size_1 = wfn_gradient.shape[1] + 1
     extended_wfn_gradient = np.ones(shape=(size_0, size_1))
-    extended_wfn_gradient[:, 1:] = wfn_gradient - np.mean(wfn_gradient, axis=0)
+    extended_wfn_gradient[:, 1:] = wfn_gradient
     extended_energy_gradient = np.zeros(shape=(size_0, size_1))
     extended_energy_gradient[:, 1:] = energy_gradient
     return extended_wfn_gradient.T @ (np.expand_dims(energy, 1) * extended_wfn_gradient + extended_energy_gradient) / size_0
@@ -122,7 +123,7 @@ def S_inv_H_matrix(wfn_gradient, energy, energy_gradient):
     size_0 = wfn_gradient.shape[0]
     size_1 = wfn_gradient.shape[1] + 1
     extended_wfn_gradient = np.ones(shape=(size_0, size_1))
-    extended_wfn_gradient[:, 1:] = wfn_gradient - np.mean(wfn_gradient, axis=0)
+    extended_wfn_gradient[:, 1:] = wfn_gradient
     extended_energy_gradient = np.zeros(shape=(size_0, size_1))
     extended_energy_gradient[:, 1:] = energy_gradient
     return sp.linalg.pinv(extended_wfn_gradient) @ (np.expand_dims(energy, 1) * extended_wfn_gradient + extended_energy_gradient)
@@ -882,31 +883,40 @@ class Casino:
         mpi_comm.Barrier()
         dp = np.empty_like(x0)
         if self.root:
-            energy_0 = energy.mean()
-            sem = np.mean(correlated_sem(energy.reshape(mpi_comm.size, steps // mpi_comm.size))) / np.sqrt(mpi_comm.size)
+            energy_mean = np.mean(energy)
+            stabilization = np.mean(correlated_sem(energy.reshape(mpi_comm.size, steps // mpi_comm.size))) / np.sqrt(mpi_comm.size)
+            logger.info(f'Hamiltonian stabilization: {stabilization:.8f}')
+            wfn_gradient -= np.mean(wfn_gradient, axis=0)
+            energy_gradient -= np.mean(energy_gradient, axis=0)
             if invert_S:
                 scale = 1
                 S_inv_H = S_inv_H_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
-                stabilization = 1
-                logger.info(f'Stabilization: {stabilization:.1f}')
                 S_inv_H[1:, 1:] += stabilization * np.eye(x0.size)
                 eigvals, eigvectors = sp.linalg.eig(S_inv_H)
             else:
                 # rescale parameters so that S becomes the Pearson correlation matrix
                 scale = 1 / np.std(wfn_gradient, axis=0)
+                # energy_variance = np.var(energy)
+                # energy_variance_gradient = 2 * (
+                #     np.mean(energy_gradient * energy, axis=0)
+                #     - 2 * np.mean(wfn_gradient * energy, axis=0)
+                #     + np.mean(wfn_gradient * energy ** 2, axis=0)
+                # )
+                # energy_variance_hessian = 2 * np.outer(
+                #     np.mean(wfn_gradient * energy ** 2, axis=0),
+                #     np.mean(wfn_gradient * energy ** 2, axis=0)
+                # )
                 # FIXME: remove zero scale
                 S = overlap_matrix(wfn_gradient * scale)
                 H = hamiltonian_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
                 # logger.info(f'epsilon:\n{np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]}')
-                stabilization = 1
-                logger.info(f'Stabilization: {stabilization:.1f} SEM')
-                H[1:, 1:] += stabilization * sem * np.eye(x0.size)
+                H[1:, 1:] += stabilization * np.eye(x0.size)
                 eigvals, eigvectors = sp.linalg.eig(H, S)
             # since imaginary parts only arise from statistical noise, discard them
             eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
             idx = np.abs(eigvectors[0]).argmax()
             eigval, eigvector = eigvals[idx], eigvectors[:, idx]
-            logger.info(f'E_0 {energy_0:.8f} E_lin {eigval:.8f} dE {eigval - energy_0:.8f}')
+            logger.info(f'E_0 {energy_mean:.8f} E_lin {eigval:.8f} dE {eigval - energy_mean:.8f}')
             logger.info(f'eigvector[0] {np.abs(eigvector[0]):.8f}')
             # from "Implementation of the Linear Method for the optimization of Jastrow-Feenberg
             # and Backflow Correlations" M. Motta, G. Bertaina, D. E. Galli, E. Vitali using (24)
