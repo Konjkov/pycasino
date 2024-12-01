@@ -1920,5 +1920,9 @@ class Jastrow(structref.StructRefProxy, AbstractJastrow):
     def cutoffs_optimizable(self, value):
         self.cutoffs_optimizable = value
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def set_u_parameters_for_emin(self):
+        return self.set_u_parameters_for_emin()
+
 
 structref.define_boxing(Jastrow_class_t, Jastrow)

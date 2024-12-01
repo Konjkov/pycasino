@@ -2,9 +2,8 @@ import math
 
 import numba as nb
 import numpy as np
-
-# import scipy as sp
-from numpy.polynomial.polynomial import polyval
+from numba.core.extending import overload
+from numpy.polynomial import polynomial as poly
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -36,11 +35,15 @@ def fact2(n):
     return res
 
 
-@nb.njit(nogil=True, parallel=False, cache=True)
-def comb(n, k) -> float:
+@overload(math.comb)
+def math_comb(n, k) -> float:
     """(n, k)"""
-    # return math.comb(n, k)
-    return math.gamma(n + 1) / math.gamma(k + 1) / math.gamma(n - k + 1)
+
+    def impl(n, k):
+        # return math.comb(n, k)
+        return math.gamma(n + 1) / math.gamma(k + 1) / math.gamma(n - k + 1)
+
+    return impl
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -58,22 +61,46 @@ def boys(n, x):
     #     return math.gamma(n + 1/2) * sp.special.gammaincc(n + 1/2, x) / (2 * x ** (n + 1/2))
 
 
-@nb.njit(nogil=True, parallel=False, cache=True)
-def polyval2d(x, y, c):
+@overload(poly.polyval2d)
+def np_polyval2d(x, y, c):
     """Evaluate a 2-D polynomial on the Cartesian product of x and y."""
-    x, y = [np.asarray(a) for a in (x, y)]
-    if x.shape != y.shape:
-        raise ValueError('x, y are incompatible')
-    return polyval(y, polyval(x, c, tensor=True), tensor=False)
+
+    def impl(x, y, c):
+        x, y = [np.asarray(a) for a in (x, y)]
+        if x.shape != y.shape:
+            raise ValueError('x, y are incompatible')
+        return poly.polyval(y, poly.polyval(x, c, tensor=True), tensor=False)
+
+    return impl
 
 
-@nb.njit(nogil=True, parallel=False, cache=True)
-def polyval3d(x, y, z, c):
+@overload(poly.polyval3d)
+def np_polyval3d(x, y, z, c):
     """Evaluate a 3-D polynomial at points (x, y, z)."""
-    x, y, z = [np.asarray(a) for a in (x, y, z)]
-    if x.shape != y.shape != z.shape:
-        raise ValueError('x, y, z are incompatible')
-    return polyval(z, polyval(y, polyval(x, c, tensor=True), tensor=False), tensor=False)
+
+    def impl(x, y, z, c):
+        x, y, z = [np.asarray(a) for a in (x, y, z)]
+        if x.shape != y.shape != z.shape:
+            raise ValueError('x, y, z are incompatible')
+        return poly.polyval(z, poly.polyval(y, poly.polyval(x, c, tensor=True), tensor=False), tensor=False)
+
+    return impl
+
+
+@overload(np.repeat)
+def np_repeat(a, repeats):
+    """Repeat each element of an array after themselves along 0-axis."""
+
+    def impl(a, repeats):
+        res = np.empty(shape=(np.sum(repeats),) + a.shape[1:], dtype=a.dtype)
+        pos = 0
+        for i in range(repeats.size):
+            for _ in range(repeats[i]):
+                res[pos] = a[i]
+                pos += 1
+        return res
+
+    return impl
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)

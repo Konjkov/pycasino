@@ -8,9 +8,9 @@ os.environ['OPENBLAS_NUM_THREADS'] = '1'  # openblas
 os.environ['MKL_NUM_THREADS'] = '1'  # mkl
 os.environ['VECLIB_MAXIMUM_THREADS'] = '1'  # accelerate
 os.environ['NUMEXPR_NUM_THREADS'] = '1'  # numexpr
-os.environ['NUMBA_NUM_THREADS'] = '1'  # numba
 os.environ['NUMBA_FULL_TRACEBACKS'] = '1'
 # os.environ['NUMBA_CAPTURED_ERRORS'] = 'new_style'
+# os.environ['NUMBA_PARALLEL_DIAGNOSTICS'] = '4'
 # os.environ['NUMBA_DEBUG_CACHE'] = '1'
 
 np.seterr(all='warn')

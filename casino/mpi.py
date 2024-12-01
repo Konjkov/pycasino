@@ -6,7 +6,7 @@ import numpy as np
 from mpi4py import MPI
 from numba.core import cgutils, types
 from numba.experimental import structref
-from numba.extending import overload_method
+from numba.extending import overload_attribute, overload_method
 
 LIB = ctypes.util.find_library('mpi')
 libmpi = ctypes.CDLL(LIB)
@@ -255,12 +255,12 @@ def comm_Barrier(self):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Comm_class_t, 'Get_size')
-def comm_Get_size(self) -> int:
+def comm_Get_size(self):
     """Return the number of processes in a communicator.
     https://mpi4py.readthedocs.io/en/stable/reference/mpi4py.MPI.Comm.html#mpi4py.MPI.Comm.Get_size
     """
 
-    def impl(self):
+    def impl(self) -> int:
         size_ptr = val_to_ptr(0)
         status = self.MPI_Comm_size(self._mpi_addr(self.MPI_COMM_WORLD), size_ptr)
         assert status == 0
@@ -269,18 +269,38 @@ def comm_Get_size(self) -> int:
     return impl
 
 
+@overload_attribute(Comm_class_t, 'size')
+def comm_size(self):
+    """Return the number of processes in a communicator."""
+
+    def impl(self):
+        return self.Get_size()
+
+    return impl
+
+
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Comm_class_t, 'Get_rank')
-def comm_Get_rank(self) -> int:
+def comm_Get_rank(self):
     """Return the rank of this process in a communicator.
     https://mpi4py.readthedocs.io/en/stable/reference/mpi4py.MPI.Comm.html#mpi4py.MPI.Comm.Get_rank
     """
 
-    def impl(self):
+    def impl(self) -> int:
         size_ptr = val_to_ptr(0)
         status = self.MPI_Comm_rank(self._mpi_addr(self.MPI_COMM_WORLD), size_ptr)
         assert status == 0
         return val_from_ptr(size_ptr)
+
+    return impl
+
+
+@overload_attribute(Comm_class_t, 'rank')
+def comm_rank(self):
+    """Return the rank of this process in a communicator."""
+
+    def impl(self):
+        return self.Get_rank()
 
     return impl
 

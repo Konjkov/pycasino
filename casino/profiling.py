@@ -168,7 +168,7 @@ if __name__ == '__main__':
         profiler.slater_profiling()
         profiler.jastrow_profiling()
         profiler.backflow_profiling()
-        # profiler.markovchain_profiling()/
+        profiler.markovchain_profiling()
 
     for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'O3', 'Kr'):
         path = f'../tests/gwfn/{mol}/HF/cc-pVQZ/CBCS/Jastrow/'
