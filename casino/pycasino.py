@@ -13,6 +13,7 @@ import numpy as np
 import scipy as sp
 from mpi4py import MPI
 from scipy.optimize import OptimizeWarning, curve_fit, least_squares, minimize
+from statsmodels.tsa.stattools import pacf
 
 from .backflow import Backflow
 from .cusp import CuspFactory
@@ -425,7 +426,7 @@ class Casino:
             if self.root:
                 energy_block_mean = np.mean(energy[:, i, :])
                 energy_block_var = np.var(energy[:, i, :])
-                energy_block_sem = np.mean(correlated_sem(energy[:, i, :])) / np.sqrt(mpi_comm.size)
+                energy_block_sem = np.std(energy[:, i, :]) / np.sqrt(mpi_comm.size * nblock_steps - 1)
                 block_stop = default_timer()
                 logger.info(
                     f' =========================================================================\n'
@@ -440,12 +441,21 @@ class Casino:
                     f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
                 )
         if self.root:
+            energy = energy.reshape(mpi_comm.size, nblock * nblock_steps)
+            energy_mean = energy.mean()
+            energy_std = energy.std() / np.sqrt(steps - 1)
+            energy_cor = 0
+            for i in range(mpi_comm.size):
+                energy_cor += (2 * np.sum(pacf(energy[i], method='burg')) - 1)
+            energy_cor *= energy_std / mpi_comm.size
             energy_sem = np.mean(correlated_sem(energy.reshape(mpi_comm.size, nblock * nblock_steps))) / np.sqrt(mpi_comm.size)
             logger.info(
                 f' =========================================================================\n'
                 f' FINAL RESULT:\n\n'
                 f'  VMC energy (au)    Standard error      Correction for serial correlation\n\n'
-                f' {energy.mean():.12f} +/- {energy_sem:.12f}      On-the-fly reblocking method\n\n'
+                f' {energy_mean:.12f} +/- {energy_std:.12f}      No correction\n'
+                f' {energy_mean:.12f} +/- {energy_cor:.12f}      Correlation time method\n'
+                f' {energy_mean:.12f} +/- {energy_sem:.12f}      On-the-fly reblocking method\n\n'
                 f' Sample variance of E_L (au^2/sim.cell) : {energy.var():.12f}\n\n'
             )
         energy_buffer.Free()
