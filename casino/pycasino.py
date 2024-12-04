@@ -13,6 +13,7 @@ import numpy as np
 import scipy as sp
 from mpi4py import MPI
 from scipy.optimize import OptimizeWarning, curve_fit, least_squares, minimize
+from statsmodels.tsa.stattools import pacf
 
 from .backflow import Backflow
 from .cusp import CuspFactory
@@ -89,7 +90,7 @@ def expand(np_array):
             np_array[i] = np_array[i - 1]
 
 
-# @nb.njit(nogil=True, parallel=False, cache=True)
+@nb.njit(nogil=True, parallel=False, cache=True)
 def overlap_matrix(wfn_gradient):
     """Overlap matrix S.
     <(X-<X>)(Y-<Y>)> = <XY> - <X><Y> = (X - <X>).T @ (Y - <Y>) / size
@@ -103,7 +104,7 @@ def overlap_matrix(wfn_gradient):
     return extended_wfn_gradient.T @ extended_wfn_gradient / size_0
 
 
-# @nb.njit(nogil=True, parallel=False, cache=True)
+@nb.njit(nogil=True, parallel=False, cache=True)
 def hamiltonian_matrix(wfn_gradient, energy, energy_gradient):
     """Hamiltonian matrix H.
     <(X-<X>)(Y-<Y>)> = <XY> - <X><Y> = (X - <X>).T @ (Y - <Y>) / size
@@ -118,6 +119,20 @@ def hamiltonian_matrix(wfn_gradient, energy, energy_gradient):
     return extended_wfn_gradient.T @ (np.expand_dims(energy, 1) * extended_wfn_gradient + extended_energy_gradient) / size_0
 
 
+@nb.njit(nogil=True, parallel=False, cache=True)
+def hamiltonian_v_matrix(v0, energy_variance_gradient, energy_variance_hessian):
+    """Hamiltonian variance matrix H.
+    """
+    size = energy_variance_gradient.shape[0] + 1
+    res = np.empty(shape=(size, size))
+    res[0, 0] = v0
+    res[0, 1:] = energy_variance_gradient
+    res[1:, 0] = energy_variance_gradient
+    res[1:, 1:] = energy_variance_hessian
+    return res
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 def S_inv_H_matrix(wfn_gradient, energy, energy_gradient):
     """S^-1 @ H"""
     size_0 = wfn_gradient.shape[0]
@@ -411,7 +426,7 @@ class Casino:
             if self.root:
                 energy_block_mean = np.mean(energy[:, i, :])
                 energy_block_var = np.var(energy[:, i, :])
-                energy_block_sem = np.mean(correlated_sem(energy[:, i, :])) / np.sqrt(mpi_comm.size)
+                energy_block_sem = np.std(energy[:, i, :]) / np.sqrt(mpi_comm.size * nblock_steps - 1)
                 block_stop = default_timer()
                 logger.info(
                     f' =========================================================================\n'
@@ -426,12 +441,21 @@ class Casino:
                     f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
                 )
         if self.root:
+            energy = energy.reshape(mpi_comm.size, nblock * nblock_steps)
+            energy_mean = energy.mean()
+            energy_std = energy.std() / np.sqrt(steps - 1)
+            energy_cor = 0
+            for i in range(mpi_comm.size):
+                energy_cor += (2 * np.sum(pacf(energy[i], method='burg')) - 1)
+            energy_cor *= energy_std / mpi_comm.size
             energy_sem = np.mean(correlated_sem(energy.reshape(mpi_comm.size, nblock * nblock_steps))) / np.sqrt(mpi_comm.size)
             logger.info(
                 f' =========================================================================\n'
                 f' FINAL RESULT:\n\n'
                 f'  VMC energy (au)    Standard error      Correction for serial correlation\n\n'
-                f' {energy.mean():.12f} +/- {energy_sem:.12f}      On-the-fly reblocking method\n\n'
+                f' {energy_mean:.12f} +/- {energy_std:.12f}      No correction\n'
+                f' {energy_mean:.12f} +/- {energy_cor:.12f}      Correlation time method\n'
+                f' {energy_mean:.12f} +/- {energy_sem:.12f}      On-the-fly reblocking method\n\n'
                 f' Sample variance of E_L (au^2/sim.cell) : {energy.var():.12f}\n\n'
             )
         energy_buffer.Free()
@@ -896,19 +920,21 @@ class Casino:
             else:
                 # rescale parameters so that S becomes the Pearson correlation matrix
                 scale = 1 / np.std(wfn_gradient, axis=0)
-                # energy_variance = np.var(energy)
-                # energy_variance_gradient = 2 * (
-                #     np.mean(energy_gradient * energy, axis=0)
-                #     - 2 * np.mean(wfn_gradient * energy, axis=0)
-                #     + np.mean(wfn_gradient * energy ** 2, axis=0)
-                # )
-                # energy_variance_hessian = 2 * np.outer(
-                #     np.mean(wfn_gradient * energy ** 2, axis=0),
-                #     np.mean(wfn_gradient * energy ** 2, axis=0)
-                # )
                 # FIXME: remove zero scale
                 S = overlap_matrix(wfn_gradient * scale)
                 H = hamiltonian_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
+                if False:
+                    v0 = np.var(energy)
+                    energy_variance_gradient = (
+                        energy_gradient.T @ energy
+                        - 2 * wfn_gradient.T @ energy * energy_mean
+                        + wfn_gradient.T @ energy ** 2
+                    ) / energy.size * scale
+                    energy_variance_hessian = np.outer(
+                        wfn_gradient.T @ energy / energy.size * scale,
+                        wfn_gradient.T @ energy / energy.size * scale
+                    ) + S[:1, :1] * v0
+                    H += 0.05 * hamiltonian_v_matrix(v0, energy_variance_gradient, energy_variance_hessian)
                 # logger.info(f'epsilon:\n{np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]}')
                 H[1:, 1:] += stabilization * np.eye(x0.size)
                 eigvals, eigvectors = sp.linalg.eig(H, S)

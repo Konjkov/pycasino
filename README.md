@@ -11,4 +11,4 @@ Clone the repository and install the code from source or use the Python package 
 `pip install casino`
 
 ## Documentation.
-https://konjkov.github.io/pycasino.github.io/
+https://casinoqmc.readthedocs.io/en/latest/
