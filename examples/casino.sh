@@ -47,10 +47,10 @@
 
 # ../casino/plot/plot.py stowfn/He/HF/QZ4P/CBCS/Backflow/ u
 
-# single thread
+# export NUMBA_NUM_THREADS=1
+# single MPI-process
 # pycasino $path
-# multiple thread
+# multiple MPI-process
 # mpiexec pycasino $path
 # hybrid code
-# NUMBA_NUM_THREADS=4
 # mpiexec -n 2 --map-by slot:pe=${NUMBA_NUM_THREADS} pycasino $path
