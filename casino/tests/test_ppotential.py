@@ -1,5 +1,6 @@
-import numpy as np
 import unittest
+
+import numpy as np
 
 from casino.readers import CasinoConfig
 from casino.slater import Slater
@@ -7,7 +8,6 @@ from casino.wfn import Wfn
 
 
 class TestPPotential(unittest.TestCase):
-
     def setUp(self):
         np.random.seed(1)
         config_path = 'inputs/Slater/He'
@@ -32,5 +32,5 @@ class TestPPotential(unittest.TestCase):
         return r_e + np.random.uniform(-1, 1, ne * 3).reshape(ne, 3)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

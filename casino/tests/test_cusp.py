@@ -1,19 +1,22 @@
-import numpy as np
 import unittest
 
+import numpy as np
+
+from casino.cusp import CuspFactory
 from casino.readers import CasinoConfig
 from casino.slater import Slater
 from casino.wfn import Wfn
 
 
-class TestSlater(unittest.TestCase):
-
+class TestCusp(unittest.TestCase):
     def setUp(self):
         np.random.seed(1)
-        config_path = 'inputs/Slater/He'
+        config_path = 'inputs/Cusp/He'
         self.config = CasinoConfig(config_path)
         self.config.read()
-        slater = Slater(self.config, cusp=None)
+        cusp_factory = CuspFactory(self.config)
+        cusp = cusp_factory.create()
+        slater = Slater(self.config, cusp)
         self.wfn = Wfn(self.config, slater, jastrow=None, backflow=None, ppotential=None)
         self.wfn.set_parameters_projector()
         position = self.initial_position()
@@ -32,20 +35,17 @@ class TestSlater(unittest.TestCase):
         return r_e + np.random.uniform(-1, 1, ne * 3).reshape(ne, 3)
 
     def test_gradient(self):
-        assert np.allclose(self.wfn.slater.gradient(self.n_vectors), self.wfn.slater.numerical_gradient(self.n_vectors))
+        assert np.allclose(self.wfn.slater.cusp.gradient(self.n_vectors), self.wfn.slater.cusp.numerical_gradient(self.n_vectors))
 
     def test_laplacian(self):
-        assert np.allclose(self.wfn.slater.laplacian(self.n_vectors), self.wfn.slater.numerical_laplacian(self.n_vectors), rtol=0.001)
+        assert np.allclose(self.wfn.slater.cusp.laplacian(self.n_vectors), self.wfn.slater.cusp.numerical_laplacian(self.n_vectors))
 
     def test_hessian(self):
-        assert np.allclose(self.wfn.slater.hessian(self.n_vectors)[0], self.wfn.slater.numerical_hessian(self.n_vectors), rtol=0.001)
+        assert np.allclose(self.wfn.slater.cusp.hessian(self.n_vectors)[0], self.wfn.slater.cusp.numerical_hessian(self.n_vectors))
 
     def test_tressian(self):
-        assert np.allclose(self.wfn.slater.tressian(self.n_vectors)[0], self.wfn.slater.numerical_tressian(self.n_vectors), rtol=0.001)
-
-    def test_tressian_v2(self):
-        assert np.allclose(self.wfn.slater.tressian(self.n_vectors)[0], self.wfn.slater.tressian_v2(self.n_vectors)[0])
+        assert np.allclose(self.wfn.slater.cusp.tressian(self.n_vectors)[0], self.wfn.slater.cusp.numerical_tressian(self.n_vectors))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()
