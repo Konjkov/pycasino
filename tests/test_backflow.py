@@ -4,7 +4,7 @@ import unittest
 from casino.readers import CasinoConfig
 from casino.slater import Slater
 from casino.jastrow import Jastrow
-from casino.backflow import Backflow
+from casino.backflow import        Backflow
 from casino.wfn import Wfn
 
 
