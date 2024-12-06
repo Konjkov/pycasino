@@ -6,6 +6,7 @@ from casino.slater import Slater
 from casino.wfn import Wfn
 from casino.jastrow import Jastrow
 
+
 class TestJastrow(unittest.TestCase):
 
     def setUp(self):
