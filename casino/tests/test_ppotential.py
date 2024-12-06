@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 import numpy as np
 
@@ -10,7 +11,7 @@ from casino.wfn import Wfn
 class TestPPotential(unittest.TestCase):
     def setUp(self):
         np.random.seed(1)
-        config_path = 'inputs/Slater/He'
+        config_path = Path(__file__).resolve().parent / 'inputs/Slater/He'
         self.config = CasinoConfig(config_path)
         self.config.read()
         slater = Slater(self.config, cusp=None)

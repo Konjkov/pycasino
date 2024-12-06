@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 import numpy as np
 
@@ -12,7 +13,7 @@ from casino.wfn import Wfn
 class TestBackflow(unittest.TestCase):
     def setUp(self):
         np.random.seed(1)
-        config_path = 'inputs/Backflow/He'
+        config_path = Path(__file__).resolve().parent / 'inputs/Backflow/He'
         self.config = CasinoConfig(config_path)
         self.config.read()
         slater = Slater(self.config, cusp=None)
@@ -66,9 +67,8 @@ class TestBackflow(unittest.TestCase):
         assert np.allclose(projector @ gradient_parameters_d1, gradient_parameters_numerical_d1)
 
     def test_laplacian_parameters_d1(self):
-        projector = self.wfn.backflow.parameters_projector.T
         assert np.allclose(
-            projector @ self.wfn.backflow.laplacian_parameters_d1(self.e_vectors, self.n_vectors)[0],
+            self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.laplacian_parameters_d1(self.e_vectors, self.n_vectors)[0],
             self.wfn.backflow.laplacian_parameters_numerical_d1(self.e_vectors, self.n_vectors, False),
         )
 

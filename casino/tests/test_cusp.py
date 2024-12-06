@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 import numpy as np
 
@@ -11,7 +12,7 @@ from casino.wfn import Wfn
 class TestCusp(unittest.TestCase):
     def setUp(self):
         np.random.seed(1)
-        config_path = 'inputs/Cusp/He'
+        config_path = Path(__file__).resolve().parent / 'inputs/Cusp/He'
         self.config = CasinoConfig(config_path)
         self.config.read()
         cusp_factory = CuspFactory(self.config)

@@ -10,5 +10,7 @@ Clone the repository and install the code from source or use the Python package 
 
 `pip install casino`
 
+`pytest --pyargs casino.tests`
+
 ## Documentation.
 https://casinoqmc.readthedocs.io/en/latest/
