@@ -4,8 +4,9 @@ import numba as nb
 import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
+from scipy.special import factorial2
 
-from casino.overload import boys, comb, fact2
+from casino.overload import boys
 
 
 @structref.register
@@ -45,7 +46,7 @@ def HartreeFock_binomial_prefactor(self, k, l1, l2, PA, PB):
         for q in range(-min(k, 2 * l2 - k), min(k, 2 * l1 - k) + 1, 2):
             i = (k + q) // 2
             j = (k - q) // 2
-            res += comb(l1, i) * comb(l2, j) * PA ** (l1 - i) * PB ** (l2 - j)
+            res += math.comb(l1, i) * math.comb(l2, j) * PA ** (l1 - i) * PB ** (l2 - j)
         return res
 
     return impl
@@ -59,11 +60,11 @@ def HartreeFock_overlap(self, lmn1, lmn2, PA, PB, gamma):
     def impl(self, lmn1, lmn2, PA, PB, gamma) -> float:
         overlap = np.zeros(shape=(3,))
         for l in range(0, lmn1[0] + lmn2[0] + 1, 2):
-            overlap[0] += self.binomial_prefactor(l, lmn1[0], lmn2[0], PA[0], PB[0]) * fact2(l - 1) / (2 * gamma) ** (l / 2)
+            overlap[0] += self.binomial_prefactor(l, lmn1[0], lmn2[0], PA[0], PB[0]) * factorial2(l - 1) / (2 * gamma) ** (l / 2)
         for m in range(0, lmn1[1] + lmn2[1] + 1, 2):
-            overlap[1] += self.binomial_prefactor(m, lmn1[1], lmn2[1], PA[1], PB[1]) * fact2(m - 1) / (2 * gamma) ** (m / 2)
+            overlap[1] += self.binomial_prefactor(m, lmn1[1], lmn2[1], PA[1], PB[1]) * factorial2(m - 1) / (2 * gamma) ** (m / 2)
         for n in range(0, lmn1[2] + lmn2[2] + 1, 2):
-            overlap[2] += self.binomial_prefactor(n, lmn1[2], lmn2[2], PA[2], PB[2]) * fact2(n - 1) / (2 * gamma) ** (n / 2)
+            overlap[2] += self.binomial_prefactor(n, lmn1[2], lmn2[2], PA[2], PB[2]) * factorial2(n - 1) / (2 * gamma) ** (n / 2)
         return overlap
 
     return impl

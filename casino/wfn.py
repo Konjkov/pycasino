@@ -239,7 +239,7 @@ def wfn_kinetic_energy(self, r_e):
             s_h, s_g = self.slater.hessian(b_v + n_vectors)
             s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
             if self.jastrow is not None:
-                j_g, j_l = self.jastrow.laplacian(e_vectors, n_vectors)
+                j_l, j_g = self.jastrow.laplacian(e_vectors, n_vectors)
                 s_g = s_g @ b_g
                 F = np.sum((s_g + j_g) ** 2) / 2
                 T = (np.sum(s_g**2) - s_l - j_l) / 4
@@ -249,7 +249,7 @@ def wfn_kinetic_energy(self, r_e):
         else:
             s_l = self.slater.laplacian(n_vectors)
             if self.jastrow is not None:
-                j_g, j_l = self.jastrow.laplacian(e_vectors, n_vectors)
+                j_l, j_g = self.jastrow.laplacian(e_vectors, n_vectors)
                 s_g = self.slater.gradient(n_vectors)
                 F = np.sum((s_g + j_g) ** 2) / 2
                 T = (np.sum(s_g**2) - s_l - j_l) / 4

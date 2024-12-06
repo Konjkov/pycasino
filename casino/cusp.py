@@ -106,6 +106,22 @@ class Cusp(structref.StructRefProxy, AbstractCusp):
     def alpha(self):
         return self.alpha
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def gradient(self, n_vectors):
+        return self.gradient(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def laplacian(self, n_vectors):
+        return self.laplacian(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def hessian(self, n_vectors):
+        return self.hessian(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def tressian(self, n_vectors):
+        return self.tressian(n_vectors)
+
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Cusp_class_t, 'exp')

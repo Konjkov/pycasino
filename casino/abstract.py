@@ -310,13 +310,13 @@ class AbstractSlater:
         res = -6 * (self.neu + self.ned) * val
         for i in range(self.neu + self.ned):
             for j in range(3):
-                n_vectors[:, i, j] -= delta
+                n_vectors[:, i, j] -= delta_2
                 res += self.value(n_vectors)
-                n_vectors[:, i, j] += 2 * delta
+                n_vectors[:, i, j] += 2 * delta_2
                 res += self.value(n_vectors)
-                n_vectors[:, i, j] -= delta
+                n_vectors[:, i, j] -= delta_2
 
-        return res / delta / delta / val
+        return res / delta_2 / delta_2 / val
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_hessian(self, n_vectors: np.ndarray) -> np.ndarray:
@@ -491,19 +491,19 @@ class AbstractJastrow:
         res = -6 * (self.neu + self.ned) * self.value(e_vectors, n_vectors)
         for i in range(self.neu + self.ned):
             for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                e_vectors[i, :, j] -= delta_2
+                e_vectors[:, i, j] += delta_2
+                n_vectors[:, i, j] -= delta_2
                 res += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
+                e_vectors[i, :, j] += 2 * delta_2
+                e_vectors[:, i, j] -= 2 * delta_2
+                n_vectors[:, i, j] += 2 * delta_2
                 res += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                e_vectors[i, :, j] -= delta_2
+                e_vectors[:, i, j] += delta_2
+                n_vectors[:, i, j] -= delta_2
 
-        return res / delta / delta
+        return res / delta_2 / delta_2
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def value_parameters_numerical_d1(self, e_vectors, n_vectors, all_parameters) -> np.ndarray:
@@ -562,10 +562,10 @@ class AbstractJastrow:
         for i in range(parameters.size):
             parameters[i] -= delta
             self.set_parameters(parameters, all_parameters)
-            res[i] -= self.laplacian(e_vectors, n_vectors)
+            res[i] -= self.laplacian(e_vectors, n_vectors)[0]
             parameters[i] += 2 * delta
             self.set_parameters(parameters, all_parameters)
-            res[i] += self.laplacian(e_vectors, n_vectors)
+            res[i] += self.laplacian(e_vectors, n_vectors)[0]
             parameters[i] -= delta
             self.set_parameters(parameters, all_parameters)
 
