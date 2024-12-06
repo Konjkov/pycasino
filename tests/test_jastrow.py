@@ -19,8 +19,8 @@ class TestJastrow(unittest.TestCase):
         self.wfn = Wfn(self.config, slater, jastrow, backflow=None, ppotential=None)
         self.wfn.opt_jastrow = True
         self.wfn.set_parameters_projector()
-        position = self.initial_position()
-        self.e_vectors, self.n_vectors = self.wfn._relative_coordinates(position)
+        self.r_e = self.initial_position()
+        self.e_vectors, self.n_vectors = self.wfn._relative_coordinates(self.r_e)
 
     def initial_position(self):
         """Initial positions of electrons."""
@@ -48,6 +48,12 @@ class TestJastrow(unittest.TestCase):
 
     def test_laplacian_parameters_d1(self):
         assert np.allclose(self.wfn.jastrow.laplacian_parameters_d1(self.e_vectors, self.n_vectors), self.wfn.jastrow.laplacian_parameters_numerical_d1(self.e_vectors, self.n_vectors, False))
+
+    def test_wfn_value_parameters_d1(self):
+        assert np.allclose(self.wfn.value_parameters_d1(self.r_e), self.wfn.value_parameters_numerical_d1(self.r_e))
+
+    def test_wfn_energy_parameters_d1(self):
+        assert np.allclose(self.wfn.energy_parameters_d1(self.r_e), self.wfn.energy_parameters_numerical_d1(self.r_e))
 
 
 if __name__ == "__main__":

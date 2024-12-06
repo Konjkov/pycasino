@@ -3,6 +3,7 @@ import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
+from casino.abstract import AbstractWfn
 from casino.backflow import Backflow_t
 from casino.jastrow import Jastrow_t
 from casino.overload import block_diag
@@ -411,6 +412,45 @@ def wfn_nonlocal_energy_parameters_d1(self, r_e):
     return impl
 
 
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'get_parameters')
+def wfn_get_parameters(self, all_parameters=False):
+    """Get WFN parameters to be optimized
+    :param all_parameters: get all parameters or only independent
+    """
+
+    def impl(self, all_parameters=False):
+        res = np.zeros(0)
+        if self.jastrow is not None and self.opt_jastrow:
+            res = np.concatenate((res, self.jastrow.get_parameters(all_parameters)))
+        if self.backflow is not None and self.opt_backflow:
+            res = np.concatenate((res, self.backflow.get_parameters(all_parameters)))
+        if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
+            res = np.concatenate((res, self.slater.get_parameters(all_parameters)))
+        return res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'set_parameters')
+def wfn_set_parameters(self, parameters, all_parameters=False):
+    """Update optimized parameters
+    :param parameters: parameters to update
+    :param all_parameters: set all parameters or only independent
+    """
+
+    def impl(self, parameters, all_parameters=False):
+        if self.jastrow is not None and self.opt_jastrow:
+            parameters = self.jastrow.set_parameters(parameters, all_parameters=all_parameters)
+        if self.backflow is not None and self.opt_backflow:
+            parameters = self.backflow.set_parameters(parameters, all_parameters=all_parameters)
+        if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
+            self.slater.set_parameters(parameters, all_parameters=all_parameters)
+
+    return impl
+
+
 Wfn_t = Wfn_class_t(
     [
         ('neu', nb.int64),
@@ -430,7 +470,7 @@ Wfn_t = Wfn_class_t(
 )
 
 
-class Wfn(structref.StructRefProxy):
+class Wfn(structref.StructRefProxy, AbstractWfn):
     def __new__(cls, config, slater, jastrow, backflow, ppotential):
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(neu, ned, atom_positions, atom_charges, slater, jastrow, backflow, ppotential):
@@ -540,14 +580,7 @@ class Wfn(structref.StructRefProxy):
         """Get WFN parameters to be optimized
         :param all_parameters: get all parameters or only independent
         """
-        res = np.zeros(0)
-        if self.jastrow is not None and self.opt_jastrow:
-            res = np.concatenate((res, self.jastrow.get_parameters(all_parameters)))
-        if self.backflow is not None and self.opt_backflow:
-            res = np.concatenate((res, self.backflow.get_parameters(all_parameters)))
-        if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
-            res = np.concatenate((res, self.slater.get_parameters(all_parameters)))
-        return res
+        return self.get_parameters(all_parameters)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def set_parameters(self, parameters, all_parameters=False):
@@ -555,12 +588,7 @@ class Wfn(structref.StructRefProxy):
         :param parameters: parameters to update
         :param all_parameters: set all parameters or only independent
         """
-        if self.jastrow is not None and self.opt_jastrow:
-            parameters = self.jastrow.set_parameters(parameters, all_parameters=all_parameters)
-        if self.backflow is not None and self.opt_backflow:
-            parameters = self.backflow.set_parameters(parameters, all_parameters=all_parameters)
-        if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
-            self.slater.set_parameters(parameters, all_parameters=all_parameters)
+        self.set_parameters(parameters, all_parameters)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def set_parameters_projector(self):

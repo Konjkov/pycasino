@@ -545,15 +545,6 @@ class Casino:
         plt.savefig('hist.png')
         plt.clf()
 
-    def check(self, steps):
-        """Check"""
-        self.wfn.set_parameters_projector()
-        self.wfn.opt_jastrow, self.wfn.opt_backflow, self.wfn.opt_det_coeff = False, False, False
-        position = self.vmc.random_walk(steps // mpi_comm.size, self.decorr_period)
-        for pos in position:
-            logger.info(self.wfn.value_parameters_d1(pos) / self.wfn.value_parameters_numerical_d1(pos))
-            logger.info(self.wfn.energy_parameters_d1(pos) / self.wfn.energy_parameters_numerical_d1(pos))
-
     def vmc_unreweighted_variance_minimization(self, steps, verbose=2):
         """Minimize vmc unreweighted variance.
         https://github.com/scipy/scipy/issues/10634

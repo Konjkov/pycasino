@@ -245,17 +245,16 @@ class AbstractWfn:
         :param all_parameters: optimize all parameters or only independent
         :return:
         """
-        scale = self.get_parameters_scale()
         parameters = self.get_parameters(all_parameters)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
-            parameters[i] -= delta * scale[i]
+            parameters[i] -= delta
             self.set_parameters(parameters, all_parameters)
-            res[i] -= self.value(r_e) / scale[i]
-            parameters[i] += 2 * delta * scale[i]
+            res[i] -= self.value(r_e)
+            parameters[i] += 2 * delta
             self.set_parameters(parameters, all_parameters)
-            res[i] += self.value(r_e) / scale[i]
-            parameters[i] -= delta * scale[i]
+            res[i] += self.value(r_e)
+            parameters[i] -= delta
             self.set_parameters(parameters, all_parameters)
 
         return res / delta / 2 / self.value(r_e)
@@ -267,17 +266,16 @@ class AbstractWfn:
         :param all_parameters: optimize all parameters or only independent
         :return:
         """
-        scale = self.get_parameters_scale()
         parameters = self.get_parameters(all_parameters)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
-            parameters[i] -= delta * scale[i]
+            parameters[i] -= delta
             self.set_parameters(parameters, all_parameters)
-            res[i] -= self.energy(r_e) / scale[i]
-            parameters[i] += 2 * delta * scale[i]
+            res[i] -= self.energy(r_e)
+            parameters[i] += 2 * delta
             self.set_parameters(parameters, all_parameters)
-            res[i] += self.energy(r_e) / scale[i]
-            parameters[i] -= delta * scale[i]
+            res[i] += self.energy(r_e)
+            parameters[i] -= delta
             self.set_parameters(parameters, all_parameters)
 
         return res / delta / 2
@@ -795,3 +793,7 @@ class AbstractBackflow:
             e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.laplacian_parameters_d1(e_vectors, n_vectors)
+
+
+class AbstractPPotential:
+    pass
