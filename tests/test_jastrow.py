@@ -3,9 +3,8 @@ import unittest
 
 from casino.readers import CasinoConfig
 from casino.slater import Slater
-from casino.jastrow import Jastrow
 from casino.wfn import Wfn
-
+from casino.jastrow import Jastrow
 
 class TestJastrow(unittest.TestCase):
 
