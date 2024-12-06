@@ -662,19 +662,19 @@ class AbstractBackflow:
         res = -6 * (self.neu + self.ned) * self.value(e_vectors, n_vectors)
         for i in range(self.neu + self.ned):
             for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                e_vectors[i, :, j] -= delta_2
+                e_vectors[:, i, j] += delta_2
+                n_vectors[:, i, j] -= delta_2
                 res += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
+                e_vectors[i, :, j] += 2 * delta_2
+                e_vectors[:, i, j] -= 2 * delta_2
+                n_vectors[:, i, j] += 2 * delta_2
                 res += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                e_vectors[i, :, j] -= delta_2
+                e_vectors[:, i, j] += delta_2
+                n_vectors[:, i, j] -= delta_2
 
-        return res.ravel() / delta / delta
+        return res.ravel() / delta_2 / delta_2
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def value_parameters_numerical_d1(self, e_vectors, n_vectors, all_parameters) -> np.ndarray:
