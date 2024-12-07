@@ -338,9 +338,8 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
                 b_v_d1.shape[0], s_h_coordinates_d1.shape[1], s_h_coordinates_d1.shape[2]
             )
 
-            parameters = self.backflow.get_parameters(all_parameters=True)
-            bf_d1 = np.zeros(shape=parameters.shape)
-            for i in range(parameters.size):
+            bf_d1 = np.zeros(shape=b_l_d1.shape[0])
+            for i in range(b_l_d1.shape[0]):
                 bf_d1[i] += np.sum(s_h_d1[i] * (b_g @ b_g.T)) / 2
                 # d(b_g @ b_g.T) = b_g_d1 @ b_g.T + b_g @ b_g_d1.T = b_g_d1 @ b_g.T + (b_g_d1 @ b_g.T).T
                 # and s_h is symmetric matrix
@@ -358,9 +357,8 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
                 s_h_d1 = self.slater.hessian_parameters_d1(b_v + n_vectors)
                 s_g_d1 = s_g_d1 @ b_g
                 # because slater gradient w.r.t parameters is already projected
-                parameters = self.slater.get_parameters(all_parameters=False)
-                sl_d1 = np.zeros(shape=parameters.shape)
-                for i in range(parameters.size):
+                sl_d1 = np.zeros(shape=s_g_d1.shape[0])
+                for i in range(s_g_d1.shape[0]):
                     sl_d1[i] = (np.sum(s_h_d1[i] * (b_g @ b_g.T)) + s_g_d1[i] @ b_l) / 2
             else:
                 s_g_d1 = self.slater.gradient_parameters_d1(n_vectors)
@@ -568,12 +566,19 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
         return self.nuclear_repulsion
 
     @nb.njit(nogil=True, parallel=False, cache=True)
+    def kinetic_energy(self, r_e) -> float:
+        """Kinetic energy.
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        return self.kinetic_energy(r_e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
     # @nb.vectorize('float64(float64[:, :])', cache=True)
     def energy(self, r_e) -> float:
         """Local energy.
         :param r_e: electron coordinates - array(nelec, 3)
         """
-        return self.kinetic_energy(r_e) + self.local_potential(r_e) + self.nonlocal_potential(r_e)
+        return self.energy(r_e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def get_parameters(self, all_parameters=False):
