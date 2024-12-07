@@ -47,8 +47,8 @@ class TestSlater(unittest.TestCase):
     def test_tressian_v2(self):
         assert np.allclose(self.wfn.slater.tressian(self.n_vectors)[0], self.wfn.slater.tressian_v2(self.n_vectors)[0])
 
-    # def test_wfn_laplacian(self):
-    #     assert np.allclose(self.wfn.kinetic_energy(self.r_e), - self.wfn.numerical_laplacian(self.r_e) / 2, rtol=0.004)
+    def test_wfn_laplacian(self):
+        assert np.allclose(self.wfn.kinetic_energy(self.r_e), -self.wfn.numerical_laplacian(self.r_e) / 2, rtol=0.004)
 
 
 if __name__ == '__main__':
