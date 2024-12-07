@@ -197,46 +197,32 @@ class AbstractWfn:
         """
         val = self.value(r_e)
         res = np.zeros((self.neu + self.ned, 3))
-        e_vectors, n_vectors = self._relative_coordinates(r_e)
         for i in range(self.neu + self.ned):
             for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                r_e[i, j] -= delta
                 res[i, j] -= self.value(r_e)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
+                r_e[i, j] += 2 * delta
                 res[i, j] += self.value(r_e)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                r_e[i, j] -= delta
 
         return res.ravel() / delta / 2 / val
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_laplacian(self, r_e):
-        """Numerical laplacian  of log wfn value w.r.t e-coordinates
+        """Numerical laplacian of log wfn value w.r.t e-coordinates
         :param r_e: electron coordinates - array(nelec, 3)
         """
         val = self.value(r_e)
         res = -6 * (self.neu + self.ned) * self.value(r_e)
-        e_vectors, n_vectors = self._relative_coordinates(r_e)
         for i in range(self.neu + self.ned):
             for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                r_e[i, j] -= delta_2
                 res += self.value(r_e)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
+                r_e[i, j] += 2 * delta_2
                 res += self.value(r_e)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                r_e[i, j] -= delta_2
 
-        return res / delta / delta / val
+        return res / delta_2 / delta_2 / val
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def value_parameters_numerical_d1(self, r_e, all_parameters=False):
@@ -245,17 +231,16 @@ class AbstractWfn:
         :param all_parameters: optimize all parameters or only independent
         :return:
         """
-        scale = self.get_parameters_scale()
         parameters = self.get_parameters(all_parameters)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
-            parameters[i] -= delta * scale[i]
+            parameters[i] -= delta
             self.set_parameters(parameters, all_parameters)
-            res[i] -= self.value(r_e) / scale[i]
-            parameters[i] += 2 * delta * scale[i]
+            res[i] -= self.value(r_e)
+            parameters[i] += 2 * delta
             self.set_parameters(parameters, all_parameters)
-            res[i] += self.value(r_e) / scale[i]
-            parameters[i] -= delta * scale[i]
+            res[i] += self.value(r_e)
+            parameters[i] -= delta
             self.set_parameters(parameters, all_parameters)
 
         return res / delta / 2 / self.value(r_e)
@@ -267,17 +252,16 @@ class AbstractWfn:
         :param all_parameters: optimize all parameters or only independent
         :return:
         """
-        scale = self.get_parameters_scale()
         parameters = self.get_parameters(all_parameters)
         res = np.zeros(shape=parameters.shape)
         for i in range(parameters.size):
-            parameters[i] -= delta * scale[i]
+            parameters[i] -= delta
             self.set_parameters(parameters, all_parameters)
-            res[i] -= self.energy(r_e) / scale[i]
-            parameters[i] += 2 * delta * scale[i]
+            res[i] -= self.energy(r_e)
+            parameters[i] += 2 * delta
             self.set_parameters(parameters, all_parameters)
-            res[i] += self.energy(r_e) / scale[i]
-            parameters[i] -= delta * scale[i]
+            res[i] += self.energy(r_e)
+            parameters[i] -= delta
             self.set_parameters(parameters, all_parameters)
 
         return res / delta / 2
@@ -310,13 +294,13 @@ class AbstractSlater:
         res = -6 * (self.neu + self.ned) * val
         for i in range(self.neu + self.ned):
             for j in range(3):
-                n_vectors[:, i, j] -= delta
+                n_vectors[:, i, j] -= delta_2
                 res += self.value(n_vectors)
-                n_vectors[:, i, j] += 2 * delta
+                n_vectors[:, i, j] += 2 * delta_2
                 res += self.value(n_vectors)
-                n_vectors[:, i, j] -= delta
+                n_vectors[:, i, j] -= delta_2
 
-        return res / delta / delta / val
+        return res / delta_2 / delta_2 / val
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_hessian(self, n_vectors: np.ndarray) -> np.ndarray:
@@ -491,19 +475,19 @@ class AbstractJastrow:
         res = -6 * (self.neu + self.ned) * self.value(e_vectors, n_vectors)
         for i in range(self.neu + self.ned):
             for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                e_vectors[i, :, j] -= delta_2
+                e_vectors[:, i, j] += delta_2
+                n_vectors[:, i, j] -= delta_2
                 res += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
+                e_vectors[i, :, j] += 2 * delta_2
+                e_vectors[:, i, j] -= 2 * delta_2
+                n_vectors[:, i, j] += 2 * delta_2
                 res += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                e_vectors[i, :, j] -= delta_2
+                e_vectors[:, i, j] += delta_2
+                n_vectors[:, i, j] -= delta_2
 
-        return res / delta / delta
+        return res / delta_2 / delta_2
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def value_parameters_numerical_d1(self, e_vectors, n_vectors, all_parameters) -> np.ndarray:
@@ -562,10 +546,10 @@ class AbstractJastrow:
         for i in range(parameters.size):
             parameters[i] -= delta
             self.set_parameters(parameters, all_parameters)
-            res[i] -= self.laplacian(e_vectors, n_vectors)
+            res[i] -= self.laplacian(e_vectors, n_vectors)[0]
             parameters[i] += 2 * delta
             self.set_parameters(parameters, all_parameters)
-            res[i] += self.laplacian(e_vectors, n_vectors)
+            res[i] += self.laplacian(e_vectors, n_vectors)[0]
             parameters[i] -= delta
             self.set_parameters(parameters, all_parameters)
 
@@ -662,19 +646,19 @@ class AbstractBackflow:
         res = -6 * (self.neu + self.ned) * self.value(e_vectors, n_vectors)
         for i in range(self.neu + self.ned):
             for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                e_vectors[i, :, j] -= delta_2
+                e_vectors[:, i, j] += delta_2
+                n_vectors[:, i, j] -= delta_2
                 res += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
+                e_vectors[i, :, j] += 2 * delta_2
+                e_vectors[:, i, j] -= 2 * delta_2
+                n_vectors[:, i, j] += 2 * delta_2
                 res += self.value(e_vectors, n_vectors)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                e_vectors[i, :, j] -= delta_2
+                e_vectors[:, i, j] += delta_2
+                n_vectors[:, i, j] -= delta_2
 
-        return res.ravel() / delta / delta
+        return res.ravel() / delta_2 / delta_2
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def value_parameters_numerical_d1(self, e_vectors, n_vectors, all_parameters) -> np.ndarray:
@@ -795,3 +779,7 @@ class AbstractBackflow:
             e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.laplacian_parameters_d1(e_vectors, n_vectors)
+
+
+class AbstractPPotential:
+    pass

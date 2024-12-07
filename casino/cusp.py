@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import logging
 import math
 
@@ -12,7 +10,6 @@ from scipy.optimize import minimize
 
 from casino.abstract import AbstractCusp
 from casino.harmonics import value_angular_part
-from casino.readers import CasinoConfig
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +102,22 @@ class Cusp(structref.StructRefProxy, AbstractCusp):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def alpha(self):
         return self.alpha
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def gradient(self, n_vectors):
+        return self.gradient(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def laplacian(self, n_vectors):
+        return self.laplacian(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def hessian(self, n_vectors):
+        return self.hessian(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def tressian(self, n_vectors):
+        return self.tressian(n_vectors)
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -930,7 +943,7 @@ class CuspFactory:
         logger.info(f' Maximum deviation from ideal (averaged over orbitals) : {np.mean(self.energy_diff_max[nonzero_index]):16.12f}.\n')
 
 
-class TestCuspFactory:
+class CasinoCuspFactory:
     def __init__(self, config):
         self.neu = config.input.neu
         self.ned = config.input.ned
@@ -1206,23 +1219,3 @@ class TestCuspFactory:
         # atoms, MO - Optimum corrected s orbital at nucleus
         # phi_0 = np.concatenate((phi_0_up, phi_0_down), axis=1)
         np.concatenate((wfn_0_up, wfn_0_down), axis=1)
-
-
-if __name__ == '__main__':
-    """
-    """
-
-    for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3'):
-        path = f'../tests/gwfn/{mol}/HF/cc-pVQZ/CBCS/Slater/'
-
-        config = CasinoConfig(path)
-        config.read()
-        cusp = CuspFactory(config).create(casino_rc=True, casino_phi_tilde_0=False)
-        cusp_test = TestCuspFactory(config).create()
-        print(
-            f'{mol}:',
-            np.allclose(cusp.orbital_sign, cusp_test.orbital_sign),
-            np.allclose(cusp.shift, cusp_test.shift),
-            np.allclose(cusp.rc, cusp_test.rc),
-            np.allclose(cusp.alpha, cusp_test.alpha, atol=0.001),
-        )

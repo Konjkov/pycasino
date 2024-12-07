@@ -3,6 +3,7 @@ import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
+from casino.abstract import AbstractWfn
 from casino.backflow import Backflow_t
 from casino.jastrow import Jastrow_t
 from casino.overload import block_diag
@@ -239,7 +240,7 @@ def wfn_kinetic_energy(self, r_e):
             s_h, s_g = self.slater.hessian(b_v + n_vectors)
             s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
             if self.jastrow is not None:
-                j_g, j_l = self.jastrow.laplacian(e_vectors, n_vectors)
+                j_l, j_g = self.jastrow.laplacian(e_vectors, n_vectors)
                 s_g = s_g @ b_g
                 F = np.sum((s_g + j_g) ** 2) / 2
                 T = (np.sum(s_g**2) - s_l - j_l) / 4
@@ -249,7 +250,7 @@ def wfn_kinetic_energy(self, r_e):
         else:
             s_l = self.slater.laplacian(n_vectors)
             if self.jastrow is not None:
-                j_g, j_l = self.jastrow.laplacian(e_vectors, n_vectors)
+                j_l, j_g = self.jastrow.laplacian(e_vectors, n_vectors)
                 s_g = self.slater.gradient(n_vectors)
                 F = np.sum((s_g + j_g) ** 2) / 2
                 T = (np.sum(s_g**2) - s_l - j_l) / 4
@@ -337,9 +338,8 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
                 b_v_d1.shape[0], s_h_coordinates_d1.shape[1], s_h_coordinates_d1.shape[2]
             )
 
-            parameters = self.backflow.get_parameters(all_parameters=True)
-            bf_d1 = np.zeros(shape=parameters.shape)
-            for i in range(parameters.size):
+            bf_d1 = np.zeros(shape=b_l_d1.shape[0])
+            for i in range(b_l_d1.shape[0]):
                 bf_d1[i] += np.sum(s_h_d1[i] * (b_g @ b_g.T)) / 2
                 # d(b_g @ b_g.T) = b_g_d1 @ b_g.T + b_g @ b_g_d1.T = b_g_d1 @ b_g.T + (b_g_d1 @ b_g.T).T
                 # and s_h is symmetric matrix
@@ -357,9 +357,8 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
                 s_h_d1 = self.slater.hessian_parameters_d1(b_v + n_vectors)
                 s_g_d1 = s_g_d1 @ b_g
                 # because slater gradient w.r.t parameters is already projected
-                parameters = self.slater.get_parameters(all_parameters=False)
-                sl_d1 = np.zeros(shape=parameters.shape)
-                for i in range(parameters.size):
+                sl_d1 = np.zeros(shape=s_g_d1.shape[0])
+                for i in range(s_g_d1.shape[0]):
                     sl_d1[i] = (np.sum(s_h_d1[i] * (b_g @ b_g.T)) + s_g_d1[i] @ b_l) / 2
             else:
                 s_g_d1 = self.slater.gradient_parameters_d1(n_vectors)
@@ -411,6 +410,45 @@ def wfn_nonlocal_energy_parameters_d1(self, r_e):
     return impl
 
 
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'get_parameters')
+def wfn_get_parameters(self, all_parameters=False):
+    """Get WFN parameters to be optimized
+    :param all_parameters: get all parameters or only independent
+    """
+
+    def impl(self, all_parameters=False):
+        res = np.zeros(0)
+        if self.jastrow is not None and self.opt_jastrow:
+            res = np.concatenate((res, self.jastrow.get_parameters(all_parameters)))
+        if self.backflow is not None and self.opt_backflow:
+            res = np.concatenate((res, self.backflow.get_parameters(all_parameters)))
+        if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
+            res = np.concatenate((res, self.slater.get_parameters(all_parameters)))
+        return res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'set_parameters')
+def wfn_set_parameters(self, parameters, all_parameters=False):
+    """Update optimized parameters
+    :param parameters: parameters to update
+    :param all_parameters: set all parameters or only independent
+    """
+
+    def impl(self, parameters, all_parameters=False):
+        if self.jastrow is not None and self.opt_jastrow:
+            parameters = self.jastrow.set_parameters(parameters, all_parameters=all_parameters)
+        if self.backflow is not None and self.opt_backflow:
+            parameters = self.backflow.set_parameters(parameters, all_parameters=all_parameters)
+        if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
+            self.slater.set_parameters(parameters, all_parameters=all_parameters)
+
+    return impl
+
+
 Wfn_t = Wfn_class_t(
     [
         ('neu', nb.int64),
@@ -430,7 +468,7 @@ Wfn_t = Wfn_class_t(
 )
 
 
-class Wfn(structref.StructRefProxy):
+class Wfn(structref.StructRefProxy, AbstractWfn):
     def __new__(cls, config, slater, jastrow, backflow, ppotential):
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(neu, ned, atom_positions, atom_charges, slater, jastrow, backflow, ppotential):
@@ -528,26 +566,26 @@ class Wfn(structref.StructRefProxy):
         return self.nuclear_repulsion
 
     @nb.njit(nogil=True, parallel=False, cache=True)
+    def kinetic_energy(self, r_e) -> float:
+        """Kinetic energy.
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        return self.kinetic_energy(r_e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
     # @nb.vectorize('float64(float64[:, :])', cache=True)
     def energy(self, r_e) -> float:
         """Local energy.
         :param r_e: electron coordinates - array(nelec, 3)
         """
-        return self.kinetic_energy(r_e) + self.local_potential(r_e) + self.nonlocal_potential(r_e)
+        return self.energy(r_e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def get_parameters(self, all_parameters=False):
         """Get WFN parameters to be optimized
         :param all_parameters: get all parameters or only independent
         """
-        res = np.zeros(0)
-        if self.jastrow is not None and self.opt_jastrow:
-            res = np.concatenate((res, self.jastrow.get_parameters(all_parameters)))
-        if self.backflow is not None and self.opt_backflow:
-            res = np.concatenate((res, self.backflow.get_parameters(all_parameters)))
-        if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
-            res = np.concatenate((res, self.slater.get_parameters(all_parameters)))
-        return res
+        return self.get_parameters(all_parameters)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def set_parameters(self, parameters, all_parameters=False):
@@ -555,12 +593,7 @@ class Wfn(structref.StructRefProxy):
         :param parameters: parameters to update
         :param all_parameters: set all parameters or only independent
         """
-        if self.jastrow is not None and self.opt_jastrow:
-            parameters = self.jastrow.set_parameters(parameters, all_parameters=all_parameters)
-        if self.backflow is not None and self.opt_backflow:
-            parameters = self.backflow.set_parameters(parameters, all_parameters=all_parameters)
-        if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
-            self.slater.set_parameters(parameters, all_parameters=all_parameters)
+        self.set_parameters(parameters, all_parameters)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def set_parameters_projector(self):

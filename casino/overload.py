@@ -4,6 +4,7 @@ import numba as nb
 import numpy as np
 from numba.core.extending import overload
 from numpy.polynomial import polynomial as poly
+from scipy.special import factorial2
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -26,13 +27,17 @@ def block_diag(res_list):
         return np.zeros(shape=(0, 0))
 
 
-@nb.njit(nogil=True, parallel=False, cache=True)
+@overload(factorial2)
 def fact2(n):
     """n!! = 1 * 3 * 5 ...n."""
-    res = 1
-    for i in range(n, 0, -2):
-        res *= i
-    return res
+
+    def impl(n):
+        res = 1
+        for i in range(n, 0, -2):
+            res *= i
+        return res
+
+    return impl
 
 
 @overload(math.comb)

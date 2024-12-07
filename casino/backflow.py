@@ -2746,5 +2746,30 @@ class Backflow(structref.StructRefProxy, AbstractBackflow):
     def cutoffs_optimizable(self, value):
         self.cutoffs_optimizable = value
 
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def parameters_projector(self):
+        return self.parameters_projector
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def gradient(self, e_vectors, n_vectors):
+        return self.gradient(e_vectors, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def laplacian(self, e_vectors, n_vectors):
+        return self.laplacian(e_vectors, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def value_parameters_d1(self, e_vectors, n_vectors):
+        return self.value_parameters_d1(e_vectors, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def gradient_parameters_d1(self, e_vectors, n_vectors):
+        return self.gradient_parameters_d1(e_vectors, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def laplacian_parameters_d1(self, e_vectors, n_vectors):
+        return self.laplacian_parameters_d1(e_vectors, n_vectors)
+
 
 structref.define_boxing(Backflow_class_t, Backflow)

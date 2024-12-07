@@ -599,7 +599,7 @@ def jastrow_laplacian(self, e_vectors, n_vectors):
         )
 
         lap = self.u_term_laplacian(e_powers) + self.chi_term_laplacian(n_powers) + self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
-        return grad, lap
+        return lap, grad
 
     return impl
 
@@ -1923,6 +1923,26 @@ class Jastrow(structref.StructRefProxy, AbstractJastrow):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def set_u_parameters_for_emin(self):
         return self.set_u_parameters_for_emin()
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def gradient(self, e_vectors, n_vectors):
+        return self.gradient(e_vectors, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def laplacian(self, e_vectors, n_vectors):
+        return self.laplacian(e_vectors, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def value_parameters_d1(self, e_vectors, n_vectors):
+        return self.value_parameters_d1(e_vectors, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def gradient_parameters_d1(self, e_vectors, n_vectors):
+        return self.gradient_parameters_d1(e_vectors, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def laplacian_parameters_d1(self, e_vectors, n_vectors):
+        return self.laplacian_parameters_d1(e_vectors, n_vectors)
 
 
 structref.define_boxing(Jastrow_class_t, Jastrow)

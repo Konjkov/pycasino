@@ -545,32 +545,6 @@ class Casino:
         plt.savefig('hist.png')
         plt.clf()
 
-    def check(self, steps):
-        """Check"""
-        self.wfn.set_parameters_projector()
-        self.wfn.opt_jastrow, self.wfn.opt_backflow, self.wfn.opt_det_coeff = False, False, False
-        position = self.vmc.random_walk(steps // mpi_comm.size, self.decorr_period)
-        for pos in position:
-            if not np.isnan(pos.sum()):
-                e_vectors, n_vectors = self.wfn._relative_coordinates(pos)
-                logger.info(self.wfn.slater.cusp.gradient(n_vectors)[0] / self.wfn.slater.cusp.numerical_gradient(n_vectors)[0])
-                logger.info(self.wfn.slater.cusp.laplacian(n_vectors)[0] / self.wfn.slater.cusp.numerical_laplacian(n_vectors)[0])
-                logger.info(self.wfn.slater.cusp.hessian(n_vectors)[0] / self.wfn.slater.cusp.numerical_hessian(n_vectors)[0])
-                logger.info(self.wfn.slater.cusp.tressian(n_vectors)[0] / self.wfn.slater.cusp.numerical_tressian(n_vectors)[0])
-                logger.info(self.wfn.slater.hessian(n_vectors)[0] / self.wfn.slater.numerical_hessian(n_vectors))
-                logger.info(self.wfn.slater.tressian(n_vectors)[0] / self.wfn.slater.tressian_v2(n_vectors)[0])
-                logger.info(self.wfn.slater.tressian(n_vectors)[0] / self.wfn.slater.numerical_tressian(n_vectors))
-                if self.wfn.jastrow is not None:
-                    logger.info(self.wfn.jastrow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.value_parameters_numerical_d1(e_vectors, n_vectors, False))
-                    logger.info(self.wfn.jastrow.gradient_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False))
-                    logger.info(self.wfn.jastrow.laplacian_parameters_d1(e_vectors, n_vectors) / self.wfn.jastrow.laplacian_parameters_numerical_d1(e_vectors, n_vectors, False))
-                if self.wfn.backflow is not None:
-                    logger.info(self.wfn.backflow.value_parameters_d1(e_vectors, n_vectors) / self.wfn.backflow.value_parameters_numerical_d1(e_vectors, n_vectors, False))
-                    logger.info(self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.gradient_parameters_d1(e_vectors, n_vectors)[0][:, :, 1] / self.wfn.backflow.gradient_parameters_numerical_d1(e_vectors, n_vectors, False)[:, :, 1])
-                    logger.info(self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.laplacian_parameters_d1(e_vectors, n_vectors)[0] / self.wfn.backflow.laplacian_parameters_numerical_d1(e_vectors, n_vectors, False))
-                logger.info(self.wfn.value_parameters_d1(pos) / self.wfn.value_parameters_numerical_d1(pos))
-                logger.info(self.wfn.energy_parameters_d1(pos) / self.wfn.energy_parameters_numerical_d1(pos))
-
     def vmc_unreweighted_variance_minimization(self, steps, verbose=2):
         """Minimize vmc unreweighted variance.
         https://github.com/scipy/scipy/issues/10634
