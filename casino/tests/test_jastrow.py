@@ -65,6 +65,9 @@ class TestJastrow(unittest.TestCase):
             self.wfn.jastrow.laplacian_parameters_numerical_d1(self.e_vectors, self.n_vectors, False),
         )
 
+    # def test_wfn_laplacian(self):
+    #     assert np.allclose(self.wfn.kinetic_energy(self.r_e), - self.wfn.numerical_laplacian(self.r_e) / 2, rtol=0.0001)
+
     def test_wfn_value_parameters_d1(self):
         assert np.allclose(self.wfn.value_parameters_d1(self.r_e), self.wfn.value_parameters_numerical_d1(self.r_e))
 

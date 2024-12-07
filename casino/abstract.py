@@ -197,46 +197,32 @@ class AbstractWfn:
         """
         val = self.value(r_e)
         res = np.zeros((self.neu + self.ned, 3))
-        e_vectors, n_vectors = self._relative_coordinates(r_e)
         for i in range(self.neu + self.ned):
             for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                r_e[i, j] -= delta
                 res[i, j] -= self.value(r_e)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
+                r_e[i, j] += 2 * delta
                 res[i, j] += self.value(r_e)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                r_e[i, j] -= delta
 
         return res.ravel() / delta / 2 / val
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_laplacian(self, r_e):
-        """Numerical laplacian  of log wfn value w.r.t e-coordinates
+        """Numerical laplacian of log wfn value w.r.t e-coordinates
         :param r_e: electron coordinates - array(nelec, 3)
         """
         val = self.value(r_e)
         res = -6 * (self.neu + self.ned) * self.value(r_e)
-        e_vectors, n_vectors = self._relative_coordinates(r_e)
         for i in range(self.neu + self.ned):
             for j in range(3):
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                r_e[i, j] -= delta_2
                 res += self.value(r_e)
-                e_vectors[i, :, j] += 2 * delta
-                e_vectors[:, i, j] -= 2 * delta
-                n_vectors[:, i, j] += 2 * delta
+                r_e[i, j] += 2 * delta_2
                 res += self.value(r_e)
-                e_vectors[i, :, j] -= delta
-                e_vectors[:, i, j] += delta
-                n_vectors[:, i, j] -= delta
+                r_e[i, j] -= delta_2
 
-        return res / delta / delta / val
+        return res / delta_2 / delta_2 / val
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def value_parameters_numerical_d1(self, r_e, all_parameters=False):

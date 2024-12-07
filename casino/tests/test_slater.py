@@ -17,8 +17,8 @@ class TestSlater(unittest.TestCase):
         slater = Slater(self.config, cusp=None)
         self.wfn = Wfn(self.config, slater, jastrow=None, backflow=None, ppotential=None)
         self.wfn.set_parameters_projector()
-        position = self.initial_position()
-        _, self.n_vectors = self.wfn._relative_coordinates(position)
+        self.r_e = self.initial_position()
+        _, self.n_vectors = self.wfn._relative_coordinates(self.r_e)
 
     def initial_position(self):
         """Initial positions of electrons."""
@@ -46,6 +46,9 @@ class TestSlater(unittest.TestCase):
 
     def test_tressian_v2(self):
         assert np.allclose(self.wfn.slater.tressian(self.n_vectors)[0], self.wfn.slater.tressian_v2(self.n_vectors)[0])
+
+    # def test_wfn_laplacian(self):
+    #     assert np.allclose(self.wfn.kinetic_energy(self.r_e), - self.wfn.numerical_laplacian(self.r_e) / 2, rtol=0.004)
 
 
 if __name__ == '__main__':
