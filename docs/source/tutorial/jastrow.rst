@@ -15,6 +15,28 @@ It must be initialized from the configuration files::
     config.read()
     jastrow = Jastrow(config)
 
+To prevent code duplication, we need to prepare the necessary intermediate data::
+
+    import numpy as np
+
+    neu, ned = config.input.neu, config.input.ned
+    ne = neu + ned
+    r_e = np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
+    atom_positions = config.wfn.atom_positions
+    e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
+    n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+    e_powers = jastrow.ee_powers(e_vectors)
+    n_powers = jastrow.en_powers(n_vectors)
+    r_ij = np.linalg.norm(e_vectors, axis=2)
+    r_iI = np.linalg.norm(n_vectors, axis=2)
+    ee_spin_mask = np.ones(shape=(ne, ne), dtype=int)
+    ee_spin_mask[:neu, :neu] = 0
+    ee_spin_mask[neu:, neu:] = 2
+    en_spin_mask = np.zeros(shape=(ne,), dtype=int)
+    en_spin_mask[neu:] = 1
+    C = jastrow.trunc
+
+
 Jastrow class has a following methods:
 
 u_term
@@ -39,24 +61,13 @@ where :math:`\Gamma_{ij} = 1/2` if electrons :math:`i` and :math:`j` have opposi
 the same spin.
 For certain electron coordinates, :math:`u` term can be obtained with :py:meth:`casino.Jastrow.u_term` method::
 
-    import numpy as np
-    import numpy.ma as ma
     from numpy.polynomial.polynomial import polyval
 
-    neu, ned = config.input.neu, config.input.ned
-    ne = neu + ned
-    r_e = np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-    e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
-    e_powers = jastrow.ee_powers(e_vectors)
     jastrow.u_term(e_powers)
 
-    r_ij = np.linalg.norm(e_vectors, axis=2)
-    spin_mask = np.ones(shape=(ne, ne), dtype=int)
-    spin_mask[:neu, :neu] = 0
-    spin_mask[neu:, neu:] = 2
     poly = polyval(r_ij, jastrow.u_parameters.T)
-    cutoff = np.triu(np.minimum(r_ij - jastrow.u_cutoff, 0), 1) ** jastrow.trunc
-    np.sum(cutoff * np.choose(spin_mask, poly, mode='wrap'))
+    cutoff = np.minimum(r_ij - jastrow.u_cutoff, 0) ** C
+    np.sum(np.triu(cutoff * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
 
 
 chi_term
@@ -77,24 +88,13 @@ The term involving the ionic charge :math:`Z_I` enforces the electron–nucleus 
 
 For certain electron coordinates, :math:`\chi` term can be obtained with :py:meth:`casino.Jastrow.chi_term` method::
 
-    import numpy as np
-    import numpy.ma as ma
     from numpy.polynomial.polynomial import polyval
 
-    neu, ned = config.input.neu, config.input.ned
-    ne = neu + ned
-    r_e = np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-    atom_positions = config.wfn.atom_positions
-    n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-    n_powers = jastrow.en_powers(n_vectors)
     jastrow.chi_term(n_powers)
 
-    r_iI = np.linalg.norm(n_vectors, axis=2)
-    spin_mask = np.zeros(shape=(ne,), dtype=int)
-    spin_mask[neu:] = 1
     poly = polyval(r_iI, jastrow.chi_parameters[0].T)
-    cutoff = np.minimum(r_iI - jastrow.chi_cutoff[0], 0) ** jastrow.trunc
-    np.sum(cutoff * np.choose(spin_mask, poly, mode='wrap'))
+    cutoff = np.minimum(r_iI - jastrow.chi_cutoff, 0) ** C
+    np.sum(cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap'))
 
 
 f_term
@@ -128,29 +128,14 @@ also the Jastrow factor to be symmetric under electron exchanges it is required 
 
 For certain electron coordinates, :math:`f` term can be obtained with :py:meth:`casino.Jastrow.f_term` method::
 
-    import numpy as np
-    import numpy.ma as ma
     from numpy.polynomial.polynomial import polyval3d
 
-    neu, ned = config.input.neu, config.input.ned
-    ne = neu + ned
-    r_e = np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-    atom_positions = config.wfn.atom_positions
-    e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
-    n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-    e_powers = jastrow.ee_powers(e_vectors)
-    n_powers = jastrow.en_powers(n_vectors)
     jastrow.f_term(e_powers, n_powers)
 
-    r_ij = np.linalg.norm(e_vectors, axis=2)
-    r_iI = np.linalg.norm(n_vectors, axis=2)
     r_ijI = np.tile(r_iI[0], (ne, 1))
-    spin_mask = np.ones(shape=(ne, ne), dtype=int)
-    spin_mask[:neu, :neu] = 0
-    spin_mask[neu:, neu:] = 2
+    cutoff = np.minimum(r_iI - jastrow.f_cutoff, 0) ** C
     poly = polyval3d(r_ijI, r_ijI.T, r_ij, jastrow.f_parameters[0].T)
-    cutoff = np.minimum(r_iI - jastrow.f_cutoff[0], 0) ** jastrow.trunc
-    np.sum(np.triu(np.outer(cutoff, cutoff), 1) * np.choose(spin_mask, poly, mode='wrap'))
+    np.sum(np.triu(np.outer(cutoff[0], cutoff[0]) * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
 
 
 u_term_gradient
@@ -170,12 +155,15 @@ For certain electron coordinates, :math:`u` gradient term can be obtained with :
     import numpy.ma as ma
     from numpy.polynomial.polynomial import polyval
 
-    neu, ned = config.input.neu, config.input.ned
-    ne = neu + ned
-    r_e = np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-    e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
-    e_powers = jastrow.ee_powers(e_vectors)
     jastrow.u_term_gradient(e_powers, e_vectors)
+
+    L = jastrow.u_cutoff
+    l = np.arange(jastrow.u_parameters.shape[1])
+    cutoff = np.minimum(r_ij - L, 0) ** C
+    poly = polyval(r_ij, jastrow.u_parameters.T) * C / (r_ij - L)
+    poly += polyval(r_ij, (l * jastrow.u_parameters).T) / r_ij
+    t = np.triu(cutoff * np.choose(ee_spin_mask, poly, mode='wrap') * e_vectors.T / r_ij, 1)
+    (np.sum(t, axis=1) - np.sum(t, axis=2)).T.ravel()
 
 
 chi_term_gradient
@@ -191,17 +179,16 @@ where :math:`\mathbf{\hat r}_{iI}` is the unit vector in the direction of the :m
 
 For certain electron coordinates, :math:`\chi` term gradient can be obtained with :py:meth:`casino.Jastrow.chi_term_gradient` method::
 
-    import numpy as np
-    import numpy.ma as ma
     from numpy.polynomial.polynomial import polyval
 
-    neu, ned = config.input.neu, config.input.ned
-    ne = neu + ned
-    r_e = np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-    atom_positions = config.wfn.atom_positions
-    n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-    n_powers = jastrow.en_powers(n_vectors)
     jastrow.chi_term_gradient(n_powers, n_vectors)
+
+    r_iI = np.linalg.norm(n_vectors, axis=2)
+    m = np.arange(jastrow.chi_parameters[0].shape[1])
+    cutoff = np.minimum(r_iI - jastrow.chi_cutoff, 0) ** C
+    poly = polyval(r_iI, jastrow.chi_parameters[0].T) * C / (r_iI[0] - jastrow.chi_cutoff[0])
+    poly += polyval(r_iI, (m * jastrow.chi_parameters[0]).T) / r_iI[0]
+    np.sum(cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap'))
 
 
 f_term_gradient
@@ -231,19 +218,16 @@ There is only two non-zero terms of :math:`f(r_{ij}, r_{iI}, r_{jI})` gradient, 
 
 For certain electron coordinates, :math:`f` term gradient can be obtained with :py:meth:`casino.Jastrow.f_term_gradient` method::
 
-    import numpy as np
-    import numpy.ma as ma
     from numpy.polynomial.polynomial import polyval3d
 
-    neu, ned = config.input.neu, config.input.ned
-    ne = neu + ned
-    r_e = np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-    atom_positions = config.wfn.atom_positions
-    e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
-    n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-    e_powers = jastrow.ee_powers(e_vectors)
-    n_powers = jastrow.en_powers(n_vectors)
     jastrow.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
+
+    l = np.arange(jastrow.f_parameters[0].shape[1])
+    m = np.arange(jastrow.f_parameters[0].shape[2])
+    cutoff = np.minimum(r_iI - jastrow.f_cutoff, 0) ** C
+    r_ijI = np.tile(r_iI[0], (ne, 1))
+    poly = polyval3d(r_ijI, r_ijI.T, r_ij, jastrow.f_parameters[0].T)
+    np.sum(np.triu(np.outer(cutoff[0], cutoff[0]) * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
 
 
 u_term_laplacian
@@ -267,16 +251,18 @@ then :math:`u(r_{ij})` term laplacian:
 
 For certain electron coordinates, :math:`u` term laplacian can be obtained with :py:meth:`casino.Jastrow.u_term_laplacian` method::
 
-    import numpy as np
-    import numpy.ma as ma
     from numpy.polynomial.polynomial import polyval
 
-    neu, ned = config.input.neu, config.input.ned
-    ne = neu + ned
-    r_e = np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-    e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
-    e_powers = jastrow.ee_powers(e_vectors)
     jastrow.u_term_laplacian(e_powers)
+
+    L = jastrow.u_cutoff
+    l = np.arange(jastrow.u_parameters.shape[1])
+    l_1 = np.arange(1, jastrow.u_parameters.shape[1] + 1)
+    cutoff = np.minimum(r_ij - jastrow.u_cutoff, 0) ** C
+    poly =  polyval(r_ij, jastrow.u_parameters.T) * C * (C - 1) / (r_ij - L) ** 2
+    poly += 2 * polyval(r_ij, (l_1 * jastrow.u_parameters).T) * C / r_ij / (r_ij - L)
+    poly += polyval(r_ij, (l * l_1 * jastrow.u_parameters).T) / r_ij ** 2
+    np.sum(np.triu(cutoff * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
 
 
 chi_term_laplacian
@@ -300,17 +286,18 @@ then :math:`\chi(r_{iI})` term laplacian:
 
 For certain electron coordinates, :math:`\chi` term laplacian can be obtained with :py:meth:`casino.Jastrow.chi_term_laplacian` method::
 
-    import numpy as np
-    import numpy.ma as ma
     from numpy.polynomial.polynomial import polyval
 
-    neu, ned = config.input.neu, config.input.ned
-    ne = neu + ned
-    r_e = np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-    atom_positions = config.wfn.atom_positions
-    n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-    n_powers = jastrow.en_powers(n_vectors)
     jastrow.chi_term_laplacian(n_powers)
+
+    L = jastrow.chi_cutoff[0]
+    m = np.arange(jastrow.chi_parameters[0].shape[1])
+    m_1 = np.arange(1, jastrow.chi_parameters[0].shape[1] + 1)
+    cutoff = np.minimum(r_iI - jastrow.chi_cutoff, 0) ** C
+    poly = polyval(r_iI, jastrow.chi_parameters[0].T) * C * (C - 1) / (r_iI - L) ** 2
+    poly += 2 * polyval(r_iI, (m_1 * jastrow.chi_parameters[0]).T) * С / r_iI / (r_iI - L)
+    poly += polyval(r_iI, (m + m_1 * jastrow.chi_parameters[0]).T) / r_iI ** 2
+    np.sum(cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap'))
 
 
 f_term_laplacian
@@ -348,16 +335,8 @@ then :math:`f(r_{ij}, r_{iI}, r_{jI})` term laplacian:
 
 For certain electron coordinates, :math:`f` term laplacian can be obtained with :py:meth:`casino.Jastrow.f_term_laplacian` method::
 
-    import numpy as np
-    import numpy.ma as ma
     from numpy.polynomial.polynomial import polyval3d
 
-    neu, ned = config.input.neu, config.input.ned
-    ne = neu + ned
-    r_e = np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-    atom_positions = config.wfn.atom_positions
-    e_vectors = np.expand_dims(r_e, 1) - np.expand_dims(r_e, 0)
-    n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
-    e_powers = jastrow.ee_powers(e_vectors)
-    n_powers = jastrow.en_powers(n_vectors)
     jastrow.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
+
+    L = jastrow.f_cutoff[0]
