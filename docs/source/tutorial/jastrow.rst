@@ -162,8 +162,8 @@ For certain electron coordinates, :math:`u` gradient term can be obtained with :
     cutoff = np.minimum(r_ij - L, 0) ** C
     poly = polyval(r_ij, jastrow.u_parameters.T) * C / (r_ij - L)
     poly += polyval(r_ij, (l * jastrow.u_parameters).T) / r_ij
-    t = np.triu(cutoff * np.choose(ee_spin_mask, poly, mode='wrap') * e_vectors.T / r_ij, 1)
-    (np.sum(t, axis=1) - np.sum(t, axis=2)).T.ravel()
+    g_ij = np.nan_to_num(cutoff * np.choose(ee_spin_mask, poly, mode='wrap') * e_vectors.T / r_ij)
+    np.sum(g_ij, axis=1).T.ravel()
 
 
 chi_term_gradient
@@ -183,12 +183,13 @@ For certain electron coordinates, :math:`\chi` term gradient can be obtained wit
 
     jastrow.chi_term_gradient(n_powers, n_vectors)
 
+    L = jastrow.chi_cutoff
+    cutoff = np.minimum(r_iI - L, 0) ** C
     r_iI = np.linalg.norm(n_vectors, axis=2)
     m = np.arange(jastrow.chi_parameters[0].shape[1])
-    cutoff = np.minimum(r_iI - jastrow.chi_cutoff, 0) ** C
-    poly = polyval(r_iI, jastrow.chi_parameters[0].T) * C / (r_iI[0] - jastrow.chi_cutoff[0])
+    poly = polyval(r_iI, jastrow.chi_parameters[0].T) * C / (r_iI[0] - L[0])
     poly += polyval(r_iI, (m * jastrow.chi_parameters[0]).T) / r_iI[0]
-    np.sum(cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap'))
+    (cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap') * n_vectors[0].T / r_iI[0]).T.ravel()
 
 
 f_term_gradient
@@ -222,12 +223,28 @@ For certain electron coordinates, :math:`f` term gradient can be obtained with :
 
     jastrow.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
 
-    l = np.arange(jastrow.f_parameters[0].shape[1])
-    m = np.arange(jastrow.f_parameters[0].shape[2])
-    cutoff = np.minimum(r_iI - jastrow.f_cutoff, 0) ** C
+    n = np.expand_dims(np.arange(jastrow.f_parameters[0].shape[1]), axis=(1, 2))
+    m = np.expand_dims(np.arange(jastrow.f_parameters[0].shape[2]), axis=1)
+    l = np.arange(jastrow.f_parameters[0].shape[3])
+    L = jastrow.f_cutoff
+    cutoff = np.minimum(r_iI - L, 0) ** C
     r_ijI = np.tile(r_iI[0], (ne, 1))
     poly = polyval3d(r_ijI, r_ijI.T, r_ij, jastrow.f_parameters[0].T)
-    np.sum(np.triu(np.outer(cutoff[0], cutoff[0]) * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
+    poly_l = polyval3d(r_ijI, r_ijI.T, r_ij, (l * jastrow.f_parameters[0]).T)
+    poly_m = polyval3d(r_ijI, r_ijI.T, r_ij, (m * jastrow.f_parameters[0]).T)
+    poly_n = polyval3d(r_ijI, r_ijI.T, r_ij, (n * jastrow.f_parameters[0]).T)
+
+    g_ijI = np.choose(ee_spin_mask, poly, mode='wrap') * C / (r_iI[0] - L[0])
+    g_ijI += np.choose(ee_spin_mask, poly_l, mode='wrap') / r_iI[0]
+    g_ijI = np.triu(g_ijI, 1) * np.expand_dims(n_vectors[0].T / r_iI[0], 1)
+
+    g_jiI = np.choose(ee_spin_mask, poly, mode='wrap').T * C / (r_iI[0] - L[0])
+    g_jiI += np.choose(ee_spin_mask, poly_m, mode='wrap').T / r_iI[0]
+    g_jiI = np.tril(g_jiI, -1) * np.expand_dims(n_vectors[0].T / r_iI[0], 1)
+
+    g_ij = np.nan_to_num(np.choose(ee_spin_mask, poly_n / r_ij, mode='wrap') * e_vectors.T / r_ij)
+
+    np.sum(np.outer(cutoff[0], cutoff[0]) * (g_ijI + g_jiI + g_ij), axis=1).T
 
 
 u_term_laplacian
@@ -290,12 +307,12 @@ For certain electron coordinates, :math:`\chi` term laplacian can be obtained wi
 
     jastrow.chi_term_laplacian(n_powers)
 
-    L = jastrow.chi_cutoff[0]
+    L = jastrow.chi_cutoff
     m = np.arange(jastrow.chi_parameters[0].shape[1])
     m_1 = np.arange(1, jastrow.chi_parameters[0].shape[1] + 1)
-    cutoff = np.minimum(r_iI - jastrow.chi_cutoff, 0) ** C
-    poly = polyval(r_iI, jastrow.chi_parameters[0].T) * C * (C - 1) / (r_iI - L) ** 2
-    poly += 2 * polyval(r_iI, (m_1 * jastrow.chi_parameters[0]).T) * С / r_iI / (r_iI - L)
+    cutoff = np.minimum(r_iI - L, 0) ** C
+    poly = polyval(r_iI, jastrow.chi_parameters[0].T) * C * (C - 1) / (r_iI[0] - L[0]) ** 2
+    poly += 2 * polyval(r_iI, (m_1 * jastrow.chi_parameters[0]).T) * С / r_iI / (r_iI[0] - L[0])
     poly += polyval(r_iI, (m + m_1 * jastrow.chi_parameters[0]).T) / r_iI ** 2
     np.sum(cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap'))
 
@@ -339,4 +356,10 @@ For certain electron coordinates, :math:`f` term laplacian can be obtained with 
 
     jastrow.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
 
-    L = jastrow.f_cutoff[0]
+    L = jastrow.f_cutoff
+    cutoff = np.minimum(r_iI - L, 0) ** C
+    r_ijI = np.tile(r_iI[0], (ne, 1))
+    poly = polyval3d(r_ijI, r_ijI.T, r_ij, jastrow.f_parameters[0].T)
+    poly_l = polyval3d(r_ijI, r_ijI.T, r_ij, (l * jastrow.f_parameters[0]).T)
+    poly_m = polyval3d(r_ijI, r_ijI.T, r_ij, (m * jastrow.f_parameters[0]).T)
+    poly_n = polyval3d(r_ijI, r_ijI.T, r_ij, (n * jastrow.f_parameters[0]).T)
