@@ -89,6 +89,10 @@ The term involving the ionic charge :math:`Z_I` enforces the electron–nucleus 
 
     \beta_1 = \left[\frac{-Z_I}{(-L_{\chi I})^C} + \frac{\beta_{0I}C}{L_{\chi I}}\right]
 
+if the Slater part of the wave function satisfies the electron–nucleus cusp condition, or if a non-divergent
+pseudopotential is used, then the Jastrow factor is required to be cuspless at the nuclei, i.e it should satisfy
+the above equation with :math:`Z_I = 0`
+
 For certain electron coordinates, :math:`\chi` term can be obtained with :py:meth:`casino.Jastrow.chi_term` method::
 
     jastrow.chi_term(n_powers)
@@ -125,9 +129,7 @@ and to ensure no electron–nucleus cusps folowing :math:`N_{fI}^{eN} + N_{fI}^{
     \sum_{l,m \ : \ l+m=k'}(C\gamma_{0mnI} - L_{fI}\gamma_{1mnI}) = 0
 
 If desired, there are :math:`N_{fI}^{ee}` constraints imposed to prevent duplication of :math:`u` term :math:`(γ_{00nI} = 0 \ \forall n)`
-
 and there are :math:`N_{fI}^{eI}` constraints imposed to prevent duplication of :math:`\chi` term :math:`(γ_{l00I} = 0 \ \forall l)`
-
 also the Jastrow factor to be symmetric under electron exchanges it is required that :math:`\gamma_{lmnI} = \gamma_{mlnI} \ \forall I, m, l, n`.
 
 For certain electron coordinates, :math:`f` term can be obtained with :py:meth:`casino.Jastrow.f_term` method::
