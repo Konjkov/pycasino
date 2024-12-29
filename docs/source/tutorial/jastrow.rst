@@ -354,18 +354,24 @@ then :math:`f(r_{ij}, r_{iI}, r_{jI})` term laplacian:
 
 .. math::
 
+    l_1 = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
+    (C/r_{iI}(r_{iI} - L_{fI}) + l/r_{iI}^2) \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+
+.. math::
+
+    l_2 = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
+    (n(n+1)/r_{ij}^2) \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+
+.. math::
+
     l_{dot} = \mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{iI}
     \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
-    (n/r_{ij}) (C/(r_{iI} - L_{fI}) + l / r_{iI})\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    (n/r_{ij}) (C/(r_{iI} - L_{fI}) + l/r_{iI}) \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 
 .. math::
 
-    \Delta f(r_{ij}, r_{iI}, r_{jI}) = (r_{iI} - L_{fI})^C(r_{jI} - L_{fI})^C \Theta(L_{fI} - r_{iI})\Theta(L_{fI} - r_{jI}) \times
-
-.. math::
-
-    (2l_{dot})
+    \Delta f(r_{ij}, r_{iI}, r_{jI}) = (r_{iI} - L_{fI})^C(r_{jI} - L_{fI})^C \Theta(L_{fI} - r_{iI})\Theta(L_{fI} - r_{jI}) (l_1 + 2l_{dot} + l_2)
 
 For certain electron coordinates, :math:`f` term laplacian can be obtained with :py:meth:`casino.Jastrow.f_term_laplacian` method::
 
@@ -387,12 +393,12 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     poly_lm = polyval3d(r_ijI, r_ijI.T, r_ij, (l * m * jastrow.f_parameters[0]).T)
     poly_ln = polyval3d(r_ijI, r_ijI.T, r_ij, (l * n * jastrow.f_parameters[0]).T)
 
-    l_idot = np.choose(ee_spin_mask, poly_n / r_ij, mode='wrap') * C / (r_iI[0] - L[0]) / r_iI[0]
-    l_idot += np.choose(ee_spin_mask, poly_ln / r_ij, mode='wrap') / r_iI[0] / r_iI[0]
-    l_idot *= np.einsum('aij,ai->ij', (e_vectors.T / r_ij), (n_vectors[0].T / r_iI[0]))
+    l_1 = 0
 
-    l_jdot = np.choose(ee_spin_mask, poly_m / r_ij, mode='wrap') * C / (r_iI[0] - L[0]) / r_iI[0]
-    l_jdot += np.choose(ee_spin_mask, poly_lm / r_ij, mode='wrap') / r_iI[0] / r_iI[0]
-    l_jdot *= np.einsum('aij,ai->ij', (e_vectors.T / r_ij), (n_vectors[0].T / r_iI[0]))
+    l_dot = np.choose(ee_spin_mask, poly_n, mode='wrap') * C / (r_iI[0] - L[0]) / r_ij
+    l_dot += np.choose(ee_spin_mask, poly_ln, mode='wrap') / r_iI[0] / r_ij
+    l_dot *= -np.einsum('aij,ai->ji', (e_vectors.T / r_ij), (n_vectors[0].T / r_iI[0]))
 
-    np.sum(np.outer(cutoff[0], cutoff[0]) * (2 * (l_idot + l_jdot)))
+    l_2 = 0
+
+    np.sum(np.outer(cutoff[0], cutoff[0]) * (l_1 + 2 * np.nan_to_num(l_dot) + l_2)

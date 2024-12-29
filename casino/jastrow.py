@@ -486,19 +486,14 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                     for l in range(parameters.shape[3]):
                                         p = parameters[f_set, n, m, l] * n_powers[label, e1, l] * n_powers[label, e2, m] * e_powers[e1, e2, n]
                                         poly += p
-                                        poly_diff_e1I += l * p
-                                        poly_diff_e2I += m * p
+                                        poly_diff_e1I += (l + 1) * p
+                                        poly_diff_e2I += (m + 1) * p
                                         poly_diff_ee += n * p
-                                        poly_diff_e1I_2 += l * (l - 1) * p
-                                        poly_diff_e2I_2 += m * (m - 1) * p
-                                        poly_diff_ee_2 += n * (n - 1) * p
+                                        poly_diff_e1I_2 += l * (l + 1) * p
+                                        poly_diff_e2I_2 += m * (m + 1) * p
+                                        poly_diff_ee_2 += n * (n + 1) * p
                                         poly_diff_e1I_ee += l * n * p
                                         poly_diff_e2I_ee += m * n * p
-                            diff_1 = (
-                                (cutoff_diff_e1I * poly + poly_diff_e1I) / r_e1I**2
-                                + (cutoff_diff_e2I * poly + poly_diff_e2I) / r_e2I**2
-                                + 2 * poly_diff_ee / r_ee**2
-                            )
                             diff_2 = (
                                 C * (C - 1) / (r_e1I - L) ** 2 * poly
                                 + C * (C - 1) / (r_e2I - L) ** 2 * poly
@@ -516,7 +511,7 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                 (1 - r_e1I_vec_dot_r_e2I_vec[e1, e2] / r_e1I**2) * (cutoff_diff_e1I * poly_diff_ee + poly_diff_e1I_ee)
                                 + (1 - r_e1I_vec_dot_r_e2I_vec[e1, e2] / r_e2I**2) * (cutoff_diff_e2I * poly_diff_ee + poly_diff_e2I_ee)
                             ) / r_ee**2
-                            res += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product)
+                            res += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * dot_product)
         return res
 
     return impl
