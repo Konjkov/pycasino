@@ -290,12 +290,11 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     from numpy.polynomial.polynomial import polyval
     L = jastrow.u_cutoff
     l = np.arange(jastrow.u_parameters.shape[1])
-    l_1 = np.arange(1, jastrow.u_parameters.shape[1] + 1)
     cutoff = np.minimum(r_ij - jastrow.u_cutoff, 0) ** C
     poly =  polyval(r_ij, jastrow.u_parameters.T) * C * (C - 1) / (r_ij - L) ** 2
-    poly += 2 * polyval(r_ij, (l_1 * jastrow.u_parameters).T) * C / r_ij / (r_ij - L)
-    poly += polyval(r_ij, (l * l_1 * jastrow.u_parameters).T) / r_ij ** 2
-    np.sum(np.triu(cutoff * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
+    poly += 2 * polyval(r_ij, ((l + 1) * jastrow.u_parameters).T) * C / r_ij / (r_ij - L)
+    poly += polyval(r_ij, (l * (l + 1) * jastrow.u_parameters).T) / r_ij ** 2
+    2 * np.sum(np.triu(cutoff * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
 
 
 chi_term_laplacian
@@ -326,11 +325,10 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     from numpy.polynomial.polynomial import polyval
     L = jastrow.chi_cutoff
     m = np.arange(jastrow.chi_parameters[0].shape[1])
-    m_1 = np.arange(1, jastrow.chi_parameters[0].shape[1] + 1)
     cutoff = np.minimum(r_iI - L, 0) ** C
     poly = polyval(r_iI, jastrow.chi_parameters[0].T) * C * (C - 1) / (r_iI[0] - L[0]) ** 2
-    poly += 2 * polyval(r_iI, (m_1 * jastrow.chi_parameters[0]).T) * С / r_iI / (r_iI[0] - L[0])
-    poly += polyval(r_iI, (m + m_1 * jastrow.chi_parameters[0]).T) / r_iI ** 2
+    poly += 2 * polyval(r_iI, ((m + 1) * jastrow.chi_parameters[0]).T) * C / r_iI / (r_iI[0] - L[0])
+    poly += polyval(r_iI, (m * (m + 1) * jastrow.chi_parameters[0]).T) / r_iI ** 2
     np.sum(cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap'))
 
 
@@ -355,19 +353,18 @@ then :math:`f(r_{ij}, r_{iI}, r_{jI})` term laplacian:
 .. math::
 
     l_1 = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
-    (C/r_{iI}(r_{iI} - L_{fI}) + l/r_{iI}^2) \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
-
-.. math::
-
-    l_2 = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
-    (n(n+1)/r_{ij}^2) \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    (C(C-1)/(r_{iI} - L_{fI})^2 + 2C(l+1)/r_{iI}(r_{iI} - L_{fI}) + l(l+1)/r_{iI}^2) \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
     l_{dot} = \mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{iI}
     \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
-    (n/r_{ij}) (C/(r_{iI} - L_{fI}) + l/r_{iI}) \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    (C/(r_{iI} - L_{fI}) + l/r_{iI}) (n/r_{ij}) \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
+.. math::
+
+    l_2 = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
+    (n(n+1)/r_{ij}^2) \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
@@ -387,18 +384,21 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     cutoff = np.minimum(r_iI - L, 0) ** C
     r_ijI = np.tile(r_iI[0], (ne, 1))
     poly = polyval3d(r_ijI, r_ijI.T, r_ij, jastrow.f_parameters[0].T)
-    poly_l = polyval3d(r_ijI, r_ijI.T, r_ij, (l * jastrow.f_parameters[0]).T)
-    poly_m = polyval3d(r_ijI, r_ijI.T, r_ij, (m * jastrow.f_parameters[0]).T)
+    poly_l = polyval3d(r_ijI, r_ijI.T, r_ij, ((l + 1) * jastrow.f_parameters[0]).T)
+    poly_ll = polyval3d(r_ijI, r_ijI.T, r_ij, (l * (l + 1) * jastrow.f_parameters[0]).T)
     poly_n = polyval3d(r_ijI, r_ijI.T, r_ij, (n * jastrow.f_parameters[0]).T)
+    poly_nn = polyval3d(r_ijI, r_ijI.T, r_ij, (n * (n + 1) * jastrow.f_parameters[0]).T)
     poly_lm = polyval3d(r_ijI, r_ijI.T, r_ij, (l * m * jastrow.f_parameters[0]).T)
     poly_ln = polyval3d(r_ijI, r_ijI.T, r_ij, (l * n * jastrow.f_parameters[0]).T)
 
-    l_1 = 0
+    l_1 = np.choose(ee_spin_mask, poly, mode='wrap') * C * (C - 1) / (r_iI[0] - L[0]) ** 2
+    l_1 += 2 * np.choose(ee_spin_mask, poly_l, mode='wrap') * C / (r_iI[0] - L[0]) / r_iI[0]
+    l_1 += np.choose(ee_spin_mask, poly_ll, mode='wrap') / r_iI[0] ** 2
 
     l_dot = np.choose(ee_spin_mask, poly_n, mode='wrap') * C / (r_iI[0] - L[0]) / r_ij
     l_dot += np.choose(ee_spin_mask, poly_ln, mode='wrap') / r_iI[0] / r_ij
     l_dot *= -np.einsum('aij,ai->ji', (e_vectors.T / r_ij), (n_vectors[0].T / r_iI[0]))
 
-    l_2 = 0
+    l_2 = np.choose(ee_spin_mask, poly_nn, mode='wrap') / r_ij ** 2
 
-    np.sum(np.outer(cutoff[0], cutoff[0]) * (l_1 + 2 * np.nan_to_num(l_dot) + l_2)
+    np.sum(np.outer(cutoff[0], cutoff[0]) * np.nan_to_num(l_1 + 2 * l_dot + l_2))
