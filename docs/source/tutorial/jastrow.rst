@@ -3,6 +3,14 @@
 Jastrow
 =======
 
+Jastrow factor is the sum of homogeneous, isotropic electron–electron terms :math:`u(r_{ij})`, isotropic electron–nucleus terms
+:math:`\chi(r_{iI})` centered on the nuclei, isotropic electron–electron–nucleus terms :math:`f(r_{ij}, r_{iI}, r_{jI})`,
+also centered on the nuclei:
+
+.. math::
+
+    J = \sum_{i>j}^{N_e} u(r_{ij}) + \sum_{I=1}^{N_I}\sum_{i=1}^{N_e} \chi(r_{iI}) + \sum_{I=1}^{N_I}\sum_{i>j}^{N_e} f(r_{ij}, r_{iI}, r_{jI})
+
 Jastrow part of wavefunction is represented by the :class:`casino.Jastrow` class.
 
 It must be initialized from the configuration files::
@@ -41,10 +49,10 @@ To prevent code duplication, we need to prepare the necessary intermediate data:
 
 Jastrow class has a following methods:
 
-u_term
+u-term
 ------
 
-:math:`u(r_{ij})` term consists of a complete power expansion in electron-electron distances :math:`r_{ij}`
+:math:`u(r_{ij})` term consists of a complete power expansion in electron-electron distances :math:`r_{ij}`:
 
 .. math::
 
@@ -73,17 +81,17 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     np.sum(np.triu(cutoff * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
 
 
-chi_term
+chi-term
 --------
 
-:math:`\chi(r_{iI})` term consists of a complete power expansion in electron-nucleus distances :math:`r_{iI}`
+:math:`\chi(r_{iI})` term consists of a complete power expansion in electron-nucleus distances :math:`r_{iI}`:
 
 .. math::
 
     \chi(r_{iI}) = (r_{iI} - L_{\chi I})^C\Theta(L_{\chi I} - r_{iI})\sum_{m=0}^{N_\chi}\beta_mr^m_{iI}
 
 where :math:`\Theta` is the Heaviside function. This term goes to zero at the cutoff length :math:`L_{\chi I}`.
-The term involving the ionic charge :math:`Z_I` enforces the electron–nucleus cusp condition:
+The term involving the ionic charge :math:`Z_I` enforces the electron–nucleus Kato cusp condition:
 
 .. math::
 
@@ -105,7 +113,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     np.sum(cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap'))
 
 
-f_term
+f-term
 ------
 
 :math:`f(r_{ij}, r_{iI}, r_{jI})` term is the most general expansion of a function of :math:`r_{ij}` , :math:`r_{iI}` , and :math:`r_{jI}`
@@ -116,17 +124,17 @@ that is cuspless at the coalescence point and goes smoothly to zero when either 
     f(r_{ij}, r_{iI}, r_{jI}) = (r_{iI} - L_{fI})^C(r_{jI} - L_{fI})^C \Theta(L_{fI} - r_{iI})\Theta(L_{fI} - r_{jI})
     \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
-To ensure no electron–electron cusps folowing :math:`2N_{fI}^{eN} + 1` conditions is applied:
+To ensure no electron–electron Kato cusp conditions folowing :math:`2N_{fI}^{eN} + 1` constraints is applied:
 
 .. math::
 
-    \sum_{l,m \ : \ l+m=k}\gamma_{lm1I} = 0
+    \sum_{l,m}^{l+m=k}\gamma_{lm1I} = 0
 
-and to ensure no electron–nucleus cusps folowing :math:`N_{fI}^{eN} + N_{fI}^{ee} + 1` conditions is applied:
+and to ensure electron–nucleus Kato cusp conditions folowing :math:`N_{fI}^{eN} + N_{fI}^{ee} + 1` constraints is applied:
 
 .. math::
 
-    \sum_{l,m \ : \ l+m=k'}(C\gamma_{0mnI} - L_{fI}\gamma_{1mnI}) = 0
+    \sum_{l,m}^{l+m=k'}(C\gamma_{0mnI} - L_{fI}\gamma_{1mnI}) = 0
 
 If desired, there are :math:`N_{fI}^{ee}` constraints imposed to prevent duplication of :math:`u` term :math:`(γ_{00nI} = 0 \ \forall n)`
 and there are :math:`N_{fI}^{eI}` constraints imposed to prevent duplication of :math:`\chi` term :math:`(γ_{l00I} = 0 \ \forall l)`
@@ -145,7 +153,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     np.sum(np.triu(np.outer(cutoff[0], cutoff[0]) * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
 
 
-u_term_gradient
+u-term gradient
 ---------------
 
 Considering that gradient of spherically symmetric function (in 3-D space) is:
@@ -179,7 +187,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     np.sum(g_ij, axis=1).T.ravel()
 
 
-chi_term_gradient
+chi-term gradient
 -----------------
 
 There is only one non-zero term of :math:`\chi(r_{iI})` gradient, i.e. by :math:`i`-th electron coordinates:
@@ -206,7 +214,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     (cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap') * n_vectors[0].T / r_iI[0]).T.ravel()
 
 
-f_term_gradient
+f-term gradient
 ---------------
 
 There is only two non-zero terms of :math:`f(r_{ij}, r_{iI}, r_{jI})` gradient, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
@@ -262,7 +270,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     np.sum(np.outer(cutoff[0], cutoff[0]) * (g_ijI + g_jiI + g_ij), axis=1).T
 
 
-u_term_laplacian
+u-term laplacian
 ----------------
 
 Considering that Laplace operator of spherically symmetric function (in 3-D space) is:
@@ -297,7 +305,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     2 * np.sum(np.triu(cutoff * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
 
 
-chi_term_laplacian
+chi-term laplacian
 ------------------
 
 Considering that Laplace operator of spherically symmetric function (in 3-D space) is:
@@ -332,7 +340,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     np.sum(cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap'))
 
 
-f_term_laplacian
+f-term laplacian
 ----------------
 
 Considering that Laplace operator of spherically symmetric function (in 3-D space) is:
