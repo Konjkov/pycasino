@@ -124,7 +124,7 @@ that is cuspless at the coalescence point and goes smoothly to zero when either 
     f(r_{ij}, r_{iI}, r_{jI}) = (r_{iI} - L_{fI})^C(r_{jI} - L_{fI})^C \Theta(L_{fI} - r_{iI})\Theta(L_{fI} - r_{jI})
     \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
-To ensure no electron–electron Kato cusp conditions folowing :math:`2N_{fI}^{eN} + 1` constraints is applied:
+To ensure electron–electron Kato cusp conditions folowing :math:`2N_{fI}^{eN} + 1` constraints is applied:
 
 .. math::
 
@@ -170,7 +170,7 @@ There is only two non-zero terms of :math:`u(r_{ij})` gradient, i.e. by :math:`i
 
 where :math:`\mathbf{\hat r}_{ij}` is the unit vector in the direction of the :math:`\mathbf{r}_{ij}`
 
-For certain electron coordinates, :math:`u` gradient term can be obtained with :py:meth:`casino.Jastrow.u_term_gradient` method::
+For certain electron coordinates, :math:`u` term gradient can be obtained with :py:meth:`casino.Jastrow.u_term_gradient` method::
 
     jastrow.u_term_gradient(e_powers, e_vectors)
 
