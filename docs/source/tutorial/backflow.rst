@@ -35,6 +35,8 @@ It must be initialized from the configuration files::
     config.read()
     backflow = Backflow(config)
 
+.. _intermediate data:
+
 To prevent code duplication, we need to prepare the necessary intermediate data::
 
     import numpy as np
@@ -47,6 +49,14 @@ To prevent code duplication, we need to prepare the necessary intermediate data:
     n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
     e_powers = backflow.ee_powers(e_vectors)
     n_powers = backflow.en_powers(n_vectors)
+    r_ij = np.linalg.norm(e_vectors, axis=2)
+    r_iI = np.linalg.norm(n_vectors, axis=2)
+    ee_spin_mask = np.ones(shape=(ne, ne), dtype=int)
+    ee_spin_mask[:neu, :neu] = 0
+    ee_spin_mask[neu:, neu:] = 2
+    en_spin_mask = np.zeros(shape=(ne,), dtype=int)
+    en_spin_mask[neu:] = 1
+    C = backflow.trunc
 
 Backflow class has a following methods:
 
@@ -67,8 +77,15 @@ for spin-like electrons only:
 
 For certain electron coordinates, :math:`\eta` term can be obtained with :py:meth:`casino.Backflow.eta_term` method::
 
-    backflow.eta_term(e_powers, e_vectors)
+    backflow.eta_term(e_powers, e_vectors)[1]
 
+this is equivalent to (continues :ref:`from <intermediate data>`)::
+
+    from numpy.polynomial.polynomial import polyval
+    poly = polyval(r_ij, backflow.eta_parameters.T)
+    cutoff = np.maximum(1 - r_ij / backflow.eta_cutoff[0], 0) ** C
+    np.fill_diagonal(cutoff, 0)
+    np.sum(e_vectors * np.expand_dims(cutoff * np.choose(ee_spin_mask, poly, mode='wrap'), -1), axis=0)
 
 mu-term
 -------
@@ -94,7 +111,14 @@ for all-electron atoms.
 
 For certain electron coordinates, :math:`\mu` term can be obtained with :py:meth:`casino.Backflow.mu_term` method::
 
-    backflow.mu_term(n_powers, n_vectors)
+    backflow.mu_term(n_powers, n_vectors)[1]
+
+this is equivalent to (continues :ref:`from <intermediate data>`)::
+
+    from numpy.polynomial.polynomial import polyval
+    poly = polyval(r_iI, backflow.mu_parameters[0].T)
+    cutoff = np.maximum(1 - r_iI / backflow.mu_cutoff, 0) ** C
+    n_vectors * np.expand_dims(cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap'), -1)
 
 phi-term
 --------
@@ -147,12 +171,33 @@ For certain electron coordinates, :math:`\Phi` and :math:`\Theta` terms can be o
 
     backflow.phi_term(e_powers, n_powers, e_vectors, n_vectors)
 
+this is equivalent to (continues :ref:`from <intermediate data>`)::
+
+    from numpy.polynomial.polynomial import polyval3d
+    r_ijI = np.tile(r_iI[0], (ne, 1))
+    cutoff = np.maximum(1 - r_iI/backflow.phi_cutoff, 0) ** C
+    phi_poly = polyval3d(r_ijI, r_ijI.T, r_ij, backflow.phi_parameters[0].T)
+    theta_poly = polyval3d(r_ijI, r_ijI.T, r_ij, backflow.theta_parameters[0].T)
+    phi = np.outer(cutoff[0], cutoff[0]) * np.choose(ee_spin_mask, phi_poly, mode='wrap')
+    theta = np.outer(cutoff[0], cutoff[0]) * np.choose(ee_spin_mask, theta_poly, mode='wrap')
+    e_vectors * np.expand_dims(phi, -1) + n_vectors * np.expand_dims(theta, -1)
+
 eta-term gradient
 -----------------
+
+Considering that vector gradient of spherically symmetric function (in 3-D space) is:
+
+.. math::
+
+    \nabla (f\mathbf{r}) =  \frac{\partial{f}}{\partial{r}} \mathbf{\hat e}_r \otimes \mathbf{r} + f \cdot I
 
 For certain electron coordinates, :math:`\eta` term gradient can be obtained with :py:meth:`casino.Backflow.eta_term_gradient` method::
 
     backflow.eta_term_gradient(e_powers, e_vectors)
+
+this is equivalent to (continues :ref:`from <intermediate data>`)::
+
+    from numpy.polynomial.polynomial import polyval
 
 mu-term gradient
 ----------------
@@ -160,6 +205,10 @@ mu-term gradient
 For certain electron coordinates, :math:`\mu` term gradient can be obtained with :py:meth:`casino.Backflow.mu_term_gradient` method::
 
     backflow.mu_term_gradient(n_powers, n_vectors)
+
+this is equivalent to (continues :ref:`from <intermediate data>`)::
+
+    from numpy.polynomial.polynomial import polyval
 
 
 phi-term gradient
@@ -169,12 +218,20 @@ For certain electron coordinates, :math:`\phi` term gradient can be obtained wit
 
     backflow.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
 
+this is equivalent to (continues :ref:`from <intermediate data>`)::
+
+    from numpy.polynomial.polynomial import polyval3d
+
 eta-term laplacian
 ------------------
 
 For certain electron coordinates, :math:`\eta` laplacian term can be obtained with :py:meth:`casino.Backflow.eta_term_laplacian` method::
 
     backflow.eta_term_laplacian(e_powers, e_vectors)
+
+this is equivalent to (continues :ref:`from <intermediate data>`)::
+
+    from numpy.polynomial.polynomial import polyval
 
 mu-term laplacian
 -----------------
@@ -183,9 +240,17 @@ For certain electron coordinates, :math:`\mu` term laplacian can be obtained wit
 
     backflow.mu_term_laplacian(n_powers, n_vectors)
 
+this is equivalent to (continues :ref:`from <intermediate data>`)::
+
+    from numpy.polynomial.polynomial import polyval
+
 phi-term laplacian
 ------------------
 
 For certain electron coordinates, :math:`\phi` term laplacian can be obtained with :py:meth:`casino.Backflow.phi_term_laplacian` method::
 
     backflow.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
+
+this is equivalent to (continues :ref:`from <intermediate data>`)::
+
+    from numpy.polynomial.polynomial import polyval3d

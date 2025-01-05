@@ -2738,6 +2738,26 @@ class Backflow(structref.StructRefProxy, AbstractBackflow):
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
+    def trunc(self):
+        return self.trunc
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def eta_cutoff(self):
+        return self.eta_cutoff
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def mu_cutoff(self):
+        return self.mu_cutoff
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def phi_cutoff(self):
+        return self.phi_cutoff
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def cutoffs_optimizable(self):
         return self.cutoffs_optimizable
 
@@ -2766,13 +2786,18 @@ class Backflow(structref.StructRefProxy, AbstractBackflow):
     def phi_parameters(self):
         return self.phi_parameters
 
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def theta_parameters(self):
+        return self.theta_parameters
+
     @nb.njit(nogil=True, parallel=False, cache=True)
     def ee_powers(self, e_vectors):
         return self.ee_powers(e_vectors)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def en_powers(self, n_vectors):
-        return self.ee_powers(n_vectors)
+        return self.en_powers(n_vectors)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def eta_term(self, e_powers, e_vectors):
