@@ -21,7 +21,7 @@ The :math:`g(r_{iI})` function used is of the form:
 
 .. math::
 
-    g(r_{iI}) = \left(\frac{r_{iI}}{L_{gI}}\right)^2 \left[6 - 8 \frac{r_{iI}}{L_{gI}} + 3 \left(\frac{r_{iI}}{L_{gI}}\right)^2 \right]
+    g(r_{iI}) = \left(\frac{r_{iI}}{L_{gI}}\right)^2 \left[6 - 8 \left(\frac{r_{iI}}{L_{gI}}\right) + 3 \left(\frac{r_{iI}}{L_{gI}}\right)^2 \right]
 
 Backflow part of wavefunction is represented by the :class:`casino.Backflow` class.
 
@@ -85,7 +85,8 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     poly = polyval(r_ij, backflow.eta_parameters.T)
     cutoff = np.maximum(1 - r_ij / backflow.eta_cutoff[0], 0) ** C
     np.fill_diagonal(cutoff, 0)
-    np.sum(e_vectors * np.expand_dims(cutoff * np.choose(ee_spin_mask, poly, mode='wrap'), -1), axis=0)
+    eta = np.expand_dims(cutoff * np.choose(ee_spin_mask, poly, mode='wrap'), -1)
+    np.sum(-e_vectors * eta, axis=0)
 
 mu-term
 -------
@@ -180,7 +181,8 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     theta_poly = polyval3d(r_ijI, r_ijI.T, r_ij, backflow.theta_parameters[0].T)
     phi = np.outer(cutoff[0], cutoff[0]) * np.choose(ee_spin_mask, phi_poly, mode='wrap')
     theta = np.outer(cutoff[0], cutoff[0]) * np.choose(ee_spin_mask, theta_poly, mode='wrap')
-    e_vectors * np.expand_dims(phi, -1) + n_vectors * np.expand_dims(theta, -1)
+    np.fill_diagonal(theta, 0)
+    np.sum(-e_vectors * np.expand_dims(phi, -1) + n_vectors * np.expand_dims(theta, -1), axis=0)
 
 eta-term gradient
 -----------------
