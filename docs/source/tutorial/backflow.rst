@@ -170,7 +170,7 @@ for all-electron atoms there are :math:`3(N_{\Phi I}^{ee} + N_{\Phi I}^{en})+2` 
 
 For certain electron coordinates, :math:`\Phi` and :math:`\Theta` terms can be obtained with :py:meth:`casino.Backflow.phi_term` method::
 
-    backflow.phi_term(e_powers, n_powers, e_vectors, n_vectors)
+    backflow.phi_term(e_powers, n_powers, e_vectors, n_vectors)[1]
 
 this is equivalent to (continues :ref:`from <intermediate data>`)::
 
@@ -193,32 +193,85 @@ Considering that vector gradient of spherically symmetric function (in 3-D space
 
     \nabla (f\mathbf{r}) =  \frac{\partial{f}}{\partial{r}} \mathbf{\hat e}_r \otimes \mathbf{r} + f \cdot I
 
+There is only two non-zero terms of :math:`\eta(r_{ij})` gradient, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
+
+.. math::
+
+    \nabla_{e_i}(\eta(r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij})
+    \sum_{k=0}^{N_\eta} (I + \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} (C/(r_{ij} - L_\eta) + k/r_{ij}))c_kr^k_{ij}
+
+where :math:`\mathbf{\hat r}_{ij}` is the unit vector in the direction of the :math:`\mathbf{r}_{ij}`
+
 For certain electron coordinates, :math:`\eta` term gradient can be obtained with :py:meth:`casino.Backflow.eta_term_gradient` method::
 
-    backflow.eta_term_gradient(e_powers, e_vectors)
+    backflow.eta_term_gradient(e_powers, e_vectors)[1]
 
 this is equivalent to (continues :ref:`from <intermediate data>`)::
 
     from numpy.polynomial.polynomial import polyval
+    L = backflow.eta_cutoff
+    k = np.arange(backflow.eta_parameters.shape[1])
+    cutoff = np.maximum(1 - r_ij / backflow.eta_cutoff[0], 0) ** C
+    np.fill_diagonal(cutoff, -1)
+    poly = polyval(r_ij, backflow.eta_parameters.T)
+    poly_k = polyval(r_ij, (k * backflow.eta_parameters).T)
+    t1 = cutoff * np.choose(ee_spin_mask, poly, mode='wrap')
+    t2 = cutoff * np.choose(ee_spin_mask, poly * C / (r_ij - L) + poly_k / r_ij, mode='wrap')
+    tt1 = np.einsum('ij,ab->aibj', np.eye(3), np.diag(np.sum(t1, axis=0)) - t1)
+    tt2 = np.einsum('abi,abj,ab,Ia->aibj', e_vectors, e_vectors/np.expand_dims(r_ij, -1), np.eye(ne), t2)
+    (tt1 + tt2).reshape(ne*3, ne*3)
 
 mu-term gradient
 ----------------
+Considering that vector gradient of spherically symmetric function (in 3-D space) is:
+
+.. math::
+
+    \nabla (f\mathbf{r}) =  \frac{\partial{f}}{\partial{r}} \mathbf{\hat e}_r \otimes \mathbf{r} + f \cdot I
+
+There is only two non-zero terms of :math:`\mu(r_{iI})` gradient, i.e. by :math:`i`-th electron coordinates:
+
+.. math::
+
+    \nabla_{e_i} \mu(r_{iI}) = (1 - r_{iI}/L_\eta)^C\Theta(L_\mu - r_{iI})
+    \sum_{k=0}^{N_\mu} (I + \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{iI} (k/r_{iI} - C/(L_\mu - r_{iI})))d_kr^k_{ij}
+
+where :math:`\mathbf{\hat r}_{iI}` is the unit vector in the direction of the :math:`\mathbf{r}_{iI}`
 
 For certain electron coordinates, :math:`\mu` term gradient can be obtained with :py:meth:`casino.Backflow.mu_term_gradient` method::
 
-    backflow.mu_term_gradient(n_powers, n_vectors)
+    backflow.mu_term_gradient(n_powers, n_vectors)[1]
 
 this is equivalent to (continues :ref:`from <intermediate data>`)::
 
     from numpy.polynomial.polynomial import polyval
-
+    L = backflow.mu_cutoff
+    k = np.arange(backflow.mu_parameters[0].shape[1])
+    cutoff = np.maximum(1 - r_iI / L, 0) ** C
+    poly = polyval(r_iI, backflow.mu_parameters[0].T)
+    poly_k = polyval(r_iI, (k * backflow.mu_parameters[0]).T)
+    t1 = cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap')
+    t2 = cutoff[0] * np.choose(en_spin_mask, poly * C / (r_iI - L) + poly_k / r_iI, mode='wrap')
+    tt1 = np.einsum('ij,ab,Ia->aibj', np.eye(3), np.eye(ne), t1)
+    tt2 = np.einsum('Iai,Iaj,ab,Ia->aibj', n_vectors, n_vectors/np.expand_dims(r_iI, -1), np.eye(ne), t2)
+    (tt1 + tt2).reshape(ne*3, ne*3)
 
 phi-term gradient
 -----------------
 
+There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})` gradient, i.e. by :math:`i`-th electron coordinates:
+
+.. math::
+
+    \nabla_{e_i} \Phi(r_{iI}, r_{jI}, r_{ij}) =
+
+.. math::
+
+    \nabla_{e_i} \Theta(r_{iI}, r_{jI}, r_{ij}) =
+
 For certain electron coordinates, :math:`\phi` term gradient can be obtained with :py:meth:`casino.Backflow.phi_term_gradient` method::
 
-    backflow.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
+    backflow.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)[1]
 
 this is equivalent to (continues :ref:`from <intermediate data>`)::
 
@@ -229,7 +282,7 @@ eta-term laplacian
 
 For certain electron coordinates, :math:`\eta` laplacian term can be obtained with :py:meth:`casino.Backflow.eta_term_laplacian` method::
 
-    backflow.eta_term_laplacian(e_powers, e_vectors)
+    backflow.eta_term_laplacian(e_powers, e_vectors)[1]
 
 this is equivalent to (continues :ref:`from <intermediate data>`)::
 
@@ -240,7 +293,7 @@ mu-term laplacian
 
 For certain electron coordinates, :math:`\mu` term laplacian can be obtained with :py:meth:`casino.Backflow.mu_term_laplacian` method::
 
-    backflow.mu_term_laplacian(n_powers, n_vectors)
+    backflow.mu_term_laplacian(n_powers, n_vectors)[1]
 
 this is equivalent to (continues :ref:`from <intermediate data>`)::
 
