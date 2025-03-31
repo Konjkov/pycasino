@@ -2738,6 +2738,26 @@ class Backflow(structref.StructRefProxy, AbstractBackflow):
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
+    def trunc(self):
+        return self.trunc
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def eta_cutoff(self):
+        return self.eta_cutoff
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def mu_cutoff(self):
+        return self.mu_cutoff
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def phi_cutoff(self):
+        return self.phi_cutoff
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def cutoffs_optimizable(self):
         return self.cutoffs_optimizable
 
@@ -2750,6 +2770,74 @@ class Backflow(structref.StructRefProxy, AbstractBackflow):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def parameters_projector(self):
         return self.parameters_projector
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def eta_parameters(self):
+        return self.eta_parameters
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def mu_parameters(self):
+        return self.mu_parameters
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def phi_parameters(self):
+        return self.phi_parameters
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def theta_parameters(self):
+        return self.theta_parameters
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def ee_powers(self, e_vectors):
+        return self.ee_powers(e_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def en_powers(self, n_vectors):
+        return self.en_powers(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def eta_term(self, e_powers, e_vectors):
+        return self.eta_term(e_powers, e_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def mu_term(self, n_powers, n_vectors):
+        return self.mu_term(n_powers, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def phi_term(self, e_powers, n_powers, e_vectors, n_vectors):
+        return self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def eta_term_gradient(self, e_powers, e_vectors):
+        return self.eta_term_gradient(e_powers, e_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def mu_term_gradient(self, n_powers, n_vectors):
+        return self.mu_term_gradient(n_powers, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def phi_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
+        return self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def eta_term_laplacian(self, e_powers, e_vectors):
+        return self.eta_term_laplacian(e_powers, e_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def mu_term_laplacian(self, n_powers, n_vectors):
+        return self.mu_term_laplacian(n_powers, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def phi_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
+        return self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def value(self, e_vectors, n_vectors):
+        return self.value(e_vectors, n_vectors)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def gradient(self, e_vectors, n_vectors):

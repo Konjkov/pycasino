@@ -720,7 +720,7 @@ class CuspFactory:
         np.seterr(divide='ignore', invalid='ignore')
         z_eff = self.atom_charges[:, np.newaxis] * (1 + self.eta / (R + self.shift))  # (16)
         # np.where is not lazy
-        # https://pretagteam.com/question/numpy-where-function-can-not-avoid-evaluate-sqrtnegative
+        # https://stackoverflow.com/questions/52622172/numpy-where-function-can-not-avoid-evaluate-sqrtnegative
         energy = np.where(
             r == 0,
             # apply L'Hôpital's rule to find energy limit at r=0 in (15)

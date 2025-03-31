@@ -405,18 +405,9 @@ def jastrow_u_term_laplacian(self, e_powers):
                         else:
                             p = parameters[u_set, k] * e_powers[e1, e2, k]
                         poly += p
-                        poly_diff += k * p
-                        poly_diff_2 += k * (k - 1) * p
-                    res += (
-                        (r_ee - L) ** C
-                        * (
-                            C * (C - 1) * r_ee**2 / (r_ee - L) ** 2 * poly
-                            + 2 * C * r_ee / (r_ee - L) * (poly + poly_diff)
-                            + poly_diff_2
-                            + 2 * poly_diff
-                        )
-                        / r_ee**2
-                    )
+                        poly_diff += (k + 1) * p
+                        poly_diff_2 += k * (k + 1) * p
+                    res += (r_ee - L) ** C * (C * (C - 1) / (r_ee - L) ** 2 * poly + 2 * C / (r_ee - L) / r_ee * poly_diff + poly_diff_2 / r_ee**2)
         return 2 * res
 
     return impl
@@ -443,17 +434,10 @@ def jastrow_chi_term_laplacian(self, n_powers):
                         for k in range(parameters.shape[1]):
                             p = parameters[chi_set, k] * n_powers[label, e1, k]
                             poly += p
-                            poly_diff += k * p
-                            poly_diff_2 += k * (k - 1) * p
-                        res += (
-                            (r_eI - L) ** C
-                            * (
-                                C * (C - 1) * r_eI**2 / (r_eI - L) ** 2 * poly
-                                + 2 * C * r_eI / (r_eI - L) * (poly + poly_diff)
-                                + poly_diff_2
-                                + 2 * poly_diff
-                            )
-                            / r_eI**2
+                            poly_diff += (k + 1) * p
+                            poly_diff_2 += k * (k + 1) * p
+                        res += (r_eI - L) ** C * (
+                            C * (C - 1) / (r_eI - L) ** 2 * poly + 2 * C / (r_eI - L) / r_eI * poly_diff + poly_diff_2 / r_eI**2
                         )
         return res
 
@@ -502,19 +486,14 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                     for l in range(parameters.shape[3]):
                                         p = parameters[f_set, n, m, l] * n_powers[label, e1, l] * n_powers[label, e2, m] * e_powers[e1, e2, n]
                                         poly += p
-                                        poly_diff_e1I += l * p
-                                        poly_diff_e2I += m * p
+                                        poly_diff_e1I += (l + 1) * p
+                                        poly_diff_e2I += (m + 1) * p
                                         poly_diff_ee += n * p
-                                        poly_diff_e1I_2 += l * (l - 1) * p
-                                        poly_diff_e2I_2 += m * (m - 1) * p
-                                        poly_diff_ee_2 += n * (n - 1) * p
+                                        poly_diff_e1I_2 += l * (l + 1) * p
+                                        poly_diff_e2I_2 += m * (m + 1) * p
+                                        poly_diff_ee_2 += n * (n + 1) * p
                                         poly_diff_e1I_ee += l * n * p
                                         poly_diff_e2I_ee += m * n * p
-                            diff_1 = (
-                                (cutoff_diff_e1I * poly + poly_diff_e1I) / r_e1I**2
-                                + (cutoff_diff_e2I * poly + poly_diff_e2I) / r_e2I**2
-                                + 2 * poly_diff_ee / r_ee**2
-                            )
                             diff_2 = (
                                 C * (C - 1) / (r_e1I - L) ** 2 * poly
                                 + C * (C - 1) / (r_e2I - L) ** 2 * poly
@@ -532,7 +511,7 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                 (1 - r_e1I_vec_dot_r_e2I_vec[e1, e2] / r_e1I**2) * (cutoff_diff_e1I * poly_diff_ee + poly_diff_e1I_ee)
                                 + (1 - r_e1I_vec_dot_r_e2I_vec[e1, e2] / r_e2I**2) * (cutoff_diff_e2I * poly_diff_ee + poly_diff_e2I_ee)
                             ) / r_ee**2
-                            res += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * diff_1 + 2 * dot_product)
+                            res += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * dot_product)
         return res
 
     return impl
@@ -1907,8 +1886,23 @@ class Jastrow(structref.StructRefProxy, AbstractJastrow):
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
+    def trunc(self):
+        return self.trunc
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def u_cutoff(self):
         return self.u_cutoff
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def chi_cutoff(self):
+        return self.chi_cutoff
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def f_cutoff(self):
+        return self.f_cutoff
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
@@ -1923,6 +1917,69 @@ class Jastrow(structref.StructRefProxy, AbstractJastrow):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def set_u_parameters_for_emin(self):
         return self.set_u_parameters_for_emin()
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def u_parameters(self):
+        return self.u_parameters
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def chi_parameters(self):
+        return self.chi_parameters
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def f_parameters(self):
+        return self.f_parameters
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def ee_powers(self, e_vectors):
+        return self.ee_powers(e_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def en_powers(self, n_vectors):
+        return self.ee_powers(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def u_term(self, e_powers):
+        return self.u_term(e_powers)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def chi_term(self, n_powers):
+        return self.chi_term(n_powers)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def f_term(self, e_powers, n_powers):
+        return self.f_term(e_powers, n_powers)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def u_term_gradient(self, e_powers, e_vectors):
+        return self.u_term_gradient(e_powers, e_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def chi_term_gradient(self, n_powers, n_vectors):
+        return self.chi_term_gradient(n_powers, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
+        return self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def u_term_laplacian(self, e_powers):
+        return self.u_term_laplacian(e_powers)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def chi_term_laplacian(self, n_powers):
+        return self.chi_term_laplacian(n_powers)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
+        return self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def value(self, e_vectors, n_vectors):
+        return self.value(e_vectors, n_vectors)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def gradient(self, e_vectors, n_vectors):

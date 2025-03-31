@@ -247,7 +247,7 @@ For certain electron coordinates, the gradient vector can be obtained with casin
 
     slater.gradient(n_vectors)
 
-this is equivalent (continues :ref:`from <inverse_ matrix>`)::
+this is equivalent to (continues :ref:`from <inverse_ matrix>`)::
 
     G_up, G_down = slater.gradient_matrix(n_vectors)
     tr_grad_u = np.einsum('ij,jia->ia', inv_A_up, G_up).reshape(neu * 3)
@@ -298,7 +298,7 @@ For certain electron coordinates, the laplacian can be obtained with casino.Slat
 
     slater.laplacian(n_vectors)
 
-this is equivalent (continues :ref:`from <inverse_ matrix>`)::
+this is equivalent to (continues :ref:`from <inverse_ matrix>`)::
 
     L_up, L_down = slater.laplacian_matrix(n_vectors)
     lap_up = np.einsum('ij,ji', inv_A_up, L_up)
@@ -352,7 +352,7 @@ For certain electron coordinates, the hessian matrix can be obtained with casino
 
     slater.hessian(n_vectors)[0]
 
-this is equivalent (continues :ref:`from <inverse_ matrix>`)::
+this is equivalent to (continues :ref:`from <inverse_ matrix>`)::
 
     G_up, G_down = slater.gradient_matrix(n_vectors)
     tr_grad_u = np.einsum('ij,jia->ia', inv_A_up, G_up).reshape(neu * 3)
@@ -442,7 +442,7 @@ For certain electron coordinates, the tressian metrix can be obtained with casin
 
     slater.tressian(n_vectors)[0]
 
-this is equivalent (continues :ref:`from <inverse_ matrix>`)::
+this is equivalent to (continues :ref:`from <inverse_ matrix>`)::
 
     G_up, G_down = slater.gradient_matrix(n_vectors)
     tr_grad_u = np.einsum('ij,jia->ia', inv_A_up, G_up).reshape(neu * 3)
