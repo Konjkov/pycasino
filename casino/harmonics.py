@@ -5,6 +5,8 @@ import numpy as np
 @nb.njit(nogil=True, parallel=False, cache=True)
 def value_angular_part(x, y, z):
     """Angular part of WFN.
+    Solid harmonics with factor √(2 - ẟm,0)(l - |n|)!/(l + |n|)!)
+    https://www.vallico.net/casino-forum/viewtopic.php?p=481&sid=9235a407b02d192bef8b66a3ba52e62d#p481
     :return:
     """
     x2 = x**2

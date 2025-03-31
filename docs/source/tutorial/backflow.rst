@@ -191,7 +191,7 @@ Considering that vector gradient of spherically symmetric function (in 3-D space
 
 .. math::
 
-    \nabla (f\mathbf{r}) =  \frac{\partial{f}}{\partial{r}} \mathbf{\hat e}_r \otimes \mathbf{r} + f \cdot I
+    \nabla (f(r)\mathbf{r}) =  \frac{\partial{f(r)}}{\partial{r}} \mathbf{\hat e}_r \otimes \mathbf{r} + f \cdot I
 
 There is only two non-zero terms of :math:`\eta(r_{ij})` gradient, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
 
@@ -212,13 +212,15 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     L = backflow.eta_cutoff
     k = np.arange(backflow.eta_parameters.shape[1])
     cutoff = np.maximum(1 - r_ij / backflow.eta_cutoff[0], 0) ** C
-    np.fill_diagonal(cutoff, -1)
+    np.fill_diagonal(cutoff, 0)
     poly = polyval(r_ij, backflow.eta_parameters.T)
     poly_k = polyval(r_ij, (k * backflow.eta_parameters).T)
+    unit_e_vectors = np.nan_to_num(e_vectors/np.expand_dims(r_ij, -1))
     t1 = cutoff * np.choose(ee_spin_mask, poly, mode='wrap')
     t2 = cutoff * np.choose(ee_spin_mask, poly * C / (r_ij - L) + poly_k / r_ij, mode='wrap')
     tt1 = np.einsum('ij,ab->aibj', np.eye(3), np.diag(np.sum(t1, axis=0)) - t1)
-    tt2 = np.einsum('abi,abj,ab,Ia->aibj', e_vectors, e_vectors/np.expand_dims(r_ij, -1), np.eye(ne), t2)
+    np.fill_diagonal(t2, 0)
+    tt2 = np.einsum('abi,abj,ab->aibj', e_vectors, unit_e_vectors, -t2)
     (tt1 + tt2).reshape(ne*3, ne*3)
 
 mu-term gradient
@@ -227,7 +229,7 @@ Considering that vector gradient of spherically symmetric function (in 3-D space
 
 .. math::
 
-    \nabla (f\mathbf{r}) =  \frac{\partial{f}}{\partial{r}} \mathbf{\hat e}_r \otimes \mathbf{r} + f \cdot I
+    \nabla (f(r)\mathbf{r}) =  \frac{\partial{f(r)}}{\partial{r}} \mathbf{\hat e}_r \otimes \mathbf{r} + f \cdot I
 
 There is only two non-zero terms of :math:`\mu(r_{iI})` gradient, i.e. by :math:`i`-th electron coordinates:
 
@@ -250,10 +252,11 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     cutoff = np.maximum(1 - r_iI / L, 0) ** C
     poly = polyval(r_iI, backflow.mu_parameters[0].T)
     poly_k = polyval(r_iI, (k * backflow.mu_parameters[0]).T)
+    unit_n_vectors = n_vectors/np.expand_dims(r_iI, -1)
     t1 = cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap')
     t2 = cutoff[0] * np.choose(en_spin_mask, poly * C / (r_iI - L) + poly_k / r_iI, mode='wrap')
     tt1 = np.einsum('ij,ab,Ia->aibj', np.eye(3), np.eye(ne), t1)
-    tt2 = np.einsum('Iai,Iaj,ab,Ia->aibj', n_vectors, n_vectors/np.expand_dims(r_iI, -1), np.eye(ne), t2)
+    tt2 = np.einsum('Iai,Iaj,ab,Ia->aibj', n_vectors, unit_n_vectors, np.eye(ne), t2)
     (tt1 + tt2).reshape(ne*3, ne*3)
 
 phi-term gradient
