@@ -112,18 +112,16 @@ def spherical_harmonics_compute(self, xyz: np.ndarray):
         sph = np.empty((n_samples, (self.l_max + 1) ** 2), dtype=xyz.dtype)
 
         if xyz.dtype == np.dtype('float64'):
-            _calculator = self.sphericart_spherical_harmonics_new(self.l_max)
-            self.sphericart_spherical_harmonics_compute_array(
-                _calculator,
+            self.sphericart_spherical_harmonics_compute_array_64(
+                self.calculator_64,
                 xyz.ctypes.data,
                 xyz.size,
                 sph.ctypes.data,
                 sph.size,
             )
         elif xyz.dtype == np.dtype('float32'):
-            _calculator_f = self.sphericart_spherical_harmonics_new_f(self.l_max)
-            self.sphericart_spherical_harmonics_compute_array_f(
-                _calculator_f,
+            self.sphericart_spherical_harmonics_compute_array_32(
+                self.calculator_32,
                 xyz.ctypes.data,
                 xyz.size,
                 sph.ctypes.data,
@@ -137,12 +135,10 @@ def spherical_harmonics_compute(self, xyz: np.ndarray):
 SphericalHarmonics_t = SphericalHarmonics_class_t(
     [
         ('l_max', nb.int64),
-        ('_calculator', nb.uint64),
-        ('_calculator_f', nb.uint64),
-        ('sphericart_spherical_harmonics_compute_array', nb.typeof(sphericart_spherical_harmonics_compute_array)),
-        ('sphericart_spherical_harmonics_compute_array_f', nb.typeof(sphericart_spherical_harmonics_compute_array_f)),
-        ('sphericart_spherical_harmonics_new', nb.typeof(sphericart_spherical_harmonics_new)),
-        ('sphericart_spherical_harmonics_new_f', nb.typeof(sphericart_spherical_harmonics_new_f)),
+        ('calculator_64', nb.int64),
+        ('calculator_32', nb.int64),
+        ('sphericart_spherical_harmonics_compute_array_64', nb.typeof(sphericart_spherical_harmonics_compute_array)),
+        ('sphericart_spherical_harmonics_compute_array_32', nb.typeof(sphericart_spherical_harmonics_compute_array_f)),
     ]
 )
 
@@ -158,21 +154,19 @@ class SphericalHarmonics(structref.StructRefProxy):
             self = structref.new(SphericalHarmonics_t)
             (
                 self.l_max,
-                self.sphericart_spherical_harmonics_compute_array,
-                self.sphericart_spherical_harmonics_compute_array_f,
-                self.sphericart_spherical_harmonics_new,
-                self.sphericart_spherical_harmonics_new_f,
+                self.calculator_64,
+                self.calculator_32,
+                self.sphericart_spherical_harmonics_compute_array_64,
+                self.sphericart_spherical_harmonics_compute_array_32,
             ) = args
-            # self._calculator = _sphericart_spherical_harmonics_new(self.l_max)
-            # self._calculator_f = _sphericart_spherical_harmonics_new_f(self.l_max)
             return self
 
         args = (
             l_max,
+            lib.sphericart_spherical_harmonics_new(l_max),
+            lib.sphericart_spherical_harmonics_new_f(l_max),
             lib.sphericart_spherical_harmonics_compute_array,
             lib.sphericart_spherical_harmonics_compute_array_f,
-            lib.sphericart_spherical_harmonics_new,
-            lib.sphericart_spherical_harmonics_new_f,
         )
         return init(*args)
 
@@ -220,18 +214,16 @@ def solid_harmonics_compute(self, xyz: np.ndarray):
         sph = np.empty((n_samples, (self.l_max + 1) ** 2), dtype=xyz.dtype)
 
         if xyz.dtype == np.dtype('float64'):
-            _calculator = self.sphericart_spherical_harmonics_new(self.l_max)
-            self.sphericart_spherical_harmonics_compute_array(
-                _calculator,
+            self.sphericart_solid_harmonics_compute_array_64(
+                self.calculator_64,
                 xyz.ctypes.data,
                 xyz.size,
                 sph.ctypes.data,
                 sph.size,
             )
         elif xyz.dtype == np.dtype('float32'):
-            _calculator_f = self.sphericart_spherical_harmonics_new_f(self.l_max)
-            self.sphericart_spherical_harmonics_compute_array_f(
-                _calculator_f,
+            self.sphericart_solid_harmonics_compute_array_32(
+                self.calculator_32,
                 xyz.ctypes.data,
                 xyz.size,
                 sph.ctypes.data,
@@ -245,12 +237,10 @@ def solid_harmonics_compute(self, xyz: np.ndarray):
 SolidHarmonics_t = SolidHarmonics_class_t(
     [
         ('l_max', nb.int64),
-        ('_calculator', nb.types.voidptr),
-        ('_calculator_f', nb.types.voidptr),
-        ('sphericart_solid_harmonics_compute_array', nb.typeof(sphericart_solid_harmonics_compute_array)),
-        ('sphericart_solid_harmonics_compute_array_f', nb.typeof(sphericart_solid_harmonics_compute_array_f)),
-        ('sphericart_solid_harmonics_new', nb.typeof(sphericart_solid_harmonics_new)),
-        ('sphericart_solid_harmonics_new_f', nb.typeof(sphericart_solid_harmonics_new_f)),
+        ('calculator_64', nb.types.int64),
+        ('calculator_32', nb.types.int64),
+        ('sphericart_solid_harmonics_compute_array_64', nb.typeof(sphericart_solid_harmonics_compute_array)),
+        ('sphericart_solid_harmonics_compute_array_32', nb.typeof(sphericart_solid_harmonics_compute_array_f)),
     ]
 )
 
@@ -263,24 +253,22 @@ class SolidHarmonics(structref.StructRefProxy):
 
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(*args):
-            self = structref.new(SphericalHarmonics_t)
+            self = structref.new(SolidHarmonics_t)
             (
                 self.l_max,
-                self.sphericart_solid_harmonics_compute_array,
-                self.sphericart_solid_harmonics_compute_array_f,
-                self.sphericart_solid_harmonics_new,
-                self.sphericart_solid_harmonics_new_f,
+                self.calculator_64,
+                self.calculator_32,
+                self.sphericart_solid_harmonics_compute_array_64,
+                self.sphericart_solid_harmonics_compute_array_32,
             ) = args
-            # self._calculator = self.sphericart_solid_harmonics_new(self.l_max)
-            # self._calculator_f = self.sphericart_solid_harmonics_new_f(self.l_max)
             return self
 
         args = (
             l_max,
+            lib.sphericart_solid_harmonics_new(l_max),
+            lib.sphericart_solid_harmonics_new_f(l_max),
             lib.sphericart_solid_harmonics_compute_array,
             lib.sphericart_solid_harmonics_compute_array_f,
-            lib.sphericart_solid_harmonics_new,
-            lib.sphericart_solid_harmonics_new_f,
         )
         return init(*args)
 
