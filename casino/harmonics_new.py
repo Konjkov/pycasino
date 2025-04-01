@@ -21,18 +21,18 @@ sphericart_spherical_harmonics_compute_array.restype = None
 sphericart_spherical_harmonics_compute_array.argtypes = [
     ctypes.c_void_p,
     ctypes.c_void_p,
-    ctypes.c_int64,
+    ctypes.c_size_t,
     ctypes.c_void_p,
-    ctypes.c_int64,
+    ctypes.c_size_t,
 ]
 sphericart_spherical_harmonics_compute_array_f = lib.sphericart_spherical_harmonics_compute_array_f
 sphericart_spherical_harmonics_compute_array_f.restype = None
 sphericart_spherical_harmonics_compute_array_f.argtypes = [
     ctypes.c_void_p,
     ctypes.c_void_p,
-    ctypes.c_int64,
+    ctypes.c_size_t,
     ctypes.c_void_p,
-    ctypes.c_int64,
+    ctypes.c_size_t,
 ]
 # Solid
 sphericart_solid_harmonics_new = lib.sphericart_solid_harmonics_new
@@ -47,18 +47,18 @@ sphericart_solid_harmonics_compute_array.restype = None
 sphericart_solid_harmonics_compute_array.argtypes = [
     ctypes.c_void_p,
     ctypes.c_void_p,
-    ctypes.c_int64,
+    ctypes.c_size_t,
     ctypes.c_void_p,
-    ctypes.c_int64,
+    ctypes.c_size_t,
 ]
 sphericart_solid_harmonics_compute_array_f = lib.sphericart_solid_harmonics_compute_array_f
 sphericart_solid_harmonics_compute_array_f.restype = None
 sphericart_solid_harmonics_compute_array_f.argtypes = [
     ctypes.c_void_p,
     ctypes.c_void_p,
-    ctypes.c_int,
+    ctypes.c_size_t,
     ctypes.c_void_p,
-    ctypes.c_int64,
+    ctypes.c_size_t,
 ]
 
 
