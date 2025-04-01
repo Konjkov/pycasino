@@ -178,7 +178,7 @@ class SphericalHarmonics(structref.StructRefProxy):
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def compute(self, xyz: np.ndarray) -> np.ndarray:
-        return self.spherical_harmonics_compute(xyz)
+        return self.compute(xyz)
 
 
 structref.define_boxing(SphericalHarmonics_class_t, SphericalHarmonics)
@@ -286,7 +286,7 @@ class SolidHarmonics(structref.StructRefProxy):
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def compute(self, xyz: np.ndarray) -> np.ndarray:
-        return self.solid_harmonics_compute(xyz)
+        return self.compute(xyz)
 
 
 structref.define_boxing(SolidHarmonics_class_t, SolidHarmonics)
