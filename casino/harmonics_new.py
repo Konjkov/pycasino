@@ -36,6 +36,7 @@ def spherical_harmonics_compute(self, xyz: np.ndarray):
     """
 
     def impl(self, xyz: np.ndarray) -> np.ndarray:
+        """Implementation."""
         if not (xyz.dtype == np.dtype('float32') or xyz.dtype == np.dtype('float64')):
             raise TypeError('xyz must be a numpy array of 32 or 64-bit floats')
 
@@ -91,6 +92,7 @@ def spherical_harmonics_compute_with_gradients(self, xyz: np.ndarray):
     """
 
     def impl(self, xyz: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Implementation."""
         if not (xyz.dtype == np.dtype('float32') or xyz.dtype == np.dtype('float64')):
             raise TypeError('xyz must be a numpy array of 32 or 64-bit floats')
 
@@ -103,7 +105,7 @@ def spherical_harmonics_compute_with_gradients(self, xyz: np.ndarray):
 
         n_samples = xyz.shape[0]
         sph = np.empty((n_samples, (self.l_max + 1) ** 2), dtype=xyz.dtype)
-        dsph = np.empty((n_samples, 3, (self._l_max + 1) ** 2), dtype=xyz.dtype)
+        dsph = np.empty((n_samples, 3, (self.l_max + 1) ** 2), dtype=xyz.dtype)
 
         if xyz.dtype == np.dtype('float64'):
             self.gradient_64(
@@ -115,19 +117,89 @@ def spherical_harmonics_compute_with_gradients(self, xyz: np.ndarray):
                 dsph.ctypes,
                 dsph.size,
             )
-        elif xyz.dtype == np.dtype('float32'):
-            self.gradient_32(
-                self.calculator_32,
+        # elif xyz.dtype == np.dtype('float32'):
+        #     self.gradient_32(
+        #         self.calculator_32,
+        #         xyz.ctypes,
+        #         xyz.size,
+        #         sph.ctypes,
+        #         sph.size,
+        #         dsph.ctypes,
+        #         dsph.size,
+        #     )
+        return sph, dsph
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(SphericalHarmonics_class_t, 'compute_with_hessians')
+def spherical_harmonics_compute_with_hessians(self, xyz: np.ndarray):
+    """Calculates the spherical harmonics for a set of 3D points with gradients and hessians.
+    :param xyz:
+        The Cartesian coordinates of the 3D points, as an array with
+        shape ``(n_samples, 3)``
+    :return:
+        - an array of shape ``(n_samples, (l_max+1)**2)`` containing all the
+          spherical harmonics up to degree ``l_max`` in lexicographic order.
+          For example, if ``l_max = 2``, The last axis will correspond to
+          spherical harmonics with ``(l, m) = (0, 0), (1, -1), (1, 0), (1,
+          1), (2, -2), (2, -1), (2, 0), (2, 1), (2, 2)``, in this order.
+        - an array of shape ``(n_samples, 3, (l_max+1)**2)`` containing all
+          the spherical harmonics' derivatives up to degree ``l_max``. The
+          last axis is organized in the same way as in the spherical
+          harmonics return array, while the second-to-last axis refers to
+          derivatives in the x, y, and z directions, respectively.
+      - an array of shape ``(n_samples, 3, 3, (l_max+1)**2)`` containing all
+          the spherical harmonics' second derivatives up to degree ``l_max``.
+          The last axis is organized in the same way as in the spherical
+          harmonics return array, while the two intermediate axes represent the
+          Hessian dimensions.
+    """
+
+    def impl(self, xyz: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Implementation."""
+
+        if not (xyz.dtype == np.dtype('float32') or xyz.dtype == np.dtype('float64')):
+            raise TypeError('xyz must be a numpy array of 32 or 64-bit floats')
+
+        if len(xyz.shape) != 2 or xyz.shape[1] != 3:
+            raise ValueError('xyz array must be a `N x 3` array')
+
+        # make xyz contiguous before taking a pointer to it
+        if not xyz.flags.c_contiguous:
+            xyz = np.ascontiguousarray(xyz)
+
+        n_samples = xyz.shape[0]
+        sph = np.empty((n_samples, (self.l_max + 1) ** 2), dtype=xyz.dtype)
+        dsph = np.empty((n_samples, 3, (self.l_max + 1) ** 2), dtype=xyz.dtype)
+        ddsph = np.empty((n_samples, 3, 3, (self.l_max + 1) ** 2), dtype=xyz.dtype)
+
+        if xyz.dtype == np.dtype('float64'):
+            self.hessian_64(
+                self.calculator_64,
                 xyz.ctypes,
                 xyz.size,
                 sph.ctypes,
                 sph.size,
                 dsph.ctypes,
                 dsph.size,
+                ddsph.ctypes,
+                ddsph.size,
             )
-        return sph, dsph
-
-    return impl
+        # elif xyz.dtype == np.dtype('float32'):
+        #     self.gradient_32(
+        #         self.calculator_32,
+        #         xyz.ctypes,
+        #         xyz.size,
+        #         sph.ctypes,
+        #         sph.size,
+        #         dsph.ctypes,
+        #         dsph.size,
+        #         ddsph.ctypes,
+        #         ddsph.size,
+        #     )
+        return sph, dsph, ddsph
 
 
 SphericalHarmonics_t = SphericalHarmonics_class_t(
@@ -189,8 +261,8 @@ class SphericalHarmonics(structref.StructRefProxy):
         return self.compute_with_gradients(xyz)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
-    def compute_with_hessian(self, xyz: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        return self.compute_with_hessian(xyz)
+    def compute_with_hessians(self, xyz: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        return self.compute_with_hessians(xyz)
 
 
 structref.define_boxing(SphericalHarmonics_class_t, SphericalHarmonics)
@@ -213,11 +285,13 @@ def solid_harmonics_compute(self, xyz: np.ndarray):
         An array of shape ``(n_samples, (l_max+1)**2)`` containing all the
         solid harmonics up to degree `l_max` in lexicographic order.
         For example, if ``l_max = 2``, The last axis will correspond to
-        spherical harmonics with ``(l, m) = (0, 0), (1, -1), (1, 0), (1,
+        solid harmonics with ``(l, m) = (0, 0), (1, -1), (1, 0), (1,
         1), (2, -2), (2, -1), (2, 0), (2, 1), (2, 2)``, in this order.
     """
 
     def impl(self, xyz: np.ndarray) -> np.ndarray:
+        """Implementation."""
+
         if not (xyz.dtype == np.dtype('float32') or xyz.dtype == np.dtype('float64')):
             raise TypeError('xyz must be a numpy array of 32 or 64-bit floats')
 
@@ -263,16 +337,18 @@ def solid_harmonics_compute_with_gradients(self, xyz: np.ndarray):
         - an array of shape ``(n_samples, (l_max+1)**2)`` containing all the
           solid harmonics up to degree ``l_max`` in lexicographic order.
           For example, if ``l_max = 2``, The last axis will correspond to
-          spherical harmonics with ``(l, m) = (0, 0), (1, -1), (1, 0), (1,
+          solid harmonics with ``(l, m) = (0, 0), (1, -1), (1, 0), (1,
           1), (2, -2), (2, -1), (2, 0), (2, 1), (2, 2)``, in this order.
         - an array of shape ``(n_samples, 3, (l_max+1)**2)`` containing all
           the solid harmonics' derivatives up to degree ``l_max``. The
-          last axis is organized in the same way as in the spherical
+          last axis is organized in the same way as in the solid
           harmonics return array, while the second-to-last axis refers to
           derivatives in the x, y, and z directions, respectively.
     """
 
     def impl(self, xyz: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Implementation."""
+
         if not (xyz.dtype == np.dtype('float32') or xyz.dtype == np.dtype('float64')):
             raise TypeError('xyz must be a numpy array of 32 or 64-bit floats')
 
@@ -285,7 +361,7 @@ def solid_harmonics_compute_with_gradients(self, xyz: np.ndarray):
 
         n_samples = xyz.shape[0]
         sph = np.empty((n_samples, (self.l_max + 1) ** 2), dtype=xyz.dtype)
-        dsph = np.empty((n_samples, 3, (self._l_max + 1) ** 2), dtype=xyz.dtype)
+        dsph = np.empty((n_samples, 3, (self.l_max + 1) ** 2), dtype=xyz.dtype)
 
         if xyz.dtype == np.dtype('float64'):
             self.gradient_64(
@@ -308,6 +384,78 @@ def solid_harmonics_compute_with_gradients(self, xyz: np.ndarray):
         #         dsph.size,
         #     )
         return sph, dsph
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(SolidHarmonics_class_t, 'compute_with_hessians')
+def solid_harmonics_compute_with_hessians(self, xyz: np.ndarray):
+    """Calculates the solid harmonics for a set of 3D points with gradients and hessians.
+    :param xyz:
+        The Cartesian coordinates of the 3D points, as an array with
+        shape ``(n_samples, 3)``
+    :return:
+        - an array of shape ``(n_samples, (l_max+1)**2)`` containing all the
+          solid harmonics up to degree ``l_max`` in lexicographic order.
+          For example, if ``l_max = 2``, The last axis will correspond to
+          solid harmonics with ``(l, m) = (0, 0), (1, -1), (1, 0), (1,
+          1), (2, -2), (2, -1), (2, 0), (2, 1), (2, 2)``, in this order.
+        - an array of shape ``(n_samples, 3, (l_max+1)**2)`` containing all
+          the solid harmonics' derivatives up to degree ``l_max``. The
+          last axis is organized in the same way as in the solid
+          harmonics return array, while the second-to-last axis refers to
+          derivatives in the x, y, and z directions, respectively.
+      - an array of shape ``(n_samples, 3, 3, (l_max+1)**2)`` containing all
+          the solid harmonics' second derivatives up to degree ``l_max``.
+          The last axis is organized in the same way as in the solid
+          harmonics return array, while the two intermediate axes represent the
+          Hessian dimensions.
+    """
+
+    def impl(self, xyz: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Implementation."""
+
+        if not (xyz.dtype == np.dtype('float32') or xyz.dtype == np.dtype('float64')):
+            raise TypeError('xyz must be a numpy array of 32 or 64-bit floats')
+
+        if len(xyz.shape) != 2 or xyz.shape[1] != 3:
+            raise ValueError('xyz array must be a `N x 3` array')
+
+        # make xyz contiguous before taking a pointer to it
+        if not xyz.flags.c_contiguous:
+            xyz = np.ascontiguousarray(xyz)
+
+        n_samples = xyz.shape[0]
+        sph = np.empty((n_samples, (self.l_max + 1) ** 2), dtype=xyz.dtype)
+        dsph = np.empty((n_samples, 3, (self.l_max + 1) ** 2), dtype=xyz.dtype)
+        ddsph = np.empty((n_samples, 3, 3, (self.l_max + 1) ** 2), dtype=xyz.dtype)
+
+        if xyz.dtype == np.dtype('float64'):
+            self.hessian_64(
+                self.calculator_64,
+                xyz.ctypes,
+                xyz.size,
+                sph.ctypes,
+                sph.size,
+                dsph.ctypes,
+                dsph.size,
+                ddsph.ctypes,
+                ddsph.size,
+            )
+        # elif xyz.dtype == np.dtype('float32'):
+        #     self.gradient_32(
+        #         self.calculator_32,
+        #         xyz.ctypes,
+        #         xyz.size,
+        #         sph.ctypes,
+        #         sph.size,
+        #         dsph.ctypes,
+        #         dsph.size,
+        #         ddsph.ctypes,
+        #         ddsph.size,
+        #     )
+        return sph, dsph, ddsph
 
     return impl
 
@@ -371,8 +519,8 @@ class SolidHarmonics(structref.StructRefProxy):
         return self.compute_with_gradients(xyz)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
-    def compute_with_hessian(self, xyz: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        return self.compute_with_hessian(xyz)
+    def compute_with_hessians(self, xyz: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        return self.compute_with_hessians(xyz)
 
 
 structref.define_boxing(SolidHarmonics_class_t, SolidHarmonics)
