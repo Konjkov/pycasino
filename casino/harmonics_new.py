@@ -70,19 +70,19 @@ def spherical_harmonics_compute(self, xyz: np.ndarray):
         if xyz.dtype == np.dtype('float64'):
             self.value_64(
                 self.calculator_64,
-                xyz.ctypes,
+                xyz.view(np.float64).ctypes,
                 xyz.size,
-                sph.ctypes,
+                sph.view(np.float64).ctypes,
                 sph.size,
             )
-        # elif xyz.dtype == np.dtype('float32'):
-        #     self.value_32(
-        #         self.calculator_32,
-        #         xyz.ctypes,
-        #         xyz.size,
-        #         sph.ctypes,
-        #         sph.size,
-        #     )
+        elif xyz.dtype == np.dtype('float32'):
+            self.value_32(
+                self.calculator_32,
+                xyz.view(np.float32).ctypes,
+                xyz.size,
+                sph.view(np.float32).ctypes,
+                sph.size,
+            )
         return sph
 
     return impl
@@ -131,23 +131,23 @@ def spherical_harmonics_compute_with_gradients(self, xyz: np.ndarray):
         if xyz.dtype == np.dtype('float64'):
             self.gradient_64(
                 self.calculator_64,
-                xyz.ctypes,
+                xyz.view(np.float64).ctypes,
                 xyz.size,
-                sph.ctypes,
+                sph.view(np.float64).ctypes,
                 sph.size,
-                dsph.ctypes,
+                dsph.view(np.float64).ctypes,
                 dsph.size,
             )
-        # elif xyz.dtype == np.dtype('float32'):
-        #     self.gradient_32(
-        #         self.calculator_32,
-        #         xyz.ctypes,
-        #         xyz.size,
-        #         sph.ctypes,
-        #         sph.size,
-        #         dsph.ctypes,
-        #         dsph.size,
-        #     )
+        elif xyz.dtype == np.dtype('float32'):
+            self.gradient_32(
+                self.calculator_32,
+                xyz.view(np.float32).ctypes,
+                xyz.size,
+                sph.view(np.float32).ctypes,
+                sph.size,
+                dsph.view(np.float32).ctypes,
+                dsph.size,
+            )
         return sph, dsph
 
     return impl
@@ -202,27 +202,27 @@ def spherical_harmonics_compute_with_hessians(self, xyz: np.ndarray):
         if xyz.dtype == np.dtype('float64'):
             self.hessian_64(
                 self.calculator_64,
-                xyz.ctypes,
+                xyz.view(np.float64).ctypes,
                 xyz.size,
-                sph.ctypes,
+                sph.view(np.float64).ctypes,
                 sph.size,
-                dsph.ctypes,
+                dsph.view(np.float64).ctypes,
                 dsph.size,
-                ddsph.ctypes,
+                ddsph.view(np.float64).ctypes,
                 ddsph.size,
             )
-        # elif xyz.dtype == np.dtype('float32'):
-        #     self.gradient_32(
-        #         self.calculator_32,
-        #         xyz.ctypes,
-        #         xyz.size,
-        #         sph.ctypes,
-        #         sph.size,
-        #         dsph.ctypes,
-        #         dsph.size,
-        #         ddsph.ctypes,
-        #         ddsph.size,
-        #     )
+        elif xyz.dtype == np.dtype('float32'):
+            self.hessian_32(
+                self.calculator_32,
+                xyz.view(np.float32).ctypes,
+                xyz.size,
+                sph.view(np.float32).ctypes,
+                sph.size,
+                dsph.view(np.float32).ctypes,
+                dsph.size,
+                ddsph.view(np.float32).ctypes,
+                ddsph.size,
+            )
         return sph, dsph, ddsph
 
     return impl
@@ -370,19 +370,19 @@ def solid_harmonics_compute(self, xyz: np.ndarray):
         if xyz.dtype == np.dtype('float64'):
             self.value_64(
                 self.calculator_64,
-                xyz.ctypes,
+                xyz.view(np.float64).ctypes,
                 xyz.size,
-                sph.ctypes,
+                sph.view(np.float64).ctypes,
                 sph.size,
             )
-        # elif xyz.dtype == np.dtype('float32'):
-        #     self.value_32(
-        #         self.calculator_32,
-        #         xyz.ctypes,
-        #         xyz.size,
-        #         sph.ctypes,
-        #         sph.size,
-        #     )
+        elif xyz.dtype == np.dtype('float32'):
+            self.value_32(
+                self.calculator_32,
+                xyz.view(np.float32).ctypes,
+                xyz.size,
+                sph.view(np.float32).ctypes,
+                sph.size,
+            )
         return sph
 
     return impl
@@ -431,23 +431,23 @@ def solid_harmonics_compute_with_gradients(self, xyz: np.ndarray):
         if xyz.dtype == np.dtype('float64'):
             self.gradient_64(
                 self.calculator_64,
-                xyz.ctypes,
+                xyz.view(np.float64).ctypes,
                 xyz.size,
-                sph.ctypes,
+                sph.view(np.float64).ctypes,
                 sph.size,
-                dsph.ctypes,
+                dsph.view(np.float64).ctypes,
                 dsph.size,
             )
-        # elif xyz.dtype == np.dtype('float32'):
-        #     self.gradient_32(
-        #         self.calculator_32,
-        #         xyz.ctypes,
-        #         xyz.size,
-        #         sph.ctypes,
-        #         sph.size,
-        #         dsph.ctypes,
-        #         dsph.size,
-        #     )
+        elif xyz.dtype == np.dtype('float32'):
+            self.gradient_32(
+                self.calculator_32,
+                xyz.view(np.float32).ctypes,
+                xyz.size,
+                sph.view(np.float32).ctypes,
+                sph.size,
+                dsph.view(np.float32).ctypes,
+                dsph.size,
+            )
         return sph, dsph
 
     return impl
@@ -502,27 +502,27 @@ def solid_harmonics_compute_with_hessians(self, xyz: np.ndarray):
         if xyz.dtype == np.dtype('float64'):
             self.hessian_64(
                 self.calculator_64,
-                xyz.ctypes,
+                xyz.view(np.float64).ctypes,
                 xyz.size,
-                sph.ctypes,
+                sph.view(np.float64).ctypes,
                 sph.size,
-                dsph.ctypes,
+                dsph.view(np.float64).ctypes,
                 dsph.size,
-                ddsph.ctypes,
+                ddsph.view(np.float64).ctypes,
                 ddsph.size,
             )
-        # elif xyz.dtype == np.dtype('float32'):
-        #     self.gradient_32(
-        #         self.calculator_32,
-        #         xyz.ctypes,
-        #         xyz.size,
-        #         sph.ctypes,
-        #         sph.size,
-        #         dsph.ctypes,
-        #         dsph.size,
-        #         ddsph.ctypes,
-        #         ddsph.size,
-        #     )
+        elif xyz.dtype == np.dtype('float32'):
+            self.hessian_32(
+                self.calculator_32,
+                xyz.view(np.float32).ctypes,
+                xyz.size,
+                sph.view(np.float32).ctypes,
+                sph.size,
+                dsph.view(np.float32).ctypes,
+                dsph.size,
+                ddsph.view(np.float32).ctypes,
+                ddsph.size,
+            )
         return sph, dsph, ddsph
 
     return impl
