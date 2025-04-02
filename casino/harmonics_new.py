@@ -37,6 +37,10 @@ def spherical_harmonics_compute(self, xyz: np.ndarray):
 
     def impl(self, xyz: np.ndarray) -> np.ndarray:
         """Implementation."""
+
+        # if not isinstance(xyz, np.ndarray):
+        #     raise TypeError("xyz must be a numpy array")
+
         if not (xyz.dtype == np.dtype('float32') or xyz.dtype == np.dtype('float64')):
             raise TypeError('xyz must be a numpy array of 32 or 64-bit floats')
 
@@ -93,6 +97,10 @@ def spherical_harmonics_compute_with_gradients(self, xyz: np.ndarray):
 
     def impl(self, xyz: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Implementation."""
+
+        # if not isinstance(xyz, np.ndarray):
+        #     raise TypeError("xyz must be a numpy array")
+
         if not (xyz.dtype == np.dtype('float32') or xyz.dtype == np.dtype('float64')):
             raise TypeError('xyz must be a numpy array of 32 or 64-bit floats')
 
@@ -160,6 +168,9 @@ def spherical_harmonics_compute_with_hessians(self, xyz: np.ndarray):
     def impl(self, xyz: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Implementation."""
 
+        # if not isinstance(xyz, np.ndarray):
+        #     raise TypeError("xyz must be a numpy array")
+
         if not (xyz.dtype == np.dtype('float32') or xyz.dtype == np.dtype('float64')):
             raise TypeError('xyz must be a numpy array of 32 or 64-bit floats')
 
@@ -205,8 +216,11 @@ def spherical_harmonics_compute_with_hessians(self, xyz: np.ndarray):
 SphericalHarmonics_t = SphericalHarmonics_class_t(
     [
         ('l_max', nb.int64),
+        ('omp_num_threads', nb.int64),
         ('calculator_64', nb.int64),
         ('calculator_32', nb.int64),
+        ('delete_64', nb.typeof(lib.sphericart_spherical_harmonics_delete)),
+        ('delete_32', nb.typeof(lib.sphericart_spherical_harmonics_delete_f)),
         ('value_64', nb.typeof(lib.sphericart_spherical_harmonics_compute_array)),
         ('value_32', nb.typeof(lib.sphericart_spherical_harmonics_compute_array_f)),
         ('gradient_64', nb.typeof(lib.sphericart_spherical_harmonics_compute_array_with_gradients)),
@@ -228,8 +242,11 @@ class SphericalHarmonics(structref.StructRefProxy):
             self = structref.new(SphericalHarmonics_t)
             (
                 self.l_max,
+                self.omp_num_threads,
                 self.calculator_64,
                 self.calculator_32,
+                self.delete_64,
+                self.delete_32,
                 self.value_64,
                 self.value_32,
                 self.gradient_64,
@@ -239,10 +256,15 @@ class SphericalHarmonics(structref.StructRefProxy):
             ) = args
             return self
 
+        calculator_64 = lib.sphericart_spherical_harmonics_new(l_max)
+        calculator_32 = lib.sphericart_spherical_harmonics_new_f(l_max)
         args = (
             l_max,
-            lib.sphericart_spherical_harmonics_new(l_max),
-            lib.sphericart_spherical_harmonics_new_f(l_max),
+            lib.sphericart_spherical_harmonics_omp_num_threads(calculator_64),
+            calculator_64,
+            calculator_32,
+            lib.sphericart_spherical_harmonics_delete,
+            lib.sphericart_spherical_harmonics_delete_f,
             lib.sphericart_spherical_harmonics_compute_array,
             lib.sphericart_spherical_harmonics_compute_array_f,
             lib.sphericart_spherical_harmonics_compute_array_with_gradients,
@@ -251,6 +273,15 @@ class SphericalHarmonics(structref.StructRefProxy):
             lib.sphericart_spherical_harmonics_compute_array_with_hessians_f,
         )
         return init(*args)
+
+    # def __del__(self):
+    #     lib.sphericart_spherical_harmonics_delete(self.calculator_64)
+    #     lib.sphericart_spherical_harmonics_delete_f(self.calculator_32)
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def omp_num_threads(self) -> int:
+        return self.omp_num_threads
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def compute(self, xyz: np.ndarray) -> np.ndarray:
@@ -291,6 +322,9 @@ def solid_harmonics_compute(self, xyz: np.ndarray):
 
     def impl(self, xyz: np.ndarray) -> np.ndarray:
         """Implementation."""
+
+        # if not isinstance(xyz, np.ndarray):
+        #     raise TypeError("xyz must be a numpy array")
 
         if not (xyz.dtype == np.dtype('float32') or xyz.dtype == np.dtype('float64')):
             raise TypeError('xyz must be a numpy array of 32 or 64-bit floats')
@@ -348,6 +382,9 @@ def solid_harmonics_compute_with_gradients(self, xyz: np.ndarray):
 
     def impl(self, xyz: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Implementation."""
+
+        # if not isinstance(xyz, np.ndarray):
+        #     raise TypeError("xyz must be a numpy array")
 
         if not (xyz.dtype == np.dtype('float32') or xyz.dtype == np.dtype('float64')):
             raise TypeError('xyz must be a numpy array of 32 or 64-bit floats')
@@ -416,6 +453,9 @@ def solid_harmonics_compute_with_hessians(self, xyz: np.ndarray):
     def impl(self, xyz: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Implementation."""
 
+        # if not isinstance(xyz, np.ndarray):
+        #     raise TypeError("xyz must be a numpy array")
+
         if not (xyz.dtype == np.dtype('float32') or xyz.dtype == np.dtype('float64')):
             raise TypeError('xyz must be a numpy array of 32 or 64-bit floats')
 
@@ -463,8 +503,11 @@ def solid_harmonics_compute_with_hessians(self, xyz: np.ndarray):
 SolidHarmonics_t = SolidHarmonics_class_t(
     [
         ('l_max', nb.int64),
-        ('calculator_64', nb.types.int64),
-        ('calculator_32', nb.types.int64),
+        ('omp_num_threads', nb.int64),
+        ('calculator_64', nb.int64),
+        ('calculator_32', nb.int64),
+        ('delete_64', nb.typeof(lib.sphericart_solid_harmonics_delete)),
+        ('delete_32', nb.typeof(lib.sphericart_solid_harmonics_delete_f)),
         ('value_64', nb.typeof(lib.sphericart_solid_harmonics_compute_array)),
         ('value_32', nb.typeof(lib.sphericart_solid_harmonics_compute_array_f)),
         ('gradient_64', nb.typeof(lib.sphericart_solid_harmonics_compute_array_with_gradients)),
@@ -486,8 +529,11 @@ class SolidHarmonics(structref.StructRefProxy):
             self = structref.new(SolidHarmonics_t)
             (
                 self.l_max,
+                self.omp_num_threads,
                 self.calculator_64,
                 self.calculator_32,
+                self.delete_64,
+                self.delete_32,
                 self.value_64,
                 self.value_32,
                 self.gradient_64,
@@ -497,10 +543,15 @@ class SolidHarmonics(structref.StructRefProxy):
             ) = args
             return self
 
+        calculator_64 = lib.sphericart_solid_harmonics_new(l_max)
+        calculator_32 = lib.sphericart_solid_harmonics_new_f(l_max)
         args = (
             l_max,
-            lib.sphericart_solid_harmonics_new(l_max),
-            lib.sphericart_solid_harmonics_new_f(l_max),
+            lib.sphericart_solid_harmonics_omp_num_threads(calculator_64),
+            calculator_64,
+            calculator_32,
+            lib.sphericart_solid_harmonics_delete,
+            lib.sphericart_solid_harmonics_delete_f,
             lib.sphericart_solid_harmonics_compute_array,
             lib.sphericart_solid_harmonics_compute_array_f,
             lib.sphericart_solid_harmonics_compute_array_with_gradients,
@@ -509,6 +560,15 @@ class SolidHarmonics(structref.StructRefProxy):
             lib.sphericart_solid_harmonics_compute_array_with_hessians_f,
         )
         return init(*args)
+
+    # def __del__(self):
+    #     lib.sphericart_spherical_harmonics_delete(self.calculator_64)
+    #     lib.sphericart_spherical_harmonics_delete_f(self.calculator_32)
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def omp_num_threads(self) -> int:
+        return self.omp_num_threads
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def compute(self, xyz: np.ndarray) -> np.ndarray:
