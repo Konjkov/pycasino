@@ -21,6 +21,19 @@ class SphericalHarmonics_class_t(nb.types.StructRef):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(SphericalHarmonics_class_t, '__del__')
+def spherical_harmonics_del(self):
+    """Finalizer"""
+
+    def impl(self):
+        """Implementation."""
+        self.delete_64(self.calculator_64)
+        self.delete_32(self.calculator_32)
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(SphericalHarmonics_class_t, 'compute')
 def spherical_harmonics_compute(self, xyz: np.ndarray):
     """Calculates the spherical harmonics for a set of 3D points.
@@ -212,6 +225,8 @@ def spherical_harmonics_compute_with_hessians(self, xyz: np.ndarray):
         #     )
         return sph, dsph, ddsph
 
+    return impl
+
 
 SphericalHarmonics_t = SphericalHarmonics_class_t(
     [
@@ -274,9 +289,9 @@ class SphericalHarmonics(structref.StructRefProxy):
         )
         return init(*args)
 
+    # @nb.njit(nogil=True, parallel=False, cache=True)
     # def __del__(self):
-    #     lib.sphericart_spherical_harmonics_delete(self.calculator_64)
-    #     lib.sphericart_spherical_harmonics_delete_f(self.calculator_32)
+    #     self.__del__()
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
@@ -303,6 +318,19 @@ structref.define_boxing(SphericalHarmonics_class_t, SphericalHarmonics)
 class SolidHarmonics_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
         return tuple((name, nb.types.unliteral(typ)) for name, typ in fields)
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(SolidHarmonics_class_t, '__del__')
+def solid_harmonics_del(self):
+    """Finalizer"""
+
+    def impl(self):
+        """Implementation."""
+        self.delete_64(self.calculator_64)
+        self.delete_32(self.calculator_32)
+
+    return impl
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -561,9 +589,9 @@ class SolidHarmonics(structref.StructRefProxy):
         )
         return init(*args)
 
+    # @nb.njit(nogil=True, parallel=False, cache=True)
     # def __del__(self):
-    #     lib.sphericart_spherical_harmonics_delete(self.calculator_64)
-    #     lib.sphericart_spherical_harmonics_delete_f(self.calculator_32)
+    #     self.__del__()
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
