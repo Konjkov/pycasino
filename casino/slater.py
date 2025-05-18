@@ -8,7 +8,7 @@ from numba.extending import overload_method
 from casino import delta
 from casino.abstract import AbstractSlater
 from casino.cusp import Cusp_t
-from casino.harmonics import gradient_angular_part, hessian_angular_part, tressian_angular_part, value_angular_part
+from casino.harmonics import Harmonics_t, hessian_angular_part, tressian_angular_part
 from casino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 
 log_10 = np.log(10)
@@ -41,6 +41,7 @@ Slater_t = Slater_class_t(
         ('cusp', nb.optional(Cusp_t)),
         ('norm', nb.float64),
         ('parameters_projector', nb.float64[:, ::1]),
+        ('harmonics', Harmonics_t),
     ]
 )
 
@@ -60,7 +61,7 @@ def slater_value_matrix(self, n_vectors: np.ndarray):
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
                 r2 = n_vectors[atom, i] @ n_vectors[atom, i]
-                angular_1 = value_angular_part(x, y, z)
+                angular_1 = self.harmonics.get_value(x, y, z)
                 for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
                     l = self.shell_moments[nshell]
                     radial_1 = 0.0
@@ -107,8 +108,8 @@ def slater_gradient_matrix(self, n_vectors: np.ndarray):
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
                 r2 = n_vectors[atom, i] @ n_vectors[atom, i]
-                angular_1 = value_angular_part(x, y, z)
-                angular_2 = gradient_angular_part(x, y, z)
+                angular_1 = self.harmonics.get_value(x, y, z)
+                angular_2 = self.harmonics.get_gradient(x, y, z)
                 for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
                     l = self.shell_moments[nshell]
                     radial_1 = 0.0
@@ -163,7 +164,7 @@ def slater_laplacian_matrix(self, n_vectors: np.ndarray):
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
                 r2 = n_vectors[atom, i] @ n_vectors[atom, i]
-                angular_1 = value_angular_part(x, y, z)
+                angular_1 = self.harmonics.get_value(x, y, z)
                 for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
                     l = self.shell_moments[nshell]
                     radial_1 = 0.0
@@ -213,8 +214,8 @@ def slater_hessian_matrix(self, n_vectors: np.ndarray):
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
                 r2 = n_vectors[atom, i] @ n_vectors[atom, i]
-                angular_1 = value_angular_part(x, y, z)
-                angular_2 = gradient_angular_part(x, y, z)
+                angular_1 = self.harmonics.get_value(x, y, z)
+                angular_2 = self.harmonics.get_gradient(x, y, z)
                 angular_3 = hessian_angular_part(x, y, z)
                 # angular_3 = hessian_angular_part_square(x, y, z)
                 # n_vector_angular_2 = np.outer(angular_2, n_vectors[atom, i]).reshape(-1, 3, 3)
@@ -291,8 +292,8 @@ def slater_tressian_matrix(self, n_vectors: np.ndarray):
             for atom in range(n_vectors.shape[0]):
                 x, y, z = n_vectors[atom, i]
                 r2 = n_vectors[atom, i] @ n_vectors[atom, i]
-                angular_1 = value_angular_part(x, y, z)
-                angular_2 = gradient_angular_part(x, y, z)
+                angular_1 = self.harmonics.get_value(x, y, z)
+                angular_2 = self.harmonics.get_gradient(x, y, z)
                 angular_3 = hessian_angular_part(x, y, z)
                 angular_4 = tressian_angular_part(x, y, z)
                 for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
@@ -846,7 +847,7 @@ def slater_hessian_parameters_d1(self, n_vectors: np.ndarray):
 
 
 class Slater(structref.StructRefProxy, AbstractSlater):
-    def __new__(cls, config, cusp):
+    def __new__(cls, config, cusp, harmonics):
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(
             neu,
@@ -866,6 +867,7 @@ class Slater(structref.StructRefProxy, AbstractSlater):
             permutation_down,
             coeff,
             cusp,
+            harmonics,
         ):
             """Slater multideterminant wavefunction.
             :param neu: number of up electrons
@@ -882,6 +884,7 @@ class Slater(structref.StructRefProxy, AbstractSlater):
             :param mo_up:
             :param mo_down:
             :param coeff: determinant coefficients
+            :param harmonics: harmonics
             """
             self = structref.new(Slater_t)
             self.neu = neu
@@ -901,6 +904,7 @@ class Slater(structref.StructRefProxy, AbstractSlater):
             self.mo_down = mo_down[: np.max(permutation_down) + 1 if ned else 0]
             self.det_coeff = coeff
             self.cusp = cusp
+            self.harmonics = harmonics
             self.norm = np.exp(-(math.lgamma(neu + 1) + math.lgamma(ned + 1)) / (neu + ned) / 2)
             self.parameters_projector = np.zeros(shape=(0, 0))
             return self
@@ -923,6 +927,7 @@ class Slater(structref.StructRefProxy, AbstractSlater):
             config.mdet.permutation_down,
             config.mdet.coeff,
             cusp,
+            harmonics,
         )
 
     @property

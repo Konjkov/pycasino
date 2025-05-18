@@ -19,6 +19,7 @@ from .backflow import Backflow
 from .cusp import CuspFactory
 from .dmc import DMC
 from .gjastrow import Gjastrow
+from .harmonics import Harmonics
 from .jastrow import Jastrow
 from .ppotential import PPotential
 from .readers import CasinoConfig
@@ -154,6 +155,8 @@ class Casino:
         self.config.read()
         self.neu, self.ned = self.config.input.neu, self.config.input.ned
 
+        harmonics = Harmonics(np.max(self.config.wfn.shell_moments))
+
         if self.config.input.cusp_correction and not self.config.wfn.is_pseudoatom.all():
             cusp_factory = CuspFactory(self.config)
             cusp = cusp_factory.create()
@@ -180,7 +183,7 @@ class Casino:
         else:
             ppotential = None
 
-        slater = Slater(self.config, cusp)
+        slater = Slater(self.config, cusp, harmonics)
 
         jastrow = None
         if self.config.jastrow:

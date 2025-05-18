@@ -10,13 +10,13 @@
  .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
 
                      Python Quantum Monte Carlo Package
-                        v 0.2.0 [Vladimir Konkov]
+                        v 0.3.0 [Vladimir Konkov]
 
     Main Author : Vladimir Konkov
  ------------------------------------------------------------------------------
- Started 2024/08/09 10:03:20
+ Started 2025/05/18 18:00:10
 
- Python 3.10.12 (main, Jul 29 2024, 16:56:48) [GCC 11.4.0]
+ Python 3.10.12 (main, Feb  4 2025, 14:57:36) [GCC 11.4.0]
  Numba 0.59.0
  Numpy 1.26.4
  Scipy 1.11.3
@@ -38,17 +38,20 @@
  USE_JASTROW (use Jastrow factor)         :  F
  BACKFLOW (use backflow corrections)      :  F
  USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  T
+ NON_LOCAL_GRID (NL integration grid)     :  4
  E_OFFSET (energy offset)                 :  0.0000
- CHECKPOINT (checkpointing level)         :  1
- CON_LOC (Dir to read/write config.*)     :  ./
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
  RELATIVISTIC                             :  F
 
  VMC input parameters
  ====================
  NEWRUN (start new run)                   :  T
  VMC_METHOD (choice of VMC algorithm)     :  3
- DTVMC (VMC time step)                    :  1.0000E-02
- OPT_DTVMC (VMC time-step optimization)   :  1
+ DTVMC (VMC time step)                    :  0.02
+ OPT_DTVMC (VMC time-step optimization)   :  T
  VMC_NSTEP (num VMC steps)                :  10000000
  VMC_NCONFIG_WRITE (num configs to write) :  0
  VMC_NBLOCK (num VMC blocks)              :  1
@@ -124,7 +127,7 @@
 
  Running VMC equilibration (5000 moves).
  Performing time-step optimization.
- Optimized step size: 0.03851
+ Optimized step size: 0.03845
  DTVMC: 0.00049
 
  Starting VMC.
@@ -135,26 +138,28 @@
 
   Block average energies (au)
 
-  Total energy                       (au) =        -526.795675987319
-  Standard error                        +/-           0.024143053394
+  Total energy                       (au) =        -526.801734858402
+  Standard error                        +/-           0.003685863916
 
   Constant energy contributions      (au) =           0.000000000000
 
-  Variance of local energy           (au) =         136.084915543282
+  Variance of local energy           (au) =         135.855914468973
   Standard error                        +/-           0.000000000000
 
- Time taken in block    : : :       372.9903
+ Time taken in block    : : :       287.7553
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
 
- -526.795675987319 +/- 0.024143053394      On-the-fly reblocking method
+ -526.801734858402 +/- 0.003685863916      No correction
+ -526.801734858402 +/- 0.013968643915      Correlation time method
+ -526.801734858402 +/- 0.024481105184      On-the-fly reblocking method
 
- Sample variance of E_L (au^2/sim.cell) : 136.084915543282
+ Sample variance of E_L (au^2/sim.cell) : 135.855914468973
 
 
  =========================================================================
 
- Total PyCasino real time : : :    373.8498
+ Total PyCasino real time : : :    301.3572
