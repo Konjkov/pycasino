@@ -148,33 +148,90 @@ def harmonics_get_hessian(self, x, y, z):
         x2 = x**2
         y2 = y**2
         z2 = z**2
-        return np.array([
-            0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0,
-            -1, 0, 0, -1, 0, 2,
-            0, 0, 3, 0, 0, 0,
-            0, 0, 0, 0, 3, 0,
-            6, 0, 0, -6, 0, 0,
-            0, 6, 0, 0, 0, 0,
-            -3.0*z, 0, -3.0*x, -3.0*z, -3.0*y, 6.0*z,
-            -9.0*x, -3.0*y, 12.0*z, -3.0*x, 0, 12.0*x,
-            -3.0*y, -3.0*x, 0, -9.0*y, 12.0*z, 12.0*y,
-            30.0*z, 0, 30.0*x, -30.0*z, -30.0*y, 0,
-            0, 30.0*z, 30.0*y, 0, 30.0*x, 0,
-            90.0*x, -90.0*y, 0, -90.0*x, 0, 0,
-            90.0*y, 90.0*x, 0, -90.0*y, 0, 0,
-            4.5*x2 + 1.5*y2 - 6.0*z2, 3.0*x*y, -12.0*x*z, 1.5*x2 + 4.5*y2 - 6.0*z2, -12.0*y*z, -6.0*x2 - 6.0*y2 + 12.0*z2,
-            -45.0*x*z, -15.0*y*z, -22.5*x2 - 7.5*y2 + 30.0*z2, -15.0*x*z, -15.0*x*y, 60.0*x*z,
-            -15.0*y*z, -15.0*x*z, -15.0*x*y, -45.0*y*z, -7.5*x2 - 22.5*y2 + 30.0*z2, 60.0*y*z,
-            -90.0*x2 + 90.0*z2, 0, 180.0*x*z, 90.0*y2 - 90.0*z2, -180.0*y*z, 90.0*x2 - 90.0*y2,
-            -90.0*x*y, -45.0*x2 - 45.0*y2 + 90.0*z2, 180.0*y*z, -90.0*x*y, 180.0*x*z, 180.0*x*y,
-            630.0*x*z, -630.0*y*z, 315.0*x2 - 315.0*y2, -630.0*x*z, -630.0*x*y, 0,
-            630.0*y*z, 630.0*x*z, 630.0*x*y, -630.0*y*z, 315.0*x2 - 315.0*y2, 0,
-            1260.0*x2 - 1260.0*y2, -2520.0*x*y, 0, -1260.0*x2 + 1260.0*y2, 0, 0,
-            2520.0*x*y, 1260.0*x2 - 1260.0*y2, 0, -2520.0*x*y, 0, 0,
-        ]).reshape(25, 6)  # fmt: skip
+        self.hessian[4, 0] = -1
+        self.hessian[4, 3] = -1
+        self.hessian[4, 5] = 2
+        self.hessian[5, 2] = 3
+        self.hessian[6, 4] = 3
+        self.hessian[7, 0] = 6
+        self.hessian[7, 3] = -6
+        self.hessian[8, 1] = 6
+        if self.l_max > 2:
+            self.hessian[9, 0] = -3.0 * z
+            self.hessian[9, 2] = -3.0 * x
+            self.hessian[9, 3] = -3.0 * z
+            self.hessian[9, 4] = -3.0 * y
+            self.hessian[9, 5] = 6.0 * z
+            self.hessian[10, 0] = -9.0 * x
+            self.hessian[10, 1] = -3.0 * y
+            self.hessian[10, 2] = 12.0 * z
+            self.hessian[10, 3] = -3.0 * x
+            self.hessian[10, 5] = 12.0 * x
+            self.hessian[11, 0] = -3.0 * y
+            self.hessian[11, 1] = -3.0 * x
+            self.hessian[11, 3] = -9.0 * y
+            self.hessian[11, 4] = 12.0 * z
+            self.hessian[11, 5] = 12.0 * y
+            self.hessian[12, 0] = 30.0 * z
+            self.hessian[12, 2] = 30.0 * x
+            self.hessian[12, 3] = -30.0 * z
+            self.hessian[12, 4] = -30.0 * y
+            self.hessian[13, 1] = 30.0 * z
+            self.hessian[13, 2] = 30.0 * y
+            self.hessian[13, 4] = 30.0 * x
+            self.hessian[14, 0] = 90.0 * x
+            self.hessian[14, 1] = -90.0 * y
+            self.hessian[14, 3] = -90.0 * x
+            self.hessian[15, 0] = 90.0 * y
+            self.hessian[15, 1] = 90.0 * x
+            self.hessian[15, 3] = -90.0 * y
+            if self.l_max > 3:
+                self.hessian[16, 0] = 4.5 * x2 + 1.5 * y2 - 6.0 * z2
+                self.hessian[16, 1] = 3.0 * x * y
+                self.hessian[16, 2] = -12.0 * x * z
+                self.hessian[16, 3] = 1.5 * x2 + 4.5 * y2 - 6.0 * z2
+                self.hessian[16, 4] = -12.0 * y * z
+                self.hessian[16, 5] = -6.0 * x2 - 6.0 * y2 + 12.0 * z2
+                self.hessian[17, 0] = -45.0 * x * z
+                self.hessian[17, 1] = -15.0 * y * z
+                self.hessian[17, 2] = -22.5 * x2 - 7.5 * y2 + 30.0 * z2
+                self.hessian[17, 3] = -15.0 * x * z
+                self.hessian[17, 4] = -15.0 * x * y
+                self.hessian[17, 5] = 60.0 * x * z
+                self.hessian[18, 0] = -15.0 * y * z
+                self.hessian[18, 1] = -15.0 * x * z
+                self.hessian[18, 2] = -15.0 * x * y
+                self.hessian[18, 3] = -45.0 * y * z
+                self.hessian[18, 4] = -7.5 * x2 - 22.5 * y2 + 30.0 * z2
+                self.hessian[18, 5] = 60.0 * y * z
+                self.hessian[19, 0] = -90.0 * x2 + 90.0 * z2
+                self.hessian[19, 2] = 180.0 * x * z
+                self.hessian[19, 3] = 90.0 * y2 - 90.0 * z2
+                self.hessian[19, 4] = -180.0 * y * z
+                self.hessian[19, 5] = 90.0 * x2 - 90.0 * y2
+                self.hessian[20, 0] = -90.0 * x * y
+                self.hessian[20, 1] = -45.0 * x2 - 45.0 * y2 + 90.0 * z2
+                self.hessian[20, 2] = 180.0 * y * z
+                self.hessian[20, 3] = -90.0 * x * y
+                self.hessian[20, 4] = 180.0 * x * z
+                self.hessian[20, 5] = 180.0 * x * y
+                self.hessian[21, 0] = 630.0 * x * z
+                self.hessian[21, 1] = -630.0 * y * z
+                self.hessian[21, 2] = 315.0 * x2 - 315.0 * y2
+                self.hessian[21, 3] = -630.0 * x * z
+                self.hessian[21, 4] = -630.0 * x * y
+                self.hessian[22, 0] = 630.0 * y * z
+                self.hessian[22, 1] = 630.0 * x * z
+                self.hessian[22, 2] = 630.0 * x * y
+                self.hessian[22, 3] = -630.0 * y * z
+                self.hessian[22, 4] = 315.0 * x2 - 315.0 * y2
+                self.hessian[23, 0] = 1260.0 * x2 - 1260.0 * y2
+                self.hessian[23, 1] = -2520.0 * x * y
+                self.hessian[23, 3] = -1260.0 * x2 + 1260.0 * y2
+                self.hessian[24, 0] = 2520.0 * x * y
+                self.hessian[24, 1] = 1260.0 * x2 - 1260.0 * y2
+                self.hessian[24, 3] = -2520.0 * x * y
+        return self.hessian
 
     return impl
 
@@ -195,33 +252,79 @@ def harmonics_get_tressian(self, x, y, z):
     """
 
     def impl(self, x, y, z) -> np.ndarray:
-        return np.array([
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, -3, 0, 0, 0, 0, -3, 0, 6,
-            -9, 0, 0, -3, 0, 12, 0, 0, 0, 0,
-            0, -3, 0, 0, 0, 0, -9, 0, 12, 0,
-            0, 0, 30, 0, 0, 0, 0, -30, 0, 0,
-            0, 0, 0, 0, 30, 0, 0, 0, 0, 0,
-            90, 0, 0, -90, 0, 0, 0, 0, 0, 0,
-            0, 90, 0, 0, 0, 0, -90, 0, 0, 0,
-            9*x, 3*y, -12*z, 3*x, 0, -12*x, 9*y, -12*z, -12*y, 24*z,
-            -45*z, 0, -45*x, -15*z, -15*y, 60*z, 0, -15*x, 0, 60*x,
-            0, -15*z, -15*y, 0, -15*x, 0, -45*z, -45*y, 60*z, 60*y,
-            -180*x, 0, 180*z, 0, 0, 180*x, 180*y, -180*z, -180*y, 0,
-            -90*y, -90*x, 0, -90*y, 180*z, 180*y, -90*x, 0, 180*x, 0,
-            630*z, 0, 630*x, -630*z, -630*y, 0, 0, -630*x, 0, 0,
-            0, 630*z, 630*y, 0, 630*x, 0, -630*z, -630*y, 0, 0,
-            2520*x, -2520*y, 0, -2520*x, 0, 0, 2520*y, 0, 0, 0,
-            2520*y, 2520*x, 0, -2520*y, 0, 0, -2520*x, 0, 0, 0,
-        ]).reshape(25, 10)  # fmt: skip
+        if self.l_max > 2:
+            self.tressian[9, 2] = -3
+            self.tressian[9, 7] = -3
+            self.tressian[9, 9] = 6
+            self.tressian[10, 0] = -9
+            self.tressian[10, 3] = -3
+            self.tressian[10, 5] = 12
+            self.tressian[11, 1] = -3
+            self.tressian[11, 6] = -9
+            self.tressian[11, 8] = 12
+            self.tressian[12, 2] = 30
+            self.tressian[12, 7] = -30
+            self.tressian[13, 4] = 30
+            self.tressian[14, 0] = 90
+            self.tressian[14, 3] = -90
+            self.tressian[15, 1] = 90
+            self.tressian[15, 6] = -90
+            if self.l_max > 3:
+                self.tressian[16, 0] = 9 * x
+                self.tressian[16, 1] = 3 * y
+                self.tressian[16, 2] = -12 * z
+                self.tressian[16, 3] = 3 * x
+                self.tressian[16, 5] = -12 * x
+                self.tressian[16, 6] = 9 * y
+                self.tressian[16, 7] = -12 * z
+                self.tressian[16, 8] = -12 * y
+                self.tressian[16, 9] = 24 * z
+                self.tressian[17, 0] = -45 * z
+                self.tressian[17, 2] = -45 * x
+                self.tressian[17, 3] = -15 * z
+                self.tressian[17, 4] = -15 * y
+                self.tressian[17, 5] = 60 * z
+                self.tressian[17, 7] = -15 * x
+                self.tressian[17, 9] = 60 * x
+                self.tressian[18, 1] = -15 * z
+                self.tressian[18, 2] = -15 * y
+                self.tressian[18, 4] = -15 * x
+                self.tressian[18, 6] = -45 * z
+                self.tressian[18, 7] = -45 * y
+                self.tressian[18, 8] = 60 * z
+                self.tressian[18, 9] = 60 * y
+                self.tressian[19, 0] = -180 * x
+                self.tressian[19, 2] = 180 * z
+                self.tressian[19, 5] = 180 * x
+                self.tressian[19, 6] = 180 * y
+                self.tressian[19, 7] = -180 * z
+                self.tressian[19, 8] = -180 * y
+                self.tressian[20, 0] = -90 * y
+                self.tressian[20, 1] = -90 * x
+                self.tressian[20, 3] = -90 * y
+                self.tressian[20, 4] = 180 * z
+                self.tressian[20, 5] = 180 * y
+                self.tressian[20, 6] = -90 * x
+                self.tressian[20, 8] = 180 * x
+                self.tressian[21, 0] = 630 * z
+                self.tressian[21, 2] = 630 * x
+                self.tressian[21, 3] = -630 * z
+                self.tressian[21, 4] = -630 * y
+                self.tressian[21, 7] = -630 * x
+                self.tressian[22, 1] = 630 * z
+                self.tressian[22, 2] = 630 * y
+                self.tressian[22, 4] = 630 * x
+                self.tressian[22, 6] = -630 * z
+                self.tressian[22, 7] = -630 * y
+                self.tressian[23, 0] = 2520 * x
+                self.tressian[23, 1] = -2520 * y
+                self.tressian[23, 3] = -2520 * x
+                self.tressian[23, 6] = 2520 * y
+                self.tressian[24, 0] = 2520 * y
+                self.tressian[24, 1] = 2520 * x
+                self.tressian[24, 3] = -2520 * y
+                self.tressian[24, 6] = -2520 * x
+        return self.tressian
 
     return impl
 
