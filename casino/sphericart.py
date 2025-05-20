@@ -5,6 +5,7 @@ import numba as nb
 import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
+
 from sphericart import _c_lib
 
 _c_lib.sphericart_spherical_harmonics_calculator_t = ctypes.c_void_p

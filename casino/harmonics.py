@@ -3,45 +3,7 @@ import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def value_angular_part(x, y, z):
-    """Angular part of WFN.
-    Solid harmonics with factor √(2 - ẟm,0)(l - |n|)!/(l + |n|)!)
-    https://www.vallico.net/casino-forum/viewtopic.php?p=481&sid=9235a407b02d192bef8b66a3ba52e62d#p481
-    :return:
-    """
-    x2 = x**2
-    y2 = y**2
-    z2 = z**2
-    r2 = x2 + y2 + z2
-    return np.array([
-        1.0,
-        x,
-        y,
-        z,
-        (3.0 * z2 - r2) / 2.0,
-        3.0 * x*z,
-        3.0 * y*z,
-        3.0 * (x2 - y2),
-        6.0 * x*y,
-        z * (5.0 * z2 - 3.0 * r2) / 2.0,
-        1.5 * x * (5.0 * z2 - r2),
-        1.5 * y * (5.0 * z2 - r2),
-        15.0 * z * (x2 - y2),
-        30.0 * x * y*z,
-        15.0 * x * (x2 - 3.0 * y2),
-        15.0 * y * (3.0 * x2 - y2),
-        (35.0 * z**4 - 30.0 * z2 * r2 + 3.0 * r2**2) / 8.0,
-        2.5 * x*z * (7.0 * z2 - 3.0 * r2),
-        2.5 * y*z * (7.0 * z2 - 3.0 * r2),
-        7.5 * (x2 - y2) * (7.0 * z2 - r2),
-        15.0 * x*y * (7.0 * z2 - r2),
-        105.0 * x*z * (x2 - 3.0 * y2),
-        105.0 * y*z * (3.0 * x2 - y2),
-        105.0 * (x2**2 - 6.0 * x2 * y2 + y2**2),
-        420.0 * x*y * (x2 - y2)
-    ])  # fmt: skip
+from casino.abstract import SimpleHarmonics
 
 
 @structref.register
@@ -173,47 +135,53 @@ def harmonics_get_gradient(self, x, y, z):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def hessian_angular_part(x, y, z):
+@overload_method(Harmonics_class_t, 'get_hessian')
+def harmonics_get_hessian(self, x, y, z):
     """Angular part of WFN hessian.
     order: dxdx, dxdy, dxdz,
                  dydy, dydz,
                        dzdz
     :return:
     """
-    x2 = x**2
-    y2 = y**2
-    z2 = z**2
-    return np.array([
-        0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0,
-        -1, 0, 0, -1, 0, 2,
-        0, 0, 3, 0, 0, 0,
-        0, 0, 0, 0, 3, 0,
-        6, 0, 0, -6, 0, 0,
-        0, 6, 0, 0, 0, 0,
-        -3.0*z, 0, -3.0*x, -3.0*z, -3.0*y, 6.0*z,
-        -9.0*x, -3.0*y, 12.0*z, -3.0*x, 0, 12.0*x,
-        -3.0*y, -3.0*x, 0, -9.0*y, 12.0*z, 12.0*y,
-        30.0*z, 0, 30.0*x, -30.0*z, -30.0*y, 0,
-        0, 30.0*z, 30.0*y, 0, 30.0*x, 0,
-        90.0*x, -90.0*y, 0, -90.0*x, 0, 0,
-        90.0*y, 90.0*x, 0, -90.0*y, 0, 0,
-        4.5*x2 + 1.5*y2 - 6.0*z2, 3.0*x*y, -12.0*x*z, 1.5*x2 + 4.5*y2 - 6.0*z2, -12.0*y*z, -6.0*x2 - 6.0*y2 + 12.0*z2,
-        -45.0*x*z, -15.0*y*z, -22.5*x2 - 7.5*y2 + 30.0*z2, -15.0*x*z, -15.0*x*y, 60.0*x*z,
-        -15.0*y*z, -15.0*x*z, -15.0*x*y, -45.0*y*z, -7.5*x2 - 22.5*y2 + 30.0*z2, 60.0*y*z,
-        -90.0*x2 + 90.0*z2, 0, 180.0*x*z, 90.0*y2 - 90.0*z2, -180.0*y*z, 90.0*x2 - 90.0*y2,
-        -90.0*x*y, -45.0*x2 - 45.0*y2 + 90.0*z2, 180.0*y*z, -90.0*x*y, 180.0*x*z, 180.0*x*y,
-        630.0*x*z, -630.0*y*z, 315.0*x2 - 315.0*y2, -630.0*x*z, -630.0*x*y, 0,
-        630.0*y*z, 630.0*x*z, 630.0*x*y, -630.0*y*z, 315.0*x2 - 315.0*y2, 0,
-        1260.0*x2 - 1260.0*y2, -2520.0*x*y, 0, -1260.0*x2 + 1260.0*y2, 0, 0,
-        2520.0*x*y, 1260.0*x2 - 1260.0*y2, 0, -2520.0*x*y, 0, 0,
-    ]).reshape(25, 6)  # fmt: skip
+
+    def impl(self, x, y, z) -> np.ndarray:
+        x2 = x**2
+        y2 = y**2
+        z2 = z**2
+        return np.array([
+            0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+            -1, 0, 0, -1, 0, 2,
+            0, 0, 3, 0, 0, 0,
+            0, 0, 0, 0, 3, 0,
+            6, 0, 0, -6, 0, 0,
+            0, 6, 0, 0, 0, 0,
+            -3.0*z, 0, -3.0*x, -3.0*z, -3.0*y, 6.0*z,
+            -9.0*x, -3.0*y, 12.0*z, -3.0*x, 0, 12.0*x,
+            -3.0*y, -3.0*x, 0, -9.0*y, 12.0*z, 12.0*y,
+            30.0*z, 0, 30.0*x, -30.0*z, -30.0*y, 0,
+            0, 30.0*z, 30.0*y, 0, 30.0*x, 0,
+            90.0*x, -90.0*y, 0, -90.0*x, 0, 0,
+            90.0*y, 90.0*x, 0, -90.0*y, 0, 0,
+            4.5*x2 + 1.5*y2 - 6.0*z2, 3.0*x*y, -12.0*x*z, 1.5*x2 + 4.5*y2 - 6.0*z2, -12.0*y*z, -6.0*x2 - 6.0*y2 + 12.0*z2,
+            -45.0*x*z, -15.0*y*z, -22.5*x2 - 7.5*y2 + 30.0*z2, -15.0*x*z, -15.0*x*y, 60.0*x*z,
+            -15.0*y*z, -15.0*x*z, -15.0*x*y, -45.0*y*z, -7.5*x2 - 22.5*y2 + 30.0*z2, 60.0*y*z,
+            -90.0*x2 + 90.0*z2, 0, 180.0*x*z, 90.0*y2 - 90.0*z2, -180.0*y*z, 90.0*x2 - 90.0*y2,
+            -90.0*x*y, -45.0*x2 - 45.0*y2 + 90.0*z2, 180.0*y*z, -90.0*x*y, 180.0*x*z, 180.0*x*y,
+            630.0*x*z, -630.0*y*z, 315.0*x2 - 315.0*y2, -630.0*x*z, -630.0*x*y, 0,
+            630.0*y*z, 630.0*x*z, 630.0*x*y, -630.0*y*z, 315.0*x2 - 315.0*y2, 0,
+            1260.0*x2 - 1260.0*y2, -2520.0*x*y, 0, -1260.0*x2 + 1260.0*y2, 0, 0,
+            2520.0*x*y, 1260.0*x2 - 1260.0*y2, 0, -2520.0*x*y, 0, 0,
+        ]).reshape(25, 6)  # fmt: skip
+
+    return impl
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def tressian_angular_part(x, y, z):
+@overload_method(Harmonics_class_t, 'get_tressian')
+def harmonics_get_tressian(self, x, y, z):
     """Angular part of WFN 3-rd derivatives.
     order: dxdxdx, dxdxdy, dxdxdz,
                    dxdydy, dxdydz,
@@ -225,33 +193,37 @@ def tressian_angular_part(x, y, z):
                            dzdzdz
     :return:
     """
-    return np.array([
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, -3, 0, 0, 0, 0, -3, 0, 6,
-        -9, 0, 0, -3, 0, 12, 0, 0, 0, 0,
-        0, -3, 0, 0, 0, 0, -9, 0, 12, 0,
-        0, 0, 30, 0, 0, 0, 0, -30, 0, 0,
-        0, 0, 0, 0, 30, 0, 0, 0, 0, 0,
-        90, 0, 0, -90, 0, 0, 0, 0, 0, 0,
-        0, 90, 0, 0, 0, 0, -90, 0, 0, 0,
-        9*x, 3*y, -12*z, 3*x, 0, -12*x, 9*y, -12*z, -12*y, 24*z,
-        -45*z, 0, -45*x, -15*z, -15*y, 60*z, 0, -15*x, 0, 60*x,
-        0, -15*z, -15*y, 0, -15*x, 0, -45*z, -45*y, 60*z, 60*y,
-        -180*x, 0, 180*z, 0, 0, 180*x, 180*y, -180*z, -180*y, 0,
-        -90*y, -90*x, 0, -90*y, 180*z, 180*y, -90*x, 0, 180*x, 0,
-        630*z, 0, 630*x, -630*z, -630*y, 0, 0, -630*x, 0, 0,
-        0, 630*z, 630*y, 0, 630*x, 0, -630*z, -630*y, 0, 0,
-        2520*x, -2520*y, 0, -2520*x, 0, 0, 2520*y, 0, 0, 0,
-        2520*y, 2520*x, 0, -2520*y, 0, 0, -2520*x, 0, 0, 0,
-    ]).reshape(25, 10)  # fmt: skip
+
+    def impl(self, x, y, z) -> np.ndarray:
+        return np.array([
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, -3, 0, 0, 0, 0, -3, 0, 6,
+            -9, 0, 0, -3, 0, 12, 0, 0, 0, 0,
+            0, -3, 0, 0, 0, 0, -9, 0, 12, 0,
+            0, 0, 30, 0, 0, 0, 0, -30, 0, 0,
+            0, 0, 0, 0, 30, 0, 0, 0, 0, 0,
+            90, 0, 0, -90, 0, 0, 0, 0, 0, 0,
+            0, 90, 0, 0, 0, 0, -90, 0, 0, 0,
+            9*x, 3*y, -12*z, 3*x, 0, -12*x, 9*y, -12*z, -12*y, 24*z,
+            -45*z, 0, -45*x, -15*z, -15*y, 60*z, 0, -15*x, 0, 60*x,
+            0, -15*z, -15*y, 0, -15*x, 0, -45*z, -45*y, 60*z, 60*y,
+            -180*x, 0, 180*z, 0, 0, 180*x, 180*y, -180*z, -180*y, 0,
+            -90*y, -90*x, 0, -90*y, 180*z, 180*y, -90*x, 0, 180*x, 0,
+            630*z, 0, 630*x, -630*z, -630*y, 0, 0, -630*x, 0, 0,
+            0, 630*z, 630*y, 0, 630*x, 0, -630*z, -630*y, 0, 0,
+            2520*x, -2520*y, 0, -2520*x, 0, 0, 2520*y, 0, 0, 0,
+            2520*y, 2520*x, 0, -2520*y, 0, 0, -2520*x, 0, 0, 0,
+        ]).reshape(25, 10)  # fmt: skip
+
+    return impl
 
 
 Harmonics_t = Harmonics_class_t(
@@ -265,7 +237,7 @@ Harmonics_t = Harmonics_class_t(
 )
 
 
-class Harmonics(structref.StructRefProxy):
+class Harmonics(structref.StructRefProxy, SimpleHarmonics):
     """Harmonics calculator."""
 
     def __new__(cls, l_max):
@@ -291,13 +263,13 @@ class Harmonics(structref.StructRefProxy):
     def get_gradient(self, x, y, z):
         return self.get_gradient(x, y, z)
 
-    # @nb.njit(nogil=True, parallel=False, cache=True)
-    # def get_hessian(self, x, y, z):
-    #     return self.get_hessian(x, y, z)
-    #
-    # @nb.njit(nogil=True, parallel=False, cache=True)
-    # def get_tressian(self, x, y, z):
-    #     return self.get_tressian(x, y, z)
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def get_hessian(self, x, y, z):
+        return self.get_hessian(x, y, z)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def get_tressian(self, x, y, z):
+        return self.get_tressian(x, y, z)
 
 
 structref.define_boxing(Harmonics_class_t, Harmonics)

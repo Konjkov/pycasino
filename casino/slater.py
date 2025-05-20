@@ -8,7 +8,7 @@ from numba.extending import overload_method
 from casino import delta
 from casino.abstract import AbstractSlater
 from casino.cusp import Cusp_t
-from casino.harmonics import Harmonics_t, hessian_angular_part, tressian_angular_part
+from casino.harmonics import Harmonics, Harmonics_t
 from casino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 
 log_10 = np.log(10)
@@ -216,8 +216,8 @@ def slater_hessian_matrix(self, n_vectors: np.ndarray):
                 r2 = n_vectors[atom, i] @ n_vectors[atom, i]
                 angular_1 = self.harmonics.get_value(x, y, z)
                 angular_2 = self.harmonics.get_gradient(x, y, z)
-                angular_3 = hessian_angular_part(x, y, z)
-                # angular_3 = hessian_angular_part_square(x, y, z)
+                angular_3 = self.harmonics.get_hessian(x, y, z)
+                # angular_3 = self.harmonics.get_hessian_square(x, y, z)
                 # n_vector_angular_2 = np.outer(angular_2, n_vectors[atom, i]).reshape(-1, 3, 3)
                 # n_vector_outer = np.outer(n_vectors[atom, i], n_vectors[atom, i])
                 for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
@@ -294,8 +294,8 @@ def slater_tressian_matrix(self, n_vectors: np.ndarray):
                 r2 = n_vectors[atom, i] @ n_vectors[atom, i]
                 angular_1 = self.harmonics.get_value(x, y, z)
                 angular_2 = self.harmonics.get_gradient(x, y, z)
-                angular_3 = hessian_angular_part(x, y, z)
-                angular_4 = tressian_angular_part(x, y, z)
+                angular_3 = self.harmonics.get_hessian(x, y, z)
+                angular_4 = self.harmonics.get_tressian(x, y, z)
                 for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
                     l = self.shell_moments[nshell]
                     radial_1 = 0.0
@@ -847,7 +847,7 @@ def slater_hessian_parameters_d1(self, n_vectors: np.ndarray):
 
 
 class Slater(structref.StructRefProxy, AbstractSlater):
-    def __new__(cls, config, cusp, harmonics):
+    def __new__(cls, config, cusp):
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(
             neu,
@@ -927,7 +927,7 @@ class Slater(structref.StructRefProxy, AbstractSlater):
             config.mdet.permutation_down,
             config.mdet.coeff,
             cusp,
-            harmonics,
+            Harmonics(np.max(config.wfn.shell_moments)),
         )
 
     @property
