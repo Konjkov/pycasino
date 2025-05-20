@@ -9,7 +9,7 @@ from numpy.polynomial.polynomial import polyval
 from scipy.optimize import minimize
 
 from casino.abstract import AbstractCusp
-from casino.harmonics import value_angular_part
+from casino.harmonics import Harmonics
 
 logger = logging.getLogger(__name__)
 
@@ -589,6 +589,7 @@ class CuspFactory:
         self.atom_positions = config.wfn.atom_positions
         self.atom_charges = config.wfn.atom_charges
         self.cusp_threshold = config.input.cusp_threshold
+        self.harmonics = Harmonics(np.max(config.wfn.shell_moments))
         self.phi_0, _, _ = self.phi(np.zeros(shape=(self.atom_positions.shape[0], self.mo.shape[0])))
         self.orb_mask = np.abs(self.phi_0) > self.cusp_threshold
         self.beta = np.array([3.25819, -15.0126, 33.7308, -42.8705, 31.2276, -12.1316, 1.94692])
@@ -650,7 +651,8 @@ class CuspFactory:
                 for orb_atom in range(self.atom_positions.shape[0]):
                     x, y, z = self.atom_positions[atom] - self.atom_positions[orb_atom]
                     r2 = x * x + y * y + z * z
-                    angular = value_angular_part(x, y, z)
+                    angular = self.harmonics.get_value(x, y, z)
+                    # angular = value_angular_part(x, y, z)
                     for nshell in range(self.first_shells[orb_atom] - 1, self.first_shells[orb_atom + 1] - 1):
                         l = self.shell_moments[nshell]
                         radial = 0.0
