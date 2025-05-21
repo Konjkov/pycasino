@@ -573,6 +573,13 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
         return self.kinetic_energy(r_e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
+    def value(self, r_e) -> float:
+        """Value of wave function.
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        return self.value(r_e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
     # @nb.vectorize('float64(float64[:, :])', cache=True)
     def energy(self, r_e) -> float:
         """Local energy.
