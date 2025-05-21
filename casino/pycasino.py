@@ -590,18 +590,39 @@ class Casino:
             mpi_comm.Barrier()
             return scale * (energy_gradient - energy_gradient.mean(axis=0))
 
-        res = least_squares(
-            fun, x0=x0, jac=jac, method='trf', ftol=2/np.sqrt(steps-1), x_scale='jac',
-            tr_solver='exact', max_nfev=self.config.input.opt_maxeval, verbose=self.root and verbose
-        )
-        parameters = res.x
+        def trigger_fun(x, *args, **kwargs):
+            mpi_comm.bcast(('fun', x, args, kwargs))
+            return fun(x, *args, **kwargs)
+
+        def trigger_jac(x, *args, **kwargs):
+            mpi_comm.bcast(('jac', x, args, kwargs))
+            return jac(x, *args, **kwargs)
+
+        if self.root:
+            res = least_squares(
+                trigger_fun, x0=x0, jac=trigger_jac, method='trf', ftol=2/np.sqrt(steps-1), x_scale='jac',
+                tr_solver='exact', max_nfev=self.config.input.opt_maxeval, verbose=self.root and verbose
+            )
+            mpi_comm.bcast(('break', 0, 0, 0))
+            parameters = res.x
+            norm = np.linalg.norm(res.jac.mean(axis=0))
+        else:
+            while True:
+                command, x, args, kwargs = mpi_comm.bcast(None)
+                if command == 'fun':
+                    fun(x, *args, **kwargs)
+                if command == 'jac':
+                    jac(x, *args, **kwargs)
+                if command == 'break':
+                    break
+            parameters = np.empty_like(x0)
+            norm = 0
+
         energy_buffer.Free()
         energy_gradient_buffer.Free()
         mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
-        logger.info(
-            f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac.mean(axis=0)):.5e}\n'
-        )  # fmt: skip
+        logger.info(f'Norm of Jacobian at the solution: {norm:.5e}\n')
 
     def vmc_reweighted_variance_minimization(self, steps, verbose=2):
         """Minimize vmc reweighted variance.
@@ -691,11 +712,34 @@ class Casino:
                 np.expand_dims((energy - mean_energy), 1) * (mean_wfn_gradient - (mean_wfn_gradient * weights.sum() - half_ddof_gradient) / (weights.sum() - ddof))
             ) * np.sqrt(np.expand_dims(weights, 1) / (weights.sum() - ddof))
 
-        res = least_squares(
-            fun, x0=x0, jac=jac, method='trf', ftol=2/np.sqrt(steps-1),
-            tr_solver='exact', max_nfev=self.config.input.opt_maxeval, verbose=self.root and verbose
-        )
-        parameters = res.x
+        def trigger_fun(x, *args, **kwargs):
+            mpi_comm.bcast(('fun', x, args, kwargs))
+            return fun(x, *args, **kwargs)
+
+        def trigger_jac(x, *args, **kwargs):
+            mpi_comm.bcast(('jac', x, args, kwargs))
+            return jac(x, *args, **kwargs)
+
+        if self.root:
+            res = least_squares(
+                trigger_fun, x0=x0, jac=trigger_jac, method='trf', ftol=2/np.sqrt(steps-1),
+                tr_solver='exact', max_nfev=self.config.input.opt_maxeval, verbose=self.root and verbose
+            )
+            mpi_comm.bcast(('break', 0, 0, 0))
+            parameters = res.x
+            norm = np.linalg.norm(res.jac.mean(axis=0))
+        else:
+            while True:
+                command, x, args, kwargs = mpi_comm.bcast(None)
+                if command == 'fun':
+                    fun(x, *args, **kwargs)
+                if command == 'jac':
+                    jac(x, *args, **kwargs)
+                if command == 'break':
+                    break
+            parameters = np.empty_like(x0)
+            norm = 0
+
         wfn_buffer.Free()
         wfn_0_buffer.Free()
         energy_buffer.Free()
@@ -703,9 +747,7 @@ class Casino:
         energy_gradient_buffer.Free()
         mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
-        logger.info(
-            f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac.mean(axis=0)):.5e}\n'
-        )  # fmt: skip
+        logger.info(f'Norm of Jacobian at the solution: {norm:.5e}\n')
 
     def energy_parameters_gradient(self, data):
         """Gradient estimator of local energy from
