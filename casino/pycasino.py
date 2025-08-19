@@ -13,6 +13,7 @@ import numpy as np
 import scipy as sp
 from mpi4py import MPI
 from scipy.optimize import OptimizeWarning, curve_fit, least_squares, minimize
+from sklearn.cluster import HDBSCAN
 from statsmodels.tsa.stattools import pacf
 
 from .backflow import Backflow
@@ -298,7 +299,14 @@ class Casino:
                 ' PERFORMING A SINGLE VMC CALCULATION.\n'
                 ' ====================================\n\n'
             )  # fmt: skip
-            self.vmc_energy_accumulation()
+            position = self.vmc_energy_accumulation()
+            nodal_domains_start = default_timer()
+            logger.info(f'Estimated number of nodal domains: {self.nodal_domains(position)}')
+            nodal_domains_stop = default_timer()
+            logger.info(
+                f' =========================================================================\n\n'
+                f' Nodal domains estimation time : : :    {nodal_domains_stop - nodal_domains_start:.4f}'
+            )  # fmt: skip
         elif self.config.input.runtype == 'vmc_opt':
             if self.root:
                 self.config.write('.', 0)
@@ -1075,6 +1083,29 @@ class Casino:
         energy_gradient_buffer.Free()
         mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
+
+    def nodal_domains(self, position):
+        """Calculating the number of nodal domains from the spectrum of the Laplace operator.
+
+        :param position: np.ndarray [n_samples, d] - The array of positions in d-dimensional space.
+        :return:
+        """
+        samples = position[:10000]
+        samples = samples[~np.isnan(samples[:, 0, 0])]
+        signs = np.sign(self.vmc.observable(self.wfn.value, samples))
+        samples = samples.reshape(samples.shape[0], -1)
+        nodal_domains = 0
+        # 2 * (max_l + 1) * n_elec
+        clusterer = HDBSCAN(min_cluster_size=3 * position.shape[1], metric='cosine', n_jobs=1)
+        if np.any(signs > 0):
+            pos_samples = samples[signs > 0]
+            pos_labels = clusterer.fit(pos_samples).labels_
+            nodal_domains += len(np.unique(pos_labels[pos_labels != -1]))
+        if np.any(signs < 0):
+            neg_samples = samples[signs < 0]
+            neg_labels = clusterer.fit(neg_samples).labels_
+            nodal_domains += len(np.unique(neg_labels[neg_labels != -1]))
+        return mpi_comm.gather(nodal_domains, root=0)
 
 
 def main():
