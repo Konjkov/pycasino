@@ -395,12 +395,17 @@ def slater_value(self, n_vectors: np.ndarray):
 @overload_method(Slater_class_t, 'gradient')
 def slater_gradient(self, n_vectors: np.ndarray):
     """Gradient ∇φ/φ w.r.t e-coordinates.
-    Derivative of determinant of symmetric matrix w.r.t a scalar
+
+    Uses the identity for derivative of determinant of symmetric matrix:
     dln(det(A))/dr = tr(A^-1 • dA/dr)
-    then using np.trace(A • B) = np.sum(A * B.T) = np.tensordot(A, B.T)
-    Read for details:
+
+    Implementation note:
+    Uses np.trace(A • B) = np.sum(A * B.T) for efficiency.
+
+    Reference:
     "Simple formalism for efficient derivatives and multi-determinant expansions in quantum Monte Carlo"
     C. Filippi, R. Assaraf, S. Moroni
+
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
     :return: vectors shape = (nelec * 3,)
     """
@@ -581,41 +586,65 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
             grad += c * tr_grad
             hess += c * (partial_hess + 2 / 3 * np.outer(tr_grad, tr_grad))
             # tr(A^-1 • dA/dx) ⊗ Hessian_yz + tr(A^-1 • dA/dy) ⊗ Hessian_xz + tr(A^-1 • dA/dz) ⊗ Hessian_xy
-            tress += c * (
-                # (1, 1, self.ned * 3) * (self.ned * 3, self.ned * 3, 1)
-                tr_grad * np.expand_dims(partial_hess, 2)
-                # (1, self.ned * 3, 1) * (self.ned * 3, 1, self.ned * 3)
-                + np.expand_dims(tr_grad, 1) * np.expand_dims(partial_hess, 1)
-                # (self.ned * 3, 1, 1) * (1, self.ned * 3, self.ned * 3)
-                + np.expand_dims(np.expand_dims(tr_grad, 1), 2) * partial_hess
-            )
+            for e1 in range(ne * 3):
+                for e2 in range(ne * 3):
+                    for e3 in range(ne * 3):
+                        tress[e1, e2, e3] += c * (
+                            tr_grad[e3] * partial_hess[e1, e2] + tr_grad[e2] * partial_hess[e1, e3] + tr_grad[e1] * partial_hess[e2, e3]
+                        )
+            # tr(A^-1 • d³A/dxdydz)
+            for e1 in range(self.neu):
+                for r1 in range(3):
+                    for r2 in range(3):
+                        for r3 in range(3):
+                            idx1 = e1 * 3 + r1
+                            idx2 = e1 * 3 + r2
+                            idx3 = e1 * 3 + r3
+                            tress[idx1, idx2, idx3] += c * tr_tress_u[e1, r1, r2, r3]
+            for e1 in range(self.ned):
+                for r1 in range(3):
+                    for r2 in range(3):
+                        for r3 in range(3):
+                            idx1 = self.neu * 3 + e1 * 3 + r1
+                            idx2 = self.neu * 3 + e1 * 3 + r2
+                            idx3 = self.neu * 3 + e1 * 3 + r3
+                            tress[idx1, idx2, idx3] += c * tr_tress_d[e1, r1, r2, r3]
+            # tr(A^-1 • dA/dx • A^-1 • dA/dy • A^-1 • dA/dz) + tr(A^-1 • dA/dz • A^-1 • dA/dy • A^-1 • dA/dx)
+            for e1 in range(self.neu):
+                for r1 in range(3):
+                    for e2 in range(self.neu):
+                        for r2 in range(3):
+                            for e3 in range(self.neu):
+                                for r3 in range(3):
+                                    idx1 = e1 * 3 + r1
+                                    idx2 = e2 * 3 + r2
+                                    idx3 = e3 * 3 + r3
+                                    tress[idx1, idx2, idx3] += (
+                                        2 * c * (matrix_grad_u[e3, e2, r2] * matrix_grad_u[e1, e3, r3] * matrix_grad_u[e2, e3, r1])
+                                    )
+            for e1 in range(self.ned):
+                for r1 in range(3):
+                    for e2 in range(self.ned):
+                        for r2 in range(3):
+                            for e3 in range(self.ned):
+                                for r3 in range(3):
+                                    idx1 = self.neu * 3 + e1 * 3 + r1
+                                    idx2 = self.neu * 3 + e2 * 3 + r2
+                                    idx3 = self.neu * 3 + e3 * 3 + r3
+                                    tress[idx1, idx2, idx3] += (
+                                        2 * c * (matrix_grad_d[e3, e2, r2] * matrix_grad_d[e1, e3, r3] * matrix_grad_d[e2, e3, r1])
+                                    )
             res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
             for r1 in range(3):
                 for r2 in range(3):
                     for r3 in range(3):
-                        # tr(A^-1 • dA/dx • A^-1 • dA/dy • A^-1 • dA/dz) + tr(A^-1 • dA/dz • A^-1 • dA/dy • A^-1 • dA/dx)
-                        res_u[:, r1, :, r2, :, r3] += 2 * (
-                            # (1, 1, self.ned, 3, self.ned, 1)
-                            np.expand_dims(matrix_grad_u[:, :, r2].T, 0)
-                            # (self.ned, 1, 1, 1, self.ned, 3)
-                            * np.expand_dims(matrix_grad_u[:, :, r3], 1)
-                            # (self.ned, 3, self.ned, 1, 1, 1)
-                            * np.expand_dims(matrix_grad_u[:, :, r1].T, 2)
-                        )
-                        res_d[:, r1, :, r2, :, r3] += 2 * (
-                            np.expand_dims(matrix_grad_d[:, :, r2].T, 0)
-                            * np.expand_dims(matrix_grad_d[:, :, r3], 1)
-                            * np.expand_dims(matrix_grad_d[:, :, r1].T, 2)
-                        )
                         # tr(A^-1 • d³A/dxdydz) - tr(A^-1 • d²A/dxdy • A^-1 * dA/dz) - tr(A^-1 • dA²/dxdz • A^-1 • dA/dy) - tr(A^-1 • d²A/dydz • A^-1 * dA/dx)
                         for e in range(self.neu):
-                            res_u[e, r1, e, r2, e, r3] += tr_tress_u[e, r1, r2, r3]
                             res_u[e, r1, e, r2, :, r3] -= matrix_hess_u[:, e, r1, r2] * matrix_grad_u[e, :, r3]
                             res_u[e, r1, :, r2, e, r3] -= matrix_hess_u[:, e, r1, r3] * matrix_grad_u[e, :, r2]
                             res_u[:, r1, e, r2, e, r3] -= matrix_hess_u[:, e, r2, r3] * matrix_grad_u[e, :, r1]
                         for e in range(self.ned):
-                            res_d[e, r1, e, r2, e, r3] += tr_tress_d[e, r1, r2, r3]
                             res_d[e, r1, e, r2, :, r3] -= matrix_hess_d[:, e, r1, r2] * matrix_grad_d[e, :, r3]
                             res_d[e, r1, :, r2, e, r3] -= matrix_hess_d[:, e, r1, r3] * matrix_grad_d[e, :, r2]
                             res_d[:, r1, e, r2, e, r3] -= matrix_hess_d[:, e, r2, r3] * matrix_grad_d[e, :, r1]
