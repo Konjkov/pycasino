@@ -47,12 +47,12 @@ class TestBackflow(unittest.TestCase):
     def test_laplacian(self):
         analytical = self.wfn.backflow.laplacian(self.e_vectors, self.n_vectors)[0]
         numerical = self.wfn.backflow.numerical_laplacian(self.e_vectors, self.n_vectors)
-        assert analytical == pytest.approx(numerical, rel=0.001)
+        assert analytical == pytest.approx(numerical)
 
     def test_value_parameters_d1(self):
         analytical = self.wfn.backflow.value_parameters_d1(self.e_vectors, self.n_vectors)
         numerical = self.wfn.backflow.value_parameters_numerical_d1(self.e_vectors, self.n_vectors, False)
-        assert analytical == pytest.approx(numerical, rel=0.0001)
+        assert analytical == pytest.approx(numerical)
 
     def test_gradient_parameters_d1(self):
         projector = self.wfn.backflow.parameters_projector.T
@@ -71,17 +71,17 @@ class TestBackflow(unittest.TestCase):
     def test_wfn_laplacian(self):
         kinetic_energy = self.wfn.kinetic_energy(self.r_e)
         numerical = -self.wfn.numerical_laplacian(self.r_e) / 2
-        assert kinetic_energy == pytest.approx(numerical, rel=0.0001)
+        assert kinetic_energy == pytest.approx(numerical)
 
     def test_wfn_value_parameters_d1(self):
         analytical = self.wfn.value_parameters_d1(self.r_e)
         numerical = self.wfn.value_parameters_numerical_d1(self.r_e)
-        assert analytical == pytest.approx(numerical, rel=0.001)
+        assert analytical == pytest.approx(numerical)
 
     def test_wfn_energy_parameters_d1(self):
         analytical = self.wfn.energy_parameters_d1(self.r_e)
         numerical = self.wfn.energy_parameters_numerical_d1(self.r_e)
-        assert analytical == pytest.approx(numerical, rel=0.0001)
+        assert analytical == pytest.approx(numerical)
 
 
 if __name__ == '__main__':
