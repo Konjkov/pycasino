@@ -370,8 +370,8 @@ class AbstractWfn:
         """Numerical laplacian of log wfn value w.r.t e-coordinates
         :param r_e: electron coordinates - array(nelec, 3)
         """
+        res = 0
         val = self.value(r_e)
-        res = -6 * (self.neu + self.ned) * self.value(r_e)
         for i in range(self.neu + self.ned):
             for j in range(3):
                 r_e[i, j] -= delta_2
@@ -379,6 +379,7 @@ class AbstractWfn:
                 r_e[i, j] += 2 * delta_2
                 res += self.value(r_e)
                 r_e[i, j] -= delta_2
+                res -= 2 * val
 
         return res / delta_2 / delta_2 / val
 
@@ -448,17 +449,18 @@ class AbstractSlater:
         """Laplacian Δφ(r)/φ(r) w.r.t. e-coordinates.
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
+        res = 0
         val = self.value(n_vectors)
-        res = -2 * np.ones(shape=(self.neu + self.ned, 3)) * val
         for i in range(self.neu + self.ned):
             for j in range(3):
                 n_vectors[:, i, j] -= delta_2
-                res[i, j] += self.value(n_vectors)
+                res += self.value(n_vectors)
                 n_vectors[:, i, j] += 2 * delta_2
-                res[i, j] += self.value(n_vectors)
+                res += self.value(n_vectors)
                 n_vectors[:, i, j] -= delta_2
+                res -= 2 * val
 
-        return np.sum(res / delta_2 / delta_2) / val
+        return res / delta_2 / delta_2 / val
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_hessian(self, n_vectors: np.ndarray) -> np.ndarray:
@@ -630,7 +632,8 @@ class AbstractJastrow:
         :param e_vectors: electron-electron vectors shape = (nelec, nelec, 3)
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
-        res = -6 * (self.neu + self.ned) * self.value(e_vectors, n_vectors)
+        res = 0
+        val = self.value(e_vectors, n_vectors)
         for i in range(self.neu + self.ned):
             for j in range(3):
                 e_vectors[i, :, j] -= delta_2
@@ -644,6 +647,7 @@ class AbstractJastrow:
                 e_vectors[i, :, j] -= delta_2
                 e_vectors[:, i, j] += delta_2
                 n_vectors[:, i, j] -= delta_2
+                res -= 2 * val
 
         return res / delta_2 / delta_2
 
@@ -801,7 +805,8 @@ class AbstractBackflow:
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         :return: vector laplacian shape = (nelec * 3)
         """
-        res = -6 * (self.neu + self.ned) * self.value(e_vectors, n_vectors)
+        val = self.value(e_vectors, n_vectors)
+        res = np.zeros_like(val)
         for i in range(self.neu + self.ned):
             for j in range(3):
                 e_vectors[i, :, j] -= delta_2
@@ -815,6 +820,7 @@ class AbstractBackflow:
                 e_vectors[i, :, j] -= delta_2
                 e_vectors[:, i, j] += delta_2
                 n_vectors[:, i, j] -= delta_2
+                res -= 2 * val
 
         return res.ravel() / delta_2 / delta_2
 
