@@ -581,20 +581,20 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
             grad += c * tr_grad
             hess += c * (partial_hess + 2 / 3 * np.outer(tr_grad, tr_grad))
             # tr(A^-1 • dA/dx) ⊗ Hessian_yz + tr(A^-1 • dA/dy) ⊗ Hessian_xz + tr(A^-1 • dA/dz) ⊗ Hessian_xy
-            tress += c * (
-                # (1, 1, self.ned * 3) * (self.ned * 3, self.ned * 3, 1)
-                tr_grad * np.expand_dims(partial_hess, 2)
-                # (1, self.ned * 3, 1) * (self.ned * 3, 1, self.ned * 3)
-                + np.expand_dims(tr_grad, 1) * np.expand_dims(partial_hess, 1)
-                # (self.ned * 3, 1, 1) * (1, self.ned * 3, self.ned * 3)
-                + np.expand_dims(np.expand_dims(tr_grad, 1), 2) * partial_hess
-            )
-            # for e1 in range(ne * 3):
-            #     for e2 in range(ne * 3):
-            #         for e3 in range(ne * 3):
-            #             tress[e1, e2, e3] += c * (
-            #                     tr_grad[e3] * partial_hess[e1, e2] + tr_grad[e2] * partial_hess[e1, e3] + tr_grad[e1] * partial_hess[e2, e3]
-            #             )
+            # tress += c * (
+            #     # (1, 1, self.ned * 3) * (self.ned * 3, self.ned * 3, 1)
+            #     tr_grad * np.expand_dims(partial_hess, 2)
+            #     # (1, self.ned * 3, 1) * (self.ned * 3, 1, self.ned * 3)
+            #     + np.expand_dims(tr_grad, 1) * np.expand_dims(partial_hess, 1)
+            #     # (self.ned * 3, 1, 1) * (1, self.ned * 3, self.ned * 3)
+            #     + np.expand_dims(np.expand_dims(tr_grad, 1), 2) * partial_hess
+            # )
+            for e1 in range(ne * 3):
+                for e2 in range(ne * 3):
+                    for e3 in range(ne * 3):
+                        tress[e1, e2, e3] += c * (
+                            tr_grad[e3] * partial_hess[e1, e2] + tr_grad[e2] * partial_hess[e1, e3] + tr_grad[e1] * partial_hess[e2, e3]
+                        )
             res_u = np.zeros(shape=(self.neu, 3, self.neu, 3, self.neu, 3))
             res_d = np.zeros(shape=(self.ned, 3, self.ned, 3, self.ned, 3))
             for r1 in range(3):
