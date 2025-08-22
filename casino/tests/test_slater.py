@@ -37,19 +37,19 @@ class TestSlater(unittest.TestCase):
         assert self.wfn.slater.gradient(self.n_vectors) == pytest.approx(self.wfn.slater.numerical_gradient(self.n_vectors))
 
     def test_laplacian(self):
-        assert self.wfn.slater.laplacian(self.n_vectors) == pytest.approx(self.wfn.slater.numerical_laplacian(self.n_vectors), rel=0.001)
+        assert self.wfn.slater.laplacian(self.n_vectors) == pytest.approx(self.wfn.slater.numerical_laplacian(self.n_vectors))
 
     def test_hessian(self):
-        assert self.wfn.slater.hessian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.numerical_hessian(self.n_vectors), rel=0.001)
+        assert self.wfn.slater.hessian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.numerical_hessian(self.n_vectors))
 
     def test_tressian(self):
-        assert self.wfn.slater.tressian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.numerical_tressian(self.n_vectors), rel=0.001)
+        assert self.wfn.slater.tressian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.numerical_tressian(self.n_vectors))
 
     def test_tressian_v2(self):
         assert self.wfn.slater.tressian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.tressian_v2(self.n_vectors)[0])
 
     def test_wfn_laplacian(self):
-        assert np.allclose(self.wfn.kinetic_energy(self.r_e), -self.wfn.numerical_laplacian(self.r_e) / 2, rtol=0.004)
+        assert np.allclose(self.wfn.kinetic_energy(self.r_e), -self.wfn.numerical_laplacian(self.r_e) / 2)
 
 
 if __name__ == '__main__':

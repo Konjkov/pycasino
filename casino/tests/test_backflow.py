@@ -61,7 +61,7 @@ class TestBackflow(unittest.TestCase):
         gradient_parameters_numerical_d1 = self.wfn.backflow.gradient_parameters_numerical_d1(self.e_vectors, self.n_vectors, False).reshape(
             projector.shape[0], -1
         )
-        assert np.allclose(projector @ gradient_parameters_d1, gradient_parameters_numerical_d1)
+        assert projector @ gradient_parameters_d1 == pytest.approx(gradient_parameters_numerical_d1)
 
     def test_laplacian_parameters_d1(self):
         analytical = self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.laplacian_parameters_d1(self.e_vectors, self.n_vectors)[0]
