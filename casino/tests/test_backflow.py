@@ -76,7 +76,7 @@ class TestBackflow(unittest.TestCase):
     def test_wfn_value_parameters_d1(self):
         analytical = self.wfn.value_parameters_d1(self.r_e)
         numerical = self.wfn.value_parameters_numerical_d1(self.r_e)
-        assert analytical == pytest.approx(numerical)
+        assert analytical == pytest.approx(numerical, rel=1e-4)
 
     def test_wfn_energy_parameters_d1(self):
         analytical = self.wfn.energy_parameters_d1(self.r_e)

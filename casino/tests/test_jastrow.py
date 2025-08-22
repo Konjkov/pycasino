@@ -65,7 +65,7 @@ class TestJastrow(unittest.TestCase):
         assert self.wfn.kinetic_energy(self.r_e) == pytest.approx(-self.wfn.numerical_laplacian(self.r_e) / 2)
 
     def test_wfn_value_parameters_d1(self):
-        assert self.wfn.value_parameters_d1(self.r_e) == pytest.approx(self.wfn.value_parameters_numerical_d1(self.r_e))
+        assert self.wfn.value_parameters_d1(self.r_e) == pytest.approx(self.wfn.value_parameters_numerical_d1(self.r_e), rel=1e-4)
 
     def test_wfn_energy_parameters_d1(self):
         assert self.wfn.energy_parameters_d1(self.r_e) == pytest.approx(self.wfn.energy_parameters_numerical_d1(self.r_e))

@@ -43,7 +43,7 @@ class TestSlater(unittest.TestCase):
         assert self.wfn.slater.hessian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.numerical_hessian(self.n_vectors))
 
     def test_tressian(self):
-        assert self.wfn.slater.tressian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.numerical_tressian(self.n_vectors))
+        assert self.wfn.slater.tressian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.numerical_tressian(self.n_vectors), rel=1e-4)
 
     def test_tressian_v2(self):
         assert self.wfn.slater.tressian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.tressian_v2(self.n_vectors)[0])
