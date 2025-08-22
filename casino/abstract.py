@@ -449,16 +449,16 @@ class AbstractSlater:
         :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
         """
         val = self.value(n_vectors)
-        res = -6 * (self.neu + self.ned) * val
+        res = -2 * np.ones(shape=(self.neu + self.ned, 3)) * val
         for i in range(self.neu + self.ned):
             for j in range(3):
                 n_vectors[:, i, j] -= delta_2
-                res += self.value(n_vectors)
+                res[i, j] += self.value(n_vectors)
                 n_vectors[:, i, j] += 2 * delta_2
-                res += self.value(n_vectors)
+                res[i, j] += self.value(n_vectors)
                 n_vectors[:, i, j] -= delta_2
 
-        return res / delta_2 / delta_2 / val
+        return np.sum(res / delta_2 / delta_2) / val
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def numerical_hessian(self, n_vectors: np.ndarray) -> np.ndarray:
