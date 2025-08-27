@@ -162,7 +162,7 @@ class Profiler(Casino):
 if __name__ == '__main__':
     """Profiling"""
     for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'O3', 'Kr'):
-        path = f'../tests/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
+        path = f'../examples/stowfn/{mol}/HF/QZ4P/CBCS/Backflow/'
         logger.info('%s:', mol)
         profiler = Profiler(path)
         profiler.slater_profiling()
@@ -171,13 +171,13 @@ if __name__ == '__main__':
         profiler.markovchain_profiling()
 
     for mol in ('He', 'Be', 'N', 'Ne', 'Ar', 'O3', 'Kr'):
-        path = f'../tests/gwfn/{mol}/HF/cc-pVQZ/CBCS/Jastrow/'
+        path = f'../examples/gwfn/{mol}/HF/cc-pVQZ/CBCS/Jastrow/'
         logger.info('%s:', mol)
         profiler = Profiler(path)
         profiler.cusp_profiling()
 
     for method in ('HF', 'MP2-CASSCF(2.4)'):
-        path = f'../tests/gwfn/Be/{method}/cc-pVQZ/CBCS/Jastrow/'
+        path = f'../examples/gwfn/Be/{method}/cc-pVQZ/CBCS/Jastrow/'
         logger.info('%s:', method)
         profiler = Profiler(path)
         profiler.slater_profiling()

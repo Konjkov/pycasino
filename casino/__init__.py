@@ -17,10 +17,9 @@ np.seterr(all='warn')
 np.random.seed(31415926)
 np.set_printoptions(threshold=sys.maxsize)
 
-# https://scicomp.stackexchange.com/questions/14355/choosing-epsilons
 # delta = np.sqrt(sys.float_info.epsilon)
-delta = np.finfo(float).eps ** (1 / 2)
-delta_2 = np.finfo(float).eps ** (1 / 3)
-delta_3 = np.finfo(float).eps ** (1 / 4)
+delta = np.finfo(float).eps ** (1 / 3)
+delta_2 = np.finfo(float).eps ** (1 / 4)
+delta_3 = np.finfo(float).eps ** (1 / 5)
 
 # np.show_config()
