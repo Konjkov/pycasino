@@ -19,6 +19,8 @@ It must be initialized from the configuration files::
 Summary of Methods
 ------------------
 
+Slater class has a following methods:
+
 .. list-table::
    :widths: 30 30 40
    :header-rows: 1
@@ -29,36 +31,34 @@ Summary of Methods
      - Shape
    * - :ref:`value_matrix <value-matrix>`
      - :math:`A^\uparrow, A^\downarrow`
-     - :math:`(N^\uparrow, M), (N^\downarrow, M)`
+     - :math:`(N^\uparrow_e, MO^\uparrow), (N^\downarrow_e, MO^\downarrow)`
    * - :ref:`gradient_matrix <gradient-matrix>`
      - :math:`G^\uparrow, G^\downarrow`
-     - :math:`(N^\uparrow, M, 3), (N^\downarrow, M, 3)`
+     - :math:`(N^\uparrow_e, MO^\uparrow, 3), (N^\downarrow_e, MO^\downarrow, 3)`
    * - :ref:`laplacian_matrix <laplacian-matrix>`
      - :math:`L^\uparrow, L^\downarrow`
-     - :math:`(N^\uparrow, M), (N^\downarrow, M)`
+     - :math:`(N^\uparrow_e, MO^\uparrow), (N^\downarrow_e, MO^\downarrow)`
    * - :ref:`hessian_matrix <hessian-matrix>`
      - :math:`H^\uparrow, H^\downarrow`
-     - :math:`(N^\uparrow, M, 3, 3), (N^\downarrow, M, 3, 3)`
+     - :math:`(N^\uparrow_e, MO^\uparrow, 3, 3), (N^\downarrow_e, MO^\downarrow, 3, 3)`
    * - :ref:`tressian_matrix <tressian-matrix>`
      - :math:`T^\uparrow, T^\downarrow`
-     - :math:`(N^\uparrow, M, 3, 3, 3), (N^\downarrow, M, 3, 3, 3)`
+     - :math:`(N^\uparrow_e, MO^\uparrow, 3, 3, 3), (N^\downarrow_e, MO^\downarrow, 3, 3, 3)`
    * - :ref:`value <value>`
      - :math:`\Psi(r)`
      - :math:`scalar`
    * - :ref:`gradient <gradient>`
      - :math:`\nabla \Psi(r)/\Psi(r)`
-     - :math:`(3N,)`
+     - :math:`(3N_e,)`
    * - :ref:`laplacian <laplacian>`
      - :math:`\Delta \Psi(r)/\Psi(r)`
      - :math:`scalar`
    * - :ref:`hessian <hessian>`
      - :math:`\nabla^2 \Psi(r)/\Psi(r)`
-     - :math:`(3N, 3N)`
+     - :math:`(3N_e, 3N_e)`
    * - :ref:`tressian <tressian>`
      - :math:`\nabla^3 \Psi(r)/\Psi(r)`
-     - :math:`(3N, 3N, 3N)`
-
-Slater class has a following methods:
+     - :math:`(3N_e, 3N_e, 3N_e)`
 
 .. _value-matrix:
 

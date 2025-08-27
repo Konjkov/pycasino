@@ -58,7 +58,48 @@ To prevent code duplication, we need to prepare the necessary intermediate data:
     en_spin_mask[neu:] = 1
     C = backflow.trunc
 
+Summary of Methods
+------------------
+
 Backflow class has a following methods:
+
+.. list-table::
+   :widths: 30 40 30
+   :header-rows: 1
+   :width: 100%
+
+   * - Method
+     - Output
+     - Shape
+   * - :ref:`eta_term <eta-term>`
+     - :math:`\eta(r_{ij})\mathbf{r}_{ij}`
+     - :math:`(3N_e,)`
+   * - :ref:`mu_term <mu-term>`
+     - :math:`\mu(r_{ij})\mathbf{r}_{ij}`
+     - :math:`(3N_e,)`
+   * - :ref:`phi_term <phi-term>`
+     - :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij} + \Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}`
+     - :math:`(3N_e,)`
+   * - :ref:`eta_term_gradient <eta-term-gradient>`
+     - :math:`\nabla \eta(r_{ij})\mathbf{r}_{ij}`
+     - :math:`(3N_e, 3N_e)`
+   * - :ref:`mu_term_gradient <mu-term-gradient>`
+     - :math:`\nabla \mu(r_{ij})\mathbf{r}_{ij}`
+     - :math:`(3N_e, 3N_e)`
+   * - :ref:`phi_term_gradient <phi-term-gradient>`
+     - :math:`\nabla (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij} + \Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI})`
+     - :math:`(3N_e, 3N_e)`
+   * - :ref:`eta_term_laplacian <eta-term-laplacian>`
+     - :math:`\Delta \eta(r_{ij})\mathbf{r}_{ij}`
+     - :math:`(3N_e,)`
+   * - :ref:`mu_term_laplacian <mu-term-laplacian>`
+     - :math:`\Delta \mu(r_{ij})\mathbf{r}_{ij}`
+     - :math:`(3N_e,)`
+   * - :ref:`phi_term_laplacian <phi-term-laplacian>`
+     - :math:`\Delta (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij} + \Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI})`
+     - :math:`(3N_e,)`
+
+.. _eta-term:
 
 eta-term
 --------
@@ -87,6 +128,8 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     np.fill_diagonal(cutoff, 0)
     eta = np.expand_dims(cutoff * np.choose(ee_spin_mask, poly, mode='wrap'), -1)
     np.sum(-e_vectors * eta, axis=0)
+
+.. _mu-term:
 
 mu-term
 -------
@@ -120,6 +163,8 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     poly = polyval(r_iI, backflow.mu_parameters[0].T)
     cutoff = np.maximum(1 - r_iI / backflow.mu_cutoff, 0) ** C
     n_vectors * np.expand_dims(cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap'), -1)
+
+.. _phi-term:
 
 phi-term
 --------
@@ -184,6 +229,8 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     np.fill_diagonal(theta, 0)
     np.sum(-e_vectors * np.expand_dims(phi, -1) + n_vectors * np.expand_dims(theta, -1), axis=0)
 
+.. _eta-term-gradient:
+
 eta-term gradient
 -----------------
 
@@ -223,6 +270,8 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     tt2 = np.einsum('abi,abj,ab->aibj', e_vectors, unit_e_vectors, -t2)
     (tt1 + tt2).reshape(ne*3, ne*3)
 
+.. _mu-term-gradient:
+
 mu-term gradient
 ----------------
 Considering that vector gradient of spherically symmetric function (in 3-D space) is:
@@ -259,6 +308,8 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     tt2 = np.einsum('Iai,Iaj,ab,Ia->aibj', n_vectors, unit_n_vectors, np.eye(ne), t2)
     (tt1 + tt2).reshape(ne*3, ne*3)
 
+.. _phi-term-gradient:
+
 phi-term gradient
 -----------------
 
@@ -280,6 +331,8 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 
     from numpy.polynomial.polynomial import polyval3d
 
+.. _eta-term-laplacian:
+
 eta-term laplacian
 ------------------
 
@@ -291,6 +344,8 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 
     from numpy.polynomial.polynomial import polyval
 
+.. _mu-term-laplacian:
+
 mu-term laplacian
 -----------------
 
@@ -301,6 +356,8 @@ For certain electron coordinates, :math:`\mu` term laplacian can be obtained wit
 this is equivalent to (continues :ref:`from <intermediate data>`)::
 
     from numpy.polynomial.polynomial import polyval
+
+.. _phi-term-laplacian:
 
 phi-term laplacian
 ------------------

@@ -46,8 +46,48 @@ To prevent code duplication, we need to prepare the necessary intermediate data:
     en_spin_mask[neu:] = 1
     C = jastrow.trunc
 
+Summary of Methods
+------------------
 
 Jastrow class has a following methods:
+
+.. list-table::
+   :widths: 30 30 40
+   :header-rows: 1
+   :width: 100%
+
+   * - Method
+     - Output
+     - Shape
+   * - :ref:`u_term <u-term>`
+     - :math:`u(r_{ij})`
+     - scalar
+   * - :ref:`chi_term <chi-term>`
+     - :math:`\chi(r_{iI})`
+     - scalar
+   * - :ref:`f_term <f-term>`
+     - :math:`f(r_{ij}, r_{iI}, r_{jI})`
+     - scalar
+   * - :ref:`u_term_gradient <u-term-gradient>`
+     - :math:`\nabla u(r_{ij})`
+     - :math:`(3N_e,)`
+   * - :ref:`chi_term_gradient <chi-term-gradient>`
+     - :math:`\nabla \chi(r_{iI})`
+     - :math:`(3N_e,)`
+   * - :ref:`f_term_gradient <f-term-gradient>`
+     - :math:`\nabla f(r_{ij}, r_{iI}, r_{jI})`
+     - :math:`(3N_e,)`
+   * - :ref:`u_term_laplacian <u-term-laplacian>`
+     - :math:`\Delta u(r_{ij})`
+     - scalar
+   * - :ref:`chi_term_laplacian <chi-term-laplacian>`
+     - :math:`\Delta \chi(r_{iI})`
+     - scalar
+   * - :ref:`f_term_laplacian <f-term-laplacian>`
+     - :math:`\Delta f(r_{ij}, r_{iI}, r_{jI})`
+     - scalar
+
+.. _u-term:
 
 u-term
 ------
@@ -80,6 +120,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     cutoff = np.minimum(r_ij - jastrow.u_cutoff, 0) ** C
     np.sum(np.triu(cutoff * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
 
+.. _chi-term:
 
 chi-term
 --------
@@ -112,6 +153,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     cutoff = np.minimum(r_iI - jastrow.chi_cutoff, 0) ** C
     np.sum(cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap'))
 
+.. _f-term:
 
 f-term
 ------
@@ -152,6 +194,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     poly = polyval3d(r_ijI, r_ijI.T, r_ij, jastrow.f_parameters[0].T)
     np.sum(np.triu(np.outer(cutoff[0], cutoff[0]) * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
 
+.. _u-term-gradient:
 
 u-term gradient
 ---------------
@@ -186,6 +229,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     g_ij = np.nan_to_num(cutoff * np.choose(ee_spin_mask, poly, mode='wrap') * e_vectors.T / r_ij)
     np.sum(g_ij, axis=1).T.ravel()
 
+.. _chi-term-gradient:
 
 chi-term gradient
 -----------------
@@ -213,6 +257,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     poly += polyval(r_iI, (m * jastrow.chi_parameters[0]).T) / r_iI[0]
     (cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap') * n_vectors[0].T / r_iI[0]).T.ravel()
 
+.. _f-term-gradient:
 
 f-term gradient
 ---------------
@@ -269,6 +314,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 
     np.sum(np.outer(cutoff[0], cutoff[0]) * (g_ijI + g_jiI + g_ij), axis=1).T
 
+.. _u-term-laplacian:
 
 u-term laplacian
 ----------------
@@ -304,6 +350,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     poly += polyval(r_ij, (l * (l + 1) * jastrow.u_parameters).T) / r_ij ** 2
     2 * np.sum(np.triu(cutoff * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
 
+.. _chi-term-laplacian:
 
 chi-term laplacian
 ------------------
@@ -339,6 +386,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     poly += polyval(r_iI, (m * (m + 1) * jastrow.chi_parameters[0]).T) / r_iI ** 2
     np.sum(cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap'))
 
+.. _f-term-laplacian:
 
 f-term laplacian
 ----------------
