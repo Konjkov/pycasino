@@ -3,7 +3,8 @@
 Slater determinant
 ==================
 
-Slater determinant part of wavefunction is represented by the :class:`casino.Slater` class.
+The Slater determinant component of the wavefunction is implemented in the :class:`casino.Slater` class.
+This class provides methods to compute the value, gradient, Laplacian, Hessian, and Tressian of a multi-determinant Slater wavefunction.
 
 It must be initialized from the configuration files::
 
@@ -489,3 +490,30 @@ this is equivalent to (continues :ref:`from <inverse_ matrix>`)::
         np.einsum('j,ki->ijk', grad, hess) -
         2 * np.einsum('i,j,k->ijk', grad, grad, grad)
     )
+
+Summary of Methods
+------------------
+
++------------------------+-----------------------------+--------------------------+
+| Method                 | Output                      | Shape                    |
++========================+=============================+==========================+
+| ``value_matrix``       | (A↑, A↓)                    | (N↑×M, N↓×M)             |
++------------------------+-----------------------------+--------------------------+
+| ``gradient_matrix``    | (G↑, G↓)                    | (N↑×M×3, N↓×M×3)         |
++------------------------+-----------------------------+--------------------------+
+| ``laplacian_matrix``   | (L↑, L↓)                    | (N↑×M, N↓×M)             |
++------------------------+-----------------------------+--------------------------+
+| ``hessian_matrix``     | (H↑, H↓)                    | (N↑×M×3×3, N↓×M×3×3)     |
++------------------------+-----------------------------+--------------------------+
+| ``tressian_matrix``    | (T↑, T↓)                    | (N↑×M×3×3×3, N↓×M×3×3×3) |
++------------------------+-----------------------------+--------------------------+
+| ``value``              | Ψ(r)                        | scalar                   |
++------------------------+-----------------------------+--------------------------+
+| ``gradient``           | ∇Ψ(r)/Ψ(r)                  | (3N,)                    |
++------------------------+-----------------------------+--------------------------+
+| ``laplacian``          | ΔΨ(r)/Ψ(r)                  | scalar                   |
++------------------------+-----------------------------+--------------------------+
+| ``hessian``            | ∇²Ψ(r)/Ψ(r)                 | (3N, 3N)                 |
++------------------------+-----------------------------+--------------------------+
+| ``tressian``           | ∇³Ψ(r)/Ψ(r)                 | (3N, 3N, 3N)             |
++------------------------+-----------------------------+--------------------------+
