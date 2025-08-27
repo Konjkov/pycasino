@@ -2,6 +2,7 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from casino.readers import CasinoConfig
 from casino.slater import Slater
@@ -33,22 +34,22 @@ class TestSlater(unittest.TestCase):
         return r_e + np.random.uniform(-1, 1, ne * 3).reshape(ne, 3)
 
     def test_gradient(self):
-        assert np.allclose(self.wfn.slater.gradient(self.n_vectors), self.wfn.slater.numerical_gradient(self.n_vectors))
+        assert self.wfn.slater.gradient(self.n_vectors) == pytest.approx(self.wfn.slater.numerical_gradient(self.n_vectors))
 
     def test_laplacian(self):
-        assert np.allclose(self.wfn.slater.laplacian(self.n_vectors), self.wfn.slater.numerical_laplacian(self.n_vectors), rtol=0.001)
+        assert self.wfn.slater.laplacian(self.n_vectors) == pytest.approx(self.wfn.slater.numerical_laplacian(self.n_vectors))
 
     def test_hessian(self):
-        assert np.allclose(self.wfn.slater.hessian(self.n_vectors)[0], self.wfn.slater.numerical_hessian(self.n_vectors), rtol=0.001)
+        assert self.wfn.slater.hessian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.numerical_hessian(self.n_vectors), rel=1e-5)
 
     def test_tressian(self):
-        assert np.allclose(self.wfn.slater.tressian(self.n_vectors)[0], self.wfn.slater.numerical_tressian(self.n_vectors), rtol=0.001)
+        assert self.wfn.slater.tressian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.numerical_tressian(self.n_vectors), rel=1e-4)
 
     def test_tressian_v2(self):
-        assert np.allclose(self.wfn.slater.tressian(self.n_vectors)[0], self.wfn.slater.tressian_v2(self.n_vectors)[0])
+        assert self.wfn.slater.tressian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.tressian_v2(self.n_vectors)[0])
 
     def test_wfn_laplacian(self):
-        assert np.allclose(self.wfn.kinetic_energy(self.r_e), -self.wfn.numerical_laplacian(self.r_e) / 2, rtol=0.004)
+        assert self.wfn.kinetic_energy(self.r_e) == pytest.approx(-self.wfn.numerical_laplacian(self.r_e) / 2)
 
 
 if __name__ == '__main__':
