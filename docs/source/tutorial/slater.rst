@@ -16,8 +16,51 @@ It must be initialized from the configuration files::
     config.read()
     slater = Slater(config, cusp=None)
 
+Summary of Methods
+------------------
+
+.. list-table::
+   :widths: 30 30 40
+   :header-rows: 1
+   :width: 100%
+
+   * - Method
+     - Output
+     - Shape
+   * - :ref:`value_matrix <value-matrix>`
+     - :math:`A^\uparrow, A^\downarrow`
+     - :math:`(N^\uparrow, M), (N^\downarrow, M)`
+   * - :ref:`gradient_matrix <gradient-matrix>`
+     - :math:`G^\uparrow, G^\downarrow`
+     - :math:`(N^\uparrow, M, 3), (N^\downarrow, M, 3)`
+   * - :ref:`laplacian_matrix <laplacian-matrix>`
+     - :math:`L^\uparrow, L^\downarrow`
+     - :math:`(N^\uparrow, M), (N^\downarrow, M)`
+   * - :ref:`hessian_matrix <hessian-matrix>`
+     - :math:`H^\uparrow, H^\downarrow`
+     - :math:`(N^\uparrow, M, 3, 3), (N^\downarrow, M, 3, 3)`
+   * - :ref:`tressian_matrix <tressian-matrix>`
+     - :math:`T^\uparrow, T^\downarrow`
+     - :math:`(N^\uparrow, M, 3, 3, 3), (N^\downarrow, M, 3, 3, 3)`
+   * - :ref:`value <value>`
+     - :math:`\Psi(r)`
+     - :math:`scalar`
+   * - :ref:`gradient <gradient>`
+     - :math:`\nabla \Psi(r)/\Psi(r)`
+     - :math:`(3N,)`
+   * - :ref:`laplacian <laplacian>`
+     - :math:`\Delta \Psi(r)/\Psi(r)`
+     - :math:`scalar`
+   * - :ref:`hessian <hessian>`
+     - :math:`\nabla^2 \Psi(r)/\Psi(r)`
+     - :math:`(3N, 3N)`
+   * - :ref:`tressian <tressian>`
+     - :math:`\nabla^3 \Psi(r)/\Psi(r)`
+     - :math:`(3N, 3N, 3N)`
+
 Slater class has a following methods:
 
+.. _value-matrix:
 
 value matrix
 ------------
@@ -52,13 +95,14 @@ For certain electron coordinates, the values of these matrices can be obtained w
     n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
     A_up, A_down = slater.value_matrix(n_vectors)
 
-.. _inverse_ matrix:
+.. _inverse-matrix:
 
 the inverse matrix will be needed to calculate the gradient, laplacian, hesian and tressian::
 
     inv_A_up = np.linalg.inv(A_up)
     inv_A_down = np.linalg.inv(A_down)
 
+.. _gradient-matrix:
 
 gradient matrix
 ---------------
@@ -90,6 +134,7 @@ For certain electron coordinates, the values of these matrices can be obtained w
 
     G_up, G_down = slater.gradient_matrix(n_vectors)
 
+.. _laplacian-matrix:
 
 laplacian matrix
 ----------------
@@ -121,6 +166,7 @@ For certain electron coordinates, the values of these matrices can be obtained w
 
     L_up, L_down = slater.laplacian_matrix(n_vectors)
 
+.. _hessian-matrix:
 
 hessian matrix
 --------------
@@ -151,6 +197,7 @@ For certain electron coordinates, the values of these matrices can be obtained w
 
     H_up, H_down = slater.hessian_matrix(n_vectors)
 
+.. _tressian-matrix:
 
 tressian matrix
 ---------------
@@ -182,6 +229,7 @@ For certain electron coordinates, the values of these matrices can be obtained w
 
     T_up, T_down = slater.tressian_matrix(n_vectors)
 
+.. _value:
 
 value
 -----
@@ -204,6 +252,7 @@ For certain electron coordinates, the value can be obtained with casino.Slater.v
 
     value = slater.value(n_vectors)
 
+.. _gradient:
 
 gradient
 --------
@@ -248,12 +297,14 @@ For certain electron coordinates, the gradient vector can be obtained with casin
 
     slater.gradient(n_vectors)
 
-this is equivalent to (continues :ref:`from <inverse_ matrix>`)::
+this is equivalent to (continues :ref:`from <inverse-matrix>`)::
 
     G_up, G_down = slater.gradient_matrix(n_vectors)
     tr_grad_u = np.einsum('ij,jia->ia', inv_A_up, G_up).reshape(neu * 3)
     tr_grad_d = np.einsum('ij,jia->ia', inv_A_down, G_down).reshape(ned * 3)
     np.concatenate((tr_grad_u, tr_grad_d))
+
+.. _laplacian:
 
 laplacian
 ---------
@@ -299,13 +350,14 @@ For certain electron coordinates, the laplacian can be obtained with casino.Slat
 
     slater.laplacian(n_vectors)
 
-this is equivalent to (continues :ref:`from <inverse_ matrix>`)::
+this is equivalent to (continues :ref:`from <inverse-matrix>`)::
 
     L_up, L_down = slater.laplacian_matrix(n_vectors)
     lap_up = np.einsum('ij,ji', inv_A_up, L_up)
     lap_down = np.einsum('ij,ji', inv_A_down, L_down)
     lap_up + lap_down
 
+.. _hessian:
 
 hessian
 -------
@@ -353,7 +405,7 @@ For certain electron coordinates, the hessian matrix can be obtained with casino
 
     slater.hessian(n_vectors)[0]
 
-this is equivalent to (continues :ref:`from <inverse_ matrix>`)::
+this is equivalent to (continues :ref:`from <inverse-matrix>`)::
 
     G_up, G_down = slater.gradient_matrix(n_vectors)
     tr_grad_u = np.einsum('ij,jia->ia', inv_A_up, G_up).reshape(neu * 3)
@@ -374,6 +426,7 @@ this is equivalent to (continues :ref:`from <inverse_ matrix>`)::
     hess[neu * 3:, neu * 3:] = hess_d.reshape(ned * 3, ned * 3)
     hess += np.outer(grad, grad)
 
+.. _tressian:
 
 tressian
 --------
@@ -443,7 +496,7 @@ For certain electron coordinates, the tressian metrix can be obtained with casin
 
     slater.tressian(n_vectors)[0]
 
-this is equivalent to (continues :ref:`from <inverse_ matrix>`)::
+this is equivalent to (continues :ref:`from <inverse-matrix>`)::
 
     G_up, G_down = slater.gradient_matrix(n_vectors)
     tr_grad_u = np.einsum('ij,jia->ia', inv_A_up, G_up).reshape(neu * 3)
@@ -490,30 +543,3 @@ this is equivalent to (continues :ref:`from <inverse_ matrix>`)::
         np.einsum('j,ki->ijk', grad, hess) -
         2 * np.einsum('i,j,k->ijk', grad, grad, grad)
     )
-
-Summary of Methods
-------------------
-
-+------------------------+-----------------------------+--------------------------+
-| Method                 | Output                      | Shape                    |
-+========================+=============================+==========================+
-| ``value_matrix``       | (A↑, A↓)                    | (N↑×M, N↓×M)             |
-+------------------------+-----------------------------+--------------------------+
-| ``gradient_matrix``    | (G↑, G↓)                    | (N↑×M×3, N↓×M×3)         |
-+------------------------+-----------------------------+--------------------------+
-| ``laplacian_matrix``   | (L↑, L↓)                    | (N↑×M, N↓×M)             |
-+------------------------+-----------------------------+--------------------------+
-| ``hessian_matrix``     | (H↑, H↓)                    | (N↑×M×3×3, N↓×M×3×3)     |
-+------------------------+-----------------------------+--------------------------+
-| ``tressian_matrix``    | (T↑, T↓)                    | (N↑×M×3×3×3, N↓×M×3×3×3) |
-+------------------------+-----------------------------+--------------------------+
-| ``value``              | Ψ(r)                        | scalar                   |
-+------------------------+-----------------------------+--------------------------+
-| ``gradient``           | ∇Ψ(r)/Ψ(r)                  | (3N,)                    |
-+------------------------+-----------------------------+--------------------------+
-| ``laplacian``          | ΔΨ(r)/Ψ(r)                  | scalar                   |
-+------------------------+-----------------------------+--------------------------+
-| ``hessian``            | ∇²Ψ(r)/Ψ(r)                 | (3N, 3N)                 |
-+------------------------+-----------------------------+--------------------------+
-| ``tressian``           | ∇³Ψ(r)/Ψ(r)                 | (3N, 3N, 3N)             |
-+------------------------+-----------------------------+--------------------------+
