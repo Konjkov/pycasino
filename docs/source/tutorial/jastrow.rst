@@ -209,7 +209,7 @@ There is only two non-zero terms of :math:`u(r_{ij})` gradient, i.e. by :math:`i
 
 .. math::
 
-    \nabla_{e_i} u(r_{ij}) = -\nabla_{e_j} u(r_{ij}) = (r_{ij} - L_u)^C\Theta(L_u - r_{ij})\mathbf{\hat r}_{ij}\sum_{l=0}^{N_u}(C/(r_{ij} - L_u) + l/r_{ij})\alpha_lr^l_{ij}
+    \nabla_{e_i} u(r_{ij}) = -\nabla_{e_j} u(r_{ij}) = (r_{ij} - L_u)^C\Theta(L_u - r_{ij})\mathbf{\hat r}_{ij}\sum_{l=0}^{N_u}\left(\frac{C}{r_{ij} - L_u} + \frac{l}{r_{ij}}\right)\alpha_lr^l_{ij}
 
 where :math:`\mathbf{\hat r}_{ij}` is the unit vector in the direction of the :math:`\mathbf{r}_{ij}`
 
@@ -238,7 +238,7 @@ There is only one non-zero term of :math:`\chi(r_{iI})` gradient, i.e. by :math:
 
 .. math::
 
-    \nabla_{e_i} \chi(r_{iI}) = (r_{iI} - L_{\chi I})^C\Theta(L_{\chi I} - r_{iI})\mathbf{\hat r}_{iI}\sum_{m=0}^{N_\chi}(C/(r_{iI} - L_{\chi I}) + m/r_{iI})\beta_mr^m_{iI}
+    \nabla_{e_i} \chi(r_{iI}) = (r_{iI} - L_{\chi I})^C\Theta(L_{\chi I} - r_{iI})\mathbf{\hat r}_{iI}\sum_{m=0}^{N_\chi}\left(\frac{C}{r_{iI} - L_{\chi I}} + \frac{m}{r_{iI}}\right)\beta_mr^m_{iI}
 
 where :math:`\mathbf{\hat r}_{iI}` is the unit vector in the direction of the :math:`\mathbf{r}_{iI}`
 
@@ -266,15 +266,15 @@ There is only two non-zero terms of :math:`f(r_{ij}, r_{iI}, r_{jI})` gradient, 
 
 .. math::
 
-    g_{ij} =  \mathbf{\hat r}_{ij} \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}(n/r_{ij})\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    g_{ij} =  \mathbf{\hat r}_{ij} \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}\left(\frac{n}{r_{ij}}\right)\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
-    g_{iI} = \mathbf{\hat r}_{iI} \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}(C/(r_{iI} - L_{fI}) + l / r_{iI})\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    g_{iI} = \mathbf{\hat r}_{iI} \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}\left(\frac{C}{r_{iI} - L_{fI}} + \frac{l}{r_{iI}}\right)\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
-    g_{jI} = \mathbf{\hat r}_{jI} \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}(C/(r_{jI} - L_{fI}) + m / r_{jI})\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    g_{jI} = \mathbf{\hat r}_{jI} \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}\left(\frac{C}{r_{jI} - L_{fI}} + \frac{m}{r_{jI}}\right)\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
@@ -329,11 +329,7 @@ then :math:`u(r_{ij})` term laplacian:
 
 .. math::
 
-    \Delta u(r_{ij}) = (r_{ij} - L_u)^C\Theta(L_u - r_{ij}) \times
-
-.. math::
-
-    \sum_{l=0}^{N_u}(C(C-1)/(r_{ij} - L_u)^2 + 2C(l+1)/r_{ij}(r_{ij} - L_u) + l(l+1)/r_{ij}^2)\alpha_lr^l_{ij}
+    \Delta u(r_{ij}) = (r_{ij} - L_u)^C\Theta(L_u - r_{ij}) \sum_{l=0}^{N_u}\left(\frac{C(C-1)}{(r_{ij} - L_u)^2} + \frac{2C(l+1)}{r_{ij}(r_{ij} + L_u)} + \frac{l(l+1)}{r_{ij}^2}\right)\alpha_lr^l_{ij}
 
 For certain electron coordinates, :math:`u` term laplacian can be obtained with :py:meth:`casino.Jastrow.u_term_laplacian` method::
 
@@ -365,11 +361,7 @@ then :math:`\chi(r_{iI})` term laplacian:
 
 .. math::
 
-    \Delta \chi(r_{iI}) = (r_{iI} - L_{\chi I})^C\Theta(L_{\chi I} - r_{iI}) \times
-
-.. math::
-
-    \sum_{l=0}^{N_\chi}(C(C-1)/(r_{iI} - L_{\chi I})^2 + 2C(m+1)/r_{iI}(r_{iI} - L_{\chi I}) + m(m+1)/r_{iI}^2)\beta_mr^m_{iI}
+    \Delta \chi(r_{iI}) = (r_{iI} - L_{\chi I})^C\Theta(L_{\chi I} - r_{iI}) \sum_{l=0}^{N_\chi}\left(\frac{C(C-1)}{(r_{iI} - L_{\chi I})^2} + \frac{2C(m+1)}{r_{iI}(r_{iI} - L_{\chi I})} + \frac{m(m+1)}{r_{iI}^2}\right)\beta_mr^m_{iI}
 
 For certain electron coordinates, :math:`\chi` term laplacian can be obtained with :py:meth:`casino.Jastrow.chi_term_laplacian` method::
 
@@ -409,18 +401,19 @@ then :math:`f(r_{ij}, r_{iI}, r_{jI})` term laplacian:
 .. math::
 
     l_1 = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
-    (C(C-1)/(r_{iI} - L_{fI})^2 + 2C(l+1)/r_{iI}(r_{iI} - L_{fI}) + l(l+1)/r_{iI}^2) \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    \left(\frac{C(C-1)}{(r_{iI} - L_{fI})^2} + \frac{2C(l+1)}{r_{iI}(r_{iI} - L_{fI})} + \frac{l(l+1)}{r_{iI}^2}\right)
+    \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
     l_{dot} = \mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{iI}
     \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
-    (C/(r_{iI} - L_{fI}) + l/r_{iI}) (n/r_{ij}) \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    \left(\frac{C}{(r_{iI} - L_{fI})} + \frac{l}{r_{iI}}\right) \frac{n}{r_{ij}} \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
     l_2 = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
-    (n(n+1)/r_{ij}^2) \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    \frac{n(n+1)}{r_{ij}^2} \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
