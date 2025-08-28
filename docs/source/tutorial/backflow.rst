@@ -363,7 +363,7 @@ There is only two non-zero terms of :math:`\eta(r_{ij})\mathbf{r}_{ij}` laplacia
 
 .. math::
 
-    \Delta_{e_i} (\eta(r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij}) \sum_{k=0}^{N_\eta} \left[\frac{C(C-1)}{(L_\eta - r_{ij})^2} + \frac{2C(k-2)}{r_{ij}(L_\eta - r_{ij})} + \frac{k(k+3)}{r_{ij}^2} \right] c_kr^k_{ij}
+    \Delta_{e_i} (\eta(r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij}) \sum_{k=0}^{N_\eta} \left[\frac{C(C-1)}{(L_\eta - r_{ij})^2} - \frac{2C(k+2)}{r_{ij}(L_\eta - r_{ij})} + \frac{k(k+3)}{r_{ij}^2} \right] c_kr^k_{ij}
 
 For certain electron coordinates, :math:`\eta` laplacian term can be obtained with :py:meth:`casino.Backflow.eta_term_laplacian` method::
 
@@ -388,7 +388,7 @@ There is only one non-zero term of :math:`\mu(r_{iI})\mathbf{r}_{iI}` laplacian,
 
 .. math::
 
-    \Delta_{e_i} (\mu(r_{iI})\mathbf{r}_{iI}) = (1 - r_{iI}/L_\mu)^C\Theta(L_\mu - r_{iI}) \sum_{k=0}^{N_\mu} \left[\frac{C(C-1)}{(L_\mu - r_{iI})^2} + \frac{2C(k-2)}{r_{iI}(L_\mu - r_{iI})} + \frac{k(k+3)}{r_{iI}^2} \right]d_kr^k_{iI}
+    \Delta_{e_i} (\mu(r_{iI})\mathbf{r}_{iI}) = (1 - r_{iI}/L_\mu)^C\Theta(L_\mu - r_{iI}) \sum_{k=0}^{N_\mu} \left[\frac{C(C-1)}{(L_\mu - r_{iI})^2} - \frac{2C(k+2)}{r_{iI}(L_\mu - r_{iI})} + \frac{k(k+3)}{r_{iI}^2} \right]d_kr^k_{iI}
 
 For certain electron coordinates, :math:`\mu` term laplacian can be obtained with :py:meth:`casino.Backflow.mu_term_laplacian` method::
 

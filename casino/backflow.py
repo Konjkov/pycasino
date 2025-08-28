@@ -705,23 +705,15 @@ def backflow_eta_term_laplacian(self, e_powers, e_vectors):
                 eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
                 L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
                 if r < L:
-                    poly = poly_diff = poly_diff_2 = 0
+                    poly = 0.0
                     for k in range(parameters.shape[1]):
-                        p = parameters[eta_set, k] * e_powers[e1, e2, k]
-                        poly += p
-                        poly_diff += k * p
-                        poly_diff_2 += k * (k - 1) * p
-
-                    bf = (
-                        2
-                        * (1 - r / L) ** C
-                        * (
-                            4 * (poly_diff - C * r / (L - r) * poly)
-                            + (C * (C - 1) * r**2 / (L - r) ** 2 * poly - 2 * C * r / (L - r) * poly_diff + poly_diff_2)
+                        poly += (
+                            (C * (C - 1) / (L - r) ** 2 - 2 * C * (k + 2) / r / (L - r) + k * (k + 3) / r**2)
+                            * parameters[eta_set, k]
+                            * e_powers[e1, e2, k]
                         )
-                        * r_vec
-                        / r**2
-                    )
+                    # double because we add half of the matrix
+                    bf = 2 * (1 - r / L) ** C * poly * r_vec
                     res[ae_cutoff_condition, e1] += bf
                     res[ae_cutoff_condition, e2] -= bf
 
@@ -748,25 +740,18 @@ def backflow_mu_term_laplacian(self, n_powers, n_vectors):
                     r = n_powers[label, e1, 1]
                     if r < L:
                         mu_set = int(e1 >= self.neu) % parameters.shape[0]
-                        poly = poly_diff = poly_diff_2 = 0.0
+                        poly = 0.0
                         for k in range(parameters.shape[1]):
-                            p = parameters[mu_set, k] * n_powers[label, e1, k]
-                            poly += p
-                            poly_diff += k * p
-                            poly_diff_2 += k * (k - 1) * p
+                            poly += (
+                                (C * (C - 1) / (L - r) ** 2 - 2 * C * (k + 2) / r / (L - r) + k * (k + 3) / r**2)
+                                * parameters[mu_set, k]
+                                * n_powers[label, e1, k]
+                            )
                         # cutoff_condition
                         # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
-                        res[ae_cutoff_condition, e1] += (
-                            (1 - r / L) ** C
-                            * (
-                                4 * (poly_diff - C * r / (L - r) * poly)
-                                + (C * (C - 1) * r**2 / (L - r) ** 2 * poly - 2 * C * r / (L - r) * poly_diff + poly_diff_2)
-                            )
-                            * r_vec
-                            / r**2
-                        )
+                        res[ae_cutoff_condition, e1] += (1 - r / L) ** C * poly * r_vec
 
         return res.reshape(2, (self.neu + self.ned) * 3)
 
