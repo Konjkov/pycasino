@@ -2074,18 +2074,8 @@ def backflow_eta_term_laplacian_d1(self, e_powers, e_vectors):
                             if self.eta_parameters_available[j1, j2]:
                                 n += 1
                                 if eta_set == j1:
-                                    poly = e_powers[e1, e2, j2]
-                                    bf = (
-                                        2
-                                        * (1 - r / L) ** C
-                                        * (
-                                            4 * (j2 / r - C / (L - r))
-                                            + r * (C * (C - 1) / (L - r) ** 2 - 2 * C / (L - r) * j2 / r + j2 * (j2 - 1) / r**2)
-                                        )
-                                        * r_vec
-                                        * poly
-                                        / r
-                                    )
+                                    poly = C * (C - 1) / (L - r) ** 2 - 2 * C * (j2 + 2) / r / (L - r) + j2 * (j2 + 3) / r**2
+                                    bf = 2 * (1 - r / L) ** C * poly * r_vec * e_powers[e1, e2, j2]
                                     res[n, ae_cutoff_condition, e1] += bf
                                     res[n, ae_cutoff_condition, e2] -= bf
 
@@ -2145,17 +2135,9 @@ def backflow_mu_term_laplacian_d1(self, n_powers, n_vectors):
                                 if mu_parameters_available[j1, j2]:
                                     n += 1
                                     if mu_set == j1:
-                                        poly = n_powers[label, e1, j2]
-                                        res[n, ae_cutoff_condition, e1] += (
-                                            (1 - r / L) ** C
-                                            * (
-                                                4 * (j2 / r - C / (L - r))
-                                                + r * (C * (C - 1) / (L - r) ** 2 - 2 * C / (L - r) * j2 / r + j2 * (j2 - 1) / r**2)
-                                            )
-                                            * r_vec
-                                            * poly
-                                            / r
-                                        )
+                                        poly = C * (C - 1) / (L - r) ** 2 - 2 * C * (j2 + 2) / r / (L - r) + j2 * (j2 + 3) / r**2
+                                        bf = (1 - r / L) ** C * poly * r_vec * n_powers[label, e1, j2]
+                                        res[n, ae_cutoff_condition, e1] += bf
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 

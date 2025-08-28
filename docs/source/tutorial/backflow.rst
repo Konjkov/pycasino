@@ -247,6 +247,10 @@ There is only two non-zero terms of :math:`\eta(r_{ij})` gradient, i.e. by :math
     \nabla_{e_i} (\eta(r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij})
     \sum_{k=0}^{N_\eta} \left[\mathbf{I} + \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} \left(\frac{k}{r_{ij}} - \frac{C}{L_\eta - r_{ij}}\right)\right] c_kr^k_{ij}
 
+.. math::
+
+    \nabla_{e_j} (\eta(r_{ij})\mathbf{r}_{ij}) = - \nabla_{e_i} (\eta(r_{ij})\mathbf{r}_{ij})
+
 where :math:`\mathbf{\hat r}_{ij}` is the unit vector in the direction of the :math:`\mathbf{r}_{ij}`
 
 For certain electron coordinates, :math:`\eta` term gradient can be obtained with :py:meth:`casino.Backflow.eta_term_gradient` method::
@@ -319,22 +323,40 @@ Considering that vector gradient of spherically symmetric vector function (in 3-
 
     \nabla (f(r)\mathbf{r}) = f'(r) \mathbf{\hat r} \otimes \mathbf{r} + f \cdot \mathbf{I}
 
-There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}` gradient, i.e. by :math:`i`-th  or :math:`j`-th electron coordinates:
+There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}` gradient, i.e. by :math:`i`-th:
 
 .. math::
 
     \begin{align}
     & \nabla_{e_i} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_{\Phi I})^C (1 - r_{iI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{ij}) \Theta(L_{\Phi I} - r_{iI}) \\
-    &  \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\mathbf{I} + \left(\frac{m}{r_{ij}} - \frac{C}{L_{\Phi I} - r_{ij}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} + \left(\frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{ij}\right] \phi_{lmnI} r_{iI}^k r_{jI}^l r_{ij}^m\\
+    &  \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\mathbf{I} + \left(\frac{m}{r_{ij}} + \frac{C}{L_{\Phi I} - r_{ij}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} + \left(\frac{k}{r_{iI}} \right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{ij}\right] \phi_{lmnI} r_{iI}^k r_{jI}^l r_{ij}^m\\
     \end{align}
 
-There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}` gradient, i.e. by :math:`i`-th  or :math:`j`-th electron coordinates:
+or :math:`j`-th electron coordinates:
+
+.. math::
+
+    \begin{align}
+    & \nabla_{e_j} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_{\Phi I})^C (1 - r_{iI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{ij}) \Theta(L_{\Phi I} - r_{iI}) \\
+    &  \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[-\mathbf{I} + \left(-\frac{m}{r_{ij}} + \frac{C}{L_{\Phi I} - r_{ij}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} + \left(\frac{l}{r_{jI}} \right) \mathbf{\hat r}_{jI} \otimes \mathbf{r}_{ij}\right] \phi_{lmnI} r_{iI}^k r_{jI}^l r_{ij}^m\\
+    \end{align}
+
+There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}` gradient, i.e. by :math:`i`-th:
 
 .. math::
 
     \begin{align}
     & \nabla_{e_i} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{ij}/L_{\Phi I})^C (1 - r_{iI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{ij}) \Theta(L_{\Phi I} - r_{iI}) \\
-    & \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\mathbf{I} + \left(\frac{k}{r_{iI}} -\frac{C}{L_{\Phi I} - r_{iI}}\right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{iI} + \left(\frac{m}{r_{ij}} -\frac{C}{L_{\Phi I} - r_{ij}}\right) \mathbf{r}_{iI} \otimes \mathbf{\hat r}_{ij} \right]  \theta_{lmnI} r_{iI}^k r_{jI}^l r_{ij}^m\\
+    & \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\mathbf{I} + \left(\frac{k}{r_{iI}} -\frac{C}{L_{\Phi I} - r_{iI}}\right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{iI} + \left(\frac{m}{r_{ij}} + \frac{C}{L_{\Phi I} - r_{ij}}\right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{iI} \right]  \theta_{lmnI} r_{iI}^k r_{jI}^l r_{ij}^m\\
+    \end{align}
+
+or :math:`j`-th electron coordinates:
+
+.. math::
+
+    \begin{align}
+    & \nabla_{e_j} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{ij}/L_{\Phi I})^C (1 - r_{iI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{ij}) \Theta(L_{\Phi I} - r_{iI}) \\
+    & \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{l}{r_{jI}}\right) \mathbf{\hat r}_{jI} \otimes \mathbf{r}_{iI} - \left(\frac{m}{r_{ij}} + \frac{C}{L_{\Phi I} - r_{ij}}\right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{iI} \right]  \theta_{lmnI} r_{iI}^k r_{jI}^l r_{ij}^m\\
     \end{align}
 
 where :math:`\mathbf{\hat r}_{ij}` is the unit vector in the direction of the :math:`\mathbf{r}_{ij}`
@@ -364,6 +386,10 @@ There is only two non-zero terms of :math:`\eta(r_{ij})\mathbf{r}_{ij}` laplacia
 .. math::
 
     \Delta_{e_i} (\eta(r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij}) \sum_{k=0}^{N_\eta} \left[\frac{C(C-1)}{(L_\eta - r_{ij})^2} - \frac{2C(k+2)}{r_{ij}(L_\eta - r_{ij})} + \frac{k(k+3)}{r_{ij}^2} \right] c_kr^k_{ij}
+
+.. math::
+
+    \Delta_{e_j} (\eta(r_{ij})\mathbf{r}_{ij}) = - \Delta_{e_i} (\eta(r_{ij})\mathbf{r}_{ij})
 
 For certain electron coordinates, :math:`\eta` laplacian term can be obtained with :py:meth:`casino.Backflow.eta_term_laplacian` method::
 
