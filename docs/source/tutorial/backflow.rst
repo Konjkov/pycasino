@@ -107,7 +107,7 @@ eta-term
 
 .. math::
 
-    \eta(r_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij})\sum_{k=0}^{N_\eta}c_kr^k_{ij}
+    \eta(r_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij}) \sum_{k=0}^{N_\eta}c_kr^k_{ij}
 
 where :math:`\Theta` is the Heaviside function. Electron-electron Kato cusp conditions at :math:`r_{ij} = 0` satisfied by constraint
 for spin-like electrons only:
@@ -137,7 +137,7 @@ mu-term
 
 .. math::
 
-    \mu(r_{iI}) = (1 - r_{iI}/L_\mu)^C\Theta(L_\mu - r_{iI})\sum_{k=0}^{N_\mu}d_kr^k_{iI}
+    \mu(r_{iI}) = (1 - r_{iI}/L_\mu)^C\Theta(L_\mu - r_{iI}) \sum_{k=0}^{N_\mu}d_kr^k_{iI}
 
 where :math:`\Theta` is the Heaviside function. The electron-nucleus Kato cusp conditions at :math:`r_{iI} = 0` satisfied if
 
@@ -234,17 +234,17 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 eta-term gradient
 -----------------
 
-Considering that vector gradient of spherically symmetric function (in 3-D space) is:
+Considering that vector gradient of spherically symmetric vector function (in 3-D space) is:
 
 .. math::
 
-    \nabla (f(r)\mathbf{r}) =  \frac{\partial{f(r)}}{\partial{r}} \mathbf{\hat e}_r \otimes \mathbf{r} + f \cdot \mathbf{I}
+    \nabla (f(r)\mathbf{r}) = f'(r) \mathbf{\hat r} \otimes \mathbf{r} + f \cdot \mathbf{I}
 
 There is only two non-zero terms of :math:`\eta(r_{ij})` gradient, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
 
 .. math::
 
-    \nabla_{e_i}(\eta(r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij})
+    \nabla_{e_i} (\eta(r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij})
     \sum_{k=0}^{N_\eta} \left[\mathbf{I} + \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} \left(\frac{k}{r_{ij}} - \frac{C}{L_\eta - r_{ij}}\right)\right] c_kr^k_{ij}
 
 where :math:`\mathbf{\hat r}_{ij}` is the unit vector in the direction of the :math:`\mathbf{r}_{ij}`
@@ -274,17 +274,17 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 
 mu-term gradient
 ----------------
-Considering that vector gradient of spherically symmetric function (in 3-D space) is:
+Considering that vector gradient of spherically symmetric vector function (in 3-D space) is:
 
 .. math::
 
-    \nabla (f(r)\mathbf{r}) =  \frac{\partial{f(r)}}{\partial{r}} \mathbf{\hat e}_r \otimes \mathbf{r} + f \cdot \mathbf{I}
+    \nabla (f(r)\mathbf{r}) = f'(r) \mathbf{\hat r} \otimes \mathbf{r} + f \cdot \mathbf{I}
 
 There is only one non-zero term of :math:`\mu(r_{iI})` gradient, i.e. by :math:`i`-th electron coordinates:
 
 .. math::
 
-    \nabla_{e_i} \mu(r_{iI})\mathbf{r}_{iI} = (1 - r_{iI}/L_\eta)^C\Theta(L_\mu - r_{iI})
+    \nabla_{e_i} (\mu(r_{iI})\mathbf{r}_{iI}) = (1 - r_{iI}/L_\mu)^C\Theta(L_\mu - r_{iI})
     \sum_{k=0}^{N_\mu} \left[\mathbf{I} + \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{iI} \left(\frac{k}{r_{iI}} - \frac{C}{L_\mu - r_{iI}}\right)\right] d_kr^k_{ij}
 
 where :math:`\mathbf{\hat r}_{iI}` is the unit vector in the direction of the :math:`\mathbf{r}_{iI}`
@@ -313,12 +313,18 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 phi-term gradient
 -----------------
 
+Considering that vector gradient of spherically symmetric vector function (in 3-D space) is:
+
+.. math::
+
+    \nabla (f(r)\mathbf{r}) = f'(r) \mathbf{\hat r} \otimes \mathbf{r} + f \cdot \mathbf{I}
+
 There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}` gradient, i.e. by :math:`i`-th  or :math:`j`-th electron coordinates:
 
 .. math::
 
     \begin{align}
-    & \nabla_{e_i} \Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij} = (1 - r_{ij}/L_{\Phi I})^C (1 - r_{iI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{ij}) \Theta(L_{\Phi I} - r_{iI}) \\
+    & \nabla_{e_i} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_{\Phi I})^C (1 - r_{iI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{ij}) \Theta(L_{\Phi I} - r_{iI}) \\
     &  \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\mathbf{I} + \left(\frac{m}{r_{ij}} - \frac{C}{L_{\Phi I} - r_{ij}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} + \left(\frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{ij}\right] \phi_{lmnI} r_{iI}^k r_{jI}^l r_{ij}^m\\
     \end{align}
 
@@ -327,7 +333,7 @@ There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf
 .. math::
 
     \begin{align}
-    & \nabla_{e_i} \Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI} = (1 - r_{ij}/L_{\Phi I})^C (1 - r_{iI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{ij}) \Theta(L_{\Phi I} - r_{iI}) \\
+    & \nabla_{e_i} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{ij}/L_{\Phi I})^C (1 - r_{iI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{ij}) \Theta(L_{\Phi I} - r_{iI}) \\
     & \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\mathbf{I} + \left(\frac{k}{r_{iI}} -\frac{C}{L_{\Phi I} - r_{iI}}\right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{iI} + \left(\frac{m}{r_{ij}} -\frac{C}{L_{\Phi I} - r_{ij}}\right) \mathbf{r}_{iI} \otimes \mathbf{\hat r}_{ij} \right]  \theta_{lmnI} r_{iI}^k r_{jI}^l r_{ij}^m\\
     \end{align}
 
@@ -347,11 +353,17 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 eta-term laplacian
 ------------------
 
-then :math:`\eta(r_{ij})\mathbf{r}_{ij}` term laplacian:
+Considering that vector laplacian of spherically symmetric vector function (in 3-D space) is:
 
 .. math::
 
-    \Delta \eta(r_{ij})\mathbf{r}_{ij} =
+    \Delta (f(r)\mathbf{r}) = \left(f''(r) + \frac{4}{r} f'(r)\right) \mathbf{r}
+
+There is only two non-zero terms of :math:`\eta(r_{ij})\mathbf{r}_{ij}` laplacian, i.e. by :math:`i`-th  or :math:`j`-th electron coordinates:
+
+.. math::
+
+    \Delta_{e_i} (\eta(r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij}) \sum_{k=0}^{N_\eta} \left[\frac{C(C-1)}{(L_\eta - r_{ij})^2} + \frac{2C(k-2)}{r_{ij}(L_\eta - r_{ij})} + \frac{k(k+3)}{r_{ij}^2} \right] c_kr^k_{ij}
 
 For certain electron coordinates, :math:`\eta` laplacian term can be obtained with :py:meth:`casino.Backflow.eta_term_laplacian` method::
 
@@ -366,11 +378,17 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 mu-term laplacian
 -----------------
 
-then :math:`\mu(r_{iI})\mathbf{r}_{iI}` term laplacian:
+Considering that vector laplacian of spherically symmetric vector function (in 3-D space) is:
 
 .. math::
 
-    \Delta \mu(r_{iI})\mathbf{r}_{iI} =
+    \Delta (f(r)\mathbf{r}) = \left(f''(r) + \frac{4}{r} f'(r)\right) \mathbf{r}
+
+There is only one non-zero term of :math:`\mu(r_{iI})\mathbf{r}_{iI}` laplacian, i.e. by :math:`i`-th electron coordinates:
+
+.. math::
+
+    \Delta_{e_i} (\mu(r_{iI})\mathbf{r}_{iI}) = (1 - r_{iI}/L_\mu)^C\Theta(L_\mu - r_{iI}) \sum_{k=0}^{N_\mu} \left[\frac{C(C-1)}{(L_\mu - r_{iI})^2} + \frac{2C(k-2)}{r_{iI}(L_\mu - r_{iI})} + \frac{k(k+3)}{r_{iI}^2} \right]d_kr^k_{iI}
 
 For certain electron coordinates, :math:`\mu` term laplacian can be obtained with :py:meth:`casino.Backflow.mu_term_laplacian` method::
 
@@ -385,17 +403,23 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 phi-term laplacian
 ------------------
 
-then :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}` term laplacian:
+Considering that vector laplacian of spherically symmetric vector function (in 3-D space) is:
 
 .. math::
 
-    \Delta \Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij} =
+    \Delta (f(r)\mathbf{r}) = \left(f''(r) + \frac{4}{r} f'(r)\right) \mathbf{r}
 
-then :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}` term laplacian:
+There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}` laplacian, i.e. by :math:`i`-th  or :math:`j`-th electron coordinates:
 
 .. math::
 
-    \Delta \Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI} =
+    \Delta_{e_i} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_{\Phi I})^C (1 - r_{iI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{ij}) \Theta(L_{\Phi I} - r_{iI})
+
+There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}` laplacian, i.e. by :math:`i`-th  or :math:`j`-th electron coordinates:
+
+.. math::
+
+    \Delta_{e_i} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{ij}/L_{\Phi I})^C (1 - r_{iI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{ij}) \Theta(L_{\Phi I} - r_{iI})
 
 For certain electron coordinates, :math:`\phi` term laplacian can be obtained with :py:meth:`casino.Backflow.phi_term_laplacian` method::
 
