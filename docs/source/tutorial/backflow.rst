@@ -173,12 +173,12 @@ backflow displacements in terms of :math:`r_{ij}` , :math:`r_{iI}` , and :math:`
 
 .. math::
 
-    \Phi(r_{iI}, r_{jI}, r_{ij}) = (1 - r_{ij}/L_{\Phi I})^C(1 - r_{iI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{ij})\Theta(L_{\Phi I} - r_{iI})
+    \Phi(r_{iI}, r_{jI}, r_{ij}) = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{iI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{ij})\Theta(L_{\Phi I} - r_{iI})
     \sum_{k=0}^{N_{\Phi I}^{eN}}\sum_{l=0}^{N_{\Phi I}^{eN}}\sum_{m=0}^{N_{\Phi I}^{ee}}\phi_{lmnI}r_{iI}^kr_{jI}^lr_{ij}^m
 
 .. math::
 
-    \Theta(r_{iI}, r_{jI}, r_{ij}) = (1 - r_{ij}/L_{\Phi I})^C(1 - r_{iI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{ij})\Theta(L_{\Phi I} - r_{iI})
+    \Theta(r_{iI}, r_{jI}, r_{ij}) = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{iI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{ij})\Theta(L_{\Phi I} - r_{iI})
     \sum_{k=0}^{N_{\Phi I}^{eN}}\sum_{l=0}^{N_{\Phi I}^{eN}}\sum_{m=0}^{N_{\Phi I}^{ee}}\theta_{lmnI}r_{iI}^kr_{jI}^lr_{ij}^m
 
 where :math:`\Theta` is the Heaviside function. To ensure electron–electron Kato cusp conditions folowing :math:`3(N_{\Phi I}^{ee} + N_{\Phi I}^{en} + 1)`
@@ -385,7 +385,7 @@ There is only two non-zero terms of :math:`\eta(r_{ij})\mathbf{r}_{ij}` laplacia
 
 .. math::
 
-    \Delta_{e_i} (\eta(r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij}) \sum_{k=0}^{N_\eta} \left[\frac{C(C-1)}{(L_\eta - r_{ij})^2} - \frac{2C(k+2)}{r_{ij}(L_\eta - r_{ij})} + \frac{k(k+3)}{r_{ij}^2} \right] c_kr^k_{ij}
+    \Delta_{e_i} (\eta(r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij}) \mathbf{r}_{ij}\sum_{k=0}^{N_\eta} \left[\frac{C(C-1)}{(L_\eta - r_{ij})^2} - \frac{2C(k+2)}{r_{ij}(L_\eta - r_{ij})} + \frac{k(k+3)}{r_{ij}^2} \right] c_kr^k_{ij}
 
 .. math::
 
@@ -414,7 +414,7 @@ There is only one non-zero term of :math:`\mu(r_{iI})\mathbf{r}_{iI}` laplacian,
 
 .. math::
 
-    \Delta_{e_i} (\mu(r_{iI})\mathbf{r}_{iI}) = (1 - r_{iI}/L_\mu)^C\Theta(L_\mu - r_{iI}) \sum_{k=0}^{N_\mu} \left[\frac{C(C-1)}{(L_\mu - r_{iI})^2} - \frac{2C(k+2)}{r_{iI}(L_\mu - r_{iI})} + \frac{k(k+3)}{r_{iI}^2} \right]d_kr^k_{iI}
+    \Delta_{e_i} (\mu(r_{iI})\mathbf{r}_{iI}) = (1 - r_{iI}/L_\mu)^C\Theta(L_\mu - r_{iI}) \mathbf{r}_{iI}\sum_{k=0}^{N_\mu} \left[\frac{C(C-1)}{(L_\mu - r_{iI})^2} - \frac{2C(k+2)}{r_{iI}(L_\mu - r_{iI})} + \frac{k(k+3)}{r_{iI}^2} \right]d_kr^k_{iI}
 
 For certain electron coordinates, :math:`\mu` term laplacian can be obtained with :py:meth:`casino.Backflow.mu_term_laplacian` method::
 
@@ -441,7 +441,7 @@ and laplacian of spherically symmetric vector function (in 3-D space) is:
 
     \Delta f(r) = f''(r) + \frac{2}{r} f'(r)
 
-and :math:`\Phi` term is a product of three spherically symmetric functions :math:`f(r_{ij})`, :math:`g(r_{iI})` and :math:`\mathbf{r}_{ij}` so using:
+and :math:`\Phi` term addent is a product of constant :math:`\phi_{lmnI}r_{jI}^l` and three spherically symmetric functions :math:`f(r_{ij})`, :math:`g(r_{iI})`, :math:`\mathbf{r}_{ij}` so using:
 
 .. math::
 
