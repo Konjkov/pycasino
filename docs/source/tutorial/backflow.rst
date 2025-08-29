@@ -429,11 +429,23 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 phi-term laplacian
 ------------------
 
-Considering that vector laplacian of spherically symmetric vector function (in 3-D space) is:
+Considering that gradient of spherically symmetric function (in 3-D space) is:
 
 .. math::
 
-    \Delta (f(r)\mathbf{r}) = \left(f''(r) + \frac{4}{r} f'(r)\right) \mathbf{r}
+    \nabla f(r) = f'(r) \mathbf{\hat r}
+
+and laplacian of spherically symmetric vector function (in 3-D space) is:
+
+.. math::
+
+    \Delta f(r) = f''(r) + \frac{2}{r} f'(r)
+
+and :math:`\Phi` term is a product of three spherically symmetric functions :math:`f(r_{ij})`, :math:`g(r_{iI})` and :math:`\mathbf{r}_{ij}` so using:
+
+.. math::
+
+    \Delta (f(r_{ij})g(r_{iI})\mathbf{r}_{ij}) = \left(g\Delta f + 2\nabla f\nabla g + f\Delta g\right)r_{ij} + 2(g\nabla f + f\nabla g)
 
 There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}` laplacian, i.e. by :math:`i`-th  or :math:`j`-th electron coordinates:
 

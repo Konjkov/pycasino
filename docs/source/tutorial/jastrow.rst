@@ -203,7 +203,7 @@ Considering that gradient of spherically symmetric function (in 3-D space) is:
 
 .. math::
 
-    \nabla f =  \frac{\partial{f}}{\partial{r}} \mathbf{\hat e}_r
+    \nabla f(r) =  f'(r) \mathbf{\hat r}
 
 There is only two non-zero terms of :math:`u(r_{ij})` gradient, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
 
@@ -234,6 +234,12 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 chi-term gradient
 -----------------
 
+Considering that gradient of spherically symmetric function (in 3-D space) is:
+
+.. math::
+
+    \nabla f(r) =  f'(r) \mathbf{\hat r}
+
 There is only one non-zero term of :math:`\chi(r_{iI})` gradient, i.e. by :math:`i`-th electron coordinates:
 
 .. math::
@@ -261,6 +267,12 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 
 f-term gradient
 ---------------
+
+Considering that gradient of spherically symmetric function (in 3-D space) is:
+
+.. math::
+
+    \nabla f(r) =  f'(r) \mathbf{\hat r}
 
 There is only two non-zero terms of :math:`f(r_{ij}, r_{iI}, r_{jI})` gradient, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
 
@@ -323,13 +335,13 @@ Considering that Laplace operator of spherically symmetric function (in 3-D spac
 
 .. math::
 
-    \Delta f = \frac{\partial^2{f}}{\partial{r^2}} + \frac{2}{r} \frac{\partial{f}}{\partial{r}}
+    \Delta f(r) = f''(r) + \frac{2}{r} f'(r)
 
-then :math:`u(r_{ij})` term laplacian:
+There is only two non-zero terms of :math:`u(r_{ij})` laplacian, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
 
 .. math::
 
-    \Delta u(r_{ij}) = (r_{ij} - L_u)^C\Theta(L_u - r_{ij}) \sum_{l=0}^{N_u}\left(\frac{C(C-1)}{(r_{ij} - L_u)^2} + \frac{2C(l+1)}{r_{ij}(r_{ij} + L_u)} + \frac{l(l+1)}{r_{ij}^2}\right)\alpha_lr^l_{ij}
+    \Delta_{e_i} u(r_{ij}) = \Delta_{e_j} u(r_{ij}) = (r_{ij} - L_u)^C\Theta(L_u - r_{ij}) \sum_{l=0}^{N_u}\left(\frac{C(C-1)}{(r_{ij} - L_u)^2} + \frac{2C(l+1)}{r_{ij}(r_{ij} + L_u)} + \frac{l(l+1)}{r_{ij}^2}\right)\alpha_lr^l_{ij}
 
 For certain electron coordinates, :math:`u` term laplacian can be obtained with :py:meth:`casino.Jastrow.u_term_laplacian` method::
 
@@ -355,13 +367,13 @@ Considering that Laplace operator of spherically symmetric function (in 3-D spac
 
 .. math::
 
-    \Delta f = \frac{\partial^2{f}}{\partial{r^2}} + \frac{2}{r} \frac{\partial{f}}{\partial{r}}
+    \Delta f(r) = f''(r) + \frac{2}{r} f'(r)
 
 then :math:`\chi(r_{iI})` term laplacian:
 
 .. math::
 
-    \Delta \chi(r_{iI}) = (r_{iI} - L_{\chi I})^C\Theta(L_{\chi I} - r_{iI}) \sum_{l=0}^{N_\chi}\left(\frac{C(C-1)}{(r_{iI} - L_{\chi I})^2} + \frac{2C(m+1)}{r_{iI}(r_{iI} - L_{\chi I})} + \frac{m(m+1)}{r_{iI}^2}\right)\beta_mr^m_{iI}
+    \Delta_{e_i} \chi(r_{iI}) = (r_{iI} - L_{\chi I})^C\Theta(L_{\chi I} - r_{iI}) \sum_{l=0}^{N_\chi}\left(\frac{C(C-1)}{(r_{iI} - L_{\chi I})^2} + \frac{2C(m+1)}{r_{iI}(r_{iI} - L_{\chi I})} + \frac{m(m+1)}{r_{iI}^2}\right)\beta_mr^m_{iI}
 
 For certain electron coordinates, :math:`\chi` term laplacian can be obtained with :py:meth:`casino.Jastrow.chi_term_laplacian` method::
 
@@ -387,37 +399,52 @@ Considering that Laplace operator of spherically symmetric function (in 3-D spac
 
 .. math::
 
-    \Delta f = \frac{\partial^2{f}}{\partial{r^2}} + \frac{2}{r} \frac{\partial{f}}{\partial{r}}
+    \Delta f(r) = f''(r) + \frac{2}{r} f'(r)
 
-and :math:`f` term is a product of two spherically symmetric functions :math:`f(r_{iI})` and :math:`g(r_{ij})` so using:
-
-.. math::
-
-    \Delta_{e_i}(fg) = g \Delta_{e_i}f + 2 \nabla_{e_i}f \nabla_{e_i}g + f \Delta_{e_i}g
-
-
-then :math:`f(r_{ij}, r_{iI}, r_{jI})` term laplacian:
+and :math:`f` term is a product of two spherically symmetric functions :math:`g(r_{ij})` and :math:`h(r_{iI})` so using:
 
 .. math::
 
-    l_1 = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
+    \Delta_{e_i}(g(r_{ij})h(r_{iI})) = g(r_{ij})\Delta_{e_i}h(r_{iI}) + 2\nabla_{e_i}g(r_{ij})\nabla_{e_i}h(r_{iI}) + g(r_{ij})\Delta_{e_i}h(r_{iI})
+
+There is only two non-zero terms of :math:`f(r_{ij}, r_{iI}, r_{jI})` laplacian, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
+
+.. math::
+
+    l_{iI} = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
     \left(\frac{C(C-1)}{(r_{iI} - L_{fI})^2} + \frac{2C(l+1)}{r_{iI}(r_{iI} - L_{fI})} + \frac{l(l+1)}{r_{iI}^2}\right)
     \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
-    l_{dot} = \mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{iI}
+    l_{jI} = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
+    \left(\frac{C(C-1)}{(r_{jI} - L_{fI})^2} + \frac{2C(l+1)}{r_{jI}(r_{jI} - L_{fI})} + \frac{l(l+1)}{r_{jI}^2}\right)
+    \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+
+.. math::
+
+    l_{dot,i} = \mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{iI}
     \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
     \left(\frac{C}{(r_{iI} - L_{fI})} + \frac{l}{r_{iI}}\right) \frac{n}{r_{ij}} \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
-    l_2 = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
+    l_{dot,j} = \mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{jI}
+    \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
+    \left(\frac{C}{(r_{jI} - L_{fI})} + \frac{l}{r_{jI}}\right) \frac{n}{r_{ij}} \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+
+.. math::
+
+    l_{ij} = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
     \frac{n(n+1)}{r_{ij}^2} \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
-    \Delta f(r_{ij}, r_{iI}, r_{jI}) = (r_{iI} - L_{fI})^C(r_{jI} - L_{fI})^C \Theta(L_{fI} - r_{iI})\Theta(L_{fI} - r_{jI}) (l_1 + 2l_{dot} + l_2)
+    \Delta_{e_i} f(r_{ij}, r_{iI}, r_{jI}) = (r_{iI} - L_{fI})^C(r_{jI} - L_{fI})^C \Theta(L_{fI} - r_{iI})\Theta(L_{fI} - r_{jI}) (l_{iI} + 2l_{dot,i} + l_{ij})
+
+.. math::
+
+    \Delta_{e_j} f(r_{ij}, r_{iI}, r_{jI}) = (r_{iI} - L_{fI})^C(r_{jI} - L_{fI})^C \Theta(L_{fI} - r_{iI})\Theta(L_{fI} - r_{jI}) (l_{jI} - 2l_{dot,j} + l_{ij})
 
 For certain electron coordinates, :math:`f` term laplacian can be obtained with :py:meth:`casino.Jastrow.f_term_laplacian` method::
 
