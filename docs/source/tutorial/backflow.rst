@@ -98,7 +98,7 @@ in terms of the stochastic process one can write the projected wave function wit
 
     \Psi(R, t + dt) = \Psi(R, t) \exp[-dt(E_L(R) - E_{opt})]
 
-we introduce a new variable :math:`d\xi_i=-dt \nabla_i U(R)` and put it into the equation:
+we introduce a new variable :math:`d\xi_i(R)=-dt \nabla_i U(R)` and put it into the equation:
 
 .. math::
 
@@ -120,7 +120,7 @@ Under the change of variables :math:`r_i \mapsto r_i + d\xi_i` the configuration
 
 .. math::
 
-    \mathcal J(R \mapsto R + d\xi) = \det \left( \delta_{ab} + \frac{\partial d\xi_a}{\partial r_b} \right) \approx 1 + \sum_i \nabla_i d\xi_i \approx \exp \left(\sum_i \nabla_i d\xi_i \right)
+    \ln \mathcal J(R) = \ln \det \left( \delta_{ab} + \frac{\partial d\xi_a}{\partial r_b} \right) = \nabla d\xi + O(d\xi^2)
 
 Under the coordinate transformation :math:`r_i \mapsto r_i + d\xi_i` a probability density :math:`∣\Psi∣^2` transforms with the full Jacobian
 :math:`\mathcal J(R)`. Since the wavefunction is the square root of the density (up to sign/phase), it naturally acquires the factor
@@ -137,20 +137,27 @@ taking into account all of the above:
 
 .. math::
 
-    \Psi(R, t_1) = \sqrt{\mathcal J(R \mapsto R + \xi)} \exp (\delta J(R)) \Psi(R + \xi, t_0)
+    \Psi(R, t_1) = \sqrt{\mathcal J(R + \xi)} \exp (J_{nl}(R)) \Psi(R + \xi, t_0)
 
-where backflow displacement :math:`\xi` is governed by a backward gradient flow for the functional :math:`U(R)` (movement in the direction
+where :math:`\mathcal J(R + \xi)` Jacobian of transformation :math:`R \mapsto R + \xi`:
+
+.. math::
+
+    \frac{1}{2} \int_{t_0}^{t_1} \nabla d\xi(s) \, ds = \ln \left(\sqrt{\mathcal J(R + \xi(t_1))} \right) - \ln \left(\sqrt{\mathcal J(R + \xi(t_0))} \right)
+
+
+backflow displacement :math:`\xi` is governed by a backward gradient flow for the functional :math:`U(R)` (movement in the direction
 of decreasing :math:`U(R)`:
 
 .. math::
 
-    \xi(t_1) - \xi(t_0) = \int_{t_0}^{t_1} d\xi(t) = - \int_{t_0}^{t_1} \nabla U(R + \xi(t)) \,dt
+    \int_{t_0}^{t_1} d\xi(s) \,ds = - \int_{t_0}^{t_1} \nabla U(R(s) + \xi(s)) \,ds = \xi(t_1) - \xi(t_0)
 
-and non-local Jastrow term :math:`\delta J(R)`
+and non-local Jastrow term :math:`J_{nl}(R)` from the backflow displacement:
 
 .. math::
 
-    \delta J(R) = \frac{1}{2} \int_{t_0}^{t_1} U(R + \xi(t) + d\xi(t)) - U(R + \xi(t)) = \frac{U(R + \xi(t_1)) - U(R + \xi(t_0))}{2}
+    \frac{1}{2} \int_{t_0}^{t_1} U(R(s) + \xi(s) + d\xi(s)) - U(R(s) + \xi(s)) \,ds = \frac{U(R + \xi(t_1)) - U(R + \xi(t_0))}{2} = J_{nl}(R)
 
 A common situation is when optimization starts with a pure Slater wave function, then:
 
