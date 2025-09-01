@@ -143,7 +143,7 @@ where backflow displacemet :math:`\xi` is determined by gradient flow for the fu
 
 .. math::
 
-    \xi(t_1) = \int_{t_0}^{t_1} d\xi(t) = - \int_{t_0}^{t_1} \nabla \delta U(R + \xi(t)) \,dt
+    \xi(t_1) = \int_{t_0}^{t_1} d\xi(t) = \xi(t_0) - \int_{t_0}^{t_1} \nabla \delta U(R + \xi(t)) \,dt
 
 and Jastrow term :math:`J(R)`
 
