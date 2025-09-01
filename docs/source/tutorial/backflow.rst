@@ -61,60 +61,60 @@ To prevent code duplication, we need to prepare the necessary intermediate data:
 Origin of backflow
 ------------------
 
-Origin of backflow easy to understand if one introduce trial wavefunction in form (where :math:`\mathscr A` is the antisimmetrizer):
+Origin of backflow easy to understand if one introduces Slater-Jastrow trial wavefunction in form (where :math:`\mathscr A` is the antisymmetrizer):
 
 .. math::
 
-    \Psi_t(R) = \exp(U(R)) \mathscr A \prod_i^N \psi_i(r_i)
+    \Psi(R) = \exp(J(R)) \mathscr A \prod_i^N \psi_i(r_i)
 
 its local energy is:
 
 .. math::
 
-    E_t(R) = - \frac{1}{2} \sum_i \left[ \nabla_i^2 U(R) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i U(R) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
+    E_L(R) = - \frac{1}{2} \sum_i \left[ \nabla_i^2 J(R) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i J(R) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
 
-introduce flattened (corrected) wavefunction:
-
-.. math::
-
-    \Psi_f(R) = \exp(U(R) + \delta U(R)) \mathscr A \prod_i^N \psi_i(r_i)
-
-
-with :math:`\delta U(R)` is chosen so that the local energy :math:`E_f(R)` is independent of :math:`R` (i.e. :math:`E_f` becomes a constant):
+also introduce optimized wavefunction:
 
 .. math::
 
-    E_f = - \frac{1}{2} \sum_i \left[ \nabla_i^2 (U(R) + \delta U(R)) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i (U(R) + \delta U(R)) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
+    \Psi_{opt}(R) = \exp(J(R) + U(R)) \mathscr A \prod_i^N \psi_i(r_i)
+
+
+where :math:`U(R)` is chosen so that the local energy :math:`E_{opt}(R)` is independent of :math:`R` (i.e. :math:`E_{opt}` becomes a constant):
+
+.. math::
+
+    E_{opt} = - \frac{1}{2} \sum_i \left[ \nabla_i^2 (J(R) + U(R)) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i (J(R) + U(R)) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
 
 then:
 
 .. math::
 
-    E_t(R) - E_f = \frac{1}{2} \sum_i \left[ \nabla_i^2 \delta U(R) + 2\nabla_i U(R) \nabla_i \delta U(R) + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \nabla_i \delta U(R) + (\nabla_i \delta U(R))^2\right]
+    E_L(R) - E_{opt} = \frac{1}{2} \sum_i \left[ \nabla_i^2 U(R) + 2\nabla_i J(R) \nabla_i U(R) + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \nabla_i U(R) + (\nabla_i U(R))^2\right]
 
 in terms of the stochastic process one can write the projected wave function with a generalized Feynman-Kac formula:
 
 .. math::
 
-    \Psi_t(R, t + dt) = \Psi_t(R, t) \exp[-dt(E_t(R) - E_f)]
+    \Psi(R, t + dt) = \Psi(R, t) \exp[-dt(E_L(R) - E_{opt})]
 
-let's introduce a new variable :math:`d\xi_i=-dt \nabla_i \delta U(R)` and put it into the equation:
-
-.. math::
-
-    \Psi_t(R, t + dt) = \Psi_t(R, t) \exp \left[ \frac{1}{2} \sum_i ( \nabla_i d\xi_i + 2\nabla_i U(R) d\xi_i + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} d\xi_i + \nabla_i \delta U(R) d\xi_i ) \right]
-
-using the first linear approximation perform a coordinate change :math:`r_i \mapsto r_i + d\xi_i`:
+we introduce a new variable :math:`d\xi_i=-dt \nabla_i U(R)` and put it into the equation:
 
 .. math::
 
-    f(r) + d\xi \cdot \nabla f(r) \approx f(r + d\xi)
+    \Psi(R, t + dt) = \Psi(R, t) \exp \left[ \frac{1}{2} \sum_i \left( \nabla_i d\xi_i + 2\nabla_i J(R) d\xi_i + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} d\xi_i + \nabla_i U(R) d\xi_i \right) \right]
 
-taking this into account
+using the linear approximation:
 
 .. math::
 
-    \Psi_t(R, t + dt) = \Psi_t(R + d\xi, t) \exp \left[ \frac{1}{2} \sum_i \left( \nabla_i d\xi_i + \nabla_i \delta U(R) d\xi_i \right) \right] + O(d\xi^2)
+    f(r) + d\xi \cdot \nabla f(r) = f(r + d\xi) + O(d\xi^2)
+
+perform a coordinate change :math:`r_i \mapsto r_i + d\xi_i` in :math:`\Psi`:
+
+.. math::
+
+    \Psi(R, t + dt) = \Psi(R + d\xi, t) \exp \left[ \frac{1}{2} \sum_i \left( \nabla_i d\xi_i + \nabla_i U(R) d\xi_i \right) \right] + O(d\xi^2)
 
 Under the change of variables :math:`r_i \mapsto r_i + d\xi_i` the configuration-space volume element transforms with the Jacobian determinant:
 
@@ -122,34 +122,41 @@ Under the change of variables :math:`r_i \mapsto r_i + d\xi_i` the configuration
 
     \mathcal J(R \mapsto R + d\xi) = \det \left( \delta_{ab} + \frac{\partial d\xi_a}{\partial r_b} \right) \approx 1 + \sum_i \nabla_i d\xi_i \approx \exp \left(\sum_i \nabla_i d\xi_i \right)
 
-**Interpretation:** probability density is :math:`∣\Psi∣^2`. Under the coordinate transformation :math:`r_i \mapsto r_i + d\xi_i` a density transforms
-with the full Jacobian :math:`\mathcal J(R)`. Since the wavefunction is the square root of the density (up to sign/phase), it naturally acquires the factor
-:math:`\sqrt{\mathcal J(R)}`, i.e. the :math:`\frac{1}{2}` in front of :math:`\sum_i \nabla_i d\xi_i` is precisely because the wavefunction is the square
-root of :math:`∣\Psi∣^2`.
+Under the coordinate transformation :math:`r_i \mapsto r_i + d\xi_i` a probability density :math:`∣\Psi∣^2` transforms with the full Jacobian
+:math:`\mathcal J(R)`. Since the wavefunction is the square root of the density (up to sign/phase), it naturally acquires the factor
+:math:`\sqrt{\mathcal J(R)}`, i.e. the :math:`\frac{1}{2}` in front of :math:`\sum_i \nabla_i d\xi_i` is precisely because the wavefunction
+is the square root of :math:`∣\Psi∣^2`.
 
-Also :math:`\nabla_i \delta U(R) d\xi_i` rewrite as a non-local term:
+finally rewrite :math:`\nabla_i U(R) d\xi_i` as a non-local term:
 
 .. math::
 
-    \sum_i \nabla_i \delta U(R) d\xi_i = \delta U(R) + \sum_i \nabla_i \delta U(R) d\xi_i - \delta U(R) = \delta U(R + d\xi) - \delta U(R)
+    \sum_i \nabla_i U(R) d\xi_i = U(R) + \sum_i \nabla_i U(R) d\xi_i - U(R) = U(R + d\xi) - U(R) + O(d\xi^2)
 
 taking into account all of the above:
 
 .. math::
 
-    \Psi_t(R, t_1) = \sqrt{\mathcal J(R \mapsto R + \xi)} \exp (J(R)) \Psi_t(R + \xi, t_0)
+    \Psi(R, t_1) = \sqrt{\mathcal J(R \mapsto R + \xi)} \exp (\delta J(R)) \Psi(R + \xi, t_0)
 
-where backflow displacemet :math:`\xi` is determined by gradient flow for the functional :math:`\delta U(R)` (movement in the direction of decreasing :math:`\delta U(R)`):
-
-.. math::
-
-    \xi(t_1) = \int_{t_0}^{t_1} d\xi(t) = \xi(t_0) - \int_{t_0}^{t_1} \nabla \delta U(R + \xi(t)) \,dt
-
-and Jastrow term :math:`J(R)`
+where backflow displacement :math:`\xi` is governed by a backward gradient flow for the functional :math:`U(R)` (movement in the direction
+of decreasing :math:`U(R)`:
 
 .. math::
 
-    J(R) = \frac{1}{2} \int_{t_0}^{t_1} \delta U(R + \xi(t) + d\xi(t)) - \delta U(R + \xi(t)) = \frac{1}{2} \left( \delta U(R + \xi(t_1)) - \delta U(R + \xi(t_0)) \right)
+    \xi(t_1) - \xi(t_0) = \int_{t_0}^{t_1} d\xi(t) = - \int_{t_0}^{t_1} \nabla U(R + \xi(t)) \,dt
+
+and non-local Jastrow term :math:`\delta J(R)`
+
+.. math::
+
+    \delta J(R) = \frac{1}{2} \int_{t_0}^{t_1} U(R + \xi(t) + d\xi(t)) - U(R + \xi(t)) = \frac{U(R + \xi(t_1)) - U(R + \xi(t_0))}{2}
+
+A common situation is when optimization starts with a pure Slater wave function, then:
+
+.. math::
+
+    J(R) \equiv 0; \xi(R, t_0) \equiv 0
 
 Summary of Methods
 ------------------
