@@ -58,6 +58,99 @@ To prevent code duplication, we need to prepare the necessary intermediate data:
     en_spin_mask[neu:] = 1
     C = backflow.trunc
 
+Origin of backflow
+------------------
+
+Origin of backflow easy to understand if one introduce trial wavefunction in form (where :math:`\mathscr A` is the antisimmetrizer):
+
+.. math::
+
+    \Psi_t(R) = \exp(U(R)) \mathscr A \prod_i^N \psi_i(r_i)
+
+its local energy is:
+
+.. math::
+
+    E_t(R) = - \frac{1}{2} \sum_i \left[ \nabla_i^2 U(R) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i U(R) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
+
+introduce flattened (corrected) wavefunction:
+
+.. math::
+
+    \Psi_f(R) = \exp(U(R) + \delta U(R)) \mathscr A \prod_i^N \psi_i(r_i)
+
+
+with :math:`\delta U(R)` is chosen so that the local energy :math:`E_f(R)` is independent of :math:`R` (i.e. :math:`E_f` becomes a constant):
+
+.. math::
+
+    E_f = - \frac{1}{2} \sum_i \left[ \nabla_i^2 (U(R) + \delta U(R)) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i (U(R) + \delta U(R)) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
+
+then:
+
+.. math::
+
+    E_t(R) - E_f = \frac{1}{2} \sum_i \left[ \nabla_i^2 \delta U(R) + 2\nabla_i U(R) \nabla_i \delta U(R) + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \nabla_i \delta U(R) + (\nabla_i \delta U(R))^2\right]
+
+in terms of the stochastic process one can write the projected wave function with a generalized Feynman-Kac formula:
+
+.. math::
+
+    \Psi_t(R, t + dt) = \Psi_t(R, t) \exp[-dt(E_t(R) - E_f)]
+
+let's introduce a new variable :math:`d\xi_i=-dt \nabla_i \delta U(R)` and put it into the equation:
+
+.. math::
+
+    \Psi_t(R, t + dt) = \Psi_t(R, t) \exp \left[ \frac{1}{2} \sum_i ( \nabla_i d\xi_i + 2\nabla_i U(R) d\xi_i + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} d\xi_i + \nabla_i \delta U(R) d\xi_i ) \right]
+
+using the first linear approximation perform a coordinate change :math:`r_i \mapsto r_i + d\xi_i`:
+
+.. math::
+
+    f(r) + d\xi \cdot \nabla f(r) \approx f(r + d\xi)
+
+taking this into account
+
+.. math::
+
+    \Psi_t(R, t + dt) = \Psi_t(R + d\xi, t) \exp \left[ \frac{1}{2} \sum_i \left( \nabla_i d\xi_i + \nabla_i \delta U(R) d\xi_i \right) \right] + O(d\xi^2)
+
+Under the change of variables :math:`r_i \mapsto r_i + d\xi_i` the configuration-space volume element transforms with the Jacobian determinant:
+
+.. math::
+
+    \mathcal J(R \mapsto R + d\xi) = \det \left( \delta_{ab} + \frac{\partial d\xi_a}{\partial r_b} \right) \approx 1 + \sum_i \nabla_i d\xi_i \approx \exp \left(\sum_i \nabla_i d\xi_i \right)
+
+**Interpretation:** probability density is :math:`∣\Psi∣^2`. Under the coordinate transformation :math:`r_i \mapsto r_i + d\xi_i` a density transforms
+with the full Jacobian :math:`\mathcal J(R)`. Since the wavefunction is the square root of the density (up to sign/phase), it naturally acquires the factor
+:math:`\sqrt{\mathcal J(R)}`, i.e. the :math:`\frac{1}{2}` in front of :math:`\sum_i \nabla_i d\xi_i` is precisely because the wavefunction is the square
+root of :math:`∣\Psi∣^2`.
+
+Also :math:`\nabla_i \delta U(R) d\xi_i` rewrite as a non-local term:
+
+.. math::
+
+    \sum_i \nabla_i \delta U(R) d\xi_i = \delta U(R) + \sum_i \nabla_i \delta U(R) d\xi_i - \delta U(R) = \delta U(R + d\xi) - \delta U(R)
+
+taking into account all of the above:
+
+.. math::
+
+    \Psi_t(R, t_1) = \sqrt{\mathcal J(R \mapsto R + \xi)} \exp (J(R)) \Psi_t(R + \xi, t_0)
+
+where backflow displacemet :math:`\xi` is determined by gradient flow for the functional :math:`\delta U(R)` (movement in the direction of decreasing :math:`\delta U(R)`):
+
+.. math::
+
+    \xi(t_1) = \int_{t_0}^{t_1} d\xi(t) = - \int_{t_0}^{t_1} \nabla \delta U(R + \xi(t)) \,dt
+
+and Jastrow term :math:`J(R)`
+
+.. math::
+
+    J(R) = \frac{1}{2} \int_{t_0}^{t_1} \delta U(R + \xi(t) + d\xi(t)) - \delta U(R + \xi(t)) = \frac{1}{2} \left( \delta U(R + \xi(t_1)) - \delta U(R + \xi(t_0)) \right)
+
 Summary of Methods
 ------------------
 
@@ -245,7 +338,7 @@ There is only two non-zero terms of :math:`\eta(r_{ij})` gradient, i.e. by :math
 .. math::
 
     \nabla_{e_i} (\eta(r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij})
-    \sum_{k=0}^{N_\eta} \left[\mathbf{I} + \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} \left(\frac{k}{r_{ij}} - \frac{C}{L_\eta - r_{ij}}\right)\right] c_kr^k_{ij}
+    \sum_{k=0}^{N_\eta} \left[\left(\frac{k}{r_{ij}} - \frac{C}{L_\eta - r_{ij}}\right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} + \mathbf{I} \right] c_kr^k_{ij}
 
 .. math::
 
@@ -289,7 +382,7 @@ There is only one non-zero term of :math:`\mu(r_{iI})` gradient, i.e. by :math:`
 .. math::
 
     \nabla_{e_i} (\mu(r_{iI})\mathbf{r}_{iI}) = (1 - r_{iI}/L_\mu)^C\Theta(L_\mu - r_{iI})
-    \sum_{k=0}^{N_\mu} \left[\mathbf{I} + \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{iI} \left(\frac{k}{r_{iI}} - \frac{C}{L_\mu - r_{iI}}\right)\right] d_kr^k_{ij}
+    \sum_{k=0}^{N_\mu} \left[\left(\frac{k}{r_{iI}} - \frac{C}{L_\mu - r_{iI}}\right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{iI} + \mathbf{I}\right] d_kr^k_{ij}
 
 where :math:`\mathbf{\hat r}_{iI}` is the unit vector in the direction of the :math:`\mathbf{r}_{iI}`
 
@@ -338,7 +431,7 @@ or :math:`j`-th electron coordinates:
 
     \begin{align}
     & \nabla_{e_j} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) \\
-    &  \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right) \mathbf{\hat r}_{jI} \otimes \mathbf{r}_{ij} - \left(\frac{m}{r_{jI}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} - \mathbf{I} \right] \phi_{lmnI} r_{iI}^k r_{jI}^l r_{ij}^m\\
+    &  \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right) \mathbf{\hat r}_{jI} \otimes \mathbf{r}_{ij} - \left(\frac{m}{r_{ij}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} - \mathbf{I} \right] \phi_{lmnI} r_{iI}^k r_{jI}^l r_{ij}^m\\
     \end{align}
 
 There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}` gradient, i.e. by :math:`i`-th:
