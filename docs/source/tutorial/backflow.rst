@@ -61,109 +61,116 @@ To prevent code duplication, we need to prepare the necessary intermediate data:
 Origin of backflow
 ------------------
 
-Origin of backflow easy to understand if one introduces Slater-Jastrow trial wavefunction in form (where :math:`\mathscr A` is the antisymmetrizer):
+The emergence of backflow in quantum many-body wavefunctions can be understood by analyzing the structure of a Slater-Jastrow trial wavefunction
+under energy optimization. We begin with a non-antisymmetrized product trial function:
 
 .. math::
 
-    \Psi(R) = \exp(J(R)) \mathscr A \prod_i^N \psi_i(r_i)
+    \Psi_{VMC} = \exp(J(R)) \mathscr A \left( \prod_i^N \psi_i(r_i) \right)
 
-its local energy is:
+where :math:`R = \{r_1,..., r_N\}` denotes the full configuration, :math:`\mathscr A` is the antisymmetrizer (forming a Slater determinant), and :math:`J(R)` is a symmetric
+Jastrow factor ensuring proper cusp conditions.
 
-.. math::
-
-    E_L(R) = - \frac{1}{2} \sum_i \left[ \nabla_i^2 J(R) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i J(R) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
-
-also introduce optimized wavefunction:
+The local energy is given by:
 
 .. math::
 
-    \Psi_{opt}(R) = \exp(J(R) + U(R)) \mathscr A \prod_i^N \psi_i(r_i)
+    E_{VMC} = - \frac{1}{2} \sum_i \left[ \nabla_i^2 J(R) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i J(R) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
 
-
-where :math:`U(R)` is chosen so that the local energy :math:`E_{opt}(R)` is independent of :math:`R` (i.e. :math:`E_{opt}` becomes a constant):
-
-.. math::
-
-    E_{opt} = - \frac{1}{2} \sum_i \left[ \nabla_i^2 (J(R) + U(R)) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i (J(R) + U(R)) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
-
-then:
+Now, suppose we introduce an DMC wavefunction:
 
 .. math::
 
-    E_L(R) - E_{opt} = \frac{1}{2} \sum_i \left[ \nabla_i^2 U(R) + 2\nabla_i J(R) \nabla_i U(R) + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \nabla_i U(R) + (\nabla_i U(R))^2\right]
+    \Psi_{DMC} = \exp(J(R) + U(R)) \mathscr A \left( \prod_i^N \psi_i(r_i) \right)
 
-in terms of the stochastic process one can write the projected wave function with a generalized Feynman-Kac formula:
 
-.. math::
-
-    \Psi(R, t + dt) = \Psi(R, t) \exp[-dt(E_L(R) - E_{opt})]
-
-we introduce a new variable :math:`d\xi_i(R)=-dt \nabla_i U(R)` and put it into the equation:
+where :math:`U(R)` is DMC improvements over the Jastrow potential:
 
 .. math::
 
-    \Psi(R, t + dt) = \Psi(R, t) \exp \left[ \frac{1}{2} \sum_i \left( \nabla_i d\xi_i + 2\nabla_i J(R) d\xi_i + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} d\xi_i + \nabla_i U(R) d\xi_i \right) \right]
+    E_{DMC} = - \frac{1}{2} \sum_i \left[ \nabla_i^2 (J(R) + U(R)) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i (J(R) + U(R)) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
+
+The difference in local energy between the VMC and DMC wavefunctions is:
+
+.. math::
+
+    E_{VMC} - E_{DMC} = \frac{1}{2} \sum_i \left[ \nabla_i^2 U(R) + 2\nabla_i J(R) \nabla_i U(R) + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \nabla_i U(R) + (\nabla_i U(R))^2\right]
+
+In the context of imaginary-time evolution, the projected wavefunction evolves according to the generalized Feynman-Kac formula:
+
+.. math::
+
+    \Psi(R, t + dt) = \Psi(R, t) \exp[-dt(E_{VMC} - E_{DMC})]
+
+We now introduce a displacement field:
+
+.. math::
+
+    d\xi_i(R)=-dt \nabla_i U(R)
+
+motivated by the idea that the optimization :math:`U(R)` induces a flow in configuration space. Substituting into the energy difference:
+
+.. math::
+
+    E_{VMC} - E_{DMC} = \frac{1}{2} \sum_i \left( \nabla_i d\xi_i + 2\nabla_i J(R) d\xi_i + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} d\xi_i + \nabla_i U(R) d\xi_i \right)
 
 using the linear approximation:
 
 .. math::
 
-    f(r) + d\xi \cdot \nabla f(r) = f(r + d\xi) + O(d\xi^2)
+    f(r_i + d\xi_i) = f(r_i) + \nabla f(r_i) \cdot d\xi_i + O(dt^2)
 
-perform a coordinate change :math:`r_i \mapsto r_i + d\xi_i` in :math:`\Psi`:
-
-.. math::
-
-    \Psi(R, t + dt) = \Psi(R + d\xi, t) \exp \left[ \frac{1}{2} \sum_i \left( \nabla_i d\xi_i + \nabla_i U(R) d\xi_i \right) \right] + O(d\xi^2)
-
-Under the change of variables :math:`r_i \mapsto r_i + d\xi_i` the configuration-space volume element transforms with the Jacobian determinant:
+we shift the coordinates in the wavefunction: :math:`r_i \mapsto r_i + d\xi_i`. This allows us to write:
 
 .. math::
 
-    \ln \mathcal J(R) = \ln \det \left( \delta_{ab} + \frac{\partial d\xi_a}{\partial r_b} \right) = \nabla d\xi + O(d\xi^2)
+    \Psi(R, t + dt) = \Psi(R + d\xi, t) \exp \left[ \frac{1}{2} \sum_i \left( \nabla_i d\xi_i + \nabla_i U(R) d\xi_i \right) \right] + O(dt^2)
 
-Under the coordinate transformation :math:`r_i \mapsto r_i + d\xi_i` a probability density :math:`∣\Psi∣^2` transforms with the full Jacobian
-:math:`\mathcal J(R)`. Since the wavefunction is the square root of the density (up to sign/phase), it naturally acquires the factor
-:math:`\sqrt{\mathcal J(R)}`, i.e. the :math:`\frac{1}{2}` in front of :math:`\sum_i \nabla_i d\xi_i` is precisely because the wavefunction
-is the square root of :math:`∣\Psi∣^2`.
-
-finally rewrite :math:`\nabla_i U(R) d\xi_i` as a non-local term:
+Under the coordinate transformation :math:`R \mapsto R + d\xi`, the configuration-space volume element transforms with the Jacobian determinant:
 
 .. math::
 
-    \sum_i \nabla_i U(R) d\xi_i = U(R) + \sum_i \nabla_i U(R) d\xi_i - U(R) = U(R + d\xi) - U(R) + O(d\xi^2)
+    \mathcal J(R) = \det \left( \delta_{ab} + \frac{\partial d\xi_a}{\partial r_b} \right), \ln \mathcal J(R) = \nabla \cdot d\xi + O(dt^2)
 
-taking into account all of the above:
+A probability density :math:`\vert\Psi(R)\rvert^2` transforms as :math:`\rvert\Psi'(R')\rvert^2 = \rvert\Psi(R)\rvert^2 / \mathcal J`.
+Since the wavefunction is the square root of the density (up to sign/phase), it acquires the factor :math:`\mathcal J(R)^{-1/2}`:
+
+.. math::
+
+    \Psi(R') = \Psi(R) \cdot \mathcal J(R)^{-1/2}
+
+However, in our evolution equation, we observe a factor of :math:`\exp(\frac{1}{2} \nabla d\xi)`. This compensates the geometric suppression from the Jacobian.
+
+
+Now, rewrite the term :math:`\nabla_i U(R) d\xi_i` as a Taylor expansion:
+
+.. math::
+
+    U(R + d\xi) - U(R) = \sum_i \nabla_i U(R) d\xi_i + O(dt^2)
+
+Combining all contributions, the finite-time evolution from :math:`t_0` to :math:`t_1` becomes:
 
 .. math::
 
     \Psi(R, t_1) = \sqrt{\mathcal J(R + \xi)} \exp (J_{nl}(R)) \Psi(R + \xi, t_0)
 
-where :math:`\mathcal J(R + \xi)` Jacobian of transformation :math:`R \mapsto R + \xi`:
+where:
+
+* :math:`\xi` is the integrated backflow displacement: :math:`d\xi(t) = \int_{t_0}^{t_1} d\xi(s) \,ds`
+* :math:`\mathcal J(R + \xi)` is the Jacobian of the full transformation :math:`R \mapsto R + \xi`:
+* and the non-local Jastrow term arises as:
 
 .. math::
 
-    \frac{1}{2} \int_{t_0}^{t_1} \nabla d\xi(s) \, ds = \ln \left(\sqrt{\mathcal J(R + \xi(t_1))} \right) - \ln \left(\sqrt{\mathcal J(R + \xi(t_0))} \right)
+    J_{nl}(R) = \frac{1}{2} \int_{t_0}^{t_1} U(R(s) + \xi(s) + d\xi(s)) - U(R(s) + \xi(s)) \,ds = \frac{U(R + \xi(t_1)) - U(R + \xi(t_0))}{2}
 
-
-backflow displacement :math:`\xi` is governed by a backward gradient flow for the functional :math:`U(R)` (movement in the direction
-of decreasing :math:`U(R)`:
+The backflow displacement ξ follows a backward gradient flow in the functional :math:`U(R)`:
 
 .. math::
 
-    \int_{t_0}^{t_1} d\xi(s) \,ds = - \int_{t_0}^{t_1} \nabla U(R(s) + \xi(s)) \,ds = \xi(t_1) - \xi(t_0)
+    \frac{d\xi_i}{dt} = - \nabla_i U(R)
 
-and non-local Jastrow term :math:`J_{nl}(R)` from the backflow displacement:
-
-.. math::
-
-    \frac{1}{2} \int_{t_0}^{t_1} U(R(s) + \xi(s) + d\xi(s)) - U(R(s) + \xi(s)) \,ds = \frac{U(R + \xi(t_1)) - U(R + \xi(t_0))}{2} = J_{nl}(R)
-
-A common situation is when optimization starts with a pure Slater wave function, then:
-
-.. math::
-
-    J(R) \equiv 0; \xi(R, t_0) \equiv 0
+which corresponds to motion in the direction of decreasing :math:`U(R)`, i.e., towards configurations with lower local energy variance.
 
 Summary of Methods
 ------------------
