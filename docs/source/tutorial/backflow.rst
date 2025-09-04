@@ -61,12 +61,15 @@ To prevent code duplication, we need to prepare the necessary intermediate data:
 Origin of backflow
 ------------------
 
-The emergence of backflow in quantum many-body wavefunctions can be understood by analyzing the structure of a Slater-Jastrow trial wavefunction
-under energy optimization. We begin with a non-antisymmetrized product trial function:
+Optimization of a wavefunction within the DMC framework can be formally associated with an effect resembling backflow. While DMC does not modify the
+functional form of the trial wavefunction, the projected probability density evolves into a well-defined effective function over configuration space,
+constrained by the fixed nodal surface. This formal correspondence suggests that backflow-like correlations are implicitly discovered by the DMC dynamics,
+providing a physical motivation for such ansätze as variational encodings of the correlations projection methods reveal. Consider the standard
+Slater-Jastrow trial wavefunction:
 
 .. math::
 
-    \Psi_{VMC} = \exp(J(R)) \mathscr A \left( \prod_i^N \psi_i(r_i) \right)
+    \Psi = \exp(J(R)) \mathscr A \left( \prod_i^N \psi_i(r_i) \right)
 
 where :math:`R = \{r_1,..., r_N\}` denotes the full configuration, :math:`\mathscr A` is the antisymmetrizer (forming a Slater determinant), and :math:`J(R)` is a symmetric
 Jastrow factor ensuring proper cusp conditions.
@@ -75,102 +78,89 @@ The local energy is given by:
 
 .. math::
 
-    E_{VMC} = - \frac{1}{2} \sum_i \left[ \nabla_i^2 J(R) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i J(R) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
-
-Now, suppose we introduce an DMC wavefunction:
-
-.. math::
-
-    \Psi_{DMC} = \exp(J(R) + U(R)) \mathscr A \left( \prod_i^N \psi_i(r_i) \right)
+    E_L(R) = - \frac{1}{2} \sum_i \left[ \nabla_i^2 J(R) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i J(R) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
 
 
-where :math:`U(R)` is DMC improvements over the Jastrow potential:
+Now, consider an improved trial wavefunction — one that has been optimized to achieve the lowest possible energy under the fixed-node constraint, as targeted in DMC calculations:
 
 .. math::
 
-    E_{DMC} = - \frac{1}{2} \sum_i \left[ \nabla_i^2 (J(R) + U(R)) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i (J(R) + U(R)) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
+    \Psi_T = \exp(J(R) + U(R)) \mathscr A \left( \prod_i^N \psi_i(r_i) \right)
 
-The difference in local energy between the VMC and DMC wavefunctions is:
-
-.. math::
-
-    E_{VMC} - E_{DMC} = \frac{1}{2} \sum_i \left[ \nabla_i^2 U(R) + 2\nabla_i J(R) \nabla_i U(R) + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \nabla_i U(R) + (\nabla_i U(R))^2\right]
-
-In the context of imaginary-time evolution, the projected wavefunction evolves according to the generalized Feynman-Kac formula:
+Here, :math:`U(R)` represents an additional, variational correction to the Jastrow factor, designed to capture more complex correlation effects while preserving the nodal surface defined
+by the Slater determinant. Crucially, the single-particle orbitals :math:`\psi_i(r_i)` remain unchanged from the original trial function, and no deformation is applied to their arguments.
+As a result, the antisymmetrized product — and hence the nodes of the wavefunction — is identical to that of the original Slater determinant. This form is not the result of DMC projection,
+but rather an optimized ansatz whose structure is informed by the correlation physics revealed through DMC simulations, such as the environment-dependent particle responses that go beyond
+standard Jastrow descriptions. The local energy of this improved trial function is:
 
 .. math::
 
-    \Psi(R, t + dt) = \Psi(R, t) \exp[-dt(E_{VMC} - E_{DMC})]
+    E_T(R) = - \frac{1}{2} \sum_i \left[ \nabla_i^2 (J(R) + U(R)) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i (J(R) + U(R)) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
 
-We now introduce a displacement field:
-
-.. math::
-
-    d\xi_i(R)=-dt \nabla_i U(R)
-
-motivated by the idea that the optimization :math:`U(R)` induces a flow in configuration space. Substituting into the energy difference:
+The difference in local energy between the VMC and DMC-like wavefunctions is:
 
 .. math::
 
-    E_{VMC} - E_{DMC} = \frac{1}{2} \sum_i \left( \nabla_i d\xi_i + 2\nabla_i J(R) d\xi_i + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} d\xi_i + \nabla_i U(R) d\xi_i \right)
+    E_L - E_T = \frac{1}{2} \sum_i \left[ \nabla_i^2 U(R) + 2\nabla_i J(R) \nabla_i U(R) + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \nabla_i U(R) + (\nabla_i U(R))^2\right]
 
-using the linear approximation:
-
-.. math::
-
-    f(r_i + d\xi_i) = f(r_i) + \nabla f(r_i) \cdot d\xi_i + O(dt^2)
-
-we shift the coordinates in the wavefunction: :math:`r_i \mapsto r_i + d\xi_i`. This allows us to write:
+We now introduce a displacement vector field:
 
 .. math::
 
-    \Psi(R, t + dt) = \Psi(R + d\xi, t) \exp \left[ \frac{1}{2} \sum_i \left( \nabla_i d\xi_i + \nabla_i U(R) d\xi_i \right) \right] + O(dt^2)
+    \xi_i(R) = - \nabla_i U(R)
 
-Under the coordinate transformation :math:`R \mapsto R + d\xi`, the configuration-space volume element transforms with the Jacobian determinant:
-
-.. math::
-
-    \mathcal J(R) = \det \left( \delta_{ab} + \frac{\partial d\xi_a}{\partial r_b} \right), \ln \mathcal J(R) = \nabla \cdot d\xi + O(dt^2)
-
-A probability density :math:`\vert\Psi(R)\rvert^2` transforms as :math:`\rvert\Psi'(R')\rvert^2 = \rvert\Psi(R)\rvert^2 / \mathcal J`.
-Since the wavefunction is the square root of the density (up to sign/phase), it acquires the factor :math:`\mathcal J(R)^{-1/2}`:
+This form enables orbital-level optimization — a necessary step toward a more complete and physically accurate description of the many-body wavefunction.
+Substituting :math:`\xi_i(R)` into the energy difference, we obtain:
 
 .. math::
 
-    \Psi(R') = \Psi(R) \cdot \mathcal J(R)^{-1/2}
+    E_L(R) - E_T(R) = - \frac{1}{2} \sum_i \left( \nabla_i \cdot \xi_i + 2\nabla_i J(R) \cdot \xi_i + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \cdot \xi_i + \nabla_i U(R) \cdot \xi_i \right)
 
-However, in our evolution equation, we observe a factor of :math:`\exp(\frac{1}{2} \nabla d\xi)`. This compensates the geometric suppression from the Jacobian.
-
-
-Now, rewrite the term :math:`\nabla_i U(R) d\xi_i` as a Taylor expansion:
-
-.. math::
-
-    U(R + d\xi) - U(R) = \sum_i \nabla_i U(R) d\xi_i + O(dt^2)
-
-Combining all contributions, the finite-time evolution from :math:`t_0` to :math:`t_1` becomes:
+While the exact imaginary-time evolution in DMC combines diffusion, drift, and branching, the branching term alone governs the change in statistical weights of configurations.
+Specifically, the weight of a walker at configuration :math:`R` evolves as :math:`w(R, t + dt) = w(R, t) \exp[-dt(E_L(R) - E_T(R))]`. This motivates the use of an effective amplitude
+transformation:
 
 .. math::
 
-    \Psi(R, t_1) = \sqrt{\mathcal J(R + \xi)} \exp (J_{nl}(R)) \Psi(R + \xi, t_0)
+    \Psi(R, t + dt) = \Psi(R, t) \exp[-dt(E_L(R) - E_T(R))]
 
-where:
-
-* :math:`\xi` is the integrated backflow displacement: :math:`d\xi(t) = \int_{t_0}^{t_1} d\xi(s) \,ds`
-* :math:`\mathcal J(R + \xi)` is the Jacobian of the full transformation :math:`R \mapsto R + \xi`:
-* and the non-local Jastrow term arises as:
-
-.. math::
-
-    J_{nl}(R) = \frac{1}{2} \int_{t_0}^{t_1} U(R(s) + \xi(s) + d\xi(s)) - U(R(s) + \xi(s)) \,ds = \frac{U(R + \xi(t_1)) - U(R + \xi(t_0))}{2}
-
-The backflow displacement ξ follows a backward gradient flow in the functional :math:`U(R)`:
+where :math:`\Psi` is interpreted not as the physical wavefunction, but as a proxy for the statistical weight in the DMC ensemble. This approximation captures how the branching
+process selectively suppresses configurations where the trial wavefunction is energetically unfavorable, effectively reshaping the sampled distribution. This emergent bias mimics
+the effect of a coordinate deformation — providing a physical rationale for incorporating such deformations explicitly via backflow in variational ansätze. Using the linear
+approximation:
 
 .. math::
 
-    \frac{d\xi_i}{dt} = - \nabla_i U(R)
+    f(r_i + \xi_i dt) = f(r_i) + \nabla f(r_i) \cdot \xi_i dt + O(dt^2)
 
-which corresponds to motion in the direction of decreasing :math:`U(R)`, i.e., towards configurations with lower local energy variance.
+we shift the coordinates in the wavefunction: :math:`r_i \mapsto r_i + \xi_i dt`. This allows us to write:
+
+.. math::
+
+    \Psi(R, t + dt) = \Psi(R + \xi dt, t) \exp \left[ \frac{1}{2} \sum_i \left( \nabla_i \cdot \xi_i dt + \nabla_i U(R) \cdot \xi_i dt \right) \right] + O(dt^2)
+
+Along this effective trajectory, the term :math:`\sum_i \nabla_i U(R) \cdot \xi_i dt` can be interpreted as the differential :math:`dU(R)`,
+and :math:`\sum_i \nabla_i \cdot \xi_i dt` as the differential of the logarithm of the configuration-space volume, :math:`d\ln(V)`. Thus:
+
+.. math::
+
+    \Psi(R, t + dt) = \Psi(R + \xi dt, t) \exp \left[ \frac{d\ln(V(R)) + dU(R)}{2} \right] + O(dt^2)
+
+This shows that the energy-driven weight change in DMC can be formally mapped onto a combined effect of:
+
+- a coordinate transformation (backflow), represented by the shift :math:`r_i \mapsto r_i + \xi_i dt`
+- and a Jacobian correction due to the deformation of configuration space, captured by :math:`d\ln(V)`.
+- a nonlocal energy correction arising from the variation of the correlation potential :math:`U(R)` along the flow
+
+Integrating from :math:`0` to :math:`\tau` , the finite-time transformation becomes:
+
+.. math::
+
+    \frac{\Psi(R, \tau)}{\rvert\Psi(R, \tau)\rvert} = \exp \left( \frac{U(R + \tilde \xi(\tau)) - U(R)}{2} \right) \frac{\Psi(R + \tilde \xi)}{\rvert\Psi(R + \tilde \xi)\rvert}
+
+where :math:`\tilde \xi` is the integrated backflow displacement: :math:`\tilde \xi = \int_{0}^{\tau} \xi(R(s)) \, ds`
+
+A common situation is when optimization starts with a pure Slater wave function, then :math:`J(R) \equiv 0`
 
 Summary of Methods
 ------------------
