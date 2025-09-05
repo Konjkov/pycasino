@@ -817,13 +817,13 @@ def backflow_phi_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                         poly_diff_ee = m * poly
                                         phi_poly_diff_ee += poly_diff_ee * phi_p
                                         theta_poly_diff_ee += poly_diff_ee * theta_p
-                                        poly_diff_e1I_2 = k * (k - 1) * poly
+                                        poly_diff_e1I_2 = k * (k + 1) * poly
                                         phi_poly_diff_e1I_2 += poly_diff_e1I_2 * phi_p
                                         theta_poly_diff_e1I_2 += poly_diff_e1I_2 * theta_p
-                                        poly_diff_e2I_2 = l * (l - 1) * poly
+                                        poly_diff_e2I_2 = l * (l + 1) * poly
                                         phi_poly_diff_e2I_2 += poly_diff_e2I_2 * phi_p
                                         theta_poly_diff_e2I_2 += poly_diff_e2I_2 * theta_p
-                                        poly_diff_ee_2 = m * (m - 1) * poly
+                                        poly_diff_ee_2 = m * (m + 1) * poly
                                         phi_poly_diff_ee_2 += poly_diff_ee_2 * phi_p
                                         theta_poly_diff_ee_2 += poly_diff_ee_2 * theta_p
                                         poly_diff_e1I_ee = k * m * poly
@@ -833,17 +833,13 @@ def backflow_phi_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                         phi_poly_diff_e2I_ee += poly_diff_e2I_ee * phi_p
                                         theta_poly_diff_e2I_ee += poly_diff_e2I_ee * theta_p
 
-                            phi_diff_1 = (
-                                (phi_poly_diff_e1I - phi_poly * cutoff_diff_e1I) / r_e1I**2
-                                + (phi_poly_diff_e2I - phi_poly * cutoff_diff_e2I) / r_e2I**2
-                                + 4 * phi_poly_diff_ee / r_ee**2
-                            )
+                            phi_diff_1 = 2 * phi_poly_diff_ee / r_ee**2
                             phi_diff_2 = (
                                 phi_poly * cutoff_diff_e1I_2 / r_e1I**2
-                                - 2 * phi_poly_diff_e1I * cutoff_diff_e1I / r_e1I**2
+                                - 2 * (phi_poly_diff_e1I + phi_poly) * cutoff_diff_e1I / r_e1I**2
                                 + phi_poly_diff_e1I_2 / r_e1I**2
                                 + phi_poly * cutoff_diff_e2I_2 / r_e2I**2
-                                - 2 * phi_poly_diff_e2I * cutoff_diff_e2I / r_e2I**2
+                                - 2 * (phi_poly_diff_e2I + phi_poly) * cutoff_diff_e2I / r_e2I**2
                                 + phi_poly_diff_e2I_2 / r_e2I**2
                                 + 2 * phi_poly_diff_ee_2 / r_ee**2
                             )
@@ -853,17 +849,13 @@ def backflow_phi_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                 + (phi_poly_diff_e1I_ee - phi_poly_diff_ee * cutoff_diff_e1I) * r_ee_vec * (r_ee_vec @ r_e1I_vec) / r_e1I**2 / r_ee**2
                                 - (phi_poly_diff_e2I_ee - phi_poly_diff_ee * cutoff_diff_e2I) * r_ee_vec * (r_ee_vec @ r_e2I_vec) / r_e2I**2 / r_ee**2
                             )
-                            theta_diff_1 = (
-                                2 * (theta_poly_diff_e1I - theta_poly * cutoff_diff_e1I) / r_e1I**2
-                                + (theta_poly_diff_e2I - theta_poly * cutoff_diff_e2I) / r_e2I**2
-                                + 2 * theta_poly_diff_ee / r_ee**2
-                            )
+                            theta_diff_1 = (theta_poly_diff_e1I - theta_poly * cutoff_diff_e1I) / r_e1I**2
                             theta_diff_2 = (
                                 theta_poly * cutoff_diff_e1I_2 / r_e1I**2
-                                - 2 * theta_poly_diff_e1I * cutoff_diff_e1I / r_e1I**2
+                                - 2 * (theta_poly_diff_e1I + theta_poly) * cutoff_diff_e1I / r_e1I**2
                                 + theta_poly_diff_e1I_2 / r_e1I**2
                                 + theta_poly * cutoff_diff_e2I_2 / r_e2I**2
-                                - 2 * theta_poly_diff_e2I * cutoff_diff_e2I / r_e2I**2
+                                - 2 * (theta_poly_diff_e2I + theta_poly) * cutoff_diff_e2I / r_e2I**2
                                 + theta_poly_diff_e2I_2 / r_e2I**2
                                 + 2 * theta_poly_diff_ee_2 / r_ee**2
                             )
