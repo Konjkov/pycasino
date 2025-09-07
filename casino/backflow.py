@@ -834,28 +834,20 @@ def backflow_phi_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                         theta_poly_diff_e2I_ee += poly_diff_e2I_ee * theta_p
 
                             phi_ee = (
-                                phi_poly * cutoff_diff_e1I_2 / r_e1I**2  # Bi/riI²
-                                - 2 * (phi_poly_diff_e1I + phi_poly) * cutoff_diff_e1I / r_e1I**2  # -2Ai(k+1)/riI²
-                                + phi_poly_diff_e1I_2 / r_e1I**2  # k(k+1)/riI²
-                                + phi_poly * cutoff_diff_e2I_2 / r_e2I**2  # Bj/rjI²
-                                - 2 * (phi_poly_diff_e2I + phi_poly) * cutoff_diff_e2I / r_e2I**2  # -2Aj(l+1)/rjI²
-                                + phi_poly_diff_e2I_2 / r_e2I**2  # l(l+l)/rjI²
-                                + 2 * phi_poly_diff_ee_2 / r_ee**2  # 2m(m+1)/rij²
-                                + 4 * phi_poly_diff_ee / r_ee**2  # 4m/rij²
+                                phi_poly * cutoff_diff_e1I_2 / r_e1I**2
+                                - 2 * (phi_poly_diff_e1I + phi_poly) * cutoff_diff_e1I / r_e1I**2
+                                + phi_poly_diff_e1I_2 / r_e1I**2
+                                + phi_poly * cutoff_diff_e2I_2 / r_e2I**2
+                                - 2 * (phi_poly_diff_e2I + phi_poly) * cutoff_diff_e2I / r_e2I**2
+                                + phi_poly_diff_e2I_2 / r_e2I**2
+                                + 2 * phi_poly_diff_ee_2 / r_ee**2
+                                + 4 * phi_poly_diff_ee / r_ee**2
                             )
                             phi_dot_product = 2 * (
-                                (phi_poly_diff_e1I - phi_poly * cutoff_diff_e1I) * r_e1I_vec / r_e1I**2  # (k - Ai)*riI_hat/riI
-                                - (phi_poly_diff_e2I - phi_poly * cutoff_diff_e2I) * r_e2I_vec / r_e2I**2  # -(l - Aj)*rjI_hat/rjI
-                                + (phi_poly_diff_e1I_ee - phi_poly_diff_ee * cutoff_diff_e1I)
-                                * r_ee_vec
-                                * (r_ee_vec @ r_e1I_vec)
-                                / r_e1I**2
-                                / r_ee**2  # m(k - Ai)*rij_hat*riI_hat/riI
-                                - (phi_poly_diff_e2I_ee - phi_poly_diff_ee * cutoff_diff_e2I)
-                                * r_ee_vec
-                                * (r_ee_vec @ r_e2I_vec)
-                                / r_e2I**2
-                                / r_ee**2  # -m(l - Aj)*rij_hat*rjI_hat/rjI
+                                (phi_poly_diff_e1I - phi_poly * cutoff_diff_e1I) * r_e1I_vec / r_e1I**2
+                                - (phi_poly_diff_e2I - phi_poly * cutoff_diff_e2I) * r_e2I_vec / r_e2I**2
+                                + (phi_poly_diff_e1I_ee - phi_poly_diff_ee * cutoff_diff_e1I) * r_ee_vec * (r_ee_vec @ r_e1I_vec) / r_e1I**2 / r_ee**2
+                                - (phi_poly_diff_e2I_ee - phi_poly_diff_ee * cutoff_diff_e2I) * r_ee_vec * (r_ee_vec @ r_e2I_vec) / r_e2I**2 / r_ee**2
                             )
                             theta_e1I = (
                                 theta_poly * cutoff_diff_e1I_2 / r_e1I**2

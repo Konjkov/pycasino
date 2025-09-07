@@ -447,7 +447,7 @@ and :math:`\Phi` term addent is a product of constant :math:`\phi_{klmI}r_{jI}^l
 
     \Delta (f(r_{ij})g(r_{iI})\mathbf{r}_{ij}) = \left(g\Delta f + 2\nabla f\nabla g + f\Delta g\right)r_{ij} + 2(g\nabla f + f\nabla g)
 
-There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}` laplacian, i.e. by :math:`i`-th  or :math:`j`-th electron coordinates:
+There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}` laplacian, i.e. by :math:`i`-th:
 
 .. math::
 
@@ -465,7 +465,7 @@ There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r
 
     \Delta_{e_i} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{iI} + l_{dot,i} + g_{iI})
 
-There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}` laplacian, i.e. by :math:`i`-th  or :math:`j`-th electron coordinates:
+  or :math:`j`-th electron coordinates:
 
 .. math::
 
@@ -481,7 +481,20 @@ There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf
 
 .. math::
 
+    \Delta_{e_j} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{jI} + l_{dot,j} + g_{jI})
+
+There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}` laplacian, i.e. by :math:`i`-th:
+
+.. math::
+
     \Delta_{e_i} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{jI} - l_{dot,j} - g_{jI})
+
+or :math:`j`-th electron coordinates:
+
+.. math::
+
+    \Delta_{e_j} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{jI} - l_{dot,j} - g_{jI})
+
 
 For certain electron coordinates, :math:`\phi` term laplacian can be obtained with :py:meth:`casino.Backflow.phi_term_laplacian` method::
 
