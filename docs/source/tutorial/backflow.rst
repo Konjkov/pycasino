@@ -58,110 +58,6 @@ To prevent code duplication, we need to prepare the necessary intermediate data:
     en_spin_mask[neu:] = 1
     C = backflow.trunc
 
-Origin of backflow
-------------------
-
-Optimization of a wavefunction within the DMC framework can be formally associated with an effect resembling backflow. While DMC does not modify the
-functional form of the trial wavefunction, the projected probability density evolves into a well-defined effective function over configuration space,
-constrained by the fixed nodal surface. This formal correspondence suggests that backflow-like correlations are implicitly discovered by the DMC dynamics,
-providing a physical motivation for such ansätze as variational encodings of the correlations projection methods reveal. Consider the standard
-Slater-Jastrow trial wavefunction:
-
-.. math::
-
-    \Psi = \exp(J(R)) \mathscr A \left( \prod_i^N \psi_i(r_i) \right)
-
-where :math:`R = \{r_1,..., r_N\}` denotes the full configuration, :math:`\mathscr A` is the antisymmetrizer (forming a Slater determinant), and :math:`J(R)` is a symmetric
-Jastrow factor ensuring proper cusp conditions.
-
-The local energy is given by:
-
-.. math::
-
-    E_L(R) = - \frac{1}{2} \sum_i \left[ \nabla_i^2 J(R) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i J(R) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
-
-
-Now, consider an improved trial wavefunction — one that has been optimized to achieve the lowest possible energy under the fixed-node constraint, as targeted in DMC calculations:
-
-.. math::
-
-    \Psi_T = \exp(J(R) + U(R)) \mathscr A \left( \prod_i^N \psi_i(r_i) \right)
-
-Here, :math:`U(R)` represents an additional, variational correction to the Jastrow factor, designed to capture more complex correlation effects while preserving the nodal surface defined
-by the Slater determinant. Crucially, the single-particle orbitals :math:`\psi_i(r_i)` remain unchanged from the original trial function, and no deformation is applied to their arguments.
-As a result, the antisymmetrized product — and hence the nodes of the wavefunction — is identical to that of the original Slater determinant. This form is not the result of DMC projection,
-but rather an optimized ansatz whose structure is informed by the correlation physics revealed through DMC simulations, such as the environment-dependent particle responses that go beyond
-standard Jastrow descriptions. The local energy of this improved trial function is:
-
-.. math::
-
-    E_T(R) = - \frac{1}{2} \sum_i \left[ \nabla_i^2 (J(R) + U(R)) + \frac{\nabla_i^2 \psi_i(r_i)}{\psi_i(r_i)} + \left(\nabla_i (J(R) + U(R)) + \frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \right)^2 \right] + V(R)
-
-The difference in local energy between the VMC and DMC-like wavefunctions is:
-
-.. math::
-
-    E_L - E_T = \frac{1}{2} \sum_i \left[ \nabla_i^2 U(R) + 2\nabla_i J(R) \nabla_i U(R) + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \nabla_i U(R) + (\nabla_i U(R))^2\right]
-
-We now introduce a displacement vector field:
-
-.. math::
-
-    \xi_i(R) = - \nabla_i U(R)
-
-This form enables orbital-level optimization — a necessary step toward a more complete and physically accurate description of the many-body wavefunction.
-Substituting :math:`\xi_i(R)` into the energy difference, we obtain:
-
-.. math::
-
-    E_L(R) - E_T(R) = - \frac{1}{2} \sum_i \left( \nabla_i \cdot \xi_i + 2\nabla_i J(R) \cdot \xi_i + 2\frac{\nabla_i \psi_i(r_i)}{\psi_i(r_i)} \cdot \xi_i + \nabla_i U(R) \cdot \xi_i \right)
-
-While the exact imaginary-time evolution in DMC combines diffusion, drift, and branching, the branching term alone governs the change in statistical weights of configurations.
-Specifically, the weight of a walker at configuration :math:`R` evolves as :math:`w(R, t + dt) = w(R, t) \exp[-dt(E_L(R) - E_T(R))]`. This motivates the use of an effective amplitude
-transformation:
-
-.. math::
-
-    \Psi(R, t + dt) = \Psi(R, t) \exp[-dt(E_L(R) - E_T(R))]
-
-where :math:`\Psi` is interpreted not as the physical wavefunction, but as a proxy for the statistical weight in the DMC ensemble. This approximation captures how the branching
-process selectively suppresses configurations where the trial wavefunction is energetically unfavorable, effectively reshaping the sampled distribution. This emergent bias mimics
-the effect of a coordinate deformation — providing a physical rationale for incorporating such deformations explicitly via backflow in variational ansätze. Using the linear
-approximation:
-
-.. math::
-
-    f(r_i + \xi_i dt) = f(r_i) + \nabla f(r_i) \cdot \xi_i dt + O(dt^2)
-
-we shift the coordinates in the wavefunction: :math:`r_i \mapsto r_i + \xi_i dt`. This allows us to write:
-
-.. math::
-
-    \Psi(R, t + dt) = \Psi(R + \xi dt, t) \exp \left[ \frac{1}{2} \sum_i \left( \nabla_i \cdot \xi_i dt + \nabla_i U(R) \cdot \xi_i dt \right) \right] + O(dt^2)
-
-Along this effective trajectory, the term :math:`\sum_i \nabla_i U(R) \cdot \xi_i dt` can be interpreted as the differential :math:`dU(R)`,
-and :math:`\sum_i \nabla_i \cdot \xi_i dt` as the differential of the logarithm of the configuration-space volume, :math:`d\ln(V)`. Thus:
-
-.. math::
-
-    \Psi(R, t + dt) = \Psi(R + \xi dt, t) \exp \left[ \frac{d\ln(V(R)) + dU(R)}{2} \right] + O(dt^2)
-
-This shows that the energy-driven weight change in DMC can be formally mapped onto a combined effect of:
-
-- a coordinate transformation (backflow), represented by the shift :math:`r_i \mapsto r_i + \xi_i dt`
-- and a Jacobian correction due to the deformation of configuration space, captured by :math:`d\ln(V)`.
-- a nonlocal energy correction arising from the variation of the correlation potential :math:`U(R)` along the flow
-
-Integrating from :math:`0` to :math:`\tau` , the finite-time transformation becomes:
-
-.. math::
-
-    \frac{\Psi(R, \tau)}{\rvert\Psi(R, \tau)\rvert} = \exp \left( \frac{U(R + \tilde \xi(\tau)) - U(R)}{2} \right) \frac{\Psi(R + \tilde \xi)}{\rvert\Psi(R + \tilde \xi)\rvert}
-
-where :math:`\tilde \xi` is the integrated backflow displacement: :math:`\tilde \xi = \int_{0}^{\tau} \xi(R(s)) \, ds`
-
-A common situation is when optimization starts with a pure Slater wave function, then :math:`J(R) \equiv 0`
-
 Summary of Methods
 ------------------
 
@@ -278,12 +174,12 @@ backflow displacements in terms of :math:`r_{ij}` , :math:`r_{iI}` , and :math:`
 .. math::
 
     \Phi(r_{iI}, r_{jI}, r_{ij}) = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})
-    \sum_{k=0}^{N_{\Phi I}^{eN}}\sum_{l=0}^{N_{\Phi I}^{eN}}\sum_{m=0}^{N_{\Phi I}^{ee}}\phi_{lmnI}r_{iI}^kr_{jI}^lr_{ij}^m
+    \sum_{k=0}^{N_{\Phi I}^{eN}}\sum_{l=0}^{N_{\Phi I}^{eN}}\sum_{m=0}^{N_{\Phi I}^{ee}}\phi_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
 
 .. math::
 
     \Theta(r_{iI}, r_{jI}, r_{ij}) = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})
-    \sum_{k=0}^{N_{\Phi I}^{eN}}\sum_{l=0}^{N_{\Phi I}^{eN}}\sum_{m=0}^{N_{\Phi I}^{ee}}\theta_{lmnI}r_{iI}^kr_{jI}^lr_{ij}^m
+    \sum_{k=0}^{N_{\Phi I}^{eN}}\sum_{l=0}^{N_{\Phi I}^{eN}}\sum_{m=0}^{N_{\Phi I}^{ee}}\theta_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
 
 where :math:`\Theta` is the Heaviside function. To ensure electron–electron Kato cusp conditions folowing :math:`3(N_{\Phi I}^{ee} + N_{\Phi I}^{en} + 1)`
 constraints is applied:
@@ -433,7 +329,7 @@ There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r
 
     \begin{align}
     & \nabla_{e_i} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) \\
-    &  \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{ij} + \left(\frac{m}{r_{ij}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} + \mathbf{I} \right] \phi_{lmnI} r_{iI}^k r_{jI}^l r_{ij}^m\\
+    &  \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{ij} + \left(\frac{m}{r_{ij}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} + \mathbf{I} \right] \phi_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m\\
     \end{align}
 
 or :math:`j`-th electron coordinates:
@@ -442,7 +338,7 @@ or :math:`j`-th electron coordinates:
 
     \begin{align}
     & \nabla_{e_j} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) \\
-    &  \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right) \mathbf{\hat r}_{jI} \otimes \mathbf{r}_{ij} - \left(\frac{m}{r_{ij}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} - \mathbf{I} \right] \phi_{lmnI} r_{iI}^k r_{jI}^l r_{ij}^m\\
+    &  \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right) \mathbf{\hat r}_{jI} \otimes \mathbf{r}_{ij} - \left(\frac{m}{r_{ij}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} - \mathbf{I} \right] \phi_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m\\
     \end{align}
 
 There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}` gradient, i.e. by :math:`i`-th:
@@ -451,7 +347,7 @@ There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf
 
     \begin{align}
     & \nabla_{e_i} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) \\
-    & \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{k}{r_{iI}} -\frac{C}{L_{\Phi I} - r_{iI}}\right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{iI} + \left(\frac{m}{r_{ij}}\right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{iI} + \mathbf{I} \right]  \theta_{lmnI} r_{iI}^k r_{jI}^l r_{ij}^m\\
+    & \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{k}{r_{iI}} -\frac{C}{L_{\Phi I} - r_{iI}}\right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{iI} + \left(\frac{m}{r_{ij}}\right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{iI} + \mathbf{I} \right]  \theta_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m\\
     \end{align}
 
 or :math:`j`-th electron coordinates:
@@ -460,7 +356,7 @@ or :math:`j`-th electron coordinates:
 
     \begin{align}
     & \nabla_{e_j} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) \\
-    & \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}}\right) \mathbf{\hat r}_{jI} \otimes \mathbf{r}_{iI} - \left(\frac{m}{r_{ij}}\right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{iI} \right]  \theta_{lmnI} r_{iI}^k r_{jI}^l r_{ij}^m\\
+    & \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}}\right) \mathbf{\hat r}_{jI} \otimes \mathbf{r}_{iI} - \left(\frac{m}{r_{ij}}\right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{iI} \right]  \theta_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m\\
     \end{align}
 
 where :math:`\mathbf{\hat r}_{ij}` is the unit vector in the direction of the :math:`\mathbf{r}_{ij}`
@@ -545,7 +441,7 @@ and laplacian of spherically symmetric vector function (in 3-D space) is:
 
     \Delta f(r) = f''(r) + \frac{2}{r} f'(r)
 
-and :math:`\Phi` term addent is a product of constant :math:`\phi_{lmnI}r_{jI}^l` and three spherically symmetric functions :math:`f(r_{ij})`, :math:`g(r_{iI})`, :math:`\mathbf{r}_{ij}` so using:
+and :math:`\Phi` term addent is a product of constant :math:`\phi_{klmI}r_{jI}^l` and three spherically symmetric functions :math:`f(r_{ij})`, :math:`g(r_{iI})`, :math:`\mathbf{r}_{ij}` so using:
 
 .. math::
 
@@ -555,13 +451,37 @@ There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r
 
 .. math::
 
-    \Delta_{e_i} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI})
+    l_{iI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{m(m+1)}{r_{ij}^2} + \frac{2m}{r_{ij}^2} + \frac{k(k+1)}{r_{iI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{iI})^2} - \frac{2C(k+1)}{r_{iI}(L_{\Phi I} - r_{iI})} \right) \mathbf{r}_{ij}
+
+.. math::
+
+    l_{dot,i} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \frac{2m}{r_{ij}} \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{iI})\mathbf{r}_{ij}
+
+.. math::
+
+    g_{iI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right)\mathbf{\hat r}_{iI} \phi_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m
+
+.. math::
+
+    \Delta_{e_i} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{iI} + l_{dot,i} + g_{iI})
 
 There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}` laplacian, i.e. by :math:`i`-th  or :math:`j`-th electron coordinates:
 
 .. math::
 
-    \Delta_{e_i} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI})
+    l_{jI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{m(m+1)}{r_{ij}^2} + \frac{2m}{r_{ij}^2} + \frac{l(l+1)}{r_{jI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{jI})^2} - \frac{2C(l+1)}{r_{iI}(L_{\Phi I} - r_{jI})} \right) \mathbf{r}_{ij}
+
+.. math::
+
+    l_{dot,j} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \frac{2m}{r_{ij}} \left( \frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{jI})\mathbf{r}_{ij}
+
+.. math::
+
+    g_{jI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{l}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right)\mathbf{\hat r}_{iI} \phi_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m
+
+.. math::
+
+    \Delta_{e_i} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{jI} - l_{dot,j} - g_{jI})
 
 For certain electron coordinates, :math:`\phi` term laplacian can be obtained with :py:meth:`casino.Backflow.phi_term_laplacian` method::
 
