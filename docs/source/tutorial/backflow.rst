@@ -441,11 +441,11 @@ and laplacian of spherically symmetric vector function (in 3-D space) is:
 
     \Delta f(r) = f''(r) + \frac{2}{r} f'(r)
 
-and :math:`\Phi` term addent is a product of constant :math:`\phi_{klmI}r_{jI}^l` and three spherically symmetric functions :math:`f(r_{ij})`, :math:`g(r_{iI})`, :math:`\mathbf{r}_{ij}` so using:
+and :math:`\Phi` term addent is a product of constant :math:`\phi_{klmI}r_{jI}^l` and three spherically symmetric functions :math:`f(r_{ij})`, :math:`g(r_{iI})` or :math:`g(r_{jI})`, :math:`\mathbf{r}_{ij}` so using:
 
 .. math::
 
-    \Delta (f(r_{ij})g(r_{iI})\mathbf{r}_{ij}) = \left(g\Delta f + 2\nabla f\nabla g + f\Delta g\right)r_{ij} + 2(g\nabla f + f\nabla g)
+    \Delta (fg\mathbf{r}_{ij}) = \left(g\Delta f + 2\nabla \cdot f\nabla g + f\Delta g\right)\mathbf{r}_{ij} + 2(g\nabla f + f\nabla g)
 
 There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}` laplacian, i.e. by :math:`i`-th:
 
@@ -465,7 +465,7 @@ There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r
 
     \Delta_{e_i} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{iI} + l_{dot,i} + g_{iI})
 
-  or :math:`j`-th electron coordinates:
+or :math:`j`-th electron coordinates:
 
 .. math::
 
@@ -477,24 +477,43 @@ There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r
 
 .. math::
 
-    g_{jI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{l}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right)\mathbf{\hat r}_{iI} \phi_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m
+    g_{jI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right)\mathbf{\hat r}_{iI} \phi_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m
 
 .. math::
 
-    \Delta_{e_j} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{jI} + l_{dot,j} + g_{jI})
+    \Delta_{e_j} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{jI} - l_{dot,j} - g_{jI})
 
 There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}` laplacian, i.e. by :math:`i`-th:
 
 .. math::
 
-    \Delta_{e_i} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{jI} - l_{dot,j} - g_{jI})
+    l_{iI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{m(m+1)}{r_{ij}^2} + \frac{2m}{r_{ij}^2} + \frac{k(k+1)}{r_{iI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{iI})^2} - \frac{2C(k+1)}{r_{iI}(L_{\Phi I} - r_{jI})} \right) \mathbf{r}_{ij}
+
+.. math::
+
+    l_{dot,i} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \frac{2m}{r_{ij}} \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{iI})\mathbf{r}_{ij}
+
+.. math::
+
+    g_{iI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right)\mathbf{\hat r}_{iI} \theta_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m
+
+.. math::
+
+    \Delta_{e_i} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{jI} + l_{dot,j} + g_{jI})
 
 or :math:`j`-th electron coordinates:
 
 .. math::
 
-    \Delta_{e_j} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{jI} - l_{dot,j} - g_{jI})
+    l_{jI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{m(m+1)}{r_{ij}^2} - \frac{2m}{r_{ij}^2} + \frac{l(l+1)}{r_{jI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{jI})^2} - \frac{2C(k+1)}{r_{iI}(L_{\Phi I} - r_{jI})} \right) \mathbf{r}_{ij}
 
+.. math::
+
+    l_{dot,j} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \frac{2m}{r_{ij}} \left( \frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{jI})\mathbf{r}_{ij}
+
+.. math::
+
+    \Delta_{e_j} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{jI} - l_{dot,j} - g_{jI})
 
 For certain electron coordinates, :math:`\phi` term laplacian can be obtained with :py:meth:`casino.Backflow.phi_term_laplacian` method::
 
