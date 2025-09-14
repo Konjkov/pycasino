@@ -705,23 +705,15 @@ def backflow_eta_term_laplacian(self, e_powers, e_vectors):
                 eta_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
                 L = self.eta_cutoff[eta_set % self.eta_cutoff.shape[0]]
                 if r < L:
-                    poly = poly_diff = poly_diff_2 = 0
+                    poly = 0.0
                     for k in range(parameters.shape[1]):
-                        p = parameters[eta_set, k] * e_powers[e1, e2, k]
-                        poly += p
-                        poly_diff += k * p
-                        poly_diff_2 += k * (k - 1) * p
-
-                    bf = (
-                        2
-                        * (1 - r / L) ** C
-                        * (
-                            4 * (poly_diff - C * r / (L - r) * poly)
-                            + (C * (C - 1) * r**2 / (L - r) ** 2 * poly - 2 * C * r / (L - r) * poly_diff + poly_diff_2)
+                        poly += (
+                            (C * (C - 1) / (L - r) ** 2 - 2 * C * (k + 2) / r / (L - r) + k * (k + 3) / r**2)
+                            * parameters[eta_set, k]
+                            * e_powers[e1, e2, k]
                         )
-                        * r_vec
-                        / r**2
-                    )
+                    # double because we add half of the matrix
+                    bf = 2 * (1 - r / L) ** C * poly * r_vec
                     res[ae_cutoff_condition, e1] += bf
                     res[ae_cutoff_condition, e2] -= bf
 
@@ -748,25 +740,18 @@ def backflow_mu_term_laplacian(self, n_powers, n_vectors):
                     r = n_powers[label, e1, 1]
                     if r < L:
                         mu_set = int(e1 >= self.neu) % parameters.shape[0]
-                        poly = poly_diff = poly_diff_2 = 0.0
+                        poly = 0.0
                         for k in range(parameters.shape[1]):
-                            p = parameters[mu_set, k] * n_powers[label, e1, k]
-                            poly += p
-                            poly_diff += k * p
-                            poly_diff_2 += k * (k - 1) * p
+                            poly += (
+                                (C * (C - 1) / (L - r) ** 2 - 2 * C * (k + 2) / r / (L - r) + k * (k + 3) / r**2)
+                                * parameters[mu_set, k]
+                                * n_powers[label, e1, k]
+                            )
                         # cutoff_condition
                         # 0: AE cutoff exactly not applied
                         # 1: AE cutoff maybe applied
                         ae_cutoff_condition = int(r > self.ae_cutoff[label])
-                        res[ae_cutoff_condition, e1] += (
-                            (1 - r / L) ** C
-                            * (
-                                4 * (poly_diff - C * r / (L - r) * poly)
-                                + (C * (C - 1) * r**2 / (L - r) ** 2 * poly - 2 * C * r / (L - r) * poly_diff + poly_diff_2)
-                            )
-                            * r_vec
-                            / r**2
-                        )
+                        res[ae_cutoff_condition, e1] += (1 - r / L) ** C * poly * r_vec
 
         return res.reshape(2, (self.neu + self.ned) * 3)
 
@@ -832,13 +817,13 @@ def backflow_phi_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                         poly_diff_ee = m * poly
                                         phi_poly_diff_ee += poly_diff_ee * phi_p
                                         theta_poly_diff_ee += poly_diff_ee * theta_p
-                                        poly_diff_e1I_2 = k * (k - 1) * poly
+                                        poly_diff_e1I_2 = k * (k + 1) * poly
                                         phi_poly_diff_e1I_2 += poly_diff_e1I_2 * phi_p
                                         theta_poly_diff_e1I_2 += poly_diff_e1I_2 * theta_p
-                                        poly_diff_e2I_2 = l * (l - 1) * poly
+                                        poly_diff_e2I_2 = l * (l + 1) * poly
                                         phi_poly_diff_e2I_2 += poly_diff_e2I_2 * phi_p
                                         theta_poly_diff_e2I_2 += poly_diff_e2I_2 * theta_p
-                                        poly_diff_ee_2 = m * (m - 1) * poly
+                                        poly_diff_ee_2 = m * (m + 1) * poly
                                         phi_poly_diff_ee_2 += poly_diff_ee_2 * phi_p
                                         theta_poly_diff_ee_2 += poly_diff_ee_2 * theta_p
                                         poly_diff_e1I_ee = k * m * poly
@@ -848,59 +833,47 @@ def backflow_phi_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                         phi_poly_diff_e2I_ee += poly_diff_e2I_ee * phi_p
                                         theta_poly_diff_e2I_ee += poly_diff_e2I_ee * theta_p
 
-                            phi_diff_1 = (
-                                (phi_poly_diff_e1I - phi_poly * cutoff_diff_e1I) / r_e1I**2
-                                + (phi_poly_diff_e2I - phi_poly * cutoff_diff_e2I) / r_e2I**2
-                                + 4 * phi_poly_diff_ee / r_ee**2
-                            )
-                            phi_diff_2 = (
+                            phi_ee = (
                                 phi_poly * cutoff_diff_e1I_2 / r_e1I**2
-                                - 2 * phi_poly_diff_e1I * cutoff_diff_e1I / r_e1I**2
+                                - 2 * (phi_poly_diff_e1I + phi_poly) * cutoff_diff_e1I / r_e1I**2
                                 + phi_poly_diff_e1I_2 / r_e1I**2
                                 + phi_poly * cutoff_diff_e2I_2 / r_e2I**2
-                                - 2 * phi_poly_diff_e2I * cutoff_diff_e2I / r_e2I**2
+                                - 2 * (phi_poly_diff_e2I + phi_poly) * cutoff_diff_e2I / r_e2I**2
                                 + phi_poly_diff_e2I_2 / r_e2I**2
                                 + 2 * phi_poly_diff_ee_2 / r_ee**2
+                                + 4 * phi_poly_diff_ee / r_ee**2
                             )
-                            phi_dot_product = (
+                            phi_dot_product = 2 * (
                                 (phi_poly_diff_e1I - phi_poly * cutoff_diff_e1I) * r_e1I_vec / r_e1I**2
                                 - (phi_poly_diff_e2I - phi_poly * cutoff_diff_e2I) * r_e2I_vec / r_e2I**2
                                 + (phi_poly_diff_e1I_ee - phi_poly_diff_ee * cutoff_diff_e1I) * r_ee_vec * (r_ee_vec @ r_e1I_vec) / r_e1I**2 / r_ee**2
                                 - (phi_poly_diff_e2I_ee - phi_poly_diff_ee * cutoff_diff_e2I) * r_ee_vec * (r_ee_vec @ r_e2I_vec) / r_e2I**2 / r_ee**2
                             )
-                            theta_diff_1 = (
-                                2 * (theta_poly_diff_e1I - theta_poly * cutoff_diff_e1I) / r_e1I**2
-                                + (theta_poly_diff_e2I - theta_poly * cutoff_diff_e2I) / r_e2I**2
-                                + 2 * theta_poly_diff_ee / r_ee**2
-                            )
-                            theta_diff_2 = (
+                            theta_e1I = (
                                 theta_poly * cutoff_diff_e1I_2 / r_e1I**2
-                                - 2 * theta_poly_diff_e1I * cutoff_diff_e1I / r_e1I**2
+                                - 2 * (theta_poly_diff_e1I + theta_poly) * cutoff_diff_e1I / r_e1I**2
                                 + theta_poly_diff_e1I_2 / r_e1I**2
                                 + theta_poly * cutoff_diff_e2I_2 / r_e2I**2
-                                - 2 * theta_poly_diff_e2I * cutoff_diff_e2I / r_e2I**2
+                                - 2 * (theta_poly_diff_e2I + theta_poly) * cutoff_diff_e2I / r_e2I**2
                                 + theta_poly_diff_e2I_2 / r_e2I**2
                                 + 2 * theta_poly_diff_ee_2 / r_ee**2
+                                + 2 * (theta_poly_diff_e1I - theta_poly * cutoff_diff_e1I) / r_e1I**2
                             )
                             theta_dot_product = (
-                                (theta_poly_diff_e1I_ee - theta_poly_diff_ee * cutoff_diff_e1I) * r_e1I_vec * (r_e1I_vec @ r_ee_vec) / r_e1I**2
-                                - (theta_poly_diff_e2I_ee - theta_poly_diff_ee * cutoff_diff_e2I) * r_e1I_vec * (r_e2I_vec @ r_ee_vec) / r_e2I**2
-                                + theta_poly_diff_ee * r_ee_vec
-                            ) / r_ee**2
+                                2
+                                * (
+                                    (theta_poly_diff_e1I_ee - theta_poly_diff_ee * cutoff_diff_e1I) * r_e1I_vec * (r_e1I_vec @ r_ee_vec) / r_e1I**2
+                                    - (theta_poly_diff_e2I_ee - theta_poly_diff_ee * cutoff_diff_e2I) * r_e1I_vec * (r_e2I_vec @ r_ee_vec) / r_e2I**2
+                                    + theta_poly_diff_ee * r_ee_vec
+                                )
+                                / r_ee**2
+                            )
                             # cutoff_condition
                             # 0: AE cutoff exactly not applied
                             # 1: AE cutoff maybe applied
                             ae_cutoff_condition = int(r_e1I > self.ae_cutoff[label])
-                            res[ae_cutoff_condition, e1] += (
-                                (1 - r_e1I / L) ** C
-                                * (1 - r_e2I / L) ** C
-                                * (
-                                    (phi_diff_2 + 2 * phi_diff_1) * r_ee_vec
-                                    + 2 * phi_dot_product
-                                    + (theta_diff_2 + 2 * theta_diff_1) * r_e1I_vec
-                                    + 2 * theta_dot_product
-                                )
-                            )
+                            cutoff = (1 - r_e1I / L) ** C * (1 - r_e2I / L) ** C
+                            res[ae_cutoff_condition, e1] += cutoff * (phi_ee * r_ee_vec + phi_dot_product + theta_e1I * r_e1I_vec + theta_dot_product)
 
         return res.reshape(2, (self.neu + self.ned) * 3)
 
@@ -2089,18 +2062,8 @@ def backflow_eta_term_laplacian_d1(self, e_powers, e_vectors):
                             if self.eta_parameters_available[j1, j2]:
                                 n += 1
                                 if eta_set == j1:
-                                    poly = e_powers[e1, e2, j2]
-                                    bf = (
-                                        2
-                                        * (1 - r / L) ** C
-                                        * (
-                                            4 * (j2 / r - C / (L - r))
-                                            + r * (C * (C - 1) / (L - r) ** 2 - 2 * C / (L - r) * j2 / r + j2 * (j2 - 1) / r**2)
-                                        )
-                                        * r_vec
-                                        * poly
-                                        / r
-                                    )
+                                    poly = C * (C - 1) / (L - r) ** 2 - 2 * C * (j2 + 2) / r / (L - r) + j2 * (j2 + 3) / r**2
+                                    bf = 2 * (1 - r / L) ** C * poly * r_vec * e_powers[e1, e2, j2]
                                     res[n, ae_cutoff_condition, e1] += bf
                                     res[n, ae_cutoff_condition, e2] -= bf
 
@@ -2160,17 +2123,9 @@ def backflow_mu_term_laplacian_d1(self, n_powers, n_vectors):
                                 if mu_parameters_available[j1, j2]:
                                     n += 1
                                     if mu_set == j1:
-                                        poly = n_powers[label, e1, j2]
-                                        res[n, ae_cutoff_condition, e1] += (
-                                            (1 - r / L) ** C
-                                            * (
-                                                4 * (j2 / r - C / (L - r))
-                                                + r * (C * (C - 1) / (L - r) ** 2 - 2 * C / (L - r) * j2 / r + j2 * (j2 - 1) / r**2)
-                                            )
-                                            * r_vec
-                                            * poly
-                                            / r
-                                        )
+                                        poly = C * (C - 1) / (L - r) ** 2 - 2 * C * (j2 + 2) / r / (L - r) + j2 * (j2 + 3) / r**2
+                                        bf = (1 - r / L) ** C * poly * r_vec * n_powers[label, e1, j2]
+                                        res[n, ae_cutoff_condition, e1] += bf
 
         return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
