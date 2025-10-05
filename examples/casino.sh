@@ -12,6 +12,8 @@
 # operation="Jastrow_dmc"
 # operation="Backflow_dmc"
 
+# operation="Jastrow_project_to_CISD"
+
 # path="gwfn/He/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/Be/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/Be/MP2-CASSCF(2.4)/cc-pVQZ/${method}/${operation}/"

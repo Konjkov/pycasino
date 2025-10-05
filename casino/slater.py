@@ -94,6 +94,30 @@ def slater_value_matrix(self, n_vectors: np.ndarray):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Slater_class_t, 'cisd_excitation_vector')
+def slater_cisd_excitation_vector(self, n_vectors: np.ndarray):
+    """Build a CISD excitation vector.
+    :param wfn_u: (n_up_orbitals, up_electrons)
+    :param wfn_d: (n_down_orbitals, down_electrons)
+    :return: determinant ratios
+    """
+
+    def impl(self, n_vectors: np.ndarray) -> np.ndarray:
+        wfn_u, wfn_d = self.value_matrix(n_vectors)
+        # Compute excitation amplitudes t_{ia} = sum_k (B^{-1})_{ik} * phi_a(r_k)
+        t_up = np.linalg.inv(wfn_u[: self.neu]) @ wfn_u[self.neu :].T
+        t_down = np.linalg.inv(wfn_d[: self.ned]) @ wfn_d[self.ned :].T
+        return np.concatenate(
+            (
+                t_up.ravel(),
+                t_down.ravel(),
+            )
+        )
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'gradient_matrix')
 def slater_gradient_matrix(self, n_vectors: np.ndarray):
     """Gradient matrix.

@@ -449,6 +449,38 @@ def wfn_set_parameters(self, parameters, all_parameters=False):
     return impl
 
 
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'jastrow_value')
+def wfn_jastrow_value(self, r_e):
+    """Jastriw value.
+    :param r_e: electron coordinates - array(nelec, 3)
+    """
+
+    def impl(self, r_e):
+        if self.jastrow is not None:
+            e_vectors, n_vectors = self._relative_coordinates(r_e)
+            return self.jastrow.value(e_vectors, n_vectors)
+        raise NotImplementedError
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'cisd_excitation_vector')
+def wfn_cisd_excitation_vector(self, r_e):
+    """Excitation_vector of a Slater–Jastrow in a CISD Basis.
+    :param r_e: electron coordinates - array(nelec, 3)
+    """
+
+    def impl(self, r_e):
+        if self.jastrow is not None:
+            e_vectors, n_vectors = self._relative_coordinates(r_e)
+            return self.slater.cisd_excitation_vector(n_vectors)
+        raise NotImplementedError
+
+    return impl
+
+
 Wfn_t = Wfn_class_t(
     [
         ('neu', nb.int64),
@@ -674,6 +706,22 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
             # pseudopotential part
             res += self.nonlocal_energy_parameters_d1(r_e)
         return res
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def jastrow_value(self, r_e):
+        """Jastriw value.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :return:
+        """
+        return self.jastrow_value(r_e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def cisd_excitation_vector(self, r_e):
+        """Excitation_vector of a Slater–Jastrow in a CISD Basis
+        :param r_e: electron coordinates - array(nelec, 3)
+        :return:
+        """
+        return self.cisd_excitation_vector(r_e)
 
 
 structref.define_boxing(Wfn_class_t, Wfn)

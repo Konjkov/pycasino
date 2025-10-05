@@ -142,6 +142,8 @@ class Input:
             runtype = 'VMC/optimization input parameters'
         elif self.runtype == 'vmc_dmc':
             runtype = 'VMC/DMC input parameters'
+        elif self.runtype == 'project':
+            runtype = 'Project to CISD'
         msg = (
             f' General input parameters\n'
             f' ========================\n'

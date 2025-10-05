@@ -143,6 +143,31 @@ def S_inv_H_matrix(wfn_gradient, energy, energy_gradient):
     extended_energy_gradient[:, 1:] = energy_gradient
     return sp.linalg.pinv(extended_wfn_gradient) @ (np.expand_dims(energy, 1) * extended_wfn_gradient + extended_energy_gradient)
 
+@nb.njit(nogil=True, parallel=False, cache=True)
+def cisd_excitation(inv_J, t_up, t_down):
+    """CISD excitation."""
+    # Inter-spin doubles:
+    c_inter_doubles = np.zeros(shape=(t_up.shape[1], t_up.shape[2], t_down.shape[1], t_down.shape[2]))
+    for i in range(t_up.shape[1]):
+        for j in range(t_down.shape[1]):
+            for a in range(t_up.shape[2]):
+                for b in range(t_down.shape[2]):
+                    c_inter_doubles[i, a, j, b] = np.average(inv_J * t_up[:, i, a] * t_down[:, j, b], axis=0)
+    # Intra-up doubles:
+    c_intra_doubles_up = np.zeros(shape=(t_up.shape[1], t_up.shape[2], t_up.shape[1], t_up.shape[2]))
+    for i in range(t_up.shape[1]):
+        for j in range(i + 1, t_up.shape[1]):
+            for a in range(t_up.shape[2]):
+                for b in range(a + 1, t_up.shape[2]):
+                    c_intra_doubles_up[i, a, j, b] = np.average(inv_J * (t_up[:, i, a] * t_up[:, j, b] - t_up[:, i, b] * t_up[:, j, a]), axis=0)
+    # Intra-down doubles:
+    c_intra_doubles_down = np.zeros(shape=(t_down.shape[1], t_down.shape[2], t_down.shape[1], t_down.shape[2]))
+    for i in range(t_down.shape[1]):
+        for j in range(i + 1, t_down.shape[1]):
+            for a in range(t_down.shape[2]):
+                for b in range(a + 1, t_down.shape[2]):
+                    c_intra_doubles_down[i, a, j, b] = np.average(inv_J * (t_down[:, i, a] * t_down[:, j, b] - t_down[:, i, b] * t_down[:, j, a]), axis=0)
+    return c_inter_doubles, c_intra_doubles_up, c_intra_doubles_down
 
 class Casino:
     def __init__(self, config_path: str):
@@ -292,6 +317,8 @@ class Casino:
         start = default_timer()
         if self.config.input.testrun:
             logger.info(' TEST RUN only.\n' ' Quitting.\n')
+        elif self.config.input.runtype == 'project':
+            self.vmc_cisd_projection()
         elif self.config.input.runtype == 'vmc':
             logger.info(
                 ' ====================================\n'
@@ -1078,6 +1105,94 @@ class Casino:
         mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
 
+    def vmc_cisd_projection(self):
+        """CISD projection"""
+        logger.info(
+            ' BEGIN CISD projection\n'
+            ' =====================\n'
+        )  # fmt: skip
+        self.equilibrate(self.config.input.vmc_equil_nstep)
+
+        if self.config.input.opt_dtvmc == 0:
+            self.vmc.step_size = np.sqrt(3 * self.config.input.dtvmc)
+        elif self.config.input.opt_dtvmc == 1:
+            # to achieve an acceptance ratio of (roughly) 50% (EBES default).
+            self.optimize_vmc_step(1000)
+        elif self.config.input.opt_dtvmc == 2:
+            # to maximize the diffusion constant with respect to dtvmc (CBCS default).
+            raise NotImplementedError
+
+        logger.info(
+            f' Optimized step size: {self.vmc.step_size:.5f}\n'
+            f' DTVMC: {(self.vmc.step_size**2)/3:.5f}\n'
+        )  # fmt: skip
+
+        steps = self.config.input.vmc_nstep // mpi_comm.size
+        logger.info(
+            ' Starting projection.\n'
+        )  # fmt: skip
+
+        virt_up = np.max(self.config.mdet.permutation_up) + 1 - self.neu
+        virt_down = np.max(self.config.mdet.permutation_down) + 1 - self.ned
+
+        position = self.vmc.random_walk(steps, self.decorr_period)
+        jastrow_value = self.vmc.observable(self.wfn.jastrow_value, position)
+        excitation_vector = self.vmc.observable(self.wfn.cisd_excitation_vector, position)
+        inv_J = np.exp(-jastrow_value)
+        t_up = excitation_vector[:, :self.neu * virt_up].reshape(steps, self.neu, virt_up)
+        t_down = excitation_vector[:, self.neu * virt_up:].reshape(steps, self.ned, virt_down)
+        # Reference
+        c_ref = mpi_comm.allreduce(np.average(inv_J, axis=0))
+        # Excitations
+        c_singles_up = np.average(t_up, weights=inv_J, axis=0)
+        c_singles_down = np.average(t_down, weights=inv_J, axis=0)
+        c_inter_doubles, c_intra_doubles_up, c_intra_doubles_down = cisd_excitation(inv_J, t_up, t_down)
+
+        mpi_comm.Allreduce(MPI.IN_PLACE, c_singles_up)
+        mpi_comm.Allreduce(MPI.IN_PLACE, c_singles_down)
+        mpi_comm.Allreduce(MPI.IN_PLACE, c_inter_doubles)
+        # mpi_comm.Allreduce(MPI.IN_PLACE, c_intra_doubles_up)
+        # mpi_comm.Allreduce(MPI.IN_PLACE, c_intra_doubles_down)
+        if mpi_comm.rank == 0:
+            np.set_printoptions(
+                suppress=True,
+                precision=8,
+                floatmode='fixed',
+                sign=' ',
+            )
+            coeff_list = []
+            promotion_list = []
+            n_det = 1
+            coeff_list.append(f' {1:.8f} {n_det} 0')
+            for i in range(self.neu):
+                for a in range(virt_up):
+                    n_det += 1
+                    coeff_list.append(f'{c_singles_up[i, a] / c_ref: .8f} {n_det} 1')
+                    promotion_list.append(f' DET {n_det} 1 PR {i + 1} 1 {self.neu + a + 1} 1')
+            for j in range(self.ned):
+                for b in range(virt_down):
+                    n_det += 1
+                    coeff_list.append(f'{c_singles_down[i, b] / c_ref: .8f} {n_det} 1')
+                    promotion_list.append(f' DET {n_det} 2 PR {j + 1} 1 {self.ned + b + 1} 1')
+            for i in range(self.neu):
+                for a in range(virt_up):
+                    for j in range(self.ned):
+                        for b in range(virt_down):
+                            n_det += 1
+                            coeff_list.append(f'{c_inter_doubles[i, a, j, b] / c_ref: .8f} {n_det} 1')
+                            promotion_list.append(f' DET {n_det} 1 PR {i + 1} 1 {self.neu + a + 1} 1')
+                            promotion_list.append(f' DET {n_det} 2 PR {j + 1} 1 {self.ned + b + 1} 1')
+            # print(c_intra_doubles_up / c_ref)
+            # print(c_intra_doubles_down / c_ref)
+            print('START MDET')
+            print('Title')
+            print(' fake multideterminant\n')
+            for coeff in coeff_list:
+                print(coeff)
+            for promotion in promotion_list:
+                print(promotion)
+            print('MD')
+            print('END MDET')
 
 def main():
     parser = argparse.ArgumentParser(
