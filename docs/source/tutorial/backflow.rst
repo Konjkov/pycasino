@@ -173,15 +173,23 @@ backflow displacements in terms of :math:`r_{ij}` , :math:`r_{iI}` , and :math:`
 
 .. math::
 
-    \Phi(r_{iI}, r_{jI}, r_{ij}) = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})
-    \sum_{k=0}^{N_{\Phi I}^{eN}}\sum_{l=0}^{N_{\Phi I}^{eN}}\sum_{m=0}^{N_{\Phi I}^{ee}}\phi_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
+    \Phi(r_{iI}, r_{jI}, r_{ij}) = \sum_{k=0}^{N_{\Phi I}^{eN}}\sum_{l=0}^{N_{\Phi I}^{eN}}\sum_{m=0}^{N_{\Phi I}^{ee}} \Phi_{klmI}
 
 .. math::
 
-    \Theta(r_{iI}, r_{jI}, r_{ij}) = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})
-    \sum_{k=0}^{N_{\Phi I}^{eN}}\sum_{l=0}^{N_{\Phi I}^{eN}}\sum_{m=0}^{N_{\Phi I}^{ee}}\theta_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
+    \Theta(r_{iI}, r_{jI}, r_{ij}) = \sum_{k=0}^{N_{\Phi I}^{eN}}\sum_{l=0}^{N_{\Phi I}^{eN}}\sum_{m=0}^{N_{\Phi I}^{ee}} \Theta_{klmI}
 
-where :math:`\Theta` is the Heaviside function. To ensure electron–electron Kato cusp conditions folowing :math:`3(N_{\Phi I}^{ee} + N_{\Phi I}^{en} + 1)`
+where
+
+.. math::
+
+    \Phi_{klmI} = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})\phi_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
+
+.. math::
+
+    \Theta_{klmI} = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})\theta_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
+
+and :math:`\Theta` is the Heaviside function. To ensure electron–electron Kato cusp conditions folowing :math:`3(N_{\Phi I}^{ee} + N_{\Phi I}^{en} + 1)`
 constraints is applied:
 
 .. math::
@@ -327,37 +335,36 @@ There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r
 
 .. math::
 
-    \begin{align}
-    & \nabla_{e_i} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) \\
-    &  \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{ij} + \left(\frac{m}{r_{ij}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} + \mathbf{I} \right] \phi_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m\\
-    \end{align}
+    \nabla_{e_i} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{ij} + \left(\frac{m}{r_{ij}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} + \mathbf{I} \right] \Phi_{klmI}
 
 or :math:`j`-th electron coordinates:
 
 .. math::
 
-    \begin{align}
-    & \nabla_{e_j} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) \\
-    &  \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right) \mathbf{\hat r}_{jI} \otimes \mathbf{r}_{ij} - \left(\frac{m}{r_{ij}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} - \mathbf{I} \right] \phi_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m\\
-    \end{align}
+    \nabla_{e_j} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right) \mathbf{\hat r}_{jI} \otimes \mathbf{r}_{ij} - \left(\frac{m}{r_{ij}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} - \mathbf{I} \right] \Phi_{klmI}
 
 There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}` gradient, i.e. by :math:`i`-th:
 
 .. math::
 
-    \begin{align}
-    & \nabla_{e_i} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) \\
-    & \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{k}{r_{iI}} -\frac{C}{L_{\Phi I} - r_{iI}}\right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{iI} + \left(\frac{m}{r_{ij}}\right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{iI} + \mathbf{I} \right]  \theta_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m\\
-    \end{align}
+    \nabla_{e_i} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{k}{r_{iI}} -\frac{C}{L_{\Phi I} - r_{iI}}\right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{iI} + \left(\frac{m}{r_{ij}}\right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{iI} + \mathbf{I} \right]  \Theta_{klmI}
 
 or :math:`j`-th electron coordinates:
 
 .. math::
 
-    \begin{align}
-    & \nabla_{e_j} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) \\
-    & \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}}\right) \mathbf{\hat r}_{jI} \otimes \mathbf{r}_{iI} - \left(\frac{m}{r_{ij}}\right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{iI} \right]  \theta_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m\\
-    \end{align}
+    \nabla_{e_j} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}}\right) \mathbf{\hat r}_{jI} \otimes \mathbf{r}_{iI} - \left(\frac{m}{r_{ij}}\right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{iI} \right]  \Theta_{klmI}
+
+where
+
+.. math::
+
+    \Phi_{klmI} = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})\phi_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
+
+.. math::
+
+    \Theta_{klmI} = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})\theta_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
+
 
 where :math:`\mathbf{\hat r}_{ij}` is the unit vector in the direction of the :math:`\mathbf{r}_{ij}`
 and :math:`\mathbf{\hat r}_{iI}` is the unit vector in the direction of the :math:`\mathbf{r}_{iI}`
@@ -441,79 +448,106 @@ and laplacian of spherically symmetric vector function (in 3-D space) is:
 
     \Delta f(r) = f''(r) + \frac{2}{r} f'(r)
 
-and :math:`\Phi` term addent is a product of constant :math:`\phi_{klmI}r_{jI}^l` and three spherically symmetric functions :math:`f(r_{ij})`, :math:`g(r_{iI})` or :math:`g(r_{jI})`, :math:`\mathbf{r}_{ij}` so using:
+and :math:`\Phi` term addent is a product of :math:`f=r_{ij}^m`, :math:`g=(1−r_{iI}/L_{\Phi I})^С r_{iI}^k`, :math:`h=(1−r_{jI}/L_{\Phi I})^С r_{jI}^l`,
+:math:`\phi_{klmI}` and :math:`\mathbf{r}_{ij}` so using:
 
 .. math::
 
-    \Delta (fg\mathbf{r}_{ij}) = \left(g\Delta f + 2\nabla \cdot f\nabla g + f\Delta g\right)\mathbf{r}_{ij} + 2(g\nabla f + f\nabla g)
+    \frac{\Delta_{e_i} \Phi}{\Phi} = \frac{\Delta_{e_i} (fg\mathbf{r}_{ij})}{fg} = \left(\frac{\Delta_{e_i} f}{f} + 2\frac{\nabla_{e_i} f}{f} \cdot \frac{\nabla_{e_i} g}{g} + \frac{\Delta_{e_i} g}{g}\right)\mathbf{r}_{ij} + 2\left(\frac{\nabla_{e_i} f}{f} + \frac{\nabla_{e_i} g}{g}\right) \nabla_{e_i} \mathbf{r}_{ij}
+
+.. math::
+
+    \frac{\Delta_{e_j} \Phi}{\Phi} = \frac{\Delta_{e_j} (fh\mathbf{r}_{ij})}{fh} = \left(\frac{\Delta_{e_j} f}{f} + 2\frac{\nabla_{e_j} f}{f} \cdot \frac{\nabla_{e_j} h}{h} + \frac{\Delta_{e_j} h}{h}\right)\mathbf{r}_{ij} + 2\left(\frac{\nabla_{e_j} f}{f} + \frac{\nabla_{e_j} h}{h}\right) \nabla_{e_j} \mathbf{r}_{ij}
 
 There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}` laplacian, i.e. by :math:`i`-th:
 
 .. math::
 
-    l_{iI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{m(m+1)}{r_{ij}^2} + \frac{2m}{r_{ij}^2} + \frac{k(k+1)}{r_{iI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{iI})^2} - \frac{2C(k+1)}{r_{iI}(L_{\Phi I} - r_{iI})} \right) \mathbf{r}_{ij}
+    l_{kmI} = \frac{\Delta_{e_i} f}{f} + \frac{\Delta_{e_i} g}{g} = \left( \frac{m(m+1)}{r_{ij}^2}  + \frac{k(k+1)}{r_{iI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{iI})^2} - \frac{2C(k+1)}{r_{iI}(L_{\Phi I} - r_{iI})} \right)
 
 .. math::
 
-    l_{dot,i} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \frac{2m}{r_{ij}} \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{iI})\mathbf{r}_{ij}
+    d_{kmI} = \frac{\nabla_{e_i} f}{f} \cdot \frac{\nabla_{e_i} g}{g} = \frac{m}{r_{ij}} \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{iI})
 
 .. math::
 
-    g_{iI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right)\mathbf{\hat r}_{iI} \phi_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m
+    g_{kmI} = \frac{\nabla_{e_i} f}{f} + \frac{\nabla_{e_i} g}{g} = \frac{m}{r_{ij}} \mathbf{\hat r}_{ij} + \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right)\mathbf{\hat r}_{iI}
 
 .. math::
 
-    \Delta_{e_i} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{iI} + l_{dot,i} + g_{iI})
+    \Delta_{e_i} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} (l_{kmI}\mathbf{r}_{ij} + 2d_{kmI}\mathbf{r}_{ij} + 2g_{kmI}) \Phi_{klmI}
 
 or :math:`j`-th electron coordinates:
 
 .. math::
 
-    l_{jI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{m(m+1)}{r_{ij}^2} + \frac{2m}{r_{ij}^2} + \frac{l(l+1)}{r_{jI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{jI})^2} - \frac{2C(l+1)}{r_{iI}(L_{\Phi I} - r_{jI})} \right) \mathbf{r}_{ij}
+    l_{lmI} = \frac{\Delta_{e_j} f}{f} + \frac{\Delta_{e_j} g}{g} = \left( \frac{m(m+1)}{r_{ij}^2} + \frac{l(l+1)}{r_{jI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{jI})^2} - \frac{2C(l+1)}{r_{iI}(L_{\Phi I} - r_{jI})} \right)
 
 .. math::
 
-    l_{dot,j} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \frac{2m}{r_{ij}} \left( \frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{jI})\mathbf{r}_{ij}
+    d_{lmI} = \frac{\nabla_{e_j} f}{f} \cdot \frac{\nabla_{e_j} h}{h} = - \frac{m}{r_{ij}} \left( \frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{jI})
 
 .. math::
 
-    g_{jI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right)\mathbf{\hat r}_{iI} \phi_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m
+    g_{lmI} = \frac{\nabla_{e_j} f}{f} + \frac{\nabla_{e_j} h}{h} = \frac{m}{r_{ij}} \mathbf{\hat r}_{ij} - \left( \frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right)\mathbf{\hat r}_{jI}
 
 .. math::
 
-    \Delta_{e_j} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{jI} - l_{dot,j} - g_{jI})
+    \Delta_{e_j} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} (l_{lmI}\mathbf{r}_{ij} + 2d_{lmI}\mathbf{r}_{ij} + 2g_{lmI}) \Phi_{klmI}
+
+:math:`\Theta` term addent is a product of :math:`f=r_{ij}^m`, :math:`g=(1−r_{iI}/L_{\Phi I})^С r_{iI}^k`, :math:`h=(1−r_{jI}/L_{\Phi I})^С r_{jI}^l`,
+:math:`\theta_{klmI}` and :math:`\mathbf{r}_{iI}` so using:
+
+.. math::
+
+    \frac{\Delta_{e_i} \Theta}{\Theta} = \frac{\Delta_{e_i} (fg\mathbf{r}_{ij})}{fg} = \left(\frac{\Delta_{e_i} f}{f} + 2\frac{\nabla_{e_i} f}{f} \cdot \frac{\nabla_{e_i} g}{g} + \frac{\Delta_{e_i} g}{g}\right)\mathbf{r}_{iI} + 2\left(\frac{\nabla_{e_i} f}{f} + \frac{\nabla_{e_i} g}{g}\right) \nabla_{e_i} \mathbf{r}_{iI}
+
+.. math::
+
+    \frac{\Delta_{e_j} \Theta}{\Theta} = \frac{\Delta_{e_j} (fh\mathbf{r}_{ij})}{fh} = \left(\frac{\Delta_{e_j} f}{f} + 2\frac{\nabla_{e_j} f}{f} \cdot \frac{\nabla_{e_j} h}{h} + \frac{\Delta_{e_j} h}{h}\right)\mathbf{r}_{iI} + 2\left(\frac{\nabla_{e_j} f}{f} + \frac{\nabla_{e_j} h}{h}\right) \nabla_{e_j} \mathbf{r}_{iI}
+
 
 There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}` laplacian, i.e. by :math:`i`-th:
 
 .. math::
 
-    l_{iI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{m(m+1)}{r_{ij}^2} + \frac{2m}{r_{ij}^2} + \frac{k(k+1)}{r_{iI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{iI})^2} - \frac{2C(k+1)}{r_{iI}(L_{\Phi I} - r_{jI})} \right) \mathbf{r}_{ij}
+    l_{kmI} = \left( \frac{m(m+1)}{r_{ij}^2} + \frac{k(k+1)}{r_{iI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{iI})^2} - \frac{2C(k+1)}{r_{iI}(L_{\Phi I} - r_{jI})} \right)
 
 .. math::
 
-    l_{dot,i} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \frac{2m}{r_{ij}} \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{iI})\mathbf{r}_{ij}
+    d_{kmI} = \frac{m}{r_{ij}} \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{iI})
 
 .. math::
 
-    g_{iI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right)\mathbf{\hat r}_{iI} \theta_{klmI} r_{iI}^k r_{jI}^l r_{ij}^m
+    g_{kmI} = \frac{m}{r_{ij}} \mathbf{\hat r}_{ij} + \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right)\mathbf{\hat r}_{iI}
 
 .. math::
 
-    \Delta_{e_i} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{jI} + l_{dot,j} + g_{jI})
+    \Delta_{e_i} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} (l_{kmI}\mathbf{r}_{iI} + 2d_{kmI}\mathbf{r}_{iI} + 2g_{kmI}) \Theta_{klmI}
 
 or :math:`j`-th electron coordinates:
 
 .. math::
 
-    l_{jI} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \left( \frac{m(m+1)}{r_{ij}^2} - \frac{2m}{r_{ij}^2} + \frac{l(l+1)}{r_{jI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{jI})^2} - \frac{2C(k+1)}{r_{iI}(L_{\Phi I} - r_{jI})} \right) \mathbf{r}_{ij}
+    l_{lmI} = \left( \frac{m(m+1)}{r_{ij}^2} + \frac{l(l+1)}{r_{jI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{jI})^2} - \frac{2C(k+1)}{r_{iI}(L_{\Phi I} - r_{jI})} \right)
 
 .. math::
 
-    l_{dot,j} = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} \frac{2m}{r_{ij}} \left( \frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{jI})\mathbf{r}_{ij}
+    d_{lmI} =  - \frac{m}{r_{ij}} \left( \frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{jI})
 
 .. math::
 
-    \Delta_{e_j} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = (1 - r_{iI}/L_{\Phi I})^C (1 - r_{jI}/L_{\Phi I})^C \Theta(L_{\Phi I} - r_{iI}) \Theta(L_{\Phi I} - r_{jI}) (l_{jI} - l_{dot,j} - g_{jI})
+    \Delta_{e_j} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} (l_{lmI}\mathbf{r}_{iI} + 2d_{lmI}\mathbf{r}_{iI}) \Theta_{klmI}
+
+where
+
+.. math::
+
+    \Phi_{klmI} = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})\phi_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
+
+.. math::
+
+    \Theta_{klmI} = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})\theta_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
 
 For certain electron coordinates, :math:`\phi` term laplacian can be obtained with :py:meth:`casino.Backflow.phi_term_laplacian` method::
 
