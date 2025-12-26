@@ -436,13 +436,13 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 phi-term laplacian
 ------------------
 
-Considering that gradient of spherically symmetric function (in 3-D space) is:
+Considering that gradient of spherically symmetric scalar function (in 3-D space) is:
 
 .. math::
 
     \nabla f(r) = f'(r) \mathbf{\hat r}
 
-and laplacian of spherically symmetric vector function (in 3-D space) is:
+and laplacian of spherically symmetric scalar function (in 3-D space) is:
 
 .. math::
 
