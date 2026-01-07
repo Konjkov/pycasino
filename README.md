@@ -9,7 +9,7 @@ The Pycasino is python implementation of the well-known [Casino](https://vallico
 
 Clone the repository and install the code from source or use the Python package manager:
 
-`pip install casino`
+`pipx install casino`
 
 `pytest --pyargs casino.tests`
 
