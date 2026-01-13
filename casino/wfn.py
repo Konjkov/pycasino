@@ -51,7 +51,7 @@ def wfn__get_nuclear_repulsion(self):
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, 'coulomb')
 def wfn_coulomb(self, r_e):
-    """Value of e-e and e-n coulomb interaction."""
+    """Value of e-e, e-n and n-n coulomb interaction."""
 
     def impl(self, r_e) -> float:
         res = 0.0
@@ -71,7 +71,7 @@ def wfn_coulomb(self, r_e):
                 if self.ppotential.is_pseudoatom[atom]:
                     for e1 in range(self.neu + self.ned):
                         res += potential[atom][e1, 2]
-        return res
+        return res + self.nuclear_repulsion
 
     return impl
 
@@ -167,19 +167,6 @@ def wfn_t_move(self, r_e, step_size):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Wfn_class_t, 'local_potential')
-def wfn_local_potential(self, r_e):
-    """Local potential.
-    :param r_e: electron positions - array(nelec, 3)
-    """
-
-    def impl(self, r_e) -> float:
-        return self.coulomb(r_e) + self.nuclear_repulsion
-
-    return impl
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, 'nonlocal_potential')
 def wfn_nonlocal_potential(self, r_e):
     """Nonlocal (pseudopotential) energy Wφ/φ.
@@ -215,19 +202,6 @@ def wfn_nonlocal_potential(self, r_e):
 def wfn_kinetic_energy(self, r_e):
     """Kinetic energy.
     :param r_e: electron coordinates - array(nelec, 3)
-
-    if f is a scalar multivariable function and a is a vector multivariable function then:
-
-    gradient composition rule:
-    ∇(f ○ a) = (∇f ○ a) • ∇a
-    where ∇a is a Jacobian matrix.
-    https://towardsdatascience.com/step-by-step-the-math-behind-neural-networks-d002440227fb
-
-    laplacian composition rule
-    Δ(f ○ a) = ∇((∇f ○ a) • ∇a) = ∇(∇f ○ a) • ∇a + (∇f ○ a) • ∇²a = tr(transpose(∇a) • (∇²f ○ a) • ∇a) + (∇f ○ a) • Δa
-    where ∇²f is a hessian
-    tr(transpose(∇a) • (∇²f ○ a) • ∇a) - can be further simplified since cyclic property of trace
-    and np.trace(A @ B) = np.sum(A * B.T) and (A @ A.T).T = A @ A.T
     :return: local energy
     """
 
@@ -238,30 +212,23 @@ def wfn_kinetic_energy(self, r_e):
         if self.backflow is not None:
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
             s_h, s_g = self.slater.hessian(b_v + n_vectors)
-            s_l = np.sum(s_h * (b_g @ b_g.T)) + s_g @ b_l
-            if self.jastrow is not None:
-                j_l, j_g = self.jastrow.laplacian(e_vectors, n_vectors)
-                s_g = s_g @ b_g
-                F = np.sum((s_g + j_g) ** 2) / 2
-                T = (np.sum(s_g**2) - s_l - j_l) / 4
-                return 2 * T - F
-            else:
-                return -s_l / 2
+            s_l = np.sum(b_g * (s_h @ b_g)) + s_g @ b_l
+            s_g = s_g @ b_g
         else:
+            s_g = self.slater.gradient(n_vectors)
             s_l = self.slater.laplacian(n_vectors)
-            if self.jastrow is not None:
-                j_l, j_g = self.jastrow.laplacian(e_vectors, n_vectors)
-                s_g = self.slater.gradient(n_vectors)
-                F = np.sum((s_g + j_g) ** 2) / 2
-                T = (np.sum(s_g**2) - s_l - j_l) / 4
-                return 2 * T - F
-            elif with_F_and_T:
-                s_g = self.slater.gradient(n_vectors)
-                F = np.sum(s_g**2) / 2
-                T = (np.sum(s_g**2) - s_l) / 4
-                return 2 * T - F
-            else:
-                return -s_l / 2
+
+        if self.jastrow is not None:
+            j_l, j_g = self.jastrow.laplacian(e_vectors, n_vectors)
+            F = s_g + j_g
+            T = s_g @ s_g - s_l - j_l
+            return (T - F @ F) / 2
+        elif with_F_and_T:
+            F = s_g
+            T = s_g @ s_g - s_l
+            return (T - F @ F) / 2
+        else:
+            return -s_l / 2
 
     return impl
 
@@ -274,7 +241,7 @@ def wfn_energy(self, r_e):
     """
 
     def impl(self, r_e) -> float:
-        return self.kinetic_energy(r_e) + self.local_potential(r_e) + self.nonlocal_potential(r_e)
+        return self.kinetic_energy(r_e) + self.coulomb(r_e) + self.nonlocal_potential(r_e)
 
     return impl
 
