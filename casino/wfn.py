@@ -282,21 +282,20 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
     def impl(self, r_e):
         res = np.zeros(0)
         e_vectors, n_vectors = self._relative_coordinates(r_e)
+        if self.backflow is not None:
+            b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
+            s_g = self.slater.gradient(b_v + n_vectors) @ b_g
+        else:
+            s_g = self.slater.gradient(n_vectors)
         if self.jastrow is not None and self.opt_jastrow:
             # Jastrow parameters part
             j_g = self.jastrow.gradient(e_vectors, n_vectors)
             j_g_d1 = self.jastrow.gradient_parameters_d1(e_vectors, n_vectors)
             j_l_d1 = self.jastrow.laplacian_parameters_d1(e_vectors, n_vectors)
-            if self.backflow is not None and self.opt_backflow:
-                b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
-                s_g = self.slater.gradient(b_v + n_vectors) @ b_g
-            else:
-                s_g = self.slater.gradient(n_vectors)
             j_d1 = j_g_d1 @ (s_g + j_g) + j_l_d1 / 2
             res = np.concatenate((res, j_d1))
         if self.backflow is not None and self.opt_backflow:
             # backflow parameters part
-            b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
             b_l_d1, b_g_d1, b_v_d1 = self.backflow.laplacian_parameters_d1(e_vectors, n_vectors)
             s_t, s_h, s_g = self.slater.tressian(b_v + n_vectors)
             s_g_d1 = b_v_d1 @ (s_h - np.outer(s_g, s_g))  # as hessian is d²ln(phi)/dxdy
@@ -319,7 +318,6 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
             # determinants coefficients part
             if self.backflow is not None:
-                b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
                 s_g_d1 = self.slater.gradient_parameters_d1(b_v + n_vectors)
                 s_h_d1 = self.slater.hessian_parameters_d1(b_v + n_vectors)
                 s_g_d1 = s_g_d1 @ b_g
@@ -333,6 +331,7 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
             if self.jastrow is not None:
                 j_g = self.jastrow.gradient(e_vectors, n_vectors)
                 sl_d1 += s_g_d1 @ j_g
+            sl_d1 += s_g_d1 @ s_g
             res = np.concatenate((res, sl_d1))
         return -res
 

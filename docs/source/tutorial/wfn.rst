@@ -175,7 +175,7 @@ Partial derivatives of the kinetic energy with respect to Jastrow, backflow and 
 
 .. math::
 
-    \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha} = \left(
+    \frac{1}{2} \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha} = \frac{1}{2} \left(
         \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha^J},
         \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha^B},
         \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha^S},
@@ -183,7 +183,7 @@ Partial derivatives of the kinetic energy with respect to Jastrow, backflow and 
 
 .. math::
 
-    \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha^J} = \frac{1}{2} \cdot \frac{\partial \nabla^2 J}{\partial \alpha_i^J} + \frac{\nabla \Psi}{\Psi} \cdot \frac{\partial \nabla J}{\partial \alpha_i^J},
+    \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha^J} = \frac{\partial \nabla^2 J}{\partial \alpha_i^J} + 2 \frac{\nabla \Psi}{\Psi} \cdot \frac{\partial \nabla J}{\partial \alpha_i^J},
 
 .. math::
 
@@ -191,7 +191,21 @@ Partial derivatives of the kinetic energy with respect to Jastrow, backflow and 
 
 .. math::
 
-    \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha^S} =
+    \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha^S} = \frac{\partial \nabla^2 \ln \Phi}{\partial \alpha^S} +
+    2 \frac{\partial \nabla \ln \Phi}{\partial \alpha^S} \left[ \nabla J + \frac{\nabla \Phi}{\Phi} \right]
+
+if backflow displacement :math:`\xi(\mathbf{r})` is not zero the coordinate transformation must be taken into account:
+
+.. math::
+
+    \nabla \Phi = \frac{\partial \Phi}{\partial \mathbf{X}} \cdot \frac{\partial \mathbf{X}}{\partial \mathbf{r}}
+
+.. math::
+
+    \nabla^2 \Phi = tr\left(\left(\frac{\partial \mathbf{X}}{\partial \mathbf{r}}\right)^T
+    \cdot \frac{\partial^2 \Phi}{\partial^2 \mathbf{X}}
+    \cdot \frac{\partial \mathbf{X}}{\partial \mathbf{r}}\right)
+    + \frac{\partial \Phi}{\partial \mathbf{X}} \cdot \frac{\partial^2 \mathbf{X}}{\partial^2 \mathbf{r}}
 
 .. _nonlocal_energy_parameters_d1:
 
