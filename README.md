@@ -7,9 +7,21 @@ The Pycasino is python implementation of the well-known [Casino](https://vallico
 
 ## Installation
 
-Clone the repository and install the code from source or use the Python package manager:
+Install Python package from pip repository:
 
 `pipx install casino`
+
+Or clone the repository and install the from source:
+
+`pipx install .`
+
+Create virtualenv and run tests:
+
+`python3 -m venv .venv`
+
+`source .venv/bin/activate`
+
+`pip install -e .[dev]`
 
 `pytest --pyargs casino.tests`
 
