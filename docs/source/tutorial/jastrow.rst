@@ -46,8 +46,48 @@ To prevent code duplication, we need to prepare the necessary intermediate data:
     en_spin_mask[neu:] = 1
     C = jastrow.trunc
 
+Summary of Methods
+------------------
 
 Jastrow class has a following methods:
+
+.. list-table::
+   :widths: 30 30 40
+   :header-rows: 1
+   :width: 100%
+
+   * - Method
+     - Output
+     - Shape
+   * - :ref:`u_term <u-term>`
+     - :math:`u(r_{ij})`
+     - scalar
+   * - :ref:`chi_term <chi-term>`
+     - :math:`\chi(r_{iI})`
+     - scalar
+   * - :ref:`f_term <f-term>`
+     - :math:`f(r_{ij}, r_{iI}, r_{jI})`
+     - scalar
+   * - :ref:`u_term_gradient <u-term-gradient>`
+     - :math:`\nabla u(r_{ij})`
+     - :math:`(3N_e,)`
+   * - :ref:`chi_term_gradient <chi-term-gradient>`
+     - :math:`\nabla \chi(r_{iI})`
+     - :math:`(3N_e,)`
+   * - :ref:`f_term_gradient <f-term-gradient>`
+     - :math:`\nabla f(r_{ij}, r_{iI}, r_{jI})`
+     - :math:`(3N_e,)`
+   * - :ref:`u_term_laplacian <u-term-laplacian>`
+     - :math:`\Delta u(r_{ij})`
+     - scalar
+   * - :ref:`chi_term_laplacian <chi-term-laplacian>`
+     - :math:`\Delta \chi(r_{iI})`
+     - scalar
+   * - :ref:`f_term_laplacian <f-term-laplacian>`
+     - :math:`\Delta f(r_{ij}, r_{iI}, r_{jI})`
+     - scalar
+
+.. _u-term:
 
 u-term
 ------
@@ -80,6 +120,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     cutoff = np.minimum(r_ij - jastrow.u_cutoff, 0) ** C
     np.sum(np.triu(cutoff * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
 
+.. _chi-term:
 
 chi-term
 --------
@@ -112,6 +153,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     cutoff = np.minimum(r_iI - jastrow.chi_cutoff, 0) ** C
     np.sum(cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap'))
 
+.. _f-term:
 
 f-term
 ------
@@ -152,6 +194,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     poly = polyval3d(r_ijI, r_ijI.T, r_ij, jastrow.f_parameters[0].T)
     np.sum(np.triu(np.outer(cutoff[0], cutoff[0]) * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
 
+.. _u-term-gradient:
 
 u-term gradient
 ---------------
@@ -160,13 +203,13 @@ Considering that gradient of spherically symmetric function (in 3-D space) is:
 
 .. math::
 
-    \nabla f =  \frac{\partial{f}}{\partial{r}} \mathbf{\hat e}_r
+    \nabla f(r) =  f'(r) \mathbf{\hat r}
 
 There is only two non-zero terms of :math:`u(r_{ij})` gradient, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
 
 .. math::
 
-    \nabla_{e_i} u(r_{ij}) = -\nabla_{e_j} u(r_{ij}) = (r_{ij} - L_u)^C\Theta(L_u - r_{ij})\mathbf{\hat r}_{ij}\sum_{l=0}^{N_u}(C/(r_{ij} - L_u) + l/r_{ij})\alpha_lr^l_{ij}
+    \nabla_{e_i} u(r_{ij}) = -\nabla_{e_j} u(r_{ij}) = (r_{ij} - L_u)^C\Theta(L_u - r_{ij})\mathbf{\hat r}_{ij}\sum_{l=0}^{N_u}\left(\frac{C}{r_{ij} - L_u} + \frac{l}{r_{ij}}\right)\alpha_lr^l_{ij}
 
 where :math:`\mathbf{\hat r}_{ij}` is the unit vector in the direction of the :math:`\mathbf{r}_{ij}`
 
@@ -186,15 +229,22 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     g_ij = np.nan_to_num(cutoff * np.choose(ee_spin_mask, poly, mode='wrap') * e_vectors.T / r_ij)
     np.sum(g_ij, axis=1).T.ravel()
 
+.. _chi-term-gradient:
 
 chi-term gradient
 -----------------
+
+Considering that gradient of spherically symmetric function (in 3-D space) is:
+
+.. math::
+
+    \nabla f(r) =  f'(r) \mathbf{\hat r}
 
 There is only one non-zero term of :math:`\chi(r_{iI})` gradient, i.e. by :math:`i`-th electron coordinates:
 
 .. math::
 
-    \nabla_{e_i} \chi(r_{iI}) = (r_{iI} - L_{\chi I})^C\Theta(L_{\chi I} - r_{iI})\mathbf{\hat r}_{iI}\sum_{m=0}^{N_\chi}(C/(r_{iI} - L_{\chi I}) + m/r_{iI})\beta_mr^m_{iI}
+    \nabla_{e_i} \chi(r_{iI}) = (r_{iI} - L_{\chi I})^C\Theta(L_{\chi I} - r_{iI})\mathbf{\hat r}_{iI}\sum_{m=0}^{N_\chi}\left(\frac{C}{r_{iI} - L_{\chi I}} + \frac{m}{r_{iI}}\right)\beta_mr^m_{iI}
 
 where :math:`\mathbf{\hat r}_{iI}` is the unit vector in the direction of the :math:`\mathbf{r}_{iI}`
 
@@ -213,23 +263,30 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     poly += polyval(r_iI, (m * jastrow.chi_parameters[0]).T) / r_iI[0]
     (cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap') * n_vectors[0].T / r_iI[0]).T.ravel()
 
+.. _f-term-gradient:
 
 f-term gradient
 ---------------
+
+Considering that gradient of spherically symmetric function (in 3-D space) is:
+
+.. math::
+
+    \nabla f(r) =  f'(r) \mathbf{\hat r}
 
 There is only two non-zero terms of :math:`f(r_{ij}, r_{iI}, r_{jI})` gradient, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
 
 .. math::
 
-    g_{ij} =  \mathbf{\hat r}_{ij} \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}(n/r_{ij})\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    g_{ij} =  \mathbf{\hat r}_{ij} \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}\left(\frac{n}{r_{ij}}\right)\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
-    g_{iI} = \mathbf{\hat r}_{iI} \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}(C/(r_{iI} - L_{fI}) + l / r_{iI})\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    g_{iI} = \mathbf{\hat r}_{iI} \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}\left(\frac{C}{r_{iI} - L_{fI}} + \frac{l}{r_{iI}}\right)\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
-    g_{jI} = \mathbf{\hat r}_{jI} \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}(C/(r_{jI} - L_{fI}) + m / r_{jI})\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    g_{jI} = \mathbf{\hat r}_{jI} \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}\left(\frac{C}{r_{jI} - L_{fI}} + \frac{m}{r_{jI}}\right)\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
@@ -269,6 +326,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 
     np.sum(np.outer(cutoff[0], cutoff[0]) * (g_ijI + g_jiI + g_ij), axis=1).T
 
+.. _u-term-laplacian:
 
 u-term laplacian
 ----------------
@@ -277,17 +335,13 @@ Considering that Laplace operator of spherically symmetric function (in 3-D spac
 
 .. math::
 
-    \Delta f = \frac{\partial^2{f}}{\partial{r^2}} + \frac{2}{r} \frac{\partial{f}}{\partial{r}}
+    \Delta f(r) = f''(r) + \frac{2}{r} f'(r)
 
-then :math:`u(r_{ij})` term laplacian:
-
-.. math::
-
-    \Delta u(r_{ij}) = (r_{ij} - L_u)^C\Theta(L_u - r_{ij}) \times
+There is only two non-zero terms of :math:`u(r_{ij})` laplacian, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
 
 .. math::
 
-    \sum_{l=0}^{N_u}(C(C-1)/(r_{ij} - L_u)^2 + 2C(l+1)/r_{ij}(r_{ij} - L_u) + l(l+1)/r_{ij}^2)\alpha_lr^l_{ij}
+    \Delta_{e_i} u(r_{ij}) = \Delta_{e_j} u(r_{ij}) = (r_{ij} - L_u)^C\Theta(L_u - r_{ij}) \sum_{l=0}^{N_u}\left(\frac{C(C-1)}{(r_{ij} - L_u)^2} + \frac{2C(l+1)}{r_{ij}(r_{ij} + L_u)} + \frac{l(l+1)}{r_{ij}^2}\right)\alpha_lr^l_{ij}
 
 For certain electron coordinates, :math:`u` term laplacian can be obtained with :py:meth:`casino.Jastrow.u_term_laplacian` method::
 
@@ -304,6 +358,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     poly += polyval(r_ij, (l * (l + 1) * jastrow.u_parameters).T) / r_ij ** 2
     2 * np.sum(np.triu(cutoff * np.choose(ee_spin_mask, poly, mode='wrap'), 1))
 
+.. _chi-term-laplacian:
 
 chi-term laplacian
 ------------------
@@ -312,17 +367,13 @@ Considering that Laplace operator of spherically symmetric function (in 3-D spac
 
 .. math::
 
-    \Delta f = \frac{\partial^2{f}}{\partial{r^2}} + \frac{2}{r} \frac{\partial{f}}{\partial{r}}
+    \Delta f(r) = f''(r) + \frac{2}{r} f'(r)
 
 then :math:`\chi(r_{iI})` term laplacian:
 
 .. math::
 
-    \Delta \chi(r_{iI}) = (r_{iI} - L_{\chi I})^C\Theta(L_{\chi I} - r_{iI}) \times
-
-.. math::
-
-    \sum_{l=0}^{N_\chi}(C(C-1)/(r_{iI} - L_{\chi I})^2 + 2C(m+1)/r_{iI}(r_{iI} - L_{\chi I}) + m(m+1)/r_{iI}^2)\beta_mr^m_{iI}
+    \Delta_{e_i} \chi(r_{iI}) = (r_{iI} - L_{\chi I})^C\Theta(L_{\chi I} - r_{iI}) \sum_{l=0}^{N_\chi}\left(\frac{C(C-1)}{(r_{iI} - L_{\chi I})^2} + \frac{2C(m+1)}{r_{iI}(r_{iI} - L_{\chi I})} + \frac{m(m+1)}{r_{iI}^2}\right)\beta_mr^m_{iI}
 
 For certain electron coordinates, :math:`\chi` term laplacian can be obtained with :py:meth:`casino.Jastrow.chi_term_laplacian` method::
 
@@ -339,6 +390,7 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     poly += polyval(r_iI, (m * (m + 1) * jastrow.chi_parameters[0]).T) / r_iI ** 2
     np.sum(cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap'))
 
+.. _f-term-laplacian:
 
 f-term laplacian
 ----------------
@@ -347,36 +399,52 @@ Considering that Laplace operator of spherically symmetric function (in 3-D spac
 
 .. math::
 
-    \Delta f = \frac{\partial^2{f}}{\partial{r^2}} + \frac{2}{r} \frac{\partial{f}}{\partial{r}}
+    \Delta f(r) = f''(r) + \frac{2}{r} f'(r)
 
-and :math:`f` term is a product of two spherically symmetric functions :math:`f(r_{iI})` and :math:`g(r_{ij})` so using:
-
-.. math::
-
-    \Delta_{e_i}(fg) = g \Delta_{e_i}f + 2 \nabla_{e_i}f \nabla_{e_i}g + f \Delta_{e_i}g
-
-
-then :math:`f(r_{ij}, r_{iI}, r_{jI})` term laplacian:
+and :math:`f` term is a product of two spherically symmetric functions :math:`g(r_{ij})` and :math:`h(r_{iI})` so using:
 
 .. math::
 
-    l_1 = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
-    (C(C-1)/(r_{iI} - L_{fI})^2 + 2C(l+1)/r_{iI}(r_{iI} - L_{fI}) + l(l+1)/r_{iI}^2) \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    \Delta_{e_i}(g(r_{ij})h(r_{iI})) = g(r_{ij})\Delta_{e_i}h(r_{iI}) + 2\nabla_{e_i}g(r_{ij})\nabla_{e_i}h(r_{iI}) + g(r_{ij})\Delta_{e_i}h(r_{iI})
+
+There is only two non-zero terms of :math:`f(r_{ij}, r_{iI}, r_{jI})` laplacian, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
 
 .. math::
 
-    l_{dot} = \mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{iI}
+    l_{iI} = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
+    \left(\frac{C(C-1)}{(r_{iI} - L_{fI})^2} + \frac{2C(l+1)}{r_{iI}(r_{iI} - L_{fI})} + \frac{l(l+1)}{r_{iI}^2}\right)
+    \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+
+.. math::
+
+    l_{jI} = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
+    \left(\frac{C(C-1)}{(r_{jI} - L_{fI})^2} + \frac{2C(l+1)}{r_{jI}(r_{jI} - L_{fI})} + \frac{l(l+1)}{r_{jI}^2}\right)
+    \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+
+.. math::
+
+    l_{dot,i} = \mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{iI}
     \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
-    (C/(r_{iI} - L_{fI}) + l/r_{iI}) (n/r_{ij}) \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    \left(\frac{C}{(r_{iI} - L_{fI})} + \frac{l}{r_{iI}}\right) \frac{n}{r_{ij}} \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
-    l_2 = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
-    (n(n+1)/r_{ij}^2) \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    l_{dot,j} = \mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{jI}
+    \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
+    \left(\frac{C}{(r_{jI} - L_{fI})} + \frac{l}{r_{jI}}\right) \frac{n}{r_{ij}} \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
-    \Delta f(r_{ij}, r_{iI}, r_{jI}) = (r_{iI} - L_{fI})^C(r_{jI} - L_{fI})^C \Theta(L_{fI} - r_{iI})\Theta(L_{fI} - r_{jI}) (l_1 + 2l_{dot} + l_2)
+    l_{ij} = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
+    \frac{n(n+1)}{r_{ij}^2} \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+
+.. math::
+
+    \Delta_{e_i} f(r_{ij}, r_{iI}, r_{jI}) = (r_{iI} - L_{fI})^C(r_{jI} - L_{fI})^C \Theta(L_{fI} - r_{iI})\Theta(L_{fI} - r_{jI}) (l_{iI} + 2l_{dot,i} + l_{ij})
+
+.. math::
+
+    \Delta_{e_j} f(r_{ij}, r_{iI}, r_{jI}) = (r_{iI} - L_{fI})^C(r_{jI} - L_{fI})^C \Theta(L_{fI} - r_{iI})\Theta(L_{fI} - r_{jI}) (l_{jI} - 2l_{dot,j} + l_{ij})
 
 For certain electron coordinates, :math:`f` term laplacian can be obtained with :py:meth:`casino.Jastrow.f_term_laplacian` method::
 

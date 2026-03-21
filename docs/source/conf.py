@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.abspath('../casino'))
 
 project = 'pycasino'
 copyright = '2024, Konkov Vladimir'
-release = version = '0.3.0'
+release = version = '0.4.0'
 author = 'Konkov Vladimir'
 
 extensions = ['sphinx.ext.mathjax']

@@ -2,6 +2,7 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from casino.cusp import CuspFactory
 from casino.readers import CasinoConfig
@@ -36,16 +37,28 @@ class TestCusp(unittest.TestCase):
         return r_e + np.random.uniform(-1, 1, ne * 3).reshape(ne, 3)
 
     def test_gradient(self):
-        assert np.allclose(self.wfn.slater.cusp.gradient(self.n_vectors), self.wfn.slater.cusp.numerical_gradient(self.n_vectors))
+        analytical = self.wfn.slater.cusp.gradient(self.n_vectors)
+        numerical = self.wfn.slater.cusp.numerical_gradient(self.n_vectors)
+        assert analytical[0] == pytest.approx(numerical[0])
+        assert analytical[1] == pytest.approx(numerical[1])
 
     def test_laplacian(self):
-        assert np.allclose(self.wfn.slater.cusp.laplacian(self.n_vectors), self.wfn.slater.cusp.numerical_laplacian(self.n_vectors))
+        analytical = self.wfn.slater.cusp.laplacian(self.n_vectors)
+        numerical = self.wfn.slater.cusp.numerical_laplacian(self.n_vectors)
+        assert analytical[0] == pytest.approx(numerical[0])
+        assert analytical[1] == pytest.approx(numerical[1])
 
     def test_hessian(self):
-        assert np.allclose(self.wfn.slater.cusp.hessian(self.n_vectors)[0], self.wfn.slater.cusp.numerical_hessian(self.n_vectors))
+        analytical = self.wfn.slater.cusp.hessian(self.n_vectors)
+        numerical = self.wfn.slater.cusp.numerical_hessian(self.n_vectors)
+        assert analytical[0] == pytest.approx(numerical[0])
+        assert analytical[1] == pytest.approx(numerical[1])
 
     def test_tressian(self):
-        assert np.allclose(self.wfn.slater.cusp.tressian(self.n_vectors)[0], self.wfn.slater.cusp.numerical_tressian(self.n_vectors))
+        analytical = self.wfn.slater.cusp.tressian(self.n_vectors)
+        numerical = self.wfn.slater.cusp.numerical_tressian(self.n_vectors)
+        assert analytical[0] == pytest.approx(numerical[0])
+        assert analytical[1] == pytest.approx(numerical[1])
 
 
 if __name__ == '__main__':

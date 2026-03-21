@@ -408,6 +408,7 @@ def jastrow_u_term_laplacian(self, e_powers):
                         poly_diff += (k + 1) * p
                         poly_diff_2 += k * (k + 1) * p
                     res += (r_ee - L) ** C * (C * (C - 1) / (r_ee - L) ** 2 * poly + 2 * C / (r_ee - L) / r_ee * poly_diff + poly_diff_2 / r_ee**2)
+        # sum by i-th and j-th electron coordinates
         return 2 * res
 
     return impl

@@ -58,7 +58,48 @@ To prevent code duplication, we need to prepare the necessary intermediate data:
     en_spin_mask[neu:] = 1
     C = backflow.trunc
 
+Summary of Methods
+------------------
+
 Backflow class has a following methods:
+
+.. list-table::
+   :widths: 30 40 30
+   :header-rows: 1
+   :width: 100%
+
+   * - Method
+     - Output
+     - Shape
+   * - :ref:`eta_term <eta-term>`
+     - :math:`\eta(r_{ij})\mathbf{r}_{ij}`
+     - :math:`(3N_e,)`
+   * - :ref:`mu_term <mu-term>`
+     - :math:`\mu(r_{ij})\mathbf{r}_{ij}`
+     - :math:`(3N_e,)`
+   * - :ref:`phi_term <phi-term>`
+     - :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij} + \Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}`
+     - :math:`(3N_e,)`
+   * - :ref:`eta_term_gradient <eta-term-gradient>`
+     - :math:`\nabla \eta(r_{ij})\mathbf{r}_{ij}`
+     - :math:`(3N_e, 3N_e)`
+   * - :ref:`mu_term_gradient <mu-term-gradient>`
+     - :math:`\nabla \mu(r_{ij})\mathbf{r}_{ij}`
+     - :math:`(3N_e, 3N_e)`
+   * - :ref:`phi_term_gradient <phi-term-gradient>`
+     - :math:`\nabla (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij} + \Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI})`
+     - :math:`(3N_e, 3N_e)`
+   * - :ref:`eta_term_laplacian <eta-term-laplacian>`
+     - :math:`\Delta \eta(r_{ij})\mathbf{r}_{ij}`
+     - :math:`(3N_e,)`
+   * - :ref:`mu_term_laplacian <mu-term-laplacian>`
+     - :math:`\Delta \mu(r_{ij})\mathbf{r}_{ij}`
+     - :math:`(3N_e,)`
+   * - :ref:`phi_term_laplacian <phi-term-laplacian>`
+     - :math:`\Delta (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij} + \Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI})`
+     - :math:`(3N_e,)`
+
+.. _eta-term:
 
 eta-term
 --------
@@ -66,7 +107,7 @@ eta-term
 
 .. math::
 
-    \eta(r_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij})\sum_{k=0}^{N_\eta}c_kr^k_{ij}
+    \eta(r_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij}) \sum_{k=0}^{N_\eta}c_kr^k_{ij}
 
 where :math:`\Theta` is the Heaviside function. Electron-electron Kato cusp conditions at :math:`r_{ij} = 0` satisfied by constraint
 for spin-like electrons only:
@@ -88,13 +129,15 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     eta = np.expand_dims(cutoff * np.choose(ee_spin_mask, poly, mode='wrap'), -1)
     np.sum(-e_vectors * eta, axis=0)
 
+.. _mu-term:
+
 mu-term
 -------
 :math:`\mu(r_{iI})\mathbf{r}_{iI}` term consists of a complete power expansion in electron-nucleus distances :math:`r_{iI}`:
 
 .. math::
 
-    \mu(r_{iI}) = (1 - r_{iI}/L_\mu)^C\Theta(L_\mu - r_{iI})\sum_{k=0}^{N_\mu}d_kr^k_{iI}
+    \mu(r_{iI}) = (1 - r_{iI}/L_\mu)^C\Theta(L_\mu - r_{iI}) \sum_{k=0}^{N_\mu}d_kr^k_{iI}
 
 where :math:`\Theta` is the Heaviside function. The electron-nucleus Kato cusp conditions at :math:`r_{iI} = 0` satisfied if
 
@@ -121,6 +164,8 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     cutoff = np.maximum(1 - r_iI / backflow.mu_cutoff, 0) ** C
     n_vectors * np.expand_dims(cutoff[0] * np.choose(en_spin_mask, poly, mode='wrap'), -1)
 
+.. _phi-term:
+
 phi-term
 --------
 :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}` and :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}` terms describe two-electron
@@ -128,15 +173,23 @@ backflow displacements in terms of :math:`r_{ij}` , :math:`r_{iI}` , and :math:`
 
 .. math::
 
-    \Phi(r_{iI}, r_{jI}, r_{ij}) = (1 - r_{ij}/L_{\Phi I})^C(1 - r_{iI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{ij})\Theta(L_{\Phi I} - r_{iI})
-    \sum_{k=0}^{N_{\Phi I}^{eN}}\sum_{l=0}^{N_{\Phi I}^{eN}}\sum_{m=0}^{N_{\Phi I}^{ee}}\phi_{lmnI}r_{iI}^kr_{jI}^lr_{ij}^m
+    \Phi(r_{iI}, r_{jI}, r_{ij}) = \sum_{k=0}^{N_{\Phi I}^{eN}}\sum_{l=0}^{N_{\Phi I}^{eN}}\sum_{m=0}^{N_{\Phi I}^{ee}} \Phi_{klmI}
 
 .. math::
 
-    \Theta(r_{iI}, r_{jI}, r_{ij}) = (1 - r_{ij}/L_{\Phi I})^C(1 - r_{iI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{ij})\Theta(L_{\Phi I} - r_{iI})
-    \sum_{k=0}^{N_{\Phi I}^{eN}}\sum_{l=0}^{N_{\Phi I}^{eN}}\sum_{m=0}^{N_{\Phi I}^{ee}}\theta_{lmnI}r_{iI}^kr_{jI}^lr_{ij}^m
+    \Theta(r_{iI}, r_{jI}, r_{ij}) = \sum_{k=0}^{N_{\Phi I}^{eN}}\sum_{l=0}^{N_{\Phi I}^{eN}}\sum_{m=0}^{N_{\Phi I}^{ee}} \Theta_{klmI}
 
-where :math:`\Theta` is the Heaviside function. To ensure electron–electron Kato cusp conditions folowing :math:`3(N_{\Phi I}^{ee} + N_{\Phi I}^{en} + 1)`
+where
+
+.. math::
+
+    \Phi_{klmI} = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})\phi_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
+
+.. math::
+
+    \Theta_{klmI} = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})\theta_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
+
+and :math:`\Theta` is the Heaviside function. To ensure electron–electron Kato cusp conditions folowing :math:`3(N_{\Phi I}^{ee} + N_{\Phi I}^{en} + 1)`
 constraints is applied:
 
 .. math::
@@ -184,21 +237,27 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     np.fill_diagonal(theta, 0)
     np.sum(-e_vectors * np.expand_dims(phi, -1) + n_vectors * np.expand_dims(theta, -1), axis=0)
 
+.. _eta-term-gradient:
+
 eta-term gradient
 -----------------
 
-Considering that vector gradient of spherically symmetric function (in 3-D space) is:
+Considering that vector gradient of spherically symmetric vector function (in 3-D space) is:
 
 .. math::
 
-    \nabla (f(r)\mathbf{r}) =  \frac{\partial{f(r)}}{\partial{r}} \mathbf{\hat e}_r \otimes \mathbf{r} + f \cdot I
+    \nabla (f(r)\mathbf{r}) = f'(r) \mathbf{\hat r} \otimes \mathbf{r} + f \cdot \mathbf{I}
 
 There is only two non-zero terms of :math:`\eta(r_{ij})` gradient, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
 
 .. math::
 
-    \nabla_{e_i}(\eta(r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij})
-    \sum_{k=0}^{N_\eta} (I + \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} (C/(r_{ij} - L_\eta) + k/r_{ij}))c_kr^k_{ij}
+    \nabla_{e_i} (\eta(r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij})
+    \sum_{k=0}^{N_\eta} \left[\left(\frac{k}{r_{ij}} - \frac{C}{L_\eta - r_{ij}}\right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} + \mathbf{I} \right] c_kr^k_{ij}
+
+.. math::
+
+    \nabla_{e_j} (\eta(r_{ij})\mathbf{r}_{ij}) = - \nabla_{e_i} (\eta(r_{ij})\mathbf{r}_{ij})
 
 where :math:`\mathbf{\hat r}_{ij}` is the unit vector in the direction of the :math:`\mathbf{r}_{ij}`
 
@@ -223,20 +282,22 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     tt2 = np.einsum('abi,abj,ab->aibj', e_vectors, unit_e_vectors, -t2)
     (tt1 + tt2).reshape(ne*3, ne*3)
 
+.. _mu-term-gradient:
+
 mu-term gradient
 ----------------
-Considering that vector gradient of spherically symmetric function (in 3-D space) is:
+Considering that vector gradient of spherically symmetric vector function (in 3-D space) is:
 
 .. math::
 
-    \nabla (f(r)\mathbf{r}) =  \frac{\partial{f(r)}}{\partial{r}} \mathbf{\hat e}_r \otimes \mathbf{r} + f \cdot I
+    \nabla (f(r)\mathbf{r}) = f'(r) \mathbf{\hat r} \otimes \mathbf{r} + f \cdot \mathbf{I}
 
-There is only two non-zero terms of :math:`\mu(r_{iI})` gradient, i.e. by :math:`i`-th electron coordinates:
+There is only one non-zero term of :math:`\mu(r_{iI})` gradient, i.e. by :math:`i`-th electron coordinates:
 
 .. math::
 
-    \nabla_{e_i} \mu(r_{iI}) = (1 - r_{iI}/L_\eta)^C\Theta(L_\mu - r_{iI})
-    \sum_{k=0}^{N_\mu} (I + \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{iI} (k/r_{iI} - C/(L_\mu - r_{iI})))d_kr^k_{ij}
+    \nabla_{e_i} (\mu(r_{iI})\mathbf{r}_{iI}) = (1 - r_{iI}/L_\mu)^C\Theta(L_\mu - r_{iI})
+    \sum_{k=0}^{N_\mu} \left[\left(\frac{k}{r_{iI}} - \frac{C}{L_\mu - r_{iI}}\right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{iI} + \mathbf{I}\right] d_kr^k_{ij}
 
 where :math:`\mathbf{\hat r}_{iI}` is the unit vector in the direction of the :math:`\mathbf{r}_{iI}`
 
@@ -259,18 +320,54 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     tt2 = np.einsum('Iai,Iaj,ab,Ia->aibj', n_vectors, unit_n_vectors, np.eye(ne), t2)
     (tt1 + tt2).reshape(ne*3, ne*3)
 
+.. _phi-term-gradient:
+
 phi-term gradient
 -----------------
 
-There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})` gradient, i.e. by :math:`i`-th electron coordinates:
+Considering that vector gradient of spherically symmetric vector function (in 3-D space) is:
 
 .. math::
 
-    \nabla_{e_i} \Phi(r_{iI}, r_{jI}, r_{ij}) =
+    \nabla (f(r)\mathbf{r}) = f'(r) \mathbf{\hat r} \otimes \mathbf{r} + f \cdot \mathbf{I}
+
+There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}` gradient, i.e. by :math:`i`-th:
 
 .. math::
 
-    \nabla_{e_i} \Theta(r_{iI}, r_{jI}, r_{ij}) =
+    \nabla_{e_i} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{ij} + \left(\frac{m}{r_{ij}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} + \mathbf{I} \right] \Phi_{klmI}
+
+or :math:`j`-th electron coordinates:
+
+.. math::
+
+    \nabla_{e_j} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right) \mathbf{\hat r}_{jI} \otimes \mathbf{r}_{ij} - \left(\frac{m}{r_{ij}} \right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{ij} - \mathbf{I} \right] \Phi_{klmI}
+
+There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}` gradient, i.e. by :math:`i`-th:
+
+.. math::
+
+    \nabla_{e_i} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{k}{r_{iI}} -\frac{C}{L_{\Phi I} - r_{iI}}\right) \mathbf{\hat r}_{iI} \otimes \mathbf{r}_{iI} + \left(\frac{m}{r_{ij}}\right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{iI} + \mathbf{I} \right]  \Theta_{klmI}
+
+or :math:`j`-th electron coordinates:
+
+.. math::
+
+    \nabla_{e_j} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = \sum_{k=0}^{N_{\Phi I}^{eN}} \sum_{l=0}^{N_{\Phi I}^{eN}} \sum_{m=0}^{N_{\Phi I}^{ee}} \left[\left(\frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}}\right) \mathbf{\hat r}_{jI} \otimes \mathbf{r}_{iI} - \left(\frac{m}{r_{ij}}\right) \mathbf{\hat r}_{ij} \otimes \mathbf{r}_{iI} \right]  \Theta_{klmI}
+
+where
+
+.. math::
+
+    \Phi_{klmI} = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})\phi_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
+
+.. math::
+
+    \Theta_{klmI} = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})\theta_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
+
+
+where :math:`\mathbf{\hat r}_{ij}` is the unit vector in the direction of the :math:`\mathbf{r}_{ij}`
+and :math:`\mathbf{\hat r}_{iI}` is the unit vector in the direction of the :math:`\mathbf{r}_{iI}`
 
 For certain electron coordinates, :math:`\phi` term gradient can be obtained with :py:meth:`casino.Backflow.phi_term_gradient` method::
 
@@ -280,8 +377,26 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 
     from numpy.polynomial.polynomial import polyval3d
 
+.. _eta-term-laplacian:
+
 eta-term laplacian
 ------------------
+
+Considering that vector laplacian of spherically symmetric vector function (in 3-D space) is:
+
+.. math::
+
+    \Delta (f(r)\mathbf{r}) = \left(f''(r) + \frac{4}{r} f'(r)\right) \mathbf{r}
+
+There is only two non-zero terms of :math:`\eta(r_{ij})\mathbf{r}_{ij}` laplacian, i.e. by :math:`i`-th  or :math:`j`-th electron coordinates:
+
+.. math::
+
+    \Delta_{e_i} (\eta(r_{ij})\mathbf{r}_{ij}) = (1 - r_{ij}/L_\eta)^C\Theta(L_\eta - r_{ij}) \mathbf{r}_{ij}\sum_{k=0}^{N_\eta} \left[\frac{C(C-1)}{(L_\eta - r_{ij})^2} - \frac{2C(k+2)}{r_{ij}(L_\eta - r_{ij})} + \frac{k(k+3)}{r_{ij}^2} \right] c_kr^k_{ij}
+
+.. math::
+
+    \Delta_{e_j} (\eta(r_{ij})\mathbf{r}_{ij}) = - \Delta_{e_i} (\eta(r_{ij})\mathbf{r}_{ij})
 
 For certain electron coordinates, :math:`\eta` laplacian term can be obtained with :py:meth:`casino.Backflow.eta_term_laplacian` method::
 
@@ -291,8 +406,22 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 
     from numpy.polynomial.polynomial import polyval
 
+.. _mu-term-laplacian:
+
 mu-term laplacian
 -----------------
+
+Considering that vector laplacian of spherically symmetric vector function (in 3-D space) is:
+
+.. math::
+
+    \Delta (f(r)\mathbf{r}) = \left(f''(r) + \frac{4}{r} f'(r)\right) \mathbf{r}
+
+There is only one non-zero term of :math:`\mu(r_{iI})\mathbf{r}_{iI}` laplacian, i.e. by :math:`i`-th electron coordinates:
+
+.. math::
+
+    \Delta_{e_i} (\mu(r_{iI})\mathbf{r}_{iI}) = (1 - r_{iI}/L_\mu)^C\Theta(L_\mu - r_{iI}) \mathbf{r}_{iI}\sum_{k=0}^{N_\mu} \left[\frac{C(C-1)}{(L_\mu - r_{iI})^2} - \frac{2C(k+2)}{r_{iI}(L_\mu - r_{iI})} + \frac{k(k+3)}{r_{iI}^2} \right]d_kr^k_{iI}
 
 For certain electron coordinates, :math:`\mu` term laplacian can be obtained with :py:meth:`casino.Backflow.mu_term_laplacian` method::
 
@@ -302,8 +431,123 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
 
     from numpy.polynomial.polynomial import polyval
 
+.. _phi-term-laplacian:
+
 phi-term laplacian
 ------------------
+
+Considering that gradient of spherically symmetric scalar function (in 3-D space) is:
+
+.. math::
+
+    \nabla f(r) = f'(r) \mathbf{\hat r}
+
+and laplacian of spherically symmetric scalar function (in 3-D space) is:
+
+.. math::
+
+    \Delta f(r) = f''(r) + \frac{2}{r} f'(r)
+
+and :math:`\Phi` term addent is a product of :math:`f=r_{ij}^m`, :math:`g=(1−r_{iI}/L_{\Phi I})^С r_{iI}^k`, :math:`h=(1−r_{jI}/L_{\Phi I})^С r_{jI}^l`,
+:math:`\phi_{klmI}` and :math:`\mathbf{r}_{ij}` so using:
+
+.. math::
+
+    \frac{\Delta_{e_i} \Phi}{\Phi} = \frac{\Delta_{e_i} (fg\mathbf{r}_{ij})}{fg} = \left(\frac{\Delta_{e_i} f}{f} + 2\frac{\nabla_{e_i} f}{f} \cdot \frac{\nabla_{e_i} g}{g} + \frac{\Delta_{e_i} g}{g}\right)\mathbf{r}_{ij} + 2\left(\frac{\nabla_{e_i} f}{f} + \frac{\nabla_{e_i} g}{g}\right) \nabla_{e_i} \mathbf{r}_{ij}
+
+.. math::
+
+    \frac{\Delta_{e_j} \Phi}{\Phi} = \frac{\Delta_{e_j} (fh\mathbf{r}_{ij})}{fh} = \left(\frac{\Delta_{e_j} f}{f} + 2\frac{\nabla_{e_j} f}{f} \cdot \frac{\nabla_{e_j} h}{h} + \frac{\Delta_{e_j} h}{h}\right)\mathbf{r}_{ij} + 2\left(\frac{\nabla_{e_j} f}{f} + \frac{\nabla_{e_j} h}{h}\right) \nabla_{e_j} \mathbf{r}_{ij}
+
+There is only two non-zero terms of :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}` laplacian, i.e. by :math:`i`-th:
+
+.. math::
+
+    l_{kmI} = \frac{\Delta_{e_i} f}{f} + \frac{\Delta_{e_i} g}{g} = \left( \frac{m(m+1)}{r_{ij}^2}  + \frac{k(k+1)}{r_{iI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{iI})^2} - \frac{2C(k+1)}{r_{iI}(L_{\Phi I} - r_{iI})} \right)
+
+.. math::
+
+    d_{kmI} = \frac{\nabla_{e_i} f}{f} \cdot \frac{\nabla_{e_i} g}{g} = \frac{m}{r_{ij}} \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{iI})
+
+.. math::
+
+    g_{kmI} = \frac{\nabla_{e_i} f}{f} + \frac{\nabla_{e_i} g}{g} = \frac{m}{r_{ij}} \mathbf{\hat r}_{ij} + \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right)\mathbf{\hat r}_{iI}
+
+.. math::
+
+    \Delta_{e_i} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} (l_{kmI}\mathbf{r}_{ij} + 2d_{kmI}\mathbf{r}_{ij} + 2g_{kmI}) \Phi_{klmI}
+
+or :math:`j`-th electron coordinates:
+
+.. math::
+
+    l_{lmI} = \frac{\Delta_{e_j} f}{f} + \frac{\Delta_{e_j} g}{g} = \left( \frac{m(m+1)}{r_{ij}^2} + \frac{l(l+1)}{r_{jI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{jI})^2} - \frac{2C(l+1)}{r_{iI}(L_{\Phi I} - r_{jI})} \right)
+
+.. math::
+
+    d_{lmI} = \frac{\nabla_{e_j} f}{f} \cdot \frac{\nabla_{e_j} h}{h} = - \frac{m}{r_{ij}} \left( \frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{jI})
+
+.. math::
+
+    g_{lmI} = \frac{\nabla_{e_j} f}{f} + \frac{\nabla_{e_j} h}{h} = \frac{m}{r_{ij}} \mathbf{\hat r}_{ij} - \left( \frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right)\mathbf{\hat r}_{jI}
+
+.. math::
+
+    \Delta_{e_j} (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij}) = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} (l_{lmI}\mathbf{r}_{ij} + 2d_{lmI}\mathbf{r}_{ij} + 2g_{lmI}) \Phi_{klmI}
+
+:math:`\Theta` term addent is a product of :math:`f=r_{ij}^m`, :math:`g=(1−r_{iI}/L_{\Phi I})^С r_{iI}^k`, :math:`h=(1−r_{jI}/L_{\Phi I})^С r_{jI}^l`,
+:math:`\theta_{klmI}` and :math:`\mathbf{r}_{iI}` so using:
+
+.. math::
+
+    \frac{\Delta_{e_i} \Theta}{\Theta} = \frac{\Delta_{e_i} (fg\mathbf{r}_{ij})}{fg} = \left(\frac{\Delta_{e_i} f}{f} + 2\frac{\nabla_{e_i} f}{f} \cdot \frac{\nabla_{e_i} g}{g} + \frac{\Delta_{e_i} g}{g}\right)\mathbf{r}_{iI} + 2\left(\frac{\nabla_{e_i} f}{f} + \frac{\nabla_{e_i} g}{g}\right) \nabla_{e_i} \mathbf{r}_{iI}
+
+.. math::
+
+    \frac{\Delta_{e_j} \Theta}{\Theta} = \frac{\Delta_{e_j} (fh\mathbf{r}_{ij})}{fh} = \left(\frac{\Delta_{e_j} f}{f} + 2\frac{\nabla_{e_j} f}{f} \cdot \frac{\nabla_{e_j} h}{h} + \frac{\Delta_{e_j} h}{h}\right)\mathbf{r}_{iI} + 2\left(\frac{\nabla_{e_j} f}{f} + \frac{\nabla_{e_j} h}{h}\right) \nabla_{e_j} \mathbf{r}_{iI}
+
+
+There is only two non-zero terms of :math:`\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}` laplacian, i.e. by :math:`i`-th:
+
+.. math::
+
+    l_{kmI} = \left( \frac{m(m+1)}{r_{ij}^2} + \frac{k(k+1)}{r_{iI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{iI})^2} - \frac{2C(k+1)}{r_{iI}(L_{\Phi I} - r_{jI})} \right)
+
+.. math::
+
+    d_{kmI} = \frac{m}{r_{ij}} \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{iI})
+
+.. math::
+
+    g_{kmI} = \frac{m}{r_{ij}} \mathbf{\hat r}_{ij} + \left( \frac{k}{r_{iI}} - \frac{C}{L_{\Phi I} - r_{iI}} \right)\mathbf{\hat r}_{iI}
+
+.. math::
+
+    \Delta_{e_i} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} (l_{kmI}\mathbf{r}_{iI} + 2d_{kmI}\mathbf{r}_{iI} + 2g_{kmI}) \Theta_{klmI}
+
+or :math:`j`-th electron coordinates:
+
+.. math::
+
+    l_{lmI} = \left( \frac{m(m+1)}{r_{ij}^2} + \frac{l(l+1)}{r_{jI}^2} + \frac{C(C+1)}{(L_{\Phi I} - r_{jI})^2} - \frac{2C(k+1)}{r_{iI}(L_{\Phi I} - r_{jI})} \right)
+
+.. math::
+
+    d_{lmI} =  - \frac{m}{r_{ij}} \left( \frac{l}{r_{jI}} - \frac{C}{L_{\Phi I} - r_{jI}} \right) (\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{jI})
+
+.. math::
+
+    \Delta_{e_j} (\Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}) = \sum_{k=0}^{N_{fI}^{eN}}\sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{ee}} (l_{lmI}\mathbf{r}_{iI} + 2d_{lmI}\mathbf{r}_{iI}) \Theta_{klmI}
+
+where
+
+.. math::
+
+    \Phi_{klmI} = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})\phi_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
+
+.. math::
+
+    \Theta_{klmI} = (1 - r_{iI}/L_{\Phi I})^C(1 - r_{jI}/L_{\Phi I})^C\Theta(L_{\Phi I} - r_{iI})\Theta(L_{\Phi I} - r_{jI})\theta_{klmI}r_{iI}^kr_{jI}^lr_{ij}^m
 
 For certain electron coordinates, :math:`\phi` term laplacian can be obtained with :py:meth:`casino.Backflow.phi_term_laplacian` method::
 

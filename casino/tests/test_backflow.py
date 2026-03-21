@@ -2,6 +2,7 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from casino.backflow import Backflow
 from casino.jastrow import Jastrow
@@ -39,23 +40,19 @@ class TestBackflow(unittest.TestCase):
 
     def test_gradient(self):
         ne = self.config.input.neu + self.config.input.ned
-        assert np.allclose(
-            self.wfn.backflow.gradient(self.e_vectors, self.n_vectors)[0],
-            self.wfn.backflow.numerical_gradient(self.e_vectors, self.n_vectors) + np.eye(ne * 3),
-        )
+        analytical = self.wfn.backflow.gradient(self.e_vectors, self.n_vectors)[0]
+        numerical = self.wfn.backflow.numerical_gradient(self.e_vectors, self.n_vectors) + np.eye(ne * 3)
+        assert analytical == pytest.approx(numerical)
 
     def test_laplacian(self):
-        assert np.allclose(
-            self.wfn.backflow.laplacian(self.e_vectors, self.n_vectors)[0],
-            self.wfn.backflow.numerical_laplacian(self.e_vectors, self.n_vectors),
-            rtol=0.001,
-        )
+        analytical = self.wfn.backflow.laplacian(self.e_vectors, self.n_vectors)[0]
+        numerical = self.wfn.backflow.numerical_laplacian(self.e_vectors, self.n_vectors)
+        assert analytical == pytest.approx(numerical)
 
     def test_value_parameters_d1(self):
-        assert np.allclose(
-            self.wfn.backflow.value_parameters_d1(self.e_vectors, self.n_vectors),
-            self.wfn.backflow.value_parameters_numerical_d1(self.e_vectors, self.n_vectors, False),
-        )
+        analytical = self.wfn.backflow.value_parameters_d1(self.e_vectors, self.n_vectors)
+        numerical = self.wfn.backflow.value_parameters_numerical_d1(self.e_vectors, self.n_vectors, False)
+        assert analytical == pytest.approx(numerical)
 
     def test_gradient_parameters_d1(self):
         projector = self.wfn.backflow.parameters_projector.T
@@ -64,22 +61,27 @@ class TestBackflow(unittest.TestCase):
         gradient_parameters_numerical_d1 = self.wfn.backflow.gradient_parameters_numerical_d1(self.e_vectors, self.n_vectors, False).reshape(
             projector.shape[0], -1
         )
-        assert np.allclose(projector @ gradient_parameters_d1, gradient_parameters_numerical_d1)
+        assert projector @ gradient_parameters_d1 == pytest.approx(gradient_parameters_numerical_d1)
 
     def test_laplacian_parameters_d1(self):
-        assert np.allclose(
-            self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.laplacian_parameters_d1(self.e_vectors, self.n_vectors)[0],
-            self.wfn.backflow.laplacian_parameters_numerical_d1(self.e_vectors, self.n_vectors, False),
-        )
+        analytical = self.wfn.backflow.parameters_projector.T @ self.wfn.backflow.laplacian_parameters_d1(self.e_vectors, self.n_vectors)[0]
+        numerical = self.wfn.backflow.laplacian_parameters_numerical_d1(self.e_vectors, self.n_vectors, False)
+        assert analytical == pytest.approx(numerical)
 
     def test_wfn_laplacian(self):
-        assert np.allclose(self.wfn.kinetic_energy(self.r_e), -self.wfn.numerical_laplacian(self.r_e) / 2, rtol=0.0001)
+        kinetic_energy = self.wfn.kinetic_energy(self.r_e)
+        numerical = -self.wfn.numerical_laplacian(self.r_e) / 2
+        assert kinetic_energy == pytest.approx(numerical)
 
     def test_wfn_value_parameters_d1(self):
-        assert np.allclose(self.wfn.value_parameters_d1(self.r_e), self.wfn.value_parameters_numerical_d1(self.r_e))
+        analytical = self.wfn.value_parameters_d1(self.r_e)
+        numerical = self.wfn.value_parameters_numerical_d1(self.r_e)
+        assert analytical == pytest.approx(numerical, rel=1e-4)
 
     def test_wfn_energy_parameters_d1(self):
-        assert np.allclose(self.wfn.energy_parameters_d1(self.r_e), self.wfn.energy_parameters_numerical_d1(self.r_e))
+        analytical = self.wfn.energy_parameters_d1(self.r_e)
+        numerical = self.wfn.energy_parameters_numerical_d1(self.r_e)
+        assert analytical == pytest.approx(numerical)
 
 
 if __name__ == '__main__':

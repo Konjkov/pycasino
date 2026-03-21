@@ -757,7 +757,8 @@ class Casino:
         self.wfn.set_parameters(parameters)
         logger.info(f'Norm of Jacobian at the solution: {norm:.5e}\n')
 
-    def energy_parameters_gradient(self, data):
+    @staticmethod
+    def energy_parameters_gradient(data):
         """Gradient estimator of local energy from
         Optimization of quantum Monte Carlo wave functions by energy minimization.
         Julien Toulouse, C. J. Umrigar
@@ -771,7 +772,8 @@ class Casino:
         mpi_comm.Allreduce(MPI.IN_PLACE, jacobian)
         return jacobian / mpi_comm.size
 
-    def energy_parameters_hessian(self, data):
+    @staticmethod
+    def energy_parameters_hessian(data):
         """Hessian estimators of local energy from
         Optimization of quantum Monte Carlo wave functions by energy minimization.
         Julien Toulouse, C. J. Umrigar
