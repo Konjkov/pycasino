@@ -247,6 +247,43 @@ def wfn_energy(self, r_e):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'second_fundamental_form')
+def wfn_second_fundamental_form(self, r_e):
+    """The second fundamental form of φ(r) = const surface at point r.
+    :param r_e: electron coordinates - array(nelec, 3)
+    :return:
+    """
+
+    def impl(self, r_e) -> np.ndarray:
+        ne = self.neu + self.ned
+        epsilon = {2: 0.4, 4: 0.2, 7: 0.07, 10: 0.05}[ne]
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        value = self.slater.value(n_vectors)  # ψ
+        hess, grad = self.slater.hessian(n_vectors)  # Hψ/ψ, ∇ψ/ψ
+        norm_log_grad = np.linalg.norm(grad)  # |∇ψ/ψ| = |∇ψ|/|ψ|
+        dist = 1 / norm_log_grad  # |ψ|/|∇ψ|
+        if dist < epsilon:  # geometric threshold in Bohr
+            P = np.eye(ne * 3) - np.outer(grad, grad) / norm_log_grad**2
+            II_full = -(P @ hess @ P) / norm_log_grad  # the sign does not depend on ψ
+            _, _, Vt = np.linalg.svd(P)
+            E = Vt.T[:, :-1]  # tangent_basis
+            II = E.T @ II_full @ E  # II in tangent basis (3N-1 × 3N-1)
+            kappas = np.linalg.eigvalsh(II)  # Principal curvatures
+            # Invariants
+            H = np.mean(kappas)  # average curvature
+            K = np.prod(kappas)  # Gaussian curvature
+            # Surface measure is always positive
+            norm_grad = norm_log_grad * abs(value)  # |∇ψ| > 0
+            dS = norm_grad / (2 * epsilon)
+            # Fixed-node error measure
+            HdF = H * norm_grad  # H · |∇ψ|
+            return np.array([dS, H * dS, HdF * dS, K * dS, dist, 1.0])
+        return np.array([0.0, 0.0, 0.0, 0.0, dist, 0.0])
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, 'value_parameters_d1')
 def wfn_value_parameters_d1(self, r_e):
     """First-order derivatives of the wave function value w.r.t parameters.
@@ -552,6 +589,14 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
         :param r_e: electron coordinates - array(nelec, 3)
         """
         return self.energy(r_e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def second_fundamental_form(self, r_e):
+        """The second fundamental form of φ(r) = const surface at point r.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :return:
+        """
+        return self.second_fundamental_form(r_e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def get_parameters(self, all_parameters=False):
