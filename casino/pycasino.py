@@ -325,6 +325,7 @@ class Casino:
                         self.wfn.jastrow.cutoffs_optimizable = not self.config.input.opt_plan[i].get('fix_cutoffs', False)
                     if self.wfn.backflow:
                         self.wfn.backflow.cutoffs_optimizable = not self.config.input.opt_plan[i].get('fix_cutoffs', False)
+                # Initial energy
                 position = self.vmc_energy_accumulation()
                 logger.info(
                     f' ==========================================\n'
@@ -1091,6 +1092,19 @@ class Casino:
         :param position: np.ndarray [n_samples, d] - The array of positions in d-dimensional space.
         :return:
         """
+        arr = self.vmc.observable(self.wfn.second_fundamental_form, position)
+        res = arr[arr[:, -1] > 0]
+        res_sum = res.sum(axis=0)
+        print(
+            f'points={res.shape[0]}',
+            f'H={res_sum[1] / res_sum[0]}',
+            f'HdF={res_sum[2] / res_sum[0]}',
+            f'K={res_sum[3] / res_sum[0]}',
+            f'min_abs_kappa={res_sum[4] / res.shape[0]}',
+            f'Jacobian={res_sum[5] / res.shape[0]}',
+            f'dist={res_sum[6] / res.shape[0]}',
+            f'steps={res_sum[7] / res.shape[0]}',
+        )
         return 2
 
 
