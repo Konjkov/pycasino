@@ -1,5 +1,5 @@
 ---
-name: qmc-physics
+name: qmc
 description: >
   Use this skill when working with any file in pycasino/casino/: wfn.py, slater.py,
   jastrow.py, backflow.py, dmc.py, vmc.py, cusp.py, harmonics.py, ppotential.py.
@@ -9,7 +9,7 @@ description: >
   reconfiguration, cusp condition, pseudopotential, T-move.
 ---
 
-# QMC Physics: pycasino
+# QMC: pycasino
 
 Quantum Monte Carlo (QMC) in pycasino computes properties of many-electron systems
 stochastically by sampling electron configurations from the probability density `|Ψ|²`.
