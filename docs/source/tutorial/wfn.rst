@@ -43,7 +43,7 @@ Slater class has a following methods:
      - :math:`\partial \ln \Psi(r) / \partial \alpha_i`
      - :math:`(N_{par} ,)`
    * - :ref:`kinetic_energy_parameters_d1 <kinetic_energy_parameters_d1>`
-     - :math:`\partial \ln \Psi(r) / \partial \alpha_i`
+     - :math:`\partial T_{kin} / \partial \alpha_i`
      - :math:`(N_{par} ,)`
    * - :ref:`nonlocal_energy_parameters_d1 <nonlocal_energy_parameters_d1>`
      - :math:`\partial \ln \Psi(r) / \partial \alpha_i`

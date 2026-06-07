@@ -435,12 +435,12 @@ Consider Slater determinant tressian by :math:`i`-th, :math:`j`-th and :math:`k`
 
 .. math::
 
-    \begin{align}
+    \begin{aligned}
     & \frac{\nabla^3_{{e_i}{e_j}{e_k}} \phi(\mathbf{r})}{\phi(\mathbf{r})} = tr(A^{-1} \nabla_{e_i} \nabla_{e_j} \nabla_{e_k} A) - 2 \cdot \frac{\nabla_{e_i} \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla_{e_j} \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla_{e_k} \phi(\mathbf{r})}{\phi(\mathbf{r})} \\
     & + \frac{\nabla^2_{{e_i}{e_j}} \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla_{e_k} \phi(\mathbf{r})}{\phi(\mathbf{r})} + \frac{\nabla^2_{{e_i}{e_k}} \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla_{e_j} \phi(\mathbf{r})}{\phi(\mathbf{r})} + \frac{\nabla^2_{{e_j}{e_k}} \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla_{e_i} \phi(\mathbf{r})}{\phi(\mathbf{r})} \\
     & - tr((A^{-1} \nabla_{e_i} \nabla_{e_j} A)(A^{-1} \nabla_{e_k} A) + (A^{-1} \nabla_{e_i} \nabla_{e_k} A)(A^{-1} \nabla_{e_j} A) + (A^{-1} \nabla_{e_j} \nabla_{e_k} A)(A^{-1} \nabla_{e_i} A)) \\
     & + tr((A^{-1} \nabla_{e_i} A)(A^{-1} \nabla_{e_j} A)(A^{-1} \nabla_{e_k} A)) + tr((A^{-1} \nabla_{e_k} A)(A^{-1} \nabla_{e_j} A)(A^{-1} \nabla_{e_i} A))
-    \end{align}
+    \end{aligned}
 
 noting that:
 
@@ -460,14 +460,14 @@ to express the trace through sum using equalities:
 
 .. math::
 
-    \begin{align}
+    \begin{aligned}
     & tr(A^{-1} \nabla_{e_i} \nabla_{e_j} \nabla_{e_k} A) \\
     & - tr((A^{-1} \nabla_{e_i} \nabla_{e_j} A)(A^{-1} \nabla_{e_k} A) + (A^{-1} \nabla_{e_i} \nabla_{e_k} A)(A^{-1} \nabla_{e_j} A) + (A^{-1} \nabla_{e_j} \nabla_{e_k} A)(A^{-1} \nabla_{e_i} A)) \\
     & + tr((A^{-1} \nabla_{e_i} A)(A^{-1} \nabla_{e_j} A)(A^{-1} \nabla_{e_k} A) + (A^{-1} \nabla_{e_k} A)(A^{-1} \nabla_{e_j} A)(A^{-1} \nabla_{e_i} A)) \\
     & = {(A^{-1})_i}^j {(\nabla_{e_i} \nabla_{e_j} \nabla_{e_k} A)_j}^{iabc} - {(A^{-1} \nabla_{e_i} \nabla_{e_j} A)_i}^{jab}{(A^{-1} \nabla_{e_k} A)_j}^{ic} \\
     & - {(A^{-1} \nabla_{e_i} \nabla_{e_k} A)_i}^{jac}{(A^{-1} \nabla_{e_j} A)_j}^{ib} - {(A^{-1} \nabla_{e_j} \nabla_{e_k} A)_i}^{jbc}{(A^{-1} \nabla_{e_i} A)_j}^{ia} \\
     & + {(A^{-1} \nabla_{e_i} A)_j}^{ia}{(A^{-1} \nabla_{e_j} A)_k}^{jb}{(A^{-1} \nabla_{e_k} A)_i}^{kc} + {(A^{-1} \nabla_{e_i} A)_k}^{ia}{(A^{-1} \nabla_{e_j} A)_i}^{jb}{(A^{-1} \nabla_{e_k} A)_j}^{kc}
-    \end{align}
+    \end{aligned}
 
 notice that the :math:`\nabla_i A` has only non-zero :math:`row_i(\nabla_i A) = row_i(G)` and
 the :math:`\nabla_i \nabla_i A` has only non-zero :math:`row_i(\nabla_i \nabla_i A) = row_i(H)` and
@@ -476,12 +476,12 @@ and expand gradient vectors, hessian and tressian tensors over :math:`i`, :math:
 
 .. math::
 
-    \begin{align}
+    \begin{aligned}
     & \frac{\nabla^3 \phi(\mathbf{r})}{\phi(\mathbf{r})} = \delta_{ijk}{(A^{-1})_i}^jT_{jiabc} - 2 \cdot \frac{\nabla \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla \phi(\mathbf{r})}{\phi(\mathbf{r})} \\
     & + \frac{\nabla^2 \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla \phi(\mathbf{r})}{\phi(\mathbf{r})} + \frac{\nabla^2 \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla \phi(\mathbf{r})}{\phi(\mathbf{r})} + \frac{\nabla^2 \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla \phi(\mathbf{r})}{\phi(\mathbf{r})} \\
     & - \delta_{ij}(A^{-1} H)_{ijab}(A^{-1} G)_{ijc} - \delta_{jk}(A^{-1} H)_{jkac}(A^{-1} G)_{jkb} - \delta_{ki}(A^{-1} G)_{kia}(A^{-1} H)_{kibc} \\
     & + (A^{-1} G)_{jia}(A^{-1} G)_{kjb}(A^{-1} G)_{ikc} + (A^{-1} G)_{kia}(A^{-1} G)_{ijb}(A^{-1} G)_{jkc}
-    \end{align}
+    \end{aligned}
 
 
 we can get tressian of multideterminant wavefunction:
