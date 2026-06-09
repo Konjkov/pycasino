@@ -1,13 +1,13 @@
 #!/bin/bash
 
-method="CBCS"
+# method="CBCS"
 # method="EBES"
 # operation="Slater"
 # operation="Jastrow"
 # operation="Backflow"
 # operation="Jastrow_varmin"
 # operation="Jastrow_emin"
-operation="Backflow_varmin"
+# operation="Backflow_varmin"
 # operation="Backflow_emin"
 # operation="Jastrow_dmc"
 # operation="Backflow_dmc"
