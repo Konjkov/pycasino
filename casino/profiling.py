@@ -2,8 +2,6 @@
 import logging
 from timeit import default_timer
 
-from numba.core.runtime import rtsys
-
 from casino.pycasino import Casino
 
 logger = logging.getLogger(__name__)
@@ -152,11 +150,11 @@ class Profiler(Casino):
 
     def markovchain_profiling(self):
         start = default_timer()
-        self.vmc_markovchain.profiling_simple_random_walk(self.config.input.vmc_nstep, self.r_e, 1)
+        self.vmc.random_walk(self.config.input.vmc_nstep, 1)
         end = default_timer()
         logger.info(' markovchain value                 %8.1f', end - start)
-        stats = rtsys.get_allocation_stats()
-        logger.info(f'{stats} total: {stats[0] - stats[1]}')
+        # stats = rtsys.get_allocation_stats()
+        # logger.info(f'{stats} total: {stats[0] - stats[1]}')
 
 
 if __name__ == '__main__':
