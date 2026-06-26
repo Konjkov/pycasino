@@ -643,6 +643,106 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Slater_class_t, 'tressian_dot')
+def slater_tressian_dot(self, n_vectors: np.ndarray, bb: np.ndarray):
+    """Tressian contracted over its last two axes with a symmetric matrix bb:
+        T_bb[a] = Σ_bc tressian[a, b, c] · bb[b, c]
+    computed without materialising the (N, N, N) tensor (N = nelec * 3), so the
+    memory footprint stays O(N²) and cache-resident.
+    :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+    :param bb: symmetric matrix shape = (nelec * 3, nelec * 3)
+    :return: T_bb shape = (nelec * 3,), Hessian (nelec * 3, nelec * 3), gradient (nelec * 3,)
+    """
+
+    def impl(self, n_vectors: np.ndarray, bb: np.ndarray):
+        ne = self.neu + self.ned
+        wfn_u, wfn_d = self.value_matrix(n_vectors)
+        grad_u, grad_d = self.gradient_matrix(n_vectors)
+        hess_u, hess_d = self.hessian_matrix(n_vectors)
+        tress_u, tress_d = self.tressian_matrix(n_vectors)
+        val = 0
+        grad = np.zeros(shape=ne * 3)
+        hess = np.zeros(shape=(ne * 3, ne * 3))
+        tress_bb = np.zeros(shape=ne * 3)
+        single_det = self.det_coeff.size == 1
+        for i in range(self.det_coeff.size):
+            inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
+            inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
+            tr_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
+            tr_grad_d = (inv_wfn_d * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
+            tr_grad = np.concatenate((tr_grad_u, tr_grad_d)).ravel()
+            tr_hess_u = (inv_wfn_u * hess_u[self.permutation_up[i]].T).T.sum(axis=0)
+            tr_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
+            tr_tress_u = (inv_wfn_u * tress_u[self.permutation_up[i]].T).T.sum(axis=0)
+            tr_tress_d = (inv_wfn_d * tress_d[self.permutation_down[i]].T).T.sum(axis=0)
+            matrix_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
+            matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
+            matrix_hess_u = (inv_wfn_u @ hess_u[self.permutation_up[i]].reshape(self.neu, self.neu * 9)).reshape(self.neu, self.neu, 3, 3)
+            matrix_hess_d = (inv_wfn_d @ hess_d[self.permutation_down[i]].reshape(self.ned, self.ned * 9)).reshape(self.ned, self.ned, 3, 3)
+
+            partial_hess = np.outer(tr_grad, tr_grad) / 3
+            res_u = np.zeros(shape=(self.neu, 3, self.neu, 3))
+            res_d = np.zeros(shape=(self.ned, 3, self.ned, 3))
+            for r1 in range(3):
+                for r2 in range(3):
+                    res_u[:, r1, :, r2] = np.diag(tr_hess_u[:, r1, r2]) - matrix_grad_u[:, :, r1].T * matrix_grad_u[:, :, r2]
+                    res_d[:, r1, :, r2] = np.diag(tr_hess_d[:, r1, r2]) - matrix_grad_d[:, :, r1].T * matrix_grad_d[:, :, r2]
+            partial_hess[: self.neu * 3, : self.neu * 3] += res_u.reshape(self.neu * 3, self.neu * 3)
+            partial_hess[self.neu * 3 :, self.neu * 3 :] += res_d.reshape(self.ned * 3, self.ned * 3)
+
+            c = 1 if single_det else self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
+            val += c
+            grad += c * tr_grad
+            hess += c * (partial_hess + 2 / 3 * np.outer(tr_grad, tr_grad))
+            # outer part contracted with bb (bb is symmetric):
+            # Σ_bc bb[b,c] (tr_grad[c]·PH[a,b] + tr_grad[b]·PH[a,c] + tr_grad[a]·PH[b,c])
+            #   = 2·(PH @ (bb @ tr_grad)) + tr_grad · Σ_bc PH[b,c]·bb[b,c]
+            tress_bb += c * (2 * (partial_hess @ (bb @ tr_grad)) + tr_grad * np.sum(partial_hess * bb))
+            # block part contracted with bb (same-spin only)
+            for e1 in range(self.neu):
+                for r1 in range(3):
+                    acc = 0.0
+                    for e2 in range(self.neu):
+                        for r2 in range(3):
+                            for e3 in range(self.neu):
+                                for r3 in range(3):
+                                    res_u = 0.0
+                                    if e1 == e2 == e3:
+                                        res_u += tr_tress_u[e1, r1, r2, r3]
+                                    if e1 == e2:
+                                        res_u -= matrix_hess_u[e3, e1, r1, r2] * matrix_grad_u[e1, e3, r3]
+                                    if e1 == e3:
+                                        res_u -= matrix_hess_u[e2, e3, r1, r3] * matrix_grad_u[e3, e2, r2]
+                                    if e2 == e3:
+                                        res_u -= matrix_hess_u[e1, e2, r2, r3] * matrix_grad_u[e2, e1, r1]
+                                    res_u += 2 * matrix_grad_u[e3, e2, r2] * matrix_grad_u[e1, e3, r3] * matrix_grad_u[e2, e1, r1]
+                                    acc += res_u * bb[e2 * 3 + r2, e3 * 3 + r3]
+                    tress_bb[e1 * 3 + r1] += c * acc
+            for e1 in range(self.ned):
+                for r1 in range(3):
+                    acc = 0.0
+                    for e2 in range(self.ned):
+                        for r2 in range(3):
+                            for e3 in range(self.ned):
+                                for r3 in range(3):
+                                    res_d = 0.0
+                                    if e1 == e2 == e3:
+                                        res_d += tr_tress_d[e1, r1, r2, r3]
+                                    if e1 == e2:
+                                        res_d -= matrix_hess_d[e3, e1, r1, r2] * matrix_grad_d[e1, e3, r3]
+                                    if e1 == e3:
+                                        res_d -= matrix_hess_d[e2, e3, r1, r3] * matrix_grad_d[e3, e2, r2]
+                                    if e2 == e3:
+                                        res_d -= matrix_hess_d[e1, e2, r2, r3] * matrix_grad_d[e2, e1, r1]
+                                    res_d += 2 * matrix_grad_d[e3, e2, r2] * matrix_grad_d[e1, e3, r3] * matrix_grad_d[e2, e1, r1]
+                                    acc += res_d * bb[(self.neu + e2) * 3 + r2, (self.neu + e3) * 3 + r3]
+                    tress_bb[(self.neu + e1) * 3 + r1] += c * acc
+        return tress_bb / val, hess / val, grad / val
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'tressian_v2')
 def slater_tressian_v2(self, n_vectors: np.ndarray):
     """Tressian or numerical third partial derivatives w.r.t. e-coordinates
@@ -989,6 +1089,10 @@ class Slater(structref.StructRefProxy, AbstractSlater):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def tressian(self, n_vectors):
         return self.tressian(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def tressian_dot(self, n_vectors, bb):
+        return self.tressian_dot(n_vectors, bb)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def tressian_v2(self, n_vectors):

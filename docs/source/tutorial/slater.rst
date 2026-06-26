@@ -656,3 +656,81 @@ of orbitals and primitives — and the loop optimisation contributes only ~20% o
 the total runtime.  The next bottleneck to address for large-:math:`N_e` systems
 is therefore ``tressian_matrix`` itself.
 
+.. _tressian_dot:
+
+tressian_dot
+------------
+
+The tressian enters the local-energy parameter derivatives only through its
+contraction with a symmetric matrix :math:`B = b_g\,b_g^\top` over the last two
+axes:
+
+.. math::
+
+    (T_B)_a = \sum_{b, c} T_{abc}\, B_{bc}
+
+:py:meth:`casino.Slater.tressian_dot` returns this vector of shape ``(ne3,)``
+without ever forming the ``(ne3, ne3, ne3)`` tensor, so the working set stays
+:math:`O(\text{ne3}^2)` and cache-resident.
+
+Contracting the **dense outer part** with :math:`B` collapses to a closed form
+(using :math:`B = B^\top`):
+
+.. math::
+
+    \sum_{bc} \big(g_c\,\mathrm{PH}_{ab} + g_b\,\mathrm{PH}_{ac}
+    + g_a\,\mathrm{PH}_{bc}\big) B_{bc}
+    = 2\,\big(\mathrm{PH}\,(B\,g)\big)_a + g_a\,\langle \mathrm{PH}, B\rangle
+
+with :math:`\langle \mathrm{PH}, B\rangle = \sum_{bc}\mathrm{PH}_{bc} B_{bc}`.
+This costs :math:`O(\text{ne3}^2)`.
+
+The **sparse determinant part** is contracted inside the same per-spin six-fold
+loop, accumulating directly into the scalar :math:`(T_B)_a` instead of storing the
+tensor.  The flop count stays :math:`O(\text{ne3}^3)` but the memory footprint
+drops to :math:`O(\text{ne3}^2)`.
+
+For certain electron coordinates::
+
+    bb = b_g @ b_g.T
+    t_bb, hess, grad = slater.tressian_dot(n_vectors, bb)
+
+is equivalent to::
+
+    tress, hess, grad = slater.tressian(n_vectors)
+    t_bb = np.tensordot(tress, bb, axes=([1, 2], [0, 1]))
+
+Because the :math:`\text{ne3}^3` tensor is never materialised, the speedup over
+:py:meth:`casino.Slater.tressian` grows with system size as the tensor outgrows
+the cache (wall-clock seconds for an equal number of calls):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 16 22 22 20
+
+   * - System
+     - ne3
+     - tressian
+     - tressian_dot
+     - speedup
+   * - Ne
+     - 30
+     - 0.8
+     - 0.6
+     - 1.3×
+   * - Ar
+     - 54
+     - 3.0
+     - 1.6
+     - 1.9×
+   * - O3
+     - 72
+     - 9.9
+     - 4.2
+     - 2.4×
+   * - Kr
+     - 108
+     - 28.4
+     - 7.8
+     - 3.6×
+
