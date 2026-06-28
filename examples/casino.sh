@@ -45,7 +45,6 @@
 # path="stowfn/He/HF/QZ4P/${method}/Gjastrow/"
 # path="stowfn/Be/HF/QZ4P/${method}/Gjastrow/"
 
-
 # ../casino/plot/plot.py stowfn/He/HF/QZ4P/CBCS/Backflow/ u
 
 # export NUMBA_NUM_THREADS=1
