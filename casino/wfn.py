@@ -287,9 +287,10 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
             s_g = self.slater.gradient(b_v + n_vectors) @ b_g
         else:
             s_g = self.slater.gradient(n_vectors)
+        if self.jastrow is not None:
+            j_g = self.jastrow.gradient(e_vectors, n_vectors)
         if self.jastrow is not None and self.opt_jastrow:
             # Jastrow parameters part
-            j_g = self.jastrow.gradient(e_vectors, n_vectors)
             j_g_d1 = self.jastrow.gradient_parameters_d1(e_vectors, n_vectors)
             j_l_d1 = self.jastrow.laplacian_parameters_d1(e_vectors, n_vectors)
             j_d1 = j_g_d1 @ (s_g + j_g) + j_l_d1 / 2
@@ -312,7 +313,6 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
                 bf_d1[i] += np.sum(s_h * (b_g_d1[i] @ b_g.T))
                 bf_d1[i] += (s_g_d1[i] @ b_l + s_g @ b_l_d1[i]) / 2
                 if self.jastrow is not None:
-                    j_g = self.jastrow.gradient(e_vectors, n_vectors)
                     bf_d1[i] += (s_g_d1[i] @ b_g + s_g @ b_g_d1[i]) @ j_g
             res = np.concatenate((res, bf_d1 @ self.backflow.parameters_projector))
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
@@ -329,7 +329,6 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
                 s_g_d1 = self.slater.gradient_parameters_d1(n_vectors)
                 sl_d1 = self.slater.laplacian_parameters_d1(n_vectors) / 2
             if self.jastrow is not None:
-                j_g = self.jastrow.gradient(e_vectors, n_vectors)
                 sl_d1 += s_g_d1 @ j_g
             sl_d1 += s_g_d1 @ s_g
             res = np.concatenate((res, sl_d1))

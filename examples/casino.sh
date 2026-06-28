@@ -1,13 +1,13 @@
 #!/bin/bash
 
-method="CBCS"
+# method="CBCS"
 # method="EBES"
 # operation="Slater"
 # operation="Jastrow"
 # operation="Backflow"
 # operation="Jastrow_varmin"
 # operation="Jastrow_emin"
-operation="Backflow_varmin"
+# operation="Backflow_varmin"
 # operation="Backflow_emin"
 # operation="Jastrow_dmc"
 # operation="Backflow_dmc"
@@ -44,7 +44,6 @@ operation="Backflow_varmin"
 
 # path="stowfn/He/HF/QZ4P/${method}/Gjastrow/"
 # path="stowfn/Be/HF/QZ4P/${method}/Gjastrow/"
-
 
 # ../casino/plot/plot.py stowfn/He/HF/QZ4P/CBCS/Backflow/ u
 
