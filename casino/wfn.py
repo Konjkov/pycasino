@@ -298,22 +298,22 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
         if self.backflow is not None and self.opt_backflow:
             # backflow parameters part
             b_l_d1, b_g_d1, b_v_d1 = self.backflow.laplacian_parameters_d1(e_vectors, n_vectors)
+            parameters = b_v_d1.shape[0]
             s_t, s_h, s_g = self.slater.tressian(b_v + n_vectors)
             s_g_d1 = b_v_d1 @ (s_h - np.outer(s_g, s_g))  # as hessian is d²ln(phi)/dxdy
             s_h_coordinates_d1 = s_t - np.expand_dims(np.expand_dims(s_g, 1), 2) * s_h  # d(d²ln(phi)/dydz)/dx
             s_h_d1 = (b_v_d1 @ s_h_coordinates_d1.reshape(s_h_coordinates_d1.shape[0], -1)).reshape(
-                b_v_d1.shape[0], s_h_coordinates_d1.shape[1], s_h_coordinates_d1.shape[2]
+                parameters, s_h_coordinates_d1.shape[1], s_h_coordinates_d1.shape[2]
             )
-
-            bf_d1 = np.zeros(shape=b_l_d1.shape[0])
-            for i in range(b_l_d1.shape[0]):
-                bf_d1[i] += np.sum(s_h_d1[i] * (b_g @ b_g.T)) / 2
-                # d(b_g @ b_g.T) = b_g_d1 @ b_g.T + b_g @ b_g_d1.T = b_g_d1 @ b_g.T + (b_g_d1 @ b_g.T).T
-                # and s_h is symmetric matrix
-                bf_d1[i] += np.sum(s_h * (b_g_d1[i] @ b_g.T))
-                bf_d1[i] += (s_g_d1[i] @ b_l + s_g @ b_l_d1[i]) / 2
-                if self.jastrow is not None:
-                    bf_d1[i] += (s_g_d1[i] @ b_g + s_g @ b_g_d1[i]) @ j_g
+            # d(b_g @ b_g.T) = b_g_d1 @ b_g.T + b_g @ b_g_d1.T = b_g_d1 @ b_g.T + (b_g_d1 @ b_g.T).T
+            # and s_h is symmetric matrix, so sum(s_h * (b_g_d1[i] @ b_g.T)) = sum(b_g_d1[i] * (s_h @ b_g))
+            bf_d1 = (
+                s_h_d1.reshape(parameters, -1) @ (b_g @ b_g.T).ravel() / 2
+                + b_g_d1.reshape(parameters, -1) @ (s_h @ b_g).ravel()
+                + (s_g_d1 @ b_l + b_l_d1 @ s_g) / 2
+            )
+            if self.jastrow is not None:
+                bf_d1 += s_g_d1 @ (b_g @ j_g) + b_g_d1.reshape(parameters, -1) @ np.outer(s_g, j_g).ravel()
             res = np.concatenate((res, bf_d1 @ self.backflow.parameters_projector))
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
             # determinants coefficients part
