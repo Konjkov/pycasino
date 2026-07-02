@@ -2278,6 +2278,37 @@ def backflow_ae_multiplier_laplacian_d1(self, n_vectors, n_powers):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+def backflow_reduce_parameters_d1(value, gradient, laplacian, offset, f, f_gradient, f_laplacian, g, g_gradient, g_laplacian):
+    """Parameter derivative of the product g*f (Leibniz rule), accumulated into value/gradient/laplacian
+    at the given row offset:
+        value[p,a]     = Σ_s f*g
+        gradient[p,a,b]= Σ_s (∇g*f + ∇f*g)
+        laplacian[p,a] = Σ_s (∇²g*f + 2 Σ_b ∇f*∇g + ∇²f*g)
+    Indices:
+        p       optimizable parameter of the term
+        a, b    collective-coordinate components, m = 3N
+        s       AE-cutoff branch (not spin): 0 -> multiplier 1 (no zeroing),
+                1 -> g(r_iI) when r_iI < Lg,I (zeroing the displacement at AE atoms), else 1
+    Explicit loops avoid the large (size, 2, m, m) temporaries numba materialises for the broadcast form.
+    """
+    m = g.shape[1]
+    for p in range(f.shape[0]):
+        row = offset + p
+        for s in range(2):
+            for a in range(m):
+                fv = f[p, s, a]
+                gv = g[s, a]
+                value[row, a] += fv * gv
+                dot = 0.0
+                for b in range(m):
+                    fg = f_gradient[p, s, a, b]
+                    gg = g_gradient[s, a, b]
+                    gradient[row, a, b] += gg * fv + fg * gv
+                    dot += fg * gg
+                laplacian[row, a] += g_laplacian[s, a] * fv + 2 * dot + f_laplacian[p, s, a] * gv
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Backflow_class_t, 'value_parameters_d1')
 def backflow_value_parameters_d1(self, e_vectors, n_vectors):
     """First derivatives of backflow w.r.t the parameters
@@ -2422,51 +2453,63 @@ def backflow_laplacian_parameters_d1(self, e_vectors, n_vectors):
         ae_multiplier_gradient_d1 = self.ae_multiplier_gradient_d1(n_vectors, n_powers)
         ae_multiplier_laplacian_d1 = self.ae_multiplier_laplacian_d1(n_vectors, n_powers)
 
-        value = np.concatenate(
-            (
-                np.sum(eta_term_d1 * ae_multiplier, axis=1),
-                np.sum(mu_term_d1 * ae_multiplier, axis=1),
-                np.sum(phi_term_d1 * ae_multiplier, axis=1),
-                np.sum(ae_value * ae_multiplier_d1, axis=1),
-            )
-        )
+        ne = ae_multiplier.shape[1]
+        eta_size = eta_term_d1.shape[0]
+        mu_size = mu_term_d1.shape[0]
+        phi_size = phi_term_d1.shape[0]
+        ae_size = ae_multiplier_d1.shape[0]
+        total = eta_size + mu_size + phi_size + ae_size
+        value = np.zeros(shape=(total, ne))
+        gradient = np.zeros(shape=(total, ne, ne))
+        laplacian = np.zeros(shape=(total, ne))
 
-        gradient = np.concatenate(
-            (
-                np.sum(ae_multiplier_gradient * np.expand_dims(eta_term_d1, 3) + eta_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
-                np.sum(ae_multiplier_gradient * np.expand_dims(mu_term_d1, 3) + mu_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
-                np.sum(ae_multiplier_gradient * np.expand_dims(phi_term_d1, 3) + phi_term_gradient_d1 * np.expand_dims(ae_multiplier, 2), axis=1),
-                np.sum(ae_multiplier_gradient_d1 * np.expand_dims(ae_value, 2) + ae_gradient * np.expand_dims(ae_multiplier_d1, 3), axis=1),
-            )
+        backflow_reduce_parameters_d1(
+            value,
+            gradient,
+            laplacian,
+            0,
+            eta_term_d1,
+            eta_term_gradient_d1,
+            eta_term_laplacian_d1,
+            ae_multiplier,
+            ae_multiplier_gradient,
+            ae_multiplier_laplacian,
         )
-
-        laplacian = np.concatenate(
-            (
-                np.sum(
-                    ae_multiplier_laplacian * eta_term_d1
-                    + 2 * (eta_term_gradient_d1 * ae_multiplier_gradient).sum(axis=-1)
-                    + eta_term_laplacian_d1 * ae_multiplier,
-                    axis=1,
-                ),
-                np.sum(
-                    ae_multiplier_laplacian * mu_term_d1
-                    + 2 * (mu_term_gradient_d1 * ae_multiplier_gradient).sum(axis=-1)
-                    + mu_term_laplacian_d1 * ae_multiplier,
-                    axis=1,
-                ),
-                np.sum(
-                    ae_multiplier_laplacian * phi_term_d1
-                    + 2 * (phi_term_gradient_d1 * ae_multiplier_gradient).sum(axis=-1)
-                    + phi_term_laplacian_d1 * ae_multiplier,
-                    axis=1,
-                ),
-                np.sum(
-                    ae_multiplier_laplacian_d1 * ae_value
-                    + 2 * (ae_gradient * ae_multiplier_gradient_d1).sum(axis=-1)
-                    + ae_laplacian * ae_multiplier_d1,
-                    axis=1,
-                ),
-            )
+        backflow_reduce_parameters_d1(
+            value,
+            gradient,
+            laplacian,
+            eta_size,
+            mu_term_d1,
+            mu_term_gradient_d1,
+            mu_term_laplacian_d1,
+            ae_multiplier,
+            ae_multiplier_gradient,
+            ae_multiplier_laplacian,
+        )
+        backflow_reduce_parameters_d1(
+            value,
+            gradient,
+            laplacian,
+            eta_size + mu_size,
+            phi_term_d1,
+            phi_term_gradient_d1,
+            phi_term_laplacian_d1,
+            ae_multiplier,
+            ae_multiplier_gradient,
+            ae_multiplier_laplacian,
+        )
+        backflow_reduce_parameters_d1(
+            value,
+            gradient,
+            laplacian,
+            eta_size + mu_size + phi_size,
+            ae_multiplier_d1,
+            ae_multiplier_gradient_d1,
+            ae_multiplier_laplacian_d1,
+            ae_value,
+            ae_gradient,
+            ae_laplacian,
         )
 
         return laplacian, gradient, value
