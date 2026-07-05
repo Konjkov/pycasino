@@ -590,6 +590,15 @@ class AbstractSlater:
             n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
             self.tressian_v2(n_vectors)
 
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def profile_tressian_dot(self, dr, steps: int, atom_positions, r_initial) -> None:
+        """auxiliary code"""
+        bb = np.zeros(shape=((self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
+        for _ in range(steps):
+            r_e = r_initial + random_step(dr, self.neu + self.ned)
+            n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
+            self.tressian_dot(n_vectors, bb)
+
 
 class AbstractJastrow:
     @nb.njit(nogil=True, parallel=False, cache=True)

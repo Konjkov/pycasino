@@ -470,3 +470,65 @@ expensive operation in the project. Returns the triple `(T, H, g)`:
 - `T[a,b,c]` — third derivatives `∂³ln Φ / ∂r^a ∂r^b ∂r^c`
 - `H[a,b]` — second derivatives (Hessian)
 - `g[a]` — first derivatives (gradient)
+
+---
+
+## Tressian bottleneck: never materialise the `N³` tensor
+
+`N = (neu+ned)·3`. The dense tressian `T` has `N³` elements: ~3 MB for O3
+(`N=72`), ~10 MB for Kr (`N=108`). It no longer fits in L3, so building it and
+then reading it back thrashes the cache — this is why `tressian` time grows
+super-cubically (`time.dat`: 24→36 electrons is +1.5× size but +5.5× time).
+
+**The dense tensor is never needed.** `T` has exactly one consumer
+(`wfn.kinetic_energy_parameters_d1`, the backflow-parameter branch). Tracing it:
+
+```
+s_t, s_h, s_g = slater.tressian(b_v + n_vectors)         # s_t: (N,N,N)
+s_h_coordinates_d1 = s_t - s_g[:,None,None]*s_h           # (N,N,N)
+s_h_d1[p]          = b_v_d1 @ s_h_coordinates_d1          # (P,N,N), P = #backflow params
+bf_d1[p] += sum(s_h_d1[p] * BB) / 2,   BB = b_g @ b_g.T   # (N,N), symmetric
+```
+
+`s_t` enters **only** through `Σ_bc s_h_d1[p,b,c]·BB[b,c]`. Pull the sums in:
+
+```
+Σ_bc s_h_d1[p,b,c]·BB[b,c] = Σ_a b_v_d1[p,a] · ( TBB[a] − s_g[a]·⟨s_h,BB⟩ )
+where  TBB[a] = Σ_bc T[a,b,c]·BB[b,c]        # vector, size N
+```
+
+So the object actually required is **`TBB`, a length-`N` vector**, not the `N³`
+tensor (nor the `P·N²` array `s_h_d1` — that contracts along axis 0 with
+`b_v_d1` and is *larger*; the user's worry about "an even bigger tensor" comes
+from contracting the wrong axis). Contract with `BB` over the **last two** axes,
+then with `b_v_d1`.
+
+**`TBB` is computable without ever forming `T`**, term by term from the same
+decomposition `slater_tressian` already builds (`g`=tr_grad, `PH`=partial_hess):
+
+- Outer/rank part `g[c]·PH[a,b] + g[b]·PH[a,c] + g[a]·PH[b,c]` collapses to
+  `2·(PH @ (BB @ g)) + g·⟨PH,BB⟩` — pure `O(N²)`.
+- Block part (`tr_tress`, `matrix_hess`, `matrix_grad` per spin) keeps `O(N³)`
+  *flops* (the triple `matrix_grad` product is genuinely dense over electron
+  triples) but writes only the `N`-vector — `O(N²)` memory, cache-resident.
+
+The win is bandwidth, not flops: O3/Kr stop spilling a 3–10 MB tensor to memory.
+
+**Implementation note:** this needs `BB` (i.e. `b_g`) inside the Slater routine,
+so add a method like `slater.tressian_dot(n_vectors, b_g)` → `(TBB, s_h, s_g)`
+and adapt the `wfn.py` call site. Keep the old `tressian` for the numerical
+cross-check in `test_slater.py` (`tressian_v2`).
+
+**What the existing attempts do — and why they only give 20–30 %** (branches
+`improve_tressian` / `optimized_tressian`):
+- replacing `harmonics` method calls with free functions — removes object
+  overhead, small constant win;
+- vectorising the 6-nested Python loops into `expand_dims`/broadcast — still
+  allocates the full `N³` `tress` *plus* an `N³` per-spin intermediate
+  (`res_u` shaped `(neu,3,neu,3,neu,3)`), i.e. *more* memory traffic, so the
+  cache cliff is untouched;
+- `tressian_v2` — finite-difference of `hessian` (`N` Hessian calls), also
+  materialises `N³`; reference for tests only, not a perf path.
+
+None remove the `N³` allocation, so none can beat the ~20–30 % ceiling. Only the
+`TBB` contraction above changes the asymptotic memory footprint.

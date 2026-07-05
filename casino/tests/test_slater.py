@@ -48,6 +48,13 @@ class TestSlater(unittest.TestCase):
     def test_tressian_v2(self):
         assert self.wfn.slater.tressian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.tressian_v2(self.n_vectors)[0])
 
+    def test_tressian_dot(self):
+        ne = self.config.input.neu + self.config.input.ned
+        a = np.random.uniform(-1, 1, (ne * 3, ne * 3))
+        bb = a + a.T
+        tress = self.wfn.slater.tressian(self.n_vectors)[0]
+        assert self.wfn.slater.tressian_dot(self.n_vectors, bb)[0] == pytest.approx(np.tensordot(tress, bb, axes=([1, 2], [0, 1])))
+
     def test_wfn_laplacian(self):
         assert self.wfn.kinetic_energy(self.r_e) == pytest.approx(-self.wfn.numerical_laplacian(self.r_e) / 2)
 
