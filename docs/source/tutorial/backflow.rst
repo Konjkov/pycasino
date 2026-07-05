@@ -35,7 +35,7 @@ It must be initialized from the configuration files::
     config.read()
     backflow = Backflow(config)
 
-.. _intermediate data:
+.. _backflow-intermediate-data:
 
 To prevent code duplication, we need to prepare the necessary intermediate data::
 

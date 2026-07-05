@@ -543,3 +543,194 @@ this is equivalent to (continues :ref:`from <inverse-matrix>`)::
         np.einsum('j,ki->ijk', grad, hess) -
         2 * np.einsum('i,j,k->ijk', grad, grad, grad)
     )
+
+Implementation
+~~~~~~~~~~~~~~
+
+The tressian tensor :math:`T[a, b, c]` has shape ``(N_e \cdot 3, N_e \cdot 3, N_e \cdot 3)``
+where :math:`N_e` is the number of electrons of a given spin.  A naïve implementation
+iterates over all triples :math:`(e_1, e_2, e_3)` with conditional checks inside the loop body:
+
+.. code-block:: python
+
+    for e1 in range(neu):
+        for e2 in range(neu):
+            for e3 in range(neu):
+                res = 0
+                if e1 == e2 == e3:
+                    res += tr_tress[e1, ...]
+                if e1 == e2:
+                    res -= matrix_hess[e3, e1, ...] * matrix_grad[e1, e3, ...]
+                # ... etc
+                tress[e1*3+r1, e2*3+r2, e3*3+r3] += c * res
+
+This costs :math:`O(N_e^6 \cdot 27)` iterations and the runtime branches prevent
+LLVM from auto-vectorising the inner loops.
+
+The key structural observation is that the determinant-specific contributions to
+:math:`T[a, b, c]` are **sparse in the electron indices**: each term is non-zero
+only when at least two of :math:`e_1, e_2, e_3` coincide.  Specifically:
+
+- :math:`\mathrm{tr}(A^{-1} \nabla^3 A)` — non-zero only when :math:`e_1 = e_2 = e_3`
+- :math:`\mathrm{tr}(A^{-1} \nabla^2_{e_i e_j} A \cdot A^{-1} \nabla_{e_k} A)` — non-zero only when :math:`e_i = e_j` (one constrained pair, :math:`e_k` free)
+- :math:`(A^{-1}G)_{e_3 e_2}(A^{-1}G)_{e_1 e_3}(A^{-1}G)_{e_2 e_1}` — non-zero for **all** :math:`(e_1, e_2, e_3)`
+
+This motivates decomposing the computation into five **branch-free** loop nests:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 45 20 35
+
+   * - Loop nest
+     - Complexity
+     - Replaces
+   * - :math:`e_1 = e_2 = e_3 = e` (tr_tress diagonal)
+     - :math:`O(N_e \cdot 27)`
+     - ``if e1 == e2 == e3``
+   * - :math:`e_1 = e_2`, free :math:`e_3` (hess×grad, pair 12)
+     - :math:`O(N_e^2 \cdot 27)`
+     - ``if e1 == e2``
+   * - :math:`e_1 = e_3`, free :math:`e_2` (hess×grad, pair 13)
+     - :math:`O(N_e^2 \cdot 27)`
+     - ``if e1 == e3``
+   * - :math:`e_2 = e_3`, free :math:`e_1` (hess×grad, pair 23)
+     - :math:`O(N_e^2 \cdot 27)`
+     - ``if e2 == e3``
+   * - all :math:`(e_1, e_2, e_3)` free (triple product)
+     - :math:`O(N_e^3 \cdot 27)`
+     - always executed
+
+Because no loop nest carries runtime conditionals, LLVM auto-vectorises all five
+loops via SIMD instructions.  The outer-product term
+:math:`\nabla\phi \otimes H + H \otimes \nabla\phi + \nabla\phi \otimes \nabla\phi \otimes \nabla\phi`
+involves all :math:`(N_e \cdot 3)^3` elements and is unchanged.
+
+.. code-block:: python
+
+    # tr_tress: e1 == e2 == e3
+    for e in range(neu):
+        for r1, r2, r3 in product(range(3), repeat=3):
+            tress[e*3+r1, e*3+r2, e*3+r3] += c * tr_tress_u[e, r1, r2, r3]
+
+    # hess × grad: e1 == e2, free e3
+    for e12 in range(neu):
+        for e3 in range(neu):
+            for r1, r2, r3 in product(range(3), repeat=3):
+                tress[e12*3+r1, e12*3+r2, e3*3+r3] -= (
+                    c * matrix_hess_u[e3, e12, r1, r2] * matrix_grad_u[e12, e3, r3]
+                )
+
+    # ... similarly for (e1==e3, free e2) and (e2==e3, free e1) ...
+
+    # triple product: all (e1, e2, e3) free
+    for e1 in range(neu):
+        for e2 in range(neu):
+            for e3 in range(neu):
+                for r1, r2, r3 in product(range(3), repeat=3):
+                    tress[e1*3+r1, e2*3+r2, e3*3+r3] += (
+                        2 * c
+                        * matrix_grad_u[e3, e2, r2]
+                        * matrix_grad_u[e1, e3, r3]
+                        * matrix_grad_u[e2, e1, r1]
+                    )
+
+On the He atom (:math:`N_e = 1` per spin, ``ne3 = 6``) the refactored implementation
+is **5.5× faster** than the original (33 µs vs 184 µs per call).
+
+The actual wall-clock speedup depends on system size.  The total cost of
+:py:meth:`casino.Slater.tressian` is:
+
+.. math::
+
+    t_\text{total} = t_\text{matrix calls} + t_\text{index loops}
+
+where :math:`t_\text{matrix calls}` is the combined time of
+``value_matrix`` + ``gradient_matrix`` + ``hessian_matrix`` + ``tressian_matrix``
+(all scale with system size and basis set), and :math:`t_\text{index loops}` is
+the time of the electron-index loop nests described above.
+
+For small systems (He, :math:`N_e = 1`) the index loops dominate and the 5.5×
+speedup is realised.  For larger systems such as Ar (:math:`N_e = 9` per spin)
+the matrix calls dominate — in particular ``tressian_matrix`` grows with the number
+of orbitals and primitives — and the loop optimisation contributes only ~20% of
+the total runtime.  The next bottleneck to address for large-:math:`N_e` systems
+is therefore ``tressian_matrix`` itself.
+
+.. _tressian_dot:
+
+tressian_dot
+------------
+
+The tressian enters the local-energy parameter derivatives only through its
+contraction with a symmetric matrix :math:`B = b_g\,b_g^\top` over the last two
+axes:
+
+.. math::
+
+    (T_B)_a = \sum_{b, c} T_{abc}\, B_{bc}
+
+:py:meth:`casino.Slater.tressian_dot` returns this vector of shape ``(ne3,)``
+without ever forming the ``(ne3, ne3, ne3)`` tensor, so the working set stays
+:math:`O(\text{ne3}^2)` and cache-resident.
+
+Contracting the **dense outer part** with :math:`B` collapses to a closed form
+(using :math:`B = B^\top`):
+
+.. math::
+
+    \sum_{bc} \big(g_c\,\mathrm{PH}_{ab} + g_b\,\mathrm{PH}_{ac}
+    + g_a\,\mathrm{PH}_{bc}\big) B_{bc}
+    = 2\,\big(\mathrm{PH}\,(B\,g)\big)_a + g_a\,\langle \mathrm{PH}, B\rangle
+
+with :math:`\langle \mathrm{PH}, B\rangle = \sum_{bc}\mathrm{PH}_{bc} B_{bc}`.
+This costs :math:`O(\text{ne3}^2)`.
+
+The **sparse determinant part** is contracted inside the same per-spin six-fold
+loop, accumulating directly into the scalar :math:`(T_B)_a` instead of storing the
+tensor.  The flop count stays :math:`O(\text{ne3}^3)` but the memory footprint
+drops to :math:`O(\text{ne3}^2)`.
+
+For certain electron coordinates::
+
+    bb = b_g @ b_g.T
+    t_bb, hess, grad = slater.tressian_dot(n_vectors, bb)
+
+is equivalent to::
+
+    tress, hess, grad = slater.tressian(n_vectors)
+    t_bb = np.tensordot(tress, bb, axes=([1, 2], [0, 1]))
+
+Because the :math:`\text{ne3}^3` tensor is never materialised, the speedup over
+:py:meth:`casino.Slater.tressian` grows with system size as the tensor outgrows
+the cache (wall-clock seconds for an equal number of calls):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 16 22 22 20
+
+   * - System
+     - ne3
+     - tressian
+     - tressian_dot
+     - speedup
+   * - Ne
+     - 30
+     - 0.8
+     - 0.6
+     - 1.3×
+   * - Ar
+     - 54
+     - 3.0
+     - 1.6
+     - 1.9×
+   * - O3
+     - 72
+     - 9.9
+     - 4.2
+     - 2.4×
+   * - Kr
+     - 108
+     - 28.4
+     - 7.8
+     - 3.6×
+

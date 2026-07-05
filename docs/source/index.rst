@@ -4,10 +4,12 @@ Welcome to Pycasino
 
 Welcome to the Pycasino documentation.
 
-Pycasino is based on `Numba <https://github.com/numba/numba>`_, the documentation for which can be found here:
+Pycasino is a Python implementation of the `Casino <https://vallico.net/casinoqmc/>`_ quantum
+Monte Carlo program. It supports VMC and DMC energy calculations and wavefunction optimisation
+for molecules with Gaussian or Slater-type orbital basis sets.
 
-- `Numba documentation <https://https://readthedocs.io/en/stable/index.html>`_
-
+Pycasino is based on `Numba <https://numba.readthedocs.io/en/stable/>`_ for JIT-compiled inner
+loops and `mpi4py <https://mpi4py.readthedocs.io/>`_ for MPI parallelisation.
 
 User guide
 ==========
@@ -15,4 +17,13 @@ User guide
 .. toctree::
 
     installation
+    quickstart
     tutorial
+    parallel
+
+Release notes
+=============
+
+.. toctree::
+
+    changelog

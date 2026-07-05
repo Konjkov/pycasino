@@ -14,8 +14,8 @@ Input files are supported
 - **stowfn.data** file contains the data that defines the geometry and the slater-type orbitals.
 - **x_pp.data** (where x is the chemical symbol of an element in lower-case letters.) This file contains the pseudopotential data for the corresponding element.
 
-Input parameter are supported
------------------------------
+Input parameters supported
+--------------------------
 
 General keywords
 ~~~~~~~~~~~~~~~~
@@ -30,11 +30,13 @@ VMC keywords
 
 - **VMC_EQUIL_NSTEP** - number of equilibration steps
 - **VMC_NSTEP** - number of VMC energy-evaluation steps
-- **VMC_DECORR_PERIOD** - number of steps between VMC energy-evaluation moves
+- **VMC_DECORR_PERIOD** - number of steps between VMC energy-evaluation moves (0 = auto)
 - **VMC_NCONFIG_WRITE** - number of VMC configurations stored for later use in DMC or optimization
 - **VMC_NBLOCK** - number of blocks into which the total VMC run is divided post-equilibration
-- **DTVMC** - VMC time step (size of trial steps in random walk)
-- **VMC_METHOD** - (1) - EBES (work in progress), (3) - CBCS.
+- **DTVMC** - VMC time step (size of trial steps in random walk, default 0.02)
+- **OPT_DTVMC** - if T, automatically adjust the VMC step size to achieve ~50 % acceptance rate (default T)
+- **VMC_METHOD** - (1) EBES electron-by-electron sampling (work in progress), (3) CBCS configuration-by-configuration sampling (recommended)
+- **GAUTOL** - Gaussian cut-off tolerance; skip a primitive if :math:`\alpha r^2 > \log(10) \times \text{GAUTOL}` (default 7.0)
 
 Optimization keywords
 ~~~~~~~~~~~~~~~~~~~~~
@@ -44,10 +46,18 @@ Optimization keywords
 - **OPT_JASTROW** - optimize the Jastrow factor in wave-function optimization
 - **OPT_BACKFLOW** - optimize backflow parameters in wave-function optimization
 - **OPT_DET_COEFF** - optimize the coefficients of the determinants in wave-function optimization
-- **OPT_MAXEVAL** - maximum number of evaluations of the variance during variance minimization (default 50)
-- **OPT_PLAN** - allows specifying different parameters for each optimization cycle
-- **VM_REWEIGHT** - if set then the reweighted variance-minimization algorithm will be used, else the unreweighted algorithm will be used Unreweighted variance minimization is recommended
-- **EMIN_METHOD** - energy minimization method to use: *newton*, *linear* (default), *reconf*
+- **OPT_MAXITER** - maximum number of iterations of the outer optimisation loop (default 10)
+- **OPT_MAXEVAL** - maximum number of objective-function evaluations per iteration (default 200)
+- **OPT_NOCTF_CYCLES** - number of optimisation cycles in which the cutoff lengths are not optimised (default 0)
+- **POSTFIT_VMC** - if T, run a VMC energy accumulation after each optimisation cycle (default T)
+- **OPT_PLAN** - block keyword to specify different parameters for each optimization cycle; each row sets ``opt_method``, ``opt_cycles``, and optionally ``emin_method`` for that cycle
+- **OPT_FIXNL** - if T, freeze the nonlocal-pseudopotential contribution during variance minimisation (default T for varmin)
+- **VM_REWEIGHT** - if T, use the reweighted variance-minimisation algorithm; unreweighted (F) is recommended (default F)
+- **VM_SMOOTH_LIMIT** - apply a smooth cutoff to the weight limit in reweighted varmin (default T)
+- **VM_W_MAX** - upper threshold for reweighting weights (default 0.0 = no limit)
+- **VM_W_MIN** - lower threshold for reweighting weights (default 0.0 = no limit)
+- **EMIN_METHOD** - energy minimisation method: *linear* (default), *newton*, *reconf*
+- **EMIN_XI_VALUE** - stabilisation parameter :math:`\xi` for the linear energy-minimisation method (default 1.0)
 
 DMC keywords
 ~~~~~~~~~~~~

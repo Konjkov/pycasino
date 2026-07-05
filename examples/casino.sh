@@ -15,6 +15,7 @@
 # path="gwfn/He/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/Be/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/Be/MP2-CASSCF(2.4)/cc-pVQZ/${method}/${operation}/"
+# path="gwfn/B/MP2-CASSCF(3.8)/def2-QZVP/${method}/${operation}/"
 # path="gwfn/N/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/Ne/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/Ar/HF/cc-pVQZ/${method}/${operation}/"
@@ -43,7 +44,6 @@
 
 # path="stowfn/He/HF/QZ4P/${method}/Gjastrow/"
 # path="stowfn/Be/HF/QZ4P/${method}/Gjastrow/"
-
 
 # ../casino/plot/plot.py stowfn/He/HF/QZ4P/CBCS/Backflow/ u
 
