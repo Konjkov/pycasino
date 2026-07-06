@@ -345,7 +345,7 @@ def slater_tressian_matrix(self, n_vectors: np.ndarray):
                         orbital[i, 1, 0, 1, ao + m] = orbital[i, 0, 1, 1, ao + m]
                         orbital[i, 1, 0, 2, ao + m] = orbital[i, 0, 1, 2, ao + m]
                         orbital[i, 1, 1, 0, ao + m] = orbital[i, 0, 1, 1, ao + m]
-                        orbital[i, 1, 1, 1, ao + m] = y*y*y * angular_1[l*l+m] * radial_1 + 3*y*(angular_1[l*l+m] + y*angular_2[l*l+m, 0]) * radial_2 + 3*(angular_2[l*l+m, 1] + y * angular_3[l*l+m, 3]) * radial_3 + angular_4[l*l+m, 6] * radial_4  # fmt: skip
+                        orbital[i, 1, 1, 1, ao + m] = y*y*y * angular_1[l*l+m] * radial_1 + 3*y*(angular_1[l*l+m] + y*angular_2[l*l+m, 1]) * radial_2 + 3*(angular_2[l*l+m, 1] + y * angular_3[l*l+m, 3]) * radial_3 + angular_4[l*l+m, 6] * radial_4  # fmt: skip
                         orbital[i, 1, 1, 2, ao + m] = y*y*z * angular_1[l*l+m] * radial_1 + (z*angular_1[l*l+m] + 2*y*z*angular_2[l*l+m, 1] + y*y*angular_2[l*l+m, 2]) * radial_2 + (angular_2[l*l+m, 2] + 2*y*angular_3[l*l+m, 4] + z*angular_3[l*l+m, 3]) * radial_3 + angular_4[l*l+m, 7] * radial_4  # fmt: skip
                         orbital[i, 1, 2, 0, ao + m] = orbital[i, 0, 1, 2, ao + m]
                         orbital[i, 1, 2, 1, ao + m] = orbital[i, 1, 1, 2, ao + m]
@@ -358,7 +358,7 @@ def slater_tressian_matrix(self, n_vectors: np.ndarray):
                         orbital[i, 2, 1, 2, ao + m] = orbital[i, 1, 2, 2, ao + m]
                         orbital[i, 2, 2, 0, ao + m] = orbital[i, 0, 2, 2, ao + m]
                         orbital[i, 2, 2, 1, ao + m] = orbital[i, 1, 2, 2, ao + m]
-                        orbital[i, 2, 2, 2, ao + m] = z*z*z * angular_1[l*l+m] * radial_1 + 3*z*(angular_1[l*l+m] + z*angular_2[l*l+m, 0]) * radial_2 + 3*(angular_2[l*l+m, 2] + z * angular_3[l*l+m, 5]) * radial_3 + angular_4[l*l+m, 9] * radial_4  # fmt: skip
+                        orbital[i, 2, 2, 2, ao + m] = z*z*z * angular_1[l*l+m] * radial_1 + 3*z*(angular_1[l*l+m] + z*angular_2[l*l+m, 2]) * radial_2 + 3*(angular_2[l*l+m, 2] + z * angular_3[l*l+m, 5]) * radial_3 + angular_4[l*l+m, 9] * radial_4  # fmt: skip
                     ao += 2 * l + 1
 
         ao_tressian = self.norm * orbital.reshape((self.neu + self.ned) * 27, self.nbasis_functions)
@@ -607,7 +607,10 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
                                     if e2 == e3:
                                         res_u -= matrix_hess_u[e1, e2, r2, r3] * matrix_grad_u[e2, e1, r1]
                                     # tr(A^-1 • dA/dx • A^-1 • dA/dy • A^-1 • dA/dz) + tr(A^-1 • dA/dz • A^-1 • dA/dy • A^-1 • dA/dx)
-                                    res_u += 2 * matrix_grad_u[e3, e2, r2] * matrix_grad_u[e1, e3, r3] * matrix_grad_u[e2, e1, r1]
+                                    res_u += (
+                                        matrix_grad_u[e3, e2, r2] * matrix_grad_u[e1, e3, r3] * matrix_grad_u[e2, e1, r1]
+                                        + matrix_grad_u[e2, e3, r3] * matrix_grad_u[e3, e1, r1] * matrix_grad_u[e1, e2, r2]
+                                    )
                                     idx1 = e1 * 3 + r1
                                     idx2 = e2 * 3 + r2
                                     idx3 = e3 * 3 + r3
@@ -632,7 +635,10 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
                                     if e2 == e3:
                                         res_d -= matrix_hess_d[e1, e2, r2, r3] * matrix_grad_d[e2, e1, r1]
                                     # tr(A^-1 • dA/dx • A^-1 • dA/dy • A^-1 • dA/dz) + tr(A^-1 • dA/dz • A^-1 • dA/dy • A^-1 • dA/dx)
-                                    res_d += 2 * matrix_grad_d[e3, e2, r2] * matrix_grad_d[e1, e3, r3] * matrix_grad_d[e2, e1, r1]
+                                    res_d += (
+                                        matrix_grad_d[e3, e2, r2] * matrix_grad_d[e1, e3, r3] * matrix_grad_d[e2, e1, r1]
+                                        + matrix_grad_d[e2, e3, r3] * matrix_grad_d[e3, e1, r1] * matrix_grad_d[e1, e2, r2]
+                                    )
                                     idx1 = (self.neu + e1) * 3 + r1
                                     idx2 = (self.neu + e2) * 3 + r2
                                     idx3 = (self.neu + e3) * 3 + r3
@@ -715,7 +721,10 @@ def slater_tressian_dot(self, n_vectors: np.ndarray, bb: np.ndarray):
                                         res_u -= matrix_hess_u[e2, e3, r1, r3] * matrix_grad_u[e3, e2, r2]
                                     if e2 == e3:
                                         res_u -= matrix_hess_u[e1, e2, r2, r3] * matrix_grad_u[e2, e1, r1]
-                                    res_u += 2 * matrix_grad_u[e3, e2, r2] * matrix_grad_u[e1, e3, r3] * matrix_grad_u[e2, e1, r1]
+                                    res_u += (
+                                        matrix_grad_u[e3, e2, r2] * matrix_grad_u[e1, e3, r3] * matrix_grad_u[e2, e1, r1]
+                                        + matrix_grad_u[e2, e3, r3] * matrix_grad_u[e3, e1, r1] * matrix_grad_u[e1, e2, r2]
+                                    )
                                     acc += res_u * bb[e2 * 3 + r2, e3 * 3 + r3]
                     tress_bb[e1 * 3 + r1] += c * acc
             for e1 in range(self.ned):
@@ -734,7 +743,10 @@ def slater_tressian_dot(self, n_vectors: np.ndarray, bb: np.ndarray):
                                         res_d -= matrix_hess_d[e2, e3, r1, r3] * matrix_grad_d[e3, e2, r2]
                                     if e2 == e3:
                                         res_d -= matrix_hess_d[e1, e2, r2, r3] * matrix_grad_d[e2, e1, r1]
-                                    res_d += 2 * matrix_grad_d[e3, e2, r2] * matrix_grad_d[e1, e3, r3] * matrix_grad_d[e2, e1, r1]
+                                    res_d += (
+                                        matrix_grad_d[e3, e2, r2] * matrix_grad_d[e1, e3, r3] * matrix_grad_d[e2, e1, r1]
+                                        + matrix_grad_d[e2, e3, r3] * matrix_grad_d[e3, e1, r1] * matrix_grad_d[e1, e2, r2]
+                                    )
                                     acc += res_d * bb[(self.neu + e2) * 3 + r2, (self.neu + e3) * 3 + r3]
                     tress_bb[(self.neu + e1) * 3 + r1] += c * acc
         return tress_bb / val, hess / val, grad / val
