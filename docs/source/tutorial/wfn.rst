@@ -3,18 +3,18 @@
 Wavefunction
 ============
 
-Wavefunction in SJB Slater-Jastrow-backflow form is represented by the :class:`casino.Wfn` class.
+Wavefunction in the Slater-Jastrow-backflow (SJB) form is represented by the :class:`casino.Wfn` class.
 
 .. math::
 
     \Psi(\mathbf{r}) = e^{J(\mathbf{r})}\Phi(\mathbf{X}(\mathbf{r}))
 
-where :math:`\mathbf{X}(\mathbf{r}) = \mathbf{r} + \xi(\mathbf{r})` is collective coordinates, which depends on the configuration of the whole system.
+where :math:`\mathbf{X}(\mathbf{r}) = \mathbf{r} + \xi(\mathbf{r})` are the collective coordinates, which depend on the configuration of the whole system.
 
 Summary of Methods
 ------------------
 
-Slater class has a following methods:
+Wfn class has the following methods:
 
 .. list-table::
    :widths: 30 30 40
@@ -24,7 +24,7 @@ Slater class has a following methods:
    * - Method
      - Output
      - Shape
-   * - :ref:`value <value>`
+   * - :ref:`value <wfn-value>`
      - :math:`\Psi(r)`
      - :math:`scalar`
    * - :ref:`coulomb <coulomb>`
@@ -39,6 +39,9 @@ Slater class has a following methods:
    * - :ref:`energy <energy>`
      - :math:`\hat H \Psi(r) / \Psi(r)`
      - :math:`scalar`
+   * - :ref:`drift_velocity <drift_velocity>`
+     - :math:`\nabla \ln \Psi(r)`
+     - :math:`(3 N_e ,)`
    * - :ref:`value_parameters_d1 <value_parameters_d1>`
      - :math:`\partial \ln \Psi(r) / \partial \alpha_i`
      - :math:`(N_{par} ,)`
@@ -46,10 +49,13 @@ Slater class has a following methods:
      - :math:`\partial T_{kin} / \partial \alpha_i`
      - :math:`(N_{par} ,)`
    * - :ref:`nonlocal_energy_parameters_d1 <nonlocal_energy_parameters_d1>`
-     - :math:`\partial \ln \Psi(r) / \partial \alpha_i`
+     - :math:`\partial V_{nl} / \partial \alpha_i`
+     - :math:`(N_{par} ,)`
+   * - :ref:`energy_parameters_d1 <energy_parameters_d1>`
+     - :math:`\partial E_L / \partial \alpha_i`
      - :math:`(N_{par} ,)`
 
-.. _value:
+.. _wfn-value:
 
 value
 -----
@@ -84,7 +90,7 @@ Value of nonlocal potential:
     V_{nl} = \sum_i^{N_e} \sum_l \frac{2l + 1}{4\pi} V_l(r_i) \int_{4\pi} P_l(cos \ \theta'_{i}) \frac{\Psi(\mathbf{r}\rvert_{r_i \to r_i'})}{\Psi(\mathbf{r})} d\Omega'_i
 
 where :math:`P_l` denotes a Legendre polynomial, :math:`V_l(r_i)` is pseudopotential and :math:`\theta'_{i}=\angle(r_i, r_i')`.
-Integral of the function :math:`f` defined on th unit sphere is approximated as:
+Integral of the function :math:`f` defined on the unit sphere is approximated as:
 
 .. math::
 
@@ -108,7 +114,7 @@ Value of kinetic energy usually represented as the sum of two terms:
 
 .. math::
 
-    T_{kin} = -\frac{1}{2} \sum_i^{N_e} \frac{\nabla_i^2 \Psi}{\Psi} = \sum_i^{N_e} 2T_i - F_i^2
+    T_{kin} = -\frac{1}{2} \sum_i^{N_e} \frac{\nabla_i^2 \Psi}{\Psi} = \sum_i^{N_e} \left( 2T_i - F_i^2 \right)
 
 where :math:`T_i` and :math:`F_i` are expressed through the logarithm of the modulus of the wave function:
 
@@ -120,7 +126,7 @@ where :math:`T_i` and :math:`F_i` are expressed through the logarithm of the mod
 
     F_i = \frac{1}{\sqrt{2}} \nabla_i \ln \Psi
 
-This is convenient because the wave function is a product which leads to the following expressions:.
+This is convenient because the wave function is a product which leads to the following expressions:
 
 .. math::
 
@@ -148,19 +154,35 @@ if backflow displacement :math:`\xi(\mathbf{r})` is not zero the coordinate tran
 energy
 ------
 
-Value of energy.
+Value of local energy.
 
 .. math::
 
-    E = T_{kin} + V_{coul} + V_{nl}
+    E_L = T_{kin} + V_{coul} + V_{nl}
 
+.. _drift_velocity:
+
+drift_velocity
+--------------
+
+Drift velocity (one half of the quantum force):
+
+.. math::
+
+    \mathbf{v} = \nabla \ln \Psi = \nabla J + \frac{\nabla \Phi}{\Phi}
+
+if backflow displacement :math:`\xi(\mathbf{r})` is not zero the coordinate transformation must be taken into account:
+
+.. math::
+
+    \nabla \Phi = \frac{\partial \Phi}{\partial \mathbf{X}} \cdot \frac{\partial \mathbf{X}}{\partial \mathbf{r}}
 
 .. _value_parameters_d1:
 
 value_parameters_d1
 -------------------
 
-Partial derivatives of the wave function with respect to Jastrow, backflow and Slater the parameters :math:`\{\alpha_i^J, \alpha_i^B, \alpha_i^S \}`:
+Partial derivatives of the wave function with respect to the Jastrow, backflow and Slater parameters :math:`\{\alpha_i^J, \alpha_i^B, \alpha_i^S \}`:
 
 .. math::
 
@@ -171,11 +193,11 @@ Partial derivatives of the wave function with respect to Jastrow, backflow and S
 kinetic_energy_parameters_d1
 ----------------------------
 
-Partial derivatives of the kinetic energy with respect to Jastrow, backflow and Slater the parameters :math:`\{\alpha_i^J, \alpha_i^B, \alpha_i^S \}`:
+Partial derivatives of the kinetic energy with respect to the Jastrow, backflow and Slater parameters :math:`\{\alpha_i^J, \alpha_i^B, \alpha_i^S \}`:
 
 .. math::
 
-    \frac{1}{2} \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha} = \frac{1}{2} \left(
+    \frac{\partial T_{kin}}{\partial \alpha} = -\frac{1}{2} \sum_i^{N_e} \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha} = -\frac{1}{2} \sum_i^{N_e} \left(
         \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha^J},
         \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha^B},
         \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha^S},
@@ -188,6 +210,34 @@ Partial derivatives of the kinetic energy with respect to Jastrow, backflow and 
 .. math::
 
     \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha^B} =
+    \frac{\partial}{\partial \alpha_i^B} \left( \frac{\nabla^2 \Phi}{\Phi} \right) +
+    2 \nabla J \cdot \frac{\partial}{\partial \alpha_i^B} \left( \frac{\nabla \Phi}{\Phi} \right)
+
+since backflow parameters enter :math:`\Psi` only through the collective coordinates :math:`\mathbf{X}(\mathbf{r})`,
+these derivatives are obtained by the chain rule:
+
+.. math::
+
+    \frac{\partial \nabla \Phi}{\partial \alpha_i^B} =
+    \frac{\partial \mathbf{X}}{\partial \alpha_i^B} \cdot \frac{\partial^2 \Phi}{\partial^2 \mathbf{X}}
+    \cdot \frac{\partial \mathbf{X}}{\partial \mathbf{r}}
+    + \frac{\partial \Phi}{\partial \mathbf{X}} \cdot \frac{\partial^2 \mathbf{X}}{\partial \alpha_i^B \partial \mathbf{r}}
+
+.. math::
+
+    \frac{\partial \nabla^2 \Phi}{\partial \alpha_i^B} =
+    tr\left(\left(\frac{\partial \mathbf{X}}{\partial \mathbf{r}}\right)^T
+    \cdot \left(\frac{\partial \mathbf{X}}{\partial \alpha_i^B} \cdot \frac{\partial^3 \Phi}{\partial^3 \mathbf{X}}\right)
+    \cdot \frac{\partial \mathbf{X}}{\partial \mathbf{r}}\right)
+    + 2 \, tr\left(\left(\frac{\partial^2 \mathbf{X}}{\partial \alpha_i^B \partial \mathbf{r}}\right)^T
+    \cdot \frac{\partial^2 \Phi}{\partial^2 \mathbf{X}}
+    \cdot \frac{\partial \mathbf{X}}{\partial \mathbf{r}}\right)
+    + \frac{\partial \mathbf{X}}{\partial \alpha_i^B} \cdot \frac{\partial^2 \Phi}{\partial^2 \mathbf{X}}
+    \cdot \frac{\partial^2 \mathbf{X}}{\partial^2 \mathbf{r}}
+    + \frac{\partial \Phi}{\partial \mathbf{X}} \cdot \frac{\partial^3 \mathbf{X}}{\partial \alpha_i^B \partial^2 \mathbf{r}}
+
+note that the third derivatives of the Slater part :math:`\partial^3 \Phi / \partial^3 \mathbf{X}` are required,
+which makes backflow optimization the most expensive operation.
 
 .. math::
 
@@ -212,7 +262,7 @@ if backflow displacement :math:`\xi(\mathbf{r})` is not zero the coordinate tran
 nonlocal_energy_parameters_d1
 -----------------------------
 
-Partial derivatives of the nonlocal energy with respect to Jastrow, backflow and Slater the parameters:
+Partial derivatives of the nonlocal energy with respect to the Jastrow, backflow and Slater parameters:
 
 .. math::
 
@@ -223,3 +273,15 @@ Partial derivatives of the nonlocal energy with respect to Jastrow, backflow and
 
     = \sum_i^{N_e} \sum_l (2l + 1) V_l(r_i) \sum_q c_q P_l \left( cos \ \theta'_{i,q} \right) \frac{\Psi(\mathbf{r}\rvert_{r_i \to r_i'})}{\Psi(\mathbf{r})}
     \left[ \frac{\partial \ln \Psi(\mathbf{r}\rvert_{r_i \to r_{i,q}'})}{\partial \alpha} - \frac{\partial \ln \Psi(\mathbf{r})}{\partial \alpha} \right]
+
+.. _energy_parameters_d1:
+
+energy_parameters_d1
+--------------------
+
+Partial derivatives of the local energy with respect to the parameters.
+The Coulomb term does not depend on the parameters, so:
+
+.. math::
+
+    \frac{\partial E_L}{\partial \alpha} = \frac{\partial T_{kin}}{\partial \alpha} + \frac{\partial V_{nl}}{\partial \alpha}

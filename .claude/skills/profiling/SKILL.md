@@ -119,6 +119,26 @@ assert slater.tressian(n)[0] == pytest.approx(slater.numerical_tressian(n), rel=
 Higher derivatives need looser `rel` (hessian 1e-5, tressian 1e-4) because the
 numerical reference loses precision.
 
+### He-only fixtures are blind to two bug classes (validate on Ne)
+
+All fixtures are He: neu=ned=1 and only the 1s orbital occupied. A green suite
+therefore does **not** validate:
+
+1. **l>0 angular terms** in `*_matrix` orbital derivatives — for s-orbitals
+   ∇S = 0, so wrong angular-gradient components multiply zero (this hid the
+   `tressian_matrix` yyy/zzz bug, fixed 2026-07);
+2. **multi-same-spin-electron index paths** — with one electron per spin all
+   electron indices coincide and scalar products commute (this hid the
+   `2×` trace-ordering bug in `tressian`/`tressian_dot`, fixed 2026-07).
+   Be is blind too: only s-orbitals occupied, and all orbital gradients at a
+   point are radial (parallel), which makes the trace orderings accidentally equal.
+
+After touching derivative code in `slater.py`/`cusp.py`/`backflow.py`, also
+cross-check on **Ne** (`examples/stowfn/Ne/HF/QZ4P/EBES/Slater` or the gwfn
+cc-pVQZ analog): the `numerical_*` reference methods work on any config, and a
+finite difference of the next-lower *analytic* derivative is a more accurate
+reference than the third-order numerical one.
+
 ### Why the coarse `rel` tolerances (don't tighten them)
 
 The looser `rel=` are **not** sloppiness — they are the precision floor of the

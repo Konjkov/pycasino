@@ -127,7 +127,8 @@ return grad / val
 | `gradient` | `∇ln Φ` vector `(nelec·3,)` | kinetic energy, drift |
 | `laplacian` | `∇²ln Φ` scalar | kinetic energy |
 | `hessian` | `(H, g)`: second-derivative matrix, `∇ln Φ` | backflow |
-| `tressian` | `(T, H, g)`: third, second, first derivatives | backflow + opt |
+| `tressian` | `(T, H, g)`: third, second, first derivatives | tests/reference |
+| `tressian_dot` | `(T·BB, H, g)`: tressian pre-contracted with symmetric BB | backflow opt |
 
 ---
 
@@ -327,6 +328,23 @@ STO orbitals — they satisfy the cusp condition exactly.
 define the leading determinant. Only `det_coeff[1:]` are optimised; the leading
 coefficient is fixed.
 
+**Trace ordering in third derivatives**: for the single-nonzero-row matrices
+`Mᵢ = A⁻¹∇ᵢA`, `tr(MᵢMⱼMₖ) ≠ tr(MₖMⱼMᵢ)` — reversal is not a cyclic permutation.
+The tressian triple-product term needs **both** orderings, not `2×` one of them
+(bug fixed 2026-07; the difference is antisymmetric in the last two tensor axes,
+so it cancelled in `tressian_dot`'s symmetric contraction and was invisible in
+energies). It also vanishes identically for one same-spin electron (He) and for
+s-only occupied orbitals (Be — all orbital gradients at a point are radial,
+hence parallel), so He/Be tests cannot catch this class of error.
+
+**Angular components in `*_matrix` derivatives**: orbital φ = f(r)·S(x,y,z) with
+D f := f′/r; e.g. ∂³φ/∂y³ = y³D³f·S + 3y·D²f·(S + y·∂ᵧS) + 3·Df·(∂ᵧS + y·∂ᵧᵧS)
++ f·∂ᵧᵧᵧS. The yyy/zzz rows of `tressian_matrix` once used ∂ₓS instead of
+∂ᵧS/∂ᵤS (copy-paste from xxx; fixed 2026-07) — invisible for s-orbitals where
+∇S = 0. After touching orbital-derivative assembly, cross-check on **Ne**
+(occupied p-orbitals) by finite differences of the next-lower analytic
+derivative, not only via pytest (He fixtures).
+
 ---
 
 ## Angular part of orbitals: solid harmonics (`harmonics.py`)
@@ -461,12 +479,14 @@ wfn.kinetic_energy
 wfn.kinetic_energy_parameters_d1   (optimisation)
 ├── jastrow: j_g_d1, j_l_d1 → ∂T/∂α_J
 ├── backflow: b_l_d1, b_g_d1, b_v_d1
-│   └── slater.tressian(n+b_v) → T, H, g  (third derivatives required)
+│   └── slater.tressian_dot(n+b_v, bb) → T·bb, H, g  (third derivatives, pre-contracted)
 └── det_coeff: slater.gradient_parameters_d1, slater.hessian_parameters_d1
 ```
 
-`tressian` is called **only during backflow optimisation** — it is the most
-expensive operation in the project. Returns the triple `(T, H, g)`:
+Third derivatives are needed **only during backflow optimisation** — the most
+expensive operation in the project. The production path is `tressian_dot`
+(returns `(T·bb, H, g)` with `bb = b_g @ b_g.T`); the full `tressian` returning
+`(T, H, g)` is kept for tests/reference:
 - `T[a,b,c]` — third derivatives `∂³ln Φ / ∂r^a ∂r^b ∂r^c`
 - `H[a,b]` — second derivatives (Hessian)
 - `g[a]` — first derivatives (gradient)
@@ -514,10 +534,11 @@ decomposition `slater_tressian` already builds (`g`=tr_grad, `PH`=partial_hess):
 
 The win is bandwidth, not flops: O3/Kr stop spilling a 3–10 MB tensor to memory.
 
-**Implementation note:** this needs `BB` (i.e. `b_g`) inside the Slater routine,
-so add a method like `slater.tressian_dot(n_vectors, b_g)` → `(TBB, s_h, s_g)`
-and adapt the `wfn.py` call site. Keep the old `tressian` for the numerical
-cross-check in `test_slater.py` (`tressian_v2`).
+**Status: implemented.** `slater.tressian_dot(n_vectors, bb)` → `(T_bb, s_h, s_g)`
+with `bb = b_g @ b_g.T`; the `wfn.py` call site
+(`kinetic_energy_parameters_d1`, wfn.py:302) uses it. The old `tressian` is kept
+for the numerical cross-checks in `test_slater.py` (`numerical_tressian`,
+`tressian_v2`, and the `tressian_dot` consistency test).
 
 **What the existing attempts do — and why they only give 20–30 %** (branches
 `improve_tressian` / `optimized_tressian`):
