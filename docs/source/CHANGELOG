@@ -1,16 +1,32 @@
 v 0.4.0 (in progress)
 ---------------------
 * Added
+    * slater.tressian_dot method returning third derivatives pre-contracted with the
+      backflow Jacobian, and its documentation in slater.rst
     * Quick start guide and MPI parallelisation page in documentation
     * Documented all previously undocumented input keywords (GAUTOL, OPT_DTVMC, OPT_MAXITER,
       OPT_NOCTF_CYCLES, POSTFIT_VMC, OPT_FIXNL, VM_SMOOTH_LIMIT, VM_W_MAX, VM_W_MIN,
       EMIN_XI_VALUE, DMC_METHOD, LIMDMC, ALIMIT, NUCLEUS_GF_MODS, EBEST_AV_WINDOW, BACKFLOW)
+    * drift_velocity and energy_parameters_d1 sections in wfn.rst
 * Fixes
+    * Third derivatives of Slater orbitals: yyy and zzz components of tressian_matrix
+      used the x-component of the angular gradient, and tressian doubled one ordering
+      of the triple-product trace instead of summing both (verified against numerical
+      derivatives on Ne)
+    * False trace-reversal identity in tressian snippets of slater.rst
     * Broken Numba documentation link in index.rst
     * Incorrect output description for kinetic_energy_parameters_d1 in wfn.rst
+    * Missing backflow-parameters formula in kinetic_energy_parameters_d1 section of wfn.rst
+    * Incorrect output description for nonlocal_energy_parameters_d1 and missing sign
+      in kinetic energy derivative in wfn.rst
+    * Methods summary in wfn.rst attributed to Slater class instead of Wfn
     * Duplicate Sphinx anchor ``intermediate data`` between jastrow.rst and backflow.rst
+    * Duplicate Sphinx anchor ``value`` between wfn.rst and slater.rst
     * Typo "Input parameter are supported" → "Input parameters supported" in config.rst
 * Improved
+    * Speed up backflow optimization: kinetic_energy_parameters_d1 uses slater.tressian_dot
+      to avoid materializing the (3N)³ tressian tensor, vectorized bf_d1 loop and
+      fused reduction loop in backflow_laplacian_parameters_d1
     * Cusp correction page expanded with physical motivation, correction scheme, and API reference
 
 v 0.3.0 (2025-10-30)
@@ -22,7 +38,7 @@ v 0.3.0 (2025-10-30)
     * scipy.optimize.least_squares optimization in one thread
     * Add tests
 * Fixes
-    * Remove np.float_ as it not supported in Numpy 2.X
+    * Remove ``np.float_`` as it not supported in Numpy 2.X
     * Fix reweighted VMC variance optimization.
 
 v 0.2.0 (2024-10-30)
