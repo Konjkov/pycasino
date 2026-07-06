@@ -46,6 +46,7 @@ Optimization keywords
 - **OPT_JASTROW** - optimize the Jastrow factor in wave-function optimization
 - **OPT_BACKFLOW** - optimize backflow parameters in wave-function optimization
 - **OPT_DET_COEFF** - optimize the coefficients of the determinants in wave-function optimization
+- **OPT_ORBITALS** - optimize the orbitals in wave-function optimization (work in progress)
 - **OPT_MAXITER** - maximum number of iterations of the outer optimisation loop (default 10)
 - **OPT_MAXEVAL** - maximum number of objective-function evaluations per iteration (default 200)
 - **OPT_NOCTF_CYCLES** - number of optimisation cycles in which the cutoff lengths are not optimised (default 0)
@@ -65,14 +66,15 @@ DMC keywords
 - **DMC_TARGET_WEIGHT** - target number of configurations in DMC
 - **DMC_EQUIL_NSTEP** - number of DMC steps in equilibration
 - **DMC_STATS_NSTEP** - number of DMC steps in statistics accumulation
-- **DMC EQUIL NBLOCK** - number of blocks into which the DMC equilibration phase is divided
-- **DMC STATS NBLOCK** - number of blocks into which the DMC statistics accumulation phase is divided
+- **DMC_EQUIL_NBLOCK** - number of blocks into which the DMC equilibration phase is divided
+- **DMC_STATS_NBLOCK** - number of blocks into which the DMC statistics accumulation phase is divided
 - **DTDMC** - DMC time step
 - **DMC_METHOD** - (1) - EBES, (2) - CBCS
 - **LIMDMC** - set modifications to Green’s function in DMC. Only (4) Umrigar mods to drift velocity, Zen–Sorella–Alfè mods to energy
 - **ALIMIT** - parameter required by DMC drift-velocity- and energy-limiting schemes
 - **NUCLEUS_GF_MODS** - this keyword is the switch for enabling the use of the modifications to the DMC Green’s function for the presence of bare nuclei
 - **EBEST_AV_WINDOW** - averaging window for calculating the ground-state energy during equilibration (work in progress)
+- **USE_TMOVE** - use Casula T-move scheme for nonlocal pseudopotentials in DMC (default T)
 
 WFN definition keywords
 ~~~~~~~~~~~~~~~~~~~~~~~

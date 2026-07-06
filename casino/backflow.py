@@ -203,7 +203,6 @@ eta_parameters_mask_type = nb.boolean[:, ::1]
 mu_parameters_mask_type = nb.boolean[:, ::1]
 phi_parameters_mask_type = nb.boolean[:, :, :, ::1]
 theta_parameters_mask_type = nb.boolean[:, :, :, ::1]
-kappa_parameters_mask_type = nb.boolean[:, :, :, ::1]
 
 Backflow_t = Backflow_class_t(
     [
@@ -214,17 +213,14 @@ Backflow_t = Backflow_class_t(
         ('mu_parameters', nb.types.ListType(mu_parameters_type)),
         ('phi_parameters', nb.types.ListType(phi_parameters_type)),
         ('theta_parameters', nb.types.ListType(theta_parameters_type)),
-        # ('kappa_parameters', nb.types.ListType(theta_parameters_type)),  # TODO: kappa term not implemented yet
         ('eta_parameters_optimizable', eta_parameters_mask_type),
         ('mu_parameters_optimizable', nb.types.ListType(mu_parameters_mask_type)),
         ('phi_parameters_optimizable', nb.types.ListType(phi_parameters_mask_type)),
         ('theta_parameters_optimizable', nb.types.ListType(theta_parameters_mask_type)),
-        # ('kappa_parameters_optimizable', nb.types.ListType(kappa_parameters_mask_type)),  # TODO: kappa term not implemented yet
         ('eta_parameters_available', eta_parameters_mask_type),
         ('mu_parameters_available', nb.types.ListType(mu_parameters_mask_type)),
         ('phi_parameters_available', nb.types.ListType(phi_parameters_mask_type)),
         ('theta_parameters_available', nb.types.ListType(theta_parameters_mask_type)),
-        # ('kappa_parameters_available', nb.types.ListType(kappa_parameters_mask_type)),  # TODO: kappa term not implemented yet
         ('eta_cutoff', nb.float64[:]),
         ('eta_cutoff_optimizable', nb.boolean[:]),
         ('mu_cutoff', nb.float64[:]),
@@ -2657,8 +2653,6 @@ class Backflow(structref.StructRefProxy, AbstractBackflow):
             phi_parameters_optimizable,
             theta_parameters,
             theta_parameters_optimizable,
-            # kappa_parameters,  # TODO: kappa term not implemented yet
-            # kappa_parameters_optimizable,
             phi_cutoff,
             phi_cusp,
             phi_labels,
@@ -2692,13 +2686,10 @@ class Backflow(structref.StructRefProxy, AbstractBackflow):
             self.phi_cutoff_optimizable = phi_cutoff['optimizable']
             self.phi_parameters = phi_parameters
             self.theta_parameters = theta_parameters
-            # self.kappa_parameters = kappa_parameters  # TODO: kappa term not implemented yet
             self.phi_parameters_optimizable = phi_parameters_optimizable
             self.theta_parameters_optimizable = theta_parameters_optimizable
-            # self.kappa_parameters_optimizable = kappa_parameters_optimizable
             self.phi_parameters_available = nb.typed.List.empty_list(phi_parameters_mask_type)
             self.theta_parameters_available = nb.typed.List.empty_list(theta_parameters_mask_type)
-            # self.kappa_parameters_available = nb.typed.List.empty_list(kappa_parameters_mask_type)
 
             self.max_ee_order = max(
                 (
@@ -2735,8 +2726,6 @@ class Backflow(structref.StructRefProxy, AbstractBackflow):
             config.backflow.phi_parameters_optimizable,
             config.backflow.theta_parameters,
             config.backflow.theta_parameters_optimizable,
-            # config.backflow.kappa_parameters,  # TODO: kappa term not implemented yet
-            # config.backflow.kappa_parameters_optimizable,
             config.backflow.phi_cutoff,
             config.backflow.phi_cusp,
             config.backflow.phi_labels,
