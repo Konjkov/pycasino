@@ -65,10 +65,5 @@ Combining MPI with Numba threading
 -----------------------------------
 
 Pycasino's inner loops are compiled with Numba (``@nb.njit``). The JIT kernels currently use
-``parallel=False``, so each rank occupies one CPU core. If you want to use fewer MPI ranks and
-let Numba use multiple threads per rank, set the ``NUMBA_NUM_THREADS`` environment variable::
-
-    $ NUMBA_NUM_THREADS=4 mpirun -n 2 casino .
-
-This runs 2 MPI walkers each using up to 4 Numba threads, for a total of 8 cores. Whether this
-is faster than 8 single-threaded ranks depends on the system size.
+``parallel=False``, so each rank is single-threaded and occupies one CPU core. Setting
+``NUMBA_NUM_THREADS`` therefore has no effect; use one MPI rank per physical core instead.

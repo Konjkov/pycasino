@@ -8,7 +8,17 @@ v 0.4.0 (in progress)
       OPT_NOCTF_CYCLES, POSTFIT_VMC, OPT_FIXNL, VM_SMOOTH_LIMIT, VM_W_MAX, VM_W_MIN,
       EMIN_XI_VALUE, DMC_METHOD, LIMDMC, ALIMIT, NUCLEUS_GF_MODS, EBEST_AV_WINDOW, BACKFLOW)
     * drift_velocity and energy_parameters_d1 sections in wfn.rst
+    * OPT_ORBITALS and USE_TMOVE keywords in config.rst
+    * DMC tutorial page (dmc.rst): drift-diffusion, velocity limiting, branching,
+      population control, T-move, load balancing
 * Fixes
+    * Input keywords parsed with wrong type: VM_W_MAX, VM_W_MIN, EMIN_XI_VALUE read as
+      booleans instead of floats, NON_LOCAL_GRID as boolean instead of integer;
+      LIMDMC misspelled as "limdmct" so the keyword was silently ignored
+    * Misleading NUMBA_NUM_THREADS advice in parallel.rst: JIT kernels are single-threaded
+    * Cusp initialisation description in cusp.rst: Cusp is created by CuspFactory,
+      not by Slater
+    * Missing underscores in DMC_EQUIL_NBLOCK and DMC_STATS_NBLOCK keyword names in config.rst
     * Third derivatives of Slater orbitals: yyy and zzz components of tressian_matrix
       used the x-component of the angular gradient, and tressian doubled one ordering
       of the triple-product trace instead of summing both (verified against numerical

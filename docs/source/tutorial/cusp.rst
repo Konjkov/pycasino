@@ -111,10 +111,10 @@ and set ``POLYPRINT=.true.`` in ``gaussians.f90`` before compiling CASINO.
 Initialisation
 --------------
 
-:class:`casino.Cusp` is constructed internally by :class:`casino.Slater` when cusp correction
-is enabled. It is not normally instantiated directly by the user. The correction is applied
-transparently inside ``slater.value_matrix``, ``slater.gradient_matrix``, and higher
-derivatives.
+:class:`casino.Cusp` is created by ``casino.cusp.CuspFactory`` when cusp correction is enabled
+and passed to :class:`casino.Slater`. It is not normally instantiated directly by the user.
+The correction is applied transparently inside ``slater.value_matrix``,
+``slater.gradient_matrix``, and higher derivatives.
 
 Properties
 ----------

@@ -96,9 +96,9 @@ class Input:
         self.read_int('opt_maxeval', 200)
         self.read_bool('vm_smooth_limit', True)
         self.read_bool('vm_reweight', False)
-        self.read_bool('vm_w_max', 0.0)
-        self.read_bool('vm_w_min', 0.0)
-        self.read_bool('emin_xi_value', 1.0)
+        self.read_float('vm_w_max', 0.0)
+        self.read_float('vm_w_min', 0.0)
+        self.read_float('emin_xi_value', 1.0)
         # DMC keywords
         self.read_float('dmc_target_weight')
         self.read_int('dmc_equil_nstep')
@@ -107,7 +107,7 @@ class Input:
         self.read_int('dmc_stats_nblock')
         self.read_float('dtdmc')
         self.read_int('dmc_method', 1)
-        self.read_int('limdmct', 4)
+        self.read_int('limdmc', 4)
         self.read_float('alimit', 0.5)
         self.read_bool('nucleus_gf_mods', True)
         self.read_bool('use_tmove', True)
@@ -121,7 +121,7 @@ class Input:
         self.read_float('cusp_threshold', 1e-7)
         self.read_bool('cusp_info', False)
         # Pseudopotential keywords
-        self.read_bool('non_local_grid', 4)
+        self.read_int('non_local_grid', 4)
         self.read_float('lcutofftol', 1e-5)
         self.read_float('nlcutofftol', 1e-5)
 

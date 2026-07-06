@@ -13,3 +13,4 @@ Tutorial
     tutorial/slater
     tutorial/jastrow
     tutorial/backflow
+    tutorial/dmc
