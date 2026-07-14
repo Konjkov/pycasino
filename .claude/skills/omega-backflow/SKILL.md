@@ -233,15 +233,23 @@ in full — so Ω maps cleanly onto the `eta_term` pattern with an added `i>j>k`
 (O(N³)).
 
 1. ~~`casino/readers/backflow.py` parser~~ — **done** (see above).
-2. **`casino/backflow.py` — `omega_term` (value)** — triple loop `i>j>k`, guard all three
-   `r < L`, build `poly` over the three e-e powers, `w = cutoff·poly`, then
-   `res[1,i] += w·(e_vectors[i,j]+e_vectors[i,k])` and cyclic. Mirror `eta_term:421`.
-3. **`omega_term_gradient` / `omega_term_laplacian`** — same loop + chain rule; reference
-   `omega_grad` / `omega_grad_hessian` / `bf_omega_derivs`. Note the linear Jacobian pieces
-   `bf_dx(a,a,ip,ip)+=2ω`, `…ip,jp)-=ω` etc. (`pbackflow.f90:5328-5346`).
-4. **Wire into `value`/`gradient`/`laplacian`** (`backflow.py:900, 929-930, 971-973`): add
-   `omega_term` to `ae_value`/`ae_gradient`/`ae_laplacian`. Add `omega_parameters` (and the
-   spin-triplet metadata) to the numba `Backflow_t` structref + `backflow_init`.
+2. ~~`omega_term` (value)~~ — **done**: triple loop `e1>e2>e3` (canonical `(i,j,k)=(e3,e2,e1)`),
+   guard all three `r < L` with per-set `L = omega_cutoff[set % len]`,
+   `set = (#down in triplet) % shape[0]`, `res[1, i] += w·(e_vectors[i,j]+e_vectors[i,k])`
+   and cyclic. Early return when `omega_cutoff` is all zero (no omega block in file).
+3. ~~`omega_term_gradient` / `omega_term_laplacian`~~ — **done, NUMERICAL for now**: central
+   differences of `omega_term` over `e_vectors` (AbstractBackflow `numerical_gradient` /
+   `numerical_laplacian` pattern, steps `delta` / `delta_2` from `casino/__init__.py`),
+   recomputing `ee_powers` per shift. Analytic versions (chain rule via `omega_grad` /
+   `omega_grad_hessian` / `bf_omega_derivs`, Jacobian pieces `pbackflow.f90:5328-5346`) are
+   a future optimization. Verified vs full-value numerical diff on Be omega_dmc
+   (gradient ~4e-11, laplacian ~1e-7) and no-omega He unaffected.
+4. ~~Wire into `value`/`gradient`/`laplacian`~~ — **done**: `omega_term(_gradient/_laplacian)`
+   added to `ae_value`/`ae_gradient`/`ae_laplacian`. ~~Structref + init~~ — **done**:
+   `omega_parameters` / `_optimizable` / `_available` + `omega_cutoff` / `_optimizable` are in
+   `Backflow_t`, filled in `backflow_init` (eta-style, single array not a list), included in
+   `max_ee_order`; `fix_optimizable` applies the `striplet_exists` availability rule
+   (set 3 udd always unavailable for 2-spin; verified init on He, Be omega_dmc, Be 1_2).
 5. **Optimization** — extend `get/set_parameters`, `_mask`, `_scale`, `_constraints`,
    `_projector`; `omega_term_d1` may be numeric (like `phi_term_d1:1710`).
 6. **Constraints** — finish `omega_parameters_independent` / `fix_omega_parameters`
