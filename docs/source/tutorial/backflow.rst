@@ -130,7 +130,7 @@ Opening the crossing requires adding to the product a term that does not vanish 
 
 so that locally :math:`uv \to uv - \varepsilon`: the crossing is resolved into two smooth hyperbolic sheets and the four pockets
 merge into two. The :math:`2p^2` determinants of a CASSCF(2,4) expansion provide exactly such a term for beryllium; geminal
-(AGP) [10]_ and Pfaffian [11]_ wave functions embed it into the antisymmetric form itself. A backflow transformation could only
+(AGP) [10]_ and Pfaffian [11]_ wave functions embed it into the antisymmetric form itself (see :ref:`pfaffian`). A backflow transformation could only
 achieve this if the displacement field were discontinuous precisely on the intersection manifold, which would produce a divergent
 local energy there and is considered a tremendously difficult task ([4]_, Sec. V C).
 

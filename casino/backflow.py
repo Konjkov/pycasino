@@ -3,7 +3,7 @@ import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
-from casino import delta
+from casino import delta, delta_2
 from casino.abstract import AbstractBackflow
 from casino.overload import block_diag, rref
 
@@ -199,10 +199,12 @@ eta_parameters_type = nb.float64[:, ::1]
 mu_parameters_type = nb.float64[:, ::1]
 phi_parameters_type = nb.float64[:, :, :, ::1]
 theta_parameters_type = nb.float64[:, :, :, ::1]
+omega_parameters_type = nb.float64[:, :, :, ::1]
 eta_parameters_mask_type = nb.boolean[:, ::1]
 mu_parameters_mask_type = nb.boolean[:, ::1]
 phi_parameters_mask_type = nb.boolean[:, :, :, ::1]
 theta_parameters_mask_type = nb.boolean[:, :, :, ::1]
+omega_parameters_mask_type = nb.boolean[:, :, :, ::1]
 
 Backflow_t = Backflow_class_t(
     [
@@ -213,20 +215,25 @@ Backflow_t = Backflow_class_t(
         ('mu_parameters', nb.types.ListType(mu_parameters_type)),
         ('phi_parameters', nb.types.ListType(phi_parameters_type)),
         ('theta_parameters', nb.types.ListType(theta_parameters_type)),
+        ('omega_parameters', omega_parameters_type),
         ('eta_parameters_optimizable', eta_parameters_mask_type),
         ('mu_parameters_optimizable', nb.types.ListType(mu_parameters_mask_type)),
         ('phi_parameters_optimizable', nb.types.ListType(phi_parameters_mask_type)),
         ('theta_parameters_optimizable', nb.types.ListType(theta_parameters_mask_type)),
+        ('omega_parameters_optimizable', omega_parameters_mask_type),
         ('eta_parameters_available', eta_parameters_mask_type),
         ('mu_parameters_available', nb.types.ListType(mu_parameters_mask_type)),
         ('phi_parameters_available', nb.types.ListType(phi_parameters_mask_type)),
         ('theta_parameters_available', nb.types.ListType(theta_parameters_mask_type)),
+        ('omega_parameters_available', omega_parameters_mask_type),
         ('eta_cutoff', nb.float64[:]),
         ('eta_cutoff_optimizable', nb.boolean[:]),
         ('mu_cutoff', nb.float64[:]),
         ('mu_cutoff_optimizable', nb.boolean[:]),
         ('phi_cutoff', nb.float64[:]),
         ('phi_cutoff_optimizable', nb.boolean[:]),
+        ('omega_cutoff', nb.float64[:]),
+        ('omega_cutoff_optimizable', nb.boolean[:]),
         ('mu_labels', nb.types.ListType(labels_type)),
         ('phi_labels', nb.types.ListType(labels_type)),
         ('max_ee_order', nb.int64),
@@ -311,6 +318,20 @@ def backflow_fix_optimizable(self):
                 if self.ned < ee_order:
                     theta_parameters_available[2] = False
             self.theta_parameters_available.append(theta_parameters_available)
+
+        # striplet_exists rule (monte_carlo.f90 assign_spin_deps): the doubled spin
+        # is always the lower index, so udd is never registered for a 2-spin system
+        if self.omega_parameters.shape[0] == 1:
+            if not (self.neu > 2 or self.ned > 2 or (self.neu > 1 and self.ned > 0)):
+                self.omega_parameters_available[0] = False
+        elif self.omega_parameters.shape[0] == 4:
+            if self.neu < 3:
+                self.omega_parameters_available[0] = False
+            if self.neu < 2 or self.ned < 1:
+                self.omega_parameters_available[1] = False
+            self.omega_parameters_available[2] = False
+            if self.ned < 3:
+                self.omega_parameters_available[3] = False
 
     return impl
 
@@ -527,6 +548,47 @@ def backflow_phi_term(self, e_powers, n_powers, e_vectors, n_vectors):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'omega_term')
+def backflow_omega_term(self, e_powers, e_vectors):
+    """
+    :param e_powers: powers of e-e distances
+    :param e_vectors: e-e vectors
+    :return: displacements of electrons - array(2, nelec * 3)
+    """
+
+    def impl(self, e_powers, e_vectors):
+        ae_cutoff_condition = 1
+        res = np.zeros(shape=(2, self.neu + self.ned, 3))
+        if not self.omega_cutoff.any():
+            return res.reshape(2, (self.neu + self.ned) * 3)
+
+        C = self.trunc
+        parameters = self.omega_parameters
+        for e1 in range(2, self.neu + self.ned):
+            for e2 in range(1, e1):
+                for e3 in range(e2):
+                    # canonical triplet order (i, j, k) = (e3, e2, e1), i < j < k
+                    r_ij = e_powers[e3, e2, 1]
+                    r_jk = e_powers[e2, e1, 1]
+                    r_ki = e_powers[e1, e3, 1]
+                    omega_set = (int(e1 >= self.neu) + int(e2 >= self.neu) + int(e3 >= self.neu)) % parameters.shape[0]
+                    L = self.omega_cutoff[omega_set % self.omega_cutoff.shape[0]]
+                    if r_ij < L and r_jk < L and r_ki < L:
+                        poly = 0.0
+                        for l in range(parameters.shape[1]):
+                            for m in range(parameters.shape[2]):
+                                for n in range(parameters.shape[3]):
+                                    poly += parameters[omega_set, l, m, n] * e_powers[e2, e1, l] * e_powers[e1, e3, m] * e_powers[e3, e2, n]
+                        w = (1 - r_jk / L) ** C * (1 - r_ki / L) ** C * (1 - r_ij / L) ** C * poly
+                        res[ae_cutoff_condition, e3] += w * (e_vectors[e3, e2] + e_vectors[e3, e1])
+                        res[ae_cutoff_condition, e2] += w * (e_vectors[e2, e3] + e_vectors[e2, e1])
+                        res[ae_cutoff_condition, e1] += w * (e_vectors[e1, e3] + e_vectors[e1, e2])
+        return res.reshape(2, (self.neu + self.ned) * 3)
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Backflow_class_t, 'eta_term_gradient')
 def backflow_eta_term_gradient(self, e_powers, e_vectors):
     """
@@ -675,6 +737,36 @@ def backflow_phi_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
                             )
 
         return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'omega_term_gradient')
+def backflow_omega_term_gradient(self, e_powers, e_vectors):
+    """Numerical gradient with respect to e-coordinates
+    :param e_powers: powers of e-e distances
+    :param e_vectors: e-e vectors
+    :return: partial derivatives of displacements of electrons - array(2, nelec * 3, nelec * 3)
+    """
+
+    def impl(self, e_powers, e_vectors):
+        res = np.zeros(shape=(2, (self.neu + self.ned) * 3, self.neu + self.ned, 3))
+        if not self.omega_cutoff.any():
+            return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
+
+        for e1 in range(self.neu + self.ned):
+            for j in range(3):
+                e_vectors[e1, :, j] -= delta
+                e_vectors[:, e1, j] += delta
+                res[:, :, e1, j] -= self.omega_term(self.ee_powers(e_vectors), e_vectors)
+                e_vectors[e1, :, j] += 2 * delta
+                e_vectors[:, e1, j] -= 2 * delta
+                res[:, :, e1, j] += self.omega_term(self.ee_powers(e_vectors), e_vectors)
+                e_vectors[e1, :, j] -= delta
+                e_vectors[:, e1, j] += delta
+
+        return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
 
     return impl
 
@@ -881,6 +973,38 @@ def backflow_phi_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Backflow_class_t, 'omega_term_laplacian')
+def backflow_omega_term_laplacian(self, e_powers, e_vectors):
+    """Numerical laplacian with respect to e-coordinates
+    :param e_powers: powers of e-e distances
+    :param e_vectors: e-e vectors
+    :return: vector laplacian - array(2, nelec * 3)
+    """
+
+    def impl(self, e_powers, e_vectors):
+        res = np.zeros(shape=(2, (self.neu + self.ned) * 3))
+        if not self.omega_cutoff.any():
+            return res
+
+        val = self.omega_term(e_powers, e_vectors)
+        for e1 in range(self.neu + self.ned):
+            for j in range(3):
+                e_vectors[e1, :, j] -= delta_2
+                e_vectors[:, e1, j] += delta_2
+                res += self.omega_term(self.ee_powers(e_vectors), e_vectors)
+                e_vectors[e1, :, j] += 2 * delta_2
+                e_vectors[:, e1, j] -= 2 * delta_2
+                res += self.omega_term(self.ee_powers(e_vectors), e_vectors)
+                e_vectors[e1, :, j] -= delta_2
+                e_vectors[:, e1, j] += delta_2
+                res -= 2 * val
+
+        return res / delta_2 / delta_2
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Backflow_class_t, 'value')
 def backflow_value(self, e_vectors, n_vectors):
     """Backflow displacements
@@ -896,8 +1020,9 @@ def backflow_value(self, e_vectors, n_vectors):
         eta_term = self.eta_term(e_powers, e_vectors)
         mu_term = self.mu_term(n_powers, n_vectors)
         phi_term = self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
+        omega_term = self.omega_term(e_powers, e_vectors)
 
-        ae_value = eta_term + mu_term + phi_term
+        ae_value = eta_term + mu_term + phi_term + omega_term
         ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
 
         return np.sum(ae_value * ae_multiplier, axis=0).reshape((self.neu + self.ned), 3)
@@ -921,13 +1046,15 @@ def backflow_gradient(self, e_vectors, n_vectors):
         eta_term = self.eta_term(e_powers, e_vectors)
         mu_term = self.mu_term(n_powers, n_vectors)
         phi_term = self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
+        omega_term = self.omega_term(e_powers, e_vectors)
 
         eta_term_gradient = self.eta_term_gradient(e_powers, e_vectors)
         mu_term_gradient = self.mu_term_gradient(n_powers, n_vectors)
         phi_term_gradient = self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
+        omega_term_gradient = self.omega_term_gradient(e_powers, e_vectors)
 
-        ae_value = eta_term + mu_term + phi_term
-        ae_gradient = eta_term_gradient + mu_term_gradient + phi_term_gradient
+        ae_value = eta_term + mu_term + phi_term + omega_term
+        ae_gradient = eta_term_gradient + mu_term_gradient + phi_term_gradient + omega_term_gradient
 
         ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
         ae_multiplier_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
@@ -959,18 +1086,21 @@ def backflow_laplacian(self, e_vectors, n_vectors):
         eta_term = self.eta_term(e_powers, e_vectors)
         mu_term = self.mu_term(n_powers, n_vectors)
         phi_term = self.phi_term(e_powers, n_powers, e_vectors, n_vectors)
+        omega_term = self.omega_term(e_powers, e_vectors)
 
         eta_term_gradient = self.eta_term_gradient(e_powers, e_vectors)
         mu_term_gradient = self.mu_term_gradient(n_powers, n_vectors)
         phi_term_gradient = self.phi_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
+        omega_term_gradient = self.omega_term_gradient(e_powers, e_vectors)
 
         eta_term_laplacian = self.eta_term_laplacian(e_powers, e_vectors)
         mu_term_laplacian = self.mu_term_laplacian(n_powers, n_vectors)
         phi_term_laplacian = self.phi_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
+        omega_term_laplacian = self.omega_term_laplacian(e_powers, e_vectors)
 
-        ae_value = eta_term + mu_term + phi_term
-        ae_gradient = eta_term_gradient + mu_term_gradient + phi_term_gradient
-        ae_laplacian = eta_term_laplacian + mu_term_laplacian + phi_term_laplacian
+        ae_value = eta_term + mu_term + phi_term + omega_term
+        ae_gradient = eta_term_gradient + mu_term_gradient + phi_term_gradient + omega_term_gradient
+        ae_laplacian = eta_term_laplacian + mu_term_laplacian + phi_term_laplacian + omega_term_laplacian
 
         ae_multiplier = self.ae_multiplier(n_vectors, n_powers)
         ae_multiplier_gradient = self.ae_multiplier_gradient(n_vectors, n_powers)
@@ -2657,6 +2787,9 @@ class Backflow(structref.StructRefProxy, AbstractBackflow):
             phi_cusp,
             phi_labels,
             phi_irrotational,
+            omega_parameters,
+            omega_parameters_optimizable,
+            omega_cutoff,
             ae_cutoff,
             ae_cutoff_optimizable,
         ):
@@ -2690,11 +2823,18 @@ class Backflow(structref.StructRefProxy, AbstractBackflow):
             self.theta_parameters_optimizable = theta_parameters_optimizable
             self.phi_parameters_available = nb.typed.List.empty_list(phi_parameters_mask_type)
             self.theta_parameters_available = nb.typed.List.empty_list(theta_parameters_mask_type)
+            # spin dep (0->uuu=uud=udd=ddd; 1->uuu/=uud/=udd/=ddd)
+            self.omega_cutoff = omega_cutoff['value']
+            self.omega_cutoff_optimizable = omega_cutoff['optimizable']
+            self.omega_parameters = omega_parameters
+            self.omega_parameters_optimizable = omega_parameters_optimizable
+            self.omega_parameters_available = np.ones_like(omega_parameters_optimizable)
 
             self.max_ee_order = max(
                 (
                     self.eta_parameters.shape[1],
                     max([p.shape[1] for p in self.phi_parameters]) if self.phi_parameters else 0,
+                    self.omega_parameters.shape[1],
                 )
             )
             self.max_en_order = max(
@@ -2730,6 +2870,9 @@ class Backflow(structref.StructRefProxy, AbstractBackflow):
             config.backflow.phi_cusp,
             config.backflow.phi_labels,
             config.backflow.phi_irrotational,
+            config.backflow.omega_parameters,
+            config.backflow.omega_parameters_optimizable,
+            config.backflow.omega_cutoff,
             config.backflow.ae_cutoff,
             config.backflow.ae_cutoff_optimizable,
         )
