@@ -2,7 +2,10 @@
 
 Pfaffian pairing wave function
 ==============================
-This section is a design document: the Pfaffian wave function is not yet implemented in Pycasino.
+This section is a design document. The AGP/geminal singlet part (Milestone 1 below) is now
+implemented in Pycasino — the :math:`\xi = 0` determinant :math:`\det[\Phi \,|\, \varphi]` with its
+reader, ``Wfn`` integration and finite-difference tests; the Pfaffian proper (the triplet
+:math:`\mu^\sigma` and inhomogeneous :math:`p_{klmI}` pairing terms, Milestone 2) is not yet.
 It records the theory, the explicit functional form and the implementation plan.
 
 Motivation: nodal topology beyond backflow
@@ -234,7 +237,11 @@ The work is split into two milestones. Milestone 1 covers exactly the subset CAS
 *both* programs and the results compared; milestone 2 adds the Pfaffian-specific extensions that
 exist in Pycasino only.
 
-**Milestone 1 — AGP in CASINO format, cross-validated.**
+**Milestone 1 — AGP in CASINO format, cross-validated.** Steps 2 and 3 are implemented
+(``casino/geminal.py``, ``casino/readers/geminal.py``, ``casino/tests/test_geminal.py``); step 4 is
+partially done — the ``psi_s : geminal`` / ``opt_geminal`` input keywords and the ``Wfn`` value /
+gradient / Laplacian composition are in place, the parameter-optimization interface and the Be/Ne
+tests are not yet; steps 1 and 5 (generator, cross-validation) are open.
 
 1. **Generator** (``molden2qmc``). From an ORCA (or other supported code) calculation, produce
    ``gwfn.data`` as now *plus* the ``GEMINAL`` block of ``parameters.casl`` in CASINO format
@@ -247,24 +254,26 @@ exist in Pycasino only.
    orbitals seed the diagonal directly, :math:`\lambda_n = \pm\sqrt{n_n/2}` (minus for weakly
    occupied correlating orbitals; Molden files carry no CI vectors, so signs and off-diagonal
    elements are left to the VMC optimization or to an Orca-output parser).
-2. **Reader** (``casino/readers/pfaffian.py``). Parse the ``GEMINAL`` block as is — the CASL
-   parsing already exists in ``casino/readers/gjastrow.py``. When the block is absent, build the
-   same Hartree-Fock default from the occupation in the wave-function file; write the block back
-   after each optimization cycle.
+2. **Reader** (``casino/readers/geminal.py``). Parse the top-level ``GEMINAL`` block of
+   ``parameters.casl`` (``c``, ``g_n,m``, ``u_n,k`` with per-element ``fixed``/``optimizable``
+   flags). When the block is absent, build the Hartree-Fock default from the occupation in the
+   wave-function file (:math:`g = 1` on the doubly-occupied orbitals, unpaired columns for the
+   singly-occupied ones); ``write`` regenerates the block after each optimization cycle.
 3. **Geminal evaluation.** With :math:`\xi = 0` the Pfaffian reduces to an ordinary
    :math:`N^\uparrow \times N^\uparrow` determinant :math:`\det[\Phi \,|\, \varphi]` — rows indexed
    by the up electrons, :math:`N^\downarrow` pairing columns
    :math:`\Phi(\mathbf{r}_i^\uparrow, \mathbf{r}_j^\downarrow)` and
    :math:`N^\uparrow - N^\downarrow` unpaired-orbital columns — so no Pfaffian kernel is needed at
-   this stage and the Slater-style value/gradient/Laplacian and Sherman-Morrison machinery
-   (``value_matrix``, cusp correction) is reused as is. Mandatory self-check: with
-   :math:`\lambda = \mathbb{1}_{occ}` the class must reproduce the Slater single-determinant value,
-   gradient and Laplacian to machine precision.
+   this stage and the same Slater-style value/gradient/Laplacian AO evaluation is reused (the
+   determinant is recomputed per move for now; Sherman-Morrison updates and cusp correction are
+   deferred to a later stage). Mandatory self-check, now satisfied: with
+   :math:`\lambda = \mathbb{1}_{occ}` the class reproduces the Slater single-determinant value,
+   gradient and Laplacian to machine precision (``test_geminal.py``).
 4. **Integration and optimization** (``casino/wfn.py``, ``casino/readers/input.py``). Input
    keywords following CASINO (``psi_s : geminal``, ``opt_geminal``); Jastrow and backflow
    composition unchanged; MDET and pairing mutually exclusive. Expose :math:`\lambda` through the
    standard varmin/emin parameter interface following the optimization strategy above.
-   Finite-difference tests (``casino/tests/test_pfaffian.py``) for the gradient, Laplacian and
+   Finite-difference tests (``casino/tests/test_geminal.py``) for the gradient, Laplacian and
    parameter derivatives, on He (sanity) and Be/Ne (nontrivial :math:`l > 0` and
    :math:`n_{eu} \geq 2` paths).
 5. **Cross-validation against CASINO.** Optimize the same wave function with both programs on the

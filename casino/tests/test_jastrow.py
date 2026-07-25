@@ -18,7 +18,7 @@ class TestJastrow(unittest.TestCase):
         self.config.read()
         slater = Slater(self.config, cusp=None)
         jastrow = Jastrow(self.config)
-        self.wfn = Wfn(self.config, slater, jastrow, backflow=None, ppotential=None)
+        self.wfn = Wfn(self.config, slater, jastrow=jastrow, backflow=None, ppotential=None)
         self.wfn.opt_jastrow = True
         self.wfn.set_parameters_projector()
         self.r_e = self.initial_position()

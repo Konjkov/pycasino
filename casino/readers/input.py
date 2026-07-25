@@ -113,6 +113,8 @@ class Input:
         self.read_bool('use_tmove', True)
         self.read_int('ebest_av_window', 25)
         # WFN definition keywords
+        self.read_str('psi_s', 'slater')
+        self.read_bool('opt_geminal', False)
         self.read_bool('backflow', self.opt_backflow)
         self.read_bool('use_jastrow', self.opt_jastrow)
         self.read_bool('use_gjastrow', False)
@@ -148,7 +150,7 @@ class Input:
             f' NEU (num up spin electrons)              :  {self.neu}\n'
             f' NED (num down spin electrons)            :  {self.ned}\n'
             f' RUNTYPE (type of run)                    :  {self.runtype}\n'
-            f' PSI_S  (form for [anti]symmetrizing wfn) :  slater\n'
+            f' PSI_S  (form for [anti]symmetrizing wfn) :  {self.psi_s}\n'
             f' ATOM_BASIS_TYPE (atom-centred orb basis) :  {self.atom_basis_type}\n'
             f' INTERACTION (interaction type)           :  coulomb\n'
             f' TESTRUN (read input data,print and stop) :  F\n'

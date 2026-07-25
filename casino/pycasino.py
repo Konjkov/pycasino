@@ -18,6 +18,7 @@ from statsmodels.tsa.stattools import pacf
 from .backflow import Backflow
 from .cusp import CuspFactory
 from .dmc import DMC
+from .geminal import Geminal
 from .gjastrow import Gjastrow
 from .jastrow import Jastrow
 from .ppotential import PPotential
@@ -57,29 +58,31 @@ logo = f"""
 """
 
 
-logging.basicConfig(level=logging.INFO, filename='pycasino.log', filemode='w', format='%(message)s')
 logger = logging.getLogger(__name__)
 
 mpi_comm = MPI.COMM_WORLD
-
-logger.info(logo)
-if MPI.COMM_WORLD.size > 1:
-    logger.info(' Running in parallel using %i MPI processes.\n', MPI.COMM_WORLD.size)
-else:
-    logger.info(' Sequential run: not using MPI.\n')
-    logger.info(' Using %i OpenMP threads on %s threading layer.\n', nb.config.NUMBA_NUM_THREADS, nb.config.THREADING_LAYER)
-
 double_size = MPI.DOUBLE.Get_size()
 
-if MPI.COMM_WORLD.rank == 0:
-    # to redirect scipy.optimize stdout to log-file
-    from casino.loggers import StreamToLogger
 
-    sys.stdout = StreamToLogger(logger, logging.INFO)
-    # sys.stderr = StreamToLogger(self.logger, logging.ERROR)
-else:
-    logger.addHandler(logging.NullHandler())
-    logger.propagate = False
+def configure_logging(config_path):
+    # pycasino.log is written next to the input file
+    logging.basicConfig(level=logging.INFO, filename=os.path.join(config_path, 'pycasino.log'), filemode='w', format='%(message)s')
+    logger.info(logo)
+    if MPI.COMM_WORLD.size > 1:
+        logger.info(' Running in parallel using %i MPI processes.\n', MPI.COMM_WORLD.size)
+    else:
+        logger.info(' Sequential run: not using MPI.\n')
+        logger.info(' Using %i OpenMP threads on %s threading layer.\n', nb.config.NUMBA_NUM_THREADS, nb.config.THREADING_LAYER)
+
+    if MPI.COMM_WORLD.rank == 0:
+        # to redirect scipy.optimize stdout to log-file
+        from casino.loggers import StreamToLogger
+
+        sys.stdout = StreamToLogger(logger, logging.INFO)
+        # sys.stderr = StreamToLogger(self.logger, logging.ERROR)
+    else:
+        logger.addHandler(logging.NullHandler())
+        logger.propagate = False
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -182,6 +185,11 @@ class Casino:
 
         slater = Slater(self.config, cusp)
 
+        if self.config.geminal:
+            geminal = Geminal(self.config)
+        else:
+            geminal = None
+
         jastrow = None
         if self.config.jastrow:
             if self.config.input.use_jastrow:
@@ -194,7 +202,7 @@ class Casino:
         else:
             backflow = None
 
-        self.wfn = Wfn(self.config, slater, jastrow, backflow, ppotential)
+        self.wfn = Wfn(self.config, slater, geminal, jastrow, backflow, ppotential)
 
         self.vmc = VMC(
             self.initial_position(self.config.wfn.atom_positions, self.config.wfn.atom_charges),
@@ -1088,6 +1096,7 @@ def main():
     args = parser.parse_args()
 
     if os.path.exists(os.path.join(args.config_path, 'input')):
+        configure_logging(args.config_path)
         Casino(args.config_path).run()
     else:
         print(f'File {args.config_path}input not found...')
