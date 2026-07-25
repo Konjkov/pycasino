@@ -1,6 +1,17 @@
 v 0.4.0 (in progress)
 ---------------------
 * Added
+    * Omega (e-e-e) three-electron backflow term: OMEGA TERM block reader/writer,
+      value with analytical and gradient/laplacian with numerical differentiation,
+      no-cusp and particle-symmetry constraints, and varmin/emin support
+      (parameter mask, scale, constraint matrix, projector, parameter derivatives).
+      Note that PyCasino constrains the K_lmn to be symmetric under index exchange,
+      while CASINO up to at least v2.13.1313 imposes the opposite sign and so makes
+      them antisymmetric; omega parameters are not interchangeable between the codes
+      until that is resolved.
+    * AGP/geminal wave function (``psi_s : geminal``): casino/geminal.py, GEMINAL block
+      reader for parameters.casl, and the pfaffian design doc (Milestone 1); the
+      Hartree-Fock default geminal reproduces the Slater determinant
     * slater.tressian_dot method returning third derivatives pre-contracted with the
       backflow Jacobian, and its documentation in slater.rst
     * Quick start guide and MPI parallelisation page in documentation
@@ -12,6 +23,11 @@ v 0.4.0 (in progress)
     * DMC tutorial page (dmc.rst): drift-diffusion, velocity limiting, branching,
       population control, T-move, load balancing
 * Fixes
+    * correlation.data writer emitted a single eta cut-off line whatever the spin-dependence,
+      and lost the "2=YES BUT NO SPIN-DEP" flag because it is stored as a boolean, so the
+      written file could not be read back
+    * pycasino.log is now written next to the input file instead of the current directory
+    * PSI_S header printed a hardcoded ``slater`` regardless of the actual psi_s value
     * Input keywords parsed with wrong type: VM_W_MAX, VM_W_MIN, EMIN_XI_VALUE read as
       booleans instead of floats, NON_LOCAL_GRID as boolean instead of integer;
       LIMDMC misspelled as "limdmct" so the keyword was silently ignored

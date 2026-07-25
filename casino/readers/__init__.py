@@ -47,7 +47,7 @@ class CasinoConfig:
         else:
             self.jastrow = None
         if self.input.backflow:
-            self.backflow = Backflow()
+            self.backflow = Backflow(self.input.neu, self.input.ned)
         else:
             self.backflow = None
 
