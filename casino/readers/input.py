@@ -99,6 +99,8 @@ class Input:
         self.read_float('vm_w_max', 0.0)
         self.read_float('vm_w_min', 0.0)
         self.read_float('emin_xi_value', 1.0)
+        self.read_float('emin_min_energy', None)
+        self.read_float('emin_var_prefactor', -1.0)
         # DMC keywords
         self.read_float('dmc_target_weight')
         self.read_int('dmc_equil_nstep')
@@ -208,6 +210,8 @@ class Input:
                 f' VM_USE_E_GUESS (use guess energy)        :  F\n'
                 f' EMIN_XI_VALUE (xi parameter)             :  {self.emin_xi_value}\n'
             )
+            if self.emin_min_energy is not None:
+                msg += f' EMIN_MIN_ENERGY (energy threshold)       :  {self.emin_min_energy:.5f}\n'
         elif self.runtype == 'vmc_dmc':
             msg += (
                 f' DMC_TARGET_WEIGHT                        :  {self.dmc_target_weight}\n'

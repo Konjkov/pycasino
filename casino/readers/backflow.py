@@ -5,7 +5,7 @@ import os
 import numba as nb
 import numpy as np
 
-from casino.backflow import construct_c_matrix, construct_omega_matrix
+from casino.backflow import construct_c_matrix, construct_omega_folded_matrix
 from casino.overload import rref
 
 labels_type = nb.int64[::1]
@@ -593,16 +593,12 @@ class Backflow:
             if not self.striplet_exists(spin_dep, parameters.shape[0]):
                 continue
             omega_cutoff = self.omega_cutoff['value'][spin_dep % self.omega_cutoff.shape[0]]
-            c, _ = construct_omega_matrix(self.trunc, parameters, omega_cutoff, spin_dep)
+            c, _, rep_indices = construct_omega_folded_matrix(self.trunc, parameters, omega_cutoff, spin_dep)
             _, pivot_positions = rref(c)
 
-            p = 0
-            for n in range(parameters.shape[3]):
-                for m in range(parameters.shape[2]):
-                    for l in range(parameters.shape[1]):
-                        if p not in pivot_positions:
-                            mask[spin_dep, l, m, n] = True
-                        p += 1
+            for q in range(rep_indices.shape[0]):
+                if q not in pivot_positions:
+                    mask[spin_dep, rep_indices[q, 0], rep_indices[q, 1], rep_indices[q, 2]] = True
         return mask
 
     def phi_theta_parameters_independent(self, phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational):
@@ -708,31 +704,26 @@ class Backflow:
             if not self.striplet_exists(spin_dep, self.omega_parameters.shape[0]):
                 continue
             omega_cutoff = self.omega_cutoff['value'][spin_dep % self.omega_cutoff.shape[0]]
-            c, _ = construct_omega_matrix(self.trunc, self.omega_parameters, omega_cutoff, spin_dep)
+            c, rep, rep_indices = construct_omega_folded_matrix(self.trunc, self.omega_parameters, omega_cutoff, spin_dep)
             c, pivot_positions = rref(c)
-            c = c[: pivot_positions.size, :]
 
-            b = np.zeros((c.shape[0],))
-            p = 0
+            x = np.zeros(shape=(rep_indices.shape[0],))
+            for q in range(rep_indices.shape[0]):
+                x[q] = self.omega_parameters[spin_dep, rep_indices[q, 0], rep_indices[q, 1], rep_indices[q, 2]]
+            for p in pivot_positions:
+                x[p] = 0
+            for temp in range(pivot_positions.size):
+                p = pivot_positions[temp]
+                res = 0.0
+                for q in range(c.shape[1]):
+                    if q != p:
+                        res -= c[temp, q] * x[q]
+                x[p] = res
+
             for n in range(self.omega_parameters.shape[3]):
                 for m in range(self.omega_parameters.shape[2]):
                     for l in range(self.omega_parameters.shape[1]):
-                        if p not in pivot_positions:
-                            for temp in range(c.shape[0]):
-                                b[temp] -= c[temp, p] * self.omega_parameters[spin_dep, l, m, n]
-                        p += 1
-
-            x = np.linalg.solve(c[:, pivot_positions], b)
-
-            p = 0
-            temp = 0
-            for n in range(self.omega_parameters.shape[3]):
-                for m in range(self.omega_parameters.shape[2]):
-                    for l in range(self.omega_parameters.shape[1]):
-                        if temp in pivot_positions:
-                            self.omega_parameters[spin_dep, l, m, n] = x[p]
-                            p += 1
-                        temp += 1
+                        self.omega_parameters[spin_dep, l, m, n] = x[rep[l, m, n]]
 
     def check_phi_constrains(self):
         """Check phi-term constrains"""

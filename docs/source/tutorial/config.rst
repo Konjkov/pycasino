@@ -13,6 +13,7 @@ Input files are supported
 - **gwfn.data** file contains the data that defines the geometry, the gaussian-type orbitals and, if appropriate, the determinant expansion coefficients.
 - **stowfn.data** file contains the data that defines the geometry and the slater-type orbitals.
 - **x_pp.data** (where x is the chemical symbol of an element in lower-case letters.) This file contains the pseudopotential data for the corresponding element.
+- **parameters.casl** file contains the parameters of the gjastrow Jastrow factor and of the geminal pairing wave function.
 
 Input parameters supported
 --------------------------
@@ -30,7 +31,8 @@ VMC keywords
 
 - **VMC_EQUIL_NSTEP** - number of equilibration steps
 - **VMC_NSTEP** - number of VMC energy-evaluation steps
-- **VMC_DECORR_PERIOD** - number of steps between VMC energy-evaluation moves (0 = auto)
+- **VMC_DECORR_PERIOD** - number of steps between VMC energy-evaluation moves; 0 selects the value that
+  maximizes efficiency, estimated from the correlation time of the preceding VMC block
 - **VMC_NCONFIG_WRITE** - number of VMC configurations stored for later use in DMC or optimization
 - **VMC_NBLOCK** - number of blocks into which the total VMC run is divided post-equilibration
 - **DTVMC** - VMC time step (size of trial steps in random walk, default 0.02)
@@ -47,6 +49,7 @@ Optimization keywords
 - **OPT_BACKFLOW** - optimize backflow parameters in wave-function optimization
 - **OPT_DET_COEFF** - optimize the coefficients of the determinants in wave-function optimization
 - **OPT_ORBITALS** - optimize the orbitals in wave-function optimization (work in progress)
+- **OPT_GEMINAL** - optimize the geminal pairing parameters in wave-function optimization (work in progress)
 - **OPT_MAXITER** - maximum number of iterations of the outer optimisation loop (default 10)
 - **OPT_MAXEVAL** - maximum number of objective-function evaluations per iteration (default 200)
 - **OPT_NOCTF_CYCLES** - number of optimisation cycles in which the cutoff lengths are not optimised (default 0)
@@ -58,7 +61,13 @@ Optimization keywords
 - **VM_W_MAX** - upper threshold for reweighting weights (default 0.0 = no limit)
 - **VM_W_MIN** - lower threshold for reweighting weights (default 0.0 = no limit)
 - **EMIN_METHOD** - energy minimisation method: *linear* (default), *newton*, *reconf*
-- **EMIN_XI_VALUE** - stabilisation parameter :math:`\xi` for the linear energy-minimisation method (default 1.0)
+- **EMIN_XI_VALUE** - semi-orthogonalisation parameter :math:`\xi` for the linear energy-minimisation method
+  (default 1.0; 0.5 gives smaller and safer parameter variations)
+- **EMIN_MIN_ENERGY** - energy threshold in hartree below which candidate wave functions and eigenvalues are
+  rejected as spurious during energy minimisation (default: VMC energy minus four standard deviations of the
+  local energy)
+- **EMIN_VAR_PREFACTOR** - if greater than 0, the target function of the level-shift line minimisation becomes
+  energy + EMIN_VAR_PREFACTOR * sqrt(variance) instead of energy + 3 * error (default -1.0)
 
 DMC keywords
 ~~~~~~~~~~~~
@@ -79,6 +88,7 @@ DMC keywords
 WFN definition keywords
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+- **PSI_S** - form of the antisymmetric part of the wave function: *slater* (default), *geminal*. The geminal pairing matrix is read from the GEMINAL block of parameters.casl, see :ref:`geminal-in-pycasino`
 - **BACKFLOW** - turns on backflow corrections. Backflow parameters are read from correlation.data
 - **USE_JASTROW** - use a wave function of the Slater-Jastrow form. The Jastrow factor is read from correlation.data
 - **USE_GJASTROW** - use gjastrow Jastrow factor. This Jastrow factor is defined in a parameters.casl file (work in progress)
@@ -106,6 +116,7 @@ The :class:`~casino.readers.CasinoConfig` instance represents the relevant infor
 - config.input - data from input file
 - config.wfn - data from gwfn.data or stowfn.data files
 - config.mdet - multideterminant data from correlation.data files
+- config.geminal - geminal pairing data from the GEMINAL block of parameters.casl
 - config.jastrow - jastrow related data from correlation.data files
 - config.backflow - backflow related data from correlation.data files
 

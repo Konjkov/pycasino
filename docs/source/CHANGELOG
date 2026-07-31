@@ -2,7 +2,7 @@ v 0.4.0 (in progress)
 ---------------------
 * Added
     * Omega (e-e-e) three-electron backflow term: OMEGA TERM block reader/writer,
-      value with analytical and gradient/laplacian with numerical differentiation,
+      analytical value/gradient/laplacian and their parameter derivatives,
       no-cusp and particle-symmetry constraints, and varmin/emin support
       (parameter mask, scale, constraint matrix, projector, parameter derivatives).
       Note that PyCasino constrains the K_lmn to be symmetric under index exchange,
@@ -22,11 +22,41 @@ v 0.4.0 (in progress)
     * OPT_ORBITALS and USE_TMOVE keywords in config.rst
     * DMC tutorial page (dmc.rst): drift-diffusion, velocity limiting, branching,
       population control, T-move, load balancing
+    * VMC tutorial page (vmc.rst): the time step derived from the kinetic-energy sum rule
+      Var(ln(psi'^2/psi^2)) = 8/3 * dtvmc^2 * <T>, with the two averages (over the proposal
+      at fixed R, and over the chain) kept apart, so that the classic ts*sqrt(<T>) = 0.826
+      appears as what is obtained by interchanging them and the fitted correction as the
+      Jensen gap of that interchange; the three kinetic-energy estimators KEI/TI/FISQ and
+      where each of them enters; the Thomas-Fermi estimate of <T>; the range of validity;
+      the EBES sqrt(N) law; acceptance_ratio and optimize_vmc_step
+    * VMC_DECORR_PERIOD = 0 now selects the decorrelation period that maximizes efficiency
+      instead of silently falling back to 3. The correlation time is measured on the production
+      block itself, where thinning by the current period turns the autocorrelation rho into
+      rho**period, so inverting that recovers the correlation time of the unthinned walk. A block
+      of 1e6 configurations pins it down to better than +-0.5 even on Be, where a dedicated
+      calibration run of the length CASINO uses leaves an uncertainty of +-20
+    * Level-shift stabilization of the emin linear method: bisection over the shift, which only
+      solves the eigenvalue problem, finds the largest step that still keeps every parameter
+      variation within the trust radius, and the four
+      shifts from there are compared by the correlated sampling estimate of energy + 3 * error
+      over the very same configurations. That error accounts both for the effective sample size of
+      the reweighting and for the serial correlation left after VMC_DECORR_PERIOD thinning, which
+      reaches a factor of two on Be and N and would otherwise make the threshold system dependent.
+      The no-step candidate always takes part in the comparison, so a cycle can never make the
+      target function worse, and eigenvalues below EMIN_MIN_ENERGY are discarded as spurious.
+      New keywords EMIN_MIN_ENERGY and EMIN_VAR_PREFACTOR
 * Fixes
+    * vmc_step_graph divided the acceptance ratio by the electron count unconditionally, so every
+      CBCS graph it produced was scaled down by that factor
+    * the EBES acceptance ratio was divided by the electron count, but a step is recorded as
+      accepted when at least one electron moved, so the quantity was 1 - (1 - a)**N over N and
+      could never exceed 1/N. For N = 7 it stayed within 0.8% of 1/N while the true acceptance
+      swept 50% to 90%, leaving the step-size fit blind and unable to reach its 50% target.
+      The per-electron probability is now recovered by inverting that expression, and the whole
+      measurement lives in one place, Casino.acceptance_ratio, shared with vmc_step_graph
     * correlation.data writer emitted a single eta cut-off line whatever the spin-dependence,
       and lost the "2=YES BUT NO SPIN-DEP" flag because it is stored as a boolean, so the
       written file could not be read back
-    * pycasino.log is now written next to the input file instead of the current directory
     * PSI_S header printed a hardcoded ``slater`` regardless of the actual psi_s value
     * Input keywords parsed with wrong type: VM_W_MAX, VM_W_MIN, EMIN_XI_VALUE read as
       booleans instead of floats, NON_LOCAL_GRID as boolean instead of integer;
@@ -49,7 +79,31 @@ v 0.4.0 (in progress)
     * Duplicate Sphinx anchor ``intermediate data`` between jastrow.rst and backflow.rst
     * Duplicate Sphinx anchor ``value`` between wfn.rst and slater.rst
     * Typo "Input parameter are supported" → "Input parameters supported" in config.rst
+    * emin linear method took Q = 1 / eigvector[0]**2 - 1, which holds only for an eigvector
+      normalized in the S metric, while scipy.linalg.eig returns a Euclidean-normalized one,
+      so the semi-orthogonalization rescaling of Δp was wrong whenever the derivatives were
+      strongly correlated; Q is now evaluated as Δp · S · Δp
+    * emin linear method divided by the standard deviation of every wave function derivative,
+      so a parameter the sample does not depend on produced an infinite scale and a singular
+      overlap matrix; such parameters are now excluded from the eigenproblem and left unchanged
 * Improved
+    * CBCS initial time step is now sqrt(3) * erfinv(1/2) * (1 + 0.045/nuclei) / sqrt(<T>) instead
+      of one over the electron count, with <T> summed over the nuclei from the Thomas-Fermi
+      expansion 0.7687*Z^(7/3) - 0.5*Z^2 + 0.2699*Z^(5/3) and
+      nuclei = sum(Z^(7/3))^2 / sum(Z^(14/3)). Only the last constant is fitted. A uniform
+      displacement by ts gives Var(ln(psi'^2/psi^2)) = 8/3 * ts^2 * <T> while detailed balance
+      pins the mean of that log ratio to minus half its variance, so a gaussian one is accepted
+      with probability 2*Phi(-sigma/2) and the 50% point sits at ts*sqrt(<T>) = sqrt(3)*erfinv(1/2)
+      = 0.826; <T> = abs(E) follows from the virial theorem, and the Thomas-Fermi expansion reproduces
+      the Hartree-Fock energies to 1.8% with no free constant. The remaining correction is the
+      non-gaussianity of the log ratio, which falls off with the number of nuclei sharing <T>,
+      since the drift is of order Z at a nucleus and outer shells contribute almost nothing
+      to the tails.
+      Measured on the seventeen systems in examples/time_step/CBCS the 50% acceptance point lands
+      within 0.9% rms of the initial guess for atoms, ions, hydrides and hydrocarbons alike, where
+      the old guess spread it over 0.61 to 1.86 and left molecules against the edge of the scanned
+      range. The electron count deliberately does not appear: it equals sum(Z) only for a neutral
+      system, and substituting it costs 27% on Be(2+)
     * Speed up backflow optimization: kinetic_energy_parameters_d1 uses slater.tressian_dot
       to avoid materializing the (3N)³ tressian tensor, vectorized bf_d1 loop and
       fused reduction loop in backflow_laplacian_parameters_d1

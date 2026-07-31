@@ -3,7 +3,7 @@ import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
-from casino import delta, delta_2
+from casino import delta
 from casino.abstract import AbstractBackflow
 from casino.overload import block_diag, rref
 
@@ -253,6 +253,72 @@ def construct_omega_matrix(trunc, omega_parameters, omega_cutoff, spin_dep):
 
     assert q == n_constraints
     return c, cutoff_constraints
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def construct_omega_folded_matrix(trunc, omega_parameters, omega_cutoff, spin_dep):
+    """Same no-cusp constraints as construct_omega_matrix, but with the particle symmetry folded
+    into the enumeration instead of being imposed by rows, as construct_a_matrix does for the
+    Jastrow f-term. Only one representative per orbit of the index permutation is kept - the one
+    with ascending indices, i.e. the one rref of the full matrix leaves free.
+    Returns the (3 * (2 * omega_order + 1), n_representatives) matrix, the map of each K_lmn onto
+    the column of its representative, and the indices of the representatives themselves.
+    """
+    nd = omega_parameters.shape[1]
+    omega_order = nd - 1
+    if omega_parameters.shape[0] == 1:
+        omega_symm = 3
+    else:
+        omega_symm = (3, 1, 1, 3)[spin_dep]
+
+    rep = np.zeros(shape=(nd, nd, nd), dtype=np.int64)
+    rep_indices = np.zeros(shape=(nd**3, 3), dtype=np.int64)
+    n_representatives = 0
+    for n in range(nd):
+        for m in range(nd):
+            for l in range(nd):
+                if omega_symm == 3:
+                    is_representative = l <= m <= n
+                elif omega_symm == 1:
+                    is_representative = l <= m
+                else:
+                    is_representative = True
+                if is_representative:
+                    rep[l, m, n] = n_representatives
+                    rep_indices[n_representatives] = l, m, n
+                    n_representatives += 1
+    for n in range(nd):
+        for m in range(nd):
+            for l in range(nd):
+                if omega_symm == 3:
+                    i1, i2, i3 = min(l, m, n), l + m + n - min(l, m, n) - max(l, m, n), max(l, m, n)
+                elif omega_symm == 1:
+                    i1, i2, i3 = min(l, m), max(l, m), n
+                else:
+                    i1, i2, i3 = l, m, n
+                rep[l, m, n] = rep[i1, i2, i3]
+
+    c = np.zeros(shape=(3 * (2 * omega_order + 1), n_representatives))
+    # No-cusp conditions for each of the three pair distances, K_lmn: l -> rjk, m -> rki, n -> rij.
+    # Coefficients are accumulated onto the representative's column, so the multiplicity of each
+    # orbit is taken into account automatically.
+    for a in range(2 * omega_order + 1):
+        q1 = a
+        q2 = q1 + 2 * omega_order + 1
+        q3 = q2 + 2 * omega_order + 1
+        for n in range(max(0, a - omega_order), min(omega_order, a) + 1):
+            m = a - n
+            # rjk -> 0
+            c[q1, rep[0, m, n]] -= trunc / omega_cutoff
+            c[q1, rep[1, m, n]] += 1
+            # rki -> 0
+            c[q2, rep[m, 0, n]] -= trunc / omega_cutoff
+            c[q2, rep[m, 1, n]] += 1
+            # rij -> 0
+            c[q3, rep[m, n, 0]] -= trunc / omega_cutoff
+            c[q3, rep[m, n, 1]] += 1
+
+    return c, rep, rep_indices[:n_representatives]
 
 
 @structref.register
@@ -811,29 +877,73 @@ def backflow_phi_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Backflow_class_t, 'omega_term_gradient')
 def backflow_omega_term_gradient(self, e_powers, e_vectors):
-    """Numerical gradient with respect to e-coordinates
+    """
     :param e_powers: powers of e-e distances
     :param e_vectors: e-e vectors
+    omega depends on the positions only through the three pair distances, so with
+        A = r_j - r_k, B = r_k - r_i, C = r_i - r_j and a, b, c their lengths
+        grad_i(omega) = -omega_b * B/b + omega_c * C/c   (cyclically for j, k)
+    and the displacement u_p = 2*r_p - (the other two) has d(u_p)/d(r_q) = (3*delta_pq - 1) * I
     :return: partial derivatives of displacements of electrons - array(2, nelec * 3, nelec * 3)
     """
 
     def impl(self, e_powers, e_vectors):
-        res = np.zeros(shape=(2, (self.neu + self.ned) * 3, self.neu + self.ned, 3))
+        ae_cutoff_condition = 1
+        res = np.zeros(shape=(2, self.neu + self.ned, 3, self.neu + self.ned, 3))
         if not self.omega_cutoff.any():
             return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
-        for e1 in range(self.neu + self.ned):
-            for j in range(3):
-                e_vectors[e1, :, j] -= delta
-                e_vectors[:, e1, j] += delta
-                res[:, :, e1, j] -= self.omega_term(self.ee_powers(e_vectors), e_vectors)
-                e_vectors[e1, :, j] += 2 * delta
-                e_vectors[:, e1, j] -= 2 * delta
-                res[:, :, e1, j] += self.omega_term(self.ee_powers(e_vectors), e_vectors)
-                e_vectors[e1, :, j] -= delta
-                e_vectors[:, e1, j] += delta
+        C = self.trunc
+        parameters = self.omega_parameters
+        u = np.zeros(shape=(3, 3))
+        d = np.zeros(shape=(3, 3))
+        for e1 in range(2, self.neu + self.ned):
+            for e2 in range(1, e1):
+                for e3 in range(e2):
+                    # canonical triplet order (i, j, k) = (e3, e2, e1), i < j < k
+                    r_ij = e_powers[e3, e2, 1]
+                    r_jk = e_powers[e2, e1, 1]
+                    r_ki = e_powers[e1, e3, 1]
+                    omega_set = (int(e1 >= self.neu) + int(e2 >= self.neu) + int(e3 >= self.neu)) % parameters.shape[0]
+                    L = self.omega_cutoff[omega_set % self.omega_cutoff.shape[0]]
+                    if r_ij < L and r_jk < L and r_ki < L:
+                        poly = poly_jk = poly_ki = poly_ij = 0.0
+                        for l in range(parameters.shape[1]):
+                            for m in range(parameters.shape[2]):
+                                for n in range(parameters.shape[3]):
+                                    p = parameters[omega_set, l, m, n] * e_powers[e2, e1, l] * e_powers[e1, e3, m] * e_powers[e3, e2, n]
+                                    poly += p
+                                    poly_jk += p * l
+                                    poly_ki += p * m
+                                    poly_ij += p * n
 
-        return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
+                        f = (1 - r_jk / L) ** C * (1 - r_ki / L) ** C * (1 - r_ij / L) ** C
+                        w = f * poly
+                        w_jk = f * (poly_jk / r_jk - C / (L - r_jk) * poly)
+                        w_ki = f * (poly_ki / r_ki - C / (L - r_ki) * poly)
+                        w_ij = f * (poly_ij / r_ij - C / (L - r_ij) * poly)
+
+                        jk_vec = e_vectors[e2, e1]
+                        ki_vec = e_vectors[e1, e3]
+                        ij_vec = e_vectors[e3, e2]
+                        u[0] = ij_vec - ki_vec
+                        u[1] = jk_vec - ij_vec
+                        u[2] = ki_vec - jk_vec
+                        d[0] = w_ij * ij_vec / r_ij - w_ki * ki_vec / r_ki
+                        d[1] = w_jk * jk_vec / r_jk - w_ij * ij_vec / r_ij
+                        d[2] = w_ki * ki_vec / r_ki - w_jk * jk_vec / r_jk
+
+                        triplet = (e3, e2, e1)
+                        for p1 in range(3):
+                            for p2 in range(3):
+                                bf = np.outer(u[p1], d[p2])
+                                if p1 == p2:
+                                    bf += 2 * w * eye3
+                                else:
+                                    bf -= w * eye3
+                                res[ae_cutoff_condition, triplet[p1], :, triplet[p2], :] += bf
+
+        return res.reshape(2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     return impl
 
@@ -1042,31 +1152,86 @@ def backflow_phi_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Backflow_class_t, 'omega_term_laplacian')
 def backflow_omega_term_laplacian(self, e_powers, e_vectors):
-    """Numerical laplacian with respect to e-coordinates
+    """
     :param e_powers: powers of e-e distances
     :param e_vectors: e-e vectors
+    Each electron of a triplet moves only two of the three pair distances, so e.g. for i
+        lap_i(omega) = omega_bb + omega_cc - 2 * omega_bc * (B.C)/(b*c) + 2*omega_b/b + 2*omega_c/c
+    Since omega is translationally invariant the first-derivative terms collapse:
+        sum_q lap_q(u_p * omega) = lap(omega) * u_p + 6 * grad_p(omega)
     :return: vector laplacian - array(2, nelec * 3)
     """
 
     def impl(self, e_powers, e_vectors):
-        res = np.zeros(shape=(2, (self.neu + self.ned) * 3))
+        ae_cutoff_condition = 1
+        res = np.zeros(shape=(2, self.neu + self.ned, 3))
         if not self.omega_cutoff.any():
-            return res
+            return res.reshape(2, (self.neu + self.ned) * 3)
 
-        val = self.omega_term(e_powers, e_vectors)
-        for e1 in range(self.neu + self.ned):
-            for j in range(3):
-                e_vectors[e1, :, j] -= delta_2
-                e_vectors[:, e1, j] += delta_2
-                res += self.omega_term(self.ee_powers(e_vectors), e_vectors)
-                e_vectors[e1, :, j] += 2 * delta_2
-                e_vectors[:, e1, j] -= 2 * delta_2
-                res += self.omega_term(self.ee_powers(e_vectors), e_vectors)
-                e_vectors[e1, :, j] -= delta_2
-                e_vectors[:, e1, j] += delta_2
-                res -= 2 * val
+        C = self.trunc
+        parameters = self.omega_parameters
+        for e1 in range(2, self.neu + self.ned):
+            for e2 in range(1, e1):
+                for e3 in range(e2):
+                    # canonical triplet order (i, j, k) = (e3, e2, e1), i < j < k
+                    r_ij = e_powers[e3, e2, 1]
+                    r_jk = e_powers[e2, e1, 1]
+                    r_ki = e_powers[e1, e3, 1]
+                    omega_set = (int(e1 >= self.neu) + int(e2 >= self.neu) + int(e3 >= self.neu)) % parameters.shape[0]
+                    L = self.omega_cutoff[omega_set % self.omega_cutoff.shape[0]]
+                    if r_ij < L and r_jk < L and r_ki < L:
+                        poly = poly_jk = poly_ki = poly_ij = 0.0
+                        poly_jk_2 = poly_ki_2 = poly_ij_2 = 0.0
+                        poly_jk_ki = poly_jk_ij = poly_ki_ij = 0.0
+                        for l in range(parameters.shape[1]):
+                            for m in range(parameters.shape[2]):
+                                for n in range(parameters.shape[3]):
+                                    p = parameters[omega_set, l, m, n] * e_powers[e2, e1, l] * e_powers[e1, e3, m] * e_powers[e3, e2, n]
+                                    poly += p
+                                    poly_jk += p * l
+                                    poly_ki += p * m
+                                    poly_ij += p * n
+                                    poly_jk_2 += p * l * (l - 1)
+                                    poly_ki_2 += p * m * (m - 1)
+                                    poly_ij_2 += p * n * (n - 1)
+                                    poly_jk_ki += p * l * m
+                                    poly_jk_ij += p * l * n
+                                    poly_ki_ij += p * m * n
 
-        return res / delta_2 / delta_2
+                        f = (1 - r_jk / L) ** C * (1 - r_ki / L) ** C * (1 - r_ij / L) ** C
+                        g_jk = -C / (L - r_jk)
+                        g_ki = -C / (L - r_ki)
+                        g_ij = -C / (L - r_ij)
+                        h = C * (C - 1)
+                        w_jk = f * (poly_jk / r_jk + g_jk * poly)
+                        w_ki = f * (poly_ki / r_ki + g_ki * poly)
+                        w_ij = f * (poly_ij / r_ij + g_ij * poly)
+                        w_jk_2 = f * (poly_jk_2 / r_jk**2 + 2 * g_jk * poly_jk / r_jk + h / (L - r_jk) ** 2 * poly)
+                        w_ki_2 = f * (poly_ki_2 / r_ki**2 + 2 * g_ki * poly_ki / r_ki + h / (L - r_ki) ** 2 * poly)
+                        w_ij_2 = f * (poly_ij_2 / r_ij**2 + 2 * g_ij * poly_ij / r_ij + h / (L - r_ij) ** 2 * poly)
+                        w_jk_ki = f * (poly_jk_ki / r_jk / r_ki + g_jk * poly_ki / r_ki + g_ki * poly_jk / r_jk + g_jk * g_ki * poly)
+                        w_jk_ij = f * (poly_jk_ij / r_jk / r_ij + g_jk * poly_ij / r_ij + g_ij * poly_jk / r_jk + g_jk * g_ij * poly)
+                        w_ki_ij = f * (poly_ki_ij / r_ki / r_ij + g_ki * poly_ij / r_ij + g_ij * poly_ki / r_ki + g_ki * g_ij * poly)
+
+                        jk_vec = e_vectors[e2, e1]
+                        ki_vec = e_vectors[e1, e3]
+                        ij_vec = e_vectors[e3, e2]
+                        # every pair distance is moved by exactly two of the three electrons
+                        lap = (
+                            2 * (w_jk_2 + w_ki_2 + w_ij_2)
+                            - 2 * w_ki_ij * (ki_vec @ ij_vec) / r_ki / r_ij
+                            - 2 * w_jk_ij * (jk_vec @ ij_vec) / r_jk / r_ij
+                            - 2 * w_jk_ki * (jk_vec @ ki_vec) / r_jk / r_ki
+                            + 4 * (w_jk / r_jk + w_ki / r_ki + w_ij / r_ij)
+                        )
+                        d_i = w_ij * ij_vec / r_ij - w_ki * ki_vec / r_ki
+                        d_j = w_jk * jk_vec / r_jk - w_ij * ij_vec / r_ij
+                        d_k = w_ki * ki_vec / r_ki - w_jk * jk_vec / r_jk
+                        res[ae_cutoff_condition, e3] += lap * (ij_vec - ki_vec) + 6 * d_i
+                        res[ae_cutoff_condition, e2] += lap * (jk_vec - ij_vec) + 6 * d_j
+                        res[ae_cutoff_condition, e1] += lap * (ki_vec - jk_vec) + 6 * d_k
+
+        return res.reshape(2, (self.neu + self.ned) * 3)
 
     return impl
 
@@ -1287,31 +1452,28 @@ def backflow_fix_omega_parameters(self):
             if not self.omega_parameters_available[spin_dep].any():
                 continue
             omega_cutoff = self.omega_cutoff[spin_dep % self.omega_cutoff.shape[0]]
-            c, _ = construct_omega_matrix(self.trunc, self.omega_parameters, omega_cutoff, spin_dep)
+            c, rep, rep_indices = construct_omega_folded_matrix(self.trunc, self.omega_parameters, omega_cutoff, spin_dep)
             c, pivot_positions = rref(c)
-            c = c[: pivot_positions.size, :]
 
-            b = np.zeros((c.shape[0],))
-            p = 0
+            # the matrix is in reduced form, so the pivot submatrix is the identity and no
+            # linear system has to be solved
+            x = np.zeros(shape=(rep_indices.shape[0],))
+            for q in range(rep_indices.shape[0]):
+                x[q] = self.omega_parameters[spin_dep, rep_indices[q, 0], rep_indices[q, 1], rep_indices[q, 2]]
+            for p in pivot_positions:
+                x[p] = 0
+            for temp in range(pivot_positions.size):
+                p = pivot_positions[temp]
+                res = 0.0
+                for q in range(c.shape[1]):
+                    if q != p:
+                        res -= c[temp, q] * x[q]
+                x[p] = res
+
             for n in range(self.omega_parameters.shape[3]):
                 for m in range(self.omega_parameters.shape[2]):
                     for l in range(self.omega_parameters.shape[1]):
-                        if p not in pivot_positions:
-                            for temp in range(c.shape[0]):
-                                b[temp] -= c[temp, p] * self.omega_parameters[spin_dep, l, m, n]
-                        p += 1
-
-            x = np.linalg.solve(c[:, pivot_positions], b)
-
-            p = 0
-            temp = 0
-            for n in range(self.omega_parameters.shape[3]):
-                for m in range(self.omega_parameters.shape[2]):
-                    for l in range(self.omega_parameters.shape[1]):
-                        if temp in pivot_positions:
-                            self.omega_parameters[spin_dep, l, m, n] = x[p]
-                            p += 1
-                        temp += 1
+                        self.omega_parameters[spin_dep, l, m, n] = x[rep[l, m, n]]
 
     return impl
 
@@ -2635,31 +2797,83 @@ def backflow_phi_term_laplacian_d1(self, e_powers, n_powers, e_vectors, n_vector
 @overload_method(Backflow_class_t, 'omega_term_gradient_d1')
 def backflow_omega_term_gradient_d1(self, e_powers, e_vectors):
     """First derivatives of gradient w.r.t omega-term parameters.
-    Numerical w.r.t. e-coordinates: the parameters enter the displacement linearly, so
-    differentiating omega_term_d1 by position gives the gradient of each parameter's own term.
+    The parameters enter the displacement linearly, so this is omega_term_gradient with the
+    polynomial replaced by the single monomial belonging to each parameter.
     :param e_powers: powers of e-e distances
     :param e_vectors: e-e vectors
     """
 
     def impl(self, e_powers, e_vectors):
+        ae_cutoff_condition = 1
         if not self.omega_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3))
 
+        C = self.trunc
+        parameters = self.omega_parameters
         size = self.omega_parameters_available.sum() + (self.cutoffs_optimizable and self.omega_cutoff_optimizable.sum())
-        res = np.zeros(shape=(size, 2, (self.neu + self.ned) * 3, self.neu + self.ned, 3))
+        res = np.zeros(shape=(size, 2, self.neu + self.ned, 3, self.neu + self.ned, 3))
 
-        for e1 in range(self.neu + self.ned):
-            for j in range(3):
-                e_vectors[e1, :, j] -= delta
-                e_vectors[:, e1, j] += delta
-                res[:, :, :, e1, j] -= self.omega_term_d1(self.ee_powers(e_vectors), e_vectors)
-                e_vectors[e1, :, j] += 2 * delta
-                e_vectors[:, e1, j] -= 2 * delta
-                res[:, :, :, e1, j] += self.omega_term_d1(self.ee_powers(e_vectors), e_vectors)
-                e_vectors[e1, :, j] -= delta
-                e_vectors[:, e1, j] += delta
+        n = -1
+        for i in range(self.omega_cutoff.shape[0]):
+            if self.omega_cutoff_optimizable[i] and self.cutoffs_optimizable:
+                n += 1
+                shape = (2, self.neu + self.ned, 3, self.neu + self.ned, 3)
+                self.omega_cutoff[i] -= delta
+                res[n] -= self.omega_term_gradient(e_powers, e_vectors).reshape(shape) / delta / 2
+                self.omega_cutoff[i] += 2 * delta
+                res[n] += self.omega_term_gradient(e_powers, e_vectors).reshape(shape) / delta / 2
+                self.omega_cutoff[i] -= delta
 
-        return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3) / delta / 2
+        n_start = n
+        u = np.zeros(shape=(3, 3))
+        d = np.zeros(shape=(3, 3))
+        for e1 in range(2, self.neu + self.ned):
+            for e2 in range(1, e1):
+                for e3 in range(e2):
+                    n = n_start
+                    # canonical triplet order (i, j, k) = (e3, e2, e1), i < j < k
+                    r_ij = e_powers[e3, e2, 1]
+                    r_jk = e_powers[e2, e1, 1]
+                    r_ki = e_powers[e1, e3, 1]
+                    omega_set = (int(e1 >= self.neu) + int(e2 >= self.neu) + int(e3 >= self.neu)) % parameters.shape[0]
+                    L = self.omega_cutoff[omega_set % self.omega_cutoff.shape[0]]
+                    if r_ij < L and r_jk < L and r_ki < L:
+                        f = (1 - r_jk / L) ** C * (1 - r_ki / L) ** C * (1 - r_ij / L) ** C
+                        g_jk = -C / (L - r_jk)
+                        g_ki = -C / (L - r_ki)
+                        g_ij = -C / (L - r_ij)
+                        jk_vec = e_vectors[e2, e1]
+                        ki_vec = e_vectors[e1, e3]
+                        ij_vec = e_vectors[e3, e2]
+                        u[0] = ij_vec - ki_vec
+                        u[1] = jk_vec - ij_vec
+                        u[2] = ki_vec - jk_vec
+                        triplet = (e3, e2, e1)
+                        for j1 in range(parameters.shape[0]):
+                            for j2 in range(parameters.shape[1]):
+                                for j3 in range(parameters.shape[2]):
+                                    for j4 in range(parameters.shape[3]):
+                                        if self.omega_parameters_available[j1, j2, j3, j4]:
+                                            n += 1
+                                            if omega_set == j1:
+                                                poly = e_powers[e2, e1, j2] * e_powers[e1, e3, j3] * e_powers[e3, e2, j4]
+                                                w = f * poly
+                                                w_jk = f * poly * (j2 / r_jk + g_jk)
+                                                w_ki = f * poly * (j3 / r_ki + g_ki)
+                                                w_ij = f * poly * (j4 / r_ij + g_ij)
+                                                d[0] = w_ij * ij_vec / r_ij - w_ki * ki_vec / r_ki
+                                                d[1] = w_jk * jk_vec / r_jk - w_ij * ij_vec / r_ij
+                                                d[2] = w_ki * ki_vec / r_ki - w_jk * jk_vec / r_jk
+                                                for p1 in range(3):
+                                                    for p2 in range(3):
+                                                        bf = np.outer(u[p1], d[p2])
+                                                        if p1 == p2:
+                                                            bf += 2 * w * eye3
+                                                        else:
+                                                            bf -= w * eye3
+                                                        res[n, ae_cutoff_condition, triplet[p1], :, triplet[p2], :] += bf
+
+        return res.reshape(size, 2, (self.neu + self.ned) * 3, (self.neu + self.ned) * 3)
 
     return impl
 
@@ -2667,32 +2881,90 @@ def backflow_omega_term_gradient_d1(self, e_powers, e_vectors):
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Backflow_class_t, 'omega_term_laplacian_d1')
 def backflow_omega_term_laplacian_d1(self, e_powers, e_vectors):
-    """First derivatives of laplacian w.r.t omega-term parameters, numerical as above
+    """First derivatives of laplacian w.r.t omega-term parameters, as omega_term_laplacian
+    with the polynomial replaced by the single monomial belonging to each parameter.
     :param e_powers: powers of e-e distances
     :param e_vectors: e-e vectors
     """
 
     def impl(self, e_powers, e_vectors):
+        ae_cutoff_condition = 1
         if not self.omega_cutoff.any():
             return np.zeros(shape=(0, 2, (self.neu + self.ned) * 3))
 
+        C = self.trunc
+        parameters = self.omega_parameters
         size = self.omega_parameters_available.sum() + (self.cutoffs_optimizable and self.omega_cutoff_optimizable.sum())
-        res = np.zeros(shape=(size, 2, (self.neu + self.ned) * 3))
+        res = np.zeros(shape=(size, 2, self.neu + self.ned, 3))
 
-        val = self.omega_term_d1(e_powers, e_vectors)
-        for e1 in range(self.neu + self.ned):
-            for j in range(3):
-                e_vectors[e1, :, j] -= delta_2
-                e_vectors[:, e1, j] += delta_2
-                res += self.omega_term_d1(self.ee_powers(e_vectors), e_vectors)
-                e_vectors[e1, :, j] += 2 * delta_2
-                e_vectors[:, e1, j] -= 2 * delta_2
-                res += self.omega_term_d1(self.ee_powers(e_vectors), e_vectors)
-                e_vectors[e1, :, j] -= delta_2
-                e_vectors[:, e1, j] += delta_2
-                res -= 2 * val
+        n = -1
+        for i in range(self.omega_cutoff.shape[0]):
+            if self.omega_cutoff_optimizable[i] and self.cutoffs_optimizable:
+                n += 1
+                shape = (2, self.neu + self.ned, 3)
+                self.omega_cutoff[i] -= delta
+                res[n] -= self.omega_term_laplacian(e_powers, e_vectors).reshape(shape) / delta / 2
+                self.omega_cutoff[i] += 2 * delta
+                res[n] += self.omega_term_laplacian(e_powers, e_vectors).reshape(shape) / delta / 2
+                self.omega_cutoff[i] -= delta
 
-        return res / delta_2 / delta_2
+        n_start = n
+        for e1 in range(2, self.neu + self.ned):
+            for e2 in range(1, e1):
+                for e3 in range(e2):
+                    n = n_start
+                    # canonical triplet order (i, j, k) = (e3, e2, e1), i < j < k
+                    r_ij = e_powers[e3, e2, 1]
+                    r_jk = e_powers[e2, e1, 1]
+                    r_ki = e_powers[e1, e3, 1]
+                    omega_set = (int(e1 >= self.neu) + int(e2 >= self.neu) + int(e3 >= self.neu)) % parameters.shape[0]
+                    L = self.omega_cutoff[omega_set % self.omega_cutoff.shape[0]]
+                    if r_ij < L and r_jk < L and r_ki < L:
+                        f = (1 - r_jk / L) ** C * (1 - r_ki / L) ** C * (1 - r_ij / L) ** C
+                        g_jk = -C / (L - r_jk)
+                        g_ki = -C / (L - r_ki)
+                        g_ij = -C / (L - r_ij)
+                        h_jk = C * (C - 1) / (L - r_jk) ** 2
+                        h_ki = C * (C - 1) / (L - r_ki) ** 2
+                        h_ij = C * (C - 1) / (L - r_ij) ** 2
+                        jk_vec = e_vectors[e2, e1]
+                        ki_vec = e_vectors[e1, e3]
+                        ij_vec = e_vectors[e3, e2]
+                        cos_ki_ij = (ki_vec @ ij_vec) / r_ki / r_ij
+                        cos_jk_ij = (jk_vec @ ij_vec) / r_jk / r_ij
+                        cos_jk_ki = (jk_vec @ ki_vec) / r_jk / r_ki
+                        for j1 in range(parameters.shape[0]):
+                            for j2 in range(parameters.shape[1]):
+                                for j3 in range(parameters.shape[2]):
+                                    for j4 in range(parameters.shape[3]):
+                                        if self.omega_parameters_available[j1, j2, j3, j4]:
+                                            n += 1
+                                            if omega_set == j1:
+                                                poly = f * e_powers[e2, e1, j2] * e_powers[e1, e3, j3] * e_powers[e3, e2, j4]
+                                                w_jk = poly * (j2 / r_jk + g_jk)
+                                                w_ki = poly * (j3 / r_ki + g_ki)
+                                                w_ij = poly * (j4 / r_ij + g_ij)
+                                                w_jk_2 = poly * (j2 * (j2 - 1) / r_jk**2 + 2 * g_jk * j2 / r_jk + h_jk)
+                                                w_ki_2 = poly * (j3 * (j3 - 1) / r_ki**2 + 2 * g_ki * j3 / r_ki + h_ki)
+                                                w_ij_2 = poly * (j4 * (j4 - 1) / r_ij**2 + 2 * g_ij * j4 / r_ij + h_ij)
+                                                w_jk_ki = poly * (j2 * j3 / r_jk / r_ki + g_jk * j3 / r_ki + g_ki * j2 / r_jk + g_jk * g_ki)
+                                                w_jk_ij = poly * (j2 * j4 / r_jk / r_ij + g_jk * j4 / r_ij + g_ij * j2 / r_jk + g_jk * g_ij)
+                                                w_ki_ij = poly * (j3 * j4 / r_ki / r_ij + g_ki * j4 / r_ij + g_ij * j3 / r_ki + g_ki * g_ij)
+                                                lap = (
+                                                    2 * (w_jk_2 + w_ki_2 + w_ij_2)
+                                                    - 2 * w_ki_ij * cos_ki_ij
+                                                    - 2 * w_jk_ij * cos_jk_ij
+                                                    - 2 * w_jk_ki * cos_jk_ki
+                                                    + 4 * (w_jk / r_jk + w_ki / r_ki + w_ij / r_ij)
+                                                )
+                                                d_i = w_ij * ij_vec / r_ij - w_ki * ki_vec / r_ki
+                                                d_j = w_jk * jk_vec / r_jk - w_ij * ij_vec / r_ij
+                                                d_k = w_ki * ki_vec / r_ki - w_jk * jk_vec / r_jk
+                                                res[n, ae_cutoff_condition, e3] += lap * (ij_vec - ki_vec) + 6 * d_i
+                                                res[n, ae_cutoff_condition, e2] += lap * (jk_vec - ij_vec) + 6 * d_j
+                                                res[n, ae_cutoff_condition, e1] += lap * (ki_vec - jk_vec) + 6 * d_k
+
+        return res.reshape(size, 2, (self.neu + self.ned) * 3)
 
     return impl
 

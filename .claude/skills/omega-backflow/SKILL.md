@@ -6,8 +6,10 @@ description: >
   displacement. Covers the ωijk polynomial (manual Eq. 253), the triplet displacement
   (Eq. 247), the cutoff, the no-cusp + particle-symmetry constraints, spin triplets, the
   correlation.data format, and the mapping of CASINO's pbackflow.f90 onto
-  casino/backflow.py + casino/readers/backflow.py. The reader is implemented; the
-  evaluation (value/gradient/laplacian) is NOT yet in casino/backflow.py.
+  casino/backflow.py + casino/readers/backflow.py. Also covers the cost scaling of all
+  backflow terms with electron count and expansion order. The term is fully implemented:
+  reader, constraints, analytic value/gradient/laplacian and parameter derivatives,
+  varmin/emin hooks.
   See also the backflow skill (eta/mu/Phi/Theta) and the qmc skill.
 ---
 
@@ -365,17 +367,50 @@ in full — so Ω maps cleanly onto the `eta_term` pattern with an added `i>j>k`
    `mask.size = 317 = ` constraint columns `= get_parameters(True)`, and
    `mask.sum() = 150 = get_parameters(False) = scale`.
    `value_parameters_d2` for backflow is dead code (`wfn.py` raises `NotImplementedError`) — untouched.
-7. **Analytic position derivatives** — DEFERRED by the user until the Be test runs finish.
-   Everything Ω does w.r.t. coordinates is currently numerical (`omega_term_gradient`,
-   `omega_term_laplacian`, `omega_term_gradient_d1`, `omega_term_laplacian_d1`); eta/mu/phi/theta
-   are analytic. Two reasons it will be needed:
-   * **accuracy** — parameter-derivative check on Be `0_2` (150 params, random K):
-     `value_parameters_d1` rel 2.2e-15, `gradient_parameters_d1` 2.3e-10,
-     `laplacian_parameters_d1` 2.6e-07, `wfn.value_parameters_d1` 1.5e-04, but
-     **`wfn.energy_parameters_d1` 1.5e-02** — would fail `test_wfn_energy_parameters_d1`
-     (default rel 1e-6). Not yet separated from the possibility that the check used an
-     unphysical electron configuration (`uniform(-1.5,1.5)`, kinetic energy 19.17); redo at
-     `initial_position()` before blaming the numerical laplacian.
+7. ~~**Analytic position derivatives**~~ — **done** (2026-07-25). All four are now analytic:
+   `omega_term_gradient`, `omega_term_laplacian`, `omega_term_gradient_d1`,
+   `omega_term_laplacian_d1`. Only the **cutoff** rows stay as finite differences of the (now
+   analytic) term, exactly as eta/mu/phi do — 2 evaluations per cutoff, not per parameter.
+   `delta_2` is no longer used in `casino/backflow.py`.
+
+   Derivation (all of it follows from ω depending on positions only through the three pair
+   distances, and `u_p` being linear in them):
+
+   * `∂ξ_p,α/∂r_q,β = u_p[α]·(∇_q ω)[β] + ω·(3δ_pq − 1)·δ_αβ` — fill all 9 (p,q) blocks of the
+     triplet: `outer(u_p, ∇_q ω)` plus `2ω·I` on the diagonal, `−ω·I` off it.
+   * `∇_i ω = −ω_b·B/b + ω_c·C/c` and cyclically, with `A = r_j−r_k`, `B = r_k−r_i`, `C = r_i−r_j`.
+   * Each electron moves only two of the three distances, so e.g.
+     `∇²_i ω = ω_bb + ω_cc − 2ω_bc·(B·C)/(bc) + 2ω_b/b + 2ω_c/c`.
+   * **Key simplification:** translational invariance gives `Σ_q ∇_q ω = 0`, so the whole
+     first-derivative part of the laplacian collapses to
+     `Σ_q ∇²_q(ω·u_p) = lap(ω)·u_p + 6·∇_p ω`.
+   * With `F = f(a)f(b)f(c)`, `g_x = −C/(L−x)`, `h_x = C(C−1)/(L−x)²`:
+     `ω = F·P`, `ω_a = F(P_a + g_a P)`, `ω_aa = F(P_aa + 2g_a P_a + h_a P)`,
+     `ω_ab = F(P_ab + g_a P_b + g_b P_a + g_a g_b P)`.
+   * The `_d1` versions are the same formulas with the polynomial replaced by the single monomial
+     `M = a^l b^m c^n` of each parameter (ω is linear in K), i.e. `M_a = M·l/a`,
+     `M_ab = M·l·m/(ab)`. Cosines between the pair vectors are hoisted out of the parameter loop.
+
+   Verified against finite differences on Be `0_2` with random K at an `initial_position()`-style
+   point: `bf.gradient` 5.7e-11, `bf.laplacian` 3.0e-08 (an error in the formulas would show as
+   O(1), not 1e-8). Knock-on accuracy: kinetic energy 5.4e-06 → **3.0e-07** (floor without Ω is
+   5.3e-08); `wfn.energy_parameters_d1` 1.9e-05 → 4.2e-05 → **2.0e-06** — the intermediate rise
+   was not a regression but the loss of error cancellation once the reference became exact.
+   The residual 2.0e-06 is **not** Ω: freezing the Ω cutoff changes neither the value nor the
+   worst row, and the worst row (19) lies in the eta block (rows 0–19 are 1 eta cutoff + 19 free
+   eta parameters). So `test_wfn_energy_parameters_d1` sitting near its default 1e-6 tolerance is
+   a pre-existing backflow property.
+
+   Reasons it was needed:
+   * **accuracy** — measured on Be at a *physical* configuration (electrons on atoms), Ω vs a
+     no-Ω control on the same system: `wfn.energy_parameters_d1` 2.7e-07 → **1.9e-05** (~70x),
+     kinetic energy 8.6e-08 → 5.4e-06 (~60x). So `test_wfn_energy_parameters_d1` (default
+     rel 1e-6) fails on an Ω config, and `test_wfn_laplacian` only just passes (4.8e-07
+     relative). Backflow-level checks are fine: `value_parameters_d1` 2.2e-15,
+     `gradient_parameters_d1` 2.3e-10, `laplacian_parameters_d1` 2.6e-07.
+     **Pitfall:** an `uniform(-1.5,1.5)` configuration gives rel 1.7e-02 *with or without* Ω —
+     finite differences of the local energy are meaningless there. Always compare at an
+     `initial_position()`-style point, and keep a no-Ω control before blaming Ω.
    * **cost** — numerical derivatives multiply Ω by 6N term evaluations. Rough per-configuration
      estimate: Be/Nω=2 ~1e4 ops (irrelevant), **Ne/Nω=9 ~3e7 ops** (Ω dominates everything else
      by orders of magnitude, varmin becomes impractical). So analytic derivatives are what makes
@@ -384,10 +419,114 @@ in full — so Ω maps cleanly onto the `eta_term` pattern with an added `i>j>k`
    `bf_omega_derivs`, `omega_eevec_grad_lap` — chain rule through the three pair magnitudes;
    Jacobian pieces at :5328-5346.
 
+8. ~~**Fold the particle symmetry into the enumeration**~~ — **done** (2026-07-26), this removed
+   the high-order cost wall.
+
+   Cost of the *old* `fix_omega_parameters` (njit, called on **every** `set_parameters`):
+   Nω=4 → 6 ms, Nω=6 → 102 ms, **Nω=9 → 2590 ms** (≈43 min per 1000 calls), of which **96% is
+   `rref`** on a 3(2Nω+1) + 2·nd³ by nd³ matrix (2057×1000 at Nω=9). `construct_omega_matrix`
+   0.5%, building `b` 1.6%, `np.linalg.solve` 0.7%. So the practical ceiling was Nω≈6.
+   `fix_phi_parameters` is 2.8 ms — never the problem.
+   **After the fold: Nω=9 → 0.30 ms/call, i.e. ~8600× faster** (more than the 745× matrix-size
+   ratio, because `rref` is superlinear). Order is no longer a cost consideration at all.
+
+   The symmetry rows are ±1 integers and 97% of the matrix; they encode a *relabelling*, not a
+   linear system. The Jastrow f-term already does the right thing —
+   `construct_a_matrix` enumerates only `l ≥ m` (`parameters_size =
+   (f_en_order+1)(f_en_order+2)(f_ee_order+1)//2`), has **no** symmetry rows, and weights a
+   representative by the number of entries it stands for (the `1` vs `2` at jastrow.py:41-45).
+   So this is consistency with the project, not invention. CASINO does *not* do it for omega
+   (`impose_cusp_omega` rebuilds and re-echelons everything on every `put_pbf_params`), though
+   its own H term caches (`Hpivot` once, `Hmatrix` only when `L_h` moves).
+
+   Implemented as `construct_omega_folded_matrix` in `casino/backflow.py`, used by the njit
+   `fix_omega_parameters` overload and by the reader's `fix_omega_parameters` /
+   `omega_parameters_independent`. `construct_omega_matrix` is **kept** — `get_parameters_constraints`
+   still needs the full parameter space for the projector, and it runs once per
+   `set_parameters_projector`.
+
+   Algorithm:
+   * **Representative** of an orbit = the entry the current code leaves free = the one with the
+     largest `p = l + m·nd + n·nd²`, i.e. **ascending** indices: `sorted((l,m,n))` for symm=3,
+     `(min(l,m), max(l,m), n)` for symm=1. (Confirmed empirically: PyCasino writes `K_002`, not
+     `K_200`.)
+   * Enumerate representatives in increasing `p` (loops `n` outer, `m`, `l` inner, keeping those
+     equal to their own representative). Counts: symm=3 → `C(nd+2,3)` (220 at Nω=9);
+     symm=1 → `nd·nd(nd+1)/2` (550).
+   * Build **only** the 3(2Nω+1) no-cusp rows, *accumulating* each tensor entry's coefficient
+     onto its representative's column — accumulation makes the 1/3/6 multiplicities appear by
+     themselves, which removes the one real risk of this approach. Matrix becomes 57×220 / 57×550
+     at Nω=9, i.e. **745× / 119× less work**. (The three row families coincide under full
+     symmetry; let `rref` zero the duplicates rather than reasoning about it.)
+   * `rref`, then **no solve**: the form is *reduced*, so the pivot submatrix is exactly the
+     identity (verified: deviation 0.0e+00 for omega and phi alike). Dependent representatives
+     are `x[pivot_of_row] = −Σ_{q free} a[row,q]·x[q]` — CASINO's own formula.
+   * Broadcast: `K[l,m,n] = x[column_of_representative(l,m,n)]`.
+
+   **Validated against the previous (full-matrix) implementation**, with repo code: identical
+   free-parameter masks for Nω=2..9 × symm∈{3,1}, 16/16 (free counts 5, 13, 26, 45, 71, 105, 148,
+   201 for symm=3); fixed tensors identical (worst 3.6e-15) and satisfying the **full** constraint
+   matrix, symmetry rows included, to 3.6e-15. End-to-end on Be `0_{2,4,6,8,9}`: `get/set_parameters`
+   round-trip exact, `|c@K|` ≤ 3.6e-15, correlation.data write→read exact with the same mask.
+
+   Note the pitfall in the back-substitution loop: `x[p] -= c[row, q]·x[q]` over *all* q silently
+   zeroes the accumulated value when `q == p` (since `c[row, p] = 1`). Accumulate into a local and
+   skip `q == p`.
+
+   Still outside Ω: dropping the redundant `np.linalg.solve` from `fix_phi_parameters` is the same
+   free win — ask before touching it.
+
 Test each derivative against a finite-difference of the value (see the `profiling` skill's
 numerical-derivative tests). **Clear the numba cache first** — see
 [[numba-cache-stale-across-modules]]: editing an overload here does not invalidate cached njit
 functions in `abstract.py`, and a stale parameter count shows up as a bogus shape mismatch.
+
+---
+
+## Cost scaling of the backflow terms
+
+Read off the loop structure in `casino/backflow.py`; `value`, `gradient` and `laplacian` share it,
+only the per-element work differs.
+
+| term | enumerated | count | per element | total |
+|------|-----------|-------|-------------|-------|
+| η | unordered pairs | `N(N−1)/2` | `O(N_η)` | `O(N²·N_η)` |
+| μ | electron × nucleus | `N·N_I` | `O(N_μ)` | `O(N·N_I·N_μ)` |
+| Φ/Θ | **ordered** pairs × nucleus | `N(N−1)·N_I` | `O(N_eN²·N_ee)` | `O(N²·N_I·N_eN²·N_ee)` |
+| Ω | unordered triplets | `N(N−1)(N−2)/6` | `O(Nω³)` | `O(N³·Nω³)` |
+
+Φ/Θ runs over ordered pairs (both directions) because `Φ r_ij + Θ r_iI` is not symmetric — a
+factor 2 over η.
+
+Ω is the only term that lifts backflow's own scaling from `O(N²)` to `O(N³)`. The determinant
+algebra and the Jacobian contraction are already `O(N³)`, so Ω does not change the **order** of a
+QMC step — only the prefactor, and the prefactor is the problem: per-element work grows as the
+**cube** of the expansion order.
+
+| system | pairs | triplets | η monomials (N_η=9) | Ω monomials (Nω=9) | Ω/η |
+|--------|-------|----------|---------------------|---------------------|-----|
+| Be (N=4) | 6 | 4 | 54 | 4 000 | 74× |
+| Ne (N=10) | 45 | 120 | 405 | 120 000 | 300× |
+| Ar (N=18) | 153 | 816 | 1 377 | 816 000 | 590× |
+
+So at high Nω the Ω term dominates the whole backflow long before `N³` itself matters; dropping
+Nω 9→4 is an immediate ×8 on this factor.
+
+**Cutoffs do not save an atom.** Every term tests `r < L` *before* the polynomial, so for an
+extended system the actually-working pairs/triplets are `O(N)`. But the enumeration is still
+complete — the `e1>e2>e3` loops pay `O(N³)` in bare tests, there are no neighbour lists. For an
+isolated atom, where all distances are below `L`, there is no saving at all.
+
+**Parameter derivatives.** Same order in `N`; the monomial loop *is* the parameter loop, so no
+extra factor in Nω either, just a bigger constant (Ω writes 9 3×3 blocks per parameter per
+triplet). The real cost is memory: `*_gradient_d1` returns `(n_params, 2, N, 3, N, 3)`, i.e.
+`O(n_params·N²)`, and for Ω `n_params ~ Nω³/6` → `O(Nω³·N²)` (~6 MB per call for Ne at Nω=9).
+
+Ω parameter count: `C(Nω+3, 3)` orbit representatives (220 at Nω=9, 201 of them free for
+spin_dep=0) — cubic in the order, against linear for η.
+
+Note the symmetry fold (step 8) only removed the `fix_omega_parameters` cost. It does **not**
+touch the `O(N³·Nω³)` per-configuration cost of evaluating the term.
 
 ---
 

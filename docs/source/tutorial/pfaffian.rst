@@ -6,7 +6,8 @@ This section is a design document. The AGP/geminal singlet part (Milestone 1 bel
 implemented in Pycasino — the :math:`\xi = 0` determinant :math:`\det[\Phi \,|\, \varphi]` with its
 reader, ``Wfn`` integration and finite-difference tests; the Pfaffian proper (the triplet
 :math:`\mu^\sigma` and inhomogeneous :math:`p_{klmI}` pairing terms, Milestone 2) is not yet.
-It records the theory, the explicit functional form and the implementation plan.
+It records the theory, the explicit functional form and the implementation plan; what is actually
+available today is described in :ref:`geminal-in-pycasino`.
 
 Motivation: nodal topology beyond backflow
 ------------------------------------------
@@ -179,6 +180,90 @@ Everything needed for VMC/DMC has the same computational shape as the Slater det
   :math:`\mathbf{x}_i`; the chain rule through the backflow Jacobian is identical to the Slater
   case, so the existing composition in ``casino/wfn.py`` carries over unchanged. Backflow refines
   the shape of the (now topologically correct) Pfaffian node.
+
+.. _geminal-in-pycasino:
+
+The geminal wave function in Pycasino
+-------------------------------------
+The implemented subset is the :math:`\xi = 0` limit above, in the multi-geminal (MAGP) form: the
+Slater part is replaced by a sum of :math:`N^\uparrow \times N^\uparrow` determinants
+
+.. math::
+
+    \Psi_S = \sum_n c_n \det M_n, \qquad
+    M_n[i, j] = \sum_{p,q} \phi_p(\mathbf{r}_i^\uparrow)\, g^n_{pq}\, \phi_q(\mathbf{r}_j^\downarrow),
+    \qquad
+    M_n[i, N^\downarrow + k] = \sum_p \phi_p(\mathbf{r}_i^\uparrow)\, u^n_{pk}
+
+where the first :math:`N^\downarrow` columns are the singlet pairing columns and the remaining
+:math:`N^\uparrow - N^\downarrow` are the unpaired-orbital columns of the open shell. The orbital
+pool :math:`\{\phi_p\}` is the one from ``gwfn.data`` / ``stowfn.data``, evaluated by the same
+machinery as the Slater determinant, so no Pfaffian kernel is needed at this stage.
+
+The geminal wave function is selected by the ``psi_s : geminal`` input keyword and is mutually
+exclusive with a multideterminant expansion; ``opt_geminal`` marks its parameters for optimization.
+The parameters :math:`c_n`, :math:`g^n_{pq}` and :math:`u^n_{pk}` are read from the top-level
+``GEMINAL`` block of ``parameters.casl``, with a per-element ``fixed``/``optimizable`` flag::
+
+    GEMINAL:
+      Default g optimizability: fixed
+      Default c optimizability: fixed
+      Geminal 1:
+        Parameters:
+          c: [ 1.0, fixed ]
+          g_1,1: [ 1.0, fixed ]
+          g_2,2: [ 1.0, fixed ]
+          u_3,1: [ 1.0, fixed ]
+          u_4,2: [ 1.0, fixed ]
+          u_5,3: [ 1.0, fixed ]
+
+Only the nonzero elements are listed; indices are one-based, :math:`p` runs over the orbital pool
+and :math:`k` over the unpaired columns. When the block is absent, the Hartree-Fock default is
+built from the occupation of the wave-function file — a single geminal with :math:`g = \mathbb{1}`
+on the doubly occupied orbitals and one unpaired column per singly occupied orbital — which
+reproduces the single Slater determinant exactly; this equality of value, gradient and Laplacian to
+machine precision is the mandatory self-check of the implementation.
+
+The geminal part of the wave function is represented by the :class:`casino.Geminal` class, which is
+a drop-in replacement for :class:`casino.Slater` and is initialized from the configuration files::
+
+    from casino.readers import CasinoConfig
+    from casino.geminal import Geminal
+
+    config_path = <path to a directory containing input file>
+    config = CasinoConfig(config_path)
+    config.read()
+    geminal = Geminal(config)
+
+It has the following methods, all taking the electron-nuclei vectors ``n_vectors`` of shape
+:math:`(N_{atom}, N_e, 3)`:
+
+.. list-table::
+   :widths: 30 40 30
+   :header-rows: 1
+   :width: 100%
+
+   * - Method
+     - Output
+     - Shape
+   * - ``value``
+     - :math:`\Psi_S = \sum_n c_n \det M_n`
+     - scalar
+   * - ``gradient``
+     - :math:`\nabla \Psi_S / \Psi_S`
+     - :math:`(3N_e,)`
+   * - ``laplacian``
+     - :math:`\Delta \Psi_S / \Psi_S`
+     - scalar
+   * - ``pool_matrix``
+     - :math:`\phi_p(\mathbf{r}_i^\uparrow)`, :math:`\phi_p(\mathbf{r}_i^\downarrow)`
+     - :math:`(N_{orb}, N^\uparrow)`, :math:`(N_{orb}, N^\downarrow)`
+   * - ``geminal_matrix``
+     - :math:`M_n` from the orbital pool
+     - :math:`(N^\uparrow, N^\uparrow)`
+
+The determinant is recomputed on every move; Sherman-Morrison updates, cusp correction and the
+parameter-optimization interface are not yet in place (see the implementation plan below).
 
 Optimization strategy
 ---------------------
