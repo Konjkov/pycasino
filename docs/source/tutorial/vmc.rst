@@ -9,14 +9,17 @@ algorithm and estimates the expectation value of the Hamiltonian as the mean of 
 energy over the resulting chain. The Hamiltonian enters only through that average: the walk
 itself is driven by :math:`|\Psi|^2` alone.
 
-Three sampling modes are implemented, selected by ``vmc_method``:
+Two sampling modes are implemented, selected by ``vmc_method``:
 
 - **EBES** (``vmc_method : 1``) — electrons are moved one at a time, each with its own
   accept/reject step;
-- **DBDS** (``vmc_method : 2``) — determinant-by-determinant sampling;
 - **CBCS** (``vmc_method : 3``) — all electrons are moved at once, single accept/reject.
 
-The single free parameter of the walk is the step size ``dtvmc``. It is too small when
+``vmc_method : 2`` names a third mode, DBDS, which is
+:ref:`not implemented <vmc-dbds>` and silently freezes the walk.
+
+The single free parameter of the walk is the step size ``dtvmc``, written :math:`\tau` in the
+formulas below. It is too small when
 successive configurations are strongly correlated and too large when almost every move is
 rejected, and the efficiency of the walk is flat enough between those extremes that any
 acceptance from roughly 30 % to 70 % costs little [23]_; ``opt_dtvmc : T`` tunes it to 50 % in
@@ -63,10 +66,12 @@ constants with respect to :math:`\mathbb{E}_\Delta`:
 
 .. math::
 
-    T_L(\mathbf{R}) = -\frac{1}{2}\frac{\nabla^2\Psi}{\Psi}, \qquad
-    T_D(\mathbf{R}) = \frac{1}{2}\,\mathbf{F}\cdot\mathbf{F}
-                    = \frac{1}{2}\sum_i |\nabla_i\Lambda|^2, \qquad
-    T_M(\mathbf{R}) = \frac{1}{2}\left(T_L + T_D\right)
+    \begin{aligned}
+    T_L(\mathbf{R}) &= -\frac{1}{2}\frac{\nabla^2\Psi}{\Psi} \\
+    T_D(\mathbf{R}) &= \frac{1}{2}\,\mathbf{F}\cdot\mathbf{F}
+                     = \frac{1}{2}\sum_i |\nabla_i\Lambda|^2 \\
+    T_M(\mathbf{R}) &= \frac{1}{2}\left(T_L + T_D\right)
+    \end{aligned}
 
 The identity :math:`\nabla^2\Psi/\Psi = \nabla^2\Lambda + |\nabla\Lambda|^2` ties them to the
 Laplacian of the logarithm,
@@ -99,14 +104,16 @@ What is accepted
 
 CBCS displaces all electrons at once, :math:`\mathbf{R}' = \mathbf{R} + \boldsymbol{\Delta}`,
 where the :math:`3N_e` components :math:`\delta_k` are independent and uniform on
-:math:`[-\mathrm{dtvmc}, \mathrm{dtvmc}]`. The proposal is symmetric, so the Metropolis ratio
+:math:`[-\tau, \tau]`. The proposal is symmetric, so the Metropolis ratio
 reduces to the density ratio alone:
 
 .. math::
 
-    a(\mathbf{R} \to \mathbf{R}') = \min(1, e^X), \qquad
-    X = \ln\frac{|\Psi(\mathbf{R}')|^2}{|\Psi(\mathbf{R})|^2}
-      = 2\left[\Lambda(\mathbf{R}') - \Lambda(\mathbf{R})\right]
+    \begin{aligned}
+    a(\mathbf{R} \to \mathbf{R}') &= \min(1, e^X) \\
+    X &= \ln\frac{|\Psi(\mathbf{R}')|^2}{|\Psi(\mathbf{R})|^2}
+       = 2\left[\Lambda(\mathbf{R}') - \Lambda(\mathbf{R})\right]
+    \end{aligned}
 
 Everything reduces to the statistics of the single scalar :math:`X`. The mean acceptance is a
 two-stage average, in the order the algorithm performs it — the walker sits at
@@ -115,8 +122,10 @@ itself distributed according to :math:`|\Psi|^2`:
 
 .. math::
 
-    A(\mathrm{dtvmc}) = \mathbb{E}_\mathbf{R}\left[\alpha(\mathbf{R})\right], \qquad
-    \alpha(\mathbf{R}) = \mathbb{E}_\Delta\left[\min(1, e^X)\,\middle|\,\mathbf{R}\right]
+    \begin{aligned}
+    A(\tau) &= \mathbb{E}_\mathbf{R}\left[\alpha(\mathbf{R})\right] \\
+    \alpha(\mathbf{R}) &= \mathbb{E}_\Delta\left[\min(1, e^X)\,\middle|\,\mathbf{R}\right]
+    \end{aligned}
 
 .. _vmc-stage-one:
 
@@ -133,7 +142,7 @@ Expanding to second order in the displacement,
 
 The moments of the uniform cube are
 :math:`\mathbb{E}_\Delta[\delta_k] = 0`,
-:math:`\mathbb{E}_\Delta[\delta_k \delta_l] = (\mathrm{dtvmc}^2/3)\,\delta_{kl}` and
+:math:`\mathbb{E}_\Delta[\delta_k \delta_l] = (\tau^2/3)\,\delta_{kl}` and
 :math:`\mathbb{E}_\Delta[\delta_k \delta_l \delta_m] = 0`. Since :math:`\mathbf{F}` and
 :math:`\mathsf{H}` are fixed by :math:`\mathbf{R}`, they come out of the average as constants:
 
@@ -150,30 +159,34 @@ The quadratic term survives as a trace,
     \mathbb{E}_\Delta\left[\boldsymbol{\Delta}^{\mathsf T}\mathsf{H}\boldsymbol{\Delta}
     \,\middle|\,\mathbf{R}\right]
     = \sum_{kl} \mathsf{H}_{kl}\,\mathbb{E}_\Delta[\delta_k \delta_l]
-    = \frac{\mathrm{dtvmc}^2}{3}\,\mathrm{Tr}\,\mathsf{H}
-    = \frac{\mathrm{dtvmc}^2}{3}\,\nabla^2\Lambda
+    = \frac{\tau^2}{3}\,\mathrm{Tr}\,\mathsf{H}
+    = \frac{\tau^2}{3}\,\nabla^2\Lambda
 
 and in the variance the cross term vanishes because it involves only third moments of a
 symmetric distribution:
 
 .. math::
 
+    \begin{aligned}
     \mathrm{Var}_\Delta[X|\mathbf{R}]
-    = \mathrm{Var}_\Delta\!\left(2\boldsymbol{\Delta}\cdot\mathbf{F}\right)
-    + \underbrace{\mathrm{Var}_\Delta\!\left(\boldsymbol{\Delta}^{\mathsf T}\mathsf{H}
-      \boldsymbol{\Delta}\right)}_{O(\mathrm{dtvmc}^4)}
-    + \underbrace{2\,\mathrm{Cov}_\Delta}_{0}
-    = \frac{4\,\mathrm{dtvmc}^2}{3}\,\mathbf{F}\cdot\mathbf{F} + O(\mathrm{dtvmc}^4)
+    &= \mathrm{Var}_\Delta\!\left(2\boldsymbol{\Delta}\cdot\mathbf{F}\right)
+     + \underbrace{\mathrm{Var}_\Delta\!\left(\boldsymbol{\Delta}^{\mathsf T}\mathsf{H}
+       \boldsymbol{\Delta}\right)}_{O(\tau^4)}
+     + \underbrace{2\,\mathrm{Cov}_\Delta}_{0} \\
+    &= \frac{4\,\tau^2}{3}\,\mathbf{F}\cdot\mathbf{F} + O(\tau^4)
+    \end{aligned}
 
 The mean is therefore of second order in the step size while the variance survives at first
 non-vanishing order, and both are kinetic energies:
 
 .. math::
 
-    m(\mathbf{R}) \equiv \mathbb{E}_\Delta[X|\mathbf{R}]
-    = -\frac{4\,\mathrm{dtvmc}^2}{3}\,T_M(\mathbf{R}), \qquad
-    s^2(\mathbf{R}) \equiv \mathrm{Var}_\Delta[X|\mathbf{R}]
-    = \frac{8\,\mathrm{dtvmc}^2}{3}\,T_D(\mathbf{R})
+    \begin{aligned}
+    m(\mathbf{R}) &\equiv \mathbb{E}_\Delta[X|\mathbf{R}]
+    = -\frac{4\,\tau^2}{3}\,T_M(\mathbf{R}) \\
+    s^2(\mathbf{R}) &\equiv \mathrm{Var}_\Delta[X|\mathbf{R}]
+    = \frac{8\,\tau^2}{3}\,T_D(\mathbf{R})
+    \end{aligned}
 
 The asymmetry is essential: the mean sees the combination :math:`T_L + T_D`, the variance sees
 :math:`T_D` alone, and the Laplacian form does not enter the variance at all.
@@ -185,19 +198,25 @@ drift components. With that,
 
 .. math::
 
-    \alpha(\mathbf{R}) = g\big(m(\mathbf{R}), s(\mathbf{R})\big), \qquad
-    g(m, s) = \Phi\!\left(\frac{m}{s}\right)
-            + e^{m + s^2/2}\,\Phi\!\left(-s - \frac{m}{s}\right)
+    \begin{aligned}
+    \alpha(\mathbf{R}) &= g\big(m(\mathbf{R}), s(\mathbf{R})\big) \\
+    g(m, s) &= \Phi\!\left(\frac{m}{s}\right)
+             + e^{m + s^2/2}\,\Phi\!\left(-s - \frac{m}{s}\right)
+    \end{aligned}
 
 which is the standard integral
-:math:`\mathbb{E}[\min(1,e^X)] = P(X \ge 0) + \int_{-\infty}^{0} e^x\,\mathcal{N}(x;m,s^2)\,dx`.
+
+.. math::
+
+    \mathbb{E}[\min(1,e^X)] = P(X \ge 0)
+    + \int_{-\infty}^{0} e^x\,\mathcal{N}(x; m, s^2)\,dx
 
 Note that pointwise
 
 .. math::
 
     m(\mathbf{R}) + \tfrac{1}{2}s^2(\mathbf{R})
-    = \frac{2\,\mathrm{dtvmc}^2}{3}\left[T_D(\mathbf{R}) - T_L(\mathbf{R})\right] \neq 0
+    = \frac{2\,\tau^2}{3}\left[T_D(\mathbf{R}) - T_L(\mathbf{R})\right] \neq 0
 
 so :math:`g` cannot be simplified at this stage. It becomes simplifiable only after stage II.
 
@@ -226,14 +245,16 @@ By the laws of total expectation and total variance,
 
 .. math::
 
-    \mu \equiv \mathbb{E}[X] = \mathbb{E}_\mathbf{R}[m]
-    = -\frac{4}{3}\,\mathrm{dtvmc}^2 \langle T \rangle, \qquad
+    \begin{aligned}
+    \mu \equiv \mathbb{E}[X] &= \mathbb{E}_\mathbf{R}[m]
+    = -\frac{4}{3}\,\tau^2 \langle T \rangle \\
     \sigma^2 \equiv \mathrm{Var}[X]
-    = \mathbb{E}_\mathbf{R}[s^2] + \mathrm{Var}_\mathbf{R}[m]
-    = \frac{8}{3}\,\mathrm{dtvmc}^2 \langle T \rangle + O(\mathrm{dtvmc}^4)
+    &= \mathbb{E}_\mathbf{R}[s^2] + \mathrm{Var}_\mathbf{R}[m]
+    = \frac{8}{3}\,\tau^2 \langle T \rangle + O(\tau^4)
+    \end{aligned}
 
 the discarded piece being
-:math:`(16\,\mathrm{dtvmc}^4/9)\,\mathrm{Var}_\mathbf{R}(T_M)`. Hence
+:math:`(16\,\tau^4/9)\,\mathrm{Var}_\mathbf{R}(T_M)`. Hence
 :math:`\mu = -\sigma^2/2`, which is not an assumption but a consequence: stationarity of the
 chain requires :math:`\mathbb{E}[e^X] = 1`, that is :math:`\mu + \sigma^2/2 = 0` for normal
 :math:`X`, and the expansion reproduces it by itself. It appears only after stage II — stage I
@@ -243,7 +264,7 @@ The second relation is a sum rule:
 
 .. math::
 
-    \mathrm{Var}[X] = \frac{8}{3}\,\mathrm{dtvmc}^2 \langle T \rangle
+    \mathrm{Var}[X] = \frac{8}{3}\,\tau^2 \langle T \rangle
 
 and nothing else enters. Neither the geometry of the molecule, nor the distribution of nuclear
 charge, nor the Jastrow factor and backflow appear other than through the single scalar
@@ -284,7 +305,7 @@ Setting :math:`A = 1/2` gives :math:`\sigma = 2s = 1.3489795` and, with the sum 
 
 .. math::
 
-    \mathrm{dtvmc}_{50}\,\sqrt{\langle T \rangle}
+    \tau_{50}\,\sqrt{\langle T \rangle}
     = s\sqrt{3/2} = \sqrt{3}\,\mathrm{erfinv}(1/2) = 0.8260784
 
 For a general target :math:`A` the constant is
@@ -292,7 +313,7 @@ For a general target :math:`A` the constant is
 0.234 [22]_ it would be 1.4576. There is nothing fundamental about 0.826: it is fixed by three
 conventions — a uniform cube rather than a Gaussian proposal, a 50 % target, and atomic
 units. Nor is there any reason for it to equal one, the prefactor being dimensional,
-:math:`[\mathrm{dtvmc}] = \sqrt{1/\mathrm{energy}}`.
+:math:`[\tau] = \sqrt{1/\mathrm{energy}}`.
 
 .. _vmc-approximate-step-size:
 
@@ -320,9 +341,11 @@ correction is written in terms of the participation ratio of the Thomas–Fermi 
 
 .. math::
 
-    n_\mathrm{nuc} = \frac{\left(\sum_a Z_a^{7/3}\right)^2}{\sum_a Z_a^{14/3}}, \qquad
-    \mathrm{dtvmc} = \sqrt{3}\,\mathrm{erfinv}(1/2)\,
+    \begin{aligned}
+    n_\mathrm{nuc} &= \frac{\left(\sum_a Z_a^{7/3}\right)^2}{\sum_a Z_a^{14/3}} \\
+    \tau &= \sqrt{3}\,\mathrm{erfinv}(1/2)\,
     \frac{1 + 0.045 / n_\mathrm{nuc}}{\sqrt{\langle T \rangle}}
+    \end{aligned}
 
 which is :math:`1` for a single heavy atom and the number of equivalent nuclei for a symmetric
 molecule, and never divides by zero for a hydrogen-only system. Measured on the systems in
@@ -348,16 +371,18 @@ exact acceptance to second order and solving :math:`A = 1/2` gives
 
 .. math::
 
-    \frac{\delta\,\mathrm{dtvmc}}{\mathrm{dtvmc}}
+    \frac{\delta\,\tau}{\tau}
     = c_{DD}\,\mathbb{E}_\mathbf{R}[u^2]
     + c_{DL}\,\mathbb{E}_\mathbf{R}[uv]
     + c_{LL}\,\mathbb{E}_\mathbf{R}[v^2]
 
 .. math::
 
-    c_{DD} = \frac{1}{8} - \frac{s^2}{4} + \frac{s^3}{16\varphi(s)} = +0.071617, \qquad
-    c_{DL} = \frac{s^2}{2} - \frac{s^3}{8\varphi(s)} = +0.106766, \qquad
-    c_{LL} = -\frac{s^2}{8} + \frac{s^3}{16\varphi(s)} = +0.003484
+    \begin{aligned}
+    c_{DD} &= \frac{1}{8} - \frac{s^2}{4} + \frac{s^3}{16\varphi(s)} = +0.071617 \\
+    c_{DL} &= \frac{s^2}{2} - \frac{s^3}{8\varphi(s)} = +0.106766 \\
+    c_{LL} &= -\frac{s^2}{8} + \frac{s^3}{16\varphi(s)} = +0.003484
+    \end{aligned}
 
 with :math:`c_{DD} + c_{DL} + c_{LL} = (1 + s^2)/8`,
 :math:`c_{DD} - c_{LL} = (1 - s^2)/8` and :math:`c_{DL} + 2c_{LL} = s^2/4`; the terms in
@@ -367,7 +392,7 @@ term,
 
 .. math::
 
-    \frac{\delta\,\mathrm{dtvmc}}{\mathrm{dtvmc}}
+    \frac{\delta\,\tau}{\tau}
     = \frac{1 + s^2}{8}\,\frac{\mathrm{Var}_\mathbf{R}(T_D)}{\langle T \rangle^2}
     = 0.18187\,\mathrm{CV}^2(T_D)
 
@@ -381,7 +406,7 @@ prints, :math:`t = T_M/\langle T\rangle - 1 = (u + v)/2`, the same expression re
 
 .. math::
 
-    \frac{\delta\,\mathrm{dtvmc}}{\mathrm{dtvmc}}
+    \frac{\delta\,\tau}{\tau}
     = -0.03167\,\mathbb{E}_\mathbf{R}[u^2]
     + 0.19959\,\mathbb{E}_\mathbf{R}[ut]
     + 0.01395\,\mathbb{E}_\mathbf{R}[t^2]
@@ -399,7 +424,7 @@ truncation of the series alike.
 The interchange is avoidable in principle. The exact acceptance is the average of a known
 function of two quantities that are already evaluated at every configuration, so accumulating
 :math:`T_M` and :math:`T_D` over the equilibration walk — which runs at :math:`|\Psi|^2`
-*before* the step is optimized — and solving :math:`A(\mathrm{dtvmc}) = 1/2` numerically would
+*before* the step is optimized — and solving :math:`A(\tau) = 1/2` numerically would
 remove the Thomas–Fermi estimate, the virial theorem and the fitted constant together, and
 would account for the Jastrow factor, backflow, ions and pseudopotentials for free, since the
 function actually being sampled is the one being measured.
@@ -413,7 +438,7 @@ Of stage I:
 
 1. the expansion of :math:`X` is truncated at second order in
    :math:`\boldsymbol{\Delta}`, and at the 50 % point
-   :math:`\mathrm{dtvmc}^2 \langle T\rangle \approx 0.68`, so the step is not small;
+   :math:`\tau^2 \langle T\rangle \approx 0.68`, so the step is not small;
 2. :math:`\Psi` is not analytic at a nuclear cusp, which is precisely where :math:`T_L`
    diverges, so the Taylor expansion formally fails there;
 3. normality of the leading term rests on a central limit theorem over :math:`3N_e` terms. The
@@ -423,7 +448,7 @@ Of stage I:
 Of stage II:
 
 4. the :math:`\mathrm{Var}_\mathbf{R}[m]` contribution to :math:`\mathrm{Var}[X]` is dropped at
-   order :math:`\mathrm{dtvmc}^4`;
+   order :math:`\tau^4`;
 5. the interchange is controlled only to second order and requires small
    :math:`\mathrm{CV}(u)` and :math:`\mathrm{CV}(v)`; the second is not satisfied in practice.
 
@@ -444,22 +469,77 @@ sum runs over 3 components rather than :math:`3N_e`:
 .. math::
 
     \mathrm{Var}_\Delta[X | \mathbf{R}, i]
-    = \frac{4\,\mathrm{dtvmc}^2}{3}\,|\nabla_i \Lambda|^2
+    = \frac{4\,\tau^2}{3}\,|\nabla_i \Lambda|^2
 
 Averaging over the uniform choice of electron as well gives
 :math:`\mathbb{E}_i \mathbb{E}_\mathbf{R}[|\nabla_i\Lambda|^2] = 2\langle T\rangle / N_e`, so
 
 .. math::
 
-    \mathrm{Var}[X] = \frac{8}{3}\,\mathrm{dtvmc}^2\,\frac{\langle T \rangle}{N_e},
+    \mathrm{Var}[X] = \frac{8}{3}\,\tau^2\,\frac{\langle T \rangle}{N_e},
     \qquad
-    \mathrm{dtvmc}_{50}(\mathrm{EBES}) = \sqrt{N_e}\;\mathrm{dtvmc}_{50}(\mathrm{CBCS})
+    \tau_{50}(\mathrm{EBES}) = \sqrt{N_e}\;\tau_{50}(\mathrm{CBCS})
 
 The EBES step is therefore set by the kinetic energy *per electron*, an intensive quantity: at
 fixed composition it does not depend on the size of the system, and for neutral atoms it
 scales as :math:`Z^{-2/3}`. Point 3 of the previous section becomes decisive, however —
 :math:`X` is a sum of three terms, the central limit theorem does not apply, and the Gaussian
 form of :math:`g` cannot be used at all.
+
+.. _vmc-dbds:
+
+DBDS
+----
+
+``vmc_method : 2`` selects determinant-by-determinant sampling, in which one spin determinant
+is displaced at a time — all :math:`N_\uparrow` up-spin electrons together, then all
+:math:`N_\downarrow` down-spin ones, each with its own accept/reject step. It sits between the
+two implemented modes: EBES with a block size of one electron, CBCS with a block size of
+:math:`N_e`.
+
+**It is not implemented.** :meth:`casino.vmc.VMC.random_step` dispatches methods 1 and 3 only
+and returns ``False`` for anything else, so the walker never moves and the run silently
+produces the initial configuration repeated ``vmc_nstep`` times.
+:ref:`approximate_step_size <vmc-approximate-step-size>` nevertheless still has a live branch
+for it, returning :math:`1/N_e`, which makes the mode look supported.
+
+Casino removed its own Method 2 as well: it "did not offer any advantage over the other
+methods and was hard to support", and the one feature worth keeping — using acceptance
+probabilities in the accumulation — was moved into Method 3.
+
+The sum rule says what could be expected of it. A move of the :math:`\sigma` determinant is
+the derivation of :ref:`stage I <vmc-stage-one>` with the sum restricted to
+:math:`3N_\sigma` components, so
+
+.. math::
+
+    \mathrm{Var}[X] = \frac{8}{3}\,\tau^2 \langle T_\sigma \rangle, \qquad
+    \langle T_\sigma \rangle = \frac{1}{2}\,\mathbb{E}_\mathbf{R}
+    \left[\sum_{i \in \sigma} |\nabla_i\Lambda|^2\right]
+
+For a closed-shell system the two spin channels carry half the kinetic energy each, so
+:math:`\tau_{50}(\mathrm{DBDS}) = \sqrt{2}\,\tau_{50}(\mathrm{CBCS})` — a factor
+:math:`\sqrt{2}`, against :math:`\sqrt{N_e}` for EBES. Three limitations follow.
+
+- **The gain in step size is bounded by** :math:`\sqrt{2}` **whatever the system**, because
+  there are only ever two determinants. It does not grow with :math:`N_e`, unlike the EBES
+  gain.
+- **An open-shell system cannot be served by one** ``dtvmc``. The optimal step of each channel
+  is :math:`0.826/\sqrt{\langle T_\sigma \rangle}`, and the two differ whenever
+  :math:`N_\uparrow \neq N_\downarrow`; a single step size puts one determinant off its 50 %
+  target. Neither the input keyword nor
+  :ref:`optimize_vmc_step <vmc-optimize-step>` has room for two values.
+- **The saving DBDS aims at does not exist in Pycasino.** Its point is that moving one
+  determinant requires updating only that determinant's inverse, not both. Both implemented
+  modes here call ``wfn.value`` on the whole configuration for every proposal — EBES already
+  pays the full cost per single-electron move — so there is no per-determinant update
+  machinery for DBDS to exploit. Adding it is the prerequisite, and it would speed up EBES
+  first.
+
+What DBDS keeps, and EBES loses, is the central limit theorem: :math:`X` is a sum of
+:math:`3N_\sigma` terms rather than 3, so the Gaussian form of :math:`g` and hence the
+:math:`0.826` law remain usable. That is the only theoretical argument in its favour, and it
+buys :math:`\sqrt{2}`.
 
 .. _vmc-acceptance-ratio:
 
@@ -483,8 +563,8 @@ fitted to
 
 .. math::
 
-    p(\mathrm{dtvmc}) = \frac{e^{a/\lambda} - 1}
-    {e^{a/\lambda} + e^{\mathrm{dtvmc}/\lambda} - 2}
+    p(\tau) = \frac{e^{a/\lambda} - 1}
+    {e^{a/\lambda} + e^{\tau/\lambda} - 2}
 
 whose parameter :math:`a` is by construction the step size at 50 % acceptance and is adopted
 as ``dtvmc``. The functional form is empirical, chosen because it is monotone, equals 1 at
@@ -493,7 +573,7 @@ the curve away from the target.
 
 :meth:`casino.pycasino.Casino.vmc_step_graph` scans the same quantity over a wider range and
 writes the raw acceptance curve. Its grid is fixed in units of
-:math:`\mathrm{dtvmc} \times N_e` rather than in units of
+:math:`\tau \times N_e` rather than in units of
 :ref:`approximate_step_size <vmc-approximate-step-size>`, so that the measurements in
 ``examples/time_step`` stay unnormalized by the very law they are used to test.
 
