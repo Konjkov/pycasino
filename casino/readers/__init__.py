@@ -2,6 +2,7 @@ import logging
 import os
 
 from .backflow import Backflow
+from .geminal import Geminal
 from .gjastrow import Gjastrow
 from .input import Input
 from .jastrow import Jastrow
@@ -35,6 +36,10 @@ class CasinoConfig:
         elif self.input.atom_basis_type == 'slater-type':
             self.wfn = Stowfn()
         self.mdet = Mdet(self.input.neu, self.input.ned)
+        if self.input.psi_s == 'geminal':
+            self.geminal = Geminal(self.input.neu, self.input.ned)
+        else:
+            self.geminal = None
         if self.input.use_gjastrow:
             self.jastrow = Gjastrow()
         elif self.input.use_jastrow:
@@ -42,7 +47,7 @@ class CasinoConfig:
         else:
             self.jastrow = None
         if self.input.backflow:
-            self.backflow = Backflow()
+            self.backflow = Backflow(self.input.neu, self.input.ned)
         else:
             self.backflow = None
 
@@ -51,6 +56,8 @@ class CasinoConfig:
             self.wfn.read(self.base_path)
         if self.mdet:
             self.mdet.read(self.base_path)
+        if self.geminal:
+            self.geminal.read(self.base_path)
         if self.jastrow:
             self.jastrow.read(self.base_path)
         if self.backflow:

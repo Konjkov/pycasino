@@ -2,8 +2,12 @@
 
 Pfaffian pairing wave function
 ==============================
-This section is a design document: the Pfaffian wave function is not yet implemented in Pycasino.
-It records the theory, the explicit functional form and the implementation plan.
+This section is a design document. The AGP/geminal singlet part (Milestone 1 below) is now
+implemented in Pycasino — the :math:`\xi = 0` determinant :math:`\det[\Phi \,|\, \varphi]` with its
+reader, ``Wfn`` integration and finite-difference tests; the Pfaffian proper (the triplet
+:math:`\mu^\sigma` and inhomogeneous :math:`p_{klmI}` pairing terms, Milestone 2) is not yet.
+It records the theory, the explicit functional form and the implementation plan; what is actually
+available today is described in :ref:`geminal-in-pycasino`.
 
 Motivation: nodal topology beyond backflow
 ------------------------------------------
@@ -177,6 +181,90 @@ Everything needed for VMC/DMC has the same computational shape as the Slater det
   case, so the existing composition in ``casino/wfn.py`` carries over unchanged. Backflow refines
   the shape of the (now topologically correct) Pfaffian node.
 
+.. _geminal-in-pycasino:
+
+The geminal wave function in Pycasino
+-------------------------------------
+The implemented subset is the :math:`\xi = 0` limit above, in the multi-geminal (MAGP) form: the
+Slater part is replaced by a sum of :math:`N^\uparrow \times N^\uparrow` determinants
+
+.. math::
+
+    \Psi_S = \sum_n c_n \det M_n, \qquad
+    M_n[i, j] = \sum_{p,q} \phi_p(\mathbf{r}_i^\uparrow)\, g^n_{pq}\, \phi_q(\mathbf{r}_j^\downarrow),
+    \qquad
+    M_n[i, N^\downarrow + k] = \sum_p \phi_p(\mathbf{r}_i^\uparrow)\, u^n_{pk}
+
+where the first :math:`N^\downarrow` columns are the singlet pairing columns and the remaining
+:math:`N^\uparrow - N^\downarrow` are the unpaired-orbital columns of the open shell. The orbital
+pool :math:`\{\phi_p\}` is the one from ``gwfn.data`` / ``stowfn.data``, evaluated by the same
+machinery as the Slater determinant, so no Pfaffian kernel is needed at this stage.
+
+The geminal wave function is selected by the ``psi_s : geminal`` input keyword and is mutually
+exclusive with a multideterminant expansion; ``opt_geminal`` marks its parameters for optimization.
+The parameters :math:`c_n`, :math:`g^n_{pq}` and :math:`u^n_{pk}` are read from the top-level
+``GEMINAL`` block of ``parameters.casl``, with a per-element ``fixed``/``optimizable`` flag::
+
+    GEMINAL:
+      Default g optimizability: fixed
+      Default c optimizability: fixed
+      Geminal 1:
+        Parameters:
+          c: [ 1.0, fixed ]
+          g_1,1: [ 1.0, fixed ]
+          g_2,2: [ 1.0, fixed ]
+          u_3,1: [ 1.0, fixed ]
+          u_4,2: [ 1.0, fixed ]
+          u_5,3: [ 1.0, fixed ]
+
+Only the nonzero elements are listed; indices are one-based, :math:`p` runs over the orbital pool
+and :math:`k` over the unpaired columns. When the block is absent, the Hartree-Fock default is
+built from the occupation of the wave-function file — a single geminal with :math:`g = \mathbb{1}`
+on the doubly occupied orbitals and one unpaired column per singly occupied orbital — which
+reproduces the single Slater determinant exactly; this equality of value, gradient and Laplacian to
+machine precision is the mandatory self-check of the implementation.
+
+The geminal part of the wave function is represented by the :class:`casino.Geminal` class, which is
+a drop-in replacement for :class:`casino.Slater` and is initialized from the configuration files::
+
+    from casino.readers import CasinoConfig
+    from casino.geminal import Geminal
+
+    config_path = <path to a directory containing input file>
+    config = CasinoConfig(config_path)
+    config.read()
+    geminal = Geminal(config)
+
+It has the following methods, all taking the electron-nuclei vectors ``n_vectors`` of shape
+:math:`(N_{atom}, N_e, 3)`:
+
+.. list-table::
+   :widths: 30 40 30
+   :header-rows: 1
+   :width: 100%
+
+   * - Method
+     - Output
+     - Shape
+   * - ``value``
+     - :math:`\Psi_S = \sum_n c_n \det M_n`
+     - scalar
+   * - ``gradient``
+     - :math:`\nabla \Psi_S / \Psi_S`
+     - :math:`(3N_e,)`
+   * - ``laplacian``
+     - :math:`\Delta \Psi_S / \Psi_S`
+     - scalar
+   * - ``pool_matrix``
+     - :math:`\phi_p(\mathbf{r}_i^\uparrow)`, :math:`\phi_p(\mathbf{r}_i^\downarrow)`
+     - :math:`(N_{orb}, N^\uparrow)`, :math:`(N_{orb}, N^\downarrow)`
+   * - ``geminal_matrix``
+     - :math:`M_n` from the orbital pool
+     - :math:`(N^\uparrow, N^\uparrow)`
+
+The determinant is recomputed on every move; Sherman-Morrison updates, cusp correction and the
+parameter-optimization interface are not yet in place (see the implementation plan below).
+
 Optimization strategy
 ---------------------
 The pairing parameters place the nodal surface, and fixed-node DMC does not improve the node:
@@ -234,7 +322,11 @@ The work is split into two milestones. Milestone 1 covers exactly the subset CAS
 *both* programs and the results compared; milestone 2 adds the Pfaffian-specific extensions that
 exist in Pycasino only.
 
-**Milestone 1 — AGP in CASINO format, cross-validated.**
+**Milestone 1 — AGP in CASINO format, cross-validated.** Steps 2 and 3 are implemented
+(``casino/geminal.py``, ``casino/readers/geminal.py``, ``casino/tests/test_geminal.py``); step 4 is
+partially done — the ``psi_s : geminal`` / ``opt_geminal`` input keywords and the ``Wfn`` value /
+gradient / Laplacian composition are in place, the parameter-optimization interface and the Be/Ne
+tests are not yet; steps 1 and 5 (generator, cross-validation) are open.
 
 1. **Generator** (``molden2qmc``). From an ORCA (or other supported code) calculation, produce
    ``gwfn.data`` as now *plus* the ``GEMINAL`` block of ``parameters.casl`` in CASINO format
@@ -247,24 +339,26 @@ exist in Pycasino only.
    orbitals seed the diagonal directly, :math:`\lambda_n = \pm\sqrt{n_n/2}` (minus for weakly
    occupied correlating orbitals; Molden files carry no CI vectors, so signs and off-diagonal
    elements are left to the VMC optimization or to an Orca-output parser).
-2. **Reader** (``casino/readers/pfaffian.py``). Parse the ``GEMINAL`` block as is — the CASL
-   parsing already exists in ``casino/readers/gjastrow.py``. When the block is absent, build the
-   same Hartree-Fock default from the occupation in the wave-function file; write the block back
-   after each optimization cycle.
+2. **Reader** (``casino/readers/geminal.py``). Parse the top-level ``GEMINAL`` block of
+   ``parameters.casl`` (``c``, ``g_n,m``, ``u_n,k`` with per-element ``fixed``/``optimizable``
+   flags). When the block is absent, build the Hartree-Fock default from the occupation in the
+   wave-function file (:math:`g = 1` on the doubly-occupied orbitals, unpaired columns for the
+   singly-occupied ones); ``write`` regenerates the block after each optimization cycle.
 3. **Geminal evaluation.** With :math:`\xi = 0` the Pfaffian reduces to an ordinary
    :math:`N^\uparrow \times N^\uparrow` determinant :math:`\det[\Phi \,|\, \varphi]` — rows indexed
    by the up electrons, :math:`N^\downarrow` pairing columns
    :math:`\Phi(\mathbf{r}_i^\uparrow, \mathbf{r}_j^\downarrow)` and
    :math:`N^\uparrow - N^\downarrow` unpaired-orbital columns — so no Pfaffian kernel is needed at
-   this stage and the Slater-style value/gradient/Laplacian and Sherman-Morrison machinery
-   (``value_matrix``, cusp correction) is reused as is. Mandatory self-check: with
-   :math:`\lambda = \mathbb{1}_{occ}` the class must reproduce the Slater single-determinant value,
-   gradient and Laplacian to machine precision.
+   this stage and the same Slater-style value/gradient/Laplacian AO evaluation is reused (the
+   determinant is recomputed per move for now; Sherman-Morrison updates and cusp correction are
+   deferred to a later stage). Mandatory self-check, now satisfied: with
+   :math:`\lambda = \mathbb{1}_{occ}` the class reproduces the Slater single-determinant value,
+   gradient and Laplacian to machine precision (``test_geminal.py``).
 4. **Integration and optimization** (``casino/wfn.py``, ``casino/readers/input.py``). Input
    keywords following CASINO (``psi_s : geminal``, ``opt_geminal``); Jastrow and backflow
    composition unchanged; MDET and pairing mutually exclusive. Expose :math:`\lambda` through the
    standard varmin/emin parameter interface following the optimization strategy above.
-   Finite-difference tests (``casino/tests/test_pfaffian.py``) for the gradient, Laplacian and
+   Finite-difference tests (``casino/tests/test_geminal.py``) for the gradient, Laplacian and
    parameter derivatives, on He (sanity) and Be/Ne (nontrivial :math:`l > 0` and
    :math:`n_{eu} \geq 2` paths).
 5. **Cross-validation against CASINO.** Optimize the same wave function with both programs on the

@@ -38,7 +38,8 @@ The electron–electron displacement is taken along :math:`\mathbf{r}_{ij}` beca
 inequivalent direction. The combination :math:`\Phi\mathbf{r}_{ij} + \Theta\mathbf{r}_{iI}` is capable of spanning the plane defined
 by :math:`\mathbf{r}_i`, :math:`\mathbf{r}_j` and :math:`\mathbf{r}_I`, so no component along :math:`\mathbf{r}_{jI}` is needed.
 The displacement can be extended beyond this plane by the :math:`\kappa` term directed along its normal; see the
-:ref:`kappa-term <kappa-term>` section.
+:ref:`kappa-term <kappa-term>` section. A homogeneous three-electron term :math:`\omega(r_{jk}, r_{ki}, r_{ij})` can be added on top
+of these; see the :ref:`omega-term <omega-term>` section.
 
 Each of the functions :math:`\eta`, :math:`\mu`, :math:`\Phi`, :math:`\Theta` is a natural power expansion cut off smoothly at some
 radius :math:`L` by the cutoff function
@@ -159,6 +160,9 @@ The Backflow class has the following methods:
    * - :ref:`phi_term <phi-term>`
      - :math:`\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij} + \Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI}`
      - :math:`(3N_e,)`
+   * - :ref:`omega_term <omega-term>`
+     - :math:`\omega(r_{jk}, r_{ki}, r_{ij})(\mathbf{r}_{ij} + \mathbf{r}_{ik})`
+     - :math:`(3N_e,)`
    * - :ref:`eta_term_gradient <eta-term-gradient>`
      - :math:`\nabla (\eta(r_{ij})\mathbf{r}_{ij})`
      - :math:`(3N_e, 3N_e)`
@@ -168,6 +172,9 @@ The Backflow class has the following methods:
    * - :ref:`phi_term_gradient <phi-term-gradient>`
      - :math:`\nabla (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij} + \Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI})`
      - :math:`(3N_e, 3N_e)`
+   * - :ref:`omega_term_gradient <omega-term-gradient>`
+     - :math:`\nabla (\omega(r_{jk}, r_{ki}, r_{ij})(\mathbf{r}_{ij} + \mathbf{r}_{ik}))`
+     - :math:`(3N_e, 3N_e)`
    * - :ref:`eta_term_laplacian <eta-term-laplacian>`
      - :math:`\Delta (\eta(r_{ij})\mathbf{r}_{ij})`
      - :math:`(3N_e,)`
@@ -176,6 +183,9 @@ The Backflow class has the following methods:
      - :math:`(3N_e,)`
    * - :ref:`phi_term_laplacian <phi-term-laplacian>`
      - :math:`\Delta (\Phi(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{ij} + \Theta(r_{iI}, r_{jI}, r_{ij})\mathbf{r}_{iI})`
+     - :math:`(3N_e,)`
+   * - :ref:`omega_term_laplacian <omega-term-laplacian>`
+     - :math:`\Delta (\omega(r_{jk}, r_{ki}, r_{ij})(\mathbf{r}_{ij} + \mathbf{r}_{ik}))`
      - :math:`(3N_e,)`
 
 .. _eta-term:
@@ -419,6 +429,69 @@ odd powers of the signed projections :math:`\hat{\mathbf{z}} \cdot \mathbf{r}_{i
 
 The :math:`\kappa` term is not yet implemented in the :class:`casino.Backflow` class.
 
+.. _omega-term:
+
+omega-term
+----------
+The :math:`\omega` term is a homogeneous three-electron contribution to the backflow displacement, the three-body analogue of
+:math:`\eta`. For every triplet of electrons :math:`i`, :math:`j`, :math:`k` it displaces each of them along the sum of the two
+electron-electron vectors connecting it to the other two:
+
+.. math::
+
+    \mathbf{\xi}_i^{(\omega)} = \sum_{j < k}^{j,k \neq i} \omega(r_{jk}, r_{ki}, r_{ij})
+    \left(\mathbf{r}_{ij} + \mathbf{r}_{ik}\right)
+
+Written out, the contribution of one triplet is :math:`\omega\,(2\mathbf{r}_i - \mathbf{r}_j - \mathbf{r}_k)` for electron :math:`i`
+and cyclically for :math:`j` and :math:`k`, so it leaves the centre of mass of the triplet unchanged. Unlike
+:math:`\eta`, which depends on a single distance, :math:`\omega` depends on all three distances of the triplet at once, and is a
+natural power expansion in them cut off smoothly in each:
+
+.. math::
+
+    \omega(r_{jk}, r_{ki}, r_{ij}) = f(r_{jk}; L_\omega)f(r_{ki}; L_\omega)f(r_{ij}; L_\omega)
+    \sum_{l=0}^{N_\omega}\sum_{m=0}^{N_\omega}\sum_{n=0}^{N_\omega} K_{lmn} r_{jk}^l r_{ki}^m r_{ij}^n
+
+with a single cutoff length :math:`L_\omega` per spin triplet and the same truncation order :math:`C` as the other terms. The
+parameters :math:`K_{lmn}` are allowed to depend on the spins of the three electrons; for a collinear system the spin triplets are
+:math:`\uparrow\uparrow\uparrow`, :math:`\uparrow\uparrow\downarrow`, :math:`\uparrow\downarrow\downarrow`,
+:math:`\downarrow\downarrow\downarrow`. A set of parameters is only optimized if the corresponding triplet actually occurs in the
+system, so for the beryllium atom (:math:`2\uparrow`, :math:`2\downarrow`) only the :math:`\uparrow\uparrow\downarrow` set is active.
+
+Since the displacement must be unchanged when two identical electrons are exchanged, and exchanging two electrons permutes the three
+distances, :math:`\omega` must be symmetric under the corresponding permutation of the indices of :math:`K_{lmn}`. All three
+electrons are identical in the :math:`\uparrow\uparrow\uparrow` and :math:`\downarrow\downarrow\downarrow` triplets, which makes
+:math:`K_{lmn}` fully symmetric, while for a mixed triplet only the two indices belonging to the identical pair may be exchanged:
+
+.. math::
+
+    K_{lmn} = K_{mln} = K_{lnm} \quad \text{(three identical spins)}, \qquad K_{lmn} = K_{mln} \quad \text{(two identical spins)}
+
+.. note::
+
+   CASINO up to at least v2.13.1313 imposes these relations with the opposite sign, i.e. :math:`K_{lmn} = -K_{mln}`, which makes
+   :math:`K_{lmn}` antisymmetric, forces every parameter with two equal indices to vanish, and makes :math:`\omega` change sign
+   under the exchange of two identical electrons. PyCasino uses the symmetric form above, so :math:`\omega` parameters are not
+   interchangeable between the two codes until this is resolved.
+
+To satisfy the electron-electron Kato cusp conditions the total displacement must have zero gradient at the coalescence of two
+identical electrons, which, as in the :math:`\eta` term, ties the linear coefficient to the constant one through the derivative of
+the cutoff function. This gives :math:`3(2N_\omega + 1)` constraints, one triple for each of the three distances:
+
+.. math::
+
+    \sum_{m,n}^{m+n=\alpha}(L_\omega K_{1mn} - C K_{0mn}) = \sum_{l,n}^{l+n=\alpha}(L_\omega K_{l1n} - C K_{l0n}) =
+    \sum_{l,m}^{l+m=\alpha}(L_\omega K_{lm1} - C K_{lm0}) = 0 \quad \forall \alpha
+
+Together with the symmetry relations these form an indeterminate system of homogeneous linear equations, so a subset of the
+parameters can be expressed in terms of the remaining free parameters by Gaussian elimination. Rather than solving the symmetry
+relations, they are used to enumerate only one representative :math:`K_{lmn}` per orbit of the index permutation, which leaves just
+the no-cusp equations to be eliminated and makes the cost independent of the expansion order in practice.
+
+For certain electron coordinates, :math:`\omega` term can be obtained with :py:meth:`casino.Backflow.omega_term` method::
+
+    backflow.omega_term(e_powers, e_vectors)[1]
+
 .. _eta-term-gradient:
 
 eta-term gradient
@@ -548,6 +621,42 @@ For certain electron coordinates, :math:`\phi` term gradient can be obtained wit
 this is equivalent to (continues :ref:`from <backflow-intermediate-data>`)::
 
     from numpy.polynomial.polynomial import polyval3d
+
+.. _omega-term-gradient:
+
+omega-term gradient
+-------------------
+
+The displacement of a triplet is the product of the scalar :math:`\omega` and the vector
+:math:`\mathbf{u}_i = \mathbf{r}_{ij} + \mathbf{r}_{ik} = 3\mathbf{r}_i - (\mathbf{r}_i + \mathbf{r}_j + \mathbf{r}_k)`, which is
+linear in the coordinates, so all nine blocks of the gradient follow from the product rule:
+
+.. math::
+
+    \nabla_{e_q} (\omega\,\mathbf{u}_p) = \mathbf{u}_p \otimes \nabla_{e_q}\omega +
+    \omega\,(3\delta_{pq} - 1)\,\mathbf{I}, \qquad p, q \in \{i, j, k\}
+
+:math:`\omega` depends on the coordinates only through the three pair distances, and each electron moves only two of them, so with
+:math:`\omega_{,r}` denoting the partial derivative with respect to the corresponding distance:
+
+.. math::
+
+    \nabla_{e_i}\omega = \omega_{,r_{ij}} \mathbf{\hat r}_{ij} - \omega_{,r_{ki}} \mathbf{\hat r}_{ki}
+
+and cyclically for :math:`j` and :math:`k`. In particular
+:math:`\nabla_{e_i}\omega + \nabla_{e_j}\omega + \nabla_{e_k}\omega = 0`, as translational invariance requires.
+
+Writing :math:`F = f(r_{jk}; L_\omega)f(r_{ki}; L_\omega)f(r_{ij}; L_\omega)` and :math:`P` for the polynomial, so that
+:math:`\omega = FP`, the derivative of the cutoff enters through :math:`g_r = -C/(L_\omega - r)`:
+
+.. math::
+
+    \omega_{,r} = F\left(P_{,r} + g_r P\right)
+
+For certain electron coordinates, :math:`\omega` term gradient can be obtained with
+:py:meth:`casino.Backflow.omega_term_gradient` method::
+
+    backflow.omega_term_gradient(e_powers, e_vectors)[1]
 
 .. _eta-term-laplacian:
 
@@ -719,6 +828,46 @@ For certain electron coordinates, :math:`\phi` term laplacian can be obtained wi
 this is equivalent to (continues :ref:`from <backflow-intermediate-data>`)::
 
     from numpy.polynomial.polynomial import polyval3d
+
+.. _omega-term-laplacian:
+
+omega-term laplacian
+--------------------
+
+Since :math:`\mathbf{u}_p` is linear in the coordinates, :math:`\Delta_{e_q}\mathbf{u}_p = 0` and
+
+.. math::
+
+    \Delta_{e_q} (\omega\,\mathbf{u}_p) = (\Delta_{e_q}\omega)\,\mathbf{u}_p + 2(3\delta_{pq} - 1)\nabla_{e_q}\omega
+
+Summing over the three electrons of the triplet, the first-derivative part collapses because
+:math:`\sum_q \nabla_{e_q}\omega = 0`:
+
+.. math::
+
+    \sum_{q} \Delta_{e_q} (\omega\,\mathbf{u}_p) = \left(\sum_{q}\Delta_{e_q}\omega\right)\mathbf{u}_p + 6\nabla_{e_p}\omega
+
+Each electron moves only two of the three distances, so
+
+.. math::
+
+    \Delta_{e_i}\omega = \omega_{,r_{ij}r_{ij}} + \omega_{,r_{ki}r_{ki}} -
+    2\omega_{,r_{ij}r_{ki}}(\mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{ki}) +
+    \frac{2\omega_{,r_{ij}}}{r_{ij}} + \frac{2\omega_{,r_{ki}}}{r_{ki}}
+
+and cyclically for :math:`j` and :math:`k`. With :math:`F`, :math:`P` and :math:`g_r` as in the
+:ref:`omega-term gradient <omega-term-gradient>` section and :math:`h_r = C(C-1)/(L_\omega - r)^2`, the second derivatives of
+:math:`\omega = FP` are
+
+.. math::
+
+    \omega_{,rr} = F\left(P_{,rr} + 2g_r P_{,r} + h_r P\right), \qquad
+    \omega_{,rs} = F\left(P_{,rs} + g_r P_{,s} + g_s P_{,r} + g_r g_s P\right)
+
+For certain electron coordinates, :math:`\omega` term laplacian can be obtained with
+:py:meth:`casino.Backflow.omega_term_laplacian` method::
+
+    backflow.omega_term_laplacian(e_powers, e_vectors)
 
 References
 ----------

@@ -99,6 +99,8 @@ class Input:
         self.read_float('vm_w_max', 0.0)
         self.read_float('vm_w_min', 0.0)
         self.read_float('emin_xi_value', 1.0)
+        self.read_float('emin_min_energy', None)
+        self.read_float('emin_var_prefactor', -1.0)
         # DMC keywords
         self.read_float('dmc_target_weight')
         self.read_int('dmc_equil_nstep')
@@ -113,6 +115,8 @@ class Input:
         self.read_bool('use_tmove', True)
         self.read_int('ebest_av_window', 25)
         # WFN definition keywords
+        self.read_str('psi_s', 'slater')
+        self.read_bool('opt_geminal', False)
         self.read_bool('backflow', self.opt_backflow)
         self.read_bool('use_jastrow', self.opt_jastrow)
         self.read_bool('use_gjastrow', False)
@@ -148,7 +152,7 @@ class Input:
             f' NEU (num up spin electrons)              :  {self.neu}\n'
             f' NED (num down spin electrons)            :  {self.ned}\n'
             f' RUNTYPE (type of run)                    :  {self.runtype}\n'
-            f' PSI_S  (form for [anti]symmetrizing wfn) :  slater\n'
+            f' PSI_S  (form for [anti]symmetrizing wfn) :  {self.psi_s}\n'
             f' ATOM_BASIS_TYPE (atom-centred orb basis) :  {self.atom_basis_type}\n'
             f' INTERACTION (interaction type)           :  coulomb\n'
             f' TESTRUN (read input data,print and stop) :  F\n'
@@ -206,6 +210,8 @@ class Input:
                 f' VM_USE_E_GUESS (use guess energy)        :  F\n'
                 f' EMIN_XI_VALUE (xi parameter)             :  {self.emin_xi_value}\n'
             )
+            if self.emin_min_energy is not None:
+                msg += f' EMIN_MIN_ENERGY (energy threshold)       :  {self.emin_min_energy:.5f}\n'
         elif self.runtype == 'vmc_dmc':
             msg += (
                 f' DMC_TARGET_WEIGHT                        :  {self.dmc_target_weight}\n'

@@ -5,7 +5,7 @@ import os
 import numba as nb
 import numpy as np
 
-from casino.backflow import construct_c_matrix
+from casino.backflow import construct_c_matrix, construct_omega_folded_matrix
 from casino.overload import rref
 
 labels_type = nb.int64[::1]
@@ -39,7 +39,7 @@ Expansion order
  Spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
    {eta_spin_dep}
  Cut-off radii ;      Optimizable (0=NO; 1=YES; 2=YES BUT NO SPIN-DEP)
-   {eta_cutoff:.16f}                {eta_cutoff_optimizable}
+   {eta_cutoffs}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
   {eta_parameters}"""
 
@@ -111,7 +111,7 @@ Expansion order
  Spin dep
    {omega_spin_dep}
  Cut-off radius ;     Optimizable (0=NO; 1=YES)
-   {omega_cutoff:.16f}                {omega_cutoff_optimizable}
+   {omega_cutoffs}
  Parameter ;          Optimizable (0=NO; 1=YES)
   {omega_parameters}"""
 
@@ -154,7 +154,9 @@ class Backflow:
     def read_ints(self):
         return list(map(int, self.f.readline().split()))
 
-    def __init__(self):
+    def __init__(self, neu=0, ned=0):
+        self.neu = neu
+        self.ned = ned
         self.title = 'no title given'
         self.trunc = 0
         self.eta_parameters = np.zeros((0, 0), dtype=float)  # uu, ud, dd order
@@ -408,12 +410,17 @@ class Backflow:
                         eta_parameters_list.append(
                             f'{self.eta_parameters[i, j]: .16e}            {int(self.eta_parameters_optimizable[i, j])}       ! c_{j},{i + 1}'
                         )
+            eta_cutoff_list = []
+            if self.eta_cutoff.shape[0] < self.eta_parameters.shape[0]:
+                # one cutoff shared by every spin-dep is only self-consistent as "2=YES BUT NO SPIN-DEP"
+                eta_cutoff_list.append(f'{self.eta_cutoff[0]["value"]: .16e}           2')
+            else:
+                for eta_cutoff, eta_cutoff_optimizable in self.eta_cutoff:
+                    eta_cutoff_list.append(f'{eta_cutoff: .16e}           {int(eta_cutoff_optimizable)}')
             eta_set = eta_set_template.format(
                 eta_spin_dep=self.eta_parameters.shape[0] - 1,
                 eta_order=self.eta_parameters.shape[1] - 1,
-                # FIXME: Optimizable (0=NO; 1=YES; 2=YES BUT NO SPIN-DEP)
-                eta_cutoff=self.eta_cutoff[0]['value'],
-                eta_cutoff_optimizable=int(self.eta_cutoff[0]['optimizable']),
+                eta_cutoffs='\n   '.join(eta_cutoff_list),
                 eta_parameters='\n  '.join(eta_parameters_list),
             )
             eta_term = eta_term_template.format(eta_set=eta_set)
@@ -522,11 +529,17 @@ class Backflow:
                                 omega_parameters_list.append(
                                     f'{self.omega_parameters[s, l, m, n]: .16e}            {int(self.omega_parameters_optimizable[s, l, m, n])}       ! K_{l}{m}{n},{s + 1}'
                                 )
+            omega_cutoff_list = []
+            if self.omega_cutoff.shape[0] < self.omega_parameters.shape[0]:
+                # one cutoff shared by every spin-triplet, see "YES BUT NO SPIN-DEP"
+                omega_cutoff_list.append(f'{self.omega_cutoff[0]["value"]: .16e}           2       ! L_1')
+            else:
+                for i, (omega_cutoff, omega_cutoff_optimizable) in enumerate(self.omega_cutoff):
+                    omega_cutoff_list.append(f'{omega_cutoff: .16e}           {int(omega_cutoff_optimizable)}       ! L_{i + 1}')
             omega_set = omega_set_template.format(
                 omega_spin_dep=self.omega_spin_dep,
                 omega_order=self.omega_parameters.shape[1] - 1,
-                omega_cutoff=self.omega_cutoff[0]['value'],
-                omega_cutoff_optimizable=int(self.omega_cutoff[0]['optimizable']),
+                omega_cutoffs='\n   '.join(omega_cutoff_list),
                 omega_parameters='\n  '.join(omega_parameters_list),
             )
             omega_term = omega_term_template.format(omega_set=omega_set)
@@ -565,17 +578,27 @@ class Backflow:
             mask[:, 1] = False
         return mask
 
-    @staticmethod
-    def omega_parameters_independent(parameters):
-        """Independent omega parameters under particle-exchange symmetry (K_lmn with l>=m>=n).
-        TODO: no-cusp conditions and per-set symmetry for omega_spin_dep=1.
+    def striplet_exists(self, spin_dep, number_of_sets):
+        """Whether a spin-triplet occurs in the system, see assign_spin_deps in monte_carlo.f90.
+        The doubled spin is always the lower index, so the (d,d,u) triplet is never registered.
         """
-        mask = np.zeros(parameters.shape, bool)
-        for s in range(parameters.shape[0]):
-            for l in range(parameters.shape[1]):
-                for m in range(l + 1):
-                    for n in range(m + 1):
-                        mask[s, l, m, n] = True
+        if number_of_sets == 1:
+            return self.neu > 2 or self.ned > 2 or (self.neu > 1 and self.ned > 0)
+        return (self.neu > 2, self.neu > 1 and self.ned > 0, False, self.ned > 2)[spin_dep]
+
+    def omega_parameters_independent(self, parameters):
+        """Mask dependent parameters in omega-term."""
+        mask = np.zeros(shape=parameters.shape, dtype=bool)
+        for spin_dep in range(parameters.shape[0]):
+            if not self.striplet_exists(spin_dep, parameters.shape[0]):
+                continue
+            omega_cutoff = self.omega_cutoff['value'][spin_dep % self.omega_cutoff.shape[0]]
+            c, _, rep_indices = construct_omega_folded_matrix(self.trunc, parameters, omega_cutoff, spin_dep)
+            _, pivot_positions = rref(c)
+
+            for q in range(rep_indices.shape[0]):
+                if q not in pivot_positions:
+                    mask[spin_dep, rep_indices[q, 0], rep_indices[q, 1], rep_indices[q, 2]] = True
         return mask
 
     def phi_theta_parameters_independent(self, phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational):
@@ -674,19 +697,33 @@ class Backflow:
                             temp += 1
 
     def fix_omega_parameters(self):
-        """Fix omega-term parameters. For a single set (omega_spin_dep=0) the K_lmn tensor is
-        fully symmetric under index permutation, so dependent entries are filled from the
-        l>=m>=n representatives.
-        TODO: no-cusp conditions and per-set symmetry for omega_spin_dep=1.
-        """
-        if not self.omega_parameters.size or self.omega_parameters.shape[0] != 1:
+        """Fix omega-term parameters"""
+        if not self.omega_parameters.any():
             return
-        order = self.omega_parameters.shape[1]
-        for l in range(order):
-            for m in range(order):
-                for n in range(order):
-                    a, b, c = sorted((l, m, n), reverse=True)
-                    self.omega_parameters[0, l, m, n] = self.omega_parameters[0, a, b, c]
+        for spin_dep in range(self.omega_parameters.shape[0]):
+            if not self.striplet_exists(spin_dep, self.omega_parameters.shape[0]):
+                continue
+            omega_cutoff = self.omega_cutoff['value'][spin_dep % self.omega_cutoff.shape[0]]
+            c, rep, rep_indices = construct_omega_folded_matrix(self.trunc, self.omega_parameters, omega_cutoff, spin_dep)
+            c, pivot_positions = rref(c)
+
+            x = np.zeros(shape=(rep_indices.shape[0],))
+            for q in range(rep_indices.shape[0]):
+                x[q] = self.omega_parameters[spin_dep, rep_indices[q, 0], rep_indices[q, 1], rep_indices[q, 2]]
+            for p in pivot_positions:
+                x[p] = 0
+            for temp in range(pivot_positions.size):
+                p = pivot_positions[temp]
+                res = 0.0
+                for q in range(c.shape[1]):
+                    if q != p:
+                        res -= c[temp, q] * x[q]
+                x[p] = res
+
+            for n in range(self.omega_parameters.shape[3]):
+                for m in range(self.omega_parameters.shape[2]):
+                    for l in range(self.omega_parameters.shape[1]):
+                        self.omega_parameters[spin_dep, l, m, n] = x[rep[l, m, n]]
 
     def check_phi_constrains(self):
         """Check phi-term constrains"""

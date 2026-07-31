@@ -20,7 +20,7 @@ class TestBackflow(unittest.TestCase):
         slater = Slater(self.config, cusp=None)
         jastrow = Jastrow(self.config)
         backflow = Backflow(self.config)
-        self.wfn = Wfn(self.config, slater, jastrow, backflow, ppotential=None)
+        self.wfn = Wfn(self.config, slater, jastrow=jastrow, backflow=backflow, ppotential=None)
         self.wfn.opt_backflow = True
         self.wfn.set_parameters_projector()
         self.r_e = self.initial_position()

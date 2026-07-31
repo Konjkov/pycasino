@@ -14,4 +14,5 @@ Tutorial
     tutorial/jastrow
     tutorial/backflow
     tutorial/pfaffian
+    tutorial/vmc
     tutorial/dmc

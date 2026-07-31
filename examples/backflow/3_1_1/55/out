@@ -1,0 +1,1811 @@
+CASINO v2.13.891 [Mike Towler] (20 March 2021)
+Running on vladimir-Kubuntu [linuxpc-gcc-parallel.openblas]
+Binary compiled in opt mode
+Job started: Вт 13 апр 2021 21:52:41 +07
+ ------------------------------------------------------------------------------
+
+                   #####
+                  ##   ##    ##     ####   ##  #   ##   ####
+                  ##        ####   ##      ##  ##  ##  ##  ##
+                  ##       ##  ##   ####   ##  ### ##  ##  ##
+                  ##       ######      ##  ##  ## ###  ##  ##
+                  ##   ##  ##  ##  ##  ##  ##  ##  ##  ##  ##
+                   #####   ##  ##   ####   ##  ##   #   ####
+
+                              Quantum Monte Carlo
+                 CASINO v2.13.891 [Mike Towler] (20 March 2021)
+
+    Main Authors : R.J. Needs, M.D. Towler, N.D. Drummond, and P. Lopez Rios
+
+       Required citation in publications arising from the use of CASINO:
+     R.J. Needs, M.D. Towler, N.D. Drummond, P. Lopez Rios, and J.R. Trail,
+                       J. Chem. Phys. 152, 154106 (2020).
+                       https://doi.org/10.1063/1.5144288
+
+                 CASINO web page: https://vallico.net/casinoqmc
+
+                      Current contact: mdt26 at cantab.net
+
+ ------------------------------------------------------------------------------
+ Started 2021/04/13 21:52:41.909
+
+ Running in parallel using 8 MPI processes.
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  2
+ NED (num down spin electrons)            :  2
+ RUNTYPE (type of run)                    :  vmc_opt
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  slater-type
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  F
+ BACKFLOW (use backflow corrections)      :  T
+ DBARRC (DBAR recalculation period)       :  100000
+ USE_DETLA (DLA approx. to NL PP)         :  F
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ ESUPERCELL                               :  F
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ CHECKPOINT (checkpointing level)         :  1
+ CHECKPOINT_NCPU (chkpnt group size)      :  8
+ CON_LOC (Dir to read/write config.*)     :  ./
+ RELATIVISTIC                             :  F
+
+ VMC/optimization input parameters
+ =================================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  1
+ DTVMC (VMC time step)                    :  1.0000E-01
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  10000
+ VMC_NCONFIG_WRITE (num configs to write) :  10000
+ VMC_NBLOCK (num VMC blocks)              :  10
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  0 (automatic)
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+ OPT_CYCLES (num optimization cycles)     :  1
+ POSTFIT_VMC (perform post-fit VMC calc)  :  T
+ POSTFIT_KEEP_CFG (keep post-fit VMC cfgs):  F
+ OPT_NOCTF_CYCLES (fixed cutoff cycles)   :  0
+ OPT_INFO (information level)             :  2
+ OPT_JASTROW (opt Jastrow factor)         :  F
+ OPT_DET_COEFF (opt det coeffs)           :  F
+ OPT_ORBITALS (opt orbitals)              :  F
+ OPT_BACKFLOW (opt backflow params)       :  T
+ OPT_FIXNL (fix nonlocal energy)          :  F
+ OPT_MAXITER (max num iterations)         :  10
+ VM_SMOOTH_LIMITS (smooth limiting)       :  T
+ EMIN_XI_VALUE (xi parameter)             :  1.0
+
+ Particles
+ =========
+ Particle name                 Charge        Mass         Spin   Type
+ -------------------------------------------------------------------------
+ 1: Spin-up electron          -1.00000       1.0000000     0.5   Fermion
+ 2: Spin-down electron        -1.00000       1.0000000    -0.5   Fermion
+ -------------------------------------------------------------------------
+
+ Number of diffusion types : 1
+
+ Single-particle groupings
+ -------------------------
+ Spin dep. 0 : (1,2) [F] [E]
+ Spin dep. 1 : (1) (2)
+
+ NB, partitions defining spin-[F]amilies and [E]quivalent particles flagged.
+
+ Particle-pair groupings
+ -----------------------
+ Spin-pair dep. 0 : (1-1,1-2,2-2)
+ Spin-pair dep. 1 : (1-1,2-2) (1-2)
+ Spin-pair dep. 2 : (1-1) (1-2) (2-2)
+
+ Initialize random number generator
+ ==================================
+ Generator                                 :  RANLUX
+ RANLUX luxury level                       :  3
+ p value                                   :  223
+ Value of random seed on MPI process 0     :  49530942
+
+ Initialized with seed derived from timer.
+
+ Reading correlation.data
+ ========================
+ Header:
+   No title given.
+ Version of correlation.data : 1
+ A backflow function is present in correlation.data.
+
+ No multideterminant/excitation data supplied.
+ Using ground state defined in xwfn.data file.
+
+ Reading STO wave function and associated data
+ =============================================
+
+ Title: Be
+
+ Generated by                              :  ADF
+ Periodicity                               :  0 (molecule)
+ Spin restricted?                          :  Yes
+ Total number of electrons                 :  4
+
+ Basis set information
+
+ Number of STO centres                     :  1
+ Number of shells                          :  14
+ First shell on centre:
+    1   15
+ Number of shells on centre:
+   14
+ Number of basis fns                       :  40
+ Single determinant :
+
+ Det 1 spin 1           : ground state
+ Det 1 spin 2           : ground state
+ Det 1 coefficient      : 1.00000000
+
+ Pseudopotentials
+ ================
+ No pseudopotential for Be - treating as all-electron.
+
+ Geometry derived from information in stowfn.data
+ ==============================================
+
+ Simulation cell : Finite (atomic/molecular geometry)
+
+ Atom Atno  Type              Position (Cartesian au)
+ -------------------------------------------------------------
+    1   4   1         0.00000000     0.00000000     0.00000000
+
+
+ STO data setup
+ ==============
+ STO data setup complete.
+
+ Expectation values
+ ==================
+ None requested.
+
+ Interactions
+ ============
+ Interaction type: Coulomb
+ System is aperiodic. Using 1/r only.
+
+ Backflow setup
+ ==============
+ Reading correlation.data file.
+
+ Backflow function:
+  Title:  title
+  Truncation order       :  3
+  Discontinuities        :  None
+
+  Phi term:
+   Number of sets        :  1
+   Set 1
+    Atoms in set         :  1
+    The atoms are        :  1
+    Type of cusp conds.  :  AE with cusp
+    Irrotational constr. :  Applied
+    Expansion order e-N  :  5
+    Expansion order e-e  :  5
+    Spin dependence      :  1
+    Cutoff (optimizable) :  5.000000000000
+    No. of free params   :  121 + cut-off length
+    Unspecified params   :  Zeroed
+   Completeness of Phi   :  All atoms included
+
+  AE cutoffs:
+   Nucleus 1 in set      :  1
+   Total number of sets  :  1
+   Cutoff_1       (fixed):  0.200000000000
+
+ Finished reading backflow functions from correlation.data.
+
+ Allocated work arrays, using 11.7 KiB.
+ Imposed e-e cusps, e-N cusps and irrotational-backflow constraints
+ and checked them.
+ Will apply cut-offs around AE atoms.
+
+ Finished backflow setup.
+
+ Initial backflow set is empty.
+ Will not use backflow until needed.
+
+
+ Setup complete.
+
+ Time taken in setup    : : :        0.2000
+
+ Writing parameters to correlation.out.0.
+
+ =========================================================
+ PERFORMING VMC CONFIGURATION-GENERATION CALCULATION No. 1
+ =========================================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  2.3248E-01
+ Done. [total CPU time: 0s]
+
+ Finding optimal inner loop length (500 additional moves).
+  Optimized vmc_decorr_period: 3
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio         (%)  =  50.4333
+ Diffusion constant  (Bohr^2)  = 3.8186E-02
+ Correlation time     (steps)  = 2.7175E+00 +- 5.2122E-01
+ Efficiency      (au^-2 s^-1)  = 1.9633E+04
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.739242850822
+  Standard error                        +/-           0.041309613701
+
+  Kinetic energy KEI (used in Total) (au) =          20.950254636060
+  Standard error                        +/-           1.211456572104
+
+  Kinetic energy TI                  (au) =          17.748038349608
+  Standard error                        +/-           0.615487358803
+
+  Kinetic energy FISQ                (au) =          14.545822063156
+  Standard error                        +/-           0.094991502094
+
+  Potential energy                   (au) =         -35.689497486882
+  Standard error                        +/-           1.224377003005
+
+  e-e interaction                    (au) =           4.560044087764
+  Standard error                        +/-           0.054885517759
+
+  e-n interaction                    (au) =         -40.249541574646
+  Standard error                        +/-           1.239412969534
+
+  Variance of local energy           (au) =           1.874332723395
+  Standard error                        +/-           0.298752815285
+
+  Maximum distance from origin       (au) =           6.720602071523
+
+
+ Time taken in block    : : :        0.0100
+
+
+ =========================================================================
+ In block : 2
+
+ Acceptance ratio         (%)  =  50.1750
+ Diffusion constant  (Bohr^2)  = 3.5375E-02
+ Correlation time     (steps)  = 2.7454E+00 +- 6.6164E-01
+ Efficiency      (au^-2 s^-1)  = 1.0369E+04
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.589203397703
+  Standard error                        +/-           0.056614423155
+
+  Kinetic energy KEI (used in Total) (au) =          14.688808432125
+  Standard error                        +/-           0.600423410841
+
+  Kinetic energy TI                  (au) =          14.473319273540
+  Standard error                        +/-           0.304569054167
+
+  Kinetic energy FISQ                (au) =          14.257830114954
+  Standard error                        +/-           0.057796960226
+
+  Potential energy                   (au) =         -29.278011829828
+  Standard error                        +/-           0.617184604666
+
+  e-e interaction                    (au) =           4.483029931964
+  Standard error                        +/-           0.059296269556
+
+  e-n interaction                    (au) =         -33.761041761792
+  Standard error                        +/-           0.619909762734
+
+  Variance of local energy           (au) =           3.512693017408
+  Standard error                        +/-           1.180041367468
+
+  Maximum distance from origin       (au) =           8.140941584203
+
+
+ Time taken in block    : : :        0.0100
+
+
+ =========================================================================
+ In block : 3
+
+ Acceptance ratio         (%)  =  49.7417
+ Diffusion constant  (Bohr^2)  = 3.9442E-02
+ Correlation time     (steps)  = 3.6800E+00 +- 1.2106E+00
+ Efficiency      (au^-2 s^-1)  = 8.4588E+03
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.407240545251
+  Standard error                        +/-           0.054069845293
+
+  Kinetic energy KEI (used in Total) (au) =          14.793435077394
+  Standard error                        +/-           0.672137420121
+
+  Kinetic energy TI                  (au) =          14.578259062331
+  Standard error                        +/-           0.350478763342
+
+  Kinetic energy FISQ                (au) =          14.363083047268
+  Standard error                        +/-           0.127283104741
+
+  Potential energy                   (au) =         -29.200675622645
+  Standard error                        +/-           0.660871330097
+
+  e-e interaction                    (au) =           4.499395200833
+  Standard error                        +/-           0.073070133665
+
+  e-n interaction                    (au) =         -33.700070823478
+  Standard error                        +/-           0.703944765777
+
+  Variance of local energy           (au) =           3.212489995974
+  Standard error                        +/-           0.416347300871
+
+  Maximum distance from origin       (au) =           9.118002001699
+
+
+ Time taken in block    : : :        0.0100
+
+
+ =========================================================================
+ In block : 4
+
+ Acceptance ratio         (%)  =  50.9333
+ Diffusion constant  (Bohr^2)  = 3.6012E-02
+ Correlation time     (steps)  = 3.3158E+00 +- 1.1758E+00
+ Efficiency      (au^-2 s^-1)  = Infinity
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.378086432399
+  Standard error                        +/-           0.077325984280
+
+  Kinetic energy KEI (used in Total) (au) =           9.180873163728
+  Standard error                        +/-           0.262563619168
+
+  Kinetic energy TI                  (au) =          11.652114322421
+  Standard error                        +/-           0.136205422513
+
+  Kinetic energy FISQ                (au) =          14.123355481113
+  Standard error                        +/-           0.050680537171
+
+  Potential energy                   (au) =         -23.558959596127
+  Standard error                        +/-           0.273926073250
+
+  e-e interaction                    (au) =           4.339382720145
+  Standard error                        +/-           0.081065906313
+
+  e-n interaction                    (au) =         -27.898342316273
+  Standard error                        +/-           0.284795779046
+
+  Variance of local energy           (au) =           6.381045776993
+  Standard error                        +/-           4.121347426022
+
+  Maximum distance from origin       (au) =           7.132516189647
+
+
+ Time taken in block    : : :        0.0000
+
+
+ =========================================================================
+ In block : 5
+
+ Acceptance ratio         (%)  =  50.1917
+ Diffusion constant  (Bohr^2)  = 3.7244E-02
+ Correlation time     (steps)  = 4.2720E+00 +- 1.1946E+00
+ Efficiency      (au^-2 s^-1)  = 7.8979E+03
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.404571842520
+  Standard error                        +/-           0.050759894045
+
+  Kinetic energy KEI (used in Total) (au) =          15.336482026419
+  Standard error                        +/-           0.928908616447
+
+  Kinetic energy TI                  (au) =          14.792605093210
+  Standard error                        +/-           0.476599795498
+
+  Kinetic energy FISQ                (au) =          14.248728160002
+  Standard error                        +/-           0.080360822276
+
+  Potential energy                   (au) =         -29.741053868939
+  Standard error                        +/-           0.921255262226
+
+  e-e interaction                    (au) =           4.370303885268
+  Standard error                        +/-           0.062985350564
+
+  e-n interaction                    (au) =         -34.111357754207
+  Standard error                        +/-           0.955310919814
+
+  Variance of local energy           (au) =           2.963868879185
+  Standard error                        +/-           0.372962951582
+
+  Maximum distance from origin       (au) =           8.973550014443
+
+
+ Time taken in block    : : :        0.0100
+
+
+ =========================================================================
+ In block : 6
+
+ Acceptance ratio         (%)  =  50.3250
+ Diffusion constant  (Bohr^2)  = 3.5937E-02
+ Correlation time     (steps)  = 3.2519E+00 +- 8.8267E-01
+ Efficiency      (au^-2 s^-1)  = 1.8131E+04
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.574189895331
+  Standard error                        +/-           0.044810104306
+
+  Kinetic energy KEI (used in Total) (au) =          15.184640091498
+  Standard error                        +/-           0.606140341396
+
+  Kinetic energy TI                  (au) =          14.806462227884
+  Standard error                        +/-           0.335633490425
+
+  Kinetic energy FISQ                (au) =          14.428284364271
+  Standard error                        +/-           0.201582718944
+
+  Potential energy                   (au) =         -29.758829986829
+  Standard error                        +/-           0.618130972492
+
+  e-e interaction                    (au) =           4.483845517850
+  Standard error                        +/-           0.046929834569
+
+  e-n interaction                    (au) =         -34.242675504679
+  Standard error                        +/-           0.633886334468
+
+  Variance of local energy           (au) =           1.696084216499
+  Standard error                        +/-           0.196482816375
+
+  Maximum distance from origin       (au) =           6.981437850677
+
+
+ Time taken in block    : : :        0.0100
+
+
+ =========================================================================
+ In block : 7
+
+ Acceptance ratio         (%)  =  49.6333
+ Diffusion constant  (Bohr^2)  = 3.7784E-02
+ Correlation time     (steps)  = 3.0482E+00 +- 7.0372E-01
+ Efficiency      (au^-2 s^-1)  = 2.0938E+04
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.583310482893
+  Standard error                        +/-           0.038239067754
+
+  Kinetic energy KEI (used in Total) (au) =          14.058953152404
+  Standard error                        +/-           0.610172552349
+
+  Kinetic energy TI                  (au) =          14.210794048417
+  Standard error                        +/-           0.308013062331
+
+  Kinetic energy FISQ                (au) =          14.362634944430
+  Standard error                        +/-           0.066977592695
+
+  Potential energy                   (au) =         -28.642263635298
+  Standard error                        +/-           0.615271326783
+
+  e-e interaction                    (au) =           4.566524979799
+  Standard error                        +/-           0.052062041667
+
+  e-n interaction                    (au) =         -33.208788615097
+  Standard error                        +/-           0.637721036845
+
+  Variance of local energy           (au) =           1.566812066455
+  Standard error                        +/-           0.206626333300
+
+  Maximum distance from origin       (au) =           7.191794250781
+
+
+ Time taken in block    : : :        0.0100
+
+
+ =========================================================================
+ In block : 8
+
+ Acceptance ratio         (%)  =  51.0583
+ Diffusion constant  (Bohr^2)  = 3.8444E-02
+ Correlation time     (steps)  = 3.0648E+00 +- 7.7637E-01
+ Efficiency      (au^-2 s^-1)  = 2.4953E+04
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.669447068577
+  Standard error                        +/-           0.037816680750
+
+  Kinetic energy KEI (used in Total) (au) =          13.019528244669
+  Standard error                        +/-           0.510147334621
+
+  Kinetic energy TI                  (au) =          13.671655168714
+  Standard error                        +/-           0.258464605233
+
+  Kinetic energy FISQ                (au) =          14.323782092759
+  Standard error                        +/-           0.077281242079
+
+  Potential energy                   (au) =         -27.688975313246
+  Standard error                        +/-           0.528150045654
+
+  e-e interaction                    (au) =           4.229632945179
+  Standard error                        +/-           0.041097682151
+
+  e-n interaction                    (au) =         -31.918608258424
+  Standard error                        +/-           0.534965398808
+
+  Variance of local energy           (au) =           1.307610212904
+  Standard error                        +/-           0.230340454392
+
+  Maximum distance from origin       (au) =           8.272112982297
+
+
+ Time taken in block    : : :        0.0100
+
+
+ =========================================================================
+ In block : 9
+
+ Acceptance ratio         (%)  =  49.8667
+ Diffusion constant  (Bohr^2)  = 3.5263E-02
+ Correlation time     (steps)  = 2.9113E+00 +- 8.1230E-01
+ Efficiency      (au^-2 s^-1)  = Infinity
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.648492661819
+  Standard error                        +/-           0.049709672027
+
+  Kinetic energy KEI (used in Total) (au) =          12.509363919538
+  Standard error                        +/-           0.411875106697
+
+  Kinetic energy TI                  (au) =          13.392748603007
+  Standard error                        +/-           0.214373061454
+
+  Kinetic energy FISQ                (au) =          14.276133286476
+  Standard error                        +/-           0.066031017867
+
+  Potential energy                   (au) =         -27.157856581357
+  Standard error                        +/-           0.428492992629
+
+  e-e interaction                    (au) =           4.313383771637
+  Standard error                        +/-           0.053178673793
+
+  e-n interaction                    (au) =         -31.471240352994
+  Standard error                        +/-           0.439021120477
+
+  Variance of local energy           (au) =           2.420742447709
+  Standard error                        +/-           0.531764761140
+
+  Maximum distance from origin       (au) =           7.245400722603
+
+
+ Time taken in block    : : :        0.0000
+
+
+ =========================================================================
+ In block : 10
+
+ Acceptance ratio         (%)  =  49.1583
+ Diffusion constant  (Bohr^2)  = 3.7926E-02
+ Correlation time     (steps)  = 3.4233E+00 +- 8.5113E-01
+ Efficiency      (au^-2 s^-1)  = 1.0062E+04
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.543719667197
+  Standard error                        +/-           0.057715389061
+
+  Kinetic energy KEI (used in Total) (au) =          18.205736463935
+  Standard error                        +/-           0.753608486502
+
+  Kinetic energy TI                  (au) =          16.319207129609
+  Standard error                        +/-           0.380622373602
+
+  Kinetic energy FISQ                (au) =          14.432677795282
+  Standard error                        +/-           0.063904730723
+
+  Potential energy                   (au) =         -32.749456131132
+  Standard error                        +/-           0.749703832828
+
+  e-e interaction                    (au) =           4.766529940537
+  Standard error                        +/-           0.081648843645
+
+  e-n interaction                    (au) =         -37.515986071669
+  Standard error                        +/-           0.775887355476
+
+  Variance of local energy           (au) =           2.903095779838
+  Standard error                        +/-           0.363400833883
+
+  Maximum distance from origin       (au) =          10.399925365232
+
+
+ Time taken in block    : : :        0.0100
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -14.553750484451 +/- 0.016493366263      No correction
+ -14.553750484451 +/- 0.029701934466      Correlation time method
+ -14.553750484451 +/- 0.047896985783      On-the-fly reblocking method
+
+ Bad reblock convergence - probably not enough data samples.
+
+ Dumping reblock data for energy:
+      mean:    -14.553750484451 +/-       0.047896985783
+    stderr:      0.047896985783 +/-       0.007867573851
+    errfac:      2.863871536661 +/-       0.470420433488
+    N_corr:      8.201760178498 +/-       2.694447379459
+   ------------------------------------------------------
+    Block len      Std error   Err in error
+            1   1.672456E-02   3.346250E-04
+            2   2.052323E-02   5.809494E-04
+            4   2.517356E-02   1.008557E-03
+            8   2.929076E-02   1.662263E-03
+           16   3.359827E-02   2.705231E-03
+           32   3.892926E-02   4.461825E-03
+           64   4.789699E-02   7.867574E-03  *** BEST ***
+          128   4.387315E-02   1.047834E-02
+          256   5.744395E-02   2.061371E-02
+          512   3.188018E-02   1.877641E-02
+   ------------------------------------------------------
+
+  Sample variance of E_L (au^2/sim.cell) : 2.783877511636 +- 0.465524275592
+
+ =========================================================================
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =========================================
+ PERFORMING OPTIMIZATION CALCULATION No. 1
+ =========================================
+
+ Energy minimization configuration
+ =================================
+
+ Energy minimization internal setup:
+ ---------------------------------------------------
+ Optimize                       :  energy
+ Target function                :  energy + 3*error
+ xi parameter for semiorthog.   :  1.000000
+ Weights in corr. sampling      :  yes
+ Matrix regularization          :  normalized basis
+ H matrix manipulation          :  on
+ ---------------------------------------------------
+
+ There are 122 optimizable parameters.
+ Will optimize all of them.
+
+ Random number generator reset to state in config.in.
+
+ Number of MPI processes                               : 8
+ Number of configurations per MPI process              : 1250
+ Total number of configurations                        : 10000
+
+ Stored VMC result suggests minimum energy of -21.306638003076667 a.u.
+ This minimum will be enforced.
+
+ Optimization workspace:
+ ---------------------------------------------------
+ No. of variable parameters (P) :               122
+ No. of configurations (C)      :             10000
+ ---------------------------------------------------
+ Configuration storage          :           117 KiB
+ Vectors of size C              :           175 KiB
+ Matrices of size P^2           :           709 KiB
+ ---------------------------------------------------
+ Total memory req. per MPI proc.:         0.978 MiB
+ ---------------------------------------------------
+
+ Optimization start
+ ==================
+
+ Optimization monitor :
+ ----------------------
+ Start of minimization process
+ Parameters:
+ BP  5.0000000E+00*     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00     0.00000000E+00     0.00000000E+00
+     0.00000000E+00     0.00000000E+00
+    [*] : shallow parameters
+
+                      Energy (a.u.) : -14.553750484451054
+                       Error (a.u.) : 1.6882218796564034E-002
+                    Variance (a.u.) : 2.8500931149506004
+
+ Computing derivatives.
+ Done. [total CPU time: 1m12s]
+
+ Performing matrix algebra.
+  Found 1 parameter with negligible derivative.
+  Found 1 singularity inverting S (stage 1).
+  Found 1 singularity inverting S (stage 2).
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 3s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 1
+ Parameters:
+ BP  5.00000000E+00     4.09180678E-02    -1.27190701E-03     1.35852985E-03
+     8.93119257E-04     2.12388597E-02    -1.95330271E-02    -6.69997447E-03
+     4.79528285E-03     6.59301035E-03    -3.31001722E-03    -2.20270076E-03
+     3.36722993E-03    -3.98288906E-04    -2.38176367E-03    -1.27362766E-03
+     1.65629002E-03     7.18740566E-04    -4.97151484E-05    -2.54838245E-04
+    -3.37428295E-04    -3.75765581E-03    -2.46322991E-03    -2.74793512E-04
+    -5.65961424E-04    -1.56428578E-04    -3.90375900E-05     1.76912243E-03
+     8.88929456E-04     1.36893854E-04    -2.39878819E-03    -6.27392110E-04
+    -5.66631069E-04     1.34474648E-04     2.79034417E-05     3.61375836E-06
+     2.26314900E-04     2.03414389E-05     5.69730751E-06     1.94576559E-06
+    -1.83524899E-07     1.90375122E-06     3.69403720E-06     9.40730174E-05
+     2.33205349E-04    -1.67732783E-04    -4.16795188E-06     1.13008673E-04
+     1.62952586E-05     4.38767357E-06     1.03916349E-06     8.29124725E-05
+    -3.30462535E-05    -3.19938628E-05    -1.06565236E-06    -5.01252917E-06
+     1.31910285E-06     4.66678370E-07     5.02955084E-02    -2.75636354E-03
+    -6.17824595E-03    -2.85641155E-03     6.27451174E-02    -6.87020724E-03
+    -4.24830099E-03    -3.82744640E-03    -1.73208953E-02     3.18896769E-03
+     1.80006300E-03    -9.39530817E-04    -2.18958647E-03     3.05745443E-03
+     8.85025502E-04    -2.90352270E-04     1.37294618E-03     8.33688820E-04
+     5.22332334E-05    -1.69210223E-04    -9.11034038E-03    -1.99610894E-04
+     6.70216577E-04     4.67796794E-04    -2.39392390E-04    -2.58936113E-04
+     2.31626541E-02     5.04541117E-03    -1.91688853E-03     9.19680651E-04
+     5.05121781E-04     8.56845964E-04     1.01597672E-04     4.19899946E-04
+    -9.74949560E-07    -2.09920366E-05     4.05923475E-03     1.67278337E-03
+     6.89092792E-06    -1.38404032E-03     2.00913908E-04     1.00603218E-04
+     6.83865433E-04    -9.42591535E-04    -3.74266731E-05     1.65374461E-06
+    -1.41360240E-06     8.17189021E-08     2.28571085E-06     3.75600196E-03
+     2.47830569E-03     1.08175251E-03     5.55070269E-04    -8.15727567E-06
+    -1.87042273E-04    -3.09549995E-07     8.85604982E-06     3.98536259E-04
+    -2.18818005E-04    -1.33824242E-05     9.69285701E-09    -1.18912995E-05
+     2.44306735E-07     1.23704946E-06
+
+                      Energy (a.u.) : -14.587478958457982
+                       Error (a.u.) : 1.3885473806351009E-002
+                    Variance (a.u.) : 1.9280638282685996
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+ Done. [total CPU time: 1m10s]
+
+ Performing matrix algebra.
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 3s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 2
+ Parameters:
+ BP  6.05205986E+00     5.57771576E-01    -9.10102041E-02    -2.46403112E-01
+     6.25176451E-02    -9.41548431E-01     4.31463576E-01     1.69704139E-01
+    -6.51729402E-02     3.00933371E-01    -3.12970399E-01    -2.75233018E-02
+     5.12941172E-02     1.64907718E-02     1.92514084E-01    -9.16002402E-02
+     3.36107335E-03    -1.06791676E-02    -4.38681157E-02     2.79448475E-02
+    -3.93405338E-03    -4.89708479E-01     1.23565833E-01     2.39704988E-01
+    -6.06976726E-02     1.85960391E-02    -8.10271826E-04     1.04768713E-01
+     1.51950553E-02     1.83019465E-02    -4.12941844E-02     1.96133165E-02
+     8.54019520E-02    -6.73348021E-03    -9.14617542E-04    -1.02320864E-03
+    -2.49905076E-02    -2.79028883E-03     2.13956278E-03     5.23622082E-04
+    -8.15200236E-03     1.16194824E-03    -2.40910714E-05     2.53634266E-02
+    -5.38880219E-03    -1.76942848E-02     2.70537533E-03    -6.11543921E-04
+     2.07112887E-03     8.98858994E-05    -1.14254919E-04     4.43874940E-03
+    -4.20091826E-03     1.40048732E-03    -1.83933241E-04     3.50275407E-04
+    -4.54929107E-05    -9.37939935E-07     6.15723647E-01    -8.63242280E-01
+     3.15221390E-01    -3.40076159E-02    -5.74995713E-01     1.14385813E-01
+     4.15272038E-02    -1.31581118E-02     4.86879567E-01     2.90694786E-01
+    -1.41279894E-01     1.17714371E-02    -3.08650334E-01    -6.34567516E-02
+     2.53143739E-02     1.08547156E-03     7.80839088E-02    -4.89717437E-03
+     9.23513436E-04    -7.54387403E-04     4.81168742E-01    -2.56292145E-02
+     4.15131432E-02    -1.26665107E-02     7.00629487E-04     2.18345595E-03
+     9.75909567E-01    -9.28156515E-02     9.40328668E-02    -1.42302550E-01
+     1.49795699E-02     3.61583703E-02     3.26928158E-03     1.55625786E-02
+    -2.60368710E-03    -4.56682499E-04    -1.49031332E-01    -6.83876902E-02
+    -1.05006940E-01     7.78442515E-02    -6.09582819E-03    -5.33786538E-04
+     2.86198942E-02     1.33627360E-02    -5.98145351E-03    -6.21056121E-04
+    -1.68103431E-03     6.07681864E-04     2.18144938E-05     3.25855011E-02
+    -2.40425211E-03     3.99607439E-02    -1.83509408E-02    -1.36796424E-02
+     1.29757459E-03     8.43509946E-04    -4.44548793E-05     1.39564367E-03
+    -5.86967803E-04     1.37885219E-04     3.43405883E-05     5.87787117E-05
+    -3.26661647E-05     1.29589593E-07
+
+                      Energy (a.u.) : -14.601321968083107
+                       Error (a.u.) : 1.2145612546215986E-002
+                    Variance (a.u.) : 1.4751590412279914
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+ Done. [total CPU time: 1m21s]
+
+ Performing matrix algebra.
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 3s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 3
+ Parameters:
+ BP  6.23195516E+00     5.55631609E-01    -1.68832568E-01    -2.35248964E-01
+     6.69848253E-02    -1.45532434E+00     7.50992429E-01    -4.68730877E-02
+    -1.44622032E-02     9.02891328E-01    -3.65424656E-01     5.40342365E-02
+    -5.26219680E-03    -1.90642708E-01    -1.63639795E-04     2.48349598E-02
+    -4.69684431E-03     1.16827869E-02     1.65579150E-02    -1.29446055E-02
+     3.07349831E-03    -3.84782822E-01     9.65722748E-02     1.64191539E-01
+    -3.80896587E-02     8.27477634E-03    -4.69582725E-04     9.27138088E-02
+     6.42736639E-03     9.97900069E-03    -1.12992843E-01     3.98989152E-02
+     7.36697741E-02    -6.34181162E-03    -1.61499514E-03    -1.20705418E-03
+    -1.72005682E-02    -1.37561589E-03     1.89756116E-03     3.27501626E-04
+    -5.31880089E-03     7.93931396E-04    -1.81555009E-05     4.59866006E-02
+    -1.58177178E-02    -2.11177001E-02     7.04305512E-03    -2.40462244E-03
+     9.42536390E-04    -9.23307724E-05     5.37126374E-05     3.93034054E-03
+    -2.98896005E-03     1.27060248E-03    -2.46135570E-04     1.47978941E-04
+    -3.81171861E-06    -2.93210977E-06     7.36416934E-01    -1.13490459E+00
+     4.25103638E-01    -4.70479708E-02    -1.06407241E+00     4.21322226E-01
+     8.96785718E-02    -3.90007461E-02     1.08005236E+00     7.41739431E-02
+    -2.03382678E-01     3.49240196E-02    -4.93250051E-01    -3.84044810E-02
+     5.35494068E-02    -6.44363451E-03     9.38252332E-02    -4.15863276E-03
+    -1.49867597E-03    -2.20167911E-04     6.14855782E-01    -2.61531276E-02
+     2.72135185E-02    -2.12982478E-02     1.74828626E-03     1.71151961E-03
+     1.27044710E+00    -1.46831181E-01    -2.55564344E-02    -1.27110227E-01
+     1.90950045E-02     2.51107392E-02     1.26935567E-03     1.40544564E-02
+    -1.70912927E-03    -2.94084456E-04    -1.78348351E-01    -6.58090135E-02
+    -6.99306251E-02     5.94054992E-02    -3.01971346E-03    -1.73478586E-03
+     3.42099626E-02     8.87645560E-03    -5.24928603E-03    -3.09579109E-04
+    -2.05613239E-03     6.04464021E-04    -3.35830425E-05     3.72903314E-02
+    -3.18437318E-03     4.58931277E-02    -1.99253832E-02    -2.47204840E-02
+     6.76309695E-03     2.89799341E-04     2.37556273E-05     5.01355300E-03
+    -2.39940501E-03     1.92180828E-04     3.72476262E-05     1.12871685E-04
+    -4.43747628E-05     4.94637232E-06
+
+                      Energy (a.u.) : -14.615506644735998
+                       Error (a.u.) : 1.1493083107326239E-002
+                    Variance (a.u.) : 1.3209095931190775
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+ Done. [total CPU time: 1m19s]
+
+ Performing matrix algebra.
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 3s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 4
+ Parameters:
+ BP  6.47603693E+00     5.04439895E-01    -1.41803281E-01    -1.93283275E-01
+     5.33737250E-02    -1.24903838E+00     6.33788633E-01    -3.41453392E-02
+    -1.20959321E-02     7.36463443E-01    -2.91973085E-01     4.22807090E-02
+    -3.46156267E-03    -1.53479079E-01    -1.81954272E-03     1.72260551E-02
+    -3.19211747E-03     9.02567381E-03     1.24860159E-02    -9.08783306E-03
+     2.17857254E-03    -3.05807637E-01     7.34690943E-02     1.25745123E-01
+    -2.80036073E-02     5.84263717E-03    -3.15383134E-04     7.32164825E-02
+     4.69286879E-03     7.13022731E-03    -9.33655487E-02     3.17687686E-02
+     5.86073836E-02    -4.82818937E-03    -1.18273262E-03    -8.52118931E-04
+    -1.31640963E-02    -1.01378901E-03     1.34174362E-03     2.22676113E-04
+    -3.62230693E-03     5.20335974E-04    -1.11932144E-05     3.79776785E-02
+    -1.25561550E-02    -1.67642100E-02     5.35376886E-03    -1.84686615E-03
+     6.93237106E-04    -6.51571658E-05     3.67816323E-05     2.87830367E-03
+    -2.10970687E-03     8.66683260E-04    -1.61393195E-04     9.58118745E-05
+    -2.47250307E-06    -1.77477615E-06     6.57195977E-01    -9.74655703E-01
+     3.50284850E-01    -3.74629642E-02    -9.07200108E-01     3.46821031E-01
+     7.07384939E-02    -2.98653168E-02     8.90226325E-01     5.74918956E-02
+    -1.55719723E-01     2.56339183E-02    -3.91353901E-01    -2.93759565E-02
+     3.94026613E-02    -4.56198509E-03     7.19345777E-02    -3.01098186E-03
+    -1.05341107E-03    -1.54999834E-04     4.88175771E-01    -2.00425991E-02
+     2.08257958E-02    -1.56546559E-02     1.24462089E-03     1.16478919E-03
+     1.04900004E+00    -1.16589562E-01    -1.98476211E-02    -9.71068587E-02
+     1.40524240E-02     1.84811932E-02     9.00717831E-04     9.94751595E-03
+    -1.16418563E-03    -1.93331296E-04    -1.47113760E-01    -5.24200588E-02
+    -5.52598896E-02     4.54020170E-02    -2.21882071E-03    -1.22737342E-03
+     2.61702844E-02     6.50504430E-03    -3.71619902E-03    -2.11323029E-04
+    -1.39985256E-03     3.95907875E-04    -2.12540190E-05     3.07825842E-02
+    -2.50543378E-03     3.63945779E-02    -1.52159586E-02    -1.88954626E-02
+     4.96841590E-03     2.04455369E-04     1.59939491E-05     3.69709095E-03
+    -1.69670816E-03     1.31066262E-04     2.43337231E-05     7.47214183E-05
+    -2.79770003E-05     3.02204095E-06
+
+                      Energy (a.u.) : -14.619892027906117
+                       Error (a.u.) : 1.1550262127041414E-002
+                    Variance (a.u.) : 1.3340855520336725
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+ Done. [total CPU time: 1m18s]
+
+ Performing matrix algebra.
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 3s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 5
+ Parameters:
+ BP  6.63329847E+00     4.70865491E-01    -1.27412986E-01    -1.71024793E-01
+     4.62981884E-02    -1.13740769E+00     5.64773668E-01    -2.88965268E-02
+    -1.03472318E-02     6.51129840E-01    -2.53877251E-01     3.50662527E-02
+    -3.20530716E-03    -1.32773625E-01    -1.61818627E-03     1.40284041E-02
+    -2.65092974E-03     7.90778943E-03     1.05340042E-02    -7.21147739E-03
+     1.74344199E-03    -2.64809055E-01     6.20569053E-02     1.06445116E-01
+    -2.30968753E-02     4.69966599E-03    -2.48473027E-04     6.32159177E-02
+     3.82644411E-03     5.79153007E-03    -8.27117490E-02     2.76150905E-02
+     5.07995444E-02    -4.07834403E-03    -9.74989489E-04    -6.85862746E-04
+    -1.11405240E-02    -8.38249851E-04     1.08057054E-03     1.75021836E-04
+    -2.84988503E-03     3.99663933E-04    -8.27701765E-06     3.37494450E-02
+    -1.08726153E-02    -1.45069760E-02     4.50655770E-03    -1.56707267E-03
+     5.71745384E-04    -5.25039202E-05     2.90094107E-05     2.36992945E-03
+    -1.69749815E-03     6.82804340E-04    -1.23805805E-04     7.24027624E-05
+    -1.86509697E-06    -1.27859716E-06     6.11597763E-01    -8.86276235E-01
+     3.10385437E-01    -3.24974127E-02    -8.19609399E-01     3.07102004E-01
+     6.10920088E-02    -2.52061340E-02     7.89643869E-01     4.89232897E-02
+    -1.31817993E-01     2.11494107E-02    -3.38609060E-01    -2.49223107E-02
+     3.25151309E-02    -3.67372939E-03     6.09403047E-02    -2.47761578E-03
+    -8.47727340E-04    -1.23092383E-04     4.22852100E-01    -1.69242111E-02
+     1.76493004E-02    -1.29135369E-02     1.00790300E-03     9.19807182E-04
+     9.30695321E-01    -1.00970010E-01    -1.69605941E-02    -8.20681958E-02
+     1.16043552E-02     1.52002802E-02     7.22902652E-04     8.00973650E-03
+    -9.16224860E-04    -1.48410802E-04    -1.30279674E-01    -4.55134769E-02
+    -4.77900107E-02     3.84027330E-02    -1.83079918E-03    -9.88618783E-04
+     2.21252488E-02     5.35321437E-03    -2.99645605E-03    -1.66691054E-04
+    -1.10068484E-03     3.03951112E-04    -1.59574153E-05     2.73108265E-02
+    -2.16133444E-03     3.14703736E-02    -1.28556170E-02    -1.59739404E-02
+     4.10048155E-03     1.64926196E-04     1.26258121E-05     3.05554003E-03
+    -1.36505910E-03     1.03278870E-04     1.86512490E-05     5.77554802E-05
+    -2.09836070E-05     2.21822767E-06
+
+                      Energy (a.u.) : -14.621312234240387
+                       Error (a.u.) : 1.1619541346531478E-002
+                    Variance (a.u.) : 1.3501374110375455
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+ Done. [total CPU time: 1m19s]
+
+ Performing matrix algebra.
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 4s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 6
+ Parameters:
+ BP  6.74731737E+00     4.48521965E-01    -1.18237613E-01    -1.56845735E-01
+     4.18372065E-02    -1.06340275E+00     5.20052762E-01    -2.57100385E-02
+    -9.24421830E-03     5.96927097E-01    -2.29575619E-01     3.11295800E-02
+    -2.75059390E-03    -1.19910544E-01    -1.49519812E-03     1.22693275E-02
+    -2.13204615E-03     7.03454964E-03     9.18886588E-03    -6.21633610E-03
+     1.45463988E-03    -2.39012105E-01     5.50879166E-02     9.44928110E-02
+    -2.01507182E-02     4.02974595E-03    -2.09051982E-04     5.69490934E-02
+     3.30989446E-03     4.98444394E-03    -7.59121258E-02     2.49921625E-02
+     4.58927682E-02    -3.62126256E-03    -8.49939776E-04    -5.87850770E-04
+    -9.89677165E-03    -7.32281179E-04     9.26674929E-04     1.47536755E-04
+    -2.40346509E-03     3.31342484E-04    -6.69295359E-06     3.10199579E-02
+    -9.81635440E-03    -1.30897223E-02     3.98916057E-03    -1.39493599E-03
+     4.98622048E-04    -4.50095194E-05     2.45062142E-05     2.06425689E-03
+    -1.45504204E-03     5.76513513E-04    -1.02544901E-04     5.94114826E-05
+    -1.53123476E-06    -1.01058057E-06     5.80940552E-01    -8.28337198E-01
+     2.84882433E-01    -2.93626743E-02    -7.63000266E-01     2.81594275E-01
+     5.50763013E-02    -2.23316819E-02     7.25135936E-01     4.36816529E-02
+    -1.17077163E-01     1.84576273E-02    -3.05569418E-01    -2.21742259E-02
+     2.83685994E-02    -3.14869489E-03     5.41425266E-02    -2.16079925E-03
+    -7.26862944E-04    -1.04263360E-04     3.81805135E-01    -1.50222539E-02
+     1.56863521E-02    -1.12662232E-02     8.66335605E-04     7.78026572E-04
+     8.54837466E-01    -9.11652851E-02    -1.51910823E-02    -7.28264282E-02
+     1.01272812E-02     1.32367698E-02     6.17998567E-04     6.87021380E-03
+    -7.72866086E-04    -1.22974217E-04    -1.19543196E-01    -4.11666058E-02
+    -4.30953265E-02     3.40959767E-02    -1.59715903E-03    -8.47966573E-04
+     1.96296949E-02     4.66128795E-03    -2.57132903E-03    -1.40835662E-04
+    -9.27765010E-04     2.51919962E-04    -1.30191911E-05     2.50842246E-02
+    -1.94677575E-03     2.83838040E-02    -1.14055763E-02    -1.41773742E-02
+     3.57799042E-03     1.41620470E-04     1.06719649E-05     2.66859188E-03
+    -1.16922679E-03     8.72142520E-05     1.54420067E-05     4.80642808E-05
+    -1.71082214E-05     1.77936979E-06
+
+                      Energy (a.u.) : -14.622385186987211
+                       Error (a.u.) : 1.1688264871641112E-002
+                    Variance (a.u.) : 1.3661553570963962
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+ Done. [total CPU time: 1m25s]
+
+ Performing matrix algebra.
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 3s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 7
+ Parameters:
+ BP  6.83980416E+00     4.30988735E-01    -1.11369670E-01    -1.46367009E-01
+     3.85832943E-02    -1.00808307E+00     4.87153279E-01    -2.34053689E-02
+    -8.45369965E-03     5.56805586E-01    -2.11916487E-01     2.80477130E-02
+    -2.56728757E-03    -1.10452862E-01    -1.33655240E-03     1.09991763E-02
+    -1.83793621E-03     6.45969483E-03     8.29001059E-03    -5.49164518E-03
+     1.26375119E-03    -2.20230384E-01     5.00974325E-02     8.59324804E-02
+    -1.80647567E-02     3.56241877E-03    -1.82789254E-04     5.23831817E-02
+     2.94537732E-03     4.42424444E-03    -7.08523660E-02     2.30799647E-02
+     4.23177986E-02    -3.29393815E-03    -7.61763106E-04    -5.19736186E-04
+    -9.00434949E-03    -6.57349504E-04     8.19662426E-04     1.28720601E-04
+    -2.09765747E-03     2.85256074E-04    -5.64864625E-06     2.90067529E-02
+    -9.04722863E-03    -1.20572179E-02     3.61824948E-03    -1.27154271E-03
+     4.46925612E-04    -3.98057623E-05     2.14156967E-05     1.84834252E-03
+    -1.28644007E-03     5.03741494E-04    -8.81973392E-05     5.06246033E-05
+    -1.30956297E-06    -8.34030964E-07     5.57742158E-01    -7.84763152E-01
+     2.66017312E-01    -2.70769774E-02    -7.20085097E-01     2.62664672E-01
+     5.06933804E-02    -2.02581333E-02     6.77381472E-01     3.97980500E-02
+    -1.06508756E-01     1.65596269E-02    -2.81494658E-01    -2.02098438E-02
+     2.54391608E-02    -2.78281437E-03     4.92688384E-02    -1.93636684E-03
+    -6.42854285E-04    -9.14486467E-05     3.51922956E-01    -1.36599962E-02
+     1.42842765E-02    -1.01024425E-02     7.67883267E-04     6.81350026E-04
+     7.98762700E-01    -8.40123584E-02    -1.38756697E-02    -6.61936356E-02
+     9.08355437E-03     1.18454754E-02     5.44455615E-04     6.07769918E-03
+    -6.74728119E-04    -1.05826290E-04    -1.11612485E-01    -3.80071849E-02
+    -3.96595455E-02     3.10074011E-02    -1.43231868E-03    -7.50172934E-04
+     1.78396616E-02     4.17061397E-03    -2.27575440E-03    -1.23158090E-04
+    -8.09255821E-04     2.16815267E-04    -1.10727588E-05     2.34362855E-02
+    -1.79008139E-03     2.61325626E-02    -1.03651157E-02    -1.28880916E-02
+     3.20886954E-03     1.25437944E-04     9.34675744E-06     2.39486788E-03
+    -1.03280588E-03     7.62348834E-05     1.32801885E-05     4.15556001E-05
+    -1.45337309E-05     1.49205972E-06
+
+                      Energy (a.u.) : -14.623256358793020
+                       Error (a.u.) : 1.1745759000565650E-002
+                    Variance (a.u.) : 1.3796285449936898
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+ Done. [total CPU time: 1m24s]
+
+ Performing matrix algebra.
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 3s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 8
+ Parameters:
+ BP  6.92380093E+00     4.16011516E-01    -1.05477594E-01    -1.37556026E-01
+     3.58832929E-02    -9.60842993E-01     4.59572242E-01    -2.15068811E-02
+    -7.80191998E-03     5.23103429E-01    -1.97222725E-01     2.55287538E-02
+    -2.39349333E-03    -1.02631032E-01    -1.20237273E-03     9.99356067E-03
+    -1.56974291E-03     5.96916770E-03     7.54614806E-03    -4.92441923E-03
+     1.11048322E-03    -2.04649081E-01     4.60246964E-02     7.89060754E-02
+    -1.63784936E-02     3.18970581E-03    -1.62357783E-04     4.85919313E-02
+     2.65193776E-03     3.97467704E-03    -6.65938691E-02     2.14939514E-02
+     3.93528329E-02    -3.02706662E-03    -6.90622182E-04    -4.65425476E-04
+    -8.27370886E-03    -5.96746184E-04     7.34299198E-04     1.13909198E-04
+    -1.85665216E-03     2.49415882E-04    -4.85687738E-06     2.73159827E-02
+    -8.40912060E-03    -1.11998423E-02     3.31529719E-03    -1.17056351E-03
+     4.05094331E-04    -3.56585040E-05     1.89752732E-05     1.67388569E-03
+    -1.15214420E-03     4.46398703E-04    -7.70376708E-05     4.38525727E-05
+    -1.13898137E-06    -7.01163486E-07     5.37576505E-01    -7.47679687E-01
+     2.50160199E-01    -2.51794380E-02    -6.83528543E-01     2.46677125E-01
+     4.70478391E-02    -1.85574098E-02     6.37225126E-01     3.65621930E-02
+    -9.78497530E-02     1.50279805E-02    -2.61523735E-01    -1.86008750E-02
+     2.30715010E-02    -2.49042907E-03     4.52727108E-02    -1.75512909E-03
+    -5.76029054E-04    -8.14769544E-05     3.27134645E-01    -1.25495872E-02
+     1.31362274E-02    -9.16270589E-03     6.88808678E-04     6.05342923E-04
+     7.51649357E-01    -7.80719436E-02    -1.27853192E-02    -6.07606997E-02
+     8.23913295E-03     1.07216674E-02     4.85515222E-04     5.44612006E-03
+    -5.97417047E-04    -9.24892556E-05    -1.04959045E-01    -3.53888391E-02
+    -3.67976418E-02     2.84795859E-02    -1.29886316E-03    -6.72151621E-04
+     1.63721942E-02     3.77275549E-03    -2.03984178E-03    -1.09237196E-04
+    -7.15839287E-04     1.89512483E-04    -9.57989674E-06     2.20514792E-02
+    -1.66001097E-03     2.42632645E-02    -9.51354304E-03    -1.18317343E-02
+     2.91047853E-03     1.12545046E-04     8.30672130E-06     2.17325541E-03
+    -9.23882663E-04     6.75928048E-05     1.16001604E-05     3.64945099E-05
+    -1.25573675E-05     1.27394212E-06
+
+                      Energy (a.u.) : -14.623970352322591
+                       Error (a.u.) : 1.1797265223887203E-002
+                    Variance (a.u.) : 1.3917546676273838
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+ Done. [total CPU time: 1m17s]
+
+ Performing matrix algebra.
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 3s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 9
+ Parameters:
+ BP  7.00797589E+00     4.01648199E-01    -9.99435806E-02    -1.29357688E-01
+     3.33958750E-02    -9.16260040E-01     4.33807682E-01    -1.97958714E-02
+    -7.20031204E-03     4.91806635E-01    -1.83645329E-01     2.31942108E-02
+    -2.25518839E-03    -9.54146629E-02    -1.06053414E-03     9.08806662E-03
+    -1.34214291E-03     5.52492093E-03     6.87825908E-03    -4.41926402E-03
+     9.77355099E-04    -1.90316148E-01     4.23268649E-02     7.25112267E-02
+    -1.48636464E-02     2.85874471E-03    -1.44694733E-04     4.51134924E-02
+     2.39164853E-03     3.57232875E-03    -6.26224831E-02     2.00259232E-02
+     3.66209625E-02    -2.78468271E-03    -6.26837628E-04    -4.17291813E-04
+    -7.60840441E-03    -5.42175337E-04     6.58588289E-04     1.00935864E-04
+    -1.64531822E-03     2.18370807E-04    -4.18616255E-06     2.57402710E-02
+    -7.82169971E-03    -1.04113190E-02     3.04128565E-03    -1.07834659E-03
+     3.67530432E-04    -3.19818333E-05     1.68292032E-05     1.51755661E-03
+    -1.03315327E-03     3.96042597E-04    -6.73793198E-05     3.80513489E-05
+    -9.91751475E-07    -5.90077318E-07     5.18353186E-01    -7.12674820E-01
+     2.35393667E-01    -2.34314928E-02    -6.49194832E-01     2.31767317E-01
+     4.36877087E-02    -1.70149882E-02     5.99806670E-01     3.36116098E-02
+    -8.99683799E-02     1.36530161E-02    -2.43147208E-01    -1.71319972E-02
+     2.09453733E-02    -2.23097711E-03     4.16338452E-02    -1.59197652E-03
+    -5.16854214E-04    -7.28162535E-05     3.04324542E-01    -1.15406410E-02
+     1.20909913E-02    -8.31898848E-03     6.18382714E-04     5.38552530E-04
+     7.07755195E-01    -7.25982101E-02    -1.17944359E-02    -5.58210433E-02
+     7.48013682E-03     9.71421874E-03     4.33295798E-04     4.88590925E-03
+    -5.29616413E-04    -8.09488941E-05    -9.87756622E-02    -3.29744338E-02
+    -3.41626380E-02     2.61808908E-02    -1.17898624E-03    -6.02934623E-04
+     1.50377804E-02     3.41556908E-03    -1.83038844E-03    -9.70111626E-05
+    -6.33921155E-04     1.65868798E-04    -8.30284926E-06     2.07609403E-02
+    -1.54050806E-03     2.25439133E-02    -8.73958265E-03    -1.08710286E-02
+     2.64240934E-03     1.01092087E-04     7.39205919E-06     1.97368134E-03
+    -8.27301449E-04     6.00126467E-05     1.01470656E-05     3.21021543E-05
+    -1.08656796E-05     1.08913035E-06
+
+                      Energy (a.u.) : -14.624578433260350
+                       Error (a.u.) : 1.1849842492291532E-002
+                    Variance (a.u.) : 1.4041876709211798
+
+ Writing parameters to correlation.out.1.
+
+ Computing derivatives.
+ Done. [total CPU time: 1m16s]
+
+ Performing matrix algebra.
+ Done. [total CPU time: 0s]
+
+ Optimizing manipulation constant.
+  Succeeded.
+ Done. [total CPU time: 3s]
+
+ Optimization monitor :
+ ----------------------
+ After iteration : 10
+ Parameters:
+ BP  7.09062924E+00     3.88072293E-01    -9.48624044E-02    -1.21876512E-01
+     3.11453647E-02    -8.74948549E-01     4.10149519E-01    -1.82905012E-02
+    -6.65510196E-03     4.63275517E-01    -1.71327976E-01     2.10957350E-02
+    -2.13115056E-03    -8.88939824E-02    -9.20842999E-04     8.29527212E-03
+    -1.13844885E-03     5.12281646E-03     6.28218873E-03    -3.98281880E-03
+     8.62147724E-04    -1.77373862E-01     3.90334377E-02     6.67949015E-02
+    -1.35274680E-02     2.57028660E-03    -1.29640329E-04     4.19741831E-02
+     2.16326118E-03     3.21964099E-03    -5.89892178E-02     1.86974502E-02
+     3.41522927E-02    -2.56874974E-03    -5.70647555E-04    -3.75379468E-04
+    -7.01416307E-03    -4.93970744E-04     5.92626509E-04     8.97708702E-05
+    -1.46324300E-03     1.91948500E-04    -3.62559973E-06     2.42991648E-02
+    -7.29105422E-03    -9.69892988E-03     2.79735153E-03    -9.95874736E-04
+     3.34389975E-04    -2.87822651E-05     1.49750104E-05     1.37993773E-03
+    -9.29570363E-04     3.52631487E-04    -5.91605669E-05     3.31512748E-05
+    -8.67473586E-07    -4.98691960E-07     5.00389627E-01    -6.80264596E-01
+     2.21900674E-01    -2.18507976E-02    -6.17457292E-01     2.18126972E-01
+     4.06539882E-02    -1.56381362E-02     5.65584446E-01     3.09601615E-02
+    -8.29266024E-02     1.24416186E-02    -2.26552326E-01    -1.58174862E-02
+     1.90705919E-02    -2.00472809E-03     3.83813908E-02    -1.44787950E-03
+    -4.65360510E-04    -6.54125880E-05     2.83718122E-01    -1.06412269E-02
+     1.11562506E-02    -7.57507193E-03     5.56961847E-04     4.80911745E-04
+     6.67628645E-01    -6.76500974E-02    -1.09065565E-02    -5.14120896E-02
+     6.81033308E-03     8.82727004E-03     3.87909174E-04     4.39766482E-03
+    -4.71201583E-04    -7.11341112E-05    -9.31285132E-02    -3.07912338E-02
+    -3.17829421E-02     2.41290656E-02    -1.07320948E-03    -5.42608092E-04
+     1.38468675E-02     3.10084027E-03    -1.64774849E-03    -8.64632113E-05
+    -5.63381227E-04     1.45747849E-04    -7.22820664E-06     1.95816496E-02
+    -1.43249795E-03     2.09907936E-02    -8.04905351E-03    -1.00131101E-02
+     2.40597599E-03     9.11019736E-05     6.60146503E-06     1.79731022E-03
+    -7.43172831E-04     5.34759710E-05     8.91110689E-06     2.83523247E-05
+    -9.44249762E-06     9.35569344E-07
+
+                      Energy (a.u.) : -14.625121221488453
+                       Error (a.u.) : 1.1902452725916859E-002
+                    Variance (a.u.) : 1.4166838089268567
+
+ Writing parameters to correlation.out.1.
+
+ Exceeded maximum number of iterations.
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ ====================================
+ PERFORMING POST-FIT VMC CALCULATION.
+ ====================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  2.2579E-01
+ Done. [total CPU time: 0s]
+
+ Finding optimal inner loop length (500 additional moves).
+  Optimized vmc_decorr_period: 5
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio         (%)  =  49.7417
+ Diffusion constant  (Bohr^2)  = 3.4948E-02
+ Correlation time     (steps)  = 1.8428E+00 +- 3.2515E-01
+ Efficiency      (au^-2 s^-1)  = 1.1791E+04
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.704183235118
+  Standard error                        +/-           0.037389089984
+
+  Kinetic energy KEI (used in Total) (au) =          15.358288139838
+  Standard error                        +/-           0.651161254404
+
+  Kinetic energy TI                  (au) =          14.866629095127
+  Standard error                        +/-           0.325367804223
+
+  Kinetic energy FISQ                (au) =          14.374970050416
+  Standard error                        +/-           0.058970832096
+
+  Potential energy                   (au) =         -30.062471374956
+  Standard error                        +/-           0.647424081062
+
+  e-e interaction                    (au) =           4.359789547942
+  Standard error                        +/-           0.052414171857
+
+  e-n interaction                    (au) =         -34.422260922898
+  Standard error                        +/-           0.668628596485
+
+  Variance of local energy           (au) =           1.149459692503
+  Standard error                        +/-           0.168548419122
+
+  Maximum distance from origin       (au) =           6.942446084755
+
+  Particles affected per move       (%) :  100.0000
+
+
+ Time taken in block    : : :        0.0400
+
+
+ =========================================================================
+ In block : 2
+
+ Acceptance ratio         (%)  =  49.1250
+ Diffusion constant  (Bohr^2)  = 3.4768E-02
+ Correlation time     (steps)  = 2.9155E+00 +- 7.2983E-01
+ Efficiency      (au^-2 s^-1)  = 6.7271E+03
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.694064688499
+  Standard error                        +/-           0.035354699401
+
+  Kinetic energy KEI (used in Total) (au) =          20.598061415690
+  Standard error                        +/-           0.683326949178
+
+  Kinetic energy TI                  (au) =          17.461296833048
+  Standard error                        +/-           0.338901757779
+
+  Kinetic energy FISQ                (au) =          14.324532250406
+  Standard error                        +/-           0.047651723548
+
+  Potential energy                   (au) =         -35.292126104189
+  Standard error                        +/-           0.686096837902
+
+  e-e interaction                    (au) =           4.494090543347
+  Standard error                        +/-           0.050751549309
+
+  e-n interaction                    (au) =         -39.786216647536
+  Standard error                        +/-           0.696373097473
+
+  Variance of local energy           (au) =           1.275362564445
+  Standard error                        +/-           0.147573483957
+
+  Maximum distance from origin       (au) =           7.245140063963
+
+  Particles affected per move       (%) :  99.9688
+
+
+ Time taken in block    : : :        0.0400
+
+
+ =========================================================================
+ In block : 3
+
+ Acceptance ratio         (%)  =  49.6917
+ Diffusion constant  (Bohr^2)  = 3.3630E-02
+ Correlation time     (steps)  = 2.2765E+00 +- 5.0902E-01
+ Efficiency      (au^-2 s^-1)  = 4.5363E+03
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.565012426620
+  Standard error                        +/-           0.046215857115
+
+  Kinetic energy KEI (used in Total) (au) =          13.451454273248
+  Standard error                        +/-           0.484160361485
+
+  Kinetic energy TI                  (au) =          13.876989194373
+  Standard error                        +/-           0.245867130761
+
+  Kinetic energy FISQ                (au) =          14.302524115498
+  Standard error                        +/-           0.052179396569
+
+  Potential energy                   (au) =         -28.016466699867
+  Standard error                        +/-           0.481386520343
+
+  e-e interaction                    (au) =           4.483531911214
+  Standard error                        +/-           0.074806174785
+
+  e-n interaction                    (au) =         -32.499998611081
+  Standard error                        +/-           0.518699344167
+
+  Variance of local energy           (au) =           2.422171410708
+  Standard error                        +/-           0.622526288752
+
+  Maximum distance from origin       (au) =           8.264298254717
+
+  Particles affected per move       (%) :  99.5000
+
+
+ Time taken in block    : : :        0.0400
+
+
+ =========================================================================
+ In block : 4
+
+ Acceptance ratio         (%)  =  49.1250
+ Diffusion constant  (Bohr^2)  = 3.4715E-02
+ Correlation time     (steps)  = 3.1000E+00 +- 8.1185E-01
+ Efficiency      (au^-2 s^-1)  = 5.6107E+03
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.573853988347
+  Standard error                        +/-           0.036116879865
+
+  Kinetic energy KEI (used in Total) (au) =          12.686823926485
+  Standard error                        +/-           0.475305219764
+
+  Kinetic energy TI                  (au) =          13.540064529322
+  Standard error                        +/-           0.238981821914
+
+  Kinetic energy FISQ                (au) =          14.393305132159
+  Standard error                        +/-           0.051846311310
+
+  Potential energy                   (au) =         -27.260677914833
+  Standard error                        +/-           0.481250489071
+
+  e-e interaction                    (au) =           4.454775108798
+  Standard error                        +/-           0.056975121485
+
+  e-n interaction                    (au) =         -31.715453023631
+  Standard error                        +/-           0.502609646555
+
+  Variance of local energy           (au) =           1.435934673297
+  Standard error                        +/-           0.159011644296
+
+  Maximum distance from origin       (au) =           8.046406700583
+
+  Particles affected per move       (%) :  99.7812
+
+
+ Time taken in block    : : :        0.0400
+
+
+ =========================================================================
+ In block : 5
+
+ Acceptance ratio         (%)  =  50.6917
+ Diffusion constant  (Bohr^2)  = 3.4928E-02
+ Correlation time     (steps)  = 2.5509E+00 +- 5.3267E-01
+ Efficiency      (au^-2 s^-1)  = 5.7341E+03
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.537678301510
+  Standard error                        +/-           0.040490934268
+
+  Kinetic energy KEI (used in Total) (au) =          14.076229618722
+  Standard error                        +/-           0.472873439716
+
+  Kinetic energy TI                  (au) =          14.173029975788
+  Standard error                        +/-           0.239422583680
+
+  Kinetic energy FISQ                (au) =          14.269830332855
+  Standard error                        +/-           0.081705167182
+
+  Potential energy                   (au) =         -28.613907920232
+  Standard error                        +/-           0.470624280398
+
+  e-e interaction                    (au) =           4.400737428798
+  Standard error                        +/-           0.059370555454
+
+  e-n interaction                    (au) =         -33.014645349030
+  Standard error                        +/-           0.489714296727
+
+  Variance of local energy           (au) =           1.710104787166
+  Standard error                        +/-           0.307736598293
+
+  Maximum distance from origin       (au) =           8.151276474831
+
+  Particles affected per move       (%) :  99.8875
+
+
+ Time taken in block    : : :        0.0400
+
+
+ =========================================================================
+ In block : 6
+
+ Acceptance ratio         (%)  =  50.7083
+ Diffusion constant  (Bohr^2)  = 3.6065E-02
+ Correlation time     (steps)  = 2.6195E+00 +- 6.2207E-01
+ Efficiency      (au^-2 s^-1)  = 5.6794E+03
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.685351727354
+  Standard error                        +/-           0.035293124041
+
+  Kinetic energy KEI (used in Total) (au) =          14.668341715520
+  Standard error                        +/-           0.571970076769
+
+  Kinetic energy TI                  (au) =          14.531572268880
+  Standard error                        +/-           0.289345948397
+
+  Kinetic energy FISQ                (au) =          14.394802822239
+  Standard error                        +/-           0.082971946815
+
+  Potential energy                   (au) =         -29.353693442874
+  Standard error                        +/-           0.583587684723
+
+  e-e interaction                    (au) =           4.236821188899
+  Standard error                        +/-           0.062552513416
+
+  e-n interaction                    (au) =         -33.590514631773
+  Standard error                        +/-           0.599806016677
+
+  Variance of local energy           (au) =           1.344661447090
+  Standard error                        +/-           0.226993060613
+
+  Maximum distance from origin       (au) =          10.331361610659
+
+  Particles affected per move       (%) :  98.6750
+
+
+ Time taken in block    : : :        0.0500
+
+
+ =========================================================================
+ In block : 7
+
+ Acceptance ratio         (%)  =  50.2417
+ Diffusion constant  (Bohr^2)  = 3.6796E-02
+ Correlation time     (steps)  = 2.8449E+00 +- 7.1153E-01
+ Efficiency      (au^-2 s^-1)  = 1.3510E+04
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.684146411402
+  Standard error                        +/-           0.030249816758
+
+  Kinetic energy KEI (used in Total) (au) =          12.746267889300
+  Standard error                        +/-           0.404746825564
+
+  Kinetic energy TI                  (au) =          13.625161207327
+  Standard error                        +/-           0.219580060999
+
+  Kinetic energy FISQ                (au) =          14.504054525354
+  Standard error                        +/-           0.170319717674
+
+  Potential energy                   (au) =         -27.430414300702
+  Standard error                        +/-           0.407663789686
+
+  e-e interaction                    (au) =           4.233467729982
+  Standard error                        +/-           0.052580293256
+
+  e-n interaction                    (au) =         -31.663882030685
+  Standard error                        +/-           0.435715512806
+
+  Variance of local energy           (au) =           0.866450235977
+  Standard error                        +/-           0.089215548326
+
+  Maximum distance from origin       (au) =           7.418960875713
+
+  Particles affected per move       (%) :  99.9062
+
+
+ Time taken in block    : : :        0.0300
+
+
+ =========================================================================
+ In block : 8
+
+ Acceptance ratio         (%)  =  50.0167
+ Diffusion constant  (Bohr^2)  = 3.6339E-02
+ Correlation time     (steps)  = 2.6459E+00 +- 5.4402E-01
+ Efficiency      (au^-2 s^-1)  = 3.7672E+03
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.528401636888
+  Standard error                        +/-           0.048045374276
+
+  Kinetic energy KEI (used in Total) (au) =          12.999780485303
+  Standard error                        +/-           0.437299604420
+
+  Kinetic energy TI                  (au) =          13.709178095782
+  Standard error                        +/-           0.224657627477
+
+  Kinetic energy FISQ                (au) =          14.418575706262
+  Standard error                        +/-           0.080118878438
+
+  Potential energy                   (au) =         -27.528182122191
+  Standard error                        +/-           0.438863853576
+
+  e-e interaction                    (au) =           4.304252908786
+  Standard error                        +/-           0.065046808574
+
+  e-n interaction                    (au) =         -31.832435030977
+  Standard error                        +/-           0.465200643570
+
+  Variance of local energy           (au) =           2.006985462462
+  Standard error                        +/-           0.577018206439
+
+  Maximum distance from origin       (au) =           6.882557189188
+
+  Particles affected per move       (%) :  100.0000
+
+
+ Time taken in block    : : :        0.0500
+
+
+ =========================================================================
+ In block : 9
+
+ Acceptance ratio         (%)  =  50.5917
+ Diffusion constant  (Bohr^2)  = 3.5558E-02
+ Correlation time     (steps)  = 2.8407E+00 +- 8.2061E-01
+ Efficiency      (au^-2 s^-1)  = 8.1689E+03
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.698719925033
+  Standard error                        +/-           0.029733129171
+
+  Kinetic energy KEI (used in Total) (au) =          17.715261060658
+  Standard error                        +/-           0.519602303712
+
+  Kinetic energy TI                  (au) =          16.592739913494
+  Standard error                        +/-           0.543117501160
+
+  Kinetic energy FISQ                (au) =          15.470218766330
+  Standard error                        +/-           1.019311117362
+
+  Potential energy                   (au) =         -32.413980985690
+  Standard error                        +/-           0.524010903013
+
+  e-e interaction                    (au) =           4.279648119500
+  Standard error                        +/-           0.049159074251
+
+  e-n interaction                    (au) =         -36.693629105190
+  Standard error                        +/-           0.546144428377
+
+  Variance of local energy           (au) =           1.077915904148
+  Standard error                        +/-           0.346196673752
+
+  Maximum distance from origin       (au) =           7.540843833847
+
+  Particles affected per move       (%) :  99.9437
+
+
+ Time taken in block    : : :        0.0400
+
+
+ =========================================================================
+ In block : 10
+
+ Acceptance ratio         (%)  =  50.8750
+ Diffusion constant  (Bohr^2)  = 3.4386E-02
+ Correlation time     (steps)  = 2.3384E+00 +- 4.6473E-01
+ Efficiency      (au^-2 s^-1)  = 1.2998E+04
+ No. of VMC steps per process  = 125
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.748545942507
+  Standard error                        +/-           0.029758621198
+
+  Kinetic energy KEI (used in Total) (au) =          11.980983672648
+  Standard error                        +/-           0.448239395671
+
+  Kinetic energy TI                  (au) =          13.235911071858
+  Standard error                        +/-           0.222985039954
+
+  Kinetic energy FISQ                (au) =          14.490838471067
+  Standard error                        +/-           0.102542685353
+
+  Potential energy                   (au) =         -26.729529615155
+  Standard error                        +/-           0.464692220225
+
+  e-e interaction                    (au) =           4.157922393485
+  Standard error                        +/-           0.042341337803
+
+  e-n interaction                    (au) =         -30.887452008640
+  Standard error                        +/-           0.467332954512
+
+  Variance of local energy           (au) =           0.821668889611
+  Standard error                        +/-           0.077240226045
+
+  Maximum distance from origin       (au) =           9.241777405681
+
+  Particles affected per move       (%) :  99.4188
+
+
+ Time taken in block    : : :        0.0400
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -14.641995828328 +/- 0.011837649002      No correction
+ -14.641995828328 +/- 0.019078566353      Correlation time method
+ -14.641995828328 +/- 0.020730782244      On-the-fly reblocking method
+
+ Bad reblock convergence - probably not enough data samples.
+
+ Dumping reblock data for energy:
+      mean:    -14.641995828328 +/-       0.020730782244
+    stderr:      0.020730782244 +/-       0.002376030641
+    errfac:      1.731210252217 +/-       0.198420327676
+    N_corr:      2.997088937381 +/-       0.687014611043
+   ------------------------------------------------------
+    Block len      Std error   Err in error
+            1   1.197473E-02   2.395905E-04
+            2   1.436803E-02   4.067148E-04
+            4   1.703547E-02   6.825117E-04
+            8   1.971135E-02   1.118628E-03
+           16   2.104156E-02   1.694203E-03
+           32   2.073078E-02   2.376031E-03  *** BEST ***
+           64   2.087362E-02   3.428707E-03
+          128   2.316547E-02   5.532669E-03
+          256   2.956652E-02   1.060992E-02
+          512   3.145680E-02   1.852705E-02
+   ------------------------------------------------------
+
+  Sample variance of E_L (au^2/sim.cell) : 1.411071506741 +- 0.160337973663
+
+ =========================================================================
+
+
+ Total CASINO CPU time  : : :      840.7700
+ Total CASINO real time : : :      916.5610
+
+
+ Subroutine timers deactivated (use TIMING_INFO input keyword)
+
+ =========================================================================
+ Ends 2021/04/13 22:07:58.469
+
+Job finished: Вт 13 апр 2021 22:07:58 +07

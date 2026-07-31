@@ -13,11 +13,13 @@ import numpy as np
 import scipy as sp
 from mpi4py import MPI
 from scipy.optimize import OptimizeWarning, curve_fit, least_squares, minimize
+from scipy.special import erfinv
 from statsmodels.tsa.stattools import pacf
 
 from .backflow import Backflow
 from .cusp import CuspFactory
 from .dmc import DMC
+from .geminal import Geminal
 from .gjastrow import Gjastrow
 from .jastrow import Jastrow
 from .ppotential import PPotential
@@ -57,29 +59,31 @@ logo = f"""
 """
 
 
-logging.basicConfig(level=logging.INFO, filename='pycasino.log', filemode='w', format='%(message)s')
 logger = logging.getLogger(__name__)
 
 mpi_comm = MPI.COMM_WORLD
-
-logger.info(logo)
-if MPI.COMM_WORLD.size > 1:
-    logger.info(' Running in parallel using %i MPI processes.\n', MPI.COMM_WORLD.size)
-else:
-    logger.info(' Sequential run: not using MPI.\n')
-    logger.info(' Using %i OpenMP threads on %s threading layer.\n', nb.config.NUMBA_NUM_THREADS, nb.config.THREADING_LAYER)
-
 double_size = MPI.DOUBLE.Get_size()
 
-if MPI.COMM_WORLD.rank == 0:
-    # to redirect scipy.optimize stdout to log-file
-    from casino.loggers import StreamToLogger
 
-    sys.stdout = StreamToLogger(logger, logging.INFO)
-    # sys.stderr = StreamToLogger(self.logger, logging.ERROR)
-else:
-    logger.addHandler(logging.NullHandler())
-    logger.propagate = False
+def configure_logging():
+    # pycasino.log is written to the current directory, as correlation.out.* are
+    logging.basicConfig(level=logging.INFO, filename='pycasino.log', filemode='w', format='%(message)s')
+    logger.info(logo)
+    if MPI.COMM_WORLD.size > 1:
+        logger.info(' Running in parallel using %i MPI processes.\n', MPI.COMM_WORLD.size)
+    else:
+        logger.info(' Sequential run: not using MPI.\n')
+        logger.info(' Using %i OpenMP threads on %s threading layer.\n', nb.config.NUMBA_NUM_THREADS, nb.config.THREADING_LAYER)
+
+    if MPI.COMM_WORLD.rank == 0:
+        # to redirect scipy.optimize stdout to log-file
+        from casino.loggers import StreamToLogger
+
+        sys.stdout = StreamToLogger(logger, logging.INFO)
+        # sys.stderr = StreamToLogger(self.logger, logging.ERROR)
+    else:
+        logger.addHandler(logging.NullHandler())
+        logger.propagate = False
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -182,6 +186,11 @@ class Casino:
 
         slater = Slater(self.config, cusp)
 
+        if self.config.geminal:
+            geminal = Geminal(self.config)
+        else:
+            geminal = None
+
         jastrow = None
         if self.config.jastrow:
             if self.config.input.use_jastrow:
@@ -194,7 +203,7 @@ class Casino:
         else:
             backflow = None
 
-        self.wfn = Wfn(self.config, slater, jastrow, backflow, ppotential)
+        self.wfn = Wfn(self.config, slater, geminal, jastrow, backflow, ppotential)
 
         self.vmc = VMC(
             self.initial_position(self.config.wfn.atom_positions, self.config.wfn.atom_charges),
@@ -202,6 +211,7 @@ class Casino:
             self.wfn,
             self.config.input.vmc_method,
         )
+        self.auto_decorr_period = 3
 
     def initial_position(self, atom_positions, atom_charges):
         """Initial positions of electrons."""
@@ -223,24 +233,48 @@ class Casino:
             # determinant-by-determinant sampling
             return 1 / (self.neu + self.ned)
         elif self.config.input.vmc_method == 3:
-            # CBCS
-            return 1 / (self.neu + self.ned)
+            # CBCS. A uniform displacement by ts gives Var(ln(psi'**2/psi**2)) = 8/3 * ts**2 * <T>,
+            # and detailed balance pins the mean of that log ratio to minus half its variance, so a
+            # gaussian one is accepted with probability 2 * Phi(-sigma/2) and the 50% point sits at
+            # ts * sqrt(<T>) = sqrt(3) * erfinv(1/2). Everything else is <T> = |E| by the virial
+            # theorem, estimated by the Thomas-Fermi expansion with its Scott and Dirac terms and
+            # summed over the nuclei, which reproduces the Hartree-Fock energies to 1.8% with no
+            # free constant. That sum must not be rewritten through the electron count, which
+            # equals sum(Z) only for a neutral system: doing so misses by 27% on Be(2+). The
+            # gaussian assumption is the remaining error, and it falls off with the number of
+            # nuclei sharing <T>, since |grad ln psi| ~ Z at a nucleus puts the tails in the cusps
+            # and leaves outer shells contributing almost nothing. 0.9% rms over the seventeen
+            # systems in examples/time_step/CBCS, atoms, ions, hydrides and hydrocarbons alike.
+            atom_charges = self.config.wfn.atom_charges
+            kinetic_energy = (0.7687 * atom_charges ** (7 / 3) - 0.5 * atom_charges**2 + 0.2699 * atom_charges ** (5 / 3)).sum()
+            nuclei = (atom_charges ** (7 / 3)).sum() ** 2 / (atom_charges ** (14 / 3)).sum()
+            return np.sqrt(3) * erfinv(1 / 2) * (1 + 0.045 / nuclei) / np.sqrt(kinetic_energy)
         else:
             # wrong method
             return 0
 
-    def vmc_step_graph(self):
+    def acceptance_ratio(self, steps):
+        """Probability of accepting a move at the current step size."""
+        position = self.vmc.random_walk(steps, 1)
+        moved = np.isfinite(position[:, 0, 0]).mean()
+        if self.config.input.vmc_method == 1:
+            # EBES marks a step accepted if at least one of the electrons moved, so the
+            # per-electron probability is recovered by inverting 1 - (1 - acceptance)**electrons
+            return 1 - (1 - moved) ** (1 / (self.neu + self.ned))
+        else:
+            return moved
+
+    def vmc_step_graph(self, steps=1000000):
         """Acceptance probability vs step size to plot a graph."""
         n = 5
-        approximate_step_size = self.approximate_step_size
+        electrons = self.neu + self.ned
         for x in range(4 * n):
-            self.vmc.step_size = approximate_step_size * (x + 1) / n
-            position = self.vmc.random_walk(1000000, 1)
-            acc_ration = (np.isfinite(position[:, 0, 0])).mean()
-            acc_ration /= self.neu + self.ned
-            logger.info(
-                'step_size / approximate_step_size  = %.5f, acc_ratio = %.5f', self.vmc.step_size / approximate_step_size, acc_ration
-            )
+            # the grid is fixed in units of step_size * electrons, deliberately not in units of
+            # approximate_step_size: every file in examples/time_step then shares one grid, and the
+            # graphs stay unnormalized by the very law they are measured to establish
+            scaled_step_size = (x + 1) / n
+            self.vmc.step_size = scaled_step_size / electrons
+            logger.info('step_size * electrons  = %.5f, acc_ratio = %.5f', scaled_step_size, self.acceptance_ratio(steps))
 
     def optimize_vmc_step(self, steps):
         """Optimize vmc step size."""
@@ -249,11 +283,7 @@ class Casino:
         step_size = self.approximate_step_size
         for i in range(1, xdata.size):
             self.vmc.step_size = step_size * xdata[i]
-            position = self.vmc.random_walk(steps, 1)
-            acc_ration = (np.isfinite(position[:, 0, 0])).mean()
-            if self.config.input.vmc_method == 1:
-                acc_ration /= self.neu + self.ned
-            ydata[i] = mpi_comm.allreduce(acc_ration) / mpi_comm.size
+            ydata[i] = mpi_comm.allreduce(self.acceptance_ratio(steps)) / mpi_comm.size
 
         def f(ts, a, ts0):
             """Dependence of the acceptance probability on the step size in CBCS case looks like:
@@ -283,9 +313,30 @@ class Casino:
     def decorr_period(self):
         """Decorr period"""
         if self.config.input.vmc_decorr_period == 0:
-            return 3
+            return self.auto_decorr_period
         else:
             return self.config.input.vmc_decorr_period
+
+    def optimize_decorr_period(self, correlation, time_move, time_energy):
+        """Optimize decorr period to maximize the efficiency of the run, i.e. to minimize the
+        product of the residual correlation time and the wall time spent per stored configuration.
+        :param correlation: correlation time of the series already thinned by the current decorr period
+        :param time_move: wall time of one configuration move
+        :param time_energy: wall time of one stored configuration apart from the moves
+        """
+        if np.isfinite(correlation) and correlation > 1:
+            # a Metropolis walk decorrelates exponentially, so thinning by d turns rho into rho**d.
+            # Inverting that recovers the correlation of the unthinned walk from the production
+            # block itself, which is orders of magnitude longer than any dedicated calibration run.
+            rho = ((correlation - 1) / (correlation + 1)) ** (1 / self.decorr_period)
+            period = np.arange(1, 101)
+            thinned = (1 + rho**period) / (1 - rho**period)
+            self.auto_decorr_period = int(period[np.argmin(thinned * (period * time_move + time_energy))])
+        else:
+            self.auto_decorr_period = 1
+        logger.info(
+            f' Optimized vmc_decorr_period: {self.auto_decorr_period}\n'
+        )  # fmt: skip
 
     def run(self):
         """Run Casino workflow."""
@@ -420,7 +471,11 @@ class Casino:
         for i in range(nblock):
             block_start = default_timer()
             position = self.vmc.random_walk(nblock_steps, self.decorr_period)
+            walk_stop = default_timer()
             energy[mpi_comm.rank, i] = self.vmc.observable(self.wfn.energy, position)
+            # timings of the last block only, so that JIT compilation of the first one is left out
+            time_move = (walk_stop - block_start) / (nblock_steps * self.decorr_period)
+            time_energy = (default_timer() - walk_stop) / nblock_steps
             # wait until all processes have written to the array
             mpi_comm.Barrier()
             if self.root:
@@ -458,6 +513,9 @@ class Casino:
                 f' {energy_mean:.12f} +/- {energy_sem:.12f}      On-the-fly reblocking method\n\n'
                 f' Sample variance of E_L (au^2/sim.cell) : {energy.var():.12f}\n\n'
             )
+            if self.config.input.vmc_decorr_period == 0:
+                self.optimize_decorr_period((energy_sem / energy_std) ** 2, time_move, time_energy)
+        self.auto_decorr_period = mpi_comm.bcast(self.auto_decorr_period)
         energy_buffer.Free()
         return position
 
@@ -622,7 +680,7 @@ class Casino:
         energy_gradient_buffer.Free()
         mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
-        logger.info(f'Norm of Jacobian at the solution: {norm:.5e}\n')
+        logger.info(f' Norm of Jacobian at the solution: {norm:.5e}\n')
 
     def vmc_reweighted_variance_minimization(self, steps, verbose=2):
         """Minimize vmc reweighted variance.
@@ -747,7 +805,7 @@ class Casino:
         energy_gradient_buffer.Free()
         mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
-        logger.info(f'Norm of Jacobian at the solution: {norm:.5e}\n')
+        logger.info(f' Norm of Jacobian at the solution: {norm:.5e}\n')
 
     @staticmethod
     def energy_parameters_gradient(data):
@@ -860,7 +918,7 @@ class Casino:
         # Desired error not necessarily achieved due to precision loss.
         # https://github.com/scipy/scipy/issues/15643
         res = minimize(fun, x0=x0 / scale, method=method, jac=jac, hess=hess, callback=callback, options=options)
-        logger.info(f'Norm of Jacobian at the solution: {np.linalg.norm(res.jac):.5e}\n')
+        logger.info(f' Norm of Jacobian at the solution: {np.linalg.norm(res.jac):.5e}\n')
         parameters = res.x * scale
         mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
@@ -882,12 +940,21 @@ class Casino:
         One can introduce following approximation of S and H:
             S = extended_wfn_gradient.T @ extended_wfn_gradient
             H = extended_wfn_gradient.T @ diag(energy) @ extended_wfn_gradient - extended_wfn_gradient.T @ extended_energy_gradient
+        The method is stabilized by 'level-shifting', i.e. by adding a positive constant L to the diagonal of H except
+        for its first element. As L grows, Δp shrinks and rotates from the Newtonian direction to the steepest descent
+        one. Once the shift dominates, Δp falls off as 1/L, so the smallest L keeping every parameter variation within
+        the trust radius is found by bisection, which only solves the eigenvalue problem and costs nothing, unlike a
+        correlated sampling pass. The four shifts starting from that one are then
+        compared by the target function energy + 3 * error, estimated by correlated sampling on the very same set of
+        configurations, so that no extra random walk is needed. Δp = 0 always takes part in the comparison, hence a
+        cycle can never make the target function worse. Eigenvalues below emin_min_energy are discarded, as poor
+        candidate wave functions produce spurious low energies.
         :param steps: number of configs
         """
-        invert_S = False
         steps = steps // mpi_comm.size * mpi_comm.size
         start, stop = mpi_comm.rank * steps // mpi_comm.size, (mpi_comm.rank + 1) * steps // mpi_comm.size
         x0 = self.wfn.get_parameters()
+        parameters_scale = self.wfn.get_parameters_scale()
         if x0.all():
             self.wfn.set_parameters(x0)
         else:
@@ -903,11 +970,18 @@ class Casino:
             ' Optimization start\n'
             ' =================='
         )  # fmt: skip
-        self.wfn.set_parameters_projector()
         energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
         # create energy numpy array whose data points to the shared buffer
         buffer, _ = energy_buffer.Shared_query(rank=0)
         energy = np.ndarray(buffer=buffer, shape=(steps,))
+        wfn_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
+        # create wfn numpy array whose data points to the shared buffer
+        buffer, _ = wfn_buffer.Shared_query(rank=0)
+        wfn = np.ndarray(buffer=buffer, shape=(steps,))
+        wfn_0_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
+        # create wfn_0 numpy array whose data points to the shared buffer
+        buffer, _ = wfn_0_buffer.Shared_query(rank=0)
+        wfn_0 = np.ndarray(buffer=buffer, shape=(steps,))
         wfn_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=mpi_comm)
         # create wfn_gradient numpy array whose data points to the shared buffer
         buffer, _ = wfn_gradient_buffer.Shared_query(rank=0)
@@ -916,77 +990,180 @@ class Casino:
         # create energy_gradient numpy array whose data points to the shared buffer
         buffer, _ = energy_gradient_buffer.Shared_query(rank=0)
         energy_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
+        # wfn_0 is the wave function the configurations are distributed with, so it is sampled before anything else
+        wfn_0[start:stop] = self.vmc.observable(self.wfn.value, position)
         energy[start:stop] = self.vmc.observable(self.wfn.energy, position)
+        self.wfn.set_parameters_projector()
         wfn_gradient[start:stop] = self.vmc.observable(self.wfn.value_parameters_d1, position)
         if self.config.input.opt_fixnl:
             energy_gradient[start:stop] = self.vmc.observable(self.wfn.kinetic_energy_parameters_d1, position)
         else:
             energy_gradient[start:stop] = self.vmc.observable(self.wfn.energy_parameters_d1, position)
         mpi_comm.Barrier()
-        dp = np.empty_like(x0)
-        if self.root:
-            energy_mean = np.mean(energy)
-            stabilization = np.mean(correlated_sem(energy.reshape(mpi_comm.size, steps // mpi_comm.size))) / np.sqrt(mpi_comm.size)
-            logger.info(f'Hamiltonian stabilization: {stabilization:.8f}')
-            wfn_gradient -= np.mean(wfn_gradient, axis=0)
-            energy_gradient -= np.mean(energy_gradient, axis=0)
-            if invert_S:
-                scale = 1
-                S_inv_H = S_inv_H_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
-                S_inv_H[1:, 1:] += stabilization * np.eye(x0.size)
-                eigvals, eigvectors = sp.linalg.eig(S_inv_H)
+        energy_mean = np.mean(energy)
+        energy_std = np.std(energy)
+        # thinning by decorr_period does not decorrelate the configurations completely, so the naive error is
+        # optimistic. Measured on the very sample the target function is estimated on, which needs no reference
+        # to the preceding VMC block and stays valid for the first optimization cycle.
+        correlation = correlated_sem(energy) * np.sqrt(steps - 1) / energy_std
+        if self.config.input.emin_min_energy is None:
+            # local energy distributions of two wave functions for the same system usually overlap significantly
+            min_energy = energy_mean - 4 * energy_std
+        else:
+            min_energy = self.config.input.emin_min_energy
+        var_prefactor = self.config.input.emin_var_prefactor
+        xi = self.config.input.emin_xi_value
+        # Trust radius: largest absolute parameter variation allowed. It only places the scan window, whose
+        # other end is a step small enough to change nothing. Measured on He, Be and N, a variation above 0.3
+        # already costs several mHa, so scanning from 0.2 down wastes no correlated sampling pass.
+        dp_max = 0.2
+
+        def penalty(variance, weights):
+            """Penalty added to the mean energy to keep the target function universal across systems.
+            By default it is 3 times the error of the correlated sampling estimate, whose effective sample size
+            (sum(w))**2 / sum(w**2) punishes candidates the configurations are no longer representative of.
+            Serial correlation is independent of the weights, so the two corrections multiply.
+            """
+            if var_prefactor > 0:
+                return var_prefactor * np.sqrt(variance)
             else:
+                return 3 * correlation * np.sqrt(variance * (weights**2).sum()) / weights.sum()
+
+        def target(dp):
+            """Correlated sampling estimate of the target function for parameters x0 + dp.
+            Reuses the energy buffer, so it must not be called before H is built.
+            """
+            self.wfn.set_parameters(x0 + dp)
+            wfn[start:stop] = self.vmc.observable(self.wfn.value, position)
+            energy[start:stop] = self.vmc.observable(self.wfn.energy, position)
+            mpi_comm.Barrier()
+            weights = (wfn / wfn_0) ** 2
+            # a candidate far enough from the current wave function makes exp(J) over- or underflow
+            if not np.isfinite(weights).all() or not weights.sum() > 0:
+                return np.nan, np.nan
+            mean = np.average(energy, weights=weights)
+            variance = np.average((energy - mean) ** 2, weights=weights)
+            return mean, penalty(variance, weights)
+
+        def trigger_target(dp):
+            mpi_comm.bcast(('target', dp))
+            return target(dp)
+
+        if self.root:
+            try:
+                wfn_gradient -= np.mean(wfn_gradient, axis=0)
+                energy_gradient -= np.mean(energy_gradient, axis=0)
+                # parameters the wave function does not depend on for this sample would make S singular
+                active = np.std(wfn_gradient, axis=0) > 0
                 # rescale parameters so that S becomes the Pearson correlation matrix
-                scale = 1 / np.std(wfn_gradient, axis=0)
-                # FIXME: remove zero scale
-                S = overlap_matrix(wfn_gradient * scale)
-                H = hamiltonian_matrix(wfn_gradient * scale, energy, energy_gradient * scale)
-                if False:
-                    v0 = np.var(energy)
-                    energy_variance_gradient = (
-                        energy_gradient.T @ energy
-                        - 2 * wfn_gradient.T @ energy * energy_mean
-                        + wfn_gradient.T @ energy ** 2
-                    ) / energy.size * scale
-                    energy_variance_hessian = np.outer(
-                        wfn_gradient.T @ energy / energy.size * scale,
-                        wfn_gradient.T @ energy / energy.size * scale
-                    ) + S[:1, :1] * v0
-                    H += 0.05 * hamiltonian_v_matrix(v0, energy_variance_gradient, energy_variance_hessian)
+                scale = 1 / np.std(wfn_gradient[:, active], axis=0)
+                S = overlap_matrix(wfn_gradient[:, active] * scale)
+                H = hamiltonian_matrix(wfn_gradient[:, active] * scale, energy, energy_gradient[:, active] * scale)
                 # logger.info(f'epsilon:\n{np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]}')
-                H[1:, 1:] += stabilization * np.eye(x0.size)
-                eigvals, eigvectors = sp.linalg.eig(H, S)
-            # since imaginary parts only arise from statistical noise, discard them
-            eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
-            idx = np.abs(eigvectors[0]).argmax()
-            eigval, eigvector = eigvals[idx], eigvectors[:, idx]
-            logger.info(f'E_0 {energy_mean:.8f} E_lin {eigval:.8f} dE {eigval - energy_mean:.8f}')
-            logger.info(f'eigvector[0] {np.abs(eigvector[0]):.8f}')
-            # from "Implementation of the Linear Method for the optimization of Jastrow-Feenberg
-            # and Backflow Correlations" M. Motta, G. Bertaina, D. E. Galli, E. Vitali using (24)
-            # and eigvector is normalized solutions of H · Δp = E(p) * S · Δp
-            # and (1, Δp_i) = eigvector/eigvector[0] is properly rescaled Δp_i
-            # and 1 / (1 + Q) = eigvector[0] ** 2 then
-            # in case ξ = 0; Δp_i = eigvector[1:] * eigvector[0]
-            # in case ξ = 1; Δp_i = eigvector[1:] / eigvector[0]
-            if not x0.all():
-                self.wfn.set_parameters(x0)
-            xi = self.config.input.emin_xi_value
-            Q = (1 / eigvector[0] ** 2) - 1
-            denominator = 1 + (1 - xi) * Q / (1 - xi + xi * np.sqrt(1 + Q))
-            dp = eigvector[1:] / eigvector[0] / denominator * scale
+                level_shift = np.eye(S.shape[0])
+                level_shift[0, 0] = 0
+
+                def solve(shift):
+                    """Δp of the generalized eigenvalue problem stabilized by a level shift."""
+                    eigvals, eigvectors = sp.linalg.eig(H + shift * level_shift, S)
+                    # since imaginary parts only arise from statistical noise, discard them
+                    eigvals, eigvectors = np.real(eigvals), np.real(eigvectors)
+                    allowed = np.flatnonzero(eigvals > min_energy)
+                    if not allowed.size:
+                        return np.nan, np.full_like(x0, np.inf)
+                    idx = allowed[np.abs(eigvectors[0, allowed]).argmax()]
+                    eigval, eigvector = eigvals[idx], eigvectors[:, idx]
+                    # from "Implementation of the Linear Method for the optimization of Jastrow-Feenberg
+                    # and Backflow Correlations" M. Motta, G. Bertaina, D. E. Galli, E. Vitali using (24)
+                    # and eigvector is normalized solutions of H · Δp = E(p) * S · Δp
+                    # and (1, Δp_i) = eigvector/eigvector[0] is properly rescaled Δp_i
+                    # in case ξ = 0; Δp_i = eigvector[1:] * eigvector[0]
+                    # in case ξ = 1; Δp_i = eigvector[1:] / eigvector[0]
+                    dp = eigvector[1:] / eigvector[0]
+                    Q = dp @ S[1:, 1:] @ dp
+                    dp /= 1 + (1 - xi) * Q / (1 - xi + xi * np.sqrt(1 + Q))
+                    res = np.zeros_like(x0)
+                    res[active] = dp * scale
+                    if not np.isfinite(res).all():
+                        return np.nan, np.full_like(x0, np.inf)
+                    return eigval, res
+
+                if not x0.all():
+                    self.wfn.set_parameters(x0)
+                logger.info(
+                    f' E_0 {energy_mean:.8f} minimal allowed energy {min_energy:.8f}'
+                    f' serial correlation factor {correlation:.2f}'
+                )  # fmt: skip
+                # Once the shift dominates, Δp falls off as 1/L, so the smallest shift keeping every parameter
+                # variation within the trust radius is found by bisection. The measure is not monotonic where the
+                # shift is negligible and the selected root switches, but it is far above dp_max there. Only the
+                # eigenvalue problem is solved here, which costs nothing next to a correlated sampling pass.
+                lo, hi = -8.0, 8.0
+                if np.max(np.abs(solve(10**lo)[1])) < dp_max:
+                    # a converged wave function stays within the radius however small the shift is
+                    hi = lo
+                    bound = False
+                else:
+                    for _ in range(20):
+                        mid = (lo + hi) / 2
+                        if np.max(np.abs(solve(10**mid)[1])) < dp_max:
+                            hi = mid
+                        else:
+                            lo = mid
+                    bound = True
+                logger.info(f' Trust radius max |delta p| < {dp_max} reached at level shift {10**hi:.2e}')
+                # the L -> inf limit, i.e. Δp = 0, is the candidate every other one is compared with
+                best_penalty = penalty(energy_std**2, np.ones(steps))
+                best_shift, best_dp, best_target = np.inf, np.zeros_like(x0), energy_mean + best_penalty
+                logger.info(f' level shift        inf  E_corr {energy_mean:.8f}  penalty {best_penalty:.8f}  target {best_target:.8f}')
+                shifts = 10.0 ** (hi + np.arange(4))
+                for shift in shifts:
+                    eigval, dp = solve(shift)
+                    if np.isnan(eigval):
+                        logger.info(f' level shift {shift:.2e}  no eigenvalue above the minimal allowed energy')
+                        continue
+                    logger.info(
+                        f' level shift {shift:.2e}  E_lin {eigval:.8f}'
+                        f'  max |delta p| {np.max(np.abs(dp)):.4e}  max |delta p / scale| {np.max(np.abs(dp / parameters_scale)):.4e}'
+                    )  # fmt: skip
+                    mean, pen = trigger_target(dp)
+                    if not np.isfinite(mean) or mean < min_energy:
+                        logger.info(f'                       E_corr {mean:.8f}  rejected')
+                        continue
+                    logger.info(f'                       E_corr {mean:.8f}  penalty {pen:.8f}  target {mean + pen:.8f}')
+                    if mean + pen < best_target:
+                        best_shift, best_dp, best_target = shift, dp, mean + pen
+                if best_shift == shifts[0] and bound:
+                    logger.info(' Best level shift is the smallest scanned one, the trust radius may be too large')
+                elif best_shift == shifts[-1]:
+                    logger.info(' Best level shift is the largest scanned one, the optimum may lie above the scan')
+            finally:
+                # the other ranks wait in bcast, so they must be released even if anything above raises
+                mpi_comm.bcast(('break', None))
+            logger.info(f' Chosen level shift {best_shift:.2e}, target {best_target:.8f}')
+            dp = best_dp
+        else:
+            while True:
+                command, value = mpi_comm.bcast(None)
+                if command == 'target':
+                    target(value)
+                if command == 'break':
+                    break
+            dp = np.zeros_like(x0)
 
         mpi_comm.Bcast(dp)
         if x0.all():
-            logger.info(f'delta p / p\n{dp / x0}\n')
+            logger.info(f' delta p / p\n{dp / x0}\n')
         else:
-            logger.info(f'delta p\n{dp}\n')
+            logger.info(f' delta p\n{dp}\n')
         self.wfn.set_parameters(x0 + dp)
         energy_buffer.Free()
+        wfn_buffer.Free()
+        wfn_0_buffer.Free()
         wfn_gradient_buffer.Free()
         energy_gradient_buffer.Free()
 
-    def vmc_energy_minimization_stochastic_reconfiguration(self, steps, opt_jastrow, opt_backflow, opt_det_coeff):
+    def vmc_energy_minimization_stochastic_reconfiguration(self, steps):
         """Minimize vmc energy by stochastic reconfiguration.
         Stochastic Reconfiguration (SR) is a second-order optimization method. Instead of manipulating the gradients according to
         their history, the SR algorithm manipulates the gradients according to the curvature of the energy landscape. It can
@@ -1088,6 +1265,7 @@ def main():
     args = parser.parse_args()
 
     if os.path.exists(os.path.join(args.config_path, 'input')):
+        configure_logging()
         Casino(args.config_path).run()
     else:
         print(f'File {args.config_path}input not found...')

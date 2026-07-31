@@ -5,6 +5,7 @@ from numba.extending import overload_method
 
 from casino.abstract import AbstractWfn
 from casino.backflow import Backflow_t
+from casino.geminal import Geminal_t
 from casino.jastrow import Jastrow_t
 from casino.overload import block_diag
 from casino.ppotential import PPotential_t
@@ -90,7 +91,10 @@ def wfn_value(self, r_e):
             res *= np.exp(self.jastrow.value(e_vectors, n_vectors))
         if self.backflow is not None:
             n_vectors += self.backflow.value(e_vectors, n_vectors)
-        res *= self.slater.value(n_vectors)
+        if self.geminal is not None:
+            res *= self.geminal.value(n_vectors)
+        else:
+            res *= self.slater.value(n_vectors)
         return res
 
     return impl
@@ -108,7 +112,12 @@ def wfn_drift_velocity(self, r_e):
         e_vectors, n_vectors = self._relative_coordinates(r_e)
         if self.backflow is not None:
             b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
-            s_g = self.slater.gradient(b_v + n_vectors) @ b_g
+            if self.geminal is not None:
+                s_g = self.geminal.gradient(b_v + n_vectors) @ b_g
+            else:
+                s_g = self.slater.gradient(b_v + n_vectors) @ b_g
+        elif self.geminal is not None:
+            s_g = self.geminal.gradient(n_vectors)
         else:
             s_g = self.slater.gradient(n_vectors)
         if self.jastrow is not None:
@@ -214,6 +223,9 @@ def wfn_kinetic_energy(self, r_e):
             s_h, s_g = self.slater.hessian(b_v + n_vectors)
             s_l = np.sum(b_g * (s_h @ b_g)) + s_g @ b_l
             s_g = s_g @ b_g
+        elif self.geminal is not None:
+            s_g = self.geminal.gradient(n_vectors)
+            s_l = self.geminal.laplacian(n_vectors)
         else:
             s_g = self.slater.gradient(n_vectors)
             s_l = self.slater.laplacian(n_vectors)
@@ -419,6 +431,7 @@ Wfn_t = Wfn_class_t(
         ('atom_charges', nb.float64[::1]),
         ('nuclear_repulsion', nb.float64),
         ('slater', Slater_t),
+        ('geminal', nb.optional(Geminal_t)),
         ('jastrow', nb.optional(Jastrow_t)),
         ('backflow', nb.optional(Backflow_t)),
         ('ppotential', nb.optional(PPotential_t)),
@@ -431,9 +444,9 @@ Wfn_t = Wfn_class_t(
 
 
 class Wfn(structref.StructRefProxy, AbstractWfn):
-    def __new__(cls, config, slater, jastrow, backflow, ppotential):
+    def __new__(cls, config, slater, geminal=None, jastrow=None, backflow=None, ppotential=None):
         @nb.njit(nogil=True, parallel=False, cache=True)
-        def init(neu, ned, atom_positions, atom_charges, slater, jastrow, backflow, ppotential):
+        def init(neu, ned, atom_positions, atom_charges, slater, geminal, jastrow, backflow, ppotential):
             """Wave function in general form.
             :param neu: number of up electrons
             :param ned: number of down electrons
@@ -451,6 +464,7 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
             self.atom_charges = atom_charges
             self.nuclear_repulsion = self._get_nuclear_repulsion()
             self.slater = slater
+            self.geminal = geminal
             self.jastrow = jastrow
             self.backflow = backflow
             self.ppotential = ppotential
@@ -460,7 +474,9 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
             self.opt_det_coeff = False
             return self
 
-        return init(config.input.neu, config.input.ned, config.wfn.atom_positions, config.wfn.atom_charges, slater, jastrow, backflow, ppotential)
+        return init(
+            config.input.neu, config.input.ned, config.wfn.atom_positions, config.wfn.atom_charges, slater, geminal, jastrow, backflow, ppotential
+        )
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def _relative_coordinates(self, r_e):
