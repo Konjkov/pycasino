@@ -97,6 +97,33 @@ def vmc_random_walk(self, steps, decorr_period):
     return impl
 
 
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(VMC_class_t, 'log_ratio_walk')
+def vmc_log_ratio_walk(self, steps):
+    """Metropolis-Hastings random walk in configuration-by-configuration sampling, recording
+    ln(psi'**2/psi**2) for every proposed move. That is the quantity the VMC step size sum rule
+    is a statement about, and measuring it directly separates the sum rule, which is exact, from
+    the gaussian shape assumed for it, which is not.
+    :param steps: number of steps to walk
+    :return: ndarray of log ratios
+    """
+
+    def impl(self, steps):
+        self.probability_density = self.wfn.value(self.r_e) ** 2
+        log_ratio = np.empty(shape=(steps,))
+        ne = self.wfn.neu + self.wfn.ned
+        for i in range(steps):
+            next_r_e = self.r_e + self.step_size * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
+            next_probability_density = self.wfn.value(next_r_e) ** 2
+            ratio = next_probability_density / self.probability_density
+            log_ratio[i] = np.log(ratio)
+            if ratio > np.random.random():
+                self.r_e, self.probability_density = next_r_e, next_probability_density
+        return log_ratio
+
+    return impl
+
+
 VMC_t = VMC_class_t(
     [
         ('r_e', nb.float64[:, ::1]),
@@ -159,6 +186,10 @@ class VMC(structref.StructRefProxy):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def random_walk(self, steps, decorr_period):
         return self.random_walk(steps, decorr_period)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def log_ratio_walk(self, steps):
+        return self.log_ratio_walk(steps)
 
     @staticmethod
     def observable(observable, position):

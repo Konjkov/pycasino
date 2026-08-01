@@ -123,6 +123,7 @@ class Input:
         # Cusp correction keywords
         self.read_bool('cusp_correction', self.atom_basis_type == 'gaussian')
         self.read_float('cusp_threshold', 1e-7)
+        self.read_float('cusp_control', 50.0)
         self.read_bool('cusp_info', False)
         # Pseudopotential keywords
         self.read_int('non_local_grid', 4)

@@ -551,6 +551,16 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
         return self.kinetic_energy(r_e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
+    def drift_kinetic_energy(self, r_e) -> float:
+        """Kinetic energy in drift form, F@F/2. Has the same mean as kinetic_energy by parts,
+        and a variance smaller by two orders of magnitude, being bounded where the laplacian
+        form is not. This is the one the VMC step size sum rule contains.
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        F = self.drift_velocity(r_e)
+        return F @ F / 2
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def value(self, r_e) -> float:
         """Value of wave function.
         :param r_e: electron coordinates - array(nelec, 3)
