@@ -17,8 +17,11 @@ Three sampling modes are named by ``vmc_method``, of which two are implemented:
   :ref:`Not implemented <vmc-dbds>`, and selecting it silently freezes the walk;
 - **CBCS** (``vmc_method : 3``) — all electrons are moved at once, single accept/reject.
 
-The single free parameter of the walk is the step size ``dtvmc``, written :math:`\tau` in the
-formulas below. It is too small when
+The single free parameter of the walk is the step size, set by ``dtvmc``. The formulas below are
+written in :math:`\tau`, the half-width of the cube Pycasino proposes from, which is not the same
+number: ``dtvmc`` is the variance of one displacement component, so :math:`\mathtt{dtvmc} =
+\tau^2/3`, and :ref:`the convention <vmc-dtvmc>` is what makes the step comparable between codes.
+The step is too small when
 successive configurations are strongly correlated and too large when almost every move is
 rejected, and the efficiency of the walk is flat enough between those extremes that any
 acceptance from roughly 30 % to 70 % costs little [23]_; ``opt_dtvmc : T`` tunes it to 50 % in
@@ -116,8 +119,7 @@ reduces to the density ratio alone:
 
     \begin{aligned}
     a(\mathbf{R} \to \mathbf{R}') &= \min(1, e^X) \\
-    X &= \ln\frac{|\Psi(\mathbf{R}')|^2}{|\Psi(\mathbf{R})|^2}
-       = 2\left[\Lambda(\mathbf{R}') - \Lambda(\mathbf{R})\right]
+    X = \ln\frac{|\Psi(\mathbf{R}')|^2}{|\Psi(\mathbf{R})|^2} &= 2\left[\Lambda(\mathbf{R}') - \Lambda(\mathbf{R})\right]
     \end{aligned}
 
 Everything reduces to the statistics of the single scalar :math:`X`. The mean acceptance is a
@@ -320,6 +322,8 @@ conventions — a uniform cube rather than a Gaussian proposal, a 50 % target, a
 units. Nor is there any reason for it to equal one, the prefactor being dimensional,
 :math:`[\tau] = \sqrt{1/\mathrm{energy}}`.
 
+.. _vmc-dtvmc:
+
 Only the second moment of the proposal enters the sum rule, so the shape of the proposal drops
 out once the step size is quoted as that moment. This is what ``dtvmc`` is: Casino draws each
 component from a Gaussian of variance ``dtvmc``, Pycasino from a cube of half-width
@@ -377,8 +381,9 @@ expansion already sits on *neutral* lithium and beryllium, :math:`-3.6\,\%` and
 being 2 to 4 % low at :math:`Z` of 3 and 4. That is also why it is not used here: the residual
 it exposes is the one that was cancelling against it, so nothing is gained in :math:`\tau`,
 while the price is a numerical solution of the Thomas–Fermi equation and a per-atom partition
-of the electron count that a molecular ion does not admit. Writing
-:math:`T_a` for the share of :math:`\langle T \rangle` carried by nucleus :math:`a`, the
+of the electron count that a molecular ion does not admit.
+
+Writing :math:`T_a` for the share of :math:`\langle T \rangle` carried by nucleus :math:`a`, the
 remaining correction is expressed through its participation ratio,
 
 .. math::
@@ -420,7 +425,8 @@ Perfection does not remove the fluctuation the interchange discards; it prescrib
 What the interchange needs is not an accurate wave function but a featureless one,
 :math:`\mathrm{Var}(T_D) = 0`, a log-density of constant slope, and it is again the exact wave
 function that forbids it. The Kato cusp fixes :math:`|\nabla_i\Lambda| \to Z_a` as electron
-:math:`i` reaches nucleus :math:`a`, the asymptotic decay :math:`\Psi \sim e^{-\sqrt{2I}\,r}`
+:math:`i` reaches nucleus :math:`a`, the asymptotic decay :math:`\Psi \sim e^{-\sqrt{2I}\,r}`,
+with :math:`I` the ionization energy the departing electron leaves against,
 fixes it at :math:`\sqrt{2I}` far out, so each electron's share of :math:`T_D` swings between
 :math:`Z_a^2/2` and :math:`I` — on neon, 50 against 0.79 — whatever is done to the ansatz. The
 correction below is therefore a property of the system and not a defect of the trial function,
@@ -499,13 +505,15 @@ order unity, where a second-order expansion in :math:`v` no longer applies. A si
 constant absorbs :math:`\mathbb{E}_\mathbf{R}[uv]`, :math:`\mathbb{E}_\mathbf{R}[v^2]` and the
 truncation of the series alike.
 
-The interchange is avoidable in principle. The exact acceptance is the average of a known
-function of two quantities that are already evaluated at every configuration, so accumulating
-:math:`T_M` and :math:`T_D` over the equilibration walk — which runs at :math:`|\Psi|^2`
-*before* the step is optimized — and solving :math:`A(\tau) = 1/2` numerically would
-remove the Thomas–Fermi estimate, the virial theorem and the fitted constant together, and
-would account for the Jastrow factor, backflow, ions and pseudopotentials for free, since the
-function actually being sampled is the one being measured.
+.. admonition:: The interchange is avoidable in principle
+
+   The exact acceptance is the average of a known function of two quantities that are already
+   evaluated at every configuration, so accumulating :math:`T_M` and :math:`T_D` over the
+   equilibration walk — which runs at :math:`|\Psi|^2` *before* the step is optimized — and
+   solving :math:`A(\tau) = 1/2` numerically would remove the Thomas–Fermi estimate, the virial
+   theorem and the fitted constant together, and would account for the Jastrow factor, backflow,
+   ions and pseudopotentials for free, since the function actually being sampled is the one being
+   measured.
 
 .. _vmc-validity:
 
@@ -703,9 +711,31 @@ Averaging over the uniform choice of electron as well gives
 
 The EBES step is therefore set by the kinetic energy *per electron*, an intensive quantity: at
 fixed composition it does not depend on the size of the system, and for neutral atoms it
-scales as :math:`Z^{-2/3}`. Point 3 of the previous section becomes decisive, however —
-:math:`X` is a sum of three terms, the central limit theorem does not apply, and the Gaussian
-form of :math:`g` cannot be used at all.
+scales as :math:`Z^{-2/3}`. Point 3 of the previous section applies in its sharpest form,
+however: :math:`X` is a sum of three terms, not :math:`3N_e`, so there is no limit for the
+central limit theorem to be taken in, and the effective count is smaller still — the drift of a
+single electron near a nucleus is nearly radial, which drives
+:math:`n_\mathrm{eff} = (\sum_k F_k^2)^2 / \sum_k F_k^4` from 3 towards 1, where :math:`X` is
+one scaled uniform variable with bounded support and excess kurtosis :math:`-6/5`.
+
+How much that costs depends entirely on where the acceptance is being asked for. The exact
+:math:`\alpha` for the cube is available without any appeal to the theorem, :math:`X` being a
+weighted Irwin–Hall variable whose density is piecewise quadratic, against which
+:math:`\int \min(1,e^x)` integrates in closed form. Solved that way, the step the cube requires
+differs from the Gaussian answer by :math:`+3.0\,\%` at :math:`n_\mathrm{eff} = 1` and under
+:math:`0.5\,\%` at 2 or 3 — at the 50 % target. The bodies of two symmetric distributions of
+equal variance agree, and the 50 % point sees only the body. The tails are another matter: at a
+1 % target the same comparison reads :math:`-15.8\,\%`, :math:`-7.5\,\%` and
+:math:`-3.7\,\%`, and the Gaussian form put at :math:`n_\mathrm{eff} = 1` predicts an
+acceptance of 0.0007 where the truth is 0.01. So the Gaussian form remains serviceable for
+setting the step and fails as a description of the acceptance curve away from it.
+
+The clean repair is to stop proposing from a cube. A sum of Gaussians is Gaussian whatever the
+number of summands, so a Gaussian displacement makes :math:`X` exactly normal at leading order
+in EBES, with none of this reasoning needed; the bounded support that recommends the cube
+elsewhere buys nothing when three components move.
+:meth:`casino.vmc.VMC.random_step` dispatches the proposal by method, so the substitution is
+local to one function.
 
 .. _vmc-dbds:
 
@@ -722,7 +752,8 @@ two implemented modes: EBES with a block size of one electron, CBCS with a block
 and returns ``False`` for anything else, so the walker never moves and the run silently
 produces the initial configuration repeated ``vmc_nstep`` times.
 :ref:`approximate_step_size <vmc-approximate-step-size>` nevertheless still has a live branch
-for it, returning :math:`1/N_e`, which makes the mode look supported.
+for it, returning the :math:`\sqrt{2}` of the sum rule below, which makes the mode look
+supported.
 
 Casino removed its own Method 2 as well: it "did not offer any advantage over the other
 methods and was hard to support", and the one feature worth keeping — using acceptance
@@ -843,7 +874,9 @@ the same statement.
     :ref:`approximate_step_size <vmc-approximate-step-size>` carries as
     :math:`1 + 0.045/n_\mathrm{nuc}`, expressed in the same units, so the file offers the number
     to be fitted rather than an energy to be converted into one; the value in the 50 % row is
-    that constant measured on that system.
+    that constant measured on that system. In :ref:`EBES <vmc-ebes>` the denominator carries
+    :math:`\sqrt{N_e}` besides, the sum rule of a one-electron move seeing the kinetic energy per
+    electron.
 
 ``sum_rule``
     :math:`\mathrm{Var}(X) \big/ \frac{8}{3}\tau^2\langle T\rangle`, the sum rule by itself. It
