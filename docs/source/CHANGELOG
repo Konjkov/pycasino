@@ -12,6 +12,12 @@ v 0.4.0 (in progress)
     * AGP/geminal wave function (``psi_s : geminal``): casino/geminal.py, GEMINAL block
       reader for parameters.casl, and the pfaffian design doc (Milestone 1); the
       Hartree-Fock default geminal reproduces the Slater determinant
+    * wfn.drift_kinetic_energy, the drift form F@F/2 of the kinetic energy, and its section in
+      wfn.rst. Unbiased for the same expectation value as wfn.kinetic_energy by parts and differing
+      only in variance, the pair being what Casino reports as FISQ and KEI. Neither dominates:
+      Var(KEI)/Var(FISQ) measures 199 on He, 0.2 on Ne and 0.03 on pseudo-carbon. It is the
+      estimator the VMC step size sum rule contains, and it was already computed inside
+      kinetic_energy and merely not returned
     * slater.tressian_dot method returning third derivatives pre-contracted with the
       backflow Jacobian, and its documentation in slater.rst
     * Quick start guide and MPI parallelisation page in documentation
@@ -104,6 +110,42 @@ v 0.4.0 (in progress)
       the old guess spread it over 0.61 to 1.86 and left molecules against the edge of the scanned
       range. The electron count deliberately does not appear: it equals sum(Z) only for a neutral
       system, and substituting it costs 27% on Be(2+)
+    * optimize_vmc_step no longer scans eleven step sizes and fits them to an empirical
+      two-parameter curve. Since sigma is proportional to the step size, one measurement fixes the
+      whole curve: inverting the gaussian acceptance law at the measured A and reading it back at
+      1/2 gives ts <- ts * Phi^-1(3/4) / Phi^-1(1 - A/2), whose fixed point is A = 1/2 for any monotone
+      acceptance curve, so the law sets only the rate of convergence and the map cannot converge to
+      the wrong step size where the gaussian fails. Replayed on the curves in
+      examples/time_step/CBCS it takes a 40% error to 2%, then 0.2%, then 0.02%. Three iterations
+      are used, starting from the current step size rather than resetting to the initial guess, so
+      a re-optimization after a wave-function update is a single correction, and the curve_fit
+      failure path is gone
+    * vmc_step_graph now places its points equally in acceptance rather than in step size, nineteen
+      targets from 0.95 to 0.05 through the same inverse, anchored on the 50% point the optimizer
+      has just measured. A grid in step size spends most of its points in the saturated tails, where
+      the acceptance says nothing about the 50% point, and spends them at system-dependent places.
+      Step sizes are still written out in atomic units, and each point also reports the kinetic
+      energy the law implies there, 3/(8*ts^2) * (2*Phi^-1(1 - A/2))^2, which is flat across the
+      grid exactly when the law holds. Its level is fixed by <T>, which the same run now measures
+      on the same walk and writes into the header, so each file is self-contained and the column
+      divided by that value is comparable between systems
+    * Initial time step for pseudopotentials: Thomas-Fermi is a semiclassical theory of many
+      electrons and overshoots fourfold on pseudo-carbon, 13.2 against a measured 3.3, by placing
+      the four valence electrons in a 1s shell. Those are hydrogenic instead,
+      Z_v*(0.65*Z_v + 0.35)^2 / (2*n^2) per pseudoatom with the principal number of the row and
+      Slater screening by the other valence electrons: exact on hydrogen and 10 to 50% high across
+      the second row. The virial theorem does not survive a pseudopotential either, <T>/abs(E_val)
+      running from 0.62 on carbon to 0.81 on neon, but the sum rule itself does: over the 184
+      all-electron and 72 pseudopotential CBCS runs under examples, dtvmc*KEI is constant at
+      0.261 and 0.293 against a gaussian 0.227475, over a factor of 1160 in <T>
+    * The nuclei participation ratio is now taken over the kinetic energy shares themselves,
+      sum(T_a)^2 / sum(T_a^2), which is the same number to 0.03% for all-electron systems and
+      extends to pseudoatoms
+    * EBES and DBDS initial time steps now follow from their own sum rule, sqrt(N) and sqrt(2)
+      times the CBCS one, instead of 1/log(max(Z)) and 1/N. The EBES factor is the gaussian one and
+      its central limit theorem fails over three terms, so the guess is knowingly off by the
+      non-gaussian correction; optimize_vmc_step supplies it, its fixed point not depending on the
+      model
     * Speed up backflow optimization: kinetic_energy_parameters_d1 uses slater.tressian_dot
       to avoid materializing the (3N)³ tressian tensor, vectorized bf_d1 loop and
       fused reduction loop in backflow_laplacian_parameters_d1

@@ -89,11 +89,21 @@ and its environment) [12]_.
 Choice of the correction radius
 -------------------------------
 
-The maximum possible cusp correction radius is :math:`r_{c,\max} = 1/Z`. The actual
-:math:`r_c` for each orbital and nucleus is set to the largest radius less than
+The maximum possible cusp correction radius is :math:`r_{c,\max} = 1/Z`, further reduced to
+:math:`0.9\,d/Z` when the nearest-neighbour distance :math:`d` is smaller than 1 bohr. The
+actual :math:`r_c` for each orbital and nucleus is set to the largest radius less than
 :math:`r_{c,\max}` at which the deviation of the effective one-electron local energy of the
 uncorrected orbital from the ideal curve exceeds :math:`Z^2/c_c`, where :math:`c_c` is a
-universal parameter with a default value of 50 [12]_.
+universal parameter with a default value of 50 [12]_. It is then semi-optimized by varying it
+by :math:`\pm 20\%` in nine steps and keeping the value which, together with its own optimum
+:math:`\tilde{\phi}(0)`, minimises the maximum deviation from the ideal curve.
+
+Both searches are carried out on a radial grid of spacing 0.0005 bohr, on which the nodes of
+the s-part are also located by bisection. The local energy of the uncorrected orbital diverges
+at a node, so grid points within 0.02 bohr of a node take no part in the fit, and :math:`r_c`
+is moved inwards if it falls in such a region. Whenever a node remains inside :math:`r_c`, the
+shift is set to twice the extremum of the s-part over the grid, which is what makes
+:math:`\tilde{\phi} - C` of one sign there; otherwise :math:`C = 0`.
 
 Enabling cusp correction
 ------------------------

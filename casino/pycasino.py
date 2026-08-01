@@ -4,7 +4,6 @@ import importlib.metadata
 import logging
 import os
 import sys
-import warnings
 from timeit import default_timer
 
 import matplotlib.pyplot as plt
@@ -12,8 +11,8 @@ import numba as nb
 import numpy as np
 import scipy as sp
 from mpi4py import MPI
-from scipy.optimize import OptimizeWarning, curve_fit, least_squares, minimize
-from scipy.special import erfinv
+from scipy.optimize import least_squares, minimize
+from scipy.special import erfinv, ndtri
 from statsmodels.tsa.stattools import pacf
 
 from .backflow import Backflow
@@ -224,34 +223,57 @@ class Casino:
         return r_e + np.random.uniform(-1, 1, ne * 3).reshape(ne, 3)
 
     @property
+    def atom_kinetic_energy(self):
+        """Share of <T> carried by each nucleus, before any sampling has been done."""
+        atom_charges = self.config.wfn.atom_charges
+        is_pseudoatom = self.config.wfn.is_pseudoatom
+        # all-electron atom: <T> = |E| by the virial theorem, which holds whatever the net charge,
+        # and the Thomas-Fermi expansion with its Scott and Dirac terms reproduces the Hartree-Fock
+        # energies to 1.8% with no free constant. Neutrality is assumed by that expansion and not
+        # by the virial theorem, so it must not be rewritten through the electron count: that would
+        # leave Be(2+) 80% low in <T>. Fed the nuclear charge it returns the neutral atom of the
+        # same nucleus instead, 1.0% low on Li(+) and 4.7% high on Be(2+).
+        charge = atom_charges[~is_pseudoatom]
+        all_electron = 0.7687 * charge ** (7 / 3) - 0.5 * charge**2 + 0.2699 * charge ** (5 / 3)
+        # pseudoatom: Thomas-Fermi is a semiclassical theory of many electrons and has nothing to
+        # say about the handful of valence ones a pseudopotential leaves behind, applied to the
+        # pseudo charge it overshoots fourfold on carbon. Those are hydrogenic instead, carrying
+        # zeta**2/(2 * n**2) each, with the principal number of the row and Slater screening by
+        # the other valence electrons. Exact on hydrogen and 11 to 55% high across the second row,
+        # a pseudo-orbital being smoother than the hydrogenic one it is modelled on.
+        charge = atom_charges[is_pseudoatom]
+        row = np.searchsorted([2, 10, 18, 36, 54, 86], self.config.wfn.atom_numbers[is_pseudoatom]) + 1
+        pseudo = charge * (0.65 * charge + 0.35) ** 2 / (2 * row**2)
+        return np.append(all_electron, pseudo)
+
+    @property
     def approximate_step_size(self):
-        """Approximation to VMC step size."""
+        """Approximation to VMC step size. A uniform displacement by ts gives
+        Var(ln(psi'**2/psi**2)) = 8/3 * ts**2 * <T>, and detailed balance pins the mean of that log
+        ratio to minus half its variance, so a gaussian one is accepted with probability
+        2 * Phi(-sigma/2) and the 50% point sits at ts * sqrt(<T>) = sqrt(3) * erfinv(1/2).
+        """
+        atom_kinetic_energy = self.atom_kinetic_energy
+        if atom_kinetic_energy.size == 0:
+            # no nuclei to take a scale from
+            return 1.0
+        # the gaussian assumption is the remaining error, and it falls off with the number of
+        # nuclei sharing <T>, since |grad ln psi| ~ Z at a nucleus puts the tails in the cusps and
+        # leaves outer shells contributing almost nothing. The participation ratio is 1 for a
+        # single heavy atom and the number of equivalent nuclei for a symmetric molecule, and never
+        # divides by zero for a hydrogen-only system. 0.9% rms over the seventeen systems in
+        # examples/time_step/CBCS, atoms, ions, hydrides and hydrocarbons alike.
+        nuclei = atom_kinetic_energy.sum() ** 2 / (atom_kinetic_energy**2).sum()
+        step_size = np.sqrt(3) * erfinv(1 / 2) * (1 + 0.045 / nuclei) / np.sqrt(atom_kinetic_energy.sum())
         if self.config.input.vmc_method == 1:
-            # EBES
-            return 1 / np.log(np.max(self.config.wfn.atom_charges))
+            # EBES moves one electron, so its share of the sum rule is <T> over their number. The
+            # non-gaussian correction that a three term sum needs is left to optimize_vmc_step.
+            return step_size * np.sqrt(self.neu + self.ned)
         elif self.config.input.vmc_method == 2:
-            # determinant-by-determinant sampling
-            return 1 / (self.neu + self.ned)
-        elif self.config.input.vmc_method == 3:
-            # CBCS. A uniform displacement by ts gives Var(ln(psi'**2/psi**2)) = 8/3 * ts**2 * <T>,
-            # and detailed balance pins the mean of that log ratio to minus half its variance, so a
-            # gaussian one is accepted with probability 2 * Phi(-sigma/2) and the 50% point sits at
-            # ts * sqrt(<T>) = sqrt(3) * erfinv(1/2). Everything else is <T> = |E| by the virial
-            # theorem, estimated by the Thomas-Fermi expansion with its Scott and Dirac terms and
-            # summed over the nuclei, which reproduces the Hartree-Fock energies to 1.8% with no
-            # free constant. That sum must not be rewritten through the electron count, which
-            # equals sum(Z) only for a neutral system: doing so misses by 27% on Be(2+). The
-            # gaussian assumption is the remaining error, and it falls off with the number of
-            # nuclei sharing <T>, since |grad ln psi| ~ Z at a nucleus puts the tails in the cusps
-            # and leaves outer shells contributing almost nothing. 0.9% rms over the seventeen
-            # systems in examples/time_step/CBCS, atoms, ions, hydrides and hydrocarbons alike.
-            atom_charges = self.config.wfn.atom_charges
-            kinetic_energy = (0.7687 * atom_charges ** (7 / 3) - 0.5 * atom_charges**2 + 0.2699 * atom_charges ** (5 / 3)).sum()
-            nuclei = (atom_charges ** (7 / 3)).sum() ** 2 / (atom_charges ** (14 / 3)).sum()
-            return np.sqrt(3) * erfinv(1 / 2) * (1 + 0.045 / nuclei) / np.sqrt(kinetic_energy)
+            # DBDS moves one spin determinant, which carries half of <T> in a closed shell
+            return step_size * np.sqrt(2)
         else:
-            # wrong method
-            return 0
+            return step_size
 
     def acceptance_ratio(self, steps):
         """Probability of accepting a move at the current step size."""
@@ -265,49 +287,92 @@ class Casino:
             return moved
 
     def vmc_step_graph(self, steps=1000000):
-        """Acceptance probability vs step size to plot a graph."""
-        n = 5
-        electrons = self.neu + self.ned
-        for x in range(4 * n):
-            # the grid is fixed in units of step_size * electrons, deliberately not in units of
-            # approximate_step_size: every file in examples/time_step then shares one grid, and the
-            # graphs stay unnormalized by the very law they are measured to establish
-            scaled_step_size = (x + 1) / n
-            self.vmc.step_size = scaled_step_size / electrons
-            logger.info('step_size * electrons  = %.5f, acc_ratio = %.5f', scaled_step_size, self.acceptance_ratio(steps))
+        """Acceptance probability and the moments behind it vs step size to plot a graph.
+        The acceptance alone measures the sum rule and the gaussian shape assumed for the log
+        probability density ratio at once and cannot separate them. The moments of that ratio can:
+        the sum rule is exact in leading order and says nothing about shape, while detailed balance
+        fixes two of its moments whatever the shape is, so each column tests one statement on its
+        own. They come from the same walk, so there is nothing to reconcile between them.
+        """
+        # the informative part of the curve is where the acceptance moves: a grid in step size
+        # spends most of its points in the saturated tails, and where it spends them depends on the
+        # system, so nothing is comparable between files. Placing the points equally in acceptance
+        # instead, through the inverse of the law being measured, gives every system the same grid
+        # in the only variable that law knows about, and the step sizes are still written out in
+        # atomic units, so the data stay unnormalized by the law they are measured to establish.
+        approximate_step_size = self.approximate_step_size
+        self.optimize_vmc_step(steps // 10)
+        step_size_50 = self.vmc.step_size
+        if self.config.input.vmc_method == 1:
+            # EBES moves one electron, so its share of the sum rule is <T> over their number
+            electrons = self.neu + self.ned
+        else:
+            electrons = 1
+        # <T> of the very wave function being sampled, so that the file is self-contained: it sets
+        # the scale the correction column below is measured against, and is the only thing that
+        # makes that column comparable between systems. Both estimators are reported because they
+        # have the same mean by parts and wildly different variances, so their agreement is the
+        # check that the walk is long enough; the drift form is the reference, the laplacian is KEI.
+        position = self.vmc.random_walk(steps, self.decorr_period)
+        laplacian_form = self.vmc.observable(self.wfn.kinetic_energy, position)
+        drift_form = self.vmc.observable(self.wfn.drift_kinetic_energy, position)
+        kinetic_energy = drift_form.mean()
+        logger.info(
+            f' electrons = {self.neu + self.ned}\n'
+            f' approximate step size = {approximate_step_size:.5f}\n'
+            f' optimized step size = {step_size_50:.5f}\n'
+            f' kinetic energy = {kinetic_energy:.5f} +/- {drift_form.std() / np.sqrt(drift_form.size):.5f}\n'
+            f' kinetic energy KEI = {laplacian_form.mean():.5f} +/- {laplacian_form.std() / np.sqrt(laplacian_form.size):.5f}\n'
+            f' step_size   target  acc_ratio  correction  sum_rule  gaussian  exp_mean  kurtosis'
+        )  # fmt: skip
+        for target in np.linspace(0.95, 0.05, 19):
+            self.vmc.step_size = step_size_50 * ndtri(1 - target / 2) / ndtri(3 / 4)
+            x = self.vmc.log_ratio_walk(steps)
+            variance = x.var()
+            # the probability a proposal is accepted, averaged over the proposals themselves rather
+            # than counted from the coin flips that follow, which has the same mean and less noise
+            acceptance = np.minimum(np.exp(x), 1).mean()
+            # the step size that produced the acceptance actually measured, against the one the law
+            # would set for it. This is the factor approximate_step_size carries as 1 + 0.045 /
+            # nuclei, in the same units, so the file gives the number to fit rather than an energy
+            # to convert, and its value at the 50% target is that constant measured on this system
+            law = ndtri(1 - acceptance / 2) * np.sqrt(3 * electrons / (2 * kinetic_energy))
+            correction = self.vmc.step_size / law
+            # the sum rule alone, with no assumption about the shape of the distribution: it is
+            # one wherever Var(x) = 8/3 * step_size**2 * <T> holds, and its departure at large
+            # step size is the O(step_size**2) term the leading order leaves out
+            sum_rule = 3 * variance / (8 * self.vmc.step_size**2 * kinetic_energy)
+            # gaussianity, independent of the acceptance: <exp(x)> = 1 exactly for a stationary
+            # walk with a symmetric proposal, and it forces <x> = -Var(x)/2 only if x is gaussian
+            gaussian = x.mean() + variance / 2
+            logger.info(
+                '%10.5f %8.2f %10.5f %11.5f %9.5f %9.5f %9.5f %9.3f',
+                self.vmc.step_size,
+                target,
+                acceptance,
+                correction,
+                sum_rule,
+                gaussian,
+                np.exp(x).mean(),
+                ((x - x.mean()) ** 4).mean() / variance**2 - 3,
+            )
 
     def optimize_vmc_step(self, steps):
-        """Optimize vmc step size."""
-        xdata = np.linspace(0, 2, 11)
-        ydata = np.ones_like(xdata)
-        step_size = self.approximate_step_size
-        for i in range(1, xdata.size):
-            self.vmc.step_size = step_size * xdata[i]
-            ydata[i] = mpi_comm.allreduce(self.acceptance_ratio(steps)) / mpi_comm.size
-
-        def f(ts, a, ts0):
-            """Dependence of the acceptance probability on the step size in CBCS case looks like:
-            p(ts) = (exp(a/ts0) - 1)/(exp(a/ts0) + exp(ts/ts0) - 2)
-            :param ts: step_size
-            :param a: step_size for 50% acceptance probability
-            :param ts0: scale factor
-            :return: acceptance probability
-            """
-            return (np.exp(a / ts0) - 1) / (np.exp(a / ts0) + np.exp(ts / ts0) - 2)
-
+        """Optimize vmc step size to 50% acceptance.
+        A measurement at one step size already fixes the whole curve: sigma is proportional to the
+        step size by the sum rule, so inverting the gaussian acceptance law A = 2 * Phi(-sigma/2)
+        at the measured A and reading it back at 1/2 lands on the target in a single shot whenever
+        that law is exact. Its fixed point is A = 1/2 for any monotone acceptance curve, the law
+        setting only the rate of convergence, so it cannot converge to the wrong answer where the
+        gaussian fails. Measured on examples/time_step/CBCS the map takes a 40% error to 2%, then
+        to 0.2%, then to 0.02%: three iterations cost a third of the eleven point scan they replace
+        and are limited by the noise of the acceptance rather than by the model.
+        """
         logger.info(' Performing time-step optimization.')
-        if self.root:
-            warnings.simplefilter('error', OptimizeWarning)
-            try:
-                popt, pcov = curve_fit(f, xdata, ydata)
-                step_size *= popt[0]
-            except OptimizeWarning:
-                logger.info(
-                    f' time-step optimization failed for.\n'
-                    f' ydata: {ydata}\n'
-                    f' set step size to approximate'
-                )  # fmt: skip
-        self.vmc.step_size = mpi_comm.bcast(step_size)
+        for _ in range(3):
+            # a rank that accepts everything or nothing carries no scale of its own
+            acceptance = np.clip(mpi_comm.allreduce(self.acceptance_ratio(steps)) / mpi_comm.size, 0.05, 0.95)
+            self.vmc.step_size *= ndtri(3 / 4) / ndtri(1 - acceptance / 2)
 
     @property
     def decorr_period(self):
@@ -445,8 +510,10 @@ class Casino:
         if self.config.input.opt_dtvmc == 0:
             self.vmc.step_size = np.sqrt(3 * self.config.input.dtvmc)
         elif self.config.input.opt_dtvmc == 1:
-            # to achieve an acceptance ratio of (roughly) 50% (EBES default).
-            self.optimize_vmc_step(1000)
+            # to achieve an acceptance ratio of (roughly) 50% (EBES default). Three iterations of
+            # 3000 steps cost less than the ten of 1000 they replace, and the noise of the last
+            # acceptance is what is left over, 2.33 of it reaching the step size
+            self.optimize_vmc_step(3000)
         elif self.config.input.opt_dtvmc == 2:
             # to maximize the diffusion constant with respect to dtvmc (CBCS default).
             raise NotImplementedError
