@@ -23,7 +23,9 @@
 # path="gwfn/Kr/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/O3/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/B2H6/HF/cc-pVQZ/${method}/${operation}/"
+# path="gwfn/CH4/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/C2H2/HF/cc-pVQZ/${method}/${operation}/"
+# path="gwfn/C4H4/HF/cc-pVQZ/${method}/${operation}/"
 
 # PP="HF"
 # PP="DF"
