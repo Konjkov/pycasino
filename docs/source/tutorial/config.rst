@@ -99,6 +99,7 @@ Cusp correction keywords
 - **CUSP_CORRECTION** - when the cusp correction flag is activated, the s-type Gaussian basis functions centred on each atom are replaced within a small sphere by a function which ensures that the electron–nucleus cusp condition is obeyed
 - **CUSP_INFO** - if set then information about how cusp correction is done will be printed to the log-file
 - **CUSP_THRESHOLD** - if the magnitude of the s-component of a Gaussian orbital is less than this threshold then it will not be cusp corrected
+- **CUSP_CONTROL** - the cusp radius is the largest radius at which the deviation of the local energy from the ideal curve exceeds :math:`Z^2/\text{CUSP\_CONTROL}` (default 50.0)
 
 Pseudopotential keywords
 ~~~~~~~~~~~~~~~~~~~~~~~~

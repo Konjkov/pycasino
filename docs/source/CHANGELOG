@@ -52,6 +52,20 @@ v 0.4.0 (in progress)
       target function worse, and eigenvalues below EMIN_MIN_ENERGY are discarded as spurious.
       New keywords EMIN_MIN_ENERGY and EMIN_VAR_PREFACTOR
 * Fixes
+    * The cusp correction radius was fixed at 1/Z instead of being searched for. On C2H2 that put
+      r_c of the carbon 3sigma_g orbital right next to a node of the s-part, where phi'(r_c)/phi(r_c)
+      diverges, and the quartic fit blew up: VMC gave +374.46 instead of -76.85 au with a sample
+      variance of 77953. The Casino search is now implemented: the largest radius below r_c,max at
+      which the deviation from the ideal curve exceeds Z^2/CUSP_CONTROL, semi-optimized by +/-20%
+      in nine steps, on a 0.0005 bohr grid with nodes located by bisection and blanked within
+      0.02 bohr, r_c moved inwards out of a nodal region, and the shift set from the extremum of
+      the s-part when a node stays inside r_c. New keyword CUSP_CONTROL
+    * The effective one-electron local energy of the corrected orbital used an r-dependent Z_eff
+      instead of the constant one defined by phi_tilde(0), and the ideal curve was scaled by Z^2
+      rather than Z_eff^2, which matters for orbitals with a large Z_eff (-38 for the hydrogen
+      1st orbital of C2H2)
+    * cusp_info printed "positive" for every orbital because the sign was tested for truth rather
+      than compared with zero, and reported Z_eff of the uncorrected rather than the corrected orbital
     * vmc_step_graph divided the acceptance ratio by the electron count unconditionally, so every
       CBCS graph it produced was scaled down by that factor
     * the EBES acceptance ratio was divided by the electron count, but a step is recorded as

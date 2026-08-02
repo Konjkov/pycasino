@@ -693,7 +693,7 @@ EBES
 ----
 
 Only stage I changes. With :math:`\mathbf{R}` fixed *and* the electron :math:`i` chosen, the
-sum runs over 3 components rather than :math:`3N_e`:
+sum runs over 3 components rather than :math:`3N_e`
 
 .. math::
 

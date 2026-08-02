@@ -11,6 +11,7 @@
 # operation="Backflow_emin"
 # operation="Jastrow_dmc"
 # operation="Backflow_dmc"
+# operation="Geminal"
 
 # path="gwfn/He/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/Be/HF/cc-pVQZ/${method}/${operation}/"
@@ -22,6 +23,7 @@
 # path="gwfn/Kr/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/O3/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/B2H6/HF/cc-pVQZ/${method}/${operation}/"
+# path="gwfn/C2H2/HF/cc-pVQZ/${method}/${operation}/"
 
 # PP="HF"
 # PP="DF"
@@ -46,6 +48,18 @@
 # path="stowfn/Be/HF/QZ4P/${method}/Gjastrow/"
 
 # ../casino/plot/plot.py stowfn/He/HF/QZ4P/CBCS/Backflow/ u
+
+# path="stowfn/Be/HF/QZ4P/${method}/Backflow_omega_emin/0_4"
+
+# pycasino.log and correlation.out.* are written to the current directory,
+# set workdir to run in a subdirectory of $path and keep the reference output intact
+# workdir="unreweighted"
+# workdir="reweighted"
+
+if [ -n "$workdir" ]; then
+    path=$(realpath "$path")
+    cd "${path}/${workdir}" || exit 1
+fi
 
 # export NUMBA_NUM_THREADS=1
 # single MPI-process

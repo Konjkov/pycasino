@@ -81,8 +81,8 @@ effective one-electron local energy
     \tilde{\phi}, \qquad
     Z_{\text{eff}} = Z\left(1 + \frac{\eta(0)}{C + R(0)}\right)
 
-from an "ideal" curve :math:`E_L^{\text{ideal}}(r) = Z^2(\beta_0 + \beta_1 r^2 + \beta_2 r^3
-+ \ldots + \beta_7 r^7)`, whose coefficients :math:`\beta_1 \ldots \beta_7` were obtained by
+from an "ideal" curve :math:`E_L^{\text{ideal}}(r) = Z_{\text{eff}}^2(\beta_0 + \beta_1 r^2
++ \beta_2 r^3 + \ldots + \beta_7 r^7)`, whose coefficients :math:`\beta_1 \ldots \beta_7` were obtained by
 fitting to the 1s orbital of the carbon atom (:math:`\beta_0` depends on the particular atom
 and its environment) [12]_.
 
@@ -94,7 +94,7 @@ The maximum possible cusp correction radius is :math:`r_{c,\max} = 1/Z`, further
 actual :math:`r_c` for each orbital and nucleus is set to the largest radius less than
 :math:`r_{c,\max}` at which the deviation of the effective one-electron local energy of the
 uncorrected orbital from the ideal curve exceeds :math:`Z^2/c_c`, where :math:`c_c` is a
-universal parameter with a default value of 50 [12]_. It is then semi-optimized by varying it
+universal parameter with a default value of 50, set by the ``cusp_control`` keyword [12]_. It is then semi-optimized by varying it
 by :math:`\pm 20\%` in nine steps and keeping the value which, together with its own optimum
 :math:`\tilde{\phi}(0)`, minimises the maximum deviation from the ideal curve.
 
