@@ -259,6 +259,43 @@ def cusp_value(self, n_vectors: np.ndarray):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Cusp_class_t, 'value_1e')
+def cusp_value_1e(self, n_vectors: np.ndarray, e: int):
+    """Cusp correction for the orbitals of a single electron, the column of the slater
+    matrix that an electron-by-electron move changes.
+    :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+    :param e: electron
+    """
+
+    def impl(self, n_vectors: np.ndarray, e: int) -> np.ndarray:
+        if e < self.neu:
+            first, orbitals = 0, self.orbitals_up
+        else:
+            first, orbitals = self.orbitals_up, self.orbitals_down
+        value = np.zeros(shape=orbitals)
+        for i in range(first, first + orbitals):
+            p = ao = 0
+            for atom in range(n_vectors.shape[0]):
+                if not self.is_pseudoatom[atom]:
+                    r = np.sqrt(n_vectors[atom, e] @ n_vectors[atom, e])
+                    if r < self.rc[atom, i]:
+                        value[i - first] = self.exp(atom, i, r) + self.shift[atom, i]
+                    s_part = 0.0
+                    for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
+                        l = self.shell_moments[nshell]
+                        if r < self.rc[atom, i] and self.shell_moments[nshell] == 0:
+                            for primitive in range(self.primitives[nshell]):
+                                s_part += self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r * r) * self.mo[i, ao]
+                        p += self.primitives[nshell]
+                        ao += 2 * l + 1
+                    # subtract uncusped s-part
+                    value[i - first] -= s_part * self.norm
+        return value
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Cusp_class_t, 'gradient')
 def cusp_gradient(self, n_vectors: np.ndarray):
     """Cusp part of gradient
@@ -625,55 +662,57 @@ class CuspFactory:
         orbital = np.zeros((self.atom_positions.shape[0], self.mo.shape[0], self.mo.shape[1]))
         orbital_derivative = np.zeros((self.atom_positions.shape[0], self.mo.shape[0], self.mo.shape[1]))
         orbital_second_derivative = np.zeros((self.atom_positions.shape[0], self.mo.shape[0], self.mo.shape[1]))
-        for orb in range(self.mo.shape[0]):
-            p = ao = 0
-            for atom in range(self.atom_positions.shape[0]):
-                for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
-                    l = self.shell_moments[nshell]
-                    s_part = s_derivative_part = s_second_derivative_part = 0.0
-                    if self.shell_moments[nshell] == 0:
-                        for primitive in range(self.primitives[nshell]):
-                            r = rc[atom, orb]
-                            alpha = self.exponents[p + primitive]
-                            # FIXME: RuntimeWarning: underflow encountered in exp
-                            exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
-                            s_part += exponent
-                            s_derivative_part -= 2 * alpha * r * exponent
-                            s_second_derivative_part += 2 * alpha * (2 * alpha * r * r - 1) * exponent
-                        orbital[atom, orb, ao] = s_part
-                        orbital_derivative[atom, orb, ao] = s_derivative_part
-                        orbital_second_derivative[atom, orb, ao] = s_second_derivative_part
-                    ao += 2 * l + 1
-                    p += self.primitives[nshell]
-        return (
-            np.sum(orbital * self.mo, axis=2) * self.norm,
-            np.sum(orbital_derivative * self.mo, axis=2) * self.norm,
-            np.sum(orbital_second_derivative * self.mo, axis=2) * self.norm,
-        )
+        # a tight gaussian evaluated away from its centre underflows to zero, which is the value
+        # meant: the njit code drops those primitives outright on the gautol threshold
+        with np.errstate(under='ignore'):
+            for orb in range(self.mo.shape[0]):
+                p = ao = 0
+                for atom in range(self.atom_positions.shape[0]):
+                    for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
+                        l = self.shell_moments[nshell]
+                        s_part = s_derivative_part = s_second_derivative_part = 0.0
+                        if self.shell_moments[nshell] == 0:
+                            for primitive in range(self.primitives[nshell]):
+                                r = rc[atom, orb]
+                                alpha = self.exponents[p + primitive]
+                                exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
+                                s_part += exponent
+                                s_derivative_part -= 2 * alpha * r * exponent
+                                s_second_derivative_part += 2 * alpha * (2 * alpha * r * r - 1) * exponent
+                            orbital[atom, orb, ao] = s_part
+                            orbital_derivative[atom, orb, ao] = s_derivative_part
+                            orbital_second_derivative[atom, orb, ao] = s_second_derivative_part
+                        ao += 2 * l + 1
+                        p += self.primitives[nshell]
+            return (
+                np.sum(orbital * self.mo, axis=2) * self.norm,
+                np.sum(orbital_derivative * self.mo, axis=2) * self.norm,
+                np.sum(orbital_second_derivative * self.mo, axis=2) * self.norm,
+            )
 
     def eta_data(self):
         """Contribution from Gaussians on other nuclei"""
         orbital = np.zeros(shape=(self.atom_positions.shape[0], self.mo.shape[0], self.mo.shape[1]))
-        for atom in range(self.atom_positions.shape[0]):
-            for orb in range(self.mo.shape[0]):
-                p = ao = 0
-                for orb_atom in range(self.atom_positions.shape[0]):
-                    x, y, z = self.atom_positions[atom] - self.atom_positions[orb_atom]
-                    r2 = x * x + y * y + z * z
-                    angular = self.harmonics.get_value(x, y, z)
-                    # angular = value_angular_part(x, y, z)
-                    for nshell in range(self.first_shells[orb_atom] - 1, self.first_shells[orb_atom + 1] - 1):
-                        l = self.shell_moments[nshell]
-                        radial = 0.0
-                        if atom != orb_atom:
-                            for primitive in range(self.primitives[nshell]):
-                                # FIXME: RuntimeWarning: underflow encountered in exp
-                                radial += self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r2)
-                            for m in range(2 * l + 1):
-                                orbital[atom, orb, ao + m] += angular[l * l + m] * radial
-                        ao += 2 * l + 1
-                        p += self.primitives[nshell]
-        return np.sum(orbital * self.mo, axis=2) * self.norm
+        with np.errstate(under='ignore'):
+            for atom in range(self.atom_positions.shape[0]):
+                for orb in range(self.mo.shape[0]):
+                    p = ao = 0
+                    for orb_atom in range(self.atom_positions.shape[0]):
+                        x, y, z = self.atom_positions[atom] - self.atom_positions[orb_atom]
+                        r2 = x * x + y * y + z * z
+                        angular = self.harmonics.get_value(x, y, z)
+                        # angular = value_angular_part(x, y, z)
+                        for nshell in range(self.first_shells[orb_atom] - 1, self.first_shells[orb_atom + 1] - 1):
+                            l = self.shell_moments[nshell]
+                            radial = 0.0
+                            if atom != orb_atom:
+                                for primitive in range(self.primitives[nshell]):
+                                    radial += self.coefficients[p + primitive] * np.exp(-self.exponents[p + primitive] * r2)
+                                for m in range(2 * l + 1):
+                                    orbital[atom, orb, ao + m] += angular[l * l + m] * radial
+                            ao += 2 * l + 1
+                            p += self.primitives[nshell]
+            return np.sum(orbital * self.mo, axis=2) * self.norm
 
     def s_shells_data(self):
         """Exponents, coefficients and AO index of the s-type Gaussians centered on each atom"""
@@ -708,13 +747,14 @@ class CuspFactory:
         its first and second radial derivatives, shape (grid, MO)
         """
         exponents, coefficients, ao = self.s_shells[atom]
-        exponent = coefficients * np.exp(-exponents * r[:, np.newaxis] ** 2)
         mo = self.mo[:, ao].T * self.norm
-        return (
-            exponent @ mo,
-            (-2 * exponents * r[:, np.newaxis] * exponent) @ mo,
-            (2 * exponents * (2 * exponents * r[:, np.newaxis] ** 2 - 1) * exponent) @ mo,
-        )
+        with np.errstate(under='ignore'):
+            exponent = coefficients * np.exp(-exponents * r[:, np.newaxis] ** 2)
+            return (
+                exponent @ mo,
+                (-2 * exponents * r[:, np.newaxis] * exponent) @ mo,
+                (2 * exponents * (2 * exponents * r[:, np.newaxis] ** 2 - 1) * exponent) @ mo,
+            )
 
     def phi_sign(self):
         """Calculate phi sign."""
@@ -747,10 +787,9 @@ class CuspFactory:
         """Calculate phi coefficients for every orbital and nucleus.
         eta is a contribution from Gaussians on other nuclei.
         """
-        np.seterr(divide='ignore', invalid='ignore')
-        phi_rc, phi_diff_rc, phi_diff_2_rc = self.phi(self.rc)
-        alpha = self.cusp_solve(self.rc, self.shift, phi_tilde_0, phi_rc, phi_diff_rc, phi_diff_2_rc, self.z_eff_data(phi_tilde_0))
-        np.seterr(divide='warn', invalid='warn')
+        with np.errstate(divide='ignore', invalid='ignore', under='ignore'):
+            phi_rc, phi_diff_rc, phi_diff_2_rc = self.phi(self.rc)
+            alpha = self.cusp_solve(self.rc, self.shift, phi_tilde_0, phi_rc, phi_diff_rc, phi_diff_2_rc, self.z_eff_data(phi_tilde_0))
         # remove NaN from orbitals without s-part
         return np.nan_to_num(alpha, posinf=0, neginf=0)
 
@@ -823,7 +862,7 @@ class CuspFactory:
             grid_size = int(rcmax_max / spacing)
             r = np.arange(1, grid_size + 1) * spacing
             phi, phi_diff_1, phi_diff_2 = self.s_part(atom, r)
-            with np.errstate(divide='ignore', invalid='ignore'):
+            with np.errstate(divide='ignore', invalid='ignore', under='ignore'):
                 # orbitals without s-part on this atom are skipped below
                 el_gauss = self.phi_energy(phi, phi_diff_1, phi_diff_2, r[:, np.newaxis], z)
             for orb in range(self.mo.shape[0]):
@@ -926,6 +965,9 @@ class CuspFactory:
         :return:
         """
         logger.info(' Verbose print out flagged (turn off with cusp_info : F)\n')
+        # zero phi_tilde_0 for orbitals without s-part, such elements are masked out below
+        with np.errstate(divide='ignore', invalid='ignore'):
+            z_eff_data = self.z_eff_data(self.phi_tilde_0)
         for i in range(2) if self.unrestricted else range(1):
             if self.unrestricted:
                 if i == 0:
@@ -939,7 +981,7 @@ class CuspFactory:
                     logger.info(f' Orbital {orb + 1 if i == 0 else orb + 1 - self.orbitals_up} at position of ion {atom + 1}')
                     if self.orb_mask[atom][orb]:
                         sign = 'positive' if self.orbital_sign[atom][orb] > 0 else 'negative'
-                        z_eff = self.z_eff_data(self.phi_tilde_0)[atom][orb]
+                        z_eff = z_eff_data[atom][orb]
                         logger.info(
                             f' Sign of orbital at nucleus                : {sign}\n'
                             f' Cusp radius (au)                          : {self.rc[atom][orb]:16.12f}\n'

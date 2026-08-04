@@ -12,6 +12,26 @@ from casino.harmonics import Harmonics, Harmonics_t
 from casino.readers.wfn import GAUSSIAN_TYPE, SLATER_TYPE
 
 log_10 = np.log(10)
+# accepted single-electron moves between two full recomputations of the inverse matrices.
+# The rank-one update takes the difference of numbers that may be large, so it drifts;
+# this is CASINO's DBARRC and carries its default.
+dbar_max_age = 100000
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def log_sum_exp(log_det: np.ndarray, sign_det: np.ndarray) -> tuple[float, float]:
+    """Signed sum of a multideterminant expansion held as logarithms, with the largest
+    term factored out of it so that none of them overflows.
+    :param log_det: log(abs(c * det)) of each determinant
+    :param sign_det: sign of each determinant
+    :return: log(abs(sum)), sign(sum)
+    """
+    shift = np.max(log_det)
+    if not np.isfinite(shift):
+        # every determinant is zero, and the wave function has a node here
+        return shift, 0.0
+    val = np.sum(sign_det * np.exp(log_det - shift))
+    return shift + np.log(np.abs(val)), np.sign(val)
 
 
 @structref.register
@@ -42,6 +62,26 @@ Slater_t = Slater_class_t(
         ('norm', nb.float64),
         ('parameters_projector', nb.float64[:, ::1]),
         ('harmonics', Harmonics_t),
+    ]
+)
+
+
+@structref.register
+class SlaterState_class_t(nb.types.StructRef):
+    def preprocess_fields(self, fields):
+        return tuple((name, nb.types.unliteral(typ)) for name, typ in fields)
+
+
+SlaterState_t = SlaterState_class_t(
+    [
+        ('slater', Slater_t),
+        ('inv_u', nb.float64[:, :, ::1]),
+        ('inv_d', nb.float64[:, :, ::1]),
+        ('log_det', nb.float64[::1]),
+        ('sign_det', nb.float64[::1]),
+        ('log_value', nb.float64),
+        ('sign', nb.float64),
+        ('age', nb.int64),
     ]
 )
 
@@ -89,6 +129,55 @@ def slater_value_matrix(self, n_vectors: np.ndarray):
             wfn_u += cusp_value_u
             wfn_d += cusp_value_d
         return wfn_u, wfn_d
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Slater_class_t, 'orbitals_1e')
+def slater_orbitals_1e(self, n_vectors: np.ndarray, e: int):
+    """Orbital values of a single electron, i.e. the column of the slater matrix that an
+    electron-by-electron move changes. The basis is walked over for that one electron only,
+    which is what the whole electron-by-electron scheme is worth.
+    :param n_vectors: electron-nuclei array(natom, nelec, 3)
+    :param e: electron
+    :return: array(orbitals) of its own spin
+    """
+
+    def impl(self, n_vectors: np.ndarray, e: int) -> np.ndarray:
+        orbitals = np.zeros(shape=self.nbasis_functions)
+        p = ao = 0
+        for atom in range(n_vectors.shape[0]):
+            x, y, z = n_vectors[atom, e]
+            r2 = n_vectors[atom, e] @ n_vectors[atom, e]
+            angular_1 = self.harmonics.get_value(x, y, z)
+            for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
+                l = self.shell_moments[nshell]
+                radial_1 = 0.0
+                if self.orbital_types[nshell] == GAUSSIAN_TYPE:
+                    for primitive in range(self.primitives[nshell]):
+                        alpha = self.exponents[p + primitive]
+                        if alpha * r2 < log_10 * self.gautol:
+                            radial_1 += self.coefficients[p + primitive] * np.exp(-alpha * r2)
+                elif self.orbital_types[nshell] == SLATER_TYPE:
+                    r = np.sqrt(r2)
+                    r_n = r ** self.slater_orders[nshell]
+                    for primitive in range(self.primitives[nshell]):
+                        minus_alpha_r = -self.exponents[p + primitive] * r
+                        radial_1 += r_n * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
+                p += self.primitives[nshell]
+                for m in range(2 * l + 1):
+                    orbitals[ao + m] = angular_1[l * l + m] * radial_1
+                ao += 2 * l + 1
+
+        ao_value = self.norm * orbitals
+        if e < self.neu:
+            wfn = self.mo_up @ ao_value
+        else:
+            wfn = self.mo_down @ ao_value
+        if self.cusp is not None:
+            wfn = wfn + self.cusp.value_1e(n_vectors, e)
+        return wfn
 
     return impl
 
@@ -459,6 +548,139 @@ def slater_value(self, n_vectors: np.ndarray):
         for i in range(self.det_coeff.size):
             val += self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
         return val
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Slater_class_t, 'log_value')
+def slater_log_value(self, n_vectors: np.ndarray):
+    """Logarithm of the absolute wave function value, and its sign.
+    A determinant overflows long before the ratio of two of them does, and the
+    electron-by-electron update accumulates that ratio move after move, so the value is
+    carried as a logarithm. The largest determinant of the expansion is factored out of
+    the sum, leaving every term of it below one.
+    :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+    :return: log(abs(phi)), sign(phi)
+    """
+
+    def impl(self, n_vectors: np.ndarray) -> tuple[float, float]:
+        wfn_u, wfn_d = self.value_matrix(n_vectors)
+        log_det = np.empty(shape=self.det_coeff.size)
+        sign_det = np.empty(shape=self.det_coeff.size)
+        for i in range(self.det_coeff.size):
+            sign_u, log_u = np.linalg.slogdet(wfn_u[self.permutation_up[i]])
+            sign_d, log_d = np.linalg.slogdet(wfn_d[self.permutation_down[i]])
+            log_det[i] = log_u + log_d + np.log(np.abs(self.det_coeff[i]))
+            sign_det[i] = sign_u * sign_d * np.sign(self.det_coeff[i])
+        return log_sum_exp(log_det, sign_det)
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Slater_class_t, 'state')
+def slater_state(self, n_vectors: np.ndarray):
+    """Slater part of a walker's configuration: the inverse of every slater matrix and the
+    logarithm of every determinant, carried between moves so that a single-electron move
+    updates them instead of recomputing them. CASINO's DBAR and LOGDET scratch space.
+    :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+    """
+
+    def impl(self, n_vectors: np.ndarray):
+        wfn_u, wfn_d = self.value_matrix(n_vectors)
+        ndet = self.det_coeff.size
+        inv_u = np.empty(shape=(ndet, self.neu, self.neu))
+        inv_d = np.empty(shape=(ndet, self.ned, self.ned))
+        log_det = np.empty(shape=ndet)
+        sign_det = np.empty(shape=ndet)
+        for i in range(ndet):
+            matrix_u = wfn_u[self.permutation_up[i]]
+            matrix_d = wfn_d[self.permutation_down[i]]
+            sign_u, log_u = np.linalg.slogdet(matrix_u)
+            sign_d, log_d = np.linalg.slogdet(matrix_d)
+            inv_u[i] = np.linalg.inv(matrix_u)
+            inv_d[i] = np.linalg.inv(matrix_d)
+            log_det[i] = log_u + log_d + np.log(np.abs(self.det_coeff[i]))
+            sign_det[i] = sign_u * sign_d * np.sign(self.det_coeff[i])
+        log_value, sign = log_sum_exp(log_det, sign_det)
+        state = structref.new(SlaterState_t)
+        state.slater = self
+        state.inv_u = inv_u
+        state.inv_d = inv_d
+        state.log_det = log_det
+        state.sign_det = sign_det
+        state.log_value = log_value
+        state.sign = sign
+        state.age = 0
+        return state
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(SlaterState_class_t, 'ratio_1e')
+def slater_state_ratio_1e(self, n_vectors: np.ndarray, e: int):
+    """Value the wave function would take with electron e moved, without touching the state.
+    Replacing one column of a matrix multiplies its determinant by
+        Q = sum_j inv[e, j] * orbital[j]
+    which costs one dot product per determinant instead of an O(N**3) decomposition.
+    :param n_vectors: electron-nuclei vectors of the proposed configuration
+    :param e: electron being moved
+    :return: log(abs(phi)), sign(phi), orbitals of e, Q of each determinant
+    """
+
+    def impl(self, n_vectors: np.ndarray, e: int) -> tuple[float, float, np.ndarray, np.ndarray]:
+        orbitals = self.slater.orbitals_1e(n_vectors, e)
+        ndet = self.log_det.size
+        q = np.empty(shape=ndet)
+        if e < self.slater.neu:
+            for i in range(ndet):
+                q[i] = self.inv_u[i, e] @ orbitals[self.slater.permutation_up[i]]
+        else:
+            for i in range(ndet):
+                q[i] = self.inv_d[i, e - self.slater.neu] @ orbitals[self.slater.permutation_down[i]]
+        log_value, sign = log_sum_exp(self.log_det + np.log(np.abs(q)), self.sign_det * np.sign(q))
+        return log_value, sign, orbitals, q
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(SlaterState_class_t, 'accept_1e')
+def slater_state_accept_1e(self, e: int, orbitals: np.ndarray, q: np.ndarray):
+    """Move electron e into the state, updating every inverse matrix by the rank-one formula
+    of Eq. (26) of Fahy et al., PRB 42, 3503 (1990), in O(N**2) rather than O(N**3).
+    :param e: electron being moved
+    :param orbitals: its orbitals, as returned by ratio_1e
+    :param q: determinant ratios, as returned by ratio_1e
+    :return: whether the state was updated. A zero Q leaves an inverse that does not exist,
+        and an update too old has drifted, so both ask the caller for a full recomputation.
+    """
+
+    def impl(self, e: int, orbitals: np.ndarray, q: np.ndarray) -> bool:
+        if self.age >= dbar_max_age or np.any(q == 0):
+            return False
+        if e < self.slater.neu:
+            ie, inv, permutation = e, self.inv_u, self.slater.permutation_up
+        else:
+            ie, inv, permutation = e - self.slater.neu, self.inv_d, self.slater.permutation_down
+        for i in range(q.size):
+            # the column of the inverse the moved electron owns, before it is overwritten
+            row = inv[i, ie].copy()
+            v = inv[i] @ orbitals[permutation[i]]
+            for j in range(inv.shape[1]):
+                if j == ie:
+                    inv[i, j] = row / q[i]
+                else:
+                    inv[i, j] -= v[j] / q[i] * row
+            self.log_det[i] += np.log(np.abs(q[i]))
+            self.sign_det[i] *= np.sign(q[i])
+        log_value, sign = log_sum_exp(self.log_det, self.sign_det)
+        self.log_value = log_value
+        self.sign = sign
+        self.age += 1
+        return True
 
     return impl
 
@@ -1129,6 +1351,10 @@ class Slater(structref.StructRefProxy, AbstractSlater):
         return self.value_matrix(n_vectors)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
+    def orbitals_1e(self, n_vectors, e):
+        return self.orbitals_1e(n_vectors, e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def gradient_matrix(self, n_vectors):
         return self.gradient_matrix(n_vectors)
 
@@ -1147,6 +1373,14 @@ class Slater(structref.StructRefProxy, AbstractSlater):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def value(self, n_vectors):
         return self.value(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def log_value(self, n_vectors):
+        return self.log_value(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def state(self, n_vectors):
+        return self.state(n_vectors)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def gradient(self, n_vectors):
@@ -1173,4 +1407,25 @@ class Slater(structref.StructRefProxy, AbstractSlater):
         return self.tressian_v2(n_vectors)
 
 
+class SlaterState(structref.StructRefProxy):
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def log_value(self) -> float:
+        return self.log_value
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def sign(self) -> float:
+        return self.sign
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def ratio_1e(self, n_vectors, e):
+        return self.ratio_1e(n_vectors, e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def accept_1e(self, e, orbitals, q):
+        return self.accept_1e(e, orbitals, q)
+
+
 structref.define_boxing(Slater_class_t, Slater)
+structref.define_boxing(SlaterState_class_t, SlaterState)

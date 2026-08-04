@@ -9,18 +9,58 @@
  ##::::::::::: ##::::. ######:: ##:::: ##:. ######::'####: ##::. ##:. #######::
  .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
 
-                          Python Quantum Package
-                   v0.1.0 [Konkov Vladimir] (30 August 2023)
+                     Python Quantum Monte Carlo Package
+                        v 0.4.0 [Vladimir Konkov]
 
-    Main Author : V.V. Konkov
+    Main Author : Vladimir Konkov
  ------------------------------------------------------------------------------
+ Started 2026/08/02 20:53:54
 
- Python 3.10.6 (main, May 29 2023, 11:10:38) [GCC 11.3.0]
- Numba 0.57.1
- Numpy 1.24.3
- Scipy 1.10.1
+ Python 3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]
+ Numba 0.63.1
+ Numpy 2.2.6
+ Scipy 1.13.1
 
  Running in parallel using 4 MPI processes.
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  9
+ NED (num down spin electrons)            :  9
+ RUNTYPE (type of run)                    :  vmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  slater-type
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  F
+ BACKFLOW (use backflow corrections)      :  F
+ USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  F
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ RELATIVISTIC                             :  F
+
+ VMC input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  1
+ DTVMC (VMC time step)                    :  0.02
+ OPT_DTVMC (VMC time-step optimization)   :  T
+ VMC_NSTEP (num VMC steps)                :  10000000
+ VMC_NCONFIG_WRITE (num configs to write) :  0
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  1
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
 
  ====================================
  PERFORMING A SINGLE VMC CALCULATION.
@@ -30,12 +70,12 @@
  BEGIN VMC CALCULATION
  =====================
 
-Running VMC equilibration (5000 moves).
-Performing time-step optimization.
-Optimized step size: 0.36339
-DTVMC: 0.04402
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Optimized step size: 0.35338
+ DTVMC: 0.04163
 
-Starting VMC.
+ Starting VMC.
 
  =========================================================================
  In block : 1
@@ -43,26 +83,28 @@ Starting VMC.
 
   Block average energies (au)
 
-  Total energy                       (au) =        -526.810603239961
-  Standard error                        +/-           0.021598026778
+  Total energy                       (au) =        -526.816044386035
+  Standard error                        +/-           0.003736650700
 
   Constant energy contributions      (au) =           0.000000000000
 
-  Variance of local energy           (au) =         131.737287612763
+  Variance of local energy           (au) =         139.625570554060
   Standard error                        +/-           0.000000000000
 
- Time taken in block    : : :       1008.9683
+ Time taken in block    : : :       427.4676
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
 
- -526.810603239961 +/- 0.021598026778      On-the-fly reblocking method
+ -526.816044386035 +/- 0.003736650700      No correction
+ -526.816044386035 +/- 0.015802099561      Correlation time method
+ -526.816044386035 +/- 0.028913743130      On-the-fly reblocking method
 
- Sample variance of E_L (au^2/sim.cell) : 131.737287612763
+ Sample variance of E_L (au^2/sim.cell) : 139.625570554060
 
 
  =========================================================================
 
- Total PyCasino real time : : :    1034.5606
+ Total PyCasino real time : : :    439.8918

@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 
-"""Measure the CBCS acceptance curve for every calibration system in one format.
+"""Measure the acceptance curve for every calibration system in one format.
 
 Runnable from anywhere: it puts the working tree it lives in ahead of the environment on the path
 and insists on importing that casino rather than whatever is installed.
 
     examples/time_step/time_step.py [OUTDIR [STEPS [SYSTEM ...]]]
+
+The sampling mode is read off the name of OUTDIR, CBCS or EBES, so that a directory of data can
+never be ambiguous about which law it measures; the input files themselves are the same either
+way. In EBES a proposal moves one electron, which is the unit both the acceptance and the sum
+rule are then stated in, so the two columns stay comparable between the modes and the step size
+is expected to be larger by sqrt(Ne).
 
 Each system is written as soon as it is done and skipped if its file already exists, so a run can
 be interrupted and resumed. A million steps per point takes about half a day for the whole set; a
@@ -15,7 +21,7 @@ header <T> of the pseudoatoms uncertain to 1.5%.
 Conventions, none of them free to differ between systems, which is the whole point of collecting
 them here rather than in a shell loop: Slater only (the curve agrees to better than 1% across
 Slater, Jastrow and backflow), cusp_correction : F (only |Psi|**2 is needed, it is smooth for a
-gaussian basis, and the cusp correction is broken on carbon), CBCS, one grid laid out equally in
+gaussian basis, and the cusp correction is broken on carbon), one grid laid out equally in
 acceptance around the measured 50% point, step sizes written in atomic units so the data stay
 unnormalized by the law they test, and <T> of that same wave function in the header.
 """
@@ -68,6 +74,10 @@ SYSTEMS = {
 outdir = sys.argv[1] if len(sys.argv) > 1 else 'examples/time_step/CBCS'
 steps = int(sys.argv[2]) if len(sys.argv) > 2 else 1000000
 wanted = sys.argv[3:] or list(SYSTEMS)
+mode = os.path.basename(os.path.normpath(outdir))
+if mode not in ('CBCS', 'EBES'):
+    raise SystemExit(f'name the output directory CBCS or EBES, not {mode!r}: it is what says which law the data measure')
+vmc_method = 3 if mode == 'CBCS' else 1
 os.makedirs(outdir, exist_ok=True)
 
 devnull = open(os.devnull, 'w')  # noqa: SIM115
@@ -83,7 +93,7 @@ def read(self, *args, **kwargs):
     # the acceptance curve needs only |Psi|**2, which is smooth for a gaussian basis, and the
     # cusp correction is broken on carbon
     self.input.cusp_correction = False
-    self.input.vmc_method = 3
+    self.input.vmc_method = vmc_method
 
 
 CasinoConfig.read = read
@@ -120,7 +130,7 @@ for name in wanted:
         log.removeHandler(handler)
         handler.close()
     with open(out + '.tmp') as raw, open(out, 'w') as f:
-        f.write(f'# system = {name}\n# path = {path}\n# steps per point = {steps}\n')
+        f.write(f'# system = {name}\n# path = {path}\n# method = {mode}\n# steps per point = {steps}\n')
         for line in raw:
             line = line.rstrip()
             if not line.strip():
