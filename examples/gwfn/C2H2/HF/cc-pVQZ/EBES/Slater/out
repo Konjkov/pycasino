@@ -1,0 +1,585 @@
+CASINO v2.13.1309 [Mike Towler] (15 July 2026)
+Running on vladimir-kubuntu [linuxpc-gcc-parallel.openblas]
+Binary compiled in opt mode
+Job started: Пн 03 авг 2026 12:29:56 +07
+ ------------------------------------------------------------------------------
+
+                   #####
+                  ##   ##    ##     ####   ##  #   ##   ####
+                  ##        ####   ##      ##  ##  ##  ##  ##
+                  ##       ##  ##   ####   ##  ### ##  ##  ##
+                  ##       ######      ##  ##  ## ###  ##  ##
+                  ##   ##  ##  ##  ##  ##  ##  ##  ##  ##  ##
+                   #####   ##  ##   ####   ##  ##   #   ####
+
+                              Quantum Monte Carlo
+                 CASINO v2.13.1309 [Mike Towler] (15 July 2026)
+
+    Main Authors : R.J. Needs, M.D. Towler, N.D. Drummond, and P. Lopez Rios
+
+       Required citation in publications arising from the use of CASINO:
+     R.J. Needs, M.D. Towler, N.D. Drummond, P. Lopez Rios, and J.R. Trail,
+                       J. Chem. Phys. 152, 154106 (2020).
+                       https://doi.org/10.1063/1.5144288
+
+                 CASINO web page: https://vallico.net/casinoqmc
+
+                      Current contact: mdt26 at cantab.net
+
+ ------------------------------------------------------------------------------
+ Started 2026/08/03 12:29:56.557
+
+ Running in parallel using 4 MPI processes.
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  7
+ NED (num down spin electrons)            :  7
+ RUNTYPE (type of run)                    :  vmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  F
+ BACKFLOW (use backflow corrections)      :  F
+ DBARRC (DBAR recalculation period)       :  100000
+ USE_ORBMODS (use orbital modifications)  :  F
+ CUSP_CORRECTION                          :  T
+ MOLGSCREENING                            :  F
+ USE_DETLA (DLA approx. to NL PP)         :  F
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ ESUPERCELL                               :  F
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ CHECKPOINT (checkpointing level)         :  1
+ CHECKPOINT_NCPU (chkpnt group size)      :  4
+ CON_LOC (Dir to read/write config.*)     :  ./
+ RELATIVISTIC                             :  F
+
+ VMC input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  1
+ DTVMC (VMC time step)                    :  1.0000E-01
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  10000000
+ VMC_NCONFIG_WRITE (num configs to write) :  0
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  1
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ Particles
+ =========
+ Particle name                 Charge        Mass         Spin   Type
+ -------------------------------------------------------------------------
+ 1: Spin-up electron          -1.00000       1.0000000     0.5   Fermion
+ 2: Spin-down electron        -1.00000       1.0000000    -0.5   Fermion
+ -------------------------------------------------------------------------
+
+ Number of diffusion types : 1
+
+ Single-particle groupings
+ -------------------------
+ Spin dep. 0 : (1,2) [F] [E]
+ Spin dep. 1 : (1) (2)
+
+ NB, partitions defining spin-[F]amilies and [E]quivalent particles flagged.
+
+ Particle-pair groupings
+ -----------------------
+ Spin-pair dep. 0 : (1-1,1-2,2-2)
+ Spin-pair dep. 1 : (1-1,2-2) (1-2)
+ Spin-pair dep. 2 : (1-1) (1-2) (2-2)
+
+ Initialize random number generator
+ ==================================
+ Generator                                 :  RANLUX
+ RANLUX luxury level                       :  3
+ p value                                   :  223
+ Value of random seed on MPI process 0     :  802597463
+
+ Initialized with seed derived from timer.
+
+ Reading correlation.data
+ ========================
+ No correlation.data file is present.
+
+ No multideterminant/excitation data supplied.
+ Using ground state defined in xwfn.data file.
+
+ Reading Gaussian wave function and associated data
+ ==================================================
+
+ Title: TITLE
+
+ Generating code                           :  molden2qmc version: 4.0.5
+ Method                                    :
+ DFT functional                            :
+ Periodicity                               :  0 (molecule)
+ Spin restricted?                          :  Yes
+
+ Total number of electrons                 :  14
+
+ Basis set information
+
+ Number of atoms                           :  4
+ Number of shells                          :  50
+ Number of basis fns                       :  170
+ Number of primitives                      :  90
+ Highest ang momentum                      :  5
+
+ Gaussian basis sets:
+ ------------------------------------------------------------------
+   Atom  x(au)  y(au)  z(au)    No. Type  Exponent    Coefficients
+ ------------------------------------------------------------------
+   1 H     0.000    0.000   -3.144
+                             1-   1  s
+                                         8.264E+01     4.483E-01
+                                         1.241E+01     8.272E-01
+                                         2.824E+00     1.343E+00
+                             2-   2  s
+                                         7.977E-01     6.016E-01
+                             3-   3  s
+                                         2.581E-01     2.581E-01
+                             4-   4  s
+                                         8.989E-02     1.170E-01
+                             5-   7  p
+                                         2.292E+00     4.020E+00
+                             8-  10  p
+                                         8.380E-01     1.143E+00
+                            11-  13  p
+                                         2.920E-01     3.060E-01
+                            14-  18  d
+                                         2.062E+00     5.840E+00
+                            19-  23  d
+                                         6.620E-01     7.997E-01
+                            24-  30  f
+                                         1.397E+00     3.124E+00
+   2 C     0.000    0.000   -1.137
+                            31-  31  s
+                                         3.398E+04     1.635E-01
+                                         5.089E+03     3.044E-01
+                                         1.157E+03     5.258E-01
+                                         3.266E+02     8.469E-01
+                                         1.061E+02     1.256E+00
+                                         3.811E+01     1.619E+00
+                                         1.475E+01     1.651E+00
+                                         6.035E+00     1.104E+00
+                                         2.530E+00     3.125E-01
+                            32-  32  s
+                                         3.398E+04    -9.937E-02
+                                         5.089E+03    -1.901E-01
+                                         1.157E+03    -3.254E-01
+                                         3.266E+02    -5.337E-01
+                                         1.061E+02    -7.953E-01
+                                         3.811E+01    -1.095E+00
+                                         1.475E+01    -1.214E+00
+                                         6.035E+00    -1.139E+00
+                                         2.530E+00    -4.947E-01
+                            33-  33  s
+                                         7.355E-01     5.660E-01
+                            34-  34  s
+                                         2.905E-01     2.820E-01
+                            35-  35  s
+                                         1.111E-01     1.371E-01
+                            36-  38  p
+                                         3.451E+01     3.778E+00
+                                         7.915E+00     4.029E+00
+                                         2.368E+00     3.515E+00
+                            39-  41  p
+                                         8.132E-01     1.101E+00
+                            42-  44  p
+                                         2.890E-01     3.020E-01
+                            45-  47  p
+                                         1.007E-01     8.086E-02
+                            48-  52  d
+                                         1.848E+00     4.821E+00
+                            53-  57  d
+                                         6.490E-01     7.724E-01
+                            58-  62  d
+                                         2.280E-01     1.238E-01
+                            63-  69  f
+                                         1.419E+00     3.235E+00
+                            70-  76  f
+                                         4.850E-01     2.890E-01
+                            77-  85  g
+                                         1.011E+00     1.147E+00
+   3 C     0.000    0.000    1.137
+   4 H     0.000    0.000    3.144
+ ------------------------------------------------------------------
+ Single determinant :
+
+ Det 1 spin 1           : ground state
+ Det 1 spin 2           : ground state
+ Det 1 coefficient      : 1.00000000
+
+ Pseudopotentials
+ ================
+ No pseudopotential for H - treating as all-electron.
+ No pseudopotential for C - treating as all-electron.
+
+ Geometry derived from information in gwfn.data
+ ==============================================
+
+ Simulation cell : Finite (atomic/molecular geometry)
+
+ Atom Atno  Type              Position (Cartesian au)
+ -------------------------------------------------------------
+    1   1   1         0.00000000     0.00000000    -3.14355942
+    2   6   2         0.00000000     0.00000000    -1.13667027
+    3   6   2         0.00000000     0.00000000     1.13667027
+    4   1   1         0.00000000     0.00000000     3.14355942
+
+ Molecule appears to have inversion symmetry.
+
+ Neighbour analysis of the atoms in the molecule
+ -----------------------------------------------
+   Atom   N     R(Ang)     R(au)    Neighbours
+   1 H    1     1.0620     2.0069   2 C    0 0 0
+
+   2 C    1     1.0620     2.0069   1 H    0 0 0
+
+   3 C    1     1.0620     2.0069   4 H    0 0 0
+
+   4 H    1     1.0620     2.0069   3 C    0 0 0
+
+ Gaussian cusp correction
+ ========================
+
+ Verbose print out flagged (turn off with 'cusp_info : F')
+
+ Spin restricted calculation.
+
+ Orbital 1 at position of ion 1
+ Sign of orbital at nucleus                : negative
+ Cusp radius (au)                          : 0.2575
+ Value of uncorrected orbital at nucleus   : 0.000325760284
+ Value of s part of orbital at nucleus     : -0.000006724149
+ Optimum corrected s orbital at nucleus    : -0.000008484554
+ Maximum deviation from ideal local energy : 378.17842284
+ Effective nuclear charge                  : -38.18702742
+
+ Orbital 2 at position of ion 1
+ Sign of orbital at nucleus                : positive
+ Cusp radius (au)                          : 0.8400
+ Value of uncorrected orbital at nucleus   : 0.000317184096
+ Value of s part of orbital at nucleus     : 0.000305827322
+ Optimum corrected s orbital at nucleus    : 0.000381008479
+ Maximum deviation from ideal local energy : 0.87282297
+ Effective nuclear charge                  : 1.02980714
+
+ Orbital 3 at position of ion 1
+ Sign of orbital at nucleus                : negative
+ Cusp radius (au)                          : 0.8105
+ Value of uncorrected orbital at nucleus   : -0.057160951007
+ Value of s part of orbital at nucleus     : -0.042479333213
+ Optimum corrected s orbital at nucleus    : -0.045175701800
+ Maximum deviation from ideal local energy : 0.01887562
+ Effective nuclear charge                  : 1.32498926
+
+ Orbital 4 at position of ion 1
+ Sign of orbital at nucleus                : negative
+ Cusp radius (au)                          : 0.7620
+ Value of uncorrected orbital at nucleus   : -0.172662375999
+ Value of s part of orbital at nucleus     : -0.131527951638
+ Optimum corrected s orbital at nucleus    : -0.138446131498
+ Maximum deviation from ideal local energy : 0.01114514
+ Effective nuclear charge                  : 1.29711501
+
+ Orbital 5 at position of ion 1
+ Sign of orbital at nucleus                : positive
+ Cusp radius (au)                          : 0.8015
+ Value of uncorrected orbital at nucleus   : 0.173388220598
+ Value of s part of orbital at nucleus     : 0.139500473038
+ Optimum corrected s orbital at nucleus    : 0.146861217172
+ Maximum deviation from ideal local energy : 0.01625225
+ Effective nuclear charge                  : 1.23074674
+
+ Orbital 6 at position of ion 1
+ Orbital s component effectively zero at this nucleus.
+
+ Orbital 7 at position of ion 1
+ Orbital s component effectively zero at this nucleus.
+
+ Orbital 1 at position of ion 2
+ Sign of orbital at nucleus                : positive
+ Cusp radius (au)                          : 0.0790
+ Value of uncorrected orbital at nucleus   : 2.971642247358
+ Value of s part of orbital at nucleus     : 2.971804904755
+ Optimum corrected s orbital at nucleus    : 3.000800039836
+ Maximum deviation from ideal local energy : 0.03625141
+ Effective nuclear charge                  : 5.99967477
+
+ Orbital 2 at position of ion 2
+ Sign of orbital at nucleus                : positive
+ Cusp radius (au)                          : 0.0790
+ Value of uncorrected orbital at nucleus   : 2.974285746243
+ Value of s part of orbital at nucleus     : 2.974042457121
+ Optimum corrected s orbital at nucleus    : 3.003007951592
+ Maximum deviation from ideal local energy : 0.04092038
+ Effective nuclear charge                  : 6.00048609
+
+ Orbital 3 at position of ion 2
+ Sign of orbital at nucleus                : positive
+ Cusp radius (au)                          : 0.1105
+ Value of uncorrected orbital at nucleus   : 0.664589646309
+ Value of s part of orbital at nucleus     : 0.694479115277
+ Optimum corrected s orbital at nucleus    : 0.700297852511
+ Maximum deviation from ideal local energy : 0.15566784
+ Effective nuclear charge                  : 5.74391352
+
+ Orbital 4 at position of ion 2
+ Sign of orbital at nucleus                : positive
+ Cusp radius (au)                          : 0.1070
+ Value of uncorrected orbital at nucleus   : 0.427318947015
+ Value of s part of orbital at nucleus     : 0.434122856989
+ Optimum corrected s orbital at nucleus    : 0.437970816134
+ Maximum deviation from ideal local energy : 0.03059660
+ Effective nuclear charge                  : 5.90678954
+
+ Orbital 5 at position of ion 2
+ Sign of orbital at nucleus                : negative
+ Cusp radius (au)                          : 0.1315
+ Value of uncorrected orbital at nucleus   : -0.015904295401
+ Value of s part of orbital at nucleus     : -0.011203967168
+ Optimum corrected s orbital at nucleus    : -0.012953668002
+ Maximum deviation from ideal local energy : 232.38188329
+ Effective nuclear charge                  : 8.17714159
+
+ Orbital 6 at position of ion 2
+ Orbital s component effectively zero at this nucleus.
+
+ Orbital 7 at position of ion 2
+ Orbital s component effectively zero at this nucleus.
+
+ Orbital 1 at position of ion 3
+ Sign of orbital at nucleus                : positive
+ Cusp radius (au)                          : 0.0790
+ Value of uncorrected orbital at nucleus   : 2.971642247358
+ Value of s part of orbital at nucleus     : 2.971804904755
+ Optimum corrected s orbital at nucleus    : 3.000800039836
+ Maximum deviation from ideal local energy : 0.03625141
+ Effective nuclear charge                  : 5.99967477
+
+ Orbital 2 at position of ion 3
+ Sign of orbital at nucleus                : negative
+ Cusp radius (au)                          : 0.0790
+ Value of uncorrected orbital at nucleus   : -2.974285746243
+ Value of s part of orbital at nucleus     : -2.974042457121
+ Optimum corrected s orbital at nucleus    : -3.003007951592
+ Maximum deviation from ideal local energy : 0.04092038
+ Effective nuclear charge                  : 6.00048609
+
+ Orbital 3 at position of ion 3
+ Sign of orbital at nucleus                : positive
+ Cusp radius (au)                          : 0.1105
+ Value of uncorrected orbital at nucleus   : 0.664589646309
+ Value of s part of orbital at nucleus     : 0.694479115277
+ Optimum corrected s orbital at nucleus    : 0.700297852511
+ Maximum deviation from ideal local energy : 0.15566784
+ Effective nuclear charge                  : 5.74391352
+
+ Orbital 4 at position of ion 3
+ Sign of orbital at nucleus                : negative
+ Cusp radius (au)                          : 0.1070
+ Value of uncorrected orbital at nucleus   : -0.427318947015
+ Value of s part of orbital at nucleus     : -0.434122856989
+ Optimum corrected s orbital at nucleus    : -0.437970816134
+ Maximum deviation from ideal local energy : 0.03059660
+ Effective nuclear charge                  : 5.90678954
+
+ Orbital 5 at position of ion 3
+ Sign of orbital at nucleus                : negative
+ Cusp radius (au)                          : 0.1315
+ Value of uncorrected orbital at nucleus   : -0.015904295401
+ Value of s part of orbital at nucleus     : -0.011203967168
+ Optimum corrected s orbital at nucleus    : -0.012953668002
+ Maximum deviation from ideal local energy : 232.38188329
+ Effective nuclear charge                  : 8.17714159
+
+ Orbital 6 at position of ion 3
+ Orbital s component effectively zero at this nucleus.
+
+ Orbital 7 at position of ion 3
+ Orbital s component effectively zero at this nucleus.
+
+ Orbital 1 at position of ion 4
+ Sign of orbital at nucleus                : negative
+ Cusp radius (au)                          : 0.2575
+ Value of uncorrected orbital at nucleus   : 0.000325760284
+ Value of s part of orbital at nucleus     : -0.000006724149
+ Optimum corrected s orbital at nucleus    : -0.000008484554
+ Maximum deviation from ideal local energy : 378.17842284
+ Effective nuclear charge                  : -38.18702742
+
+ Orbital 2 at position of ion 4
+ Sign of orbital at nucleus                : negative
+ Cusp radius (au)                          : 0.8400
+ Value of uncorrected orbital at nucleus   : -0.000317184096
+ Value of s part of orbital at nucleus     : -0.000305827322
+ Optimum corrected s orbital at nucleus    : -0.000381008479
+ Maximum deviation from ideal local energy : 0.87282297
+ Effective nuclear charge                  : 1.02980714
+
+ Orbital 3 at position of ion 4
+ Sign of orbital at nucleus                : negative
+ Cusp radius (au)                          : 0.8105
+ Value of uncorrected orbital at nucleus   : -0.057160951007
+ Value of s part of orbital at nucleus     : -0.042479333213
+ Optimum corrected s orbital at nucleus    : -0.045175701800
+ Maximum deviation from ideal local energy : 0.01887562
+ Effective nuclear charge                  : 1.32498926
+
+ Orbital 4 at position of ion 4
+ Sign of orbital at nucleus                : positive
+ Cusp radius (au)                          : 0.7620
+ Value of uncorrected orbital at nucleus   : 0.172662375999
+ Value of s part of orbital at nucleus     : 0.131527951638
+ Optimum corrected s orbital at nucleus    : 0.138446131498
+ Maximum deviation from ideal local energy : 0.01114514
+ Effective nuclear charge                  : 1.29711501
+
+ Orbital 5 at position of ion 4
+ Sign of orbital at nucleus                : positive
+ Cusp radius (au)                          : 0.8015
+ Value of uncorrected orbital at nucleus   : 0.173388220598
+ Value of s part of orbital at nucleus     : 0.139500473038
+ Optimum corrected s orbital at nucleus    : 0.146861217172
+ Maximum deviation from ideal local energy : 0.01625225
+ Effective nuclear charge                  : 1.23074674
+
+ Orbital 6 at position of ion 4
+ Orbital s component effectively zero at this nucleus.
+
+ Orbital 7 at position of ion 4
+ Orbital s component effectively zero at this nucleus.
+
+ Maximum deviation from ideal (averaged over orbitals) : 61.17428383
+
+ Activated.
+
+ Expectation values
+ ==================
+ None requested.
+
+ Interactions
+ ============
+ Interaction type: Coulomb
+ System is aperiodic. Using 1/r only.
+
+ Nuclear repulsion energy (au)
+ =============================
+ EIONION from file  : 24.777773640899
+ Calculated EIONION : 24.777773640899
+
+ Calculated and input nuclear repulsion energies agree.
+
+
+ Setup complete.
+
+ Time taken in setup    : : :        0.0600 s
+
+ ====================================
+ PERFORMING A SINGLE VMC CALCULATION.
+ ====================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ No of up/down spin electrons initially associated with each ion:
+ ----------------------------------------------------------------
+ Ion,    # up-spin, # down-spin
+ 1            1          0
+ 2            3          3
+ 3            3          3
+ 4            0          1
+ [Use edist_by_ion/edist_by_iontype in input to change this]
+
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  1.8257E-01
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio         (%)  =  50.0869
+ Diffusion constant  (Bohr^2)  = 5.6319E-02
+ Correlation time     (steps)  = 1.8710E+01 +- 8.9636E-02
+ Efficiency      (au^-2 s^-1)  = 9.5129E+01
+ No. of VMC steps per process  = 2500000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -76.855954911121
+  Standard error                        +/-           0.001284028561
+
+  Kinetic energy KEI (used in Total) (au) =          76.954983834174
+  Standard error                        +/-           0.024463032740
+
+  Kinetic energy TI                  (au) =          76.803118154132
+  Standard error                        +/-           0.021862540708
+
+  Kinetic energy FISQ                (au) =          76.651252474095
+  Standard error                        +/-           0.036091636542
+
+  Potential energy                   (au) =        -178.588712386196
+  Standard error                        +/-           0.024485441369
+
+  e-e interaction                    (au) =          50.073186603008
+  Standard error                        +/-           0.002160745564
+
+  e-n interaction                    (au) =        -228.661898989210
+  Standard error                        +/-           0.025014858247
+
+  Constant energy contributions      (au) =          24.777773640899
+
+  Variance of local energy           (au) =          16.494636179975
+  Standard error                        +/-           0.089238847096
+
+  Maximum distance from origin       (au) =          10.376333471340
+
+
+ Time taken in block    : : :      340.6300 s
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -76.855954911121 +/- 0.001284028561      No correction
+ -76.855954911121 +/- 0.005554003705      Correlation time method
+ -76.855954911128 +/- 0.005603453507      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 16.494636179975
+
+ =========================================================================
+
+
+ Total CASINO CPU time  : : :      340.9200 s
+ Total CASINO real time : : :      343.1230 s
+
+
+ Subroutine timers deactivated (use TIMING_INFO input keyword)
+
+ =========================================================================
+ Ends 2026/08/03 12:35:39.678
+
+Job finished: Пн 03 авг 2026 12:35:39 +07

@@ -737,6 +737,47 @@ elsewhere buys nothing when three components move.
 :meth:`casino.vmc.VMC.random_step` dispatches the proposal by method, so the substitution is
 local to one function.
 
+What the measurement says
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The acceptance curve of all thirty-one calibration systems has been measured in this mode, on
+the same grid and the same conventions as the CBCS set, and the two halves of the statement
+above fare very differently.
+
+The sum rule is confirmed. Scaling each measured 50 % step by the kinetic energy per electron,
+:math:`\tau_{50}\sqrt{\langle T\rangle/N_e}`, reproduces the departure from the Gaussian law to
+within 1 to 3 % on every system, so :math:`\mathrm{Var}[X] = \frac{8}{3}\tau^2\langle T\rangle/N_e`
+is right and nothing else needs to be. Its sharpest consequence holds to better than a percent:
+at fixed composition the step is independent of the size of the system, and C₂H₂, C₄H₄ and C₆H₆,
+from 14 to 42 electrons, take steps of 0.6644, 0.6667 and 0.6629.
+
+The Gaussian acceptance law on top of it does not hold. The measured ratio
+:math:`\tau_{50}(\mathrm{EBES})/\tau_{50}(\mathrm{CBCS})` equals :math:`\sqrt{N_e}` only where
+every electron is equivalent — a single electron, or the two-electron ions — and rises to 2.4
+times that on krypton. The excess is not a function of :math:`N_e` at all. It tracks the number
+of occupied shells: 1.06 with one shell, 1.2 to 1.3 on pseudoatoms carrying only a valence
+shell, about 1.9 across the second period whether atomic or molecular, 2.36 on argon and 2.61 on
+krypton. Two comparisons isolate it. Be²⁺ and Be share a nucleus and differ by two valence
+electrons, and their excesses are 1.06 and 1.72. CH₄ through C₆H₆ span 10 to 42 electrons at
+fixed composition, and theirs are 1.96, 1.91, 1.83, 1.91, 1.91.
+
+The reason is that the acceptance is a nonlinear functional of :math:`\mathrm{Var}[X|\mathbf{R},i]
+\propto |\nabla_i\Lambda|^2`, whereas the sum rule constrains only its mean. At a step where the
+average electron would sit at 50 %, a core electron is rejected almost always and a valence one
+accepted almost always, so the 50 % is made up by the valence electrons, whose drift is far below
+the mean, and the step that achieves it is correspondingly larger. The same mixture of variances
+is visible in the shape: the excess kurtosis of :math:`X` is :math:`-0.33` on the one-shell
+systems, the value three uniform components give, and 4.6 to 7.0 on the heavy atoms and
+pseudoatoms, always above the CBCS figure for the same system, since there is no average over
+:math:`N_e` electrons to tame it.
+
+The step this implies is the root of :math:`\mathbb{E}_i[2\Phi(-\sigma_i/2)] = 1/2` over the
+spread of :math:`|\nabla_i\Lambda|^2` across electrons rather than over its mean, which requires
+no fitted constant, only the per-electron drift. That replacement has not been made:
+:ref:`approximate_step_size <vmc-approximate-step-size>` still returns the :math:`\sqrt{N_e}` of
+the leading order, and :ref:`optimize_vmc_step <vmc-optimize-step>` carries the rest in its three
+iterations.
+
 .. _vmc-dbds:
 
 DBDS
@@ -781,12 +822,11 @@ For a closed-shell system the two spin channels carry half the kinetic energy ea
   :math:`N_\uparrow \neq N_\downarrow`; a single step size puts one determinant off its 50 %
   target. Neither the input keyword nor
   :ref:`optimize_vmc_step <vmc-optimize-step>` has room for two values.
-- **The saving DBDS aims at does not exist in Pycasino.** Its point is that moving one
-  determinant requires updating only that determinant's inverse, not both. Both implemented
-  modes here call ``wfn.value`` on the whole configuration for every proposal — EBES already
-  pays the full cost per single-electron move — so there is no per-determinant update
-  machinery for DBDS to exploit. Adding it is the prerequisite, and it would speed up EBES
-  first.
+- **The saving DBDS aims at is already taken by EBES.** Its point is that moving one
+  determinant requires updating only that determinant's inverse, not both. EBES keeps the
+  inverse of every slater matrix in the walker and updates it by a rank-one formula when a
+  single electron moves, which is the same machinery at a block size of one, so DBDS would
+  add a coarser version of what is there.
 
 What DBDS keeps, and EBES loses, is the central limit theorem: :math:`X` is a sum of
 :math:`3N_\sigma` terms rather than 3, so the Gaussian form of :math:`g` and hence the
@@ -798,11 +838,19 @@ buys :math:`\sqrt{2}`.
 acceptance_ratio
 ----------------
 
-Measures the fraction of accepted moves at the current step size. CBCS counts an accepted move
-directly. EBES records a step as accepted when *at least one* electron moved, so the reported
-fraction is :math:`1 - (1 - a)^{N_e}` for a per-electron probability :math:`a`; the latter is
-recovered by inverting that expression. Without the inversion the measured quantity can never
-exceed :math:`1/N_e` and the step-size fit is blind to its own target.
+Measures the fraction of accepted moves at the current step size, counted over the proposals
+themselves: one electron in EBES, the whole configuration in CBCS. That is the quantity the
+50 % rule is about in either mode, and both are then read off the same counter.
+
+Reading it off the walk instead — the fraction of steps in which the configuration changed at
+all — works in CBCS and saturates in EBES, where a step is a sweep over the electrons. The
+fraction then measured is :math:`1 - (1 - a)^{N_e}` for a per-electron probability :math:`a`,
+and inverting that expression is exact but useless: at the 50 % target Kr changes at least one
+of its 36 electrons with probability :math:`1 - 2^{-36}`, so every sample of it reads exactly
+one whatever the step size, the inverse returns one, and
+:ref:`optimize_vmc_step <vmc-optimize-step>` is left with no scale to work from — it multiplies
+the step by the ten its clipped acceptance asks for, overshoots, and the three iterations end
+wherever the last overshoot left them.
 
 .. _vmc-optimize-step:
 

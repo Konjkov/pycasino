@@ -276,15 +276,14 @@ class Casino:
             return step_size
 
     def acceptance_ratio(self, steps):
-        """Probability of accepting a move at the current step size."""
-        position = self.vmc.random_walk(steps, 1)
-        moved = np.isfinite(position[:, 0, 0]).mean()
-        if self.config.input.vmc_method == 1:
-            # EBES marks a step accepted if at least one of the electrons moved, so the
-            # per-electron probability is recovered by inverting 1 - (1 - acceptance)**electrons
-            return 1 - (1 - moved) ** (1 / (self.neu + self.ned))
-        else:
-            return moved
+        """Probability of accepting a proposal at the current step size, counted over the
+        proposals themselves. Reading it off the walk instead, as the fraction of steps that
+        moved at all, saturates in EBES: a step there is a sweep of the electrons, and at the
+        50% target Kr moves at least one of its 36 with probability 1 - 0.5**36, so every
+        sample reads 1 whatever the step size and the measurement carries no scale.
+        """
+        self.vmc.random_walk(steps, 1)
+        return self.vmc.acceptance
 
     def vmc_step_graph(self, steps=1000000):
         """Acceptance probability and the moments behind it vs step size to plot a graph.
@@ -330,8 +329,12 @@ class Casino:
             x = self.vmc.log_ratio_walk(steps)
             variance = x.var()
             # the probability a proposal is accepted, averaged over the proposals themselves rather
-            # than counted from the coin flips that follow, which has the same mean and less noise
-            acceptance = np.minimum(np.exp(x), 1).mean()
+            # than counted from the coin flips that follow, which has the same mean and less noise.
+            # a proposal deep into the tail is rejected with a probability that underflows, and
+            # zero is the answer wanted there
+            with np.errstate(under='ignore'):
+                acceptance = np.minimum(np.exp(x), 1).mean()
+                exp_mean = np.exp(x).mean()
             # the step size that produced the acceptance actually measured, against the one the law
             # would set for it. This is the factor approximate_step_size carries as 1 + 0.045 /
             # nuclei, in the same units, so the file gives the number to fit rather than an energy
@@ -340,8 +343,9 @@ class Casino:
             correction = self.vmc.step_size / law
             # the sum rule alone, with no assumption about the shape of the distribution: it is
             # one wherever Var(x) = 8/3 * step_size**2 * <T> holds, and its departure at large
-            # step size is the O(step_size**2) term the leading order leaves out
-            sum_rule = 3 * variance / (8 * self.vmc.step_size**2 * kinetic_energy)
+            # step size is the O(step_size**2) term the leading order leaves out. A proposal that
+            # moves one electron carries <T> over their number, the same share the law above takes
+            sum_rule = 3 * variance * electrons / (8 * self.vmc.step_size**2 * kinetic_energy)
             # gaussianity, independent of the acceptance: <exp(x)> = 1 exactly for a stationary
             # walk with a symmetric proposal, and it forces <x> = -Var(x)/2 only if x is gaussian
             gaussian = x.mean() + variance / 2
@@ -353,7 +357,7 @@ class Casino:
                 correction,
                 sum_rule,
                 gaussian,
-                np.exp(x).mean(),
+                exp_mean,
                 ((x - x.mean()) ** 4).mean() / variance**2 - 3,
             )
 

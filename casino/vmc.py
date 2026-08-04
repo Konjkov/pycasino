@@ -3,6 +3,7 @@ import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
+from casino.slater import SlaterState_t
 from casino.wfn import Wfn_t
 
 
@@ -41,10 +42,51 @@ def vmc_simple_random_step(self):
         cond = False
         ne = self.wfn.neu + self.wfn.ned
         next_r_e = self.r_e + self.step_size * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-        next_probability_density = self.wfn.value(next_r_e) ** 2
-        if next_probability_density / self.probability_density > np.random.random():
-            cond, self.r_e, self.probability_density = True, next_r_e, next_probability_density
+        next_log_value = self.wfn.log_value(next_r_e)[0]
+        self.moves += 1
+        if 2 * (next_log_value - self.log_value) > np.log(np.random.random()):
+            cond, self.r_e, self.log_value = True, next_r_e, next_log_value
+            self.accepted += 1
         return cond
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(VMC_class_t, 'one_electron_step')
+def vmc_one_electron_step(self, e):
+    """Metropolis step of a single electron, the proposal EBES is built out of.
+    :param e: electron to move
+    :return: step is accepted, ln(psi'**2/psi**2) of the proposal
+    """
+
+    def impl(self, e):
+        cond = False
+        next_r_e = np.copy(self.r_e)
+        next_r_e[e] += self.step_size * np.random.uniform(-1, 1, 3)
+        # backflow spreads a single-electron move over the quasi-particle coordinates of every
+        # electron within its cutoff, and a geminal is not a slater determinant, so neither of
+        # them leaves one column to update: both recompute the whole configuration instead
+        if self.wfn.backflow is None and self.wfn.geminal is None:
+            e_vectors, n_vectors = self.wfn._relative_coordinates(next_r_e)
+            next_log_value, _, orbitals, q = self.state.ratio_1e(n_vectors, e)
+            if self.wfn.jastrow is not None:
+                next_log_value += self.wfn.jastrow.value(e_vectors, n_vectors)
+            log_ratio = 2 * (next_log_value - self.log_value)
+            self.moves += 1
+            if log_ratio > np.log(np.random.random()):
+                cond, self.r_e, self.log_value = True, next_r_e, next_log_value
+                self.accepted += 1
+                if not self.state.accept_1e(e, orbitals, q):
+                    self.state = self.wfn.slater.state(n_vectors)
+        else:
+            next_log_value = self.wfn.log_value(next_r_e)[0]
+            log_ratio = 2 * (next_log_value - self.log_value)
+            self.moves += 1
+            if log_ratio > np.log(np.random.random()):
+                cond, self.r_e, self.log_value = True, next_r_e, next_log_value
+                self.accepted += 1
+        return cond, log_ratio
 
     return impl
 
@@ -58,14 +100,28 @@ def vmc_gibbs_random_step(self):
 
     def impl(self):
         cond = False
-        ne = self.wfn.neu + self.wfn.ned
-        for i in range(ne):
-            next_r_e = np.copy(self.r_e)
-            next_r_e[i] += self.step_size * np.random.uniform(-1, 1, 3)
-            next_probability_density = self.wfn.value(next_r_e) ** 2
-            if next_probability_density / self.probability_density > np.random.random():
-                cond, self.r_e, self.probability_density = True, next_r_e, next_probability_density
+        for i in range(self.wfn.neu + self.wfn.ned):
+            accepted, _ = self.one_electron_step(i)
+            cond |= accepted
         return cond
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(VMC_class_t, 'reset')
+def vmc_reset(self):
+    """Bring the cached wave function up to date with the configuration and start counting
+    moves afresh. The walker outlives both the configuration and the parameters it was built
+    with, the latter changing under it on every optimization cycle.
+    """
+
+    def impl(self):
+        self.log_value = self.wfn.log_value(self.r_e)[0]
+        if self.method == 1:
+            self.state = self.wfn.slater.state(self.wfn._relative_coordinates(self.r_e)[1])
+        self.moves = 0
+        self.accepted = 0
 
     return impl
 
@@ -80,7 +136,7 @@ def vmc_random_walk(self, steps, decorr_period):
     """
 
     def impl(self, steps, decorr_period):
-        self.probability_density = self.wfn.value(self.r_e) ** 2
+        self.reset()
         position = np.full(shape=(steps,) + self.r_e.shape, fill_value=np.nan)
         # the following value will be rewritten as the first step is taken
         position[0] = self.r_e
@@ -100,25 +156,32 @@ def vmc_random_walk(self, steps, decorr_period):
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(VMC_class_t, 'log_ratio_walk')
 def vmc_log_ratio_walk(self, steps):
-    """Metropolis-Hastings random walk in configuration-by-configuration sampling, recording
-    ln(psi'**2/psi**2) for every proposed move. That is the quantity the VMC step size sum rule
-    is a statement about, and measuring it directly separates the sum rule, which is exact, from
-    the gaussian shape assumed for it, which is not.
+    """Metropolis-Hastings random walk recording ln(psi'**2/psi**2) for every proposed move,
+    one whole configuration at a time in CBCS and one electron at a time in EBES. That is the
+    quantity the VMC step size sum rule is a statement about, and measuring it directly separates
+    the sum rule, which is exact, from the gaussian shape assumed for it, which is not.
     :param steps: number of steps to walk
     :return: ndarray of log ratios
     """
 
     def impl(self, steps):
-        self.probability_density = self.wfn.value(self.r_e) ** 2
+        self.reset()
         log_ratio = np.empty(shape=(steps,))
         ne = self.wfn.neu + self.wfn.ned
-        for i in range(steps):
-            next_r_e = self.r_e + self.step_size * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
-            next_probability_density = self.wfn.value(next_r_e) ** 2
-            ratio = next_probability_density / self.probability_density
-            log_ratio[i] = np.log(ratio)
-            if ratio > np.random.random():
-                self.r_e, self.probability_density = next_r_e, next_probability_density
+        if self.method == 1:
+            # the electron is taken in turn rather than at random: the sum rule averages over a
+            # uniform choice of it, and a sweep covers them uniformly with no extra variance
+            for i in range(steps):
+                _, log_ratio[i] = self.one_electron_step(i % ne)
+        else:
+            for i in range(steps):
+                next_r_e = self.r_e + self.step_size * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
+                next_log_value = self.wfn.log_value(next_r_e)[0]
+                log_ratio[i] = 2 * (next_log_value - self.log_value)
+                self.moves += 1
+                if log_ratio[i] > np.log(np.random.random()):
+                    self.r_e, self.log_value = next_r_e, next_log_value
+                    self.accepted += 1
         return log_ratio
 
     return impl
@@ -130,7 +193,10 @@ VMC_t = VMC_class_t(
         ('step_size', nb.float64),
         ('wfn', Wfn_t),
         ('method', nb.int64),
-        ('probability_density', nb.float64),
+        ('log_value', nb.float64),
+        ('state', SlaterState_t),
+        ('moves', nb.int64),
+        ('accepted', nb.int64),
     ]
 )
 
@@ -152,7 +218,10 @@ class VMC(structref.StructRefProxy):
             self.step_size = step_size
             self.wfn = wfn
             self.method = method
-            self.probability_density = wfn.value(r_e) ** 2
+            self.log_value = wfn.log_value(r_e)[0]
+            self.state = wfn.slater.state(wfn._relative_coordinates(r_e)[1])
+            self.moves = 0
+            self.accepted = 0
             return self
 
         return init(*args, **kwargs)
@@ -166,6 +235,15 @@ class VMC(structref.StructRefProxy):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def step_size(self, value):
         self.step_size = value
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def acceptance(self) -> float:
+        """Fraction of the proposals of the last walk that were accepted. One proposal is one
+        electron in EBES and the whole configuration in CBCS, so this is what the 50% rule and
+        the step size sum rule are both stated in terms of.
+        """
+        return self.accepted / self.moves
 
     def bbk_random_step(self):
         """Brünger–Brooks–Karplus (13 B. Brünger, C. L. Brooks, and M. Karplus, Chem. Phys. Lett. 105, 495 1984)."""

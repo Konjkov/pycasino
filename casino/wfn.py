@@ -101,6 +101,31 @@ def wfn_value(self, r_e):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'log_value')
+def wfn_log_value(self, r_e):
+    """Logarithm of the absolute value of wave function, and its sign.
+    The jastrow is a logarithm already, so nothing of it is ever exponentiated here.
+    :param r_e: electron positions
+    :return: log(abs(psi)), sign(psi)
+    """
+
+    def impl(self, r_e) -> tuple[float, float]:
+        res = 0.0
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        if self.jastrow is not None:
+            res += self.jastrow.value(e_vectors, n_vectors)
+        if self.backflow is not None:
+            n_vectors += self.backflow.value(e_vectors, n_vectors)
+        if self.geminal is not None:
+            log_value, sign = self.geminal.log_value(n_vectors)
+        else:
+            log_value, sign = self.slater.log_value(n_vectors)
+        return res + log_value, sign
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, 'drift_velocity')
 def wfn_drift_velocity(self, r_e):
     """Drift velocity
@@ -566,6 +591,13 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
         :param r_e: electron coordinates - array(nelec, 3)
         """
         return self.value(r_e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def log_value(self, r_e):
+        """Logarithm of the absolute value of wave function, and its sign.
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        return self.log_value(r_e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     # @nb.vectorize('float64(float64[:, :])', cache=True)

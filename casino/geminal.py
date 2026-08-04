@@ -224,6 +224,26 @@ def geminal_value(self, n_vectors: np.ndarray):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Geminal_class_t, 'log_value')
+def geminal_log_value(self, n_vectors: np.ndarray):
+    """Logarithm of the absolute wave function value, and its sign."""
+
+    def impl(self, n_vectors: np.ndarray) -> tuple[float, float]:
+        pool_u, pool_d = self.pool_matrix(n_vectors)
+        log_det = np.empty(shape=self.c.size)
+        sign_det = np.empty(shape=self.c.size)
+        for n in range(self.c.size):
+            sign, log = np.linalg.slogdet(self.geminal_matrix(pool_u, pool_d, n))
+            log_det[n] = log + np.log(np.abs(self.c[n]))
+            sign_det[n] = sign * np.sign(self.c[n])
+        shift = np.max(log_det)
+        val = np.sum(sign_det * np.exp(log_det - shift))
+        return shift + np.log(np.abs(val)), np.sign(val)
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Geminal_class_t, 'gradient')
 def geminal_gradient(self, n_vectors: np.ndarray):
     """Gradient ∇ψ/ψ w.r.t e-coordinates."""
@@ -357,6 +377,10 @@ class Geminal(structref.StructRefProxy, AbstractSlater):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def value(self, n_vectors):
         return self.value(n_vectors)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def log_value(self, n_vectors):
+        return self.log_value(n_vectors)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def gradient(self, n_vectors):
