@@ -210,22 +210,46 @@ def wfn_nonlocal_potential(self, r_e):
     def impl(self, r_e) -> float:
         res = 0.0
         if self.ppotential is not None:
-            value = self.value(r_e)
             e_vectors, n_vectors = self._relative_coordinates(r_e)
             grid = self.ppotential.integration_grid(n_vectors)
             potential = self.ppotential.get_ppotential(n_vectors)
-            for atom in range(n_vectors.shape[0]):
-                if self.ppotential.is_pseudoatom[atom]:
-                    for e1 in range(self.neu + self.ned):
-                        if potential[atom][e1, 0] or potential[atom][e1, 1]:
-                            for q in range(grid.shape[2]):
-                                cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
-                                r_e_q = r_e.copy()
-                                r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
-                                value_ratio = self.value(r_e_q) / value
-                                weight = self.ppotential.weight[atom][q]
-                                for l in range(2):
-                                    res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_ratio
+            # every point of the quadrature grid is one electron displaced, so the ratio it needs
+            # is the single-electron one. backflow and geminals have no such ratio and pay the
+            # whole wave function per point instead
+            if self.backflow is None and self.geminal is None:
+                state = self.slater.state(n_vectors)
+                for atom in range(n_vectors.shape[0]):
+                    if self.ppotential.is_pseudoatom[atom]:
+                        for e1 in range(self.neu + self.ned):
+                            if potential[atom][e1, 0] or potential[atom][e1, 1]:
+                                n_vectors_q = n_vectors.copy()
+                                if self.jastrow is not None:
+                                    jastrow_1e = self.jastrow.value_1e(e_vectors[e1], n_vectors, e1)
+                                for q in range(grid.shape[2]):
+                                    cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
+                                    r_e_q1 = grid[atom, e1, q] + self.atom_positions[atom]
+                                    n_vectors_q[:, e1] = r_e_q1 - self.atom_positions
+                                    log_value, sign, _, _ = state.ratio_1e(n_vectors_q, e1)
+                                    value_ratio = sign * state.sign * np.exp(log_value - state.log_value)
+                                    if self.jastrow is not None:
+                                        value_ratio *= np.exp(self.jastrow.value_1e(r_e_q1 - r_e, n_vectors_q, e1) - jastrow_1e)
+                                    weight = self.ppotential.weight[atom][q]
+                                    for l in range(2):
+                                        res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_ratio
+            else:
+                value = self.value(r_e)
+                for atom in range(n_vectors.shape[0]):
+                    if self.ppotential.is_pseudoatom[atom]:
+                        for e1 in range(self.neu + self.ned):
+                            if potential[atom][e1, 0] or potential[atom][e1, 1]:
+                                for q in range(grid.shape[2]):
+                                    cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
+                                    r_e_q = r_e.copy()
+                                    r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
+                                    value_ratio = self.value(r_e_q) / value
+                                    weight = self.ppotential.weight[atom][q]
+                                    for l in range(2):
+                                        res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_ratio
         return res
 
     return impl
