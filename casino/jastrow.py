@@ -188,6 +188,28 @@ def jastrow_en_powers(self, n_vectors: np.ndarray):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'update_en_powers_1e')
+def jastrow_update_en_powers_1e(self, n_powers: np.ndarray, n_vector: np.ndarray, e: int):
+    """Overwrite the powers of the e-n distances of a single electron in place. The rows of the
+    electrons that did not move are the same at both ends of a single-electron move, so they are
+    built once and only this one is replaced.
+    :param n_powers: powers of e-n distances - array(natom, nelec, max_en_order)
+    :param n_vector: e-n vectors of that electron - array(natom, 3)
+    :param e: electron
+    """
+
+    def impl(self, n_powers: np.ndarray, n_vector: np.ndarray, e: int):
+        for atom in range(n_vector.shape[0]):
+            # written out rather than as a dot product: the caller may hand in a column of a
+            # larger array, and numba only likes the contiguous case
+            r_eI = np.sqrt(n_vector[atom, 0] ** 2 + n_vector[atom, 1] ** 2 + n_vector[atom, 2] ** 2)
+            for k in range(1, self.max_en_order):
+                n_powers[atom, e, k] = r_eI**k
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Jastrow_class_t, 'u_term')
 def jastrow_u_term(self, e_powers: np.ndarray):
     """Jastrow u-term
@@ -654,18 +676,17 @@ def jastrow_value(self, e_vectors, n_vectors):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Jastrow_class_t, 'value_1e')
-def jastrow_value_1e(self, e_vectors_1e, n_vectors, e: int):
+def jastrow_value_1e(self, e_vectors_1e, n_powers, e: int):
     """Part of the jastrow that contains electron e, CASINO's jas1_diff. Everything else is
     common to both ends of a single-electron move and cancels in the ratio.
     :param e_vectors_1e: e-e vectors of electron e - array(nelec, 3)
-    :param n_vectors: e-n vectors
+    :param n_powers: powers of e-n distances
     :param e: electron
     :return:
     """
 
-    def impl(self, e_vectors_1e, n_vectors, e: int) -> float:
+    def impl(self, e_vectors_1e, n_powers, e: int) -> float:
         e_powers_1e = self.ee_powers_1e(e_vectors_1e)
-        n_powers = self.en_powers(n_vectors)
 
         return self.u_term_1e(e_powers_1e, e) + self.chi_term_1e(n_powers, e) + self.f_term_1e(e_powers_1e, n_powers, e)
 

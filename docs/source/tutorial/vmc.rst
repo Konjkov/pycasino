@@ -99,11 +99,14 @@ appear as combinations of derivatives of :math:`\Lambda`, which is an identity, 
 :math:`V` is not differentiated anywhere.
 
 Finally, :math:`\Phi` and :math:`\varphi` denote the standard normal distribution function
-and density, and
+and density. Every inverse of :math:`\Phi` below is written as an inverse error function,
+:math:`\Phi^{-1}(p) = \sqrt{2}\,\mathrm{erfinv}(2p - 1)`, the form the code uses, so that a
+target acceptance :math:`A` enters through :math:`\mathrm{erfinv}(1 - A)` rather than through
+:math:`\Phi^{-1}(1 - A/2)`, and
 
 .. math::
 
-    s \equiv \Phi^{-1}(3/4) = 0.6744898, \qquad \varphi(s) = 0.3177766
+    s \equiv \sqrt{2}\,\mathrm{erfinv}(1/2) = 0.6744898, \qquad \varphi(s) = 0.3177766
 
 .. _vmc-what-is-accepted:
 
@@ -332,7 +335,7 @@ component from a Gaussian of variance ``dtvmc``, Pycasino from a cube of half-wi
 .. math::
 
     \mathtt{dtvmc} \cdot \langle T \rangle
-    = \frac{1}{2}\left[\Phi^{-1}(3/4)\right]^2 = 0.227475
+    = \left[\mathrm{erfinv}(1/2)\right]^2 = 0.2274682
 
 which is the form to compare codes in, and the one used below.
 
@@ -602,7 +605,7 @@ optimized ``dtvmc`` by the ``KEI`` the same run reports:
 
 The product is constant over a factor of 1160 in :math:`\langle T \rangle`, with and without a
 pseudopotential — which is the claim being tested, and the only one these runs settle. Both
-medians sit above the Gaussian :math:`0.227475` by the
+medians sit above the Gaussian :math:`0.2274682` by the
 :ref:`Jensen gap <vmc-cost-of-interchange>`, :math:`+7\,\%` and :math:`+14\,\%` in
 :math:`\tau` — the all-electron figure compatible with the :math:`4.5\,\%` fitted above, the
 pseudopotential one larger as expected, since removing the core leaves only three to eight
@@ -864,13 +867,13 @@ Since :math:`\sigma \propto \tau`, one measurement already fixes the whole curve
 .. math::
 
     \tau \;\longleftarrow\; \tau\,
-    \frac{\Phi^{-1}(3/4)}{\Phi^{-1}\!\left(1 - A(\tau)/2\right)}
+    \frac{\mathrm{erfinv}(1/2)}{\mathrm{erfinv}\!\left(1 - A(\tau)\right)}
 
 which lands on the target in a single shot whenever the Gaussian law is exact. Two properties
 make this safe to iterate rather than fit:
 
 - its **fixed point is** :math:`A = 1/2` **for any monotone acceptance curve**, since the two
-  inverse normals cancel identically there. The law sets the rate of convergence, not the
+  inverse error functions cancel identically there. The law sets the rate of convergence, not the
   answer, so the map cannot converge to the wrong step size where the Gaussian fails — EBES,
   a one-electron system, a badly optimized wave function;
 - it is a genuine Newton step in the variable the law is linear in, so it converges from far
@@ -886,7 +889,7 @@ rather than by the model.
 :meth:`casino.pycasino.Casino.vmc_step_graph` measures the shape of the curve for the same
 reason it is not fitted here. Its grid is laid out **equally in acceptance** — nineteen targets
 from 0.95 to 0.05 — through the same inverse,
-:math:`\tau = \tau_{50}\,\Phi^{-1}(1 - A/2)/\Phi^{-1}(3/4)`, anchored on the
+:math:`\tau = \tau_{50}\,\mathrm{erfinv}(1 - A)/\mathrm{erfinv}(1/2)`, anchored on the
 :math:`\tau_{50}` the optimizer has just measured. A grid in step size instead spends most of
 its points in the saturated tails, where the acceptance carries no information about
 :math:`\tau_{50}`, and spends them at system-dependent places, so nothing is comparable between
@@ -916,7 +919,7 @@ the same statement.
     .. math::
 
         \text{correction} = \tau \left/ \left[
-        \Phi^{-1}\!\left(1 - A/2\right)\sqrt{\frac{3}{2\langle T\rangle}}\,\right]\right.
+        \mathrm{erfinv}\!\left(1 - A\right)\sqrt{\frac{3}{\langle T\rangle}}\,\right]\right.
 
     One means the law is exact at that point. This is the factor
     :ref:`approximate_step_size <vmc-approximate-step-size>` carries as
@@ -966,7 +969,7 @@ The middle two columns multiply back into the first:
 .. math::
 
     \text{correction} = \frac{1}{\sqrt{\text{sum\_rule}}}\;\cdot\;
-    \frac{\sqrt{\mathrm{Var}(X)}}{2\,\Phi^{-1}\!\left(1 - A/2\right)}
+    \frac{\sqrt{\mathrm{Var}(X)}}{2\sqrt{2}\,\mathrm{erfinv}\!\left(1 - A\right)}
 
 which is an identity and not an approximation. The first factor uses :math:`\langle T\rangle`
 and never the acceptance; the second uses the acceptance and never :math:`\langle T\rangle`.
@@ -997,6 +1000,290 @@ So :math:`T_D` is the reference, its larger bar on heavy atoms being an honest o
 :math:`T_L` is reported beside it because the two share a mean by parts: their agreement within
 the quoted bars is the convergence check, and where it fails the file says so instead of quietly
 reporting one number.
+
+.. _vmc-corr-graph:
+
+vmc_corr_graph
+--------------
+
+Everything above fixes the step size and stops there. It says nothing about what the step is
+worth, which is the other half of
+
+.. math::
+
+    \mathcal{E} = \frac{1}{\mathrm{Var}(E_L)\; n_\mathrm{corr}\; T_\mathrm{iter}}
+
+:meth:`casino.pycasino.Casino.vmc_corr_graph` measures the missing factors on the grid
+:ref:`vmc_step_graph <vmc-optimize-step>` already uses, so the two campaigns line up row for
+row. Each point is one unthinned walk, from which come the integrated autocorrelation times of
+the local energy, of a soft coordinate :math:`\sum_i r_i^2` and of :math:`T_D`, the diffusion
+constant as a measured mean square displacement rather than as
+:math:`\mathtt{dtvmc}\cdot A`, the variance of :math:`E_L`, and the two wall times a
+Metropolis step is built from — one move and one local energy. CBCS only: in EBES a proposal
+moves one electron, and at the step that gives the average electron 50 % a core electron is
+accepted once in thousands of sweeps, so a correlation time measured there describes a
+coordinate that never moved rather than a slow mode.
+
+Two prerequisites, both learned the hard way. The **cusp correction must be on**: an
+uncorrected Gaussian orbital leaves :math:`E_L \sim -Z/r` at the nucleus, whose variance is
+finite but whose fourth moment is not, so the sample variance never settles — measured
+cuspless it swings by a factor of 400 between rows of one system, and every efficiency drawn
+from it is noise. And the **timings must be taken as minima** over the rows rather than
+averaged: a move costs the same whatever the step size, so the spread in those two columns is
+scheduler noise, which is one-sided.
+
+The correlation time and the diffusion constant peak in different places
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The central measurement is that :math:`n_\mathrm{corr}(E_L)` has a minimum near 40 % to 55 %
+acceptance and rises again at larger steps, while :math:`D` grows until roughly 20 % and then
+flattens. On helium, :math:`10^5` steps per point:
+
+.. code-block:: none
+
+    acc   0.95  0.90  0.84  0.79  0.74  0.69  0.64  0.59  0.54  0.50  0.46  0.41  0.37  0.32  0.29  0.24  0.19  0.15  0.10
+    tau    268    74    32    19    16    10   8.7   8.2   6.4   8.1   8.6    18    14    17    21    14    39    39    69
+
+and over the thirty-one systems measured, :math:`A` at the minimum of
+:math:`n_\mathrm{corr}` spans 0.23 to 0.63 while :math:`A` at the maximum of :math:`D` spans
+0.14 to 0.27. Two mechanisms separate them, and neither involves a per-electron acceptance —
+CBCS proposes one displacement for the whole configuration and accepts or rejects it whole.
+
+**A rejected move repeats the sample.** At acceptance :math:`A` a state is held for
+:math:`1/A` steps on average, so even if every accepted move landed somewhere statistically
+independent,
+
+.. math::
+
+    n_\mathrm{corr} \ge \frac{2}{A} - 1
+
+This floor is pure loss for a bounded observable, and it is invisible to :math:`D`, which
+counts distance covered and has the zeros of the rejected moves already averaged into it: one
+rare long jump carries as much displacement as many short ones, and the local energy is not
+improved by the trade.
+
+**The repetition is not uniform over configuration space.** The acceptance at
+:math:`\mathbf{R}` is governed by :math:`T_D(\mathbf{R})` through
+:math:`\mathrm{Var}(X|\mathbf{R}) = 8\,\mathtt{dtvmc}\,T_D(\mathbf{R})`, and where an electron
+is near a nucleus :math:`T_D` is orders of magnitude above its mean, so the whole configuration
+is rejected almost every time. Those are exactly the configurations that carry the variance of
+:math:`E_L`, so the walk sticks in the tail of the very distribution being averaged, and the
+contrast between sticky and slippery regions sharpens exponentially with the step. Measured on
+helium the ratio of :math:`n_\mathrm{corr}` to the floor above is 1.9 to 4.6 across the curve,
+never below one.
+
+Which optimum is the efficiency depends on the decorrelation period
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The two wall times differ by a fixed factor, :math:`T_\mathrm{energy}/T_\mathrm{move} = 4.7`
+to 6.1 over the whole set, and the cost of one independent sample takes two different forms
+depending on whether moves may be thinned:
+
+.. math::
+
+    \text{no thinning:}\quad n_\mathrm{corr}\,\bigl(T_\mathrm{move} + A\,T_\mathrm{energy}\bigr)
+    \qquad
+    \text{optimal } p:\quad n_\mathrm{corr}\,T_\mathrm{move} + T_\mathrm{energy}
+
+In the first, the energy is paid on every stored configuration, and the factor :math:`A`
+appears because a rejected move leaves the configuration alone and needs no recomputation. A
+larger step is then attractive twice over — it lowers :math:`n_\mathrm{corr}` down to the
+minimum, and it makes the expensive part happen less often — and the second reason carries the
+optimum past that minimum, down to where :math:`D` is maximal. In the second, the energy is
+paid once per decorrelation, its share no longer depends on the step, and only
+:math:`n_\mathrm{corr}` is left to minimize: the optimum sits at the minimum of
+:math:`n_\mathrm{corr}` itself.
+
+Measured, with the efficiency reconstructed from the columns at :math:`p = 1` and at the
+:math:`p` that minimizes the cost:
+
+.. list-table::
+   :widths: 14 8 20 15 15 14 14
+   :header-rows: 1
+   :width: 100%
+
+   * - System
+     - :math:`N_e`
+     - :math:`A` at min :math:`n_\mathrm{corr}`
+     - :math:`A_\mathrm{opt}(p)`
+     - :math:`A` at max :math:`D`
+     - :math:`A_\mathrm{opt}(1)`
+     - :math:`p` at 50 %
+   * - CH₄
+     - 10
+     - 0.46
+     - 0.46
+     - 0.19
+     - 0.14
+     - 14
+   * - C₂H₂
+     - 14
+     - 0.35
+     - 0.45
+     - 0.22
+     - 0.16
+     - 16
+   * - Ar
+     - 18
+     - 0.40
+     - 0.32
+     - 0.18
+     - 0.18
+     - 18
+   * - O₃
+     - 24
+     - 0.35
+     - 0.35
+     - 0.25
+     - 0.25
+     - 23
+   * - C₄H₄
+     - 28
+     - 0.31
+     - 0.27
+     - 0.27
+     - 0.27
+     - 31
+   * - Kr
+     - 36
+     - 0.35
+     - 0.40
+     - 0.21
+     - 0.12
+     - 25
+
+The left pair tracks and the right pair tracks, which is what makes the account above a
+mechanism rather than a story.
+
+Which of the four combinations then gives the smallest error bar for a given amount of
+computer time? Taking the best achievable — thinning, at the step size that mode prefers — as
+one, the medians over the thirty-one systems are
+
+.. list-table::
+   :widths: 40 30 30
+   :header-rows: 1
+   :width: 100%
+
+   * -
+     - target 50 %
+     - target max :math:`D`
+   * - optimal :math:`p`
+     - **0.84**
+     - 0.66
+   * - no thinning
+     - 0.35
+     - 0.46
+
+**Thinning at the 50 % target wins outright**, and never falls below 0.57 on any all-electron
+system in the set. Maximizing :math:`D` while still thinning is worse everywhere it differs,
+because the thinning has already removed the only reason to prefer the larger step. Refusing to
+thin costs a factor of about two in efficiency whatever the target, which is a 1.17 to 1.57
+times wider error bar for the same time — median 1.37, or 1.9 times the computer time for the
+same bar — and it is only within that already-lost regime that maximizing :math:`D` beats the
+50 % rule. So the recommendation to maximize :math:`D` is sound for a calculation that stores
+every move, and is superseded by choosing :math:`p`.
+
+The unit of that table is itself the maximum of a flat and noisy curve, so it is biased
+upwards and 0.84 is if anything an underestimate of what the default settings achieve.
+
+How long the decorrelation loop should be
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The :math:`p` that minimizes the cost runs from 7 on the two-electron ions to 33 on benzene,
+inside the 8 … 36 that [23]_ reports for CBCS, and it is what
+:meth:`casino.pycasino.Casino.optimize_decorr_period` estimates from the production block. Over
+all thirty-one systems it is described by
+
+.. math::
+
+    p_\mathrm{opt} = 1.35\,\sqrt{n_\mathrm{corr}\;T_\mathrm{energy}/T_\mathrm{move}}
+
+to 18 %, where the obvious alternative :math:`p \propto n_\mathrm{corr}` scatters by a factor
+of 2.3 across the same data, from 0.46 on benzene to 1.08 on helium. Both factors are needed
+and each explains one trend: the loop lengthens with system size through the correlation time,
+and it lengthens again wherever the energy is expensive relative to a move.
+
+Against that, ``vmc_decorr_period`` defaults to **10** in Pycasino under CBCS, where Casino's
+default is 3. Measured at the 50 % step on the thirty-one systems, a period of 3 costs a median
+1.69 times the computer time of the optimum for the same error bar, up to 2.70 on fluorine with
+a pseudopotential, and a period of 1 costs 2.41; a flat 10 lands within 6 % of the optimum in
+the median and within 27 % everywhere. Carried to the production wave functions with the
+:math:`T_\mathrm{energy}/T_\mathrm{move}` measured above, the same comparison against a period
+of 3 gives 1.44 for neon with a Jastrow, 2.02 with backflow, 2.54 for pseudo-nitrogen with a
+Jastrow and 3.20 with backflow. The default is worth more than any other single number in this
+chapter, and unlike the step size it costs nothing to get approximately right.
+
+Under EBES the same measurement gives 4, and the default follows it back to Casino's 3. Two
+things change at once and both shorten the loop. A sweep proposes a move for every electron in
+turn, so it moves something almost every time — the measured fraction is 1 to five figures on
+neon and on krypton — and the local energy is therefore paid on every stored configuration
+whatever the period, leaving the loop to save on :math:`p\,T_\mathrm{move}` alone. And the
+correlation time it is working against is three to four times shorter to begin with, 3 to 8
+sweeps at the optimum where CBCS needs 18 to 47 configurations. What remains is a shallow
+optimum at 4: a period of 3 costs 1 to 7 % over it, a period of 1 costs 1.5 to 1.8, and the 10
+that is right for CBCS costs a quarter to a half.
+
+That second factor is where the pseudopotentials part company with everything else.
+:math:`T_\mathrm{energy}/T_\mathrm{move}` is 4.7 to 6.1 on every all-electron system, Gaussian
+or Slater, light or heavy — a remarkably stable number, since both times scale with
+:math:`N_e` in the same way — but 11.4 to 18.1 on the pseudoatoms, where the non-local
+quadrature is evaluated on a grid of points per electron and the move is not. Neon is the clean
+comparison: all-electron it wants :math:`p = 16` on ten electrons, pseudised it wants
+:math:`p = 23` on eight. The consequence is practical: **thinning matters most exactly where
+the local energy is most expensive**, and refusing it costs 0.19 … 0.35 of the achievable
+efficiency on the pseudoatoms against 0.21 … 0.60 on the all-electron systems. Since
+pseudopotentials are the norm for the extended systems that [23]_ recommends maximizing
+:math:`D` for, this is not a corner of the parameter space.
+
+What the correlation times measure
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a diffusive walk the correlation time of an observable is a squared length divided by a
+diffusion constant,
+
+.. math::
+
+    n_\mathrm{corr}(f)\,D = L_f^2 = \frac{\mathrm{Var}(f)}{\langle|\nabla f|^2\rangle}
+
+exact for an Ornstein–Uhlenbeck process and a variational bound in general. The product is the
+quantity to compare between systems, and it splits the same way the step size does: :math:`D`
+is sampling and :math:`L_f` is chemistry. For the local energy, over the all-electron atoms
+from helium to krypton in both bases at 50 % acceptance,
+
+.. math::
+
+    L_E \propto Z^{-0.81}, \qquad L_E\,Z = 1.36 \pm 0.28, \qquad
+    n_\mathrm{corr} \propto Z^{0.71}
+
+that is, the length scale of the core, as expected of an observable whose fluctuations are
+collected there, and the two exponents are consistent through
+:math:`D \propto \mathtt{dtvmc} \propto 1/\langle T\rangle \propto Z^{-7/3}`. The pseudoatoms
+sit an order of magnitude away, :math:`L_E` of 0.36 to 1.3 bohr against 0.05 to 0.15 on the
+heavy all-electron atoms: with the core removed the local energy varies on the valence scale
+instead. The soft coordinate returns :math:`L_{r^2}` of 1.0 to 2.0 bohr on the light systems,
+the size of the electron cloud, and nothing usable on argon and krypton, where
+:math:`n_\mathrm{corr}(r^2)` reaches :math:`10^4` and :math:`10^5` steps per point cannot
+resolve it.
+
+The Gaussian and Slater versions of the same system are the control on all of this, and they
+agree: over the seven pairs measured, :math:`n_\mathrm{corr}`, :math:`L_E^2` and
+:math:`p_\mathrm{opt}` differ by 5 % to 25 % with no systematic sign. What is measured is a
+property of the wave function, not of how the orbitals are expanded.
+
+One system has no interior minimum at all. Pseudo-hydrogen carries one electron and a nearly
+exact wave function — :math:`\mathrm{Var}(E_L) = 0.0011` — and its :math:`n_\mathrm{corr}`
+rises monotonically with the step, 1.9 to 23, so the apparent optimum at 84 % acceptance is the
+edge of the grid rather than a measurement. That is the second mechanism above failing to
+exist: with one electron there is no configuration space for the acceptance to be
+inhomogeneous over.
+
+Three further reservations on data taken at :math:`10^5` steps per point. Rows above 90 %
+acceptance are unusable — C₄H₄ reports :math:`n_\mathrm{corr} = 1764 \pm 1048` there and the
+optimal period saturates its cap of 100. A single close encounter still contaminates one row in
+twenty, visible as a variance three to four times its neighbours', and it depresses the
+correlation time of the same row. And :math:`A_\mathrm{opt}` itself is the argument of a
+maximum of a flat curve, so it moves by :math:`\pm 0.1` between repeat runs: the ratios above
+are the robust quantities, not the position of the optimum.
 
 References
 ----------

@@ -14,22 +14,24 @@
 
     Main Author : Vladimir Konkov
  ------------------------------------------------------------------------------
- Started 2026/08/08 10:55:51
+ Started 2026/08/08 14:54:13
 
  Python 3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]
  Numba 0.63.1
  Numpy 2.2.6
  Scipy 1.13.1
 
- Running in parallel using 4 MPI processes.
+ Sequential run: not using MPI.
+
+ Using 8 OpenMP threads on default threading layer.
 
  General input parameters
  ========================
- NEU (num up spin electrons)              :  4
- NED (num down spin electrons)            :  4
+ NEU (num up spin electrons)              :  12
+ NED (num down spin electrons)            :  12
  RUNTYPE (type of run)                    :  vmc
  PSI_S  (form for [anti]symmetrizing wfn) :  slater
- ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  slater-type
  INTERACTION (interaction type)           :  coulomb
  TESTRUN (read input data,print and stop) :  F
  PERIODIC                                 :  F
@@ -38,7 +40,7 @@
  USE_JASTROW (use Jastrow factor)         :  T
  BACKFLOW (use backflow corrections)      :  F
  USE_ORBMODS (use orbitals modifications) :  F
- CUSP_CORRECTION                          :  T
+ CUSP_CORRECTION                          :  F
  NON_LOCAL_GRID (NL integration grid)     :  4
  E_OFFSET (energy offset)                 :  0.0000
  GAUTOL  (Gaussian evaluation tolerance)  :  7.0
@@ -49,10 +51,10 @@
  VMC input parameters
  ====================
  NEWRUN (start new run)                   :  T
- VMC_METHOD (choice of VMC algorithm)     :  3
+ VMC_METHOD (choice of VMC algorithm)     :  1
  DTVMC (VMC time step)                    :  0.02
  OPT_DTVMC (VMC time-step optimization)   :  T
- VMC_NSTEP (num VMC steps)                :  10000000
+ VMC_NSTEP (num VMC steps)                :  1000000
  VMC_NCONFIG_WRITE (num configs to write) :  0
  VMC_NBLOCK (num VMC blocks)              :  1
  VMC_EQUIL_NSTEP (num equil steps)        :  5000
@@ -61,13 +63,6 @@
  VMC_SAMPLING                             :  standard
  MAKEMOVIE                                :  F
  FORCES                                   :  F
-
- Non-local integration grids
- ===========================
- Ion type            :  1
- Non-local grid no.  :  4
- Lexact              :  5
- Number of points    :  12
 
  ====================================
  PERFORMING A SINGLE VMC CALCULATION.
@@ -79,39 +74,39 @@
 
  Running VMC equilibration (5000 moves).
  Performing time-step optimization.
- Optimized step size: 0.17481
- DTVMC: 0.01019
+ Optimized step size: 0.50059
+ DTVMC: 0.08353
 
  Starting VMC.
 
  =========================================================================
  In block : 1
-  Number of VMC steps           = 10000000
+  Number of VMC steps           = 1000000
 
   Block average energies (au)
 
-  Total energy                       (au) =         -34.891956953063
-  Standard error                        +/-           0.000215105503
+  Total energy                       (au) =        -225.233255308449
+  Standard error                        +/-           0.001640650775
 
-  Constant energy contributions      (au) =           0.000000000000
+  Constant energy contributions      (au) =          69.027000022559
 
-  Variance of local energy           (au) =           0.462703729449
+  Variance of local energy           (au) =           2.691732272773
   Standard error                        +/-           0.000000000000
 
- Time taken in block    : : :       445.3338
+ Time taken in block    : : :       1208.9671
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
 
- -34.891956953063 +/- 0.000215105503      No correction
- -34.891956953063 +/- 0.000655156844      Correlation time method
- -34.891956953063 +/- 0.000673758889      On-the-fly reblocking method
+ -225.233255308449 +/- 0.001640650775      No correction
+ -225.233255308449 +/- 0.005077543704      Correlation time method
+ -225.233255308449 +/- 0.005140762314      On-the-fly reblocking method
 
- Sample variance of E_L (au^2/sim.cell) : 0.462703729449
+ Sample variance of E_L (au^2/sim.cell) : 2.691732272773
 
 
  =========================================================================
 
- Total PyCasino real time : : :    455.7534
+ Total PyCasino real time : : :    1216.8424

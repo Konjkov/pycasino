@@ -12,7 +12,7 @@ import numpy as np
 import scipy as sp
 from mpi4py import MPI
 from scipy.optimize import least_squares, minimize
-from scipy.special import erfinv, ndtri
+from scipy.special import erfinv
 from statsmodels.tsa.stattools import pacf
 
 from .backflow import Backflow
@@ -23,7 +23,7 @@ from .gjastrow import Gjastrow
 from .jastrow import Jastrow
 from .ppotential import PPotential
 from .readers import CasinoConfig
-from .sem import correlated_sem
+from .sem import correlated_sem, correlation_time
 from .slater import Slater
 from .vmc import VMC
 from .wfn import Wfn
@@ -157,7 +157,10 @@ class Casino:
         self.config.read()
         self.neu, self.ned = self.config.input.neu, self.config.input.ned
 
-        if self.config.input.cusp_correction and not self.config.wfn.is_pseudoatom.all():
+        # the correction patches s-type gaussians inside a radius, so it is meaningless on any
+        # other basis: a slater one already has the right form at the nucleus and carries the cusp
+        # constraint from the converter, and imposing this on it corrupts the orbitals outright
+        if self.config.input.cusp_correction and self.config.input.atom_basis_type == 'gaussian' and not self.config.wfn.is_pseudoatom.all():
             cusp_factory = CuspFactory(self.config)
             cusp = cusp_factory.create()
             if self.config.input.cusp_info:
@@ -325,7 +328,7 @@ class Casino:
             f' step_size   target  acc_ratio  correction  sum_rule  gaussian  exp_mean  kurtosis'
         )  # fmt: skip
         for target in np.linspace(0.95, 0.05, 19):
-            self.vmc.step_size = step_size_50 * ndtri(1 - target / 2) / ndtri(3 / 4)
+            self.vmc.step_size = step_size_50 * erfinv(1 - target) / erfinv(1 / 2)
             x = self.vmc.log_ratio_walk(steps)
             variance = x.var()
             # the probability a proposal is accepted, averaged over the proposals themselves rather
@@ -339,7 +342,7 @@ class Casino:
             # would set for it. This is the factor approximate_step_size carries as 1 + 0.045 /
             # nuclei, in the same units, so the file gives the number to fit rather than an energy
             # to convert, and its value at the 50% target is that constant measured on this system
-            law = ndtri(1 - acceptance / 2) * np.sqrt(3 * electrons / (2 * kinetic_energy))
+            law = erfinv(1 - acceptance) * np.sqrt(3 * electrons / kinetic_energy)
             correction = self.vmc.step_size / law
             # the sum rule alone, with no assumption about the shape of the distribution: it is
             # one wherever Var(x) = 8/3 * step_size**2 * <T> holds, and its departure at large
@@ -361,6 +364,92 @@ class Casino:
                 ((x - x.mean()) ** 4).mean() / variance**2 - 3,
             )
 
+    def vmc_corr_graph(self, steps=100000):
+        """Correlation time, diffusion constant and cost of an independent sample vs step size, the half of
+        E = 1 / (var(E_L) * n_corr * T_iter) that the acceptance curve says nothing about: where
+        the step size fixes how far a proposal reaches, this fixes how fast the walk forgets where
+        it was. All columns come from one unthinned walk per point, so the correlation times of the
+        local energy, of a soft coordinate and of the drift kinetic energy are comparable as they
+        stand. The first is what the efficiency depends on, the second is what the diffusion
+        constant measures, and it is the gap between them that makes maximizing the diffusion
+        constant a proxy rather than the answer.
+        A step is one whole configuration in CBCS and one sweep over the electrons in EBES, so the
+        timings and the correlation times of the two are comparable as they stand, but acc_ratio is
+        per proposal and hence per electron in EBES: read the fraction of steps that moved anything
+        off move_frac, which is what the decorrelation period is weighed against. Beware that at
+        the step giving the average electron 50% a core electron in EBES is accepted once in
+        thousands of sweeps, so a correlation time measured there can describe a coordinate that
+        never moved rather than a slow mode.
+        """
+        self.optimize_vmc_step(steps // 10)
+        step_size_50 = self.vmc.step_size
+        electrons = self.neu + self.ned
+        logger.info(
+            f' electrons = {electrons}\n'
+            f' optimized step size = {step_size_50:.5f}\n'
+            f' step_size   target  acc_ratio  diffusion   corr_E  corr_err  corr_r2   corr_TD  variance  decorr  ms_indep  us_move  us_energy  move_frac'
+        )  # fmt: skip
+        # the grid of vmc_step_graph, so that the two campaigns line up row for row and a column of
+        # one can be divided by a column of the other without interpolating anything
+        for target in np.linspace(0.95, 0.05, 19):
+            self.vmc.step_size = step_size_50 * erfinv(1 - target) / erfinv(1 / 2)
+            walk_start = default_timer()
+            position = self.vmc.random_walk(steps, 1)
+            walk_stop = default_timer()
+            energy = self.vmc.observable(self.wfn.energy, position)
+            energy_stop = default_timer()
+            drift = self.vmc.observable(self.wfn.drift_kinetic_energy, position)
+            # a rejected move leaves nan, so carrying the previous configuration forward recovers
+            # the walk itself, and with it the distance covered per move and per cartesian
+            # component: the diffusion constant as displacement rather than as the step_size**2
+            # times acceptance proxy, which counts a rejected long move as if it had happened
+            moved = ~np.isnan(position[:, 0, 0])
+            r_e = position[np.maximum.accumulate(np.where(moved, np.arange(steps), 0))]
+            diffusion = ((r_e[1:] - r_e[:-1]) ** 2).sum(axis=(1, 2)).mean() / (3 * electrons)
+            correlation, correlation_error = correlation_time(energy)
+            variance = energy.var()
+            acceptance = self.vmc.acceptance
+            time_move = (walk_stop - walk_start) / steps
+            time_energy = (energy_stop - walk_stop) / moved.sum()
+            # every point is weighed at its own optimal decorrelation period rather than at one
+            # move per stored configuration, by the thinning law optimize_decorr_period inverts,
+            # since a point with a long correlation time is the one that gains most from it. The
+            # energy is only paid on a configuration that moved, hence 1 - (1 - a)**period, with a
+            # the measured fraction of steps that moved anything rather than the acceptance itself:
+            # the two coincide in CBCS, where a step is one proposal, but a sweep in EBES moves
+            # something far more often than a single electron is accepted
+            rho = max((correlation - 1) / (correlation + 1), 0)
+            period = np.arange(1, 101)
+            move_frac = moved.mean()
+            # a sweep that moves nothing is rare enough in EBES for its hundredth power to
+            # underflow, and zero is what it should be: the energy is then paid at every period
+            with np.errstate(under='ignore'):
+                cost = (1 + rho**period) / (1 - rho**period) * (period * time_move + (1 - (1 - move_frac) ** period) * time_energy)
+            # the wall time of one independent sample rather than the efficiency itself: the
+            # variance is a column of its own, so 1 / (variance * ms_indep) recovers it, and this
+            # way the number stays fixed point over the whole set, milliseconds on every system.
+            # The two timings behind it are written out as well, in microseconds, since ms_indep
+            # has the decorrelation period already minimized out of it and they are what it takes
+            # to rebuild the cost at any other period, the p = 1 of a run that does no thinning
+            # included
+            logger.info(
+                '%10.5f %8.2f %10.5f %10.5f %8.2f %9.2f %8.2f %9.2f %9.5f %7d %9.3f %8.2f %10.2f %10.5f',
+                self.vmc.step_size,
+                target,
+                acceptance,
+                diffusion,
+                correlation,
+                correlation_error,
+                correlation_time((r_e**2).sum(axis=(1, 2)))[0],
+                correlation_time(drift)[0],
+                variance,
+                period[np.argmin(cost)],
+                1000 * cost.min(),
+                1e6 * time_move,
+                1e6 * time_energy,
+                move_frac,
+            )
+
     def optimize_vmc_step(self, steps):
         """Optimize vmc step size to 50% acceptance.
         A measurement at one step size already fixes the whole curve: sigma is proportional to the
@@ -376,7 +465,7 @@ class Casino:
         for _ in range(3):
             # a rank that accepts everything or nothing carries no scale of its own
             acceptance = np.clip(mpi_comm.allreduce(self.acceptance_ratio(steps)) / mpi_comm.size, 0.05, 0.95)
-            self.vmc.step_size *= ndtri(3 / 4) / ndtri(1 - acceptance / 2)
+            self.vmc.step_size *= erfinv(1 / 2) / erfinv(1 - acceptance)
 
     @property
     def decorr_period(self):

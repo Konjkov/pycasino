@@ -74,12 +74,18 @@ class Input:
         # VMC keywords
         self.read_int('vmc_equil_nstep')
         self.read_int('vmc_nstep')
-        self.read_int('vmc_decorr_period', 3)
+        self.read_int('vmc_method', 1)
+        # measured on the thirty one systems of examples/time_step/corr: what the inner loop is
+        # worth depends on what a step costs against the local energy, and the two methods differ.
+        # A configuration move is cheap and rarely accepted, so CBCS gains up to a period of ten,
+        # where three costs a median 1.69 times the optimum; a sweep moves something almost every
+        # time, so EBES pays for the energy whatever the period and gains only up to four, where
+        # ten costs a quarter to a half and Casino's three is within a few percent
+        self.read_int('vmc_decorr_period', 3 if self.vmc_method == 1 else 10)
         self.read_int('vmc_nblock')
         self.read_int('vmc_nconfig_write')
         self.read_float('dtvmc', 0.02)
         self.read_bool('opt_dtvmc', True)
-        self.read_int('vmc_method', 1)
         # Optimization keywords
         self.read_str('opt_method')
         self.read_str('emin_method', 'linear')

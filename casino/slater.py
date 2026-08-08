@@ -135,21 +135,22 @@ def slater_value_matrix(self, n_vectors: np.ndarray):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'orbitals_1e')
-def slater_orbitals_1e(self, n_vectors: np.ndarray, e: int):
+def slater_orbitals_1e(self, n_vector: np.ndarray, e: int):
     """Orbital values of a single electron, i.e. the column of the slater matrix that an
     electron-by-electron move changes. The basis is walked over for that one electron only,
-    which is what the whole electron-by-electron scheme is worth.
-    :param n_vectors: electron-nuclei array(natom, nelec, 3)
+    which is what the whole electron-by-electron scheme is worth, and so are its nuclear
+    distances: the caller passes that electron's column rather than the whole array.
+    :param n_vector: electron-nuclei vectors of that electron - array(natom, 3)
     :param e: electron
     :return: array(orbitals) of its own spin
     """
 
-    def impl(self, n_vectors: np.ndarray, e: int) -> np.ndarray:
+    def impl(self, n_vector: np.ndarray, e: int) -> np.ndarray:
         orbitals = np.zeros(shape=self.nbasis_functions)
         p = ao = 0
-        for atom in range(n_vectors.shape[0]):
-            x, y, z = n_vectors[atom, e]
-            r2 = n_vectors[atom, e] @ n_vectors[atom, e]
+        for atom in range(n_vector.shape[0]):
+            x, y, z = n_vector[atom]
+            r2 = n_vector[atom] @ n_vector[atom]
             angular_1 = self.harmonics.get_value(x, y, z)
             for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
                 l = self.shell_moments[nshell]
@@ -176,7 +177,7 @@ def slater_orbitals_1e(self, n_vectors: np.ndarray, e: int):
         else:
             wfn = self.mo_down @ ao_value
         if self.cusp is not None:
-            wfn = wfn + self.cusp.value_1e(n_vectors, e)
+            wfn = wfn + self.cusp.value_1e(n_vector, e)
         return wfn
 
     return impl
@@ -620,18 +621,18 @@ def slater_state(self, n_vectors: np.ndarray):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(SlaterState_class_t, 'ratio_1e')
-def slater_state_ratio_1e(self, n_vectors: np.ndarray, e: int):
+def slater_state_ratio_1e(self, n_vector: np.ndarray, e: int):
     """Value the wave function would take with electron e moved, without touching the state.
     Replacing one column of a matrix multiplies its determinant by
         Q = sum_j inv[e, j] * orbital[j]
     which costs one dot product per determinant instead of an O(N**3) decomposition.
-    :param n_vectors: electron-nuclei vectors of the proposed configuration
+    :param n_vector: electron-nuclei vectors of the proposed position of that electron
     :param e: electron being moved
     :return: log(abs(phi)), sign(phi), orbitals of e, Q of each determinant
     """
 
-    def impl(self, n_vectors: np.ndarray, e: int) -> tuple[float, float, np.ndarray, np.ndarray]:
-        orbitals = self.slater.orbitals_1e(n_vectors, e)
+    def impl(self, n_vector: np.ndarray, e: int) -> tuple[float, float, np.ndarray, np.ndarray]:
+        orbitals = self.slater.orbitals_1e(n_vector, e)
         ndet = self.log_det.size
         q = np.empty(shape=ndet)
         if e < self.slater.neu:
@@ -1351,8 +1352,8 @@ class Slater(structref.StructRefProxy, AbstractSlater):
         return self.value_matrix(n_vectors)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
-    def orbitals_1e(self, n_vectors, e):
-        return self.orbitals_1e(n_vectors, e)
+    def orbitals_1e(self, n_vector, e):
+        return self.orbitals_1e(n_vector, e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def gradient_matrix(self, n_vectors):
@@ -1419,8 +1420,8 @@ class SlaterState(structref.StructRefProxy):
         return self.sign
 
     @nb.njit(nogil=True, parallel=False, cache=True)
-    def ratio_1e(self, n_vectors, e):
-        return self.ratio_1e(n_vectors, e)
+    def ratio_1e(self, n_vector, e):
+        return self.ratio_1e(n_vector, e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def accept_1e(self, e, orbitals, q):

@@ -1,3 +1,4 @@
+import numpy as np
 import pyblock
 
 """
@@ -14,6 +15,25 @@ different situations as possible, giving SEM's that include the true mean value 
 3. Autoregressive processes AR(1) estimation
 4. AR(1) Bayesian estimation
 """
+
+
+def correlation_time(x, c=5):
+    """Integrated autocorrelation time by Sokal's self-consistent window, i.e. the factor by which
+    the variance of the mean exceeds var(x) / n. The window is the first w with w >= c * tau, which
+    keeps the bias of truncating below the noise of the tail whatever the shape of the decay, so
+    unlike an AR(1) inversion it does not assume a single exponential. Relative error
+    sqrt(2 * (2 * w + 1) / n), so a given relative precision costs n proportional to tau, not tau**3.
+    """
+    n = x.size
+    f = np.fft.rfft(x - x.mean(), 2 * n)
+    acf = np.fft.irfft(f * np.conj(f), 2 * n)[:n]
+    acf /= acf[0]
+    tau = 1.0
+    for w in range(1, n):
+        tau += 2 * acf[w]
+        if w >= c * tau:
+            break
+    return tau, tau * np.sqrt(2 * (2 * w + 1) / n)
 
 
 def correlated_sem(energy):

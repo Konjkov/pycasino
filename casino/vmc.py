@@ -56,6 +56,10 @@ def vmc_simple_random_step(self):
 @overload_method(VMC_class_t, 'one_electron_step')
 def vmc_one_electron_step(self, e):
     """Metropolis step of a single electron, the proposal EBES is built out of.
+    Nothing quadratic in the number of electrons is touched: the slater part is a ratio of
+    determinants taken against the cached inverse matrices, and the jastrow part is the
+    difference of the terms the moved electron takes part in, so the log ratio is accumulated
+    rather than recomputed from the whole configuration.
     :param e: electron to move
     :return: step is accepted, ln(psi'**2/psi**2) of the proposal
     """
@@ -68,17 +72,26 @@ def vmc_one_electron_step(self, e):
         # electron within its cutoff, and a geminal is not a slater determinant, so neither of
         # them leaves one column to update: both recompute the whole configuration instead
         if self.wfn.backflow is None and self.wfn.geminal is None:
-            e_vectors, n_vectors = self.wfn._relative_coordinates(next_r_e)
-            next_log_value, _, orbitals, q = self.state.ratio_1e(n_vectors, e)
+            # the determinant needs the nuclear distances of the moved electron and of nobody
+            # else, and that column is cheaper to build than to look up in an array of all of them
+            next_log_value, _, orbitals, q = self.state.ratio_1e(next_r_e[e] - self.wfn.atom_positions, e)
+            log_ratio = 2 * (next_log_value - self.state.log_value)
             if self.wfn.jastrow is not None:
-                next_log_value += self.wfn.jastrow.value(e_vectors, n_vectors)
-            log_ratio = 2 * (next_log_value - self.log_value)
+                # the nuclear distances of the electrons that stayed put are common to both ends
+                # of the proposal, so their powers are built once and only the row of the moved
+                # electron is replaced between the two evaluations
+                e_vectors_1e, n_vectors = self.wfn._relative_coordinates_1e(self.r_e, e)
+                n_powers = self.wfn.jastrow.en_powers(n_vectors)
+                jastrow_value = self.wfn.jastrow.value_1e(e_vectors_1e, n_powers, e)
+                self.wfn.jastrow.update_en_powers_1e(n_powers, next_r_e[e] - self.wfn.atom_positions, e)
+                log_ratio += 2 * (self.wfn.jastrow.value_1e(next_r_e[e] - next_r_e, n_powers, e) - jastrow_value)
             self.moves += 1
             if log_ratio > np.log(np.random.random()):
-                cond, self.r_e, self.log_value = True, next_r_e, next_log_value
+                cond, self.r_e = True, next_r_e
+                self.log_value += log_ratio / 2
                 self.accepted += 1
                 if not self.state.accept_1e(e, orbitals, q):
-                    self.state = self.wfn.slater.state(n_vectors)
+                    self.state = self.wfn.slater.state(self.wfn._relative_coordinates(next_r_e)[1])
         else:
             next_log_value = self.wfn.log_value(next_r_e)[0]
             log_ratio = 2 * (next_log_value - self.log_value)
