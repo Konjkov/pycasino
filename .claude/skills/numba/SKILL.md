@@ -438,3 +438,24 @@ NUMBA_DUMP_IR=1          # dump LLVM IR for compiled functions
 
 `NUMBA_DISABLE_JIT=1` is invaluable for debugging: all `@njit` functions run as
 plain Python, so `pdb`, `print`, and `traceback` work normally.
+
+---
+
+## Upstream: release notes and the issues this project is waiting on
+
+Check these before blaming our own code for a regression after a Numba bump, and
+before designing around a limitation that may already have been lifted:
+
+- Release notes overview (all versions): <https://numba.readthedocs.io/en/stable/release-notes-overview.html>
+- Current release notes: <https://numba.readthedocs.io/en/stable/release-notes.html>
+
+Open Numba issues the user is tracking for pycasino:
+
+| Issue | Subject | Why it matters here |
+|---|---|---|
+| [#5149](https://github.com/numba/numba/issues/5149) | access to `np.array` data / `tobytes` etc. | raw buffer access from inside `@njit` |
+| [#6972](https://github.com/numba/numba/issues/6972) | wrapper or type to avoid inlining | no supported way to force a call boundary; matters where inlining blows up compile time or defeats a shared kernel |
+| [#9776](https://github.com/numba/numba/issues/9776) | parallelisation approach | worth trying as an alternative to the current `prange`/MPI split |
+| [#9712](https://github.com/numba/numba/issues/9712) | allocations in Numba significantly slower than in NumPy | directly relevant — the hot kernels allocate per call (harmonics buffers, `ee_powers`/`en_powers`, the `_d1` result arrays). Reinforces the "Memory and array patterns" rule above: preallocate into struct fields and write in place rather than returning fresh arrays |
+
+These are also listed at the top of `backlog.txt`.

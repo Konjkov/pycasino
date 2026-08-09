@@ -16,6 +16,37 @@ stochastically by sampling electron configurations from the probability density 
 
 ---
 
+## Scope: finite systems only — periodic boundary conditions are not implemented
+
+pycasino handles atoms and molecules. There is no periodic-system support anywhere in the
+code, and this is a hard boundary, not a gap in a mostly-finished feature:
+
+- **No periodic wave-function formats.** `readers/wfn.py` implements `Gwfn` (gwfn.data,
+  Gaussians) and `Stowfn` (stowfn.data, Slater orbitals) and nothing else. CASINO's periodic
+  formats — `pwfn.data` (plane waves) and `bwfn.data` (blips) — have no reader.
+- **No lattice anywhere.** `readers/input.py` reads no lattice vectors, no supercell, no
+  k-points. Do not be misled by the name `periodic` at `readers/wfn.py:11-19` — that is the
+  periodic *table* of element symbols, used only to turn a pseudopotential filename into an
+  atomic number.
+- **The Coulomb operator is the bare finite-system sum.** `wfn.py:64` (n-n) and `wfn.py:80`
+  (e-e, e-n) are plain `1/r` double loops over a finite set of particles. No minimum-image
+  convention, no Ewald summation, no model periodic Coulomb (MPC), no structure factor.
+- Consequently: no twist averaging, no finite-size corrections, no Brillouin-zone sampling.
+
+Adding periodicity would touch the Hamiltonian, the orbital evaluator, the readers, and the
+input layer at once. Treat any request that implies a solid, a crystal, an electron gas in a
+simulation cell, or Bloch orbitals as out of scope until that decision is explicitly revisited.
+
+**Why this is worth revisiting** (open question, no decision taken). Drummond's recent output
+is dominated by periodic and uniform-electron-gas work — the 2D electron liquid series with
+Azadi (effective mass PRB 112, 075141 (2025); phase diagram PRB 110, 245145 (2024)),
+one-dimensional quantum wires, graphene/hBN heterostructures, and "Baldereschi mean value
+points for three-dimensional Bravais lattices" (submitted 2026), which is a Brillouin-zone
+sampling paper. So the part of the field our upstream collaborator actually works in is the
+part pycasino cannot enter. Weigh that against the cost above before dismissing it.
+
+---
+
 ## Trial wave function
 
 The wave function (`wfn.py`) has the Slater-Jastrow-backflow form:
@@ -152,6 +183,35 @@ u(r) = Σ_k α_k * r^k * (r - L)²   for r < L, else 0
 `∂u/∂r|_{r=0} = 1/4` (parallel spins) or `1/2` (antiparallel spins).
 The first coefficient `α_1` is fixed by this condition and is not optimised.
 
+### Spin-pair dependence: the block order is [uu, ud, dd]
+
+`correlation.data` gives each term a "Spin dep" integer; the reader turns it into the first
+axis of the parameter array, `shape[0] = spin_dep + 1` (`readers/jastrow.py:198`). The kernels
+then select a block with `cusp_set = (e1 >= neu) + (e2 >= neu)` and `set = cusp_set % shape[0]`
+(`jastrow.py:231-232`, same pattern for χ and f, and in `backflow.py`). So `cusp_set` is
+0 = up-up, 1 = up-down, 2 = down-down, and the modulo does the grouping:
+
+| spin_dep | CASINO grouping | what `cusp_set % shape[0]` gives |
+|---|---|---|
+| 0 | `(1-1,1-2,2-2)` | one block, everything → 0 |
+| 1 | `(1-1,2-2) (1-2)` | uu→0, dd→0, ud→1 |
+| 2 | `(1-1) (1-2) (2-2)` | uu→0, ud→1, dd→2 |
+
+This is **confirmed correct** — Drummond (email, Aug 2026) states the authoritative groupings
+are the ones CASINO prints in the `out` file under "Particle-pair groupings", exactly as above,
+with particle type 1 = up and 2 = down. For a non-electron system there may be more options.
+
+Do not trust the comment line in `correlation.data` on this. It reads
+`Spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)`, whose *third* case lists the pairs in a
+different order from the actual block order — this cost real debugging time. Drummond intends to
+change it to `2->uu/=ud/=dd`. CASINO ignores comment lines when reading `correlation.data`, and
+so does this reader: every match is `line.startswith('Spin dep')` (`readers/jastrow.py:193,226,266`,
+`readers/backflow.py:230,269,308,351`), so a reworded comment cannot break parsing. The *writer*
+templates still carry the old wording (`readers/jastrow.py:41,99`, `readers/backflow.py:39,94`).
+
+When testing anything spin-pair related, use a system with `neu != ned`. At `neu == ned` the uu
+and dd blocks are related by symmetry and a swapped order is invisible.
+
 ---
 
 ## Backflow transformation (`backflow.py`)
@@ -266,6 +326,30 @@ The variance gradient uses `value_parameters_d1` (= `∂ln Ψ/∂α`) and
 # ∂σ²/∂α = 2·<(E_L - E)·∂E_L/∂α> - 2·<(E_L - E)>·<∂E_L/∂α> + ...
 ```
 
+**The solver, and why it is not obviously the best choice.** `vmc_unreweighted_variance_minimization`
+posts the problem to `scipy.optimize.least_squares(method='trf', x_scale='jac', tr_solver='exact')`
+with residuals `√2/√(N-1)·(E_L - <E_L>)` and an analytic Jacobian. All three scipy methods
+(`trf`, `dogbox`, `lm`) are Gauss–Newton family: the Hessian is modelled as `JᵀJ` and the
+second-order term `Σᵢ rᵢ∇²rᵢ` is dropped. That is only justified when the residuals are small
+at the solution — and varmin is the opposite case. The residuals never vanish; their sum of
+squares *is* the variance being minimised, of order 0.7–10 Ha² for the molecules in the
+literature. The dropped term is the same order as the kept one.
+
+NL2SOL (Dennis–Gay–Welsch, netlib PORT) is the algorithm built for exactly this: it maintains
+a secant approximation to `Σᵢ rᵢ∇²rᵢ` and adaptively switches between the plain Gauss–Newton
+model and the augmented one. Haghighi Mood's thesis (`pdfs/emin/full_wfn_optimization.pdf`,
+§3.1) reports systematically lower converged variances than their Levenberg–Marquardt
+(C₆H₆ 3.01 → 1.84 Ha², C₁₄H₁₀ 16.24 → 9.95), and attributes it to the closing quasi-Newton
+steps. The objection that Monte-Carlo noise would corrupt a secant update does not apply —
+the walk `position` is frozen for the whole fit, so the objective is deterministic.
+
+Two reasons this has *not* been acted on: the thesis compares against their own old LM, not
+against scipy's `trf` (which already has the trust region and Jacobian scaling), so it does not
+show `trf` would lose; and NL2SOL exists only as netlib Fortran (no scipy port; R exposes it as
+`algorithm="port"`), so trying it means an f2py wrapper. Worth revisiting only given evidence
+that varmin actually stalls for want of the second-order term — a Jacobian norm that will not
+come down, or a converged variance that depends visibly on the starting point.
+
 ### Emin — energy minimisation
 
 **Linear method** (recommended):
@@ -367,12 +451,9 @@ over `x, y, z`.
 ...
 ```
 
-Two backends:
-- `harmonics.py` — pure Numba, works inside `@njit`, supports up to l=4
-- `sphericart.py` — C++ library `sphericart`, arbitrary l, Python wrapper only
-
-`Slater` uses `Harmonics` (`harmonics.py`) inside JIT kernels. `sphericart.py` is
-used only outside JIT (e.g., for debugging or verification).
+`harmonics.py` — pure Numba, works inside `@njit`, hard-coded up to l=4, which is
+the maximum the gwfn/stowfn formats can express (`shell_map` tops out at type 6 = g).
+`Slater` uses `Harmonics` inside JIT kernels.
 
 ---
 
@@ -454,13 +535,54 @@ Optimisable parameters are concatenated into a single vector via `wfn.get_parame
 [Jastrow params | Backflow params | det_coeff[1:]]
 ```
 
-**Projector** (`parameters_projector`) — matrix mapping independent parameters to
-the full set, accounting for symmetry constraints (e.g., e-e Jastrow: ↑↑ and ↓↓
-pairs may share parameters). This allows optimising fewer degrees of freedom without
-breaking symmetry.
+### Constrained differentiation — how analytic parameter derivatives are obtained
 
-After each optimisation cycle, `wfn.set_parameters_projector()` recomputes the
-projector for the updated cutoff lengths.
+The parameters are not free: cusp and no-duplication conditions tie them together.
+Rather than deriving derivatives of the *independent* parameters term by term, every
+term differentiates **all** of its parameters as if they were independent, and a single
+projector maps the result onto the constraint surface. The recipe (Schay,
+"Constrained Differentiation", Math. Comput. Modelling 21 (1995), Eq. 6;
+`pdfs/schay1995.pdf`):
+
+1. **Constraint matrix.** The conditions are homogeneous and linear in the parameters:
+   `A·p = 0` (`construct_a_matrix`, `jastrow.py:12` — a port of CASINO's
+   `pjastrow.f90::construct_A`; the Φ/Θ analogue is `construct_c_matrix` in
+   `backflow.py`). Since `A` does not depend on `p`, differentiating gives `A·dp = 0`:
+   the admissible derivative directions are exactly the null space of `A`.
+2. **Annihilator.** With `X = Aᵀ`, the projector onto that null space is
+   `M = I − X·(Xᵀ·X)⁻¹·Xᵀ = I − Aᵀ·pinv(Aᵀ)`
+   (`jastrow.py:1059`, in `set_parameters_projector`). `(Xᵀ·X)⁻¹·Xᵀ` is just the
+   pseudoinverse, so `np.linalg.pinv` does it in one call.
+3. **Restrict to the optimisable subset.** `M` lives in the full parameter space; the
+   following two lines pick the columns/rows selected by `get_parameters_mask()` and
+   re-invert the resulting block, giving `parameters_projector` — the map
+   full space → independent-parameter subspace.
+
+**Cutoffs.** When a cutoff length `L` is itself optimisable, the constraints stop being
+homogeneous in the *optimised* vector, because `A` depends on `L` (Drummond–Towler–Needs,
+"Jastrow correlation factor for atoms, molecules, and solids", Eqs. A1–A2 — only A2 has
+to be differentiated w.r.t. `L`). The `∂/∂L` of the constraint rows is accumulated in the
+`cutoff_constraints` array (`jastrow.py:36`) and prepended as an extra column of the
+block (`jastrow.py:1043`), so `L` enters the same null-space construction as an ordinary
+parameter.
+
+**Block structure.** `A` — and hence the projector — is block-diagonal over
+(Jastrow | backflow) and over the terms inside each, so a term can be implemented and
+projected on its own. This is what makes an incremental port possible: analytic
+derivatives for the f-term without cutoffs first, then χ and μ, then the cutoffs (that
+last step no longer buys speed).
+
+**Where the projector is applied.** ∂E/∂α is *linear* in the parameter derivatives of the
+gradient and Laplacian, so the projection can be applied either once to the finished energy
+derivative or separately to each piece. The code does the latter — `value_parameters_d1`,
+`gradient_parameters_d1`, `laplacian_parameters_d1` each end in
+`parameters_projector.T @ concatenate(...)` (`jastrow.py:1728`, `1752`, `1776`); second
+derivatives sandwich it, `Pᵀ · block_diag(...) · P` (`jastrow.py:1902`).
+
+Nothing in the construction is specific to these constraints — it works for any
+differentiable constraint set. It is also cheap in practice: the pinv runs once per
+`wfn.set_parameters_projector()`, i.e. once per optimisation cycle when the cutoff
+lengths change, not per configuration.
 
 ---
 

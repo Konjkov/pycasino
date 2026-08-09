@@ -12,6 +12,7 @@ import numpy as np
 import scipy as sp
 from mpi4py import MPI
 from scipy.optimize import least_squares, minimize
+from scipy.optimize._lsq import trf
 from scipy.special import erfinv
 from statsmodels.tsa.stattools import pacf
 
@@ -59,6 +60,24 @@ logo = f"""
 
 
 logger = logging.getLogger(__name__)
+
+
+def check_termination(dF, F, dx_norm, x_norm, ratio, ftol, xtol):
+    # scipy also requires ratio > 0.25 to accept the ftol criterion, but a noisy VMC cost
+    # keeps the actual to predicted reduction ratio low, so least_squares never stops
+    ftol_satisfied = dF < ftol * F
+    xtol_satisfied = dx_norm < xtol * (xtol + x_norm)
+    if ftol_satisfied and xtol_satisfied:
+        return 4
+    elif ftol_satisfied:
+        return 2
+    elif xtol_satisfied:
+        return 3
+    else:
+        return None
+
+
+trf.check_termination = check_termination
 
 mpi_comm = MPI.COMM_WORLD
 double_size = MPI.DOUBLE.Get_size()
@@ -817,9 +836,20 @@ class Casino:
             return jac(x, *args, **kwargs)
 
         if self.root:
+            if self.config.input.vm_filter:
+                # a config pushed onto a node during the fit gets an unbounded local energy and the least
+                # squares follows it, so the residuals above f_scale are suppressed. CASINO brings the weight
+                # of such a config to zero with a gaussian of width VM_FILTER_WIDTH, the Cauchy loss only
+                # bounds its influence, so the width has no counterpart here
+                loss = 'cauchy'
+                f_scale = self.config.input.vm_filter_thres * np.std(trigger_fun(x0))
+            else:
+                loss = 'linear'
+                f_scale = 1.0
             res = least_squares(
-                trigger_fun, x0=x0, jac=trigger_jac, method='trf', ftol=2/np.sqrt(steps-1), x_scale='jac',
-                tr_solver='exact', max_nfev=self.config.input.opt_maxeval, verbose=self.root and verbose
+                trigger_fun, x0=x0, jac=trigger_jac, method='trf', loss=loss, f_scale=f_scale,
+                ftol=2/np.sqrt(steps-1), x_scale='jac', tr_solver='exact',
+                max_nfev=self.config.input.opt_maxeval, verbose=self.root and verbose
             )
             mpi_comm.bcast(('break', 0, 0, 0))
             parameters = res.x
@@ -923,11 +953,13 @@ class Casino:
             mean_energy_gradient = np.average(energy_gradient, axis=0, weights=weights)
             ddof = np.average(weights, weights=weights)  # Delta Degrees of Freedom
             half_ddof_gradient = 2 * np.average(wfn_gradient * np.expand_dims(weights, 1), axis=0, weights=weights) - ddof * mean_wfn_gradient
+            mean_energy_d1 = mean_energy_gradient + 2 * (
+                np.average(wfn_gradient * np.expand_dims(energy, 1), axis=0, weights=weights) - mean_energy * mean_wfn_gradient
+            )
             # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
             return np.sqrt(2) * (
-                energy_gradient - mean_energy_gradient +
-                2 * (np.average(wfn_gradient * np.expand_dims(energy, 1), axis=0, weights=weights) - mean_energy * mean_wfn_gradient) +
-                np.expand_dims((energy - mean_energy), 1) * (mean_wfn_gradient - (mean_wfn_gradient * weights.sum() - half_ddof_gradient) / (weights.sum() - ddof))
+                energy_gradient - mean_energy_d1 +
+                np.expand_dims((energy - mean_energy), 1) * (wfn_gradient - (mean_wfn_gradient * weights.sum() - half_ddof_gradient) / (weights.sum() - ddof))
             ) * np.sqrt(np.expand_dims(weights, 1) / (weights.sum() - ddof))
 
         def trigger_fun(x, *args, **kwargs):
