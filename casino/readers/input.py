@@ -10,25 +10,25 @@ class Input:
 
     def read_bool(self, keyword, value=None):
         for line in self.lines:
-            if line.startswith(keyword):
+            if line.split(':')[0].strip() == keyword:
                 value = line.split(':')[1].strip() == 'T'
         setattr(self, keyword, value)
 
     def read_int(self, keyword, value=None):
         for line in self.lines:
-            if line.startswith(keyword):
+            if line.split(':')[0].strip() == keyword:
                 value = int(line.split(':')[1].strip())
         setattr(self, keyword, value)
 
     def read_float(self, keyword, value=None):
         for line in self.lines:
-            if line.startswith(keyword):
+            if line.split(':')[0].strip() == keyword:
                 value = float(line.split(':')[1].strip())
         setattr(self, keyword, value)
 
     def read_str(self, keyword, value=None):
         for line in self.lines:
-            if line.startswith(keyword):
+            if line.split(':')[0].strip() == keyword:
                 value = str(line.split(':')[1].strip())
         setattr(self, keyword, value)
 
@@ -74,12 +74,18 @@ class Input:
         # VMC keywords
         self.read_int('vmc_equil_nstep')
         self.read_int('vmc_nstep')
-        self.read_int('vmc_decorr_period', 3)
+        self.read_int('vmc_method', 1)
+        # measured on the thirty one systems of examples/time_step/corr: what the inner loop is
+        # worth depends on what a step costs against the local energy, and the two methods differ.
+        # A configuration move is cheap and rarely accepted, so CBCS gains up to a period of ten,
+        # where three costs a median 1.69 times the optimum; a sweep moves something almost every
+        # time, so EBES pays for the energy whatever the period and gains only up to four, where
+        # ten costs a quarter to a half and Casino's three is within a few percent
+        self.read_int('vmc_decorr_period', 3 if self.vmc_method == 1 else 10)
         self.read_int('vmc_nblock')
         self.read_int('vmc_nconfig_write')
         self.read_float('dtvmc', 0.02)
         self.read_bool('opt_dtvmc', True)
-        self.read_int('vmc_method', 1)
         # Optimization keywords
         self.read_str('opt_method')
         self.read_str('emin_method', 'linear')
@@ -96,6 +102,8 @@ class Input:
         self.read_int('opt_maxeval', 200)
         self.read_bool('vm_smooth_limit', True)
         self.read_bool('vm_reweight', False)
+        self.read_bool('vm_filter', False)
+        self.read_float('vm_filter_thres', 4.0)
         self.read_float('vm_w_max', 0.0)
         self.read_float('vm_w_min', 0.0)
         self.read_float('emin_xi_value', 1.0)
@@ -207,10 +215,12 @@ class Input:
                 f' OPT_MAXEVAL (max num evaluations)        :  {self.opt_maxeval}\n'
                 f' VM_SMOOTH_LIMITS (smooth limiting)       :  F\n'
                 f' VM_REWEIGHT (reweighting)                :  {to_fortran(self.vm_reweight)}\n'
-                f' VM_FILTER (filter outlying configs)      :  F\n'
+                f' VM_FILTER (filter outlying configs)      :  {to_fortran(self.vm_filter)}\n'
                 f' VM_USE_E_GUESS (use guess energy)        :  F\n'
                 f' EMIN_XI_VALUE (xi parameter)             :  {self.emin_xi_value}\n'
             )
+            if self.vm_filter:
+                msg += f' VM_FILTER_THRES (filter threshold)       :  {self.vm_filter_thres}\n'
             if self.emin_min_energy is not None:
                 msg += f' EMIN_MIN_ENERGY (energy threshold)       :  {self.emin_min_energy:.5f}\n'
         elif self.runtype == 'vmc_dmc':

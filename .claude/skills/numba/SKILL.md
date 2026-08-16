@@ -267,6 +267,53 @@ for i in range(A.shape[0]):
     process(A[i, :])   # no copy, passes a view
 ```
 
+### Array expressions allocate — write the loop instead
+
+An expression over arrays builds a temporary for every operation and then copies it into the
+destination. Numba fuses element-wise expressions, but each *statement* still allocates, and an
+in-place update on a strided slice allocates too: `a[:, e] += v` is `a[:, e] = a[:, e] + v`, so
+it allocates the right-hand side and writes it back through the stride.
+
+For small arrays the allocation is the whole cost. Measured in `vmc.shift_coordinates` on
+krypton, three such statements over 36x36x3 and 1x36x3 arrays cost 1.25 us per call for about
+250 flops of arithmetic — a third of the whole electron-by-electron sweep, which the scalar
+loops took from 263 us to 150. Write the loops, they allocate nothing:
+
+```python
+# Bad — three temporaries per call, two of them strided
+self.n_vectors[:, e] += shift
+self.e_vectors[e] += shift
+self.e_vectors[:, e] -= shift
+
+# Good — no allocation
+for atom in range(self.n_vectors.shape[0]):
+    for i in range(3):
+        self.n_vectors[atom, e, i] += shift[i]
+for j in range(self.e_vectors.shape[0]):
+    for i in range(3):
+        self.e_vectors[e, j, i] += shift[i]
+        self.e_vectors[j, e, i] -= shift[i]
+```
+
+The rule is not "never use array expressions": on large contiguous arrays the allocation is
+amortised and the vectorised form wins. It is "in a function called once per proposed move,
+count the statements, because each one is a `malloc`".
+
+The obvious escape, writing into a destination array, has a catch: **Numba rejects `out=` as a
+keyword argument.** The destination has to go in positionally. Checked under numba 0.63.1 and
+numpy 2.2.6:
+
+```python
+np.add(a, b, out=c)    # TypingError: unsupported keyword arguments
+np.multiply(a, b, c)   # works
+np.sqrt(a, c)          # works
+np.dot(a, b, c)        # works
+```
+
+So a ufunc can still write in place without a temporary, but only in the positional form, and
+only where a ufunc covers what is wanted — a strided compound update like `a[:, e] += v` is not
+one of them, and there the loop is the answer.
+
 ---
 
 ## Compilation cache
@@ -282,6 +329,24 @@ if the source has not changed. Essential for scripts that import many JIT functi
 **Invalidation:** cache is invalidated when the function source changes, the Numba
 version changes, or the NumPy version changes. Delete `__pycache__` manually if
 you see stale-cache bugs.
+
+**It does not follow dependencies across modules, and this silently invalidates benchmarks.**
+An `@overload_method` body is inlined into whatever `cache=True` function calls it, and only
+that caller's own source is hashed. Edit the body of an overload in `casino/vmc.py`, re-run a
+benchmark whose `@nb.njit(cache=True)` wrapper lives in another file, and you measure the old
+code with no warning of any kind — the numbers simply do not move. This has bitten twice. A
+change to a structref's *field list* does force recompilation, because the type and hence the
+signature changes; a change to a *body* does not.
+
+Before trusting any timing after an edit, either delete the `__pycache__` of every module in
+the call chain, or run the benchmark under its own cache directory:
+
+```
+NUMBA_CACHE_DIR=/tmp/nbcache python3 bench.py
+```
+
+The second form is what to use while a long production run is in progress, since deleting the
+project cache under a running process is not safe.
 
 ---
 
@@ -373,3 +438,24 @@ NUMBA_DUMP_IR=1          # dump LLVM IR for compiled functions
 
 `NUMBA_DISABLE_JIT=1` is invaluable for debugging: all `@njit` functions run as
 plain Python, so `pdb`, `print`, and `traceback` work normally.
+
+---
+
+## Upstream: release notes and the issues this project is waiting on
+
+Check these before blaming our own code for a regression after a Numba bump, and
+before designing around a limitation that may already have been lifted:
+
+- Release notes overview (all versions): <https://numba.readthedocs.io/en/stable/release-notes-overview.html>
+- Current release notes: <https://numba.readthedocs.io/en/stable/release-notes.html>
+
+Open Numba issues the user is tracking for pycasino:
+
+| Issue | Subject | Why it matters here |
+|---|---|---|
+| [#5149](https://github.com/numba/numba/issues/5149) | access to `np.array` data / `tobytes` etc. | raw buffer access from inside `@njit` |
+| [#6972](https://github.com/numba/numba/issues/6972) | wrapper or type to avoid inlining | no supported way to force a call boundary; matters where inlining blows up compile time or defeats a shared kernel |
+| [#9776](https://github.com/numba/numba/issues/9776) | parallelisation approach | worth trying as an alternative to the current `prange`/MPI split |
+| [#9712](https://github.com/numba/numba/issues/9712) | allocations in Numba significantly slower than in NumPy | directly relevant — the hot kernels allocate per call (harmonics buffers, `ee_powers`/`en_powers`, the `_d1` result arrays). Reinforces the "Memory and array patterns" rule above: preallocate into struct fields and write in place rather than returning fresh arrays |
+
+These are also listed at the top of `backlog.txt`.

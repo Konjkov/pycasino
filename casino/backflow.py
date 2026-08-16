@@ -374,8 +374,8 @@ Backflow_t = Backflow_class_t(
         ('mu_cusp', nb.boolean[::1]),
         ('phi_cusp', nb.boolean[::1]),
         ('phi_irrotational', nb.boolean[::1]),
-        ('ae_cutoff', nb.float64[:]),
-        ('ae_cutoff_optimizable', nb.boolean[:]),
+        ('ae_cutoff', nb.float64[::1]),
+        ('ae_cutoff_optimizable', nb.boolean[::1]),
         ('parameters_projector', nb.float64[:, ::1]),
         ('cutoffs_optimizable', nb.boolean),
     ]

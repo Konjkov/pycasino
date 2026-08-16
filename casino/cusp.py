@@ -260,14 +260,14 @@ def cusp_value(self, n_vectors: np.ndarray):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Cusp_class_t, 'value_1e')
-def cusp_value_1e(self, n_vectors: np.ndarray, e: int):
+def cusp_value_1e(self, n_vector: np.ndarray, e: int):
     """Cusp correction for the orbitals of a single electron, the column of the slater
     matrix that an electron-by-electron move changes.
-    :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+    :param n_vector: electron-nuclei vectors of that electron shape = (natom, 3)
     :param e: electron
     """
 
-    def impl(self, n_vectors: np.ndarray, e: int) -> np.ndarray:
+    def impl(self, n_vector: np.ndarray, e: int) -> np.ndarray:
         if e < self.neu:
             first, orbitals = 0, self.orbitals_up
         else:
@@ -275,9 +275,9 @@ def cusp_value_1e(self, n_vectors: np.ndarray, e: int):
         value = np.zeros(shape=orbitals)
         for i in range(first, first + orbitals):
             p = ao = 0
-            for atom in range(n_vectors.shape[0]):
+            for atom in range(n_vector.shape[0]):
                 if not self.is_pseudoatom[atom]:
-                    r = np.sqrt(n_vectors[atom, e] @ n_vectors[atom, e])
+                    r = np.sqrt(n_vector[atom] @ n_vector[atom])
                     if r < self.rc[atom, i]:
                         value[i - first] = self.exp(atom, i, r) + self.shift[atom, i]
                     s_part = 0.0

@@ -135,21 +135,22 @@ def slater_value_matrix(self, n_vectors: np.ndarray):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'orbitals_1e')
-def slater_orbitals_1e(self, n_vectors: np.ndarray, e: int):
+def slater_orbitals_1e(self, n_vector: np.ndarray, e: int):
     """Orbital values of a single electron, i.e. the column of the slater matrix that an
     electron-by-electron move changes. The basis is walked over for that one electron only,
-    which is what the whole electron-by-electron scheme is worth.
-    :param n_vectors: electron-nuclei array(natom, nelec, 3)
+    which is what the whole electron-by-electron scheme is worth, and so are its nuclear
+    distances: the caller passes that electron's column rather than the whole array.
+    :param n_vector: electron-nuclei vectors of that electron - array(natom, 3)
     :param e: electron
     :return: array(orbitals) of its own spin
     """
 
-    def impl(self, n_vectors: np.ndarray, e: int) -> np.ndarray:
+    def impl(self, n_vector: np.ndarray, e: int) -> np.ndarray:
         orbitals = np.zeros(shape=self.nbasis_functions)
         p = ao = 0
-        for atom in range(n_vectors.shape[0]):
-            x, y, z = n_vectors[atom, e]
-            r2 = n_vectors[atom, e] @ n_vectors[atom, e]
+        for atom in range(n_vector.shape[0]):
+            x, y, z = n_vector[atom]
+            r2 = n_vector[atom] @ n_vector[atom]
             angular_1 = self.harmonics.get_value(x, y, z)
             for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
                 l = self.shell_moments[nshell]
@@ -176,7 +177,7 @@ def slater_orbitals_1e(self, n_vectors: np.ndarray, e: int):
         else:
             wfn = self.mo_down @ ao_value
         if self.cusp is not None:
-            wfn = wfn + self.cusp.value_1e(n_vectors, e)
+            wfn = wfn + self.cusp.value_1e(n_vector, e)
         return wfn
 
     return impl
@@ -249,13 +250,18 @@ def slater_gradient_matrix(self, n_vectors: np.ndarray):
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'laplacian_matrix')
 def slater_laplacian_matrix(self, n_vectors: np.ndarray):
-    """Value and laplacian matrices in one pass over the basis.
+    """Value, gradient and laplacian matrices in one pass over the basis.
+    The radial sums the gradient is made of are the ones the laplacian is made of as well:
+    a solid harmonic is homogeneous of degree l and harmonic, so r•∇Y = l•Y and ΔY = 0, and
+    the laplacian of an orbital is Y•(r**2 * radial_1 + (2l + 3) * radial_2). Neither the
+    exponentials nor the angular parts are therefore evaluated twice.
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-    :return: value and laplacian matrices for up- and down- spins
+    :return: value, gradient and laplacian matrices for up- and down- spins
     """
 
-    def impl(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def impl(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         orbital_value = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
+        orbital_gradient = np.zeros(shape=(self.neu + self.ned, 3, self.nbasis_functions))
         orbital = np.zeros(shape=(self.neu + self.ned, self.nbasis_functions))
         for i in range(self.neu + self.ned):
             p = ao = 0
@@ -263,17 +269,21 @@ def slater_laplacian_matrix(self, n_vectors: np.ndarray):
                 x, y, z = n_vectors[atom, i]
                 r2 = n_vectors[atom, i] @ n_vectors[atom, i]
                 angular_1 = self.harmonics.get_value(x, y, z)
+                angular_2 = self.harmonics.get_gradient(x, y, z)
                 for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
                     l = self.shell_moments[nshell]
                     radial_1 = 0.0
                     radial_2 = 0.0
+                    radial_3 = 0.0
                     if self.orbital_types[nshell] == GAUSSIAN_TYPE:
                         for primitive in range(self.primitives[nshell]):
                             alpha = self.exponents[p + primitive]
                             if alpha * r2 < log_10 * self.gautol:
                                 exponent = self.coefficients[p + primitive] * np.exp(-alpha * r2)
-                                radial_1 += 2 * alpha * (2 * alpha * r2 - 2 * l - 3) * exponent
-                                radial_2 += exponent
+                                c = -2 * alpha
+                                radial_1 += c**2 * exponent
+                                radial_2 += c * exponent
+                                radial_3 += exponent
                     elif self.orbital_types[nshell] == SLATER_TYPE:
                         r = np.sqrt(r2)
                         n = self.slater_orders[nshell]
@@ -281,28 +291,40 @@ def slater_laplacian_matrix(self, n_vectors: np.ndarray):
                         for primitive in range(self.primitives[nshell]):
                             minus_alpha_r = -self.exponents[p + primitive] * r
                             exponent = r_n * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
-                            radial_1 += (minus_alpha_r**2 + 2 * (l + n + 1) * minus_alpha_r + (2 * l + n + 1) * n) / r2 * exponent
-                            radial_2 += exponent
+                            c = (minus_alpha_r + n) / r2
+                            radial_1 += (c**2 - c / r2 - n / r2**2) * exponent
+                            radial_2 += c * exponent
+                            radial_3 += exponent
                     p += self.primitives[nshell]
+                    radial_laplacian = r2 * radial_1 + (2 * l + 3) * radial_2
                     for m in range(2 * l + 1):
-                        orbital_value[i, ao + m] = angular_1[l * l + m] * radial_2
-                        orbital[i, ao + m] = angular_1[l * l + m] * radial_1
+                        orbital_value[i, ao + m] = angular_1[l * l + m] * radial_3
+                        orbital_gradient[i, 0, ao + m] = x * angular_1[l * l + m] * radial_2 + angular_2[l * l + m, 0] * radial_3
+                        orbital_gradient[i, 1, ao + m] = y * angular_1[l * l + m] * radial_2 + angular_2[l * l + m, 1] * radial_3
+                        orbital_gradient[i, 2, ao + m] = z * angular_1[l * l + m] * radial_2 + angular_2[l * l + m, 2] * radial_3
+                        orbital[i, ao + m] = angular_1[l * l + m] * radial_laplacian
                     ao += 2 * l + 1
 
         ao_value = self.norm * orbital_value
         wfn_u = self.mo_up @ ao_value[: self.neu].T
         wfn_d = self.mo_down @ ao_value[self.neu :].T
+        ao_gradient = self.norm * orbital_gradient.reshape((self.neu + self.ned) * 3, self.nbasis_functions)
+        grad_u = (self.mo_up @ ao_gradient[: self.neu * 3].T).reshape(self.mo_up.shape[0], self.neu, 3)
+        grad_d = (self.mo_down @ ao_gradient[self.neu * 3 :].T).reshape(self.mo_down.shape[0], self.ned, 3)
         ao_laplacian = self.norm * orbital
         lap_u = self.mo_up @ ao_laplacian[: self.neu].T
         lap_d = self.mo_down @ ao_laplacian[self.neu :].T
         if self.cusp is not None:
             cusp_value_u, cusp_value_d = self.cusp.value(n_vectors)
+            cusp_gradient_u, cusp_gradient_d = self.cusp.gradient(n_vectors)
             cusp_laplacian_u, cusp_laplacian_d = self.cusp.laplacian(n_vectors)
             wfn_u += cusp_value_u
             wfn_d += cusp_value_d
+            grad_u += cusp_gradient_u
+            grad_d += cusp_gradient_d
             lap_u += cusp_laplacian_u
             lap_d += cusp_laplacian_d
-        return wfn_u, wfn_d, lap_u, lap_d
+        return wfn_u, wfn_d, grad_u, grad_d, lap_u, lap_d
 
     return impl
 
@@ -620,18 +642,18 @@ def slater_state(self, n_vectors: np.ndarray):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(SlaterState_class_t, 'ratio_1e')
-def slater_state_ratio_1e(self, n_vectors: np.ndarray, e: int):
+def slater_state_ratio_1e(self, n_vector: np.ndarray, e: int):
     """Value the wave function would take with electron e moved, without touching the state.
     Replacing one column of a matrix multiplies its determinant by
         Q = sum_j inv[e, j] * orbital[j]
     which costs one dot product per determinant instead of an O(N**3) decomposition.
-    :param n_vectors: electron-nuclei vectors of the proposed configuration
+    :param n_vector: electron-nuclei vectors of the proposed position of that electron
     :param e: electron being moved
     :return: log(abs(phi)), sign(phi), orbitals of e, Q of each determinant
     """
 
-    def impl(self, n_vectors: np.ndarray, e: int) -> tuple[float, float, np.ndarray, np.ndarray]:
-        orbitals = self.slater.orbitals_1e(n_vectors, e)
+    def impl(self, n_vector: np.ndarray, e: int) -> tuple[float, float, np.ndarray, np.ndarray]:
+        orbitals = self.slater.orbitals_1e(n_vector, e)
         ndet = self.log_det.size
         q = np.empty(shape=ndet)
         if e < self.slater.neu:
@@ -721,7 +743,8 @@ def slater_gradient(self, n_vectors: np.ndarray):
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'laplacian')
 def slater_laplacian(self, n_vectors: np.ndarray):
-    """Scalar laplacian Δφ/φ w.r.t e-coordinates.
+    """Scalar laplacian Δφ/φ and gradient ∇φ/φ w.r.t e-coordinates, as the local energy needs
+    both at the same point and one inverse matrix serves both traces.
     Δln(det(A)) = sum(tr(slater^-1 * B(n)) over n
     where matrix B(n) is zero with exception to the n-th column
     as tr(A) + tr(B) = tr(A + B)
@@ -732,22 +755,29 @@ def slater_laplacian(self, n_vectors: np.ndarray):
     "Simple formalism for efficient derivatives and multi-determinant expansions in quantum Monte Carlo"
     C. Filippi, R. Assaraf, S. Moroni
     :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
-    :return: float
+    :return: float, vectors shape = (nelec * 3,)
     """
 
-    def impl(self, n_vectors: np.ndarray) -> float:
-        wfn_u, wfn_d, lap_u, lap_d = self.laplacian_matrix(n_vectors)
+    def impl(self, n_vectors: np.ndarray) -> tuple[float, np.ndarray]:
+        wfn_u, wfn_d, grad_u, grad_d, lap_u, lap_d = self.laplacian_matrix(n_vectors)
         val = lap = 0
+        grad = np.zeros(shape=(self.neu + self.ned) * 3)
         single_det = self.det_coeff.size == 1
         for i in range(self.det_coeff.size):
-            # einsum('ij,ji', np.linalg.inv(wfn_u[self.permutation_up[i]]), lap_u[self.permutation_up[i]])
-            tr_lap_u = (np.linalg.inv(wfn_u[self.permutation_up[i]]) * lap_u[self.permutation_up[i]].T).sum()
-            tr_lap_d = (np.linalg.inv(wfn_d[self.permutation_down[i]]) * lap_d[self.permutation_down[i]].T).sum()
+            inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
+            inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
+            # einsum('ij,jik -> ik', inv_wfn_u, grad_u[self.permutation_up[i]])
+            tr_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
+            tr_grad_d = (inv_wfn_d * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
+            # einsum('ij,ji', inv_wfn_u, lap_u[self.permutation_up[i]])
+            tr_lap_u = (inv_wfn_u * lap_u[self.permutation_up[i]].T).sum()
+            tr_lap_d = (inv_wfn_d * lap_d[self.permutation_down[i]].T).sum()
             c = 1 if single_det else self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
+            grad += c * np.concatenate((tr_grad_u, tr_grad_d)).ravel()
             lap += c * (tr_lap_u + tr_lap_d)
 
-        return lap / val
+        return lap / val, grad / val
 
     return impl
 
@@ -1228,9 +1258,9 @@ def slater_laplacian_parameters_d1(self, n_vectors: np.ndarray):
         res = np.zeros(shape=(self.det_coeff.size,))
         for i in range(self.det_coeff.size):
             self.det_coeff[i] -= delta
-            res[i] -= self.laplacian(n_vectors)
+            res[i] -= self.laplacian(n_vectors)[0]
             self.det_coeff[i] += 2 * delta
-            res[i] += self.laplacian(n_vectors)
+            res[i] += self.laplacian(n_vectors)[0]
             self.det_coeff[i] -= delta
         return self.parameters_projector.T @ (res / delta / 2)
 
@@ -1351,8 +1381,8 @@ class Slater(structref.StructRefProxy, AbstractSlater):
         return self.value_matrix(n_vectors)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
-    def orbitals_1e(self, n_vectors, e):
-        return self.orbitals_1e(n_vectors, e)
+    def orbitals_1e(self, n_vector, e):
+        return self.orbitals_1e(n_vector, e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def gradient_matrix(self, n_vectors):
@@ -1419,8 +1449,8 @@ class SlaterState(structref.StructRefProxy):
         return self.sign
 
     @nb.njit(nogil=True, parallel=False, cache=True)
-    def ratio_1e(self, n_vectors, e):
-        return self.ratio_1e(n_vectors, e)
+    def ratio_1e(self, n_vector, e):
+        return self.ratio_1e(n_vector, e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def accept_1e(self, e, orbitals, q):

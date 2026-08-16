@@ -12,8 +12,8 @@ import numpy as np
 import scipy as sp
 from mpi4py import MPI
 from scipy.optimize import least_squares, minimize
-from scipy.special import erfinv, ndtri
-from statsmodels.tsa.stattools import pacf
+from scipy.optimize._lsq import trf
+from scipy.special import erfinv
 
 from .backflow import Backflow
 from .cusp import CuspFactory
@@ -23,7 +23,7 @@ from .gjastrow import Gjastrow
 from .jastrow import Jastrow
 from .ppotential import PPotential
 from .readers import CasinoConfig
-from .sem import correlated_sem
+from .sem import Reblock, correlated_sem, correlation_time
 from .slater import Slater
 from .vmc import VMC
 from .wfn import Wfn
@@ -59,6 +59,24 @@ logo = f"""
 
 
 logger = logging.getLogger(__name__)
+
+
+def check_termination(dF, F, dx_norm, x_norm, ratio, ftol, xtol):
+    # scipy also requires ratio > 0.25 to accept the ftol criterion, but a noisy VMC cost
+    # keeps the actual to predicted reduction ratio low, so least_squares never stops
+    ftol_satisfied = dF < ftol * F
+    xtol_satisfied = dx_norm < xtol * (xtol + x_norm)
+    if ftol_satisfied and xtol_satisfied:
+        return 4
+    elif ftol_satisfied:
+        return 2
+    elif xtol_satisfied:
+        return 3
+    else:
+        return None
+
+
+trf.check_termination = check_termination
 
 mpi_comm = MPI.COMM_WORLD
 double_size = MPI.DOUBLE.Get_size()
@@ -157,7 +175,10 @@ class Casino:
         self.config.read()
         self.neu, self.ned = self.config.input.neu, self.config.input.ned
 
-        if self.config.input.cusp_correction and not self.config.wfn.is_pseudoatom.all():
+        # the correction patches s-type gaussians inside a radius, so it is meaningless on any
+        # other basis: a slater one already has the right form at the nucleus and carries the cusp
+        # constraint from the converter, and imposing this on it corrupts the orbitals outright
+        if self.config.input.cusp_correction and self.config.input.atom_basis_type == 'gaussian' and not self.config.wfn.is_pseudoatom.all():
             cusp_factory = CuspFactory(self.config)
             cusp = cusp_factory.create()
             if self.config.input.cusp_info:
@@ -248,10 +269,13 @@ class Casino:
 
     @property
     def approximate_step_size(self):
-        """Approximation to VMC step size. A uniform displacement by ts gives
-        Var(ln(psi'**2/psi**2)) = 8/3 * ts**2 * <T>, and detailed balance pins the mean of that log
-        ratio to minus half its variance, so a gaussian one is accepted with probability
-        2 * Phi(-sigma/2) and the 50% point sits at ts * sqrt(<T>) = sqrt(3) * erfinv(1/2).
+        """Approximation to VMC step size, in the units casino states it in: dtvmc is the variance
+        of one displacement component, so a gaussian proposal of that variance gives
+        Var(ln(psi'**2/psi**2)) = 8 * dtvmc * <T>, and detailed balance pins the mean of that log
+        ratio to minus half its variance, so it is accepted with probability 2 * Phi(-sigma/2) and
+        the 50% point sits at dtvmc * <T> = erfinv(1/2)**2. The proposal is gaussian rather than
+        uniform because a one electron move has three terms in that sum and nothing to average
+        them: 2 * dr * grad ln psi is exactly gaussian in a gaussian dr whatever their number.
         """
         atom_kinetic_energy = self.atom_kinetic_energy
         if atom_kinetic_energy.size == 0:
@@ -261,17 +285,22 @@ class Casino:
         # nuclei sharing <T>, since |grad ln psi| ~ Z at a nucleus puts the tails in the cusps and
         # leaves outer shells contributing almost nothing. The participation ratio is 1 for a
         # single heavy atom and the number of equivalent nuclei for a symmetric molecule, and never
-        # divides by zero for a hydrogen-only system. 0.9% rms over the seventeen systems in
-        # examples/time_step/CBCS, atoms, ions, hydrides and hydrocarbons alike.
+        # divides by zero for a hydrogen-only system. 0.3% rms and 0.8% at worst over the seventeen
+        # systems in examples/time_step/CBCS, atoms, ions, hydrides and hydrocarbons alike.
         nuclei = atom_kinetic_energy.sum() ** 2 / (atom_kinetic_energy**2).sum()
-        step_size = np.sqrt(3) * erfinv(1 / 2) * (1 + 0.045 / nuclei) / np.sqrt(atom_kinetic_energy.sum())
+        # the correction is a factor on the displacement, hence squared in the variance dtvmc is
+        # fitted against a rectangular proposal, whose own shape moved the 50% point by 4% in a way
+        # that varied with the system, leaving a spurious Z dependence inside the constant:
+        # step_size = (erfinv(1 / 2) * (1 + 0.045 / nuclei)) ** 2 / atom_kinetic_energy.sum()
+        step_size = (erfinv(1 / 2) * (1 + 0.080 / nuclei**0.82)) ** 2 / atom_kinetic_energy.sum()
         if self.config.input.vmc_method == 1:
-            # EBES moves one electron, so its share of the sum rule is <T> over their number. The
-            # non-gaussian correction that a three term sum needs is left to optimize_vmc_step.
-            return step_size * np.sqrt(self.neu + self.ned)
+            # EBES moves one electron, so its share of the sum rule is <T> over their number. What
+            # is left over is the spread of |grad_i ln psi| between electrons, which the shape of
+            # the proposal no longer hides, and that is left to optimize_vmc_step.
+            return step_size * (self.neu + self.ned)
         elif self.config.input.vmc_method == 2:
             # DBDS moves one spin determinant, which carries half of <T> in a closed shell
-            return step_size * np.sqrt(2)
+            return step_size * 2
         else:
             return step_size
 
@@ -318,14 +347,14 @@ class Casino:
         kinetic_energy = drift_form.mean()
         logger.info(
             f' electrons = {self.neu + self.ned}\n'
-            f' approximate step size = {approximate_step_size:.5f}\n'
-            f' optimized step size = {step_size_50:.5f}\n'
+            f' approximate DTVMC = {approximate_step_size:.5e}\n'
+            f' optimized DTVMC = {step_size_50:.5e}\n'
             f' kinetic energy = {kinetic_energy:.5f} +/- {drift_form.std() / np.sqrt(drift_form.size):.5f}\n'
             f' kinetic energy KEI = {laplacian_form.mean():.5f} +/- {laplacian_form.std() / np.sqrt(laplacian_form.size):.5f}\n'
-            f' step_size   target  acc_ratio  correction  sum_rule  gaussian  exp_mean  kurtosis'
+            f'       dtvmc   target  acc_ratio  correction  sum_rule  gaussian  exp_mean  kurtosis'
         )  # fmt: skip
         for target in np.linspace(0.95, 0.05, 19):
-            self.vmc.step_size = step_size_50 * ndtri(1 - target / 2) / ndtri(3 / 4)
+            self.vmc.step_size = step_size_50 * (erfinv(1 - target) / erfinv(1 / 2)) ** 2
             x = self.vmc.log_ratio_walk(steps)
             variance = x.var()
             # the probability a proposal is accepted, averaged over the proposals themselves rather
@@ -336,21 +365,21 @@ class Casino:
                 acceptance = np.minimum(np.exp(x), 1).mean()
                 exp_mean = np.exp(x).mean()
             # the step size that produced the acceptance actually measured, against the one the law
-            # would set for it. This is the factor approximate_step_size carries as 1 + 0.045 /
-            # nuclei, in the same units, so the file gives the number to fit rather than an energy
-            # to convert, and its value at the 50% target is that constant measured on this system
-            law = ndtri(1 - acceptance / 2) * np.sqrt(3 * electrons / (2 * kinetic_energy))
-            correction = self.vmc.step_size / law
+            # would set for it, as a factor on the displacement rather than on its variance: that
+            # is what approximate_step_size carries as 1 + 0.080 / nuclei**0.82 and what earlier files
+            # were measured in, so its value at the 50% target is that constant on this system
+            law = erfinv(1 - acceptance) ** 2 * electrons / kinetic_energy
+            correction = np.sqrt(self.vmc.step_size / law)
             # the sum rule alone, with no assumption about the shape of the distribution: it is
-            # one wherever Var(x) = 8/3 * step_size**2 * <T> holds, and its departure at large
-            # step size is the O(step_size**2) term the leading order leaves out. A proposal that
+            # one wherever Var(x) = 8 * step_size * <T> holds, and its departure at large step
+            # size is the O(step_size**2) term the leading order leaves out. A proposal that
             # moves one electron carries <T> over their number, the same share the law above takes
-            sum_rule = 3 * variance * electrons / (8 * self.vmc.step_size**2 * kinetic_energy)
+            sum_rule = variance * electrons / (8 * self.vmc.step_size * kinetic_energy)
             # gaussianity, independent of the acceptance: <exp(x)> = 1 exactly for a stationary
             # walk with a symmetric proposal, and it forces <x> = -Var(x)/2 only if x is gaussian
             gaussian = x.mean() + variance / 2
             logger.info(
-                '%10.5f %8.2f %10.5f %11.5f %9.5f %9.5f %9.5f %9.3f',
+                '%12.5e %8.2f %10.5f %11.5f %9.5f %9.5f %9.5f %9.3f',
                 self.vmc.step_size,
                 target,
                 acceptance,
@@ -361,10 +390,96 @@ class Casino:
                 ((x - x.mean()) ** 4).mean() / variance**2 - 3,
             )
 
+    def vmc_corr_graph(self, steps=100000):
+        """Correlation time, diffusion constant and cost of an independent sample vs step size, the half of
+        E = 1 / (var(E_L) * n_corr * T_iter) that the acceptance curve says nothing about: where
+        the step size fixes how far a proposal reaches, this fixes how fast the walk forgets where
+        it was. All columns come from one unthinned walk per point, so the correlation times of the
+        local energy, of a soft coordinate and of the drift kinetic energy are comparable as they
+        stand. The first is what the efficiency depends on, the second is what the diffusion
+        constant measures, and it is the gap between them that makes maximizing the diffusion
+        constant a proxy rather than the answer.
+        A step is one whole configuration in CBCS and one sweep over the electrons in EBES, so the
+        timings and the correlation times of the two are comparable as they stand, but acc_ratio is
+        per proposal and hence per electron in EBES: read the fraction of steps that moved anything
+        off move_frac, which is what the decorrelation period is weighed against. Beware that at
+        the step giving the average electron 50% a core electron in EBES is accepted once in
+        thousands of sweeps, so a correlation time measured there can describe a coordinate that
+        never moved rather than a slow mode.
+        """
+        self.optimize_vmc_step(steps // 10)
+        step_size_50 = self.vmc.step_size
+        electrons = self.neu + self.ned
+        logger.info(
+            f' electrons = {electrons}\n'
+            f' optimized DTVMC = {step_size_50:.5e}\n'
+            f'       dtvmc   target  acc_ratio  diffusion   corr_E  corr_err  corr_r2   corr_TD  variance  decorr  ms_indep  us_move  us_energy  move_frac'
+        )  # fmt: skip
+        # the grid of vmc_step_graph, so that the two campaigns line up row for row and a column of
+        # one can be divided by a column of the other without interpolating anything
+        for target in np.linspace(0.95, 0.05, 19):
+            self.vmc.step_size = step_size_50 * (erfinv(1 - target) / erfinv(1 / 2)) ** 2
+            walk_start = default_timer()
+            position = self.vmc.random_walk(steps, 1)
+            walk_stop = default_timer()
+            energy = self.vmc.observable(self.wfn.energy, position)
+            energy_stop = default_timer()
+            drift = self.vmc.observable(self.wfn.drift_kinetic_energy, position)
+            # a rejected move leaves nan, so carrying the previous configuration forward recovers
+            # the walk itself, and with it the distance covered per move and per cartesian
+            # component: the diffusion constant as displacement rather than as the step_size times
+            # acceptance proxy, which counts a rejected long move as if it had happened
+            moved = ~np.isnan(position[:, 0, 0])
+            r_e = position[np.maximum.accumulate(np.where(moved, np.arange(steps), 0))]
+            diffusion = ((r_e[1:] - r_e[:-1]) ** 2).sum(axis=(1, 2)).mean() / (3 * electrons)
+            correlation, correlation_error = correlation_time(energy)
+            variance = energy.var()
+            acceptance = self.vmc.acceptance
+            time_move = (walk_stop - walk_start) / steps
+            time_energy = (energy_stop - walk_stop) / moved.sum()
+            # every point is weighed at its own optimal decorrelation period rather than at one
+            # move per stored configuration, by the thinning law optimize_decorr_period inverts,
+            # since a point with a long correlation time is the one that gains most from it. The
+            # energy is only paid on a configuration that moved, hence 1 - (1 - a)**period, with a
+            # the measured fraction of steps that moved anything rather than the acceptance itself:
+            # the two coincide in CBCS, where a step is one proposal, but a sweep in EBES moves
+            # something far more often than a single electron is accepted
+            rho = max((correlation - 1) / (correlation + 1), 0)
+            period = np.arange(1, 101)
+            move_frac = moved.mean()
+            # a sweep that moves nothing is rare enough in EBES for its hundredth power to
+            # underflow, and zero is what it should be: the energy is then paid at every period
+            with np.errstate(under='ignore'):
+                cost = (1 + rho**period) / (1 - rho**period) * (period * time_move + (1 - (1 - move_frac) ** period) * time_energy)
+            # the wall time of one independent sample rather than the efficiency itself: the
+            # variance is a column of its own, so 1 / (variance * ms_indep) recovers it, and this
+            # way the number stays fixed point over the whole set, milliseconds on every system.
+            # The two timings behind it are written out as well, in microseconds, since ms_indep
+            # has the decorrelation period already minimized out of it and they are what it takes
+            # to rebuild the cost at any other period, the p = 1 of a run that does no thinning
+            # included
+            logger.info(
+                '%12.5e %8.2f %10.5f %10.5f %8.2f %9.2f %8.2f %9.2f %9.5f %7d %9.3f %8.2f %10.2f %10.5f',
+                self.vmc.step_size,
+                target,
+                acceptance,
+                diffusion,
+                correlation,
+                correlation_error,
+                correlation_time((r_e**2).sum(axis=(1, 2)))[0],
+                correlation_time(drift)[0],
+                variance,
+                period[np.argmin(cost)],
+                1000 * cost.min(),
+                1e6 * time_move,
+                1e6 * time_energy,
+                move_frac,
+            )
+
     def optimize_vmc_step(self, steps):
         """Optimize vmc step size to 50% acceptance.
-        A measurement at one step size already fixes the whole curve: sigma is proportional to the
-        step size by the sum rule, so inverting the gaussian acceptance law A = 2 * Phi(-sigma/2)
+        A measurement at one step size already fixes the whole curve: sigma**2 is proportional to
+        dtvmc by the sum rule, so inverting the gaussian acceptance law A = 2 * Phi(-sigma/2)
         at the measured A and reading it back at 1/2 lands on the target in a single shot whenever
         that law is exact. Its fixed point is A = 1/2 for any monotone acceptance curve, the law
         setting only the rate of convergence, so it cannot converge to the wrong answer where the
@@ -376,7 +491,7 @@ class Casino:
         for _ in range(3):
             # a rank that accepts everything or nothing carries no scale of its own
             acceptance = np.clip(mpi_comm.allreduce(self.acceptance_ratio(steps)) / mpi_comm.size, 0.05, 0.95)
-            self.vmc.step_size *= ndtri(3 / 4) / ndtri(1 - acceptance / 2)
+            self.vmc.step_size *= (erfinv(1 / 2) / erfinv(1 - acceptance)) ** 2
 
     @property
     def decorr_period(self):
@@ -438,7 +553,7 @@ class Casino:
                         self.wfn.jastrow.cutoffs_optimizable = not self.config.input.opt_plan[i].get('fix_cutoffs', False)
                     if self.wfn.backflow:
                         self.wfn.backflow.cutoffs_optimizable = not self.config.input.opt_plan[i].get('fix_cutoffs', False)
-                position = self.vmc_energy_accumulation()
+                self.vmc_energy_accumulation()
                 logger.info(
                     f' ==========================================\n'
                     f' PERFORMING OPTIMIZATION CALCULATION No. {i+1}.\n'
@@ -471,8 +586,7 @@ class Casino:
                  ' PERFORMING A VMC CONFIGURATION-GENERATION CALCULATION.\n'
                  ' ======================================================\n\n'
             )  # fmt: skip
-            position = self.vmc_energy_accumulation()
-            r_e_list = position[-self.config.input.vmc_nconfig_write // mpi_comm.size :]
+            r_e_list = self.vmc_energy_accumulation()
             expand(r_e_list)
             self.dmc = DMC(
                 r_e_list,
@@ -512,7 +626,7 @@ class Casino:
         self.equilibrate(self.config.input.vmc_equil_nstep)
 
         if self.config.input.opt_dtvmc == 0:
-            self.vmc.step_size = np.sqrt(3 * self.config.input.dtvmc)
+            self.vmc.step_size = self.config.input.dtvmc
         elif self.config.input.opt_dtvmc == 1:
             # to achieve an acceptance ratio of (roughly) 50% (EBES default). Three iterations of
             # 3000 steps cost less than the ten of 1000 they replace, and the noise of the last
@@ -523,8 +637,7 @@ class Casino:
             raise NotImplementedError
 
         logger.info(
-            f' Optimized step size: {self.vmc.step_size:.5f}\n'
-            f' DTVMC: {(self.vmc.step_size**2)/3:.5f}\n'
+            f' DTVMC: {self.vmc.step_size:.5e}\n'
         )  # fmt: skip
 
         nblock = self.config.input.vmc_nblock
@@ -534,47 +647,93 @@ class Casino:
         logger.info(
             ' Starting VMC.\n'
         )  # fmt: skip
-        energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
-        # create energy numpy array whose data points to the shared buffer
-        buffer, _ = energy_buffer.Shared_query(rank=0)
-        energy = np.ndarray(buffer=buffer, shape=(mpi_comm.size, nblock, nblock_steps))
+        # nothing but the statistics of a block survives it: the reblocking accumulator grows with
+        # the logarithm of the number of steps and the correlation time is measured on the block
+        # it belongs to, so the local energies of the whole run are never held anywhere
+        reblock = Reblock()
+        nmove_block = np.full(shape=nblock, fill_value=nblock_steps * mpi_comm.size, dtype=float)
+        energy_block = np.zeros(shape=nblock)
+        energy_block_sem = np.zeros(shape=nblock)
+        variance_block = np.zeros(shape=nblock)
+        tau_block = np.zeros(shape=nblock)
+        # a configuration weighs 3 * 8 bytes per electron and a local energy 8 bytes, so a block
+        # of positions outweighs a block of energies by 3 * electrons. The walk is therefore taken
+        # in chunks of a bounded size and each is dropped once its energies are in, which leaves
+        # the memory of the run flat in the number of steps
+        electrons = self.config.input.neu + self.config.input.ned
+        r_e_list = np.zeros(shape=(0, electrons, 3))
+        nconfig = -(-self.config.input.vmc_nconfig_write // mpi_comm.size)
+        chunk_steps = min(nblock_steps, max(1, nconfig, 10**7 // (3 * 8 * electrons)))
 
         for i in range(nblock):
             block_start = default_timer()
-            position = self.vmc.random_walk(nblock_steps, self.decorr_period)
-            walk_stop = default_timer()
-            energy[mpi_comm.rank, i] = self.vmc.observable(self.wfn.energy, position)
+            walk_time = energy_time = acceptance = 0.0
+            energy = np.empty(shape=nblock_steps)
+            for start in range(0, nblock_steps, chunk_steps):
+                stop = min(start + chunk_steps, nblock_steps)
+                chunk_start = default_timer()
+                position = self.vmc.random_walk(stop - start, self.decorr_period)
+                walk_stop = default_timer()
+                energy[start:stop] = self.vmc.observable(self.wfn.energy, position)
+                walk_time += walk_stop - chunk_start
+                energy_time += default_timer() - walk_stop
+                # a chunk starts the count of proposals afresh, and their number per step is the
+                # same throughout a block, so the length of the chunk is the weight of its ratio
+                acceptance += self.vmc.acceptance * (stop - start)
+                # the configurations a subsequent DMC run starts from are the tail of the walk, and
+                # a chunk boundary falls in the middle of it whenever the chunk does not divide the
+                # block, so the tail is carried over rather than taken from the last chunk alone
+                if nconfig:
+                    r_e_list = np.concatenate((r_e_list, position[max(position.shape[0] - nconfig, 0) :]))[-nconfig:]
             # timings of the last block only, so that JIT compilation of the first one is left out
-            time_move = (walk_stop - block_start) / (nblock_steps * self.decorr_period)
-            time_energy = (default_timer() - walk_stop) / nblock_steps
-            # wait until all processes have written to the array
-            mpi_comm.Barrier()
+            time_move = walk_time / (nblock_steps * self.decorr_period)
+            time_energy = energy_time / nblock_steps
+            reblock.add(energy)
+            tau, tau_err = correlation_time(energy)
+            if tau <= 0:
+                tau, tau_err = 1.0, 0.0
+            # a block of every process, reduced to the sums the block statistics are made of. The
+            # chains are independent, so their correlation times average with the errors in
+            # quadrature rather than linearly
+            block_sum = mpi_comm.reduce(np.array([energy.sum(), energy @ energy, tau, tau_err**2, acceptance / nblock_steps]))
             if self.root:
-                energy_block_mean = np.mean(energy[:, i, :])
-                energy_block_var = np.var(energy[:, i, :])
-                energy_block_sem = np.std(energy[:, i, :]) / np.sqrt(mpi_comm.size * nblock_steps - 1)
+                energy_block[i] = block_sum[0] / nmove_block[i]
+                variance_block[i] = block_sum[1] / nmove_block[i] - energy_block[i] ** 2
+                energy_block_sem[i] = np.sqrt(variance_block[i] / (nmove_block[i] - 1))
+                tau_block[i] = block_sum[2] / mpi_comm.size
+                tau_error = np.sqrt(block_sum[3]) / mpi_comm.size
+                acceptance = block_sum[4] / mpi_comm.size
                 block_stop = default_timer()
+                # the wall time one independent sample of a given variance costs, which is what
+                # the decorrelation period is there to minimize
+                efficiency = nmove_block[i] / ((block_stop - block_start) * variance_block[i] * max(tau_block[i], 1.0))
                 logger.info(
                     f' =========================================================================\n'
-                    f' In block : {i + 1}\n'
-                    f'  Number of VMC steps           = {steps // nblock}\n\n'
+                    f' In block : {i + 1}\n\n'
+                    f' Acceptance ratio         (%)  = {100 * acceptance:8.4f}\n'
+                    f' Correlation time     (steps)  = {tau_block[i]:.4E} +- {tau_error:.4E}\n'
+                    f' Efficiency      (au^-2 s^-1)  = {efficiency:.4E}\n'
+                    f' Number of VMC steps           = {steps // nblock}\n\n'
                     f'  Block average energies (au)\n\n'
-                    f'  Total energy                       (au) =       {energy_block_mean:18.12f}\n'
-                    f'  Standard error                        +/-       {energy_block_sem:18.12f}\n\n'
+                    f'  Total energy                       (au) =       {energy_block[i]:18.12f}\n'
+                    f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
                     f'  Constant energy contributions      (au) =       {self.wfn.nuclear_repulsion:18.12f}\n\n'
-                    f'  Variance of local energy           (au) =       {energy_block_var:18.12f}\n'
+                    f'  Variance of local energy           (au) =       {variance_block[i]:18.12f}\n'
                     f'  Standard error                        +/-       {0:18.12f}\n\n'
                     f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
                 )
+        # every process reblocks its own chain, the chains being independent
+        block_sem = mpi_comm.gather(reblock.stderr())
         if self.root:
-            energy = energy.reshape(mpi_comm.size, nblock * nblock_steps)
-            energy_mean = energy.mean()
-            energy_std = energy.std() / np.sqrt(steps - 1)
-            energy_cor = 0
-            for i in range(mpi_comm.size):
-                energy_cor += (2 * np.sum(pacf(energy[i], method='burg')) - 1)
-            energy_cor *= energy_std / mpi_comm.size
-            energy_sem = np.mean(correlated_sem(energy.reshape(mpi_comm.size, nblock * nblock_steps))) / np.sqrt(mpi_comm.size)
+            totmove = nmove_block.sum()
+            energy_mean = nmove_block @ energy_block / totmove
+            # law of total variance: the spread of the block means plus the spread within them
+            mean_of_squares = nmove_block @ energy_block**2 / totmove
+            within_blocks = (nmove_block * (nmove_block - 1)) @ energy_block_sem**2 / totmove
+            energy_var = nmove_block @ (variance_block + energy_block**2) / totmove - energy_mean**2
+            energy_std = np.sqrt(max(mean_of_squares - energy_mean**2 + within_blocks, 0) / (totmove - 1))
+            energy_cor = np.sqrt(nmove_block @ tau_block / totmove) * energy_std
+            energy_sem = np.mean(block_sem) / np.sqrt(mpi_comm.size)
             logger.info(
                 f' =========================================================================\n'
                 f' FINAL RESULT:\n\n'
@@ -582,13 +741,12 @@ class Casino:
                 f' {energy_mean:.12f} +/- {energy_std:.12f}      No correction\n'
                 f' {energy_mean:.12f} +/- {energy_cor:.12f}      Correlation time method\n'
                 f' {energy_mean:.12f} +/- {energy_sem:.12f}      On-the-fly reblocking method\n\n'
-                f' Sample variance of E_L (au^2/sim.cell) : {energy.var():.12f}\n\n'
+                f' Sample variance of E_L (au^2/sim.cell) : {energy_var:.12f}\n\n'
             )
             if self.config.input.vmc_decorr_period == 0:
                 self.optimize_decorr_period((energy_sem / energy_std) ** 2, time_move, time_energy)
         self.auto_decorr_period = mpi_comm.bcast(self.auto_decorr_period)
-        energy_buffer.Free()
-        return position
+        return r_e_list
 
     def dmc_energy_equilibration(self):
         """DMC energy equilibration"""
@@ -728,9 +886,20 @@ class Casino:
             return jac(x, *args, **kwargs)
 
         if self.root:
+            if self.config.input.vm_filter:
+                # a config pushed onto a node during the fit gets an unbounded local energy and the least
+                # squares follows it, so the residuals above f_scale are suppressed. CASINO brings the weight
+                # of such a config to zero with a gaussian of width VM_FILTER_WIDTH, the Cauchy loss only
+                # bounds its influence, so the width has no counterpart here
+                loss = 'cauchy'
+                f_scale = self.config.input.vm_filter_thres * np.std(trigger_fun(x0))
+            else:
+                loss = 'linear'
+                f_scale = 1.0
             res = least_squares(
-                trigger_fun, x0=x0, jac=trigger_jac, method='trf', ftol=2/np.sqrt(steps-1), x_scale='jac',
-                tr_solver='exact', max_nfev=self.config.input.opt_maxeval, verbose=self.root and verbose
+                trigger_fun, x0=x0, jac=trigger_jac, method='trf', loss=loss, f_scale=f_scale,
+                ftol=2/np.sqrt(steps-1), x_scale='jac', tr_solver='exact',
+                max_nfev=self.config.input.opt_maxeval, verbose=self.root and verbose
             )
             mpi_comm.bcast(('break', 0, 0, 0))
             parameters = res.x
@@ -834,11 +1003,13 @@ class Casino:
             mean_energy_gradient = np.average(energy_gradient, axis=0, weights=weights)
             ddof = np.average(weights, weights=weights)  # Delta Degrees of Freedom
             half_ddof_gradient = 2 * np.average(wfn_gradient * np.expand_dims(weights, 1), axis=0, weights=weights) - ddof * mean_wfn_gradient
+            mean_energy_d1 = mean_energy_gradient + 2 * (
+                np.average(wfn_gradient * np.expand_dims(energy, 1), axis=0, weights=weights) - mean_energy * mean_wfn_gradient
+            )
             # rescale for "Cost column" in output of scipy.optimize.least_squares to be a variance of E local
             return np.sqrt(2) * (
-                energy_gradient - mean_energy_gradient +
-                2 * (np.average(wfn_gradient * np.expand_dims(energy, 1), axis=0, weights=weights) - mean_energy * mean_wfn_gradient) +
-                np.expand_dims((energy - mean_energy), 1) * (mean_wfn_gradient - (mean_wfn_gradient * weights.sum() - half_ddof_gradient) / (weights.sum() - ddof))
+                energy_gradient - mean_energy_d1 +
+                np.expand_dims((energy - mean_energy), 1) * (wfn_gradient - (mean_wfn_gradient * weights.sum() - half_ddof_gradient) / (weights.sum() - ddof))
             ) * np.sqrt(np.expand_dims(weights, 1) / (weights.sum() - ddof))
 
         def trigger_fun(x, *args, **kwargs):
@@ -886,10 +1057,10 @@ class Casino:
         :param data: data structure
         :return:
         """
-        parameters_size = data['wfn_gradient_mean'].size
+        configs_size = data['energy'].size
         energy = data['energy'] - data['energy_mean']
         wfn_gradient = data['wfn_gradient'] - data['wfn_gradient_mean']
-        jacobian = 2 * wfn_gradient.T @ energy / parameters_size
+        jacobian = 2 * wfn_gradient.T @ energy / configs_size
         mpi_comm.Allreduce(MPI.IN_PLACE, jacobian)
         return jacobian / mpi_comm.size
 
@@ -901,14 +1072,14 @@ class Casino:
         :param data: data structure
         :return:
         """
-        parameters_size = data['wfn_gradient_mean'].size
+        configs_size = data['energy'].size
         energy = data['energy'] - data['energy_mean']
         wfn_gradient = data['wfn_gradient'] - data['wfn_gradient_mean']
         A = 2 * data['wfn_hessian'].T @ energy
         B = 4 * wfn_gradient.T @ (wfn_gradient * np.expand_dims(energy, 1))
         # Umrigar and Filippi
         half_D = wfn_gradient.T @ data['energy_gradient']
-        hessian = (A + B + half_D + half_D.T) / parameters_size
+        hessian = (A + B + half_D + half_D.T) / configs_size
         mpi_comm.Allreduce(MPI.IN_PLACE, hessian)
         return hessian / mpi_comm.size
 
@@ -1010,7 +1181,7 @@ class Casino:
         of ∆p to stabilise iterative process.
         One can introduce following approximation of S and H:
             S = extended_wfn_gradient.T @ extended_wfn_gradient
-            H = extended_wfn_gradient.T @ diag(energy) @ extended_wfn_gradient - extended_wfn_gradient.T @ extended_energy_gradient
+            H = extended_wfn_gradient.T @ diag(energy) @ extended_wfn_gradient + extended_wfn_gradient.T @ extended_energy_gradient
         The method is stabilized by 'level-shifting', i.e. by adding a positive constant L to the diagonal of H except
         for its first element. As L grows, Δp shrinks and rotates from the Newtonian direction to the steepest descent
         one. Once the shift dominates, Δp falls off as 1/L, so the smallest L keeping every parameter variation within
@@ -1025,7 +1196,6 @@ class Casino:
         steps = steps // mpi_comm.size * mpi_comm.size
         start, stop = mpi_comm.rank * steps // mpi_comm.size, (mpi_comm.rank + 1) * steps // mpi_comm.size
         x0 = self.wfn.get_parameters()
-        parameters_scale = self.wfn.get_parameters_scale()
         if x0.all():
             self.wfn.set_parameters(x0)
         else:
@@ -1123,13 +1293,18 @@ class Casino:
         if self.root:
             try:
                 wfn_gradient -= np.mean(wfn_gradient, axis=0)
-                energy_gradient -= np.mean(energy_gradient, axis=0)
+                # centering energy_gradient changes nothing in the i,j block of H, since wfn_gradient is
+                # already centered there, and only drops <E_L,j> from the first row, turning g_R into g_L.
+                # That term is what keeps dp exact on a finite sample when psi_lin is an eigenstate.
+                # energy_gradient -= np.mean(energy_gradient, axis=0)
                 # parameters the wave function does not depend on for this sample would make S singular
                 active = np.std(wfn_gradient, axis=0) > 0
                 # rescale parameters so that S becomes the Pearson correlation matrix
                 scale = 1 / np.std(wfn_gradient[:, active], axis=0)
                 S = overlap_matrix(wfn_gradient[:, active] * scale)
                 H = hamiltonian_matrix(wfn_gradient[:, active] * scale, energy, energy_gradient[:, active] * scale)
+                # measured before the correlated sampling overwrites the energy buffer
+                gradient = 2 * np.mean(wfn_gradient * np.expand_dims(energy - energy_mean, 1), axis=0) + np.mean(energy_gradient, axis=0)
                 # logger.info(f'epsilon:\n{np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]}')
                 level_shift = np.eye(S.shape[0])
                 level_shift[0, 0] = 0
@@ -1182,26 +1357,30 @@ class Casino:
                         else:
                             lo = mid
                     bound = True
-                logger.info(f' Trust radius max |delta p| < {dp_max} reached at level shift {10**hi:.2e}')
+                logger.info(f' Trust radius max|delta p| < {dp_max} reached at level shift {10**hi:.2e}')
+                logger.info(
+                    f' {"Level shift":>13}{"E_lin":>15}{"max|dp|":>15}{"max|dlog(psi)|":>15}'
+                    f'{"E_corr":>15}{"Penalty":>14}{"Target":>15}'
+                )  # fmt: skip
                 # the L -> inf limit, i.e. Δp = 0, is the candidate every other one is compared with
                 best_penalty = penalty(energy_std**2, np.ones(steps))
                 best_shift, best_dp, best_target = np.inf, np.zeros_like(x0), energy_mean + best_penalty
-                logger.info(f' level shift        inf  E_corr {energy_mean:.8f}  penalty {best_penalty:.8f}  target {best_target:.8f}')
+                logger.info(f' {"inf":>13}{"":>45}{energy_mean:>15.8f}{best_penalty:>14.8f}{best_target:>15.8f}')
                 shifts = 10.0 ** (hi + np.arange(4))
                 for shift in shifts:
                     eigval, dp = solve(shift)
                     if np.isnan(eigval):
-                        logger.info(f' level shift {shift:.2e}  no eigenvalue above the minimal allowed energy')
+                        logger.info(f' {shift:>13.2e}   no eigenvalue above the minimal allowed energy')
                         continue
-                    logger.info(
-                        f' level shift {shift:.2e}  E_lin {eigval:.8f}'
-                        f'  max |delta p| {np.max(np.abs(dp)):.4e}  max |delta p / scale| {np.max(np.abs(dp / parameters_scale)):.4e}'
+                    row = (
+                        f' {shift:>13.2e}{eigval:>15.8f}{np.max(np.abs(dp)):>15.4e}'
+                        f'{np.max(np.abs(dp[active] / scale)):>15.4e}'
                     )  # fmt: skip
                     mean, pen = trigger_target(dp)
                     if not np.isfinite(mean) or mean < min_energy:
-                        logger.info(f'                       E_corr {mean:.8f}  rejected')
+                        logger.info(f'{row}{mean:>15.8f}{"rejected":>29}')
                         continue
-                    logger.info(f'                       E_corr {mean:.8f}  penalty {pen:.8f}  target {mean + pen:.8f}')
+                    logger.info(f'{row}{mean:>15.8f}{pen:>14.8f}{mean + pen:>15.8f}')
                     if mean + pen < best_target:
                         best_shift, best_dp, best_target = shift, dp, mean + pen
                 if best_shift == shifts[0] and bound:
@@ -1211,7 +1390,6 @@ class Casino:
             finally:
                 # the other ranks wait in bcast, so they must be released even if anything above raises
                 mpi_comm.bcast(('break', None))
-            logger.info(f' Chosen level shift {best_shift:.2e}, target {best_target:.8f}')
             dp = best_dp
         else:
             while True:
@@ -1223,10 +1401,30 @@ class Casino:
             dp = np.zeros_like(x0)
 
         mpi_comm.Bcast(dp)
-        if x0.all():
-            logger.info(f' delta p / p\n{dp / x0}\n')
-        else:
-            logger.info(f' delta p\n{dp}\n')
+        if self.root:
+            logger.info(
+                ' Optimization end\n'
+                ' ================'
+            )  # fmt: skip
+            # in the same scaled variables the eigenvalue problem is solved in, i.e. a parameter is measured
+            # in units of the variation that moves log(psi) by one standard deviation on this sample, which
+            # makes parameters of different nature comparable and the norm comparable between cycles
+            logger.info(f' Norm of scaled energy gradient at the starting point: {np.linalg.norm(gradient[active] * scale):.5e}')
+            if best_shift == np.inf:
+                logger.info(
+                    f' No candidate lowered the target function {best_target:.8f},'
+                    f' the parameters are left unchanged.\n'
+                )  # fmt: skip
+            else:
+                logger.info(
+                    f' Level shift {best_shift:.2e}, target {energy_mean + best_penalty:.8f} ->'
+                    f' {best_target:.8f}, gain {energy_mean + best_penalty - best_target:.8f}.'
+                )  # fmt: skip
+                scaled_dp = dp[active] / scale
+                logger.info(
+                    f' Scaled delta p over {scaled_dp.size} of {dp.size} parameters: norm {np.linalg.norm(scaled_dp):.4e},'
+                    f' rms {np.sqrt(np.mean(scaled_dp**2)):.4e}, max {np.max(np.abs(scaled_dp)):.4e}\n'
+                )  # fmt: skip
         self.wfn.set_parameters(x0 + dp)
         energy_buffer.Free()
         wfn_buffer.Free()

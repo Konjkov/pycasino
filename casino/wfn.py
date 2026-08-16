@@ -35,6 +35,27 @@ def wfn__relative_coordinates(self, r_e):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, '_relative_coordinates_1e')
+def wfn__relative_coordinates_1e(self, r_e, e):
+    """Get the relative coordinates a single-electron move needs.
+    The electron-electron array is the only one quadratic in the number of electrons, and moving
+    one electron changes one row of it, so only that row is built. The electron-nuclei array is
+    built whole: it is linear in both counts, and the e-e-n jastrow term reads the nuclear
+    distances of every electron, not only of the one that moved.
+    :param r_e: electron positions
+    :param e: electron being moved
+    :return: e-e vectors of that electron - array(nelec, 3), e-n vectors - array(natom, nelec, 3)
+    """
+
+    def impl(self, r_e, e):
+        e_vectors_1e = r_e[e] - r_e
+        n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.atom_positions, 1)
+        return e_vectors_1e, n_vectors
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, '_get_nuclear_repulsion')
 def wfn__get_nuclear_repulsion(self):
     """Value of n-n repulsion."""
@@ -210,22 +231,48 @@ def wfn_nonlocal_potential(self, r_e):
     def impl(self, r_e) -> float:
         res = 0.0
         if self.ppotential is not None:
-            value = self.value(r_e)
             e_vectors, n_vectors = self._relative_coordinates(r_e)
             grid = self.ppotential.integration_grid(n_vectors)
             potential = self.ppotential.get_ppotential(n_vectors)
-            for atom in range(n_vectors.shape[0]):
-                if self.ppotential.is_pseudoatom[atom]:
-                    for e1 in range(self.neu + self.ned):
-                        if potential[atom][e1, 0] or potential[atom][e1, 1]:
-                            for q in range(grid.shape[2]):
-                                cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
-                                r_e_q = r_e.copy()
-                                r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
-                                value_ratio = self.value(r_e_q) / value
-                                weight = self.ppotential.weight[atom][q]
-                                for l in range(2):
-                                    res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_ratio
+            # every point of the quadrature grid is one electron displaced, so the ratio it needs
+            # is the single-electron one. backflow and geminals have no such ratio and pay the
+            # whole wave function per point instead
+            if self.backflow is None and self.geminal is None:
+                state = self.slater.state(n_vectors)
+                for atom in range(n_vectors.shape[0]):
+                    if self.ppotential.is_pseudoatom[atom]:
+                        for e1 in range(self.neu + self.ned):
+                            if potential[atom][e1, 0] or potential[atom][e1, 1]:
+                                n_vectors_q = n_vectors.copy()
+                                if self.jastrow is not None:
+                                    n_powers = self.jastrow.en_powers(n_vectors)
+                                    jastrow_1e = self.jastrow.value_1e(e_vectors[e1], n_powers, e1)
+                                for q in range(grid.shape[2]):
+                                    cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
+                                    r_e_q1 = grid[atom, e1, q] + self.atom_positions[atom]
+                                    n_vectors_q[:, e1] = r_e_q1 - self.atom_positions
+                                    log_value, sign, _, _ = state.ratio_1e(n_vectors_q[:, e1], e1)
+                                    value_ratio = sign * state.sign * np.exp(log_value - state.log_value)
+                                    if self.jastrow is not None:
+                                        self.jastrow.update_en_powers_1e(n_powers, n_vectors_q[:, e1], e1)
+                                        value_ratio *= np.exp(self.jastrow.value_1e(r_e_q1 - r_e, n_powers, e1) - jastrow_1e)
+                                    weight = self.ppotential.weight[atom][q]
+                                    for l in range(2):
+                                        res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_ratio
+            else:
+                value = self.value(r_e)
+                for atom in range(n_vectors.shape[0]):
+                    if self.ppotential.is_pseudoatom[atom]:
+                        for e1 in range(self.neu + self.ned):
+                            if potential[atom][e1, 0] or potential[atom][e1, 1]:
+                                for q in range(grid.shape[2]):
+                                    cos_theta = (grid[atom, e1, q] @ n_vectors[atom, e1]) / (n_vectors[atom, e1] @ n_vectors[atom, e1])
+                                    r_e_q = r_e.copy()
+                                    r_e_q[e1] = grid[atom, e1, q] + self.atom_positions[atom]
+                                    value_ratio = self.value(r_e_q) / value
+                                    weight = self.ppotential.weight[atom][q]
+                                    for l in range(2):
+                                        res += potential[atom][e1, l] * self.ppotential.legendre(l, cos_theta) * weight * value_ratio
         return res
 
     return impl
@@ -252,8 +299,7 @@ def wfn_kinetic_energy(self, r_e):
             s_g = self.geminal.gradient(n_vectors)
             s_l = self.geminal.laplacian(n_vectors)
         else:
-            s_g = self.slater.gradient(n_vectors)
-            s_l = self.slater.laplacian(n_vectors)
+            s_l, s_g = self.slater.laplacian(n_vectors)
 
         if self.jastrow is not None:
             j_l, j_g = self.jastrow.laplacian(e_vectors, n_vectors)

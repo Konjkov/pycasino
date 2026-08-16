@@ -16,15 +16,16 @@ newrun            : T              #*! New run or continue old (Boolean)
 testrun           : F              #*! Test run flag (Boolean)
 
 # VMC
-vmc_method        : 3
+vmc_method        : 3              #*! VMC method (Integer)
 vmc_equil_nstep   : 5000           #*! Number of equilibration steps (Integer)
 vmc_nstep         : 1000000        #*! Number of steps (Integer)
 vmc_nblock        : 1              #*! Number of checkpoints (Integer)
 vmc_nconfig_write : 1000000        #*! Number of configs to write (Integer)
 vmc_decorr_period : 10             #*! VMC decorrelation period (0 - auto)
-writeout_vmc_hist : F              #*! Write vmc.hist file in VMC (Boolean)
 
 # OPTIMIZATION
+vm_filter         : T              #*! Filter outlying configs (Boolean)
+vm_filter_thres   : 4.0            #*! Filter threshold (Real)
 opt_method        : emin           #*! Opt method (varmin/madmin/emin/...)
 %block opt_plan                    #*! Multi-cycle optimization plan (Block)
 1 method=varmin fix_cutoffs=T

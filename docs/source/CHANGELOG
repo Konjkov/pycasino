@@ -106,6 +106,26 @@ v 0.4.0 (in progress)
     * emin linear method divided by the standard deviation of every wave function derivative,
       so a parameter the sample does not depend on produced an infinite scale and a singular
       overlap matrix; such parameters are now excluded from the eigenproblem and left unchanged
+    * UNR drift-velocity limiting used the squared drift of the whole configuration for every
+      electron instead of the electron's own, over-limiting the step by a factor that grows with
+      the electron count. On Be the drift was 0.7% shorter on average and up to 8% in the tail.
+      The limiting factor is also evaluated as 2 / (1 + sqrt(1 + 2*a*v^2*t)), which is the same
+      expression without the cancellation at small v
+    * CBCS branching used the UNR reweighting factor (23), which applies
+      exp[t_eff*(S(r) + S(r'))/2] to an accepted move and exp[t_eff*S(r)] to a rejected one,
+      rather than (25), which applies exp[t_eff*((1 - p/2)*S(r) + p/2*S(r'))] to every move and
+      is what Casino uses. The two agree as t -> 0 and differ in the time-step error, which is
+      what UNR report and what a fixed-node energy at finite t sees: the gap grows with the
+      spread of the local energy over a move, so it is invisible for He, where the trial function
+      is nearly exact, and largest for Be with backflow. The local energy is now evaluated at the
+      proposed position even when the move is rejected, which costs one extra evaluation on the
+      8% of moves that are rejected. EBES keeps (23), as Casino does, since there is no single
+      acceptance probability for the configuration
+    * The effective time step was t * <p> instead of the UNR (24) estimator
+      t * <p*|dr|^2> / <|dr|^2>, which is not the same average whenever the acceptance is
+      correlated with the size of the diffusive displacement, as it is. The diffusive
+      displacement is now measured from the drifted position in the near-nucleus branch of the
+      modified Green's function too, where the sampled offset from the nucleus was used
 * Improved
     * CBCS initial time step is now sqrt(3) * erfinv(1/2) * (1 + 0.045/nuclei) / sqrt(<T>) instead
       of one over the electron count, with <T> summed over the nuclei from the Thomas-Fermi
@@ -155,11 +175,36 @@ v 0.4.0 (in progress)
     * The nuclei participation ratio is now taken over the kinetic energy shares themselves,
       sum(T_a)^2 / sum(T_a^2), which is the same number to 0.03% for all-electron systems and
       extends to pseudoatoms
-    * EBES and DBDS initial time steps now follow from their own sum rule, sqrt(N) and sqrt(2)
-      times the CBCS one, instead of 1/log(max(Z)) and 1/N. The EBES factor is the gaussian one and
-      its central limit theorem fails over three terms, so the guess is knowingly off by the
-      non-gaussian correction; optimize_vmc_step supplies it, its fixed point not depending on the
-      model
+    * EBES and DBDS initial time steps now follow from their own sum rule, N and 2 times the CBCS
+      dtvmc (sqrt(N) and sqrt(2) in the displacement), instead of 1/log(max(Z)) and 1/N. Both are
+      exact statements about Var(X); what the EBES factor is knowingly missing is the spread of
+      grad_i(ln psi) between electrons, which the sum rule averages over, so the guess is off by
+      1.0 to 2.6 on anything with more than one occupied shell; optimize_vmc_step supplies the
+      rest, its fixed point not depending on the model
+    * VMC proposes from a gaussian rather than a cube, in CBCS and EBES alike, and dtvmc is carried
+      as the variance of one displacement component exactly as Casino states it, so the two codes'
+      step sizes are directly comparable and no sqrt(3) conversion is left anywhere. The reason is
+      EBES: X = ln(psi'^2/psi^2) is a sum of three terms there, one electron by three axes, so no
+      central limit theorem is available and a cube leaves X an Irwin-Hall variable - the excess
+      kurtosis of -0.33 measured on one-shell systems is the proposal and not the wave function.
+      With a gaussian displacement 2*dr*grad(ln psi) is exactly gaussian at leading order however
+      few components move. The sum rule reads Var(X) = 8*dtvmc*<T>, the 50% point sits at
+      dtvmc*<T> = erfinv(1/2)^2 = 0.227475, and the initial guess, the acceptance inversion and
+      both diagnostic graphs are stated in those units. Existing dtvmc values keep their meaning.
+      Re-measured over all 31 systems in examples/time_step, both modes: with the cube removed
+      the width of X at its measured variance comes out at 1.000 on every one-shell system,
+      He 0.9995 and Li+ 1.0013 in CBCS, He 1.0008 and Li+ 1.0040 in EBES, where the cube gave
+      0.956 and 0.918 - the deficit doubling in EBES is the missing central limit theorem, and
+      the cube's excess kurtosis reaches -0.719 on pseudo-hydrogen at small step, which is
+      -1.2*E[sum n^4] = -0.72 for three components with an isotropic drift. It also drifts to
+      zero along the acceptance curve, so no fitted constant could have absorbed it
+    * The fitted correction to the initial CBCS step is now 1 + 0.080/nuclei^0.82 instead of
+      1 + 0.045/nuclei, refitted on the gaussian campaign: 0.3% rms and 0.8% at worst over the
+      seventeen all-electron systems, against 0.9% rms before. The old constant was hiding the
+      shape of the cube, which moved the 50% point by 4% in a system-dependent way and left a
+      spurious Z dependence inside it - over the atoms and ions the fitted value ran from 0.038
+      on Be to 0.065 on Kr, where the gaussian holds 0.075 to 0.086. Gaussian and Slater twins
+      of the same atom now agree to 0.3%
     * Speed up backflow optimization: kinetic_energy_parameters_d1 uses slater.tressian_dot
       to avoid materializing the (3N)³ tressian tensor, vectorized bf_d1 loop and
       fused reduction loop in backflow_laplacian_parameters_d1
