@@ -126,6 +126,14 @@ v 0.4.0 (in progress)
       correlated with the size of the diffusive displacement, as it is. The diffusive
       displacement is now measured from the drifted position in the near-nucleus branch of the
       modified Green's function too, where the sampled offset from the nucleus was used
+    * The energy jacobian and hessian were divided by the number of parameters rather than the
+      number of configurations. Both carry the same factor, so the Newton step itself was
+      unaffected and only the gradient the optimizer reports and the thresholds it converges
+      against saw the wrong scale
+    * emin centered the energy gradient over the sample. That changes nothing in the i,j block of
+      H, where wfn_gradient is centered already, and only drops <E_L,j> from the first row,
+      turning the exact g_L into g_R; that term is what keeps delta p exact on a finite sample
+      when psi_lin is an eigenstate
 * Improved
     * CBCS initial time step is now sqrt(3) * erfinv(1/2) * (1 + 0.045/nuclei) / sqrt(<T>) instead
       of one over the electron count, with <T> summed over the nuclei from the Thomas-Fermi
@@ -205,6 +213,30 @@ v 0.4.0 (in progress)
       spurious Z dependence inside it - over the atoms and ions the fitted value ran from 0.038
       on Be to 0.065 on Kr, where the gaussian holds 0.075 to 0.086. Gaussian and Slater twins
       of the same atom now agree to 0.3%
+    * Slater value, gradient and laplacian are built in one pass over the basis, so the local
+      energy makes one pass where it made two. A solid harmonic is homogeneous of degree l and
+      harmonic, so r•∇Y = l•Y and ΔY = 0, which leaves the laplacian of an orbital as
+      Y * (r**2 * radial_1 + (2*l + 3) * radial_2), out of the same radial sums the gradient is
+      made of: neither the exponentials nor the angular parts are evaluated twice, and one inverse
+      of the slater matrix serves both traces. A Slater-only VMC run is now as fast as Casino from
+      about ten electrons and faster beyond that, see examples/stowfn/READ.ME
+    * Statistics are accumulated as the run goes and the local energies of the whole run are no
+      longer held anywhere. Reblocking keeps one partial sum per block length, so its storage grows
+      with the logarithm of the number of steps, and the block length is the first one satisfying
+      the Wolff criterion 8**k >= 2 * nstep * ncorr**2. The correlation time is integrated over the
+      autocorrelation function with Sokal's self-consistent window w >= 3*tau, measured on the block
+      it belongs to, instead of summing the partial autocorrelations of a Burg AR fit over the whole
+      run: on an AR(1) chain of a known tau of 4 it gives 3.964 +- 0.063 where Burg gave 4.776.
+      Block averages, variances and their errors are accumulated per block, which retires the
+      shared MPI window that held every local energy of the run, and the walk is taken in chunks
+      bounded to 10 MB of positions, the tail a subsequent DMC run starts from being carried across
+      the chunk boundaries. The memory of a VMC run is now flat in vmc_nstep and vmc_nblock: O3 at
+      vmc_nstep 1e8 on four processes went from 12.3 GB per node to 0.24 GB. The energy, its
+      uncorrected error and the reblocked error are unchanged to twelve digits
+    * VMC block header reports the acceptance ratio, the correlation time with its error, and the
+      efficiency nmove / (time * variance * tau), the wall time an independent sample of a given
+      variance costs, which is the quantity vmc_decorr_period is there to minimize
+    * pyblock, pandas and statsmodels are no longer dependencies
     * Speed up backflow optimization: kinetic_energy_parameters_d1 uses slater.tressian_dot
       to avoid materializing the (3N)³ tressian tensor, vectorized bf_d1 loop and
       fused reduction loop in backflow_laplacian_parameters_d1
