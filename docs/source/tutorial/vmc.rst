@@ -18,9 +18,9 @@ Three sampling modes are named by ``vmc_method``, of which two are implemented:
 - **CBCS** (``vmc_method : 3``) — all electrons are moved at once, single accept/reject.
 
 The single free parameter of the walk is the step size, set by ``dtvmc``. The formulas below are
-written in :math:`\tau`, the half-width of the cube Pycasino proposes from, which is not the same
-number: ``dtvmc`` is the variance of one displacement component, so :math:`\mathtt{dtvmc} =
-\tau^2/3`, and :ref:`the convention <vmc-dtvmc>` is what makes the step comparable between codes.
+written in :math:`\tau`, the standard deviation of one displacement component, so that
+``dtvmc``, which is :ref:`by convention <vmc-dtvmc>` the variance of that component, is
+:math:`\tau^2`.
 The step is too small when
 successive configurations are strongly correlated and too large when almost every move is
 rejected, and the efficiency of the walk is flat enough between those extremes that any
@@ -114,8 +114,8 @@ What is accepted
 ----------------
 
 CBCS displaces all electrons at once, :math:`\mathbf{R}' = \mathbf{R} + \boldsymbol{\Delta}`,
-where the :math:`3N_e` components :math:`\delta_k` are independent and uniform on
-:math:`[-\tau, \tau]`. The proposal is symmetric, so the Metropolis ratio
+where the :math:`3N_e` components :math:`\delta_k` are independent Gaussians of standard
+deviation :math:`\tau`. The proposal is symmetric, so the Metropolis ratio
 reduces to the density ratio alone:
 
 .. math::
@@ -150,9 +150,9 @@ Expanding to second order in the displacement,
       + \boldsymbol{\Delta}^{\mathsf T}\mathsf{H}\,\boldsymbol{\Delta}
       + O(\Delta^3)
 
-The moments of the uniform cube are
+The moments of the Gaussian proposal are
 :math:`\mathbb{E}_\Delta[\delta_k] = 0`,
-:math:`\mathbb{E}_\Delta[\delta_k \delta_l] = (\tau^2/3)\,\delta_{kl}` and
+:math:`\mathbb{E}_\Delta[\delta_k \delta_l] = \tau^2\,\delta_{kl}` and
 :math:`\mathbb{E}_\Delta[\delta_k \delta_l \delta_m] = 0`. Since :math:`\mathbf{F}` and
 :math:`\mathsf{H}` are fixed by :math:`\mathbf{R}`, they come out of the average as constants:
 
@@ -169,8 +169,8 @@ The quadratic term survives as a trace,
     \mathbb{E}_\Delta\left[\boldsymbol{\Delta}^{\mathsf T}\mathsf{H}\boldsymbol{\Delta}
     \,\middle|\,\mathbf{R}\right]
     = \sum_{kl} \mathsf{H}_{kl}\,\mathbb{E}_\Delta[\delta_k \delta_l]
-    = \frac{\tau^2}{3}\,\mathrm{Tr}\,\mathsf{H}
-    = \frac{\tau^2}{3}\,\nabla^2\Lambda
+    = \tau^2\,\mathrm{Tr}\,\mathsf{H}
+    = \tau^2\,\nabla^2\Lambda
 
 and in the variance the cross term vanishes because it involves only third moments of a
 symmetric distribution:
@@ -183,7 +183,7 @@ symmetric distribution:
      + \underbrace{\mathrm{Var}_\Delta\!\left(\boldsymbol{\Delta}^{\mathsf T}\mathsf{H}
        \boldsymbol{\Delta}\right)}_{O(\tau^4)}
      + \underbrace{2\,\mathrm{Cov}_\Delta}_{0} \\
-    &= \frac{4\,\tau^2}{3}\,\mathbf{F}\cdot\mathbf{F} + O(\tau^4)
+    &= 4\,\tau^2\,\mathbf{F}\cdot\mathbf{F} + O(\tau^4)
     \end{aligned}
 
 The mean is therefore of second order in the step size while the variance survives at first
@@ -193,18 +193,19 @@ non-vanishing order, and both are kinetic energies:
 
     \begin{aligned}
     m(\mathbf{R}) &\equiv \mathbb{E}_\Delta[X|\mathbf{R}]
-    = -\frac{4\,\tau^2}{3}\,T_M(\mathbf{R}) \\
+    = -4\,\tau^2\,T_M(\mathbf{R}) \\
     s^2(\mathbf{R}) &\equiv \mathrm{Var}_\Delta[X|\mathbf{R}]
-    = \frac{8\,\tau^2}{3}\,T_D(\mathbf{R})
+    = 8\,\tau^2\,T_D(\mathbf{R})
     \end{aligned}
 
 The asymmetry is essential: the mean sees the combination :math:`T_L + T_D`, the variance sees
 :math:`T_D` alone, and the Laplacian form does not enter the variance at all.
 
-At fixed :math:`\mathbf{R}` the leading part of :math:`X` is a sum of :math:`3N_e` independent
-terms and is normal up to :math:`O(1/n_\mathrm{eff})`, where
-:math:`n_\mathrm{eff} = (\sum_k F_k^2)^2 / \sum_k F_k^4` is the participation ratio of the
-drift components. With that,
+At fixed :math:`\mathbf{R}` the leading part of :math:`X` is a linear function of a Gaussian
+vector and is therefore exactly normal, whatever the number of components that move. This is
+why the proposal is Gaussian: with a uniform one, normality would rest on a central limit
+theorem over the :math:`3N_e` summands, which :ref:`EBES <vmc-ebes>`, moving three at a time,
+does not have. With that,
 
 .. math::
 
@@ -226,7 +227,7 @@ Note that pointwise
 .. math::
 
     m(\mathbf{R}) + \tfrac{1}{2}s^2(\mathbf{R})
-    = \frac{2\,\tau^2}{3}\left[T_D(\mathbf{R}) - T_L(\mathbf{R})\right] \neq 0
+    = 2\,\tau^2\left[T_D(\mathbf{R}) - T_L(\mathbf{R})\right] \neq 0
 
 so :math:`g` cannot be simplified at this stage. It becomes simplifiable only after stage II.
 
@@ -257,14 +258,14 @@ By the laws of total expectation and total variance,
 
     \begin{aligned}
     \mu \equiv \mathbb{E}[X] &= \mathbb{E}_\mathbf{R}[m]
-    = -\frac{4}{3}\,\tau^2 \langle T \rangle \\
+    = -4\,\tau^2 \langle T \rangle \\
     \sigma^2 \equiv \mathrm{Var}[X]
     &= \mathbb{E}_\mathbf{R}[s^2] + \mathrm{Var}_\mathbf{R}[m]
-    = \frac{8}{3}\,\tau^2 \langle T \rangle + O(\tau^4)
+    = 8\,\tau^2 \langle T \rangle + O(\tau^4)
     \end{aligned}
 
 the discarded piece being
-:math:`(16\,\tau^4/9)\,\mathrm{Var}_\mathbf{R}(T_M)`. Hence
+:math:`16\,\tau^4\,\mathrm{Var}_\mathbf{R}(T_M)`. Hence
 :math:`\mu = -\sigma^2/2`, which is not an assumption but a consequence: stationarity of the
 chain requires :math:`\mathbb{E}[e^X] = 1`, that is :math:`\mu + \sigma^2/2 = 0` for normal
 :math:`X`, and the expansion reproduces it by itself. It appears only after stage II — stage I
@@ -274,7 +275,7 @@ The second relation is a sum rule:
 
 .. math::
 
-    \mathrm{Var}[X] = \frac{8}{3}\,\tau^2 \langle T \rangle
+    \mathrm{Var}[X] = 8\,\tau^2 \langle T \rangle
 
 and nothing else enters. Neither the geometry of the molecule, nor the distribution of nuclear
 charge, nor the Jastrow factor and backflow appear other than through the single scalar
@@ -316,21 +317,20 @@ Setting :math:`A = 1/2` gives :math:`\sigma = 2s = 1.3489795` and, with the sum 
 .. math::
 
     \tau_{50}\,\sqrt{\langle T \rangle}
-    = s\sqrt{3/2} = \sqrt{3}\,\mathrm{erfinv}(1/2) = 0.8260784
+    = \frac{s}{\sqrt{2}} = \mathrm{erfinv}(1/2) = 0.4769362
 
 For a general target :math:`A` the constant is
-:math:`\sqrt{3}\,\mathrm{erfinv}(1 - A)`; at the Roberts–Gelman–Gilks optimal acceptance
-0.234 [22]_ it would be 1.4576. There is nothing fundamental about 0.826: it is fixed by three
-conventions — a uniform cube rather than a Gaussian proposal, a 50 % target, and atomic
-units. Nor is there any reason for it to equal one, the prefactor being dimensional,
+:math:`\mathrm{erfinv}(1 - A)`; at the Roberts–Gelman–Gilks optimal acceptance
+0.234 [22]_ it would be 0.8416. There is nothing fundamental about 0.477: it is fixed by three
+conventions — the step quoted as a standard deviation rather than as a variance, a 50 % target,
+and atomic units. Nor is there any reason for it to equal one, the prefactor being dimensional,
 :math:`[\tau] = \sqrt{1/\mathrm{energy}}`.
 
 .. _vmc-dtvmc:
 
-Only the second moment of the proposal enters the sum rule, so the shape of the proposal drops
-out once the step size is quoted as that moment. This is what ``dtvmc`` is: Casino draws each
-component from a Gaussian of variance ``dtvmc``, Pycasino from a cube of half-width
-:math:`\tau` and hence variance :math:`\tau^2/3`, and the two agree on
+Only the second moment of the proposal enters the sum rule, so the step size is quoted as that
+moment. This is what ``dtvmc`` is, and both codes draw each component from a Gaussian of
+variance ``dtvmc``, so :math:`\mathtt{dtvmc} = \tau^2` and the two agree on
 
 .. math::
 
@@ -393,15 +393,16 @@ remaining correction is expressed through its participation ratio,
 
     \begin{aligned}
     n_\mathrm{nuc} &= \frac{\left(\sum_a T_a\right)^2}{\sum_a T_a^2} \\
-    \tau &= \sqrt{3}\,\mathrm{erfinv}(1/2)\,
-    \frac{1 + 0.045 / n_\mathrm{nuc}}{\sqrt{\langle T \rangle}}
+    \tau &= \mathrm{erfinv}(1/2)\,
+    \frac{1 + 0.080 / n_\mathrm{nuc}^{0.82}}{\sqrt{\langle T \rangle}}
     \end{aligned}
 
 which is :math:`1` for a single heavy atom and the number of equivalent nuclei for a symmetric
 molecule. Everything here follows from the sum rule and from tabulated atomic physics except the
-:math:`0.045`, the only fitted number in the estimate; the next section explains what it stands
-for. Measured on the systems in ``examples/time_step/CBCS`` the 50 % acceptance point lands
-within 0.9 % rms of this guess for atoms, ions, hydrides and hydrocarbons alike.
+:math:`0.080` and the exponent, the only fitted numbers in the estimate; the next section
+explains what they stand for. Measured on the systems in ``examples/time_step/CBCS`` the 50 %
+acceptance point lands within 0.3 % rms of this guess, and 0.8 % at worst, for atoms, ions,
+hydrides and hydrocarbons alike.
 
 The other two sampling modes take the same estimate through their own sum rule, since only the
 block of coordinates that moves changes:
@@ -411,9 +412,11 @@ block of coordinates that moves changes:
     \tau(\mathrm{EBES}) = \sqrt{N_e}\;\tau, \qquad
     \tau(\mathrm{DBDS}) = \sqrt{2}\;\tau
 
-The EBES factor is the Gaussian one, and :ref:`its central limit theorem fails <vmc-ebes>`, so
-the guess is knowingly off by the non-Gaussian correction; that is left to
-:ref:`optimize_vmc_step <vmc-optimize-step>`, whose fixed point does not depend on the model.
+Both are exact statements about :math:`\mathrm{Var}[X]`, and in ``dtvmc`` they read
+:math:`N_e` and :math:`2`. What the EBES factor is knowingly missing is not a failure of the
+Gaussian law but :ref:`the spread of the drift between electrons <vmc-ebes>`, which the sum rule
+averages over; that is left to :ref:`optimize_vmc_step <vmc-optimize-step>`, whose fixed point
+does not depend on the model.
 
 .. _vmc-cost-of-interchange:
 
@@ -483,10 +486,24 @@ term,
     = \frac{1 + s^2}{8}\,\frac{\mathrm{Var}_\mathbf{R}(T_D)}{\langle T \rangle^2}
     = 0.18187\,\mathrm{CV}^2(T_D)
 
-and this is the form behind the fitted :math:`1 + 0.045/n_\mathrm{nuc}`: :math:`T_D` is
-dominated by whichever electron is currently near a nucleus, since :math:`|\nabla\Lambda| \sim Z`
-there, so :math:`n` equivalent nuclei contribute :math:`n` independent terms and
-:math:`\mathrm{CV}^2(T_D)` falls as :math:`1/n`.
+and this is the form the fitted :math:`1 + 0.080/n_\mathrm{nuc}^{0.82}` was read off:
+:math:`T_D` is dominated by whichever electron is currently near a nucleus, since
+:math:`|\nabla\Lambda| \sim Z` there, so :math:`n` equivalent nuclei contribute :math:`n`
+independent terms and :math:`\mathrm{CV}^2(T_D)` falls as :math:`1/n`. The exponent comes out at
+:math:`0.82` rather than the :math:`1` that argument predicts.
+
+The campaign says the identification is not that direct. Of :ref:`the two factors
+<vmc-optimize-step>` the measured correction separates into, the Jensen gap is the second one,
+the shape of :math:`X`, and there the collapsed formula is exact where
+:math:`\mathrm{CV}(T_D)` is small and out of range where it is not: helium, at
+:math:`\mathrm{CV} = 0.10`, is predicted at :math:`+0.2\,\%` and measured at :math:`0.0\,\%`,
+while krypton, at :math:`3.1`, is predicted at :math:`+175\,\%` and measured at
+:math:`+16\,\%`. The first factor, the :math:`O(\tau^2)` deficit of the sum rule itself, is not
+a Jensen gap at all — it survives at :math:`\mathrm{Var}(T_D) = 0`, being a property of how
+:math:`\nabla\Lambda` turns under a finite displacement rather than of how it fluctuates — and
+on the light atoms it carries the whole correction. The constant is as flat in :math:`Z` as it
+is because those two cancel, so the mechanism above should be read as accounting for one of
+them and not for the fit.
 
 This one-constant form should not be trusted quantitatively. Rewritten in the variables Casino
 prints, :math:`t = T_M/\langle T\rangle - 1 = (u + v)/2`, the same expression reads
@@ -527,12 +544,14 @@ Of stage I:
 
 1. the expansion of :math:`X` is truncated at second order in
    :math:`\boldsymbol{\Delta}`, and at the 50 % point
-   :math:`\tau^2 \langle T\rangle \approx 0.68`, so the step is not small;
+   :math:`\tau^2 \langle T\rangle \approx 0.23`, so the step is not small. Measured, the
+   ``sum_rule`` column at that point runs from 0.85 on helium to 1.15 on krypton, so what is
+   truncated is a 15 % effect in either direction;
 2. :math:`\Psi` is not analytic at a nuclear cusp, which is precisely where :math:`T_L`
    diverges, so the Taylor expansion formally fails there;
-3. normality of the leading term rests on a central limit theorem over :math:`3N_e` terms. The
-   uniform proposal has excess kurtosis :math:`-6/5` per component, giving a negative
-   correction of order :math:`1/n_\mathrm{eff}` that competes with the positive one above.
+3. the leading term is exactly normal, the proposal being Gaussian, so nothing here rests on a
+   central limit theorem. What is left non-normal at fixed :math:`\mathbf{R}` is the quadratic
+   term of point 1, and it enters at order :math:`\tau^4`.
 
 Of stage II:
 
@@ -555,7 +574,7 @@ Pseudopotentials and the electron gas
 Neither stage of the derivation ever differentiates the potential: everything is built from
 :math:`\nabla\Lambda` and :math:`\nabla\nabla\Lambda`, and :math:`V` enters only the local
 energy, which the walk never sees. The sum rule
-:math:`\mathrm{Var}[X] = (8/3)\,\tau^2\langle T \rangle` therefore holds verbatim for a
+:math:`\mathrm{Var}[X] = 8\,\tau^2\langle T \rangle` therefore holds verbatim for a
 pseudopotential, local or non-local, and for a periodic system. What breaks is only point 6
 above, the route from the Hamiltonian to a *number* for :math:`\langle T \rangle`:
 
@@ -605,13 +624,15 @@ optimized ``dtvmc`` by the ``KEI`` the same run reports:
 
 The product is constant over a factor of 1160 in :math:`\langle T \rangle`, with and without a
 pseudopotential — which is the claim being tested, and the only one these runs settle. Both
-medians sit above the Gaussian :math:`0.2274682` by the
+medians sit above the :math:`0.2274682` of the law by the
 :ref:`Jensen gap <vmc-cost-of-interchange>`, :math:`+7\,\%` and :math:`+14\,\%` in
-:math:`\tau` — the all-electron figure compatible with the :math:`4.5\,\%` fitted above, the
+:math:`\tau` — the all-electron figure compatible with the :math:`8.0\,\%` fitted above, the
 pseudopotential one larger as expected, since removing the core leaves only three to eight
-electrons to average :math:`T_D` over. The :math:`15\,\%` scatter, however, is not
+electrons to average :math:`T_D` over. The campaign lands in the same place from its own
+side, :math:`\mathtt{dtvmc}\cdot\langle T\rangle` measuring 0.266 over the atoms and ions and
+0.258 over all seventeen all-electron systems. The :math:`15\,\%` scatter, however, is not
 physics but the tolerance of Casino's own step-size optimizer, which stops as soon as the
-acceptance is near enough to 50 %, so nothing finer — the :math:`1/n_\mathrm{nuc}` collapse in
+acceptance is near enough to 50 %, so nothing finer — the :math:`n_\mathrm{nuc}` collapse in
 particular — can be extracted from these runs. That is what the campaign described in
 :ref:`optimize_vmc_step <vmc-optimize-step>` is for. There is also no pseudopotential
 *molecule* to test it on: :math:`\mathrm{B_2H_6}` under ``examples/ppotential_HF`` carries a
@@ -651,8 +672,7 @@ while EBES moves one electron and cannot produce such a displacement in the firs
 formula changes, because neither counts degrees of freedom: both follow from
 :math:`\sum_k F_k^2`, and the invariance is precisely the statement
 :math:`\sum_i \nabla_i \Lambda = 0`, which puts no weight in that subspace to begin with. The
-bookkeeping is automatic, and the same holds for :math:`n_\mathrm{eff}`, which counts
-:math:`3N_e - 3` of its own accord. What the free subspace does cost is efficiency, at order
+bookkeeping is automatic. What the free subspace does cost is efficiency, at order
 :math:`1/N_e`: the centre of mass random-walks with the full step and its displacement enters
 the diffusion criterion below without ever having affected the acceptance. No atom or molecule
 has this subspace, the clamped nuclei supplying the missing force.
@@ -687,8 +707,9 @@ sum rule and a definition of efficiency rather than from a scaling limit. Carrie
 is therefore not the 50 % step it is derived as but, to that accuracy, the diffusion-optimal
 one: taking :math:`r_s` as the length overshoots the 50 % step by 3.24, the target the
 criterion should have used overshoots it by 3.12, and the two cancel. Both figures inherit the
-reservation of the next section — three components move, not :math:`3N_e`, so the Gaussian
-:math:`A(\sigma)` is at its weakest exactly where this comparison is made.
+reservation of the next section: :math:`A(\sigma)` describes a single electron and the gas has
+only one kind of electron, so here it should hold — it is in an atom, where a core and a
+valence electron are the same move at wildly different drift, that it fails.
 
 .. _vmc-ebes:
 
@@ -701,78 +722,93 @@ sum runs over 3 components rather than :math:`3N_e`
 .. math::
 
     \mathrm{Var}_\Delta[X | \mathbf{R}, i]
-    = \frac{4\,\tau^2}{3}\,|\nabla_i \Lambda|^2
+    = 4\,\tau^2\,|\nabla_i \Lambda|^2
 
 Averaging over the uniform choice of electron as well gives
 :math:`\mathbb{E}_i \mathbb{E}_\mathbf{R}[|\nabla_i\Lambda|^2] = 2\langle T\rangle / N_e`, so
 
 .. math::
 
-    \mathrm{Var}[X] = \frac{8}{3}\,\tau^2\,\frac{\langle T \rangle}{N_e},
+    \mathrm{Var}[X] = 8\,\tau^2\,\frac{\langle T \rangle}{N_e},
     \qquad
     \tau_{50}(\mathrm{EBES}) = \sqrt{N_e}\;\tau_{50}(\mathrm{CBCS})
 
 The EBES step is therefore set by the kinetic energy *per electron*, an intensive quantity: at
 fixed composition it does not depend on the size of the system, and for neutral atoms it
-scales as :math:`Z^{-2/3}`. Point 3 of the previous section applies in its sharpest form,
-however: :math:`X` is a sum of three terms, not :math:`3N_e`, so there is no limit for the
-central limit theorem to be taken in, and the effective count is smaller still — the drift of a
-single electron near a nucleus is nearly radial, which drives
-:math:`n_\mathrm{eff} = (\sum_k F_k^2)^2 / \sum_k F_k^4` from 3 towards 1, where :math:`X` is
-one scaled uniform variable with bounded support and excess kurtosis :math:`-6/5`.
+scales as :math:`Z^{-2/3}`.
 
-How much that costs depends entirely on where the acceptance is being asked for. The exact
-:math:`\alpha` for the cube is available without any appeal to the theorem, :math:`X` being a
-weighted Irwin–Hall variable whose density is piecewise quadratic, against which
-:math:`\int \min(1,e^x)` integrates in closed form. Solved that way, the step the cube requires
-differs from the Gaussian answer by :math:`+3.0\,\%` at :math:`n_\mathrm{eff} = 1` and under
-:math:`0.5\,\%` at 2 or 3 — at the 50 % target. The bodies of two symmetric distributions of
-equal variance agree, and the 50 % point sees only the body. The tails are another matter: at a
-1 % target the same comparison reads :math:`-15.8\,\%`, :math:`-7.5\,\%` and
-:math:`-3.7\,\%`, and the Gaussian form put at :math:`n_\mathrm{eff} = 1` predicts an
-acceptance of 0.0007 where the truth is 0.01. So the Gaussian form remains serviceable for
-setting the step and fails as a description of the acceptance curve away from it.
+This mode is why the proposal is Gaussian. Only three components move, so a uniform proposal
+would leave :math:`X` a weighted Irwin–Hall variable with no limit for a central limit theorem
+to be taken in, and the drift of a single electron near a nucleus is nearly radial, which drives
+the participation ratio :math:`(\sum_k F_k^2)^2 / \sum_k F_k^4` from 3 towards 1 — one scaled
+uniform variable, bounded support, excess kurtosis :math:`-6/5`. How much that mattered was
+estimated by integrating the cube against :math:`\int\min(1,e^x)`, which gave a step
+:math:`3.0\,\%` from the Gaussian answer at a participation ratio of 1 and under
+:math:`0.5\,\%` at 2 or 3 *at the 50 % target*, two symmetric distributions of equal variance
+agreeing in the body.
 
-The clean repair is to stop proposing from a cube. A sum of Gaussians is Gaussian whatever the
-number of summands, so a Gaussian displacement makes :math:`X` exactly normal at leading order
-in EBES, with none of this reasoning needed; the bounded support that recommends the cube
-elsewhere buys nothing when three components move.
-:meth:`casino.vmc.VMC.random_step` dispatches the proposal by method, so the substitution is
-local to one function.
+Both proposals have since been run over the same thirty-one systems, and the estimate was an
+order of magnitude low. Taking the width of :math:`X` at its measured variance — the second
+factor of :ref:`the decomposition below <vmc-optimize-step>`, which is exactly the quantity that
+integral was after — the Gaussian gives :math:`1.000` on every system with a single occupied
+shell, :math:`0.999` to :math:`1.011` in CBCS and :math:`0.9995` to :math:`1.013` in EBES,
+while the cube gives :math:`0.956` in CBCS and :math:`0.918` in EBES. The deficit doubles when
+:math:`3N_e` components are replaced by three, which is the missing central limit theorem
+measured directly, and it moves the 50 % step by :math:`2.3\,\%` and :math:`8.3\,\%`
+respectively — not by the :math:`0.5\,\%` argued above. The shape itself is where it should be:
+the cube's excess kurtosis at the smallest step is :math:`-0.719` on pseudo-hydrogen, against
+the :math:`-1.2\,\mathbb{E}[\sum_k n_k^4] = -0.72` of three components and an isotropic drift,
+and :math:`-0.337` on helium where six components share. What the integral got wrong is how
+much a small deviation from normality is worth at the 50 % point. And the deviation is not even
+a constant: it runs from :math:`-0.72` to zero along the acceptance grid, so no fitted
+correction could have absorbed it.
+
+A Gaussian displacement removes the whole question, :math:`X` being exactly normal at leading
+order however few components move, and the bounded support that a cube offers buys nothing
+here.
 
 What the measurement says
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The acceptance curve of all thirty-one calibration systems has been measured in this mode, on
-the same grid and the same conventions as the CBCS set, and the two halves of the statement
-above fare very differently.
+the same grid and the same conventions as the CBCS set, at :math:`10^6` steps per point. The
+cube campaign it replaces is kept beside it in ``examples/time_step/EBES.cube``, at
+:math:`10^5`.
 
-The sum rule is confirmed. Scaling each measured 50 % step by the kinetic energy per electron,
-:math:`\tau_{50}\sqrt{\langle T\rangle/N_e}`, reproduces the departure from the Gaussian law to
-within 1 to 3 % on every system, so :math:`\mathrm{Var}[X] = \frac{8}{3}\tau^2\langle T\rangle/N_e`
-is right and nothing else needs to be. Its sharpest consequence holds to better than a percent:
-at fixed composition the step is independent of the size of the system, and C₂H₂, C₄H₄ and C₆H₆,
-from 14 to 42 electrons, take steps of 0.6644, 0.6667 and 0.6629.
+The sum rule is confirmed by its sharpest consequence: at fixed composition the step does not
+depend on the size of the system. C₂H₂, C₄H₄ and C₆H₆, from 14 to 42 electrons, take
+``dtvmc`` of 0.17307, 0.17295 and 0.17115, equal to :math:`1.1\,\%`.
 
-The Gaussian acceptance law on top of it does not hold. The measured ratio
-:math:`\tau_{50}(\mathrm{EBES})/\tau_{50}(\mathrm{CBCS})` equals :math:`\sqrt{N_e}` only where
-every electron is equivalent — a single electron, or the two-electron ions — and rises to 2.4
-times that on krypton. The excess is not a function of :math:`N_e` at all. It tracks the number
-of occupied shells: 1.06 with one shell, 1.2 to 1.3 on pseudoatoms carrying only a valence
-shell, about 1.9 across the second period whether atomic or molecular, 2.36 on argon and 2.61 on
-krypton. Two comparisons isolate it. Be²⁺ and Be share a nucleus and differ by two valence
-electrons, and their excesses are 1.06 and 1.72. CH₄ through C₆H₆ span 10 to 42 electrons at
-fixed composition, and theirs are 1.96, 1.91, 1.83, 1.91, 1.91.
+The Gaussian acceptance law on top of it does not hold, and splitting ``correction`` into
+:ref:`its two factors <vmc-optimize-step>` says which half fails where.
+
+Where every electron is equivalent — pseudo-hydrogen, helium, the two-electron ions — the
+second factor is 1.000 to 1.013. :math:`X` is Gaussian, with nothing left of the
+:math:`-0.33` the cube used to put there. The step is nevertheless 1.13 to 1.15 times the
+:math:`\sqrt{N_e}` law, and all of that is the first factor, the :math:`O(\tau^2)` deficit of
+the sum rule at a step whose per-electron variance is twice the CBCS one. The prediction that
+the Gaussian alone would take the one-shell excess to unity was half right: the shape part went
+to 1.000, the finite-step part was never the proposal's to remove.
+
+Everywhere else the second factor is 1.94 to 2.29 — beryllium 1.94, nitrogen 2.19, neon 2.04,
+argon 2.19, krypton 2.18, CH₄ 2.25, O₃ 2.16, C₆H₆ 2.22 — while the pseudoatoms, carrying a
+valence shell and no core, sit at 1.21 to 1.25. What it responds to is the presence of a core,
+not the number of shells and not the nuclear charge. The trend the raw ``correction`` shows —
+about 2.1 across the second period against 2.56 on argon and 2.82 on krypton — is the other
+factor, which runs from 0.92 on beryllium to 1.30 on krypton.
 
 The reason is that the acceptance is a nonlinear functional of :math:`\mathrm{Var}[X|\mathbf{R},i]
 \propto |\nabla_i\Lambda|^2`, whereas the sum rule constrains only its mean. At a step where the
 average electron would sit at 50 %, a core electron is rejected almost always and a valence one
-accepted almost always, so the 50 % is made up by the valence electrons, whose drift is far below
-the mean, and the step that achieves it is correspondingly larger. The same mixture of variances
-is visible in the shape: the excess kurtosis of :math:`X` is :math:`-0.33` on the one-shell
-systems, the value three uniform components give, and 4.6 to 7.0 on the heavy atoms and
-pseudoatoms, always above the CBCS figure for the same system, since there is no average over
-:math:`N_e` electrons to tame it.
+accepted almost always, so the 50 % is made up by the electrons whose drift is below the mean,
+and the step that achieves it is correspondingly larger. In those terms the second factor
+squared, 3.8 on beryllium and between 4.2 and 5.2 everywhere else, is the ratio of
+:math:`\mathbb{E}_i[|\nabla_i\Lambda|^2]` to the value carried by the electron sitting at the
+median of the acceptance; that it varies so little over a factor of 21 in
+:math:`\langle T\rangle/N_e` is not explained by anything here and deserves a look of its own.
+The same mixture is what the ``kurtosis`` column reports: 2.0 to 5.3 on the all-electron systems
+with a core, 4.6 to 6.1 on the pseudoatoms, and 0.00 on the one-shell systems, where the
+Gaussian proposal leaves nothing at all.
 
 The step this implies is the root of :math:`\mathbb{E}_i[2\Phi(-\sigma_i/2)] = 1/2` over the
 spread of :math:`|\nabla_i\Lambda|^2` across electrons rather than over its mean, which requires
@@ -809,7 +845,7 @@ the derivation of :ref:`stage I <vmc-stage-one>` with the sum restricted to
 
 .. math::
 
-    \mathrm{Var}[X] = \frac{8}{3}\,\tau^2 \langle T_\sigma \rangle, \qquad
+    \mathrm{Var}[X] = 8\,\tau^2 \langle T_\sigma \rangle, \qquad
     \langle T_\sigma \rangle = \frac{1}{2}\,\mathbb{E}_\mathbf{R}
     \left[\sum_{i \in \sigma} |\nabla_i\Lambda|^2\right]
 
@@ -821,7 +857,7 @@ For a closed-shell system the two spin channels carry half the kinetic energy ea
   there are only ever two determinants. It does not grow with :math:`N_e`, unlike the EBES
   gain.
 - **An open-shell system cannot be served by one** ``dtvmc``. The optimal step of each channel
-  is :math:`0.826/\sqrt{\langle T_\sigma \rangle}`, and the two differ whenever
+  is :math:`0.477/\sqrt{\langle T_\sigma \rangle}`, and the two differ whenever
   :math:`N_\uparrow \neq N_\downarrow`; a single step size puts one determinant off its 50 %
   target. Neither the input keyword nor
   :ref:`optimize_vmc_step <vmc-optimize-step>` has room for two values.
@@ -831,10 +867,11 @@ For a closed-shell system the two spin channels carry half the kinetic energy ea
   single electron moves, which is the same machinery at a block size of one, so DBDS would
   add a coarser version of what is there.
 
-What DBDS keeps, and EBES loses, is the central limit theorem: :math:`X` is a sum of
-:math:`3N_\sigma` terms rather than 3, so the Gaussian form of :math:`g` and hence the
-:math:`0.826` law remain usable. That is the only theoretical argument in its favour, and it
-buys :math:`\sqrt{2}`.
+The one theoretical argument that used to be in its favour has expired. With a uniform proposal
+DBDS kept the central limit theorem that EBES lost, :math:`X` being a sum of :math:`3N_\sigma`
+terms rather than 3, so the Gaussian form of :math:`g` remained usable where EBES had to do
+without it. A Gaussian proposal gives that to EBES for nothing, and what is left is a block size
+of :math:`N_\sigma` buying :math:`\sqrt{2}`.
 
 .. _vmc-acceptance-ratio:
 
@@ -919,18 +956,18 @@ the same statement.
     .. math::
 
         \text{correction} = \tau \left/ \left[
-        \mathrm{erfinv}\!\left(1 - A\right)\sqrt{\frac{3}{\langle T\rangle}}\,\right]\right.
+        \frac{\mathrm{erfinv}\!\left(1 - A\right)}{\sqrt{\langle T\rangle}}\,\right]\right.
 
     One means the law is exact at that point. This is the factor
     :ref:`approximate_step_size <vmc-approximate-step-size>` carries as
-    :math:`1 + 0.045/n_\mathrm{nuc}`, expressed in the same units, so the file offers the number
+    :math:`1 + 0.080/n_\mathrm{nuc}^{0.82}`, expressed in the same units, so the file offers the number
     to be fitted rather than an energy to be converted into one; the value in the 50 % row is
     that constant measured on that system. In :ref:`EBES <vmc-ebes>` the denominator carries
     :math:`\sqrt{N_e}` besides, the sum rule of a one-electron move seeing the kinetic energy per
     electron.
 
 ``sum_rule``
-    :math:`\mathrm{Var}(X) \big/ \frac{8}{3}\tau^2\langle T\rangle`, the sum rule by itself. It
+    :math:`\mathrm{Var}(X) \big/ 8\,\tau^2\langle T\rangle`, the sum rule by itself. It
     assumes nothing about the shape of the distribution and never refers to the acceptance. One
     in the limit :math:`\tau \to 0`, where the rule is exact; what it loses at finite
     :math:`\tau` is the :math:`O(\tau^2)` term that the leading order drops.
@@ -953,16 +990,18 @@ the same statement.
 
 ``kurtosis``
     the excess kurtosis of :math:`X`. Being dimensionless already, it has a finite
-    :math:`\tau \to 0` limit, and that limit is the shape of :math:`X` at leading order. Two
-    mechanisms set it and they carry opposite signs. The proposal is a cube, so :math:`X` is a
-    weighted sum of uniform variables and is *platykurtic*; and the variance of :math:`X`
-    conditioned on the position is proportional to the local :math:`T_D`, so :math:`X` is also a
-    scale mixture over the walk and is *leptokurtic*. Which of the two wins is a property of the
-    wave function, not of the sampling: an atom with one occupied shell has almost no spread in
-    the local kinetic energy and shows the cube, while a core and a valence shell differing by
-    orders of magnitude in :math:`|\nabla\ln\Psi|^2` bury it. The variance of this estimator is
-    set by the eighth moment, so wherever the mixture wins, the small step end of the column is
-    a sign and not a number.
+    :math:`\tau \to 0` limit, and that limit is the shape of :math:`X` at leading order. One
+    mechanism sets it: the variance of :math:`X` conditioned on the position is proportional to
+    the local :math:`T_D`, so :math:`X` is a scale mixture over the walk and is *leptokurtic*.
+    The column therefore has a definite sign, and what it measures is the spread of the local
+    kinetic energy — near zero for an atom with one occupied shell, large where a core and a
+    valence shell differ by orders of magnitude in :math:`|\nabla\ln\Psi|^2`. A negative value
+    is now a defect rather than physics; the cube files kept beside the campaign carry the
+    :math:`-6/5` per component underneath, which competed with the mixture and won wherever the
+    mixture was weak — :math:`-0.72` on pseudo-hydrogen in EBES, three components and an
+    isotropic drift, against :math:`0.06` for the same system with a Gaussian. The variance of
+    this estimator is set by the eighth moment, so the small step end of the column is a sign
+    and not a number.
 
 The middle two columns multiply back into the first:
 
@@ -979,10 +1018,16 @@ down and the part where :math:`X` is not Gaussian, and the second factor — the
 one exactly when :math:`X` is leptokurtic.
 
 The separation matters because the two factors are individually system-dependent and move in
-opposite directions. Across the all-electron atoms measured so far, at 5 % acceptance, the first
-factor spans 1.18 to 1.44 and the second 0.87 to 1.03, while their product stays within 3 %.
-The near-universality of the raw ``correction`` curve is a cancellation between two effects, not
-a single law, and quoting it without the decomposition would hide that.
+opposite directions. Across the all-electron atoms, at the 50 % row itself, both are monotone in
+:math:`Z` and each spans some 17 %: the first falls from 1.087 on helium through 0.987 on neon
+to 0.931 on krypton, the second rises from 1.000 through 1.095 to 1.162, and their product —
+the number the initial guess is fitted to — stays inside 1.0 %, from 1.0754 to 1.0861. On the
+light atoms the sum rule is undershooting and :math:`X` is exactly Gaussian; on the heavy ones
+the sum rule is overshooting and :math:`X` is strongly leptokurtic; the fitted constant is what
+is left when the two cancel. At 5 % acceptance the cancellation is no longer complete, the
+factors spanning 1.056 to 1.323 and 1.020 to 1.176 with the product ranging over 8.6 %.
+The near-universality of the raw ``correction`` curve is therefore a cancellation between two
+effects, not a single law, and quoting it without the decomposition would hide that.
 
 The level of the whole test is fixed by :math:`\langle T \rangle`, which the same run measures
 on the same walk and writes into the header, so no fitted constant enters anywhere.

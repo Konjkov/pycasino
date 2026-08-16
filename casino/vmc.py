@@ -33,7 +33,7 @@ def vmc_random_step(self):
 @nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(VMC_class_t, 'simple_random_step')
 def vmc_simple_random_step(self):
-    """Simple random walker with random N-dim square proposal density in
+    """Simple random walker with random N-dim gaussian proposal density in
     configuration-by-configuration sampling (CBCS).
     :return: step is accepted
     """
@@ -41,7 +41,7 @@ def vmc_simple_random_step(self):
     def impl(self):
         cond = False
         ne = self.wfn.neu + self.wfn.ned
-        next_r_e = self.r_e + self.step_size * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
+        next_r_e = self.r_e + np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape((ne, 3))
         next_log_value = self.wfn.log_value(next_r_e)[0]
         self.moves += 1
         if 2 * (next_log_value - self.log_value) > np.log(np.random.random()):
@@ -67,7 +67,7 @@ def vmc_one_electron_step(self, e):
     def impl(self, e):
         cond = False
         next_r_e = np.copy(self.r_e)
-        next_r_e[e] += self.step_size * np.random.uniform(-1, 1, 3)
+        next_r_e[e] += np.random.normal(0, np.sqrt(self.step_size), 3)
         # backflow spreads a single-electron move over the quasi-particle coordinates of every
         # electron within its cutoff, and a geminal is not a slater determinant, so neither of
         # them leaves one column to update: both recompute the whole configuration instead
@@ -188,7 +188,7 @@ def vmc_log_ratio_walk(self, steps):
                 _, log_ratio[i] = self.one_electron_step(i % ne)
         else:
             for i in range(steps):
-                next_r_e = self.r_e + self.step_size * np.random.uniform(-1, 1, ne * 3).reshape((ne, 3))
+                next_r_e = self.r_e + np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape((ne, 3))
                 next_log_value = self.wfn.log_value(next_r_e)[0]
                 log_ratio[i] = 2 * (next_log_value - self.log_value)
                 self.moves += 1

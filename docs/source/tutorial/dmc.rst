@@ -92,14 +92,18 @@ Two sampling modes are implemented:
 
 - **CBCS** (``dmc_method : 2``) — all electrons are moved at once, single accept/reject.
 - **EBES** (``dmc_method : 1``) — electrons are moved one at a time, each with its own
-  accept/reject; the acceptance probability entering :math:`\tau_{eff}` is averaged with
-  weights :math:`|\Delta \mathbf{r}_i|^2` of the per-electron diffusion steps.
+  accept/reject.
 
-The acceptance probability defines the effective time step used in branching:
+Rejected moves slow the diffusion down, which is accounted for by the effective time step
+used in branching [18]_:
 
 .. math::
 
-    \tau_{eff} = \tau \langle p \rangle
+    \tau_{eff} = \tau \frac{\langle p |\Delta \mathbf{r}|^2 \rangle}{\langle |\Delta \mathbf{r}|^2 \rangle}
+
+where :math:`\Delta \mathbf{r}` is the diffusive part of a proposed electron displacement,
+that is the displacement measured from the drifted position, and the averages run over the
+proposals for all electrons of all walkers, including those rejected at the nodal surface.
 
 **Modifications for bare nuclei** (``nucleus_gf_mods : T``, all-electron systems only [18]_):
 the drift of an electron at distance :math:`z` from the nearest nucleus is decomposed
@@ -133,9 +137,10 @@ The velocity is smoothly limited following Umrigar, Nightingale and Runge [18]_:
 
 .. math::
 
-    \bar{\mathbf{v}} = \mathbf{v}\,\frac{-1 + \sqrt{1 + 2 a v^2 \tau}}{a v^2 \tau}
+    \bar{\mathbf{v}}_i = \mathbf{v}_i\,\frac{-1 + \sqrt{1 + 2 a v_i^2 \tau}}{a v_i^2 \tau}
 
-where :math:`v^2 = \sum_i |\mathbf{v}_i|^2` is the total squared drift. For all-electron
+where :math:`v_i^2 = |\mathbf{v}_i|^2` is the squared drift of electron :math:`i`: every
+electron is limited by its own velocity, not by that of the whole configuration. For all-electron
 systems with ``nucleus_gf_mods : T`` the parameter :math:`a` is position-dependent
 (``alimit_vector``):
 
@@ -179,11 +184,21 @@ After the drift-diffusion move each walker carries the weight
 
 .. math::
 
-    W = \exp\left[\tau_{eff}\,\frac{S(\mathbf{r}) + S(\mathbf{r}')}{2}\right]
+    W = \exp\left[\tau_{eff}\left(\left(1 - \frac{p}{2}\right) S(\mathbf{r})
+    + \frac{p}{2} S(\mathbf{r}')\right)\right]
 
-(for a rejected move :math:`W = \exp[\tau_{eff} S(\mathbf{r})]`). The walker is then
-replaced by :math:`M = \lfloor W + u \rfloor` copies, where :math:`u` is a uniform random
-number on :math:`[0, 1]`; walkers with :math:`M = 0` are killed.
+the reweighting factor of UNR [18]_ averaged over accepting and rejecting the proposed move.
+Averaging the exponent rather than applying :math:`\exp[\tau_{eff}(S(\mathbf{r}) + S(\mathbf{r}'))/2]`
+to accepted moves and :math:`\exp[\tau_{eff} S(\mathbf{r})]` to rejected ones gives the same
+:math:`\tau \to 0` limit with a smaller time-step error, but it needs the local energy at
+:math:`\mathbf{r}'` even when the move is rejected. A move rejected at the nodal surface has
+:math:`p = 0` and the expression reduces to :math:`W = \exp[\tau_{eff} S(\mathbf{r})]`.
+In EBES every electron carries its own acceptance probability and the walker has no single
+:math:`p`, so there the symmetric average
+:math:`W = \exp[\tau_{eff}(S(\mathbf{r}) + S(\mathbf{r}'))/2]` over the whole electron sweep
+is used instead. The walker is then replaced by :math:`M = \lfloor W + u \rfloor` copies,
+where :math:`u` is a uniform random number on :math:`[0, 1]`; walkers with :math:`M = 0`
+are killed.
 
 The reference energy :math:`E_T` is updated after every step to keep the total walker
 population close to the target (``dmc_target_weight``) [18]_:

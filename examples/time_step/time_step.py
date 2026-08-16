@@ -11,7 +11,7 @@ The sampling mode is read off the name of OUTDIR, CBCS or EBES, so that a direct
 never be ambiguous about which law it measures; the input files themselves are the same either
 way. In EBES a proposal moves one electron, which is the unit both the acceptance and the sum
 rule are then stated in, so the two columns stay comparable between the modes and the step size
-is expected to be larger by sqrt(Ne).
+is expected to be larger by Ne, dtvmc being a variance.
 
 Each system is written as soon as it is done and skipped if its file already exists, so a run can
 be interrupted and resumed. A million steps per point takes about half a day for the whole set; a
@@ -138,7 +138,7 @@ for name in wanted:
             try:
                 float(line.split()[0])
             except ValueError:
-                f.write('# ' + line.strip() + '\n')
+                f.write('#' + line + '\n')
             else:
                 f.write(line + '\n')
     os.remove(out + '.tmp')

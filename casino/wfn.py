@@ -299,8 +299,7 @@ def wfn_kinetic_energy(self, r_e):
             s_g = self.geminal.gradient(n_vectors)
             s_l = self.geminal.laplacian(n_vectors)
         else:
-            s_g = self.slater.gradient(n_vectors)
-            s_l = self.slater.laplacian(n_vectors)
+            s_l, s_g = self.slater.laplacian(n_vectors)
 
         if self.jastrow is not None:
             j_l, j_g = self.jastrow.laplacian(e_vectors, n_vectors)

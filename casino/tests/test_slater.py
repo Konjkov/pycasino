@@ -37,7 +37,9 @@ class TestSlater(unittest.TestCase):
         assert self.wfn.slater.gradient(self.n_vectors) == pytest.approx(self.wfn.slater.numerical_gradient(self.n_vectors))
 
     def test_laplacian(self):
-        assert self.wfn.slater.laplacian(self.n_vectors) == pytest.approx(self.wfn.slater.numerical_laplacian(self.n_vectors))
+        laplacian, gradient = self.wfn.slater.laplacian(self.n_vectors)
+        assert laplacian == pytest.approx(self.wfn.slater.numerical_laplacian(self.n_vectors))
+        assert gradient == pytest.approx(self.wfn.slater.numerical_gradient(self.n_vectors))
 
     def test_hessian(self):
         assert self.wfn.slater.hessian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.numerical_hessian(self.n_vectors), rel=1e-5)

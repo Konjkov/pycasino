@@ -71,7 +71,8 @@ DMC_t = DMC_class_t(
         ('best_estimate_energy', nb.float64),
         ('energy_t', nb.float64),
         ('ntransfers_tot', nb.int64),
-        ('sum_acceptance_probability', nb.float64),
+        ('sum_proposed_diffusion', nb.float64),
+        ('sum_accepted_diffusion', nb.float64),
         ('efficiency_list', nb.types.ListType(efficiency_type)),
         ('wfn', Wfn_t),
         ('mpi_comm', Comm_t),
@@ -126,7 +127,8 @@ class DMC(structref.StructRefProxy):
             self.best_estimate_energy = energy
             self.energy_t = self.best_estimate_energy - np.log(walkers / self.target_weight) / self.step_eff
             self.ntransfers_tot = 0
-            self.sum_acceptance_probability = 0
+            self.sum_proposed_diffusion = 0
+            self.sum_accepted_diffusion = 0
             self.efficiency_list = nb.typed.List.empty_list(efficiency_type)
             return self
 
@@ -238,8 +240,9 @@ def dmc_limiting_velocity(self, r_e):
     def impl(self, r_e):
         ne = self.wfn.neu + self.wfn.ned
         drift_velocity = self.wfn.drift_velocity(r_e).reshape(ne, 3)
-        a_v_t = np.sum(drift_velocity**2) * self.step_size * self.alimit_vector(r_e, drift_velocity)
-        limit = (np.sqrt(1 + 2 * a_v_t) - 1) / a_v_t
+        # UNR (34), (35) each electron is limited by its own velocity
+        a_v_t = np.sum(drift_velocity**2, axis=1).reshape(ne, 1) * self.step_size * self.alimit_vector(r_e, drift_velocity)
+        limit = 2 / (1 + np.sqrt(1 + 2 * a_v_t))
         return drift_velocity * limit, drift_velocity
 
     return impl
@@ -272,7 +275,6 @@ def dmc_ebe_drift_diffusion(self):
 
     def impl(self):
         for i in range(self.r_e_list.shape[0]):
-            p = 0
             moved = False
             r_e = self.r_e_list[i]
             velocity = self.velocity_list[i]
@@ -286,7 +288,6 @@ def dmc_ebe_drift_diffusion(self):
                 next_r_e = np.copy(r_e)
                 next_wfn_value = wfn_value
                 next_velocity = np.copy(velocity)
-                diffuse_step = np.zeros(shape=(ne, 3))
                 for e1 in range(ne):
                     n_vectors = np.expand_dims(next_r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
                     r = np.sqrt(np.sum(n_vectors**2, axis=2))
@@ -302,11 +303,11 @@ def dmc_ebe_drift_diffusion(self):
                     zeta = np.sqrt(self.wfn.atom_charges[idx[e1]] ** 2 + 1 / self.step_size)
                     interim_r_e = np.copy(next_r_e)
                     if q > np.random.random():
-                        diffuse_step[e1] = laplace_multivariate_distribution(zeta)
-                        interim_r_e[e1] = diffuse_step[e1] + self.wfn.atom_positions[idx[e1]]
+                        interim_r_e[e1] = laplace_multivariate_distribution(zeta) + self.wfn.atom_positions[idx[e1]]
                     else:
-                        diffuse_step[e1] = np.random.normal(0, np.sqrt(self.step_size), 3)
-                        interim_r_e[e1] = diffuse_step[e1] + drift_to
+                        interim_r_e[e1] = np.random.normal(0, np.sqrt(self.step_size), 3) + drift_to
+                    diffuse_step_2 = np.sum((interim_r_e[e1] - drift_to) ** 2)
+                    self.sum_proposed_diffusion += diffuse_step_2
                     # prevent crossing nodal surface
                     interim_wfn_value = self.wfn.value(interim_r_e)
                     if np.sign(wfn_value) == np.sign(interim_wfn_value):
@@ -330,18 +331,16 @@ def dmc_ebe_drift_diffusion(self):
                             2 * np.pi * self.step_size
                         ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(next_r_e[e1] - self.wfn.atom_positions[idx[e1]]))
                         p_i = min(1, age_p * (gf_back * interim_wfn_value**2) / (gf_forth * next_wfn_value**2))
+                        # effective time step UNR (24)
+                        self.sum_accepted_diffusion += p_i * diffuse_step_2
                         if p_i >= np.random.random():
                             moved = True
                             next_r_e = interim_r_e
                             next_velocity = interim_velocity
                             next_wfn_value = interim_wfn_value
                             drift_velocity[e1] = interim_drift_velocity[e1]
-                        # Casino manual (62)
-                        p += p_i * np.sum(diffuse_step[e1] ** 2)
                     else:
-                        # branching UNR (23)
                         self.age_list[i] += 1
-                        self.weight_list[i] = np.exp(self.step_eff * self.branching_energy_list[i])
                         continue
             else:
                 # simple random step
@@ -352,6 +351,8 @@ def dmc_ebe_drift_diffusion(self):
                 for e1 in range(ne):
                     interim_r_e = np.copy(next_r_e)
                     interim_r_e[e1] += diffuse_step[e1] + self.step_size * next_velocity[e1]
+                    diffuse_step_2 = np.sum(diffuse_step[e1] ** 2)
+                    self.sum_proposed_diffusion += diffuse_step_2
                     interim_wfn_value = self.wfn.value(interim_r_e)
                     # prevent crossing nodal surface
                     if np.sign(wfn_value) == np.sign(interim_wfn_value):
@@ -359,26 +360,22 @@ def dmc_ebe_drift_diffusion(self):
                         interim_velocity, interim_drift_velocity = self.limiting_velocity(interim_r_e)
                         gf_back = np.exp(-np.sum((next_r_e[e1] - interim_r_e[e1] - self.step_size * interim_velocity[e1]) ** 2) / 2 / self.step_size)
                         p_i = min(1, age_p * (gf_back * interim_wfn_value**2) / (gf_forth * next_wfn_value**2))
+                        # effective time step UNR (24)
+                        self.sum_accepted_diffusion += p_i * diffuse_step_2
                         if p_i >= np.random.random():
                             moved = True
                             next_r_e = interim_r_e
                             next_velocity = interim_velocity
                             next_wfn_value = interim_wfn_value
                             drift_velocity[e1] = interim_drift_velocity[e1]
-                        # Casino manual (62)
-                        p += p_i * np.sum(diffuse_step[e1] ** 2)
                     else:
-                        # branching UNR (23)
                         self.age_list[i] += 1
-                        self.weight_list[i] = np.exp(self.step_eff * self.branching_energy_list[i])
                         continue
             next_energy = self.wfn.energy(next_r_e)
             next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
             # branching UNR (23)
             weight = np.exp(self.step_eff * (next_branching_energy + self.branching_energy_list[i]) / 2)
-            p /= np.sum(diffuse_step**2)
             self.weight_list[i] = weight
-            self.sum_acceptance_probability += p * weight
             if moved:
                 self.age_list[i] = 0
                 self.r_e_list[i] = next_r_e
@@ -400,9 +397,14 @@ def dmc_cbc_drift_diffusion(self):
     def impl(self):
         for i in range(self.r_e_list.shape[0]):
             p = 0
+            accepted = False
             r_e = self.r_e_list[i]
             velocity = self.velocity_list[i]
             wfn_value = self.wfn_value_list[i]
+            branching_energy = self.branching_energy_list[i]
+            next_energy = self.energy_list[i]
+            next_velocity = velocity
+            next_branching_energy = branching_energy
             age_p = 1.1 ** max(0, self.age_list[i] - 50)
             ne = self.wfn.neu + self.wfn.ned
             if self.nucleus_gf_mods and self.wfn.ppotential is None:
@@ -414,6 +416,7 @@ def dmc_cbc_drift_diffusion(self):
                 idx = np.argmin(r, axis=0)
                 gf_forth = 1
                 next_r_e = np.zeros(shape=(ne, 3))
+                diffuse_step = np.zeros(shape=(ne, 3))
                 for e1 in range(ne):
                     z = r[idx[e1], e1]
                     e_z = n_vectors[idx[e1], e1] / z
@@ -427,6 +430,7 @@ def dmc_cbc_drift_diffusion(self):
                         next_r_e[e1] = laplace_multivariate_distribution(zeta) + self.wfn.atom_positions[idx[e1]]
                     else:
                         next_r_e[e1] = np.random.normal(0, np.sqrt(self.step_size), 3) + drift_to
+                    diffuse_step[e1] = next_r_e[e1] - drift_to
                     gf_forth *= (1 - q) * np.exp(-np.sum((next_r_e[e1] - drift_to) ** 2) / 2 / self.step_size) / (
                         2 * np.pi * self.step_size
                     ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(next_r_e[e1] - self.wfn.atom_positions[idx[e1]]))
@@ -452,23 +456,13 @@ def dmc_cbc_drift_diffusion(self):
                             2 * np.pi * self.step_size
                         ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(r_e[e1] - self.wfn.atom_positions[idx[e1]]))
                     p = min(1, age_p * (gf_back * next_wfn_value**2) / (gf_forth * wfn_value**2))
-                    if p >= np.random.random():
-                        next_energy = self.wfn.energy(next_r_e)
-                        next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
-                        # branching UNR (23)
-                        weight = np.exp(self.step_eff * (next_branching_energy + self.branching_energy_list[i]) / 2)
-                        self.age_list[i] = 0
-                        self.r_e_list[i] = next_r_e
-                        self.energy_list[i] = next_energy
-                        self.velocity_list[i] = next_velocity
-                        self.wfn_value_list[i] = next_wfn_value
-                        self.branching_energy_list[i] = next_branching_energy
-                        self.weight_list[i] = weight
-                        self.sum_acceptance_probability += p * weight
-                        continue
+                    next_energy = self.wfn.energy(next_r_e)
+                    next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
+                    accepted = p >= np.random.random()
             else:
                 # simple random step
-                next_r_e = np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape(ne, 3) + self.step_size * velocity + r_e
+                diffuse_step = np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape(ne, 3)
+                next_r_e = diffuse_step + self.step_size * velocity + r_e
                 # prevent crossing nodal surface
                 next_wfn_value = self.wfn.value(next_r_e)
                 if np.sign(wfn_value) == np.sign(next_wfn_value):
@@ -476,25 +470,24 @@ def dmc_cbc_drift_diffusion(self):
                     next_velocity, drift_velocity = self.limiting_velocity(next_r_e)
                     gf_back = np.exp(-np.sum((r_e - next_r_e - self.step_size * next_velocity) ** 2) / 2 / self.step_size)
                     p = min(1, age_p * (gf_back * next_wfn_value**2) / (gf_forth * wfn_value**2))
-                    if p >= np.random.random():
-                        next_energy = self.wfn.energy(next_r_e)
-                        next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
-                        # branching UNR (23)
-                        weight = np.exp(self.step_eff * (next_branching_energy + self.branching_energy_list[i]) / 2)
-                        self.age_list[i] = 0
-                        self.r_e_list[i] = next_r_e
-                        self.energy_list[i] = next_energy
-                        self.velocity_list[i] = next_velocity
-                        self.wfn_value_list[i] = next_wfn_value
-                        self.branching_energy_list[i] = next_branching_energy
-                        self.weight_list[i] = weight
-                        self.sum_acceptance_probability += p * weight
-                        continue
-            # branching UNR (23)
-            weight = np.exp(self.step_eff * self.branching_energy_list[i])
-            self.age_list[i] += 1
-            self.weight_list[i] = weight
-            self.sum_acceptance_probability += p * weight
+                    next_energy = self.wfn.energy(next_r_e)
+                    next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
+                    accepted = p >= np.random.random()
+            # branching UNR (25), the reweighting factor averaged over accepting and rejecting the move
+            self.weight_list[i] = np.exp(self.step_eff * ((1 - p / 2) * branching_energy + p / 2 * next_branching_energy))
+            # effective time step UNR (24)
+            diffuse_step_2 = np.sum(diffuse_step**2)
+            self.sum_proposed_diffusion += diffuse_step_2
+            self.sum_accepted_diffusion += p * diffuse_step_2
+            if accepted:
+                self.age_list[i] = 0
+                self.r_e_list[i] = next_r_e
+                self.energy_list[i] = next_energy
+                self.velocity_list[i] = next_velocity
+                self.wfn_value_list[i] = next_wfn_value
+                self.branching_energy_list[i] = next_branching_energy
+            else:
+                self.age_list[i] += 1
 
     return impl
 
@@ -543,7 +536,8 @@ def dmc_random_step(self):
     """DMC random step"""
 
     def impl(self):
-        self.sum_acceptance_probability = 0
+        self.sum_proposed_diffusion = 0
+        self.sum_accepted_diffusion = 0
         self.weight_list = np.empty(shape=self.r_e_list.shape[:1])
         self.drift_diffusion()
         self.branching()
@@ -552,12 +546,13 @@ def dmc_random_step(self):
         if self.mpi_size == 1:
             walkers = self.energy_list.size
             energy = np.mean(self.energy_list)
-            acceptance_probability = self.sum_acceptance_probability / walkers
+            acceptance_probability = self.sum_accepted_diffusion / self.sum_proposed_diffusion
         else:
             walkers = self.mpi_comm.allreduce(self.energy_list.size)
             energy = self.mpi_comm.allreduce(np.mean(self.energy_list)) / self.mpi_size
-            acceptance_probability = self.mpi_comm.allreduce(self.sum_acceptance_probability) / walkers
+            acceptance_probability = self.mpi_comm.allreduce(self.sum_accepted_diffusion) / self.mpi_comm.allreduce(self.sum_proposed_diffusion)
         self.best_estimate_energy = energy
+        # effective time step UNR (24)
         self.step_eff = acceptance_probability * self.step_size
         # UNR (11)
         self.energy_t = self.best_estimate_energy - np.log(walkers / self.target_weight) * self.step_size / self.step_eff

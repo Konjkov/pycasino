@@ -45,7 +45,7 @@ class TestGeminal(unittest.TestCase):
         assert self.geminal.gradient(self.n_vectors) == pytest.approx(self.wfn.slater.gradient(self.n_vectors))
 
     def test_laplacian_vs_slater(self):
-        assert self.geminal.laplacian(self.n_vectors) == pytest.approx(self.wfn.slater.laplacian(self.n_vectors))
+        assert self.geminal.laplacian(self.n_vectors) == pytest.approx(self.wfn.slater.laplacian(self.n_vectors)[0])
 
     def test_gradient(self):
         assert self.geminal.gradient(self.n_vectors) == pytest.approx(self.geminal.numerical_gradient(self.n_vectors))
