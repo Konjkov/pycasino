@@ -3,11 +3,13 @@ name: vmc-efficiency
 description: >
   Use this skill when working on VMC sampling efficiency in PyCasino: the VMC time step
   (DTVMC, OPT_DTVMC, approximate_step_size, optimize_vmc_step), the acceptance-ratio
-  target and the "50% rule", the decorrelation period (VMC_DECORR_PERIOD,
+  target, the "50% rule" and the measured 0.70 optimum (ACCEPTANCE_TARGET), the
+  position-dependent step profile (VMC_METHOD 4), the decorrelation period (VMC_DECORR_PERIOD,
   optimize_decorr_period), correlation times and their precision, the diffusion-constant
   criterion, and CBCS vs EBES (VMC_METHOD). Covers the theory (Lee/Conduit/Nemec/
   Lopez Rios/Drummond PRE 83 066706, and the Roberts-Gelman-Gilks optimal-scaling
-  result), the measured acceptance curves in examples/time_step, the empirical step-size
+  result), the measured acceptance curves in examples/time_step and the efficiency sweeps
+  in examples/step_profile, the empirical step-size
   scaling law with electron count and nuclear charge, and the open questions worth
   putting to Drummond. Also covers where CASINO's own implementations of these are weak.
 ---
@@ -743,6 +745,247 @@ now — this is `OPT_DTVMC : 2`, currently `raise NotImplementedError` in
 `vmc_energy_accumulation`. Retargeting also requires widening `xdata` past 2, since the
 D maximum lies at 1.24–3.72.
 
+### Series E, measured 2026-08-19: for EBES the optimum is 0.7, and neither 0.5 nor 0.234
+
+Everything above argues about `D`, which is a proxy. This series measures the thing itself.
+`examples/step_profile/acceptance.py OUTDIR STEPS [SYSTEM ...]` sweeps the nineteen targets
+0.05…0.95 of `Casino.vmc_corr_graph` over eight systems (He, Be, N, Ne, CH₄, Ar, C₂H₂, O₃; gto,
+Slater, no Jastrow), for `vmc_method : 1` and for the position-dependent step profile
+`vmc_method : 4`, one file per system per method; `acceptance_report.py` reads it. 10⁶ steps a
+point, in `examples/step_profile/acceptance_1e6`.
+
+The figure of merit is `ms_indep`: the wall time of one independent sample with the decorrelation
+period already minimized out of it (§2), so at fixed wall time the error bar is
+`√(var·ms_indep/T)` and `var` belongs to the wave function rather than to the step. This is why
+neither `corr_E` nor `D` is the answer on its own — a longer step buys correlation time back at
+the price of variance, and `D` counts motion `E_L` does not feel.
+
+| | He | Be | N | Ne | CH₄ | Ar | C₂H₂ | O₃ |
+|---|---|---|---|---|---|---|---|---|
+| m1, best target | 0.50 | 0.75 | 0.80 | 0.80 | 0.85 | 0.85 | 0.80 | 0.80 |
+| m1, acceptance there | 0.497 | 0.692 | 0.742 | 0.748 | 0.799 | 0.790 | 0.741 | 0.744 |
+| m1, cost of the 50% target | 1.00 | 2.94 | 2.38 | 2.07 | 2.37 | 2.85 | 1.92 | 2.23 |
+| m4, best target | 0.50 | 0.65 | 0.60 | 0.65 | 0.65 | 0.70 | 0.65 | 0.60 |
+| m1/m4 `ms_indep`, own optima | 1.03 | 1.00 | 1.25 | 1.15 | 1.45 | 1.35 | 1.23 | 1.24 |
+
+Three readings, in order of how firm they are.
+
+1. **The EBES optimum is 0.69–0.80 and drifts up with the depth of the core.** He, which has no
+   core, is the one system whose optimum really is a half — i.e. the 50% rule is the special case
+   of a single occupied shell, exactly the regime where §5's `correction` column is 1.06. The
+   heavier the core, the further the optimum moves up, because at a step set by the mean electron
+   the core is rejected regardless and the walk pays for it in `T_move` (§5's mixture mechanism,
+   here in its efficiency form). The 50% rule costs a factor 1.9–2.9 on everything but He.
+2. **RGG's 0.234 is not merely unreachable in EBES, it is the wrong direction.** The measured
+   optimum sits *above* 50%, where the theorem asks for far below it. No contradiction: the RGG
+   limit prices a move at a constant, while `ms_indep` prices it at `p·T_move + T_energy` with `p`
+   re-minimized at every point, and the target it optimizes is a mixture over `|∇ᵢlnΨ|²`, not a
+   product measure. Both hypotheses fail in the same direction.
+3. **The profile (m4) moves the optimum back down, to 0.58–0.68**, which is what it should do if
+   it works: equalizing the per-electron acceptance removes the mixture, and the optimum walks
+   back toward the one-shell value. He, where the profile is inactive, does not move.
+
+### CASINO confirms it, in its own units and with its own optimizer
+
+`examples/step_profile/casino_scan.sh SYSTEM` runs one CASINO VMC per time step, `vmc_method 1`,
+`opt_dtvmc 0`, on the grid of the m1 sweep above, each row paired with the decorrelation period
+that minimized `ms_indep` there; 10⁶ steps, `nproc=4`. The figure of merit is the `Efficiency
+(au^-2 s^-1)` CASINO prints itself, `1/(err²·CPU)` — nothing of ours enters it. Results in
+`examples/step_profile/casino_{ne,ch4,o3}`:
+
+| | Ne | CH₄ | O₃ |
+|---|---|---|---|
+| best efficiency, at acceptance | 776 @ 0.699 | 1060 @ 0.799 | 94.7 @ 0.745 |
+| the 50% row | 328 @ 0.506 | 254 @ 0.506 | 43.8 @ 0.507 |
+| what `opt_dtvmc : 1` actually gives | 291 @ 0.506 | 278 @ 0.495 | 32.9 @ 0.497 |
+| cost of the default | 2.67× | 3.82× | 2.88× |
+
+The `auto` row doubles as a cross-check that the two codes mean the same thing by DTVMC: CASINO's
+own optimizer lands at acceptance 0.495–0.506, i.e. on the 50% row of *our* grid, so the variance
+per component agrees even though the proposals differ (Gaussian vs rectangular).
+
+### The consequence in the code: `ACCEPTANCE_TARGET = 0.70`
+
+`casino/pycasino.py` now carries a module constant, and `optimize_vmc_step` maps to it
+(`step *= (erfinv(1−ACCEPTANCE_TARGET)/erfinv(1−acceptance))²`, which is the old line when the
+constant is ½, so the fixed-point scheme is untouched). `vmc_step_graph` and `vmc_corr_graph`
+re-anchor their nineteen-point grids through `erfinv(1 − ACCEPTANCE_TARGET)`, so every file
+measured before the change is still read the same way. `approximate_step_size` is deliberately
+left at its 50% anchor: it is only the starting guess, the map corrects it in one iteration, and
+its `1 + 0.080/nuclei^0.82` patch was fitted at 50%.
+
+0.70 is not any system's optimum — it is the minimax over the sixteen sweeps, chosen because the
+basin is flat and a single constant has to serve both methods:
+
+| target | 0.50 | 0.55 | 0.60 | 0.65 | **0.70** | 0.75 | 0.80 | 0.85 |
+|---|---|---|---|---|---|---|---|---|
+| worst of the 16 | 2.94 | 2.55 | 2.09 | 1.52 | **1.38** | 1.73 | 1.81 | 3.29 |
+| mean of the 16 | 1.70 | 1.60 | 1.43 | 1.20 | **1.17** | 1.16 | 1.26 | 1.73 |
+
+0.75 ties on the mean and loses on the worst case (Be under the profile); below 0.65 and above
+0.80 both halves degrade together. **A user's run therefore no longer samples at the step CASINO
+would choose for the same input** — the `opt_dtvmc : 1` branch says so in a comment, and any
+DTVMC-level comparison with CASINO reference output must account for it.
+
+Caveats worth carrying:
+
+- **CBCS is untested.** Everything here is EBES. For CBCS §4's argument (and Lee et al.'s
+  measurements) still says the optimum is *below* 50%, so the same constant is very likely wrong
+  there in the opposite direction. The constant is applied to both.
+- **Timing comparability is the weak point of the m1/m4 column.** `us_energy` is
+  method-independent by construction, and it differs between the two files by 21% on Ne and 12%
+  on CH₄ — those runs were taken under different machine load. So Ne's 1.15 is a floor and CH₄'s
+  1.45 a ceiling; the trustworthy pairs are Ar, C₂H₂ and O₃, where the column matches to 2%:
+  1.35, 1.23, 1.24. Anything comparing methods must run them back to back.
+- Grid ratios carry a few percent of noise at 10⁶ steps (visible as non-monotonic wiggles on the
+  steep low-acceptance side). A parabola through `log ms_indep` over 0.4–0.95 puts the m1 optima
+  at 0.69–0.79 and the m4 optima at 0.57–0.61, the fit being biased low by that steep flank.
+- `vmc_method : 4` is PyCasino-only and documented nowhere: not in `docs/source/tutorial/vmc.rst`,
+  not in the CHANGELOG, and with no test. Under it, backflow and geminals still take the slow
+  `wfn.log_value` branch.
+
+### The ceiling of the profile, and the pending measurement
+
+The profile is a formula, `g(r) = 1/max(1, max_a min(Z_a², Z_a/r_a))`, i.e. a guess at
+`⟨|∇ᵢlnΨ|²⟩` from the nuclear positions alone. Measured against the truth on Ne (binned by
+distance to the nearest nucleus) it overshoots by 2–3× in the valence, where ~70% of the sample
+lives, and is accurate to 0.96–0.99 at the cusp; the real profile is two plateaus (≈95 inside
+0.25 bohr, ≈4 beyond 0.5), not a `Z/r` ramp. What no position-only profile can fix is the spread
+at fixed `r` — up to 60× between a 1s and a 2p electron at the same distance.
+
+How much a perfect profile could still buy is bounded by `corr_E`: under m4 it is 3.0–3.9 on all
+eight systems and 3.41 on He, which has no inhomogeneity left to remove, so 3.41 is the
+single-electron Metropolis floor. For Ne that bounds the remaining gain at 3.41/3.92 = 0.87 in
+`corr_E`, ≤13% in `ms_indep` and ≤7% in the error bar, against ~15% per move for the `np.interp`
+a tabulated profile costs. `examples/step_profile/tabulated.py OUTDIR STEPS [SYSTEM ...]` closes
+it: it measures `⟨|∇lnΨ|²|r⟩` on a 33-point log grid, patches the table into a private copy of
+`casino/` as a literal (so numba's source hash stays a function of the numbers), and re-runs the
+sweep with both variants back to back.
+
+### Series F, measured 2026-08-21: the exact profile buys 1.8%, and it is not the shape that costs
+
+Ne, `examples/gwfn/Ne/HF/cc-pVQZ/CBCS/Slater` under m4, 10⁶ steps a point, in
+`examples/step_profile/tabulated/`:
+
+| | best `ms_indep` | at acc |
+|---|---|---|
+| formula `max(1, min(Z², Z/r))` | **0.1650** | 0.565 |
+| measured table `⟨\|∇lnΨ\|²\|r⟩` | 0.1760 | 0.487 |
+| the same table with `np.interp` made free | 0.1621 | 0.487 |
+
+As it stands the table **loses** 6.7%: `us_move` is 12.6% higher in every row, and that is the
+whole difference. Rebuilding `cost` (pycasino.py, the `(1 + ρᵖ)/(1 − ρᵖ)` block) from the table's
+`corr_E` and `move_frac` but the formula's timings isolates the shape at **1.8%**. The `corr_E`
+minima are identical to three figures — 3.66 both — so `3.66` for Ne (and `3.41` for He) is a
+floor neither profile controls: it is the part of the gradient that is not a function of one
+electron's position at all.
+
+Where they differ is off-optimum. At matched acceptance the formula degrades and the table does
+not: `corr_E` 8.59 vs 4.78 at acc 0.33, 30.39 vs 8.08 at acc 0.21. Over acc 0.37–0.61 the table's
+`ms_indep` varies by 8.5%, the formula's by 42%. **The smoking gun is the `diffusion` column**: at
+acc ≈ 0.21 the formula has the *larger* mean displacement (0.0742 vs 0.0701) and 3.8× the
+correlation time. It moves electrons, just not the ones E_L lives on — which is also the cleanest
+statement of why CASINO's `opt_dtvmc : 1` misses by 2.7–3.8× (§4).
+
+### Why the basin widens: a profile equalises ℓ, not the step
+
+For a one-electron Gaussian proposal of width `√s`, the local acceptance depends only on
+`ℓ(r) = s(r)·I(r)` with `I = ⟨|∇ln|Ψ|²|²⟩` (RGG). A table built as `s ∝ 1/I` makes **ℓ constant
+in space**; the formula does not. Normalised to a density-weighted mean of 1 on the Ne table:
+
+| r | share of density | ℓ_formula/ℓ_ideal | step too wide by |
+|---|---|---|---|
+| < 0.12 | 7% | 1.4 | 1.19 |
+| 0.15–0.35 | 16% | 1.6–2.6 | 1.28–1.61 |
+| 0.43–0.65 | 22% | 0.97–0.53 | 0.99–0.73 |
+| 0.80–1.5 | 42% | 0.51–0.71 | 0.71–0.84 |
+
+p5..p95: ℓ spans **5.0×**. Two consequences, and they are the same fact twice:
+
+- **Acceptance stops being a sufficient statistic.** With ℓ constant every electron sits at the
+  same point of one curve and the global acceptance fixes it. With ℓ spread, the acceptance is a
+  density-weighted average over a population scattered along that curve, and two runs at equal
+  acceptance are not equal runs. The apparent acceptance-dependence of the formula's efficiency is
+  heterogeneity in disguise.
+- **The optimum moves up in acceptance**, because it has to be held high enough that the
+  over-stepped shell (r ≈ 0.15–0.35, exactly where E_L fluctuates) does not freeze while the mean
+  still looks healthy. Monotone in how heterogeneous ℓ is: m1 (one global step) 0.69–0.80, m4
+  formula 0.58–0.68 (Ne 0.565), m4 ideal table 0.487. It stops well above RGG's 0.234 because
+  `ms_indep` pays `us_energy` per accepted move and counts E_L decorrelation, not displacement.
+
+### A two-parameter formula for the table, to apply after testing
+
+The measured `κ = √I` says the middle branch is wrong: `κ·r` is 1.6–2.3 across the whole
+inter-shell fall on Ne (2.09, 2.25, 2.05, 1.75, 1.60, 1.60, 1.73 at r = 0.23…0.80), i.e.
+**κ ∝ 1/r**, while the code assumes `κ² ∝ Z/r`, which falls half as fast. Fitting
+
+```
+I(r) = min(Z², (a·Z^⅓ / r)²) + κ_v²        a = 0.76,  κ_v = 1.18
+```
+
+jointly to Ne (weighted by the measured density) and Ar (uniform in log r — its counts were
+deleted before they were used):
+
+| | rms log(I_model/I_meas), Ne | Ar | ℓ spread on Ne |
+|---|---|---|---|
+| `max(1, min(Z², Z/r))` | 0.518 | 0.771 | 4.97× |
+| `min(Z², (0.76·Z^⅓/r)²) + 1.18²` | 0.241 | 0.351 | **2.03×** |
+
+Checked and rejected: the Z exponent barely matters (`a = 1.86` with no Z gives 0.261/0.362);
+a cubic middle branch fits Ne to 0.128 but Ar to 0.455, since one steep branch cannot span
+K→L→M; a Slater-exponent shell model, `ρ = Σ N_n ζ_n³ e^{−2ζ_n r}` with `κ = |∇lnρ|/2`, gives
+0.754/0.743 — no better than the current formula, because Slater's valence exponents are off by
+2–3×. What the fit still misses is the L-shell shoulder (Ne r = 0.19–0.35, 16% of the density,
+under by 1.5×) and the Gaussian tail beyond r = 3.5, where the true curve turns back up
+(2.34 → 4.03 → 6.02) and 1% of the density lives.
+
+The patch, **not applied** — it invalidates the numba cache for `vmc.py`, breaks
+`tabulated.py`'s `assert FORMULA in source` (its constant has to move in lockstep) and makes the
+whole m4 series incomparable, so it waits on a sweep of its own:
+
+```python
+    def impl(self, r_e, e):
+        gradient = 0.0
+        for atom in range(self.wfn.atom_positions.shape[0]):
+            charge = self.wfn.atom_charges[atom]
+            r = np.sqrt(((r_e[e] - self.wfn.atom_positions[atom]) ** 2).sum())
+            screened = 0.76 * charge ** (1 / 3) / r
+            gradient = max(gradient, min(charge * charge, screened * screened))
+        return 1 / (gradient + 1.39)
+```
+
+The floor is outside the loop so a molecule adds it once rather than per nucleus. What the sweep
+has to show is not a better minimum — the exact table itself only bought 1.8% — but the wide
+basin: the optimum should fall from 0.565 towards ≈0.49 and the spread over acc 0.37–0.61 from
+42% towards the table's 8.5%. If it does, `ACCEPTANCE_TARGET` needs a separate value for m4.
+
+### Does the Jastrow move the table?
+
+It cannot move the part that matters most, and where it can, the fix is free.
+
+- **The cusp anchor is Jastrow-proof.** At r → 0 the electron-nucleus cusp pins `|∇lnΨ| = Z`
+  whatever else is in the wave function: the determinant carries the cusp and CASINO's χ term is
+  constrained to `χ'(0) = 0` precisely so as not to spoil it. The measured plateaus confirm it —
+  103 against Z² = 100 for Ne, 320 against 324 for Ar, on runs with no Jastrow at all. The `Z²`
+  branch needs no re-measurement, ever.
+- **What is exposed is `κ_v`**, the valence floor, which is the one region where a Jastrow
+  gradient is comparable to the orbital one (O(1) against κ_v = 1.18). The u term also
+  contributes a gradient that is not a function of `r_i` at all, so it partly lands in the
+  irreducible `corr_E` floor of 3.66 rather than in any profile.
+- **Tabulating per run is the wrong response** even so. The exact table beats the fitted formula
+  by at most the 2.03× → 1.0× of ℓ spread, and 5.0× → 1.0× was worth 1.8%; against that,
+  `np.interp` on every move costs 12.6% of `us_move`, i.e. 6.7% of `ms_indep`. The interpolation
+  eats the answer several times over — which is the whole point of Series F.
+- **The right response is to re-fit the two constants at run start**, not to carry a table: keep
+  the closed form, spend one short walk (`TABLE_STEPS = 20000` is ~40 s and already coded in
+  `tabulated.measure`) to measure `I(r)`, fit `a` and `κ_v`, and pay nothing per move. That
+  absorbs a Jastrow, a backflow, a pseudopotential or a molecule in two numbers.
+- **The cheap measurement that decides whether even that is needed** is one table on a
+  Jastrow-optimised run against the bare-determinant one — add
+  `examples/gwfn/Ne/HF/cc-pVQZ/CBCS/Slater_Jastrow` to `SYSTEMS` and compare the two `.table`
+  files. If `κ_v` moves by less than the ~20% that the fit residual already absorbs, the fixed
+  constants stand and nothing has to be measured per run.
+
 ## 5. CBCS vs EBES
 
 ### What the sum rule says about the EBES step
@@ -923,12 +1166,20 @@ one-electron Jastrow (CASINO `oneelec_jastrow`, `jas1_diff`) is the next piece.
    numbers — CASINO proposes from a Gaussian, PyCasino from a rectangular distribution, and only
    the variance per component is common to both — so the comparison to make is acceptance at equal
    variance, not step against step.
+   *Half-answered by Series E (§4):* the two codes do agree on DTVMC (CASINO's own optimizer lands
+   on the 50% row of our grid), and `OPT_DTVMC : 1` does nothing about the mixture — it targets
+   50% and pays 2.7–3.8× in its own printed efficiency against the best step on the same grid,
+   which sits at 0.70–0.80. So the sharper question is not the `√N` but the target itself: **is
+   there a reason the 50% rule survived in EBES, where the efficiency optimum is measurably above
+   it and moves with the shell structure?** PyCasino now aims at 0.70.
 
 ## 7. Pointers
 
 Code:
-- `casino/pycasino.py`: `approximate_step_size`, `vmc_step_graph`, `optimize_vmc_step`,
-  `decorr_period`, `optimize_decorr_period`, `vmc_energy_accumulation`
+- `casino/pycasino.py`: `ACCEPTANCE_TARGET`, `approximate_step_size`, `vmc_step_graph`,
+  `vmc_corr_graph`, `vmc_profile_graph`, `optimize_vmc_step`, `decorr_period`,
+  `optimize_decorr_period`, `vmc_energy_accumulation`
+- `casino/vmc.py`: `vmc_step_profile` (the `vmc_method : 4` step profile)
 - `casino/vmc.py`: `simple_random_step` (CBCS, uniform proposal per Cartesian component,
   all electrons at once), `one_electron_step` (the EBES proposal, also what `log_ratio_walk`
   samples in EBES), `gibbs_random_step` (a sweep of it), `reset` (counters and cached state),
@@ -942,6 +1193,10 @@ Code:
 
 Data: `examples/time_step/{CBCS,EBES,Biased}/*.dat` plus `fit.log`, `time_step.sh`,
 `single_atom.dat` (fitted `a`, `x0` vs atomic charge), `forum.txt`.
+Efficiency sweeps: `examples/step_profile/` — `acceptance.py` (the campaign),
+`acceptance_report.py` (reads it), `casino_scan.sh` (the CASINO control),
+`step_profile.py`, `tabulated.py` (the measured-profile experiment, §4 Series F), and the results
+in `acceptance_1e6/`, `casino_{ne,ch4,o3}/`, `{CBCS,EBES}/`, `tabulated/`.
 
 CASINO source: `vmc.f90` — `equilibration` (corper calibration block),
 `get_optimal_corper`, `eff_estimate`, `DEBUG_OPT_CORPER`; `numerical.f90` —

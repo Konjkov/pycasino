@@ -22,6 +22,11 @@ description: >
 
 # CASINO multi-geminal wave function (MAGP)
 
+**Status (2026-08-20): all nine bugfixes, the open-shell feature, the two
+autotest examples and the manual section are merged upstream in CASINO v3.1.17
+— see the TODO section near the end for what is still open (pseudopotentials
+first).** The history below is kept because it is where the diagnostics live.
+
 **Status (2026-07):** SIX real CASINO bugs found and patched. Two are geminal-only
 (VMC, `geminal.f90`): **Bug 1** figem indexing, **Bug 2** tol_log_softzero. Four
 more only manifest in the **backflow + geminal** path under `emin` (see the
@@ -592,6 +597,25 @@ GEMINAL:
 - `c` coefficients: constraints support equality only (no sign) — put the sign in
   a separately-declared `fixed` `c` value (e.g. Geminal 3's `c: [-1.0, fixed]`),
   never inside a c-constraint.
+- **The same equality-only limitation bites `g` off-diagonals, and the sign it
+  cannot express is not always +1.** Degenerate shells come out of the SCF in an
+  arbitrary frame with arbitrary signs, and `gwfn.data` carries no labels, so
+  never assume `MO 4 = 2p_x`. On B (`examples/geminal/B/HF/cc-pVQZ/gwfn.data`)
+  none of the p orbitals is axis-aligned at all: each is a pure direction in
+  space, and the second p shell repeats the *same* three directions. Recover the
+  structure by factorizing each p MO's coefficient matrix (3 Cartesian
+  components × radial functions) — every one is exactly rank 1, `d ⊗ r`, so the
+  SVD gives its direction `d` and its radial function `r`. On B this gives
+  `MO 4 ∥ MO 9` and `MO 5 ∥ MO 8` to 0.9999, `MO 3 ∥ MO 6` (the singly occupied
+  direction, whose own radial function differs — the ROHF open-shell signature,
+  and how you tell which p is occupied without energies). The sign then sits in
+  the radial factor: `r(MO 9) = -r(MO 8)` exactly, so a rotation-symmetric pair
+  function needs `g_4,9 = -g_5,8`. Diagonals are immune (quadratic in the
+  orbital), which is why the tie `2^g_4,4=2^g_5,5` is right — and rotation-proof,
+  since a tied diagonal over any orthonormal basis of the plane is the plane's
+  projector — while the analogous tie on the cross terms would be wrong. Where
+  the sign flips, declare both members independently and seed them at ±,
+  accepting that the symmetry is then enforced only by the optimizer.
 - The **written** `parameters.N.casl` snapshots during optimization only update
   the REFERENCE element of each constraint group — tied `determined` members keep
   printing their stale initial value in the file (cosmetic only: in-memory state
@@ -701,6 +725,127 @@ Closed-shell systems take the identical old code path (`nunpaired=0`,
 
 ---
 
+## B against CASSCF (2026-08-20): the geminal IS CAS(3,4), and what the CAS(3,8) gap is made of
+
+First quantitative comparison of the open-shell geminal against a determinant expansion.
+Geminal side: `examples/geminal/B/HF/cc-pVQZ/CBCS/Jastrow_emin`, `psi_s geminal`,
+`opt_geminal T`, one varmin cycle then three emin, 10⁶ steps, cc-pVQZ HF orbitals, Jastrow
+u 8 / chi 8 / f 3,3 in `correlation.data`. CAS side:
+`/mnt/sdb1/quantum_chemistry/!PROJECT/ORCA/MP2-CASSCF(3.N)/def2-QZVP/B/VMC_OPT/emin/*`,
+MDET from molden2qmc, **`opt_detcoeff T`** (the coefficients are reoptimized in VMC), same
+opt_plan, casl Jastrow u 8 / chi 8 / f 4,4.
+
+| wave function | E_VMC (au) | |
+|---|---|---|
+| geminal, **one** optimizable parameter | **-24.642149(316)** | var 0.0998 |
+| CAS(3,4), 3 dets, `8_8_44` | -24.639299(1214) | |
+| CAS(3,4), best of 9 Jastrow variants | -24.641291(946) | `8_8_44_correlation`, u7/chi7/f3,3 |
+| CAS(3,4), worst of 9 | -24.636824(1122) | `a_ra_44` |
+| CAS(3,8), 28 dets, 10 free coefficients | -24.649558(956) | |
+| CAS(3,10) / CAS(3,12) | -24.650960(1723) / -24.648505(1384) | series converged |
+
+**Orbital-file trap, found 2026-08-20** (the ORCA side of it, and how to read a `gwfn.data` you
+did not make, is the `orca` skill); **the tree was split into
+`examples/geminal/B/{ROHF,UHF}/cc-pVQZ` on 2026-08-21 because of it.** The numbers above were
+run against a `gwfn.data` that then sat inside each run directory (69577 bytes,
+`Spin unrestricted: .false.`); the file the directories were briefly repointed at (126256 bytes)
+is **UHF** — its `orca.out` asked for `! HF cc-pVQZ VeryTightSCF` on a doublet and ORCA silently
+switched ("your system is open-shell and RHF/RKS was chosen ===> WILL SWITCH to UHF/UKS"),
+giving E = -24.53296714 and ⟨S²⟩ = 0.7611.
+
+That is not cosmetic: with `Spin unrestricted: .true.` the file carries two orbital sets, and the
+geminal evaluates its pool **per spin** (`get_orbvals` → `wfdet(rele, 1, ispin, ...,
+wfdet_orbmask(1,ispin), ...)`), so `g_p,q` pairs α-orbital p with β-orbital q and the two indices
+no longer name the same function. On B the orderings genuinely differ — α is 1s, 2s,
+2p(occupied direction), then the empty 2p pair (degenerate at 0.0418), while β is 1s, 2s, the 2p
+pair (0.0512), then 2p along the occupied direction (0.0889). By direction `α4 ∥ β4` and
+`α5 ∥ β3`, so `g_4,4` stays accidentally right while `g_5,5` pairs an empty-channel 2p with the
+occupied-direction one: wrong channel, ²P symmetry broken, pair block no longer 2s²→2p². CASL
+*can* express the UHF pairing — `g` need not be symmetric, `Symmetrize` is an optional constraint
+block — but it costs an asymmetric casl (`g_5,3`, `g_9,8`, `g_8,7`, `g_7,6`, …) on a
+spin-contaminated reference. **Use restricted orbitals for geminal work.**
+
+The ROHF tree (`! ROHF`, E = -24.52886200) is the clean one: ORCA gives the three 2p **fractional
+occupations of ⅓ each**, i.e. a spherically averaged ²P, so all three share one radial function
+and come out axis-aligned, and the log prints irreps, which removes all guesswork —
+`3,4,5 = 2p (B2u, B1u, B3u)`, `6 = 3s`, `7,8,9 = 3p (B3u, B1u, B2u)`, `10-14 = d`. Channels pair
+by irrep: 4↔8, 5↔7, and 3↔9 is the occupied direction (excluded). Signs still need checking —
+`radial(MO 8) = -radial(MO 7)` exactly, so `g_4,8 = -g_5,7`.
+
+**Do not compare any of this against the ORCA SCF numbers.** Two separate reasons, both easy to
+trip over. First, the geminal-only VMC is not the SCF energy: on the UHF file it gives
+-24.533651(227) against SCF -24.532967, 0.68 mHa *below*, which is CASINO's Gaussian cusp
+correction — "geminal without a Jastrow = HF exactly" holds only to ~1 mHa. Second and more
+important, **CASINO cannot average**: it builds the integer-occupation determinant
+1s² 2s² 2p¹, while the ⅓-occupation ROHF energy -24.52886200 is the value of an averaged
+functional, not the variational energy of any determinant. That number is not a target and will
+not be reproduced. Worse, orbitals averaged over three directions are not optimal for the ²P
+determinant, so the ROHF tree starts from a *higher* reference than a genuine single-configuration
+²P ROHF would give, and the geminal has to win that back. The only honest comparison is VMC
+against VMC: run `ROHF/cc-pVQZ/CBCS/Geminal` (a bare determinant, seconds) and put it beside the
+UHF tree's -24.533651(227).
+
+**The historical numbers belong to a third file**, and its signature says what it was: there the
+occupied 2p carried its own radial function, distinct from the empty pair — the mark of a
+single-configuration ²P ROHF, not an averaged one — and its determinant gave -24.531979(225),
+some 3 mHa below what averaged orbitals should give. That is probably the file this program
+wants, and it is the one every recorded number here was measured on. It survives only in the git
+index (`git show :examples/geminal/B/HF/cc-pVQZ/CBCS/Jastrow_emin/gwfn.data`, staged as `AT`).
+Before leaning on it, check with the same SVD factorization that its two *empty* p orbitals stay
+equivalent to each other — the tie `2^g_4,4=2^g_5,5` needs that, and only that.
+
+Reference points: the same geminal without a Jastrow gives -24.531979(225), i.e. HF exactly;
+exact non-relativistic B is -24.65391, so the geminal run holds 90.4% of `Ec` and CAS(3,8)+J
+holds 96.4%.
+
+**The two ansätze are the same object, and the MDET file proves it.** `correlation.data` of the
+CAS(3,4) run contains exactly three determinants — reference, `2s²→2p_x²`, `2s²→2p_y²`, the last
+two tied — which is precisely the geminal's span (Geminal 1 = HF, Geminal 2 = 1s anchor +
+ε(2p_x²+2p_y²) under `2^g_4,4=2^g_5,5=3^g_4,4=3^g_5,5`, Geminal 3 the mirror). Not one
+open-shell CSF appears in the CAS either: the singly occupied 2p_z is a spectator on both sides.
+
+**Both codes walk the same distance away from ORCA, which measures the J-consistency effect on
+the same parameter twice.** ORCA's CASSCF coefficient is `c₂/c₁ = -0.1707`; VMC emin drives it to
+-0.1308, −23%. Our geminal, seeded at -0.1705 (the same ORCA value), converges to `g = -0.1235`,
+−28%. Two codes, two bases, two orbital sets, one number to 6%. So **CI coefficients taken from a
+bare-determinant CAS are ~25% too large the moment a Jastrow is attached** — the practical form
+of the "external CI coefficients are optimal for D, not for J·D" argument in the ansatz debate.
+
+**Therefore the 2.9 mHa is not an ansatz gain and must not be quoted as one.** With identical
+spans and optimized coefficients on both sides, what is left is basis (cc-pVQZ/HF against
+def2-QZVP/MP2-CASSCF-NO), Jastrow form and statistics. The spread across the nine CAS(3,4)
+Jastrow variants is 4.5 mHa, larger than the effect, and against the variant closest to our own
+Jastrow the difference is 0.86 ± 1.00 mHa, i.e. nothing. The defensible claim is
+**"one optimizable parameter reproduces a three-determinant CAS"**, and the one asymmetry that
+favours it is that our Jastrow is the less flexible of the two (f 3,3 against f 4,4). A
+publishable version needs the CAS rerun on the same `gwfn.data` so that only the
+parameterization differs.
+
+**The CAS(3,8) gap, 7.41 ± 1.01 mHa, is real, and the MDET splits it in two.** 28 determinants,
+10 independent coefficients:
+
+- *paired, seniority-0*: `2s²→2p²` (its amplitude grows to -0.161 once the space opens) and
+  `2s²→orb7²`. The geminal can represent all of these — they need a second radial shell in the
+  tied block and an s-channel pair, both `parameters.casl` edits with no new code.
+- *non-seniority-0, involving the unpaired electron*: e.g. `DET 4 1 PR 2 1 6 1` + `PR 3 1 7 1`
+  against `DET 4 2 PR 2 1 3 1` — different orbitals in the two spin channels, and promotions out
+  of orbital 3, the singly occupied 2p_z. Groups 4, 7, 9, 10 are of this kind. The geminal can
+  represent **none** of them: `u_n,k` are fixed by construction so the open shell cannot relax,
+  and a singlet pairing function cannot give the two spin channels different orbitals.
+
+That is the first measured price of the two restrictions in the TODO — optimizable `u`, and
+beyond it triplet pairing — on a system where the reference number is known. The active-space
+series is converged by (3,8) ((3,10) and (3,12) land within 2.5 mHa), so 7.4 mHa is the whole
+deficit, not a truncation artefact.
+
+Next, in cost order: (1) extend the tied block to the second p shell and add the 2s→3s pair,
+still seniority-0, and see how much of the 7.4 closes — that bounds the part reachable without
+new code; (2) DMC on all three wave functions, since VMC ordering says nothing about nodes (Ne,
+above), and B is on Bajdich–Mitas's list of atoms where the nodal gain is real; (3) optimizable
+`u`.
+
+---
+
 ## Construction pitfalls: avoid degenerate starting points
 
 Two failure modes hit when writing an off-diagonal geminal ansatz for Ne, both
@@ -749,25 +894,143 @@ before re-opening the CASINO source.
 
 ---
 
+## TODO (2026-08-20)
+
+**Upstream state — everything is merged.** CASINO v3.1.17 contains all of it
+(DIARY entries dated 2026-08-19, attributed): bugs 1–8, the open-shell
+unpaired-column feature, the two autotest examples
+(`examples/TEST/Input/{be_geminal_qz4p/vmc,b_geminal/vmc,b_geminal/vmc_cbcs}`)
+and the manual section (Mike demoted it to a `\subsubsection` inside "Wave
+function parameter file: parameters.casl" and reflowed the Casula bibitem).
+`~/bin/CASINO/src` is stock upstream again — the local `*.patch` files are
+history, not state. One loose end: the shipped `manual/casino_manual.pdf` still
+prints the old "available on request" stub, so the PDF in the tarball predates
+the LaTeX edit — check the next beta before assuming the text is lost.
+
+### CASINO — pseudopotentials (the largest untested corner)
+
+Nothing structurally forbids `psi_s:geminal` with pseudopotentials — the
+non-local energy asks for a one-electron ratio and gets `wfn_ratio_geminal` →
+`get_chscr_igem` → `calc_det_ratio`, the same EBES machinery — but **it has
+never been run**: every example in `examples/geminal/` (Ar, B, B2H6, Be, He, Kr,
+N, Ne, O3) and both autotest subtests are all-electron. The corner is exactly
+where the open-shell patch touched code: the up-spin row branch of
+`get_chscr_igem` builds the unpaired-column entries, and that branch is what the
+quadrature ratio exercises.
+
+1. Closed-shell pp first: a pp atom (C or Si) with the HF-diagonal casl, and the
+   same acceptance criterion as for the unpaired columns — `psi_s:geminal` vs
+   `psi_s:slater`, same seed, same `gwfn.data`, `nproc=1`, must agree bit for
+   bit. Unlike an energy comparison this tests the RATIO path, not just the
+   value: the non-local integrand is built entirely out of ratios.
+2. Then `use_tmove T` (DMC), then an open-shell pp atom (B or C with one/two
+   unpaired columns) — the untested product of the two features.
+3. Basis trees already exist: `examples/ppotential_DF/{B,C,F,H,N,...}` —
+   a `Geminal` leaf slots in beside the existing ones.
+4. Physics motivation, not just coverage: the nodal demonstration wants heavier
+   atoms, and all-electron cores are what makes them expensive. Ne AE was closed
+   as a negative result; pp is how the same programme reaches row 2–3 systems.
+5. If it works, a pp geminal subtest belongs in the autotest suite next to the
+   two AE ones (they are ~0.3 s each, so cost is not an argument).
+
+### CASINO — remaining restrictions and gaps
+
+- `read_geminal` still errstops for `nunpaired>0` with `complex_wf`,
+  `use_backflow` or `opt_geminal`. Backflow+open-shell is real work (the
+  `gem_lsderiv_pair` dgemm needs the `umat` block and several `nemax`→`nele(2)`
+  conversions in the backflow routines — a WIP version of exactly this sat in
+  the July backup and was deliberately NOT shipped); `opt_geminal` is the
+  cheaper one (u fixed, only g/c optimized — the errstop is conservative).
+- `u_n,k` are fixed by construction. Optimizable u = orbital relaxation of the
+  open shell; needs the same derivative plumbing g already has.
+- No autotest covers optimization. Bugs 8 and 9 are FIXED and upstream, but both
+  were found by reading the source, not by running anything, and nothing guards
+  them now: the three subtests are plain VMC with every parameter `fixed`, so
+  `update_geminal_casl` is never called and the "no member of the group declared"
+  branch of `check_g_constraint` is never reached. One cheap `vmc_opt varmin`
+  cycle with `Default g optimizability: optimizable` and a `Constraints` section
+  would exercise both (it writes `parameters.1.casl` and reads it back next
+  cycle) — worth adding.
+
+### PyCasino (`casino/geminal.py`, 394 lines)
+
+Implemented: reader (`casino/readers/geminal.py`, incl. optimizability masks),
+value / log_value / gradient / laplacian, HF-identity test on He. Missing, in
+order of how badly it bites:
+
+1. **Parameter interface absent** — `parameters_projector` is a `(0,0)` stub and
+   `Wfn.get_parameters` / `set_parameters` / `value_parameters_d1`
+   (`casino/wfn.py:459,479,333`) only ever reach `self.slater`. So `opt_geminal`
+   is parsed (`readers/input.py:137`) and then silently ignored: a varmin/emin
+   run with `psi_s:geminal` optimizes the Jastrow only. The masks the reader
+   already builds are what the projector needs.
+2. **The reader drops the `Constraints` section** (`readers/geminal.py`: a line
+   starting with `Constraints` just sets `current = None`), so any casl that
+   leans on ties reads as a DIFFERENT wave function in PyCasino than in CASINO —
+   silently, with no warning. On the B example the mirror geminal comes out
+   completely empty. Every constrained example in `examples/geminal` is affected;
+   `apply_constraints` is ~20 lines and belongs next to the mask machinery.
+3. **No hessian → backflow+geminal is silently the wrong wave function.**
+   `wfn.kinetic_energy` (`casino/wfn.py:293`) takes the backflow branch and
+   calls `self.slater.hessian(...)`, because `Geminal` has no `hessian`, while
+   `wfn.drift_velocity` (`:161`) does use `self.geminal.gradient` in the same
+   situation. Drift and local energy therefore come from different wave
+   functions. Until `hessian`/`tressian` exist, this combination must errstop.
+4. **No single-electron ratio.** `wfn.nonlocal_potential` (`:262`) falls back to
+   a full `self.value(r_e_q)` per quadrature point, i.e. O(N³) where the Slater
+   path pays a Sherman-Morrison update; the same is true for EBES moves. This is
+   the PyCasino side of the pseudopotential item above — correct but slow.
+5. **No cusp correction on the geminal orbital pool** — `geminal.py` builds AO
+   values itself (`pool_matrix`) with no cusp machinery, so an all-electron
+   Gaussian geminal run carries the uncorrected nuclear cusp while CASINO
+   corrects the same pool. Expect ~0.3 mHa-scale disagreement in cross-checks
+   (the size of the cusp shift measured on B).
+6. **Tests are He-only, `cusp=None`** (`casino/tests/test_geminal.py`) — same
+   hole as the Slater tests (see memory `slater-tests-he-only`). Need Be/Ne for
+   `l>0` and `neu≥2`, plus FD tests of the parameter derivatives once (1) exists,
+   and an open-shell case (B) for the unpaired columns.
+7. Milestone 1 steps 1 and 5 of `docs/source/tutorial/pfaffian.rst` are still
+   open: the `molden2qmc` GEMINAL generator (occupations → HF default or
+   CASSCF-NO seeds `λ=±sqrt(n/2)`) and the CASINO↔PyCasino cross-validation on
+   `examples/geminal`.
+
+### Physics / validation still owed
+
+- **Be single-det DMC vs geminal DMC** — the practical nodal result promised to
+  Pablo. Be is the clean system (CAS(2,2) nodes worth ~10 mHa, 30x the Ne error
+  bar); Ne is closed as a negative result in both the radial and the d² channel.
+- The isolating experiment on Ne (p diagonals zeroed by hand, d kept) that would
+  confirm g_5,5 = -0.31 as the node-degrading culprit — cheap, never run.
+- CISD/CASSCF seeding instead of hand seeds, to remove the degenerate-starting-
+  point pitfalls entirely.
+- **B: close the 7.4 mHa to CAS(3,8)** — the seniority-0 half (second p shell,
+  2s→3s pair) needs only a casl edit, the rest needs optimizable `u`. And the
+  like-for-like rerun of CAS(3,4) on our own `gwfn.data`, without which the
+  2.9 mHa is basis and Jastrow rather than ansatz. See the B section above.
+
 ## File map
 
-- CASINO source: `~/bin/CASINO/src/geminal.f90` (local copy carries Bugs 1–5
-  vs upstream), `emin.f90` (`emin_matrix_gen` zero-wfn guard; linear-method /
-  stored-config / manipulation-constant machinery), `slater.f90` (comparison
-  constant), `vmc.f90:3852` (`COMPUTE_FINAL_VARIANCE`, `var_too_big=1e15`).
-- Patches in `~/bin/CASINO/` — only THREE files are still on disk (2026-07-22);
-  the per-bug patches named in the sections above (`geminal_figem.patch`,
-  `geminal_orb_sderiv_valid.patch`, `geminal_hgem_down_sderiv.patch`,
-  `geminal_emin_invalidate.patch`, `geminal_emin_zero_wfn_guard.patch`,
-  `geminal_jastrow_fixes.patch`, `geminal_backflow_fixes.patch`) were folded in
-  and deleted — their content is described here, not stored:
-  `geminal_emin_residual_fixes.patch` (`geminal.f90` + `emin.f90`),
-  `geminal_sto_load_all_orbitals.patch` (Bug 7, `stowfdet.f90`),
-  `geminal_unpaired_electrons.patch` (open-shell, `geminal.f90`). Bug 2
-  (`tol_log_softzero`) is a one-line PARAMETER edit in `geminal.f90`.
-  To tell whether a patch is already in the tree, dry-run it BOTH ways:
+- CASINO source: `~/bin/CASINO/src/geminal.f90`, `emin.f90`
+  (`emin_matrix_gen` zero-wfn guard; linear-method / stored-config /
+  manipulation-constant machinery), `slater.f90` (comparison constant),
+  `vmc.f90:3852` (`COMPUTE_FINAL_VARIANCE`, `var_too_big=1e15`). As of v3.1.17
+  the tree is stock upstream — every fix described in this skill is IN it, so
+  a local `geminal.f90` diff should now be empty.
+- Patches: the four that were sent to Pablo
+  (`geminal_sto_load_all_orbitals`, `geminal_unpaired_electrons`,
+  `geminal_g_constraint_default`, `geminal_casl_roundtrip`) plus the manual
+  `.tex`, the two autotest example trees and a README are archived in
+  `~/bin/CASINO/geminal_v3.1.0.tar.gz`; `geminal_emin_residual_fixes.patch` and
+  the July pre-upgrade sources are in `~/bin/CASINO_geminal_src_backup_20260816/`.
+  Earlier per-bug patches (`geminal_figem.patch`, `geminal_orb_sderiv_valid.patch`,
+  `geminal_hgem_down_sderiv.patch`, `geminal_emin_invalidate.patch`,
+  `geminal_emin_zero_wfn_guard.patch`, `geminal_jastrow_fixes.patch`,
+  `geminal_backflow_fixes.patch`) were folded in and deleted — their content is
+  described here, not stored.
+  To tell whether a patch is already in a tree, dry-run it BOTH ways:
   `patch -p1 --dry-run < p` failing while `patch -p1 -R --dry-run < p`
-  succeeding means applied. All three above were applied as of 2026-07-22.
+  succeeding means applied (a "Hunk succeeded at ... (offset N)" line in the
+  reverse run is still success — only FAILED matters).
 - PyCasino linear method: `casino/pycasino.py:868`
   (`vmc_energy_minimization_linear_method`) — fresh `random_walk` per step,
   analytic `value_parameters_d1`/`energy_parameters_d1`, single `dp` step.
