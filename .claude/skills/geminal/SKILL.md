@@ -844,6 +844,44 @@ new code; (2) DMC on all three wave functions, since VMC ordering says nothing a
 above), and B is on Bajdich–Mitas's list of atoms where the nodal gain is real; (3) optimizable
 `u`.
 
+### (1) is done, 2026-08-25: the seniority-0 extension is worth ~1 mHa of the 7.4
+
+`ROHF/cc-pVQZ/CBCS/Jastrow_emin_ext`, same protocol and same starting `correlation.data` as the
+one-parameter baseline next door, 5 optimizable g against 1: `g_4,4=g_5,5` (2p², kept),
+`g_7,7=g_8,8` (3p²), `g_6,6` (3s²), and the two 2p–3p cross terms `g_4,8=g_8,4`, `g_5,7=g_7,5`
+declared independently. All of it mirrored into the `c=-1` geminal by constraint, so the
+core-vacating Cauchy-Binet terms still cancel exactly; the mirror's block has rank 5 ≥ `Nup=3`,
+no degenerate start.
+
+| cycle | baseline, 1 param | extended, 5 params |
+|---|---|---|
+| 0, start | -24.559873(2232) | -24.560291(2200) |
+| 1, varmin (geminal frozen) | -24.589829(424) | -24.611020(389) |
+| 2, emin | -24.640455(360) | -24.641601(356) |
+| 3, emin | -24.642412(357) | not run |
+
+Run stopped after cycle 2 — the answer was already in. **1.15 ± 0.51 mHa.** The 21 mHa lead
+after the varmin cycle is an artefact of the frozen geminal facing a still-bad Jastrow, and it
+evaporates at the first emin: the added terms are *dynamic* correlation, and an optimized
+Jastrow already carries it, more cheaply. `2s²→2p²` was qualitatively different — static,
+near-degenerate, invisible to a Jastrow — which is why one parameter bought ~50 mHa and the next
+four buy one. **So the seniority-0 route bounds out at ~1 mHa: essentially all of the 7.4 mHa
+gap lives in the non-seniority-0 part**, the unpaired electron and the two spin channels.
+
+The converged values say the same thing structurally: both second-shell *diagonals* collapse
+(`g_7,7`: -0.02 → -0.0028, `g_6,6`: -0.02 → -0.0016) while the *cross* terms survive
+(`g_4,8` = -0.0205, `g_5,7` = +0.0186) and `g_4,4` barely moves (-0.1207 → -0.1273). The extra
+freedom is not adding pair configurations, it is reshaping the correlating p orbital radially —
+one orbital rotation's worth, worth about a mHa.
+
+**Free by-product: the sign rule is confirmed independently.** Seeded at ∓0.03 and left free,
+emin drove `g_4,8` and `g_5,7` to opposite signs with |ratio| = 1.10 — which is the
+`radial(MO 8) = -radial(MO 7)` factorization result arrived at from the energy rather than from
+the orbital file. A tie `2^g_4,8=2^g_5,7` would have been wrong, as predicted.
+
+Therefore the next thing to try is **not** more block, but the unpaired column — see the
+multilinearity trick under "Optimizable `u` without new code" in the TODO.
+
 ---
 
 ## Construction pitfalls: avoid degenerate starting points
@@ -943,6 +981,22 @@ quadrature ratio exercises.
   cheaper one (u fixed, only g/c optimized — the errstop is conservative).
 - `u_n,k` are fixed by construction. Optimizable u = orbital relaxation of the
   open shell; needs the same derivative plumbing g already has.
+- **Optimizable `u` without new code — the multilinearity trick.** The unpaired
+  orbitals occupy whole *columns* of the geminal matrix and a determinant is
+  linear in each column, so for geminals sharing one `g`,
+  `Σ_n c_n·det[A,B,u⁽ⁿ⁾] = det[A,B, Σ_n c_n u⁽ⁿ⁾]` exactly. Duplicate the whole
+  geminal set, tie the copies' `g` to the originals across geminals
+  (`2^g_4,4=5^g_4,4`, which the constraint syntax already supports), give the
+  copies a different unpaired column (on B: `u_9,1` — MO 9 is 3p B2u, the same
+  irrep as the occupied MO 3), and declare the copies' `c` optimizable in one
+  tied group. Optimizing that single `c` *is* optimizing the unpaired orbital
+  inside span{MO 3, MO 9}. The `c=-1` mirror's sign, which equality-only
+  `c` constraints cannot express, goes into its `u` instead: `u_9,1: [-1.0,
+  fixed]`, leaving its `c` in the same positive group. Untried as of 2026-08-25,
+  and the first thing to try after the seniority-0 extension came back at 1 mHa.
+  Expected payoff is concrete: fractional-occupancy ROHF hands the geminal a
+  spherically averaged 2p that is not optimal for the ²P determinant (~3 mHa by
+  the historical single-configuration file), and this wins it back inside VMC.
 - No autotest covers optimization. Bugs 8 and 9 are FIXED and upstream, but both
   were found by reading the source, not by running anything, and nothing guards
   them now: the three subtests are plain VMC with every parameter `fixed`, so

@@ -95,6 +95,22 @@ runqmc dirA dirB           # several directories (implies background)
 runqmc -T 10h --auto-continue   # needs max_cpu_time/max_real_time in `input`
 ```
 
+**On this machine use `-p 4`, never `-p 8`.** `nproc` reports 8, but those are 4 physical
+cores with hyperthreading. Two MPI ranks on the two threads of one core share its FPU and
+L1/L2, so the extra four ranks buy almost nothing on a BLAS-bound QMC run and make timings
+non-comparable. `runqmc` with no `-p` takes all logical cores — always pass `-p 4`
+explicitly (`nproc: 4` through the `casino` MCP server).
+
+**Delete `out` before re-running in a directory that already has one.** `runqmc` *appends*,
+it does not truncate, so a restarted or previously killed run leaves one file holding two
+runs back to back — two `Geminal setup` banners, two sets of block energies, two FINAL
+RESULTs. `envmc` then reads the concatenation and gives nonsense, and any hand-read energy
+may come from the wrong run. Nothing warns you. The `casino` MCP server's `overwrite: true`
+only lifts the refusal to start; it does not clear the file — **known gap, to be fixed in a
+future server version (`~/PycharmProjects/casino-mcp`); until then clear by hand before
+every re-run**: `rm -f out config.in config.out correlation.out.* parameters.[0-9]*.casl
+vmc.hist dmc.hist`.
+
 `runqmc` refuses to start on a directory that another instance has locked; clear a stale
 lock with `-u`. `--force`/`-f` skips the input-file check. `-i` prints what runqmc thinks
 the machine looks like. Debug build: `-d`/`--debug` (or `-g` for gdb) — requires that build

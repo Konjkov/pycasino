@@ -60,20 +60,23 @@ def vmc_step_profile(self, r_e, e):
     charge in a core shell down to order one in the valence, so one global step cannot serve them
     all: at the step that gives the average electron 50%, the valence electrons make up that half
     and a core one is rejected thousands of times in a row. Kato pins |grad ln psi| to Z at the
-    nucleus, the exponential tail exp(-sqrt(2I) r) gives sqrt(2I) far away, and the hydrogenic
-    n ~ sqrt(Z r) bridges them as Z / r, the two branches meeting at r = 1 / Z with no constant to
-    fit. The floor is the 2I of a valence electron, taken as one, which is also what keeps a bare
-    proton from asking for an infinite step. The factor is one in the asymptotic region and falls
-    off towards a nucleus, so step_size keeps the meaning of the valence step.
+    nucleus, and between the core and the valence the measured gradient falls as one over the
+    distance rather than as the hydrogenic sqrt(Z / r), screened over the Thomas-Fermi length, so
+    the branches are Z**2 and (a * Z**(1/3) / r)**2 and meet at r = a / Z**(2/3). The floor is the
+    2I of a valence electron, which is also what keeps a bare proton from asking for an infinite
+    step. Both constants are fitted to <|grad_i ln psi|**2 | r> measured on neon and argon, see
+    examples/step_profile/tabulated.py, and the factor is an estimate of one over that average, so
+    step_size carries the units of the kinetic energy sum rule.
     """
 
     def impl(self, r_e, e):
-        gradient = 1.0
+        gradient = 0.0
         for atom in range(self.wfn.atom_positions.shape[0]):
             charge = self.wfn.atom_charges[atom]
             r = np.sqrt(((r_e[e] - self.wfn.atom_positions[atom]) ** 2).sum())
-            gradient = max(gradient, min(charge * charge, charge / r))
-        return 1 / gradient
+            screened = 0.815 * charge ** (1 / 3) / r
+            gradient = max(gradient, min(charge * charge, screened * screened))
+        return 1 / (gradient + 1.577)
 
     return impl
 

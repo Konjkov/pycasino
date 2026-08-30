@@ -309,11 +309,11 @@ class Casino:
             # the profile of vmc.step_profile makes every electron contribute the same
             # 4 * dtvmc to Var(ln(psi'**2/psi**2)) wherever it matches |grad_i ln psi|, so the 50%
             # point is dtvmc = 2 * erfinv(1/2)**2 and nothing of the system is left in it: no <T>,
-            # no Thomas-Fermi, no counting of nuclei. What the crude profile does leave is how much
-            # of that gradient it recovers, 0.41 of it over the eleven systems in
-            # examples/step_profile/EBES, and 1.7 more on argon and krypton where the bare nuclear
-            # charge overestimates |grad ln psi| in the outer shells
-            return 2 * erfinv(1 / 2) ** 2 / 0.41
+            # no Thomas-Fermi, no counting of nuclei. What the profile does leave is how much of
+            # that gradient it recovers, 0.79 of it in the harmonic mean over the neon and argon
+            # tables of examples/step_profile/tabulated, against 0.41 for the three-branch formula
+            # it replaced
+            return 2 * erfinv(1 / 2) ** 2 / 0.79
         elif self.config.input.vmc_method == 1:
             # EBES moves one electron, so its share of the sum rule is <T> over their number. What
             # is left over is the spread of |grad_i ln psi| between electrons, which the shape of
