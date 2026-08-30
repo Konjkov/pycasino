@@ -23,6 +23,8 @@ from .gjastrow import Gjastrow
 from .jastrow import Jastrow
 from .ppotential import PPotential
 from .readers import CasinoConfig
+from .readers.input import Input
+from .readers.validate import InputError
 from .sem import Reblock, correlated_sem, correlation_time
 from .slater import Slater
 from .vmc import VMC
@@ -30,6 +32,16 @@ from .wfn import Wfn
 
 __version__ = importlib.metadata.version('casino')
 __author__ = 'Vladimir Konkov'
+
+# the acceptance optimize_vmc_step aims at. The 50% rule describes the step at which a proposal is
+# a coin flip, not the step at which a walk is cheapest, and in EBES the two are far apart: the
+# efficiency optimum measured over He, Be, N, Ne, Ar, CH4, C2H2 and O3 at 1e6 steps a point sits
+# between 0.69 and 0.80, drifting up with the depth of the core, and the 50% target costs a factor
+# 1.9 to 2.9 in the cost of an independent sample. Nothing here needs the optimum itself, the basin
+# being flat: this is its minimax point over those eight run under both vmc_method 1 and 4, at worst
+# 1.38 times the cost of the best step of that run and 1.17 times on average, against 2.94 and 1.70
+# for the 50% rule. Measured on EBES alone, CBCS untested
+ACCEPTANCE_TARGET = 0.70
 
 
 # created with art python package
@@ -293,7 +305,16 @@ class Casino:
         # that varied with the system, leaving a spurious Z dependence inside the constant:
         # step_size = (erfinv(1 / 2) * (1 + 0.045 / nuclei)) ** 2 / atom_kinetic_energy.sum()
         step_size = (erfinv(1 / 2) * (1 + 0.080 / nuclei**0.82)) ** 2 / atom_kinetic_energy.sum()
-        if self.config.input.vmc_method == 1:
+        if self.config.input.vmc_method == 4:
+            # the profile of vmc.step_profile makes every electron contribute the same
+            # 4 * dtvmc to Var(ln(psi'**2/psi**2)) wherever it matches |grad_i ln psi|, so the 50%
+            # point is dtvmc = 2 * erfinv(1/2)**2 and nothing of the system is left in it: no <T>,
+            # no Thomas-Fermi, no counting of nuclei. What the profile does leave is how much of
+            # that gradient it recovers, 0.79 of it in the harmonic mean over the neon and argon
+            # tables of examples/step_profile/tabulated, against 0.41 for the three-branch formula
+            # it replaced
+            return 2 * erfinv(1 / 2) ** 2 / 0.79
+        elif self.config.input.vmc_method == 1:
             # EBES moves one electron, so its share of the sum rule is <T> over their number. What
             # is left over is the spread of |grad_i ln psi| between electrons, which the shape of
             # the proposal no longer hides, and that is left to optimize_vmc_step.
@@ -330,8 +351,8 @@ class Casino:
         # atomic units, so the data stay unnormalized by the law they are measured to establish.
         approximate_step_size = self.approximate_step_size
         self.optimize_vmc_step(steps // 10)
-        step_size_50 = self.vmc.step_size
-        if self.config.input.vmc_method == 1:
+        step_size_target = self.vmc.step_size
+        if self.config.input.vmc_method in (1, 4):
             # EBES moves one electron, so its share of the sum rule is <T> over their number
             electrons = self.neu + self.ned
         else:
@@ -348,13 +369,13 @@ class Casino:
         logger.info(
             f' electrons = {self.neu + self.ned}\n'
             f' approximate DTVMC = {approximate_step_size:.5e}\n'
-            f' optimized DTVMC = {step_size_50:.5e}\n'
+            f' optimized DTVMC = {step_size_target:.5e}\n'
             f' kinetic energy = {kinetic_energy:.5f} +/- {drift_form.std() / np.sqrt(drift_form.size):.5f}\n'
             f' kinetic energy KEI = {laplacian_form.mean():.5f} +/- {laplacian_form.std() / np.sqrt(laplacian_form.size):.5f}\n'
             f'       dtvmc   target  acc_ratio  correction  sum_rule  gaussian  exp_mean  kurtosis'
         )  # fmt: skip
         for target in np.linspace(0.95, 0.05, 19):
-            self.vmc.step_size = step_size_50 * (erfinv(1 - target) / erfinv(1 / 2)) ** 2
+            self.vmc.step_size = step_size_target * (erfinv(1 - target) / erfinv(1 - ACCEPTANCE_TARGET)) ** 2
             x = self.vmc.log_ratio_walk(steps)
             variance = x.var()
             # the probability a proposal is accepted, averaged over the proposals themselves rather
@@ -408,17 +429,17 @@ class Casino:
         never moved rather than a slow mode.
         """
         self.optimize_vmc_step(steps // 10)
-        step_size_50 = self.vmc.step_size
+        step_size_target = self.vmc.step_size
         electrons = self.neu + self.ned
         logger.info(
             f' electrons = {electrons}\n'
-            f' optimized DTVMC = {step_size_50:.5e}\n'
+            f' optimized DTVMC = {step_size_target:.5e}\n'
             f'       dtvmc   target  acc_ratio  diffusion   corr_E  corr_err  corr_r2   corr_TD  variance  decorr  ms_indep  us_move  us_energy  move_frac'
         )  # fmt: skip
         # the grid of vmc_step_graph, so that the two campaigns line up row for row and a column of
         # one can be divided by a column of the other without interpolating anything
         for target in np.linspace(0.95, 0.05, 19):
-            self.vmc.step_size = step_size_50 * (erfinv(1 - target) / erfinv(1 / 2)) ** 2
+            self.vmc.step_size = step_size_target * (erfinv(1 - target) / erfinv(1 - ACCEPTANCE_TARGET)) ** 2
             walk_start = default_timer()
             position = self.vmc.random_walk(steps, 1)
             walk_stop = default_timer()
@@ -477,21 +498,87 @@ class Casino:
             )
 
     def optimize_vmc_step(self, steps):
-        """Optimize vmc step size to 50% acceptance.
+        """Optimize vmc step size to ACCEPTANCE_TARGET acceptance.
         A measurement at one step size already fixes the whole curve: sigma**2 is proportional to
         dtvmc by the sum rule, so inverting the gaussian acceptance law A = 2 * Phi(-sigma/2)
-        at the measured A and reading it back at 1/2 lands on the target in a single shot whenever
-        that law is exact. Its fixed point is A = 1/2 for any monotone acceptance curve, the law
+        at the measured A and reading it back at the target lands on it in a single shot whenever
+        that law is exact. Its fixed point is the target for any monotone acceptance curve, the law
         setting only the rate of convergence, so it cannot converge to the wrong answer where the
         gaussian fails. Measured on examples/time_step/CBCS the map takes a 40% error to 2%, then
         to 0.2%, then to 0.02%: three iterations cost a third of the eleven point scan they replace
-        and are limited by the noise of the acceptance rather than by the model.
+        and are limited by the noise of the acceptance rather than by the model. The mixture over
+        |grad_i ln psi| that makes EBES non gaussian is what the target itself accounts for, and
+        the map converges to it regardless of how far off the law is.
         """
         logger.info(' Performing time-step optimization.')
         for _ in range(3):
             # a rank that accepts everything or nothing carries no scale of its own
             acceptance = np.clip(mpi_comm.allreduce(self.acceptance_ratio(steps)) / mpi_comm.size, 0.05, 0.95)
-            self.vmc.step_size *= (erfinv(1 / 2) / erfinv(1 - acceptance)) ** 2
+            self.vmc.step_size *= (erfinv(1 - ACCEPTANCE_TARGET) / erfinv(1 - acceptance)) ** 2
+
+    def vmc_profile_graph(self, steps=100000):
+        """Whether the position dependent step of vmc.step_profile is worth having: EBES against
+        EBES with the profile, each at its own 50% acceptance, so that what is compared is how the
+        step is shared between the electrons and not how large it is. Both rows go through the same
+        code path, one of them with the profile switched on, so the columns are comparable as they
+        stand and vmc_method 1 is the baseline.
+        acc_min and acc_max are the acceptance of the least and the most mobile electron, which is
+        what the profile equalizes and what the correction column of vmc_step_graph measures the
+        consequences of. corr_E is what the efficiency depends on and the only column that can say
+        the scheme pays off; kurtosis says whether the mixture over |grad_i ln psi| that makes the
+        acceptance non gaussian has gone.
+        diff_min and diff_max are the mean square displacement per sweep and per cartesian
+        component of those same two electrons, and they are what keeps the rest honest: the profile
+        equalizes the acceptance by shrinking the step of a core electron as it accepts more of
+        them, and the product can come out either way. A corr_E that falls while diff_min falls
+        with it is a core frozen harder rather than a walk that mixes faster, and the variance
+        column will drift with it, the tail of the local energy being collected at the nuclei.
+        Beware of reading small differences: a system whose profile is identically one, hydrogen
+        with its unit charge, has read corr_E 6.71 and 12.77 in the two rows, so corr_err, which
+        assumes a single exponential, understates what a heavy tailed local energy can do.
+        """
+        method = self.config.input.vmc_method
+        logger.info(
+            f' electrons = {self.neu + self.ned}\n'
+            f'  method        dtvmc  acc_ratio    acc_min    acc_max   diff_min   diff_max   corr_E  corr_err  variance  kurtosis  us_move'
+        )  # fmt: skip
+        for vmc_method in (1, 4):
+            # the guess is read off the input and the walk off the walker, so both have to move
+            self.config.input.vmc_method = vmc_method
+            self.vmc.method = vmc_method
+            self.vmc.step_size = self.approximate_step_size
+            self.optimize_vmc_step(steps // 10)
+            walk_start = default_timer()
+            position = self.vmc.random_walk(steps, 1)
+            walk_stop = default_timer()
+            acceptance = self.vmc.acceptance
+            energy = self.vmc.observable(self.wfn.energy, position)
+            correlation, correlation_error = correlation_time(energy)
+            # a sweep that moved nothing leaves nan, so carrying the previous configuration forward
+            # recovers the walk, and the displacement is taken per electron rather than summed over
+            # them: it is the slowest of them that the profile is meant to unfreeze
+            moved = ~np.isnan(position[:, 0, 0])
+            r_e = position[np.maximum.accumulate(np.where(moved, np.arange(steps), 0))]
+            diffusion = ((r_e[1:] - r_e[:-1]) ** 2).sum(axis=2).mean(axis=0) / 3
+            acceptance_1e = self.vmc.acceptance_1e(steps // 10)
+            x = self.vmc.log_ratio_walk(steps)
+            logger.info(
+                '%7d %12.5e %10.5f %10.5f %10.5f %10.5f %10.5f %8.2f %9.2f %9.5f %9.3f %8.2f',
+                vmc_method,
+                self.vmc.step_size,
+                acceptance,
+                acceptance_1e.min(),
+                acceptance_1e.max(),
+                diffusion.min(),
+                diffusion.max(),
+                correlation,
+                correlation_error,
+                energy.var(),
+                ((x - x.mean()) ** 4).mean() / x.var() ** 2 - 3,
+                1e6 * (walk_stop - walk_start) / steps,
+            )
+        self.config.input.vmc_method = method
+        self.vmc.method = method
 
     @property
     def decorr_period(self):
@@ -538,6 +625,7 @@ class Casino:
             if self.root:
                 self.config.write('.', 0)
             opt_method = self.config.input.opt_method
+            vm_reweight = self.config.input.vm_reweight
             opt_cycles = self.config.input.opt_cycles
             if self.config.input.opt_plan:
                 opt_cycles = len(self.config.input.opt_plan)
@@ -628,7 +716,8 @@ class Casino:
         if self.config.input.opt_dtvmc == 0:
             self.vmc.step_size = self.config.input.dtvmc
         elif self.config.input.opt_dtvmc == 1:
-            # to achieve an acceptance ratio of (roughly) 50% (EBES default). Three iterations of
+            # to achieve an acceptance ratio of ACCEPTANCE_TARGET, where casino aims at 50%, so an
+            # input written for casino samples at a different step here. Three iterations of
             # 3000 steps cost less than the ten of 1000 they replace, and the noise of the last
             # acceptance is what is left over, 2.33 of it reaching the step size
             self.optimize_vmc_step(3000)
@@ -1531,11 +1620,20 @@ def main():
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument('config_path', type=str, help="path to CASINO config dir")
+    parser.add_argument('--check', action='store_true', help="validate the input files and exit")
     args = parser.parse_args()
 
-    if os.path.exists(os.path.join(args.config_path, 'input')):
-        configure_logging()
-        Casino(args.config_path).run()
-    else:
+    if not os.path.exists(os.path.join(args.config_path, 'input')):
         print(f'File {args.config_path}input not found...')
         sys.exit(1)
+    elif args.check:
+        logging.basicConfig(level=logging.WARNING, format='%(message)s')
+        try:
+            Input().read(args.config_path)
+        except InputError as e:
+            print(e)
+            sys.exit(1)
+        print(f'{os.path.join(args.config_path, "input")}: OK')
+    else:
+        configure_logging()
+        Casino(args.config_path).run()

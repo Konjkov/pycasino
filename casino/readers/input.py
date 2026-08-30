@@ -1,5 +1,7 @@
 import os
 
+from .validate import check_file, check_input
+
 
 class Input:
     """Input reader from file."""
@@ -7,32 +9,39 @@ class Input:
     def __init__(self):
         """Default values"""
         self.lines = []
+        # keywords pycasino asks for, everything else in the file is ignored
+        self.keywords = set()
 
     def read_bool(self, keyword, value=None):
+        self.keywords.add(keyword)
         for line in self.lines:
             if line.split(':')[0].strip() == keyword:
                 value = line.split(':')[1].strip() == 'T'
         setattr(self, keyword, value)
 
     def read_int(self, keyword, value=None):
+        self.keywords.add(keyword)
         for line in self.lines:
             if line.split(':')[0].strip() == keyword:
                 value = int(line.split(':')[1].strip())
         setattr(self, keyword, value)
 
     def read_float(self, keyword, value=None):
+        self.keywords.add(keyword)
         for line in self.lines:
             if line.split(':')[0].strip() == keyword:
                 value = float(line.split(':')[1].strip())
         setattr(self, keyword, value)
 
     def read_str(self, keyword, value=None):
+        self.keywords.add(keyword)
         for line in self.lines:
             if line.split(':')[0].strip() == keyword:
                 value = str(line.split(':')[1].strip())
         setattr(self, keyword, value)
 
     def read_opt_plan(self):
+        self.keywords.add('opt_plan')
         value = []
         block_start = False
         for line in self.lines:
@@ -61,6 +70,7 @@ class Input:
     def read(self, base_path):
         """Read input config."""
         self.file_path = os.path.join(base_path, 'input')
+        file_keywords = check_file(self.file_path)
         with open(self.file_path, 'r') as f:
             # remove comments
             self.lines = [line.partition('#')[0].strip() for line in f if line.partition('#')[0].strip()]
@@ -81,11 +91,11 @@ class Input:
         # where three costs a median 1.69 times the optimum; a sweep moves something almost every
         # time, so EBES pays for the energy whatever the period and gains only up to four, where
         # ten costs a quarter to a half and Casino's three is within a few percent
-        self.read_int('vmc_decorr_period', 3 if self.vmc_method == 1 else 10)
+        self.read_int('vmc_decorr_period', 3 if self.vmc_method in (1, 4) else 10)
         self.read_int('vmc_nblock')
         self.read_int('vmc_nconfig_write')
         self.read_float('dtvmc', 0.02)
-        self.read_bool('opt_dtvmc', True)
+        self.read_int('opt_dtvmc', 1)
         # Optimization keywords
         self.read_str('opt_method')
         self.read_str('emin_method', 'linear')
@@ -100,7 +110,7 @@ class Input:
         self.read_bool('opt_fixnl', self.opt_method == 'varmin')
         self.read_int('opt_maxiter', 10)
         self.read_int('opt_maxeval', 200)
-        self.read_bool('vm_smooth_limit', True)
+        self.read_bool('vm_smooth_limits', True)
         self.read_bool('vm_reweight', False)
         self.read_bool('vm_filter', False)
         self.read_float('vm_filter_thres', 4.0)
@@ -142,6 +152,8 @@ class Input:
         for file_name in os.listdir(base_path):
             if file_name.endswith('_pp.data'):
                 self.ppotential = True
+
+        check_input(self, base_path, file_keywords)
 
     def log(self):
         """Write log"""
@@ -190,7 +202,7 @@ class Input:
             f' NEWRUN (start new run)                   :  T\n'
             f' VMC_METHOD (choice of VMC algorithm)     :  {self.vmc_method}\n'
             f' DTVMC (VMC time step)                    :  {self.dtvmc}\n'
-            f' OPT_DTVMC (VMC time-step optimization)   :  {to_fortran(self.opt_dtvmc)}\n'
+            f' OPT_DTVMC (VMC time-step optimization)   :  {self.opt_dtvmc}\n'
             f' VMC_NSTEP (num VMC steps)                :  {self.vmc_nstep}\n'
             f' VMC_NCONFIG_WRITE (num configs to write) :  {self.vmc_nconfig_write}\n'
             f' VMC_NBLOCK (num VMC blocks)              :  {self.vmc_nblock}\n'

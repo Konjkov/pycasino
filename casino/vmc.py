@@ -21,7 +21,7 @@ def vmc_random_step(self):
     """
 
     def impl(self):
-        if self.method == 1:
+        if self.method == 1 or self.method == 4:
             return self.gibbs_random_step()
         elif self.method == 3:
             return self.simple_random_step()
@@ -53,6 +53,35 @@ def vmc_simple_random_step(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(VMC_class_t, 'step_profile')
+def vmc_step_profile(self, r_e, e):
+    """Position dependent factor on the step size of one electron, what vmc_method 4 adds to EBES.
+    The width of a single electron move is set by |grad_i ln psi|, which runs from the nuclear
+    charge in a core shell down to order one in the valence, so one global step cannot serve them
+    all: at the step that gives the average electron 50%, the valence electrons make up that half
+    and a core one is rejected thousands of times in a row. Kato pins |grad ln psi| to Z at the
+    nucleus, and between the core and the valence the measured gradient falls as one over the
+    distance rather than as the hydrogenic sqrt(Z / r), screened over the Thomas-Fermi length, so
+    the branches are Z**2 and (a * Z**(1/3) / r)**2 and meet at r = a / Z**(2/3). The floor is the
+    2I of a valence electron, which is also what keeps a bare proton from asking for an infinite
+    step. Both constants are fitted to <|grad_i ln psi|**2 | r> measured on neon and argon, see
+    examples/step_profile/tabulated.py, and the factor is an estimate of one over that average, so
+    step_size carries the units of the kinetic energy sum rule.
+    """
+
+    def impl(self, r_e, e):
+        gradient = 0.0
+        for atom in range(self.wfn.atom_positions.shape[0]):
+            charge = self.wfn.atom_charges[atom]
+            r = np.sqrt(((r_e[e] - self.wfn.atom_positions[atom]) ** 2).sum())
+            screened = 0.815 * charge ** (1 / 3) / r
+            gradient = max(gradient, min(charge * charge, screened * screened))
+        return 1 / (gradient + 1.577)
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(VMC_class_t, 'one_electron_step')
 def vmc_one_electron_step(self, e):
     """Metropolis step of a single electron, the proposal EBES is built out of.
@@ -60,14 +89,26 @@ def vmc_one_electron_step(self, e):
     determinants taken against the cached inverse matrices, and the jastrow part is the
     difference of the terms the moved electron takes part in, so the log ratio is accumulated
     rather than recomputed from the whole configuration.
+    Under vmc_method 4 the width is that of step_profile at the electron being moved, which makes
+    the proposal asymmetric, so the ratio of the densities of the two directions is carried
+    alongside the ratio of the wave functions and the returned log ratio is the whole
+    Metropolis-Hastings one.
     :param e: electron to move
     :return: step is accepted, ln(psi'**2/psi**2) of the proposal
     """
 
     def impl(self, e):
         cond = False
+        step_size = self.step_size
+        if self.method == 4:
+            step_size *= self.step_profile(self.r_e, e)
         next_r_e = np.copy(self.r_e)
-        next_r_e[e] += np.random.normal(0, np.sqrt(self.step_size), 3)
+        next_r_e[e] += np.random.normal(0, np.sqrt(step_size), 3)
+        proposal = 0.0
+        if self.method == 4:
+            next_step_size = self.step_size * self.step_profile(next_r_e, e)
+            d2 = ((next_r_e[e] - self.r_e[e]) ** 2).sum()
+            proposal = 1.5 * np.log(step_size / next_step_size) + d2 / 2 * (1 / step_size - 1 / next_step_size)
         # backflow spreads a single-electron move over the quasi-particle coordinates of every
         # electron within its cutoff, and a geminal is not a slater determinant, so neither of
         # them leaves one column to update: both recompute the whole configuration instead
@@ -75,7 +116,7 @@ def vmc_one_electron_step(self, e):
             # the determinant needs the nuclear distances of the moved electron and of nobody
             # else, and that column is cheaper to build than to look up in an array of all of them
             next_log_value, _, orbitals, q = self.state.ratio_1e(next_r_e[e] - self.wfn.atom_positions, e)
-            log_ratio = 2 * (next_log_value - self.state.log_value)
+            log_ratio = 2 * (next_log_value - self.state.log_value) + proposal
             if self.wfn.jastrow is not None:
                 # the nuclear distances of the electrons that stayed put are common to both ends
                 # of the proposal, so their powers are built once and only the row of the moved
@@ -94,7 +135,7 @@ def vmc_one_electron_step(self, e):
                     self.state = self.wfn.slater.state(self.wfn._relative_coordinates(next_r_e)[1])
         else:
             next_log_value = self.wfn.log_value(next_r_e)[0]
-            log_ratio = 2 * (next_log_value - self.log_value)
+            log_ratio = 2 * (next_log_value - self.log_value) + proposal
             self.moves += 1
             if log_ratio > np.log(np.random.random()):
                 cond, self.r_e, self.log_value = True, next_r_e, next_log_value
@@ -131,7 +172,7 @@ def vmc_reset(self):
 
     def impl(self):
         self.log_value = self.wfn.log_value(self.r_e)[0]
-        if self.method == 1:
+        if self.method == 1 or self.method == 4:
             self.state = self.wfn.slater.state(self.wfn._relative_coordinates(self.r_e)[1])
         self.moves = 0
         self.accepted = 0
@@ -172,7 +213,9 @@ def vmc_log_ratio_walk(self, steps):
     """Metropolis-Hastings random walk recording ln(psi'**2/psi**2) for every proposed move,
     one whole configuration at a time in CBCS and one electron at a time in EBES. That is the
     quantity the VMC step size sum rule is a statement about, and measuring it directly separates
-    the sum rule, which is exact, from the gaussian shape assumed for it, which is not.
+    the sum rule, which is exact, from the gaussian shape assumed for it, which is not. Under
+    vmc_method 4 the proposal contributes to it as well and what is recorded is the whole
+    Metropolis-Hastings ratio, which is the quantity accepted on in any case.
     :param steps: number of steps to walk
     :return: ndarray of log ratios
     """
@@ -181,7 +224,7 @@ def vmc_log_ratio_walk(self, steps):
         self.reset()
         log_ratio = np.empty(shape=(steps,))
         ne = self.wfn.neu + self.wfn.ned
-        if self.method == 1:
+        if self.method == 1 or self.method == 4:
             # the electron is taken in turn rather than at random: the sum rule averages over a
             # uniform choice of it, and a sweep covers them uniformly with no extra variance
             for i in range(steps):
@@ -196,6 +239,29 @@ def vmc_log_ratio_walk(self, steps):
                     self.r_e, self.log_value = next_r_e, next_log_value
                     self.accepted += 1
         return log_ratio
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(VMC_class_t, 'acceptance_1e')
+def vmc_acceptance_1e(self, steps):
+    """Acceptance of every electron on its own, which is what vmc_method 4 equalizes and what the
+    acceptance of a sweep cannot show: the target is met on average while a core electron sits at
+    a fraction of a percent and a valence one close to one, and a coordinate that never moves
+    carries no sample whatever the correlation time measured on it says.
+    :param steps: number of sweeps to walk
+    :return: ndarray of acceptance per electron
+    """
+
+    def impl(self, steps):
+        self.reset()
+        res = np.zeros(shape=(self.wfn.neu + self.wfn.ned,))
+        for _ in range(steps):
+            for e in range(self.wfn.neu + self.wfn.ned):
+                accepted, _ = self.one_electron_step(e)
+                res[e] += accepted
+        return res / steps
 
     return impl
 
@@ -220,7 +286,7 @@ class VMC(structref.StructRefProxy):
         :param r_e: initial position
         :param step_size: time step size
         :param wfn: instance of Wfn class
-        :param method: vmc method: (1) - EBES (work in progress), (3) - CBCS.
+        :param method: vmc method: (1) - EBES, (3) - CBCS, (4) - EBES with the step of step_profile.
         :return:
         """
 
@@ -248,6 +314,16 @@ class VMC(structref.StructRefProxy):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def step_size(self, value):
         self.step_size = value
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def method(self) -> int:
+        return self.method
+
+    @method.setter
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def method(self, value):
+        self.method = value
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
@@ -281,6 +357,10 @@ class VMC(structref.StructRefProxy):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def log_ratio_walk(self, steps):
         return self.log_ratio_walk(steps)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def acceptance_1e(self, steps):
+        return self.acceptance_1e(steps)
 
     @staticmethod
     def observable(observable, position):

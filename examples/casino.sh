@@ -2,6 +2,7 @@
 
 # method="CBCS"
 # method="EBES"
+# method="EBES_new"
 # operation="Slater"
 # operation="Jastrow"
 # operation="Backflow"
