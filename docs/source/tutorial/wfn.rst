@@ -275,6 +275,11 @@ which makes backflow optimization the most expensive operation.
     \frac{\partial \nabla_i^2 \Psi / \Psi}{\partial \alpha^S} = \frac{\partial \nabla^2 \ln \Phi}{\partial \alpha^S} +
     2 \frac{\partial \nabla \ln \Phi}{\partial \alpha^S} \left[ \nabla J + \frac{\nabla \Phi}{\Phi} \right]
 
+The determinant part supplies its second derivative in the :math:`\nabla^2 \Phi / \Phi` form rather
+than as :math:`\nabla^2 \ln \Phi`, and the two differ by :math:`(\nabla \Phi / \Phi)^2`, whose
+derivative cancels the :math:`\nabla \Phi / \Phi` half of the bracket. Written that way the
+:math:`\nabla J` term is the only cross term left, which is what the code evaluates.
+
 if backflow displacement :math:`\xi(\mathbf{r})` is not zero the coordinate transformation must be taken into account:
 
 .. math::

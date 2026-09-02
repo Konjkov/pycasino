@@ -79,6 +79,11 @@ class CasinoConfig:
             correlation_data += self.backflow.write()
         if self.mdet:
             correlation_data += self.mdet.write()
+        if self.geminal:
+            # both blocks live in the same casl, and the gjastrow above has written its own
+            file_path = os.path.join(base_path, f'parameters.{version}.casl')
+            with open(file_path, 'a' if self.input.use_gjastrow else 'w') as f:
+                f.write(self.geminal.write())
 
         file_path = os.path.join(base_path, f'correlation.out.{version}')
         with open(file_path, 'w') as f:

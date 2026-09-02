@@ -12,6 +12,38 @@ v 0.4.0 (in progress)
     * AGP/geminal wave function (``psi_s : geminal``): casino/geminal.py, GEMINAL block
       reader for parameters.casl, and the pfaffian design doc (Milestone 1); the
       Hartree-Fock default geminal reproduces the Slater determinant
+    * OPT_GEMINAL: the geminal parameters (the c coefficients, the upper triangle of every g
+      and the unpaired columns u) now take part in varmin and emin. The optimizability flags the
+      reader already parsed reach the wave function, the parameter derivatives are taken by
+      finite differences of the determinants over an orbital pool that is built once, and the
+      geminal block is written back to parameters.N.casl at the end of every cycle
+    * The Constraints section of the GEMINAL block is read. Every member of a tied group takes
+      the value and the optimizability of the one member that carries an explicit flag, and only
+      that reference is an independent parameter, the rest being restored from it after every
+      parameter update and left out of what is written back. Until now the section was skipped,
+      so any constrained casl was a different wave function in PyCasino than in Casino
+    * The geminal orbital pool is cusp corrected, over its own orbital range rather than the
+      determinant's, so an all-electron gaussian geminal no longer carries the uncorrected
+      nuclear cusp
+* Fixes
+    * OPT_JASTROW, OPT_BACKFLOW, OPT_DET_COEFF and OPT_ORBITALS only ever reached the wave function
+      through an opt_plan block, so a vmc_opt run that set them as plain keywords and relied on
+      OPT_CYCLES optimized nothing at all. The keywords are now what every cycle an opt_plan block
+      does not mention falls back to
+    * The derivative of the local energy w.r.t. the determinant coefficients carried a spurious
+      gradient**2 term (wfn.kinetic_energy_parameters_d1). The formula in wfn.rst is written in
+      the d²lnPhi form and is right, but the laplacian it is fed comes in the d²Phi/Phi form,
+      which already contains the square of the gradient, so the nablaPhi/Phi half of its bracket
+      had to go. Affected every emin/varmin run with OPT_DET_COEFF since January 2026, and not by
+      a little: on the four-determinant CASSCF(2,4) Be the spurious term is of order 1e3 where the
+      derivative itself is of order 1. The new casino/tests/test_mdet.py compares both parameter
+      derivatives of that wave function against finite differences
+    * The Jastrow part of the emin gradient used the gradient of the Slater determinant even when
+      the wave function was a geminal (wfn.kinetic_energy_parameters_d1)
+    * psi_s : geminal with backflow : T is now an input error rather than a wave function whose
+      local energy comes from the determinant while its drift comes from the geminal: the backflow
+      branch of wfn.kinetic_energy needs a hessian, which the geminal does not have yet. The same
+      check rejects ned > neu, which the neu x neu geminal matrix cannot describe
     * wfn.drift_kinetic_energy, the drift form F@F/2 of the kinetic energy, and its section in
       wfn.rst. Unbiased for the same expectation value as wfn.kinetic_energy by parts and differing
       only in variance, the pair being what Casino reports as FISQ and KEI. Neither dominates:

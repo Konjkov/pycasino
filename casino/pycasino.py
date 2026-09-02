@@ -219,7 +219,16 @@ class Casino:
         slater = Slater(self.config, cusp)
 
         if self.config.geminal:
-            geminal = Geminal(self.config)
+            # the geminal pairs orbitals the determinant never uses, so its pool is corrected
+            # over its own, wider, orbital range
+            if cusp is None:
+                geminal_cusp = None
+            else:
+                geminal_cusp_factory = CuspFactory(self.config, self.config.geminal.norb)
+                geminal_cusp = geminal_cusp_factory.create()
+                if self.config.input.cusp_info:
+                    geminal_cusp_factory.cusp_info()
+            geminal = Geminal(self.config, geminal_cusp)
         else:
             geminal = None
 
@@ -624,23 +633,24 @@ class Casino:
         elif self.config.input.runtype == 'vmc_opt':
             if self.root:
                 self.config.write('.', 0)
-            opt_method = self.config.input.opt_method
-            vm_reweight = self.config.input.vm_reweight
             opt_cycles = self.config.input.opt_cycles
             if self.config.input.opt_plan:
                 opt_cycles = len(self.config.input.opt_plan)
             for i in range(opt_cycles):
-                if self.config.input.opt_plan:
-                    opt_method = self.config.input.opt_plan[i].get('method', self.config.input.opt_method)
-                    vm_reweight = self.config.input.opt_plan[i].get('reweight', self.config.input.vm_reweight)
-                    self.wfn.opt_jastrow = self.config.input.opt_plan[i].get('jastrow', self.config.input.opt_jastrow)
-                    self.wfn.opt_backflow = self.config.input.opt_plan[i].get('backflow', self.config.input.opt_backflow)
-                    self.wfn.opt_orbitals = self.config.input.opt_plan[i].get('orbitals', self.config.input.opt_orbitals)
-                    self.wfn.opt_det_coeff = self.config.input.opt_plan[i].get('det_coeff', self.config.input.opt_det_coeff)
-                    if self.wfn.jastrow:
-                        self.wfn.jastrow.cutoffs_optimizable = not self.config.input.opt_plan[i].get('fix_cutoffs', False)
-                    if self.wfn.backflow:
-                        self.wfn.backflow.cutoffs_optimizable = not self.config.input.opt_plan[i].get('fix_cutoffs', False)
+                # what the opt_plan block says about this cycle, the keywords of the input being
+                # what every cycle it does not mention falls back to
+                opt_plan = self.config.input.opt_plan[i] if self.config.input.opt_plan else {}
+                opt_method = opt_plan.get('method', self.config.input.opt_method)
+                vm_reweight = opt_plan.get('reweight', self.config.input.vm_reweight)
+                self.wfn.opt_jastrow = opt_plan.get('jastrow', self.config.input.opt_jastrow)
+                self.wfn.opt_backflow = opt_plan.get('backflow', self.config.input.opt_backflow)
+                self.wfn.opt_geminal = opt_plan.get('geminal', self.config.input.opt_geminal)
+                self.wfn.opt_orbitals = opt_plan.get('orbitals', self.config.input.opt_orbitals)
+                self.wfn.opt_det_coeff = opt_plan.get('det_coeff', self.config.input.opt_det_coeff)
+                if self.wfn.jastrow:
+                    self.wfn.jastrow.cutoffs_optimizable = not opt_plan.get('fix_cutoffs', False)
+                if self.wfn.backflow:
+                    self.wfn.backflow.cutoffs_optimizable = not opt_plan.get('fix_cutoffs', False)
                 self.vmc_energy_accumulation()
                 logger.info(
                     f' ==========================================\n'

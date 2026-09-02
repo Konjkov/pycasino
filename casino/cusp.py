@@ -615,11 +615,17 @@ class CuspFactory:
     # radii closer than that to a node are ignored when fitting
     nodewidth = 0.02
 
-    def __init__(self, config):
+    def __init__(self, config, orbitals=None):
+        """:param orbitals: correct that many orbitals of both spins instead of those the
+        determinant uses, which is what a geminal orbital pool needs
+        """
         self.neu = config.input.neu
         self.ned = config.input.ned
-        self.orbitals_up = np.max(config.mdet.permutation_up) + 1 if self.neu else 0
-        self.orbitals_down = np.max(config.mdet.permutation_down) + 1 if self.ned else 0
+        if orbitals is None:
+            self.orbitals_up = np.max(config.mdet.permutation_up) + 1 if self.neu else 0
+            self.orbitals_down = np.max(config.mdet.permutation_down) + 1 if self.ned else 0
+        else:
+            self.orbitals_up = self.orbitals_down = orbitals
         self.norm = np.exp(-(math.lgamma(self.neu + 1) + math.lgamma(self.ned + 1)) / (self.neu + self.ned) / 2)
         self.mo = np.concatenate((config.wfn.mo_up[: self.orbitals_up], config.wfn.mo_down[: self.orbitals_down]))
         self.first_shells = config.wfn.first_shells

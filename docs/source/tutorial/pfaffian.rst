@@ -218,7 +218,21 @@ The parameters :math:`c_n`, :math:`g^n_{pq}` and :math:`u^n_{pk}` are read from 
           u_5,3: [ 1.0, fixed ]
 
 Only the nonzero elements are listed; indices are one-based, :math:`p` runs over the orbital pool
-and :math:`k` over the unpaired columns. When the block is absent, the Hartree-Fock default is
+and :math:`k` over the unpaired columns. Elements that must stay equal to each other — the
+components of a degenerate shell, or the same block repeated in several geminals — are tied by a
+``Constraints`` section, one bare line per group::
+
+    GEMINAL:
+      Geminal 2:
+        Parameters:
+          g_3,3: [ -0.05, optimizable ]
+      Constraints:
+        2^g_3,3=2^g_4,4=2^g_5,5
+
+Exactly one member of a group carries an explicit flag: it is the reference, it alone is an
+independent parameter, and the rest are *determined* — they take its value and its optimizability,
+are restored from it after every parameter update, and must be left undeclared, both here and in
+what ``write`` regenerates. When the block is absent, the Hartree-Fock default is
 built from the occupation of the wave-function file — a single geminal with :math:`g = \mathbb{1}`
 on the doubly occupied orbitals and one unpaired column per singly occupied orbital — which
 reproduces the single Slater determinant exactly; this equality of value, gradient and Laplacian to
@@ -262,8 +276,15 @@ It has the following methods, all taking the electron-nuclei vectors ``n_vectors
      - :math:`M_n` from the orbital pool
      - :math:`(N^\uparrow, N^\uparrow)`
 
-The determinant is recomputed on every move; Sherman-Morrison updates, cusp correction and the
-parameter-optimization interface are not yet in place (see the implementation plan below).
+plus the varmin/emin interface (``get_parameters``, ``set_parameters``, the masks and the
+projector, ``value_parameters_d1``, ``gradient_parameters_d1``, ``laplacian_parameters_d1``). The
+parameter derivatives are finite differences of the determinants over an orbital pool that is built
+once, the pool being independent of :math:`c`, :math:`g` and :math:`u`.
+
+The determinant is recomputed on every move: there is no Sherman-Morrison update, so an
+electron-by-electron move and every point of a pseudopotential quadrature grid cost a whole wave
+function (see the implementation plan below). Backflow on top of a geminal is rejected by the input
+check, the backflow branch of the kinetic energy needing a ``hessian`` the geminal does not have.
 
 Optimization strategy
 ---------------------
@@ -322,11 +343,9 @@ The work is split into two milestones. Milestone 1 covers exactly the subset CAS
 *both* programs and the results compared; milestone 2 adds the Pfaffian-specific extensions that
 exist in Pycasino only.
 
-**Milestone 1 — AGP in CASINO format, cross-validated.** Steps 2 and 3 are implemented
-(``casino/geminal.py``, ``casino/readers/geminal.py``, ``casino/tests/test_geminal.py``); step 4 is
-partially done — the ``psi_s : geminal`` / ``opt_geminal`` input keywords and the ``Wfn`` value /
-gradient / Laplacian composition are in place, the parameter-optimization interface and the Be/Ne
-tests are not yet; steps 1 and 5 (generator, cross-validation) are open.
+**Milestone 1 — AGP in CASINO format, cross-validated.** Steps 2, 3 and 4 are implemented
+(``casino/geminal.py``, ``casino/readers/geminal.py``, ``casino/tests/test_geminal.py``); steps 1
+and 5 (generator, cross-validation) are open.
 
 1. **Generator** (``molden2qmc``). From an ORCA (or other supported code) calculation, produce
    ``gwfn.data`` as now *plus* the ``GEMINAL`` block of ``parameters.casl`` in CASINO format
@@ -349,9 +368,10 @@ tests are not yet; steps 1 and 5 (generator, cross-validation) are open.
    by the up electrons, :math:`N^\downarrow` pairing columns
    :math:`\Phi(\mathbf{r}_i^\uparrow, \mathbf{r}_j^\downarrow)` and
    :math:`N^\uparrow - N^\downarrow` unpaired-orbital columns — so no Pfaffian kernel is needed at
-   this stage and the same Slater-style value/gradient/Laplacian AO evaluation is reused (the
-   determinant is recomputed per move for now; Sherman-Morrison updates and cusp correction are
-   deferred to a later stage). Mandatory self-check, now satisfied: with
+   this stage and the same Slater-style value/gradient/Laplacian AO evaluation is reused, cusp
+   correction included, over the orbital range of the pool rather than of the determinant (the
+   determinant is recomputed per move for now, Sherman-Morrison updates being deferred to a later
+   stage). Mandatory self-check, now satisfied: with
    :math:`\lambda = \mathbb{1}_{occ}` the class reproduces the Slater single-determinant value,
    gradient and Laplacian to machine precision (``test_geminal.py``).
 4. **Integration and optimization** (``casino/wfn.py``, ``casino/readers/input.py``). Input
