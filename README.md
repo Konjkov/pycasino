@@ -3,7 +3,9 @@
 The Pycasino is python implementation of the well-known [Casino](https://vallico.net/casinoqmc/) program.
 
 [![PyPI version](https://badge.fury.io/py/casino.svg)](https://badge.fury.io/py/casino)
+[![Python versions](https://img.shields.io/pypi/pyversions/casino.svg)](https://pypi.org/project/casino/)
 [![Build Status](https://github.com/Konjkov/pycasino/actions/workflows/tests.yml/badge.svg)](https://github.com/Konjkov/pycasino/actions)
+[![Documentation Status](https://readthedocs.org/projects/casinoqmc/badge/?version=latest)](https://casinoqmc.readthedocs.io/en/latest/)
 
 ## Installation
 

@@ -14,7 +14,7 @@ Three sampling modes are named by ``vmc_method``, of which two are implemented:
 - **EBES** (``vmc_method : 1``) — electrons are moved one at a time, each with its own
   accept/reject step;
 - **DBDS** (``vmc_method : 2``) — one spin determinant is displaced at a time.
-  :ref:`Not implemented <vmc-dbds>`, and selecting it silently freezes the walk;
+  :ref:`Not implemented <vmc-dbds>`, and refused by the input check;
 - **CBCS** (``vmc_method : 3``) — all electrons are moved at once, single accept/reject.
 
 The single free parameter of the walk is the step size, set by ``dtvmc``. The formulas below are
@@ -829,11 +829,11 @@ two implemented modes: EBES with a block size of one electron, CBCS with a block
 :math:`N_e`.
 
 **It is not implemented.** :meth:`casino.vmc.VMC.random_step` dispatches methods 1 and 3 only
-and returns ``False`` for anything else, so the walker never moves and the run silently
-produces the initial configuration repeated ``vmc_nstep`` times.
-:ref:`approximate_step_size <vmc-approximate-step-size>` nevertheless still has a live branch
-for it, returning the :math:`\sqrt{2}` of the sum rule below, which makes the mode look
-supported.
+and returns ``False`` for anything else, so the walker would never move and the run would
+silently produce the initial configuration repeated ``vmc_nstep`` times. The input check
+therefore refuses the keyword outright; what is left of the mode is the branch of
+:ref:`approximate_step_size <vmc-approximate-step-size>` returning the :math:`\sqrt{2}` of the
+sum rule below, and the sum rule itself.
 
 Casino removed its own Method 2 as well: it "did not offer any advantage over the other
 methods and was hard to support", and the one feature worth keeping — using acceptance

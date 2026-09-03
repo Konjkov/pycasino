@@ -1,6 +1,25 @@
 v 0.4.0 (in progress)
 ---------------------
 * Added
+    * The caches of an electron-by-electron walker - the slater state and the powers of the e-n
+      distances - now live between the moves of a sweep instead of being rebuilt by every one of
+      them: wfn.caches builds both, wfn.value_ratio_1e takes a ratio out of them without touching
+      them and wfn.accept_1e commits an accepted move into them. VMC keeps them for the whole
+      walk, DMC rebuilds them per walker per step, which costs what a single move of the sweep
+      used to. EBES DMC no longer evaluates the whole wave function for every electron it moves:
+      of the two evaluations a move cost, the value is now a determinant ratio and only the drift
+      velocity is left. Not for backflow, which spreads a single-electron move over every
+      electron within its cutoff, nor for a geminal, which is not a slater determinant
+    * The drift velocity an electron-by-electron DMC move reads is now the drift of the one
+      electron it moves, not of the whole configuration: wfn.drift_velocity_1e takes it out of
+      the same caches. The row of the inverse matrix the moved electron owns is the only one its
+      own trace needs, and replacing a column divides that row by Q, so the far end of a proposal
+      is read out of the state the near end left, without an update and without a Q anywhere -
+      it cancels against the weight the determinant gains. Slater and cusp gained a
+      single-electron pass over the basis for the orbital gradients and the jastrow the gradient
+      of the terms one electron takes part in. A sweep is left with two evaluations of the whole
+      drift, one at each end, where it used to pay one per electron on top of one per accepted
+      move, and what stays quadratic in the electron count is the local energy at the end of it
     * Omega (e-e-e) three-electron backflow term: OMEGA TERM block reader/writer,
       analytical value/gradient/laplacian and their parameter derivatives,
       no-cusp and particle-symmetry constraints, and varmin/emin support
@@ -12,6 +31,68 @@ v 0.4.0 (in progress)
     * AGP/geminal wave function (``psi_s : geminal``): casino/geminal.py, GEMINAL block
       reader for parameters.casl, and the pfaffian design doc (Milestone 1); the
       Hartree-Fock default geminal reproduces the Slater determinant
+    * OPT_GEMINAL: the geminal parameters (the c coefficients, the upper triangle of every g
+      and the unpaired columns u) now take part in varmin and emin. The optimizability flags the
+      reader already parsed reach the wave function, the parameter derivatives are taken by
+      finite differences of the determinants over an orbital pool that is built once, and the
+      geminal block is written back to parameters.N.casl at the end of every cycle
+    * The Constraints section of the GEMINAL block is read. Every member of a tied group takes
+      the value and the optimizability of the one member that carries an explicit flag, and only
+      that reference is an independent parameter, the rest being restored from it after every
+      parameter update and left out of what is written back. Until now the section was skipped,
+      so any constrained casl was a different wave function in PyCasino than in Casino
+    * The geminal orbital pool is cusp corrected, over its own orbital range rather than the
+      determinant's, so an all-electron gaussian geminal no longer carries the uncorrected
+      nuclear cusp
+    * The derivatives of the geminal w.r.t its own parameters are analytic, where they were
+      finite differences of the determinants over a pool built once. A parameter of g or of u
+      changes the geminal matrix by a rank one term - a column of the up-spin orbital pool times
+      a row of the down-spin one, or times a unit row for an unpaired column - so tr(M^-1 • dM/dp)
+      is one element of a matrix product rather than a determinant of its own, and the product
+      with the derivative of a coordinate, which is rank one as well, is one element of another.
+      The sum over the geminals collapses into d(ln(psi))/dp · (what this geminal carries - what
+      the sum carries) + its weight · the derivative of what it carries, whose first half
+      vanishes identically for a single geminal. Where a rank one term does not appear - the
+      laplacian of the matrix is a sum over every electron - M^-1 • that sum is folded once per
+      geminal instead. This takes an emin or varmin cycle from 2·nparam determinant evaluations
+      per configuration to one inverse and a handful of matrix products, nparam being of the
+      order of half the square of the orbital pool
+    * Hessian and tressian of the geminal, so that psi_s : geminal with backflow : T is no longer
+      an input error: the local energy reads the hessian and the derivative of the local energy
+      w.r.t the backflow parameters reads the tressian, and both now come from the geminal rather
+      than from the determinant. An entry of the geminal matrix carries an up electron through
+      its row and a down electron through its column, so it has second and third derivatives
+      across two electrons at once, which a slater determinant has none of. What makes them
+      cheap is that M^-1 • dM is of rank one whatever the coordinate is - a column of the inverse
+      times a row of orbital gradients for an up electron, a column times a unit row for a down
+      one - so every trace of a product of such factors collapses into the one matrix
+      s[a, b] = row(a) • col(b). The gradient is its diagonal, the second trace is s[a,b]·s[b,a],
+      and the two triple products of the third derivative are equal under a symmetric bb and
+      contract into the diagonal of s • (s∘bb) • s. The second derivatives are rank one as well,
+      which leaves the tressian a loop over pairs rather than over triples
+* Fixes
+    * VMC_METHOD 2 (DBDS) is refused by the input check. Nothing dispatches it, so a run that
+      asked for it silently produced the initial configuration repeated VMC_NSTEP times
+    * Under VMC_METHOD 4 the density of the asymmetric proposal leaked into the logarithm the
+      walker carries, which nothing read, but which is the wave function of the walk
+    * OPT_JASTROW, OPT_BACKFLOW, OPT_DET_COEFF and OPT_ORBITALS only ever reached the wave function
+      through an opt_plan block, so a vmc_opt run that set them as plain keywords and relied on
+      OPT_CYCLES optimized nothing at all. The keywords are now what every cycle an opt_plan block
+      does not mention falls back to
+    * The derivative of the local energy w.r.t. the determinant coefficients carried a spurious
+      gradient**2 term (wfn.kinetic_energy_parameters_d1). The formula in wfn.rst is written in
+      the d²lnPhi form and is right, but the laplacian it is fed comes in the d²Phi/Phi form,
+      which already contains the square of the gradient, so the nablaPhi/Phi half of its bracket
+      had to go. Affected every emin/varmin run with OPT_DET_COEFF since January 2026, and not by
+      a little: on the four-determinant CASSCF(2,4) Be the spurious term is of order 1e3 where the
+      derivative itself is of order 1. The new casino/tests/test_mdet.py compares both parameter
+      derivatives of that wave function against finite differences
+    * The Jastrow part of the emin gradient used the gradient of the Slater determinant even when
+      the wave function was a geminal (wfn.kinetic_energy_parameters_d1)
+    * psi_s : geminal with backflow : T is now an input error rather than a wave function whose
+      local energy comes from the determinant while its drift comes from the geminal: the backflow
+      branch of wfn.kinetic_energy needs a hessian, which the geminal does not have yet. The same
+      check rejects ned > neu, which the neu x neu geminal matrix cannot describe
     * wfn.drift_kinetic_energy, the drift form F@F/2 of the kinetic energy, and its section in
       wfn.rst. Unbiased for the same expectation value as wfn.kinetic_energy by parts and differing
       only in variance, the pair being what Casino reports as FISQ and KEI. Neither dominates:

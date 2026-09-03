@@ -113,25 +113,14 @@ def vmc_one_electron_step(self, e):
         # electron within its cutoff, and a geminal is not a slater determinant, so neither of
         # them leaves one column to update: both recompute the whole configuration instead
         if self.wfn.backflow is None and self.wfn.geminal is None:
-            # the determinant needs the nuclear distances of the moved electron and of nobody
-            # else, and that column is cheaper to build than to look up in an array of all of them
-            next_log_value, _, orbitals, q = self.state.ratio_1e(next_r_e[e] - self.wfn.atom_positions, e)
-            log_ratio = 2 * (next_log_value - self.state.log_value) + proposal
-            if self.wfn.jastrow is not None:
-                # the nuclear distances of the electrons that stayed put are common to both ends
-                # of the proposal, so their powers are built once and only the row of the moved
-                # electron is replaced between the two evaluations
-                e_vectors_1e, n_vectors = self.wfn._relative_coordinates_1e(self.r_e, e)
-                n_powers = self.wfn.jastrow.en_powers(n_vectors)
-                jastrow_value = self.wfn.jastrow.value_1e(e_vectors_1e, n_powers, e)
-                self.wfn.jastrow.update_en_powers_1e(n_powers, next_r_e[e] - self.wfn.atom_positions, e)
-                log_ratio += 2 * (self.wfn.jastrow.value_1e(next_r_e[e] - next_r_e, n_powers, e) - jastrow_value)
+            value_log_ratio, _, orbitals, q = self.wfn.value_ratio_1e(self.state, self.n_powers, self.r_e, e, next_r_e[e])
+            log_ratio = 2 * value_log_ratio + proposal
             self.moves += 1
             if log_ratio > np.log(np.random.random()):
                 cond, self.r_e = True, next_r_e
-                self.log_value += log_ratio / 2
+                self.log_value += value_log_ratio
                 self.accepted += 1
-                if not self.state.accept_1e(e, orbitals, q):
+                if not self.wfn.accept_1e(self.state, self.n_powers, e, next_r_e[e], orbitals, q):
                     self.state = self.wfn.slater.state(self.wfn._relative_coordinates(next_r_e)[1])
         else:
             next_log_value = self.wfn.log_value(next_r_e)[0]
@@ -173,7 +162,7 @@ def vmc_reset(self):
     def impl(self):
         self.log_value = self.wfn.log_value(self.r_e)[0]
         if self.method == 1 or self.method == 4:
-            self.state = self.wfn.slater.state(self.wfn._relative_coordinates(self.r_e)[1])
+            self.state, self.n_powers = self.wfn.caches(self.r_e)
         self.moves = 0
         self.accepted = 0
 
@@ -274,6 +263,7 @@ VMC_t = VMC_class_t(
         ('method', nb.int64),
         ('log_value', nb.float64),
         ('state', SlaterState_t),
+        ('n_powers', nb.float64[:, :, ::1]),
         ('moves', nb.int64),
         ('accepted', nb.int64),
     ]
@@ -298,12 +288,22 @@ class VMC(structref.StructRefProxy):
             self.wfn = wfn
             self.method = method
             self.log_value = wfn.log_value(r_e)[0]
-            self.state = wfn.slater.state(wfn._relative_coordinates(r_e)[1])
+            self.state, self.n_powers = wfn.caches(r_e)
             self.moves = 0
             self.accepted = 0
             return self
 
         return init(*args, **kwargs)
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def r_e(self):
+        return self.r_e
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def log_value(self) -> float:
+        return self.log_value
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)

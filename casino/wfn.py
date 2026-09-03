@@ -35,27 +35,6 @@ def wfn__relative_coordinates(self, r_e):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Wfn_class_t, '_relative_coordinates_1e')
-def wfn__relative_coordinates_1e(self, r_e, e):
-    """Get the relative coordinates a single-electron move needs.
-    The electron-electron array is the only one quadratic in the number of electrons, and moving
-    one electron changes one row of it, so only that row is built. The electron-nuclei array is
-    built whole: it is linear in both counts, and the e-e-n jastrow term reads the nuclear
-    distances of every electron, not only of the one that moved.
-    :param r_e: electron positions
-    :param e: electron being moved
-    :return: e-e vectors of that electron - array(nelec, 3), e-n vectors - array(natom, nelec, 3)
-    """
-
-    def impl(self, r_e, e):
-        e_vectors_1e = r_e[e] - r_e
-        n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.atom_positions, 1)
-        return e_vectors_1e, n_vectors
-
-    return impl
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, '_get_nuclear_repulsion')
 def wfn__get_nuclear_repulsion(self):
     """Value of n-n repulsion."""
@@ -147,6 +126,86 @@ def wfn_log_value(self, r_e):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'caches')
+def wfn_caches(self, r_e):
+    """The two caches a walker carries between single-electron moves: the slater state and the
+    powers of the e-n distances the jastrow reads. Built for a whole configuration, and from
+    there on updated one electron at a time.
+    :param r_e: electron positions - array(nelec, 3)
+    :return: slater state, powers of the e-n distances
+    """
+
+    def impl(self, r_e):
+        n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(self.atom_positions, 1)
+        state = self.slater.state(n_vectors)
+        if self.jastrow is not None:
+            n_powers = self.jastrow.en_powers(n_vectors)
+        else:
+            n_powers = np.zeros(shape=(1, 1, 1))
+        return state, n_powers
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'value_ratio_1e')
+def wfn_value_ratio_1e(self, state, n_powers, r_e, e, next_r_e_1e):
+    """Ratio of the wave function at the two ends of a single-electron move, out of the caches a
+    walker carries rather than out of the whole configuration: the slater state gives the ratio of
+    the determinants as one dot product per determinant, and the jastrow only the terms the moved
+    electron takes part in. Neither cache is touched, accept_1e commits the move into them.
+    Only meaningful without backflow, which spreads a single-electron move over the quasi-particle
+    coordinates of every electron, and without a geminal, which is not a slater determinant.
+    :param state: slater state of the current configuration
+    :param n_powers: powers of the e-n distances of the current configuration
+    :param r_e: electron positions - array(nelec, 3)
+    :param e: electron being moved
+    :param next_r_e_1e: its proposed position - array(3)
+    :return: ln|psi'/psi|, sign(psi'/psi), orbitals of e, Q of each determinant
+    """
+
+    def impl(self, state, n_powers, r_e, e, next_r_e_1e) -> tuple[float, float, np.ndarray, np.ndarray]:
+        # the determinant needs the nuclear distances of the moved electron and of nobody else,
+        # and that column is cheaper to build than to look up in an array of all of them
+        n_vector = next_r_e_1e - self.atom_positions
+        log_value, sign, orbitals, q = state.ratio_1e(n_vector, e)
+        log_ratio = log_value - state.log_value
+        if self.jastrow is not None:
+            # the nuclear distances of the electrons that stayed put are common to both ends of
+            # the proposal, so only the row of the moved electron is replaced between the two
+            # evaluations, and put back as the proposal may yet be rejected
+            row = n_powers[:, e].copy()
+            jastrow_value = self.jastrow.value_1e(r_e[e] - r_e, n_powers, e)
+            self.jastrow.update_en_powers_1e(n_powers, n_vector, e)
+            log_ratio += self.jastrow.value_1e(next_r_e_1e - r_e, n_powers, e) - jastrow_value
+            n_powers[:, e] = row
+        return log_ratio, sign * state.sign, orbitals, q
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'accept_1e')
+def wfn_accept_1e(self, state, n_powers, e, next_r_e_1e, orbitals, q):
+    """Move electron e into the caches of the walker.
+    :param state: slater state of the configuration the electron leaves
+    :param n_powers: powers of the e-n distances of that configuration
+    :param e: electron being moved
+    :param next_r_e_1e: its accepted position - array(3)
+    :param orbitals: its orbitals, as returned by value_ratio_1e
+    :param q: determinant ratios, as returned by value_ratio_1e
+    :return: whether the slater state was updated, a False asking the caller to rebuild it
+    """
+
+    def impl(self, state, n_powers, e, next_r_e_1e, orbitals, q) -> bool:
+        if self.jastrow is not None:
+            self.jastrow.update_en_powers_1e(n_powers, next_r_e_1e - self.atom_positions, e)
+        return state.accept_1e(e, orbitals, q)
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, 'drift_velocity')
 def wfn_drift_velocity(self, r_e):
     """Drift velocity
@@ -170,6 +229,42 @@ def wfn_drift_velocity(self, r_e):
             return s_g + self.jastrow.gradient(e_vectors, n_vectors)
         else:
             return s_g
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'drift_velocity_1e')
+def wfn_drift_velocity_1e(self, state, n_powers, r_e, e, r_e_1e, q):
+    """Drift velocity of a single electron, out of the caches a walker carries. An
+    electron-by-electron step only ever needs the drift of the electron it is about to move, at
+    the two ends of the proposal, and both come out of the caches without the drift of everybody
+    else. Backflow and geminals have no such shortcut and pay the whole vector to read one row.
+    :param state: slater state of the current configuration
+    :param n_powers: powers of the e-n distances of the current configuration
+    :param r_e: electron positions of that configuration - array(nelec, 3)
+    :param e: electron
+    :param r_e_1e: the position of that electron the drift is taken at - array(3)
+    :param q: determinant ratios there, as returned by value_ratio_1e, ones at r_e[e]
+    :return: array(3)
+    """
+
+    def impl(self, state, n_powers, r_e, e, r_e_1e, q) -> np.ndarray:
+        if self.backflow is None and self.geminal is None:
+            n_vector = r_e_1e - self.atom_positions
+            res = state.gradient_1e(n_vector, e, q)
+            if self.jastrow is not None:
+                # as in value_ratio_1e the row of the electron is replaced for the duration of
+                # the evaluation and put back, so that the caches are left as they were
+                row = n_powers[:, e].copy()
+                self.jastrow.update_en_powers_1e(n_powers, n_vector, e)
+                res = res + self.jastrow.gradient_1e(r_e_1e - r_e, n_vector, n_powers, e)
+                n_powers[:, e] = row
+        else:
+            next_r_e = r_e.copy()
+            next_r_e[e] = r_e_1e
+            res = self.drift_velocity(next_r_e).reshape(self.neu + self.ned, 3)[e].copy()
+        return res
 
     return impl
 
@@ -292,7 +387,10 @@ def wfn_kinetic_energy(self, r_e):
 
         if self.backflow is not None:
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
-            s_h, s_g = self.slater.hessian(b_v + n_vectors)
+            if self.geminal is not None:
+                s_h, s_g = self.geminal.hessian(b_v + n_vectors)
+            else:
+                s_h, s_g = self.slater.hessian(b_v + n_vectors)
             s_l = np.sum(b_g * (s_h @ b_g)) + s_g @ b_l
             s_g = s_g @ b_g
         elif self.geminal is not None:
@@ -344,7 +442,13 @@ def wfn_value_parameters_d1(self, r_e):
             res = np.concatenate((res, self.jastrow.value_parameters_d1(e_vectors, n_vectors)))
         if self.backflow is not None and self.opt_backflow:
             b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
-            res = np.concatenate((res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v)))
+            if self.geminal is not None:
+                s_g = self.geminal.gradient(b_v)
+            else:
+                s_g = self.slater.gradient(b_v)
+            res = np.concatenate((res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ s_g))
+        if self.geminal is not None and self.opt_geminal:
+            res = np.concatenate((res, self.geminal.value_parameters_d1(n_vectors)))
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
             if self.backflow is not None:
                 n_vectors = self.backflow.value(e_vectors, n_vectors) + n_vectors
@@ -367,7 +471,12 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
         e_vectors, n_vectors = self._relative_coordinates(r_e)
         if self.backflow is not None:
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
-            s_g = self.slater.gradient(b_v + n_vectors) @ b_g
+            if self.geminal is not None:
+                s_g = self.geminal.gradient(b_v + n_vectors) @ b_g
+            else:
+                s_g = self.slater.gradient(b_v + n_vectors) @ b_g
+        elif self.geminal is not None:
+            s_g = self.geminal.gradient(n_vectors)
         else:
             s_g = self.slater.gradient(n_vectors)
         if self.jastrow is not None:
@@ -383,7 +492,10 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
             b_l_d1, b_g_d1, b_v_d1 = self.backflow.laplacian_parameters_d1(e_vectors, n_vectors)
             bb = b_g @ b_g.T
             # tressian is only ever contracted with bb over its last two axes, so compute that vector directly
-            s_t_bb, s_h, s_g = self.slater.tressian_dot(b_v + n_vectors, bb)
+            if self.geminal is not None:
+                s_t_bb, s_h, s_g = self.geminal.tressian_dot(b_v + n_vectors, bb)
+            else:
+                s_t_bb, s_h, s_g = self.slater.tressian_dot(b_v + n_vectors, bb)
             s_g_d1 = b_v_d1 @ (s_h - np.outer(s_g, s_g))  # as hessian is d²ln(phi)/dxdy
             # Σ_bc (s_t - s_g ⊗ s_h)[a,b,c] · bb[b,c] = s_t_bb[a] - s_g[a]·Σ_bc s_h[b,c]·bb[b,c]
             s_h_d1_bb = b_v_d1 @ (s_t_bb - s_g * np.sum(s_h * bb))
@@ -395,6 +507,14 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
             if self.jastrow is not None:
                 bf_d1 += s_g_d1 @ (b_g @ j_g) + b_g_d1.reshape(parameters, -1) @ np.outer(s_g, j_g).ravel()
             res = np.concatenate((res, bf_d1 @ self.backflow.parameters_projector))
+        if self.geminal is not None and self.opt_geminal:
+            # geminal parameters part. The laplacian of the geminal is its own second derivative
+            # over its own value, so the square of its gradient is already inside it and the only
+            # cross term left in the local energy is the one with the jastrow
+            gem_d1 = self.geminal.laplacian_parameters_d1(n_vectors) / 2
+            if self.jastrow is not None:
+                gem_d1 += self.geminal.gradient_parameters_d1(n_vectors) @ j_g
+            res = np.concatenate((res, gem_d1))
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
             # determinants coefficients part
             if self.backflow is not None:
@@ -409,8 +529,10 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
                 s_g_d1 = self.slater.gradient_parameters_d1(n_vectors)
                 sl_d1 = self.slater.laplacian_parameters_d1(n_vectors) / 2
             if self.jastrow is not None:
+                # the laplacian of the determinant is taken in the d²Phi/Phi form, which carries
+                # the square of its own gradient already, so the [nabla Phi / Phi] half of the
+                # bracket of the log form cancels and the jastrow is the only cross term left
                 sl_d1 += s_g_d1 @ j_g
-            sl_d1 += s_g_d1 @ s_g
             res = np.concatenate((res, sl_d1))
         return -res
 
@@ -468,6 +590,8 @@ def wfn_get_parameters(self, all_parameters=False):
             res = np.concatenate((res, self.jastrow.get_parameters(all_parameters)))
         if self.backflow is not None and self.opt_backflow:
             res = np.concatenate((res, self.backflow.get_parameters(all_parameters)))
+        if self.geminal is not None and self.opt_geminal:
+            res = np.concatenate((res, self.geminal.get_parameters(all_parameters)))
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
             res = np.concatenate((res, self.slater.get_parameters(all_parameters)))
         return res
@@ -488,6 +612,8 @@ def wfn_set_parameters(self, parameters, all_parameters=False):
             parameters = self.jastrow.set_parameters(parameters, all_parameters=all_parameters)
         if self.backflow is not None and self.opt_backflow:
             parameters = self.backflow.set_parameters(parameters, all_parameters=all_parameters)
+        if self.geminal is not None and self.opt_geminal:
+            parameters = self.geminal.set_parameters(parameters, all_parameters=all_parameters)
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
             self.slater.set_parameters(parameters, all_parameters=all_parameters)
 
@@ -508,6 +634,7 @@ Wfn_t = Wfn_class_t(
         ('ppotential', nb.optional(PPotential_t)),
         ('opt_jastrow', nb.boolean),
         ('opt_backflow', nb.boolean),
+        ('opt_geminal', nb.boolean),
         ('opt_orbitals', nb.boolean),
         ('opt_det_coeff', nb.boolean),
     ]
@@ -541,6 +668,7 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
             self.ppotential = ppotential
             self.opt_jastrow = False
             self.opt_backflow = False
+            self.opt_geminal = False
             self.opt_orbitals = False
             self.opt_det_coeff = False
             return self
@@ -557,6 +685,11 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def slater(self):
         return self.slater
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def geminal(self):
+        return self.geminal
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
@@ -580,6 +713,11 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
+    def opt_geminal(self):
+        return self.opt_geminal
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def opt_orbitals(self):
         return self.opt_orbitals
 
@@ -597,6 +735,11 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def opt_backflow(self, value):
         self.opt_backflow = value
+
+    @opt_geminal.setter
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def opt_geminal(self, value):
+        self.opt_geminal = value
 
     @opt_orbitals.setter
     @nb.njit(nogil=True, parallel=False, cache=True)
@@ -622,6 +765,13 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
         return self.kinetic_energy(r_e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
+    def drift_velocity(self, r_e):
+        """Drift velocity.
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        return self.drift_velocity(r_e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def drift_kinetic_energy(self, r_e) -> float:
         """Kinetic energy in drift form, F@F/2. Has the same mean as kinetic_energy by parts,
         and a variance smaller by two orders of magnitude, being bounded where the laplacian
@@ -644,6 +794,34 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
         :param r_e: electron coordinates - array(nelec, 3)
         """
         return self.log_value(r_e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def caches(self, r_e):
+        """The caches a walker carries between single-electron moves.
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        return self.caches(r_e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def value_ratio_1e(self, state, n_powers, r_e, e, next_r_e_1e):
+        """Ratio of the wave function at the two ends of a single-electron move.
+        :param r_e: electron coordinates - array(nelec, 3)
+        """
+        return self.value_ratio_1e(state, n_powers, r_e, e, next_r_e_1e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def accept_1e(self, state, n_powers, e, next_r_e_1e, orbitals, q):
+        """Move electron e into the caches of the walker.
+        :param next_r_e_1e: its accepted position - array(3)
+        """
+        return self.accept_1e(state, n_powers, e, next_r_e_1e, orbitals, q)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def drift_velocity_1e(self, state, n_powers, r_e, e, r_e_1e, q):
+        """Drift velocity of a single electron.
+        :param r_e_1e: the position of that electron the drift is taken at - array(3)
+        """
+        return self.drift_velocity_1e(state, n_powers, r_e, e, r_e_1e, q)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     # @nb.vectorize('float64(float64[:, :])', cache=True)
@@ -675,6 +853,8 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
             self.jastrow.set_parameters_projector()
         if self.backflow is not None and self.opt_backflow:
             self.backflow.set_parameters_projector()
+        if self.geminal is not None and self.opt_geminal:
+            self.geminal.set_parameters_projector()
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
             self.slater.set_parameters_projector()
 
@@ -688,6 +868,8 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
             res = np.concatenate((res, self.jastrow.get_parameters_scale(all_parameters)))
         if self.backflow is not None and self.opt_backflow:
             res = np.concatenate((res, self.backflow.get_parameters_scale(all_parameters)))
+        if self.geminal is not None and self.opt_geminal:
+            res = np.concatenate((res, self.geminal.get_parameters_scale(all_parameters)))
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
             res = np.concatenate((res, self.slater.get_parameters_scale(all_parameters)))
         return res
@@ -714,6 +896,8 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
         if self.jastrow is not None and self.opt_jastrow:
             res.append(self.jastrow.value_parameters_d2(e_vectors, n_vectors))
         if self.backflow is not None and self.opt_backflow:
+            raise NotImplementedError
+        if self.geminal is not None and self.opt_geminal:
             raise NotImplementedError
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
             raise NotImplementedError

@@ -147,6 +147,16 @@ class DMC(structref.StructRefProxy):
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
+    def r_e_list(self):
+        return self.r_e_list
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def wfn_value_list(self):
+        return self.wfn_value_list
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def step_eff(self) -> float:
         return self.step_eff
 
@@ -249,6 +259,33 @@ def dmc_limiting_velocity(self, r_e):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(DMC_class_t, 'limiting_velocity_1e')
+def dmc_limiting_velocity_1e(self, state, n_powers, r_e, e, r_e_1e, q):
+    """The same limiting scheme applied to the drift of a single electron, which is all an
+    electron-by-electron proposal reads of it.
+    :param r_e_1e: the position of that electron the drift is taken at - array(3)
+    :return: velocity, drift velocity
+    """
+
+    def impl(self, state, n_powers, r_e, e, r_e_1e, q):
+        drift_velocity = self.wfn.drift_velocity_1e(state, n_powers, r_e, e, r_e_1e, q)
+        if self.nucleus_gf_mods and self.wfn.ppotential is None:
+            n_vector = r_e_1e - self.wfn.atom_positions
+            r = np.sqrt(np.sum(n_vector**2, axis=1))
+            # find the nearest nucleus
+            idx = np.argmin(r)
+            Z2_z2 = (self.wfn.atom_charges[idx] * r[idx]) ** 2
+            alimit = (1 + (drift_velocity @ n_vector[idx]) / np.linalg.norm(drift_velocity) / r[idx]) / 2 + Z2_z2 / 10 / (4 + Z2_z2)
+        else:
+            alimit = self.alimit
+        # UNR (34), (35) each electron is limited by its own velocity
+        a_v_t = (drift_velocity @ drift_velocity) * self.step_size * alimit
+        return drift_velocity * 2 / (1 + np.sqrt(1 + 2 * a_v_t)), drift_velocity
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(DMC_class_t, 'branching_energy')
 def dmc_branching_energy(self, energy, next_velocity, drift_velocity):
     """Branching energy."""
@@ -274,6 +311,10 @@ def dmc_ebe_drift_diffusion(self):
     """EBES drift-diffusion step."""
 
     def impl(self):
+        # the ratio of a single-electron move comes out of the caches of the walker, except with
+        # backflow, which spreads such a move over every electron within its cutoff, and with a
+        # geminal, which is not a slater determinant
+        cached = self.wfn.backflow is None and self.wfn.geminal is None
         for i in range(self.r_e_list.shape[0]):
             moved = False
             r_e = self.r_e_list[i]
@@ -282,6 +323,11 @@ def dmc_ebe_drift_diffusion(self):
             age_p = 1.1 ** max(0, self.age_list[i] - 20)
             ne = self.wfn.neu + self.wfn.ned
             drift_velocity = self.wfn.drift_velocity(r_e).reshape(ne, 3)
+            # rebuilt for every walker of every step, as walkers are born, die and travel between
+            # processes in between, and one build is what a single move of the sweep used to cost
+            state, n_powers = self.wfn.caches(r_e)
+            # the ratios of the determinants of a position the state itself holds
+            q_stay = np.ones(shape=state.log_det.size)
             if self.nucleus_gf_mods and self.wfn.ppotential is None:
                 # random step according to
                 # C. J. Umrigar, M. P. Nightingale, K. J. Runge. A diffusion Monte Carlo algorithm with very small time-step errors.
@@ -289,14 +335,20 @@ def dmc_ebe_drift_diffusion(self):
                 next_wfn_value = wfn_value
                 next_velocity = np.copy(velocity)
                 for e1 in range(ne):
+                    # the proposal reads the drift of the electron it moves and of no other, and
+                    # the caches give that one alone instead of the whole configuration
+                    if cached:
+                        velocity_1e, _ = self.limiting_velocity_1e(state, n_powers, next_r_e, e1, next_r_e[e1], q_stay)
+                    else:
+                        velocity_1e = next_velocity[e1]
                     n_vectors = np.expand_dims(next_r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
                     r = np.sqrt(np.sum(n_vectors**2, axis=2))
                     # find the closest nucleus for each electron
                     idx = np.argmin(r, axis=0)
                     z = r[idx[e1], e1]
                     e_z = n_vectors[idx[e1], e1] / z
-                    v_z = next_velocity[e1] @ e_z
-                    v_rho_vec = next_velocity[e1] - v_z * e_z
+                    v_z = velocity_1e @ e_z
+                    v_rho_vec = velocity_1e - v_z * e_z
                     z_stroke = max(z + v_z * self.step_size, 0)
                     drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[idx[e1]]
                     q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
@@ -309,20 +361,32 @@ def dmc_ebe_drift_diffusion(self):
                     diffuse_step_2 = np.sum((interim_r_e[e1] - drift_to) ** 2)
                     self.sum_proposed_diffusion += diffuse_step_2
                     # prevent crossing nodal surface
-                    interim_wfn_value = self.wfn.value(interim_r_e)
+                    if cached:
+                        log_ratio, ratio_sign, orbitals, q_det = self.wfn.value_ratio_1e(state, n_powers, next_r_e, e1, interim_r_e[e1])
+                        interim_wfn_value = next_wfn_value * ratio_sign * np.exp(log_ratio)
+                    else:
+                        interim_wfn_value = self.wfn.value(interim_r_e)
+                        orbitals, q_det = np.zeros(0), np.zeros(0)
                     if np.sign(wfn_value) == np.sign(interim_wfn_value):
                         gf_forth = (1 - q) * np.exp(-np.sum((interim_r_e[e1] - drift_to) ** 2) / 2 / self.step_size) / (
                             2 * np.pi * self.step_size
                         ) ** 1.5 + q * zeta**3 / np.pi * np.exp(-2 * zeta * np.linalg.norm(interim_r_e[e1] - self.wfn.atom_positions[idx[e1]]))
-                        interim_velocity, interim_drift_velocity = self.limiting_velocity(interim_r_e)
+                        if cached:
+                            # nothing but the moved electron is known here, the rest of the
+                            # velocity is what the end of the sweep is for
+                            interim_velocity = next_velocity
+                            interim_velocity_1e, interim_drift_1e = self.limiting_velocity_1e(state, n_powers, next_r_e, e1, interim_r_e[e1], q_det)
+                        else:
+                            interim_velocity, interim_drift_velocity = self.limiting_velocity(interim_r_e)
+                            interim_velocity_1e, interim_drift_1e = interim_velocity[e1], interim_drift_velocity[e1]
                         n_vectors = np.expand_dims(interim_r_e, 0) - np.expand_dims(self.wfn.atom_positions, 1)
                         r = np.sqrt(np.sum(n_vectors**2, axis=2))
                         # find the closest nucleus for each electron
                         idx = np.argmin(r, axis=0)
                         z = r[idx[e1], e1]
                         e_z = n_vectors[idx[e1], e1] / z
-                        v_z = interim_velocity[e1] @ e_z
-                        v_rho_vec = interim_velocity[e1] - v_z * e_z
+                        v_z = interim_velocity_1e @ e_z
+                        v_rho_vec = interim_velocity_1e - v_z * e_z
                         z_stroke = max(z + v_z * self.step_size, 0)
                         drift_to = z_stroke * (e_z + 2 * v_rho_vec * self.step_size / (z + z_stroke)) + self.wfn.atom_positions[idx[e1]]
                         q = erfc((z + v_z * self.step_size) / np.sqrt(2 * self.step_size)) / 2
@@ -335,10 +399,12 @@ def dmc_ebe_drift_diffusion(self):
                         self.sum_accepted_diffusion += p_i * diffuse_step_2
                         if p_i >= np.random.random():
                             moved = True
+                            if cached and not self.wfn.accept_1e(state, n_powers, e1, interim_r_e[e1], orbitals, q_det):
+                                state, n_powers = self.wfn.caches(interim_r_e)
                             next_r_e = interim_r_e
                             next_velocity = interim_velocity
                             next_wfn_value = interim_wfn_value
-                            drift_velocity[e1] = interim_drift_velocity[e1]
+                            drift_velocity[e1] = interim_drift_1e
                     else:
                         self.age_list[i] += 1
                         continue
@@ -349,28 +415,50 @@ def dmc_ebe_drift_diffusion(self):
                 next_velocity = np.copy(velocity)
                 diffuse_step = np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape(ne, 3)
                 for e1 in range(ne):
+                    if cached:
+                        velocity_1e, _ = self.limiting_velocity_1e(state, n_powers, next_r_e, e1, next_r_e[e1], q_stay)
+                    else:
+                        velocity_1e = next_velocity[e1]
                     interim_r_e = np.copy(next_r_e)
-                    interim_r_e[e1] += diffuse_step[e1] + self.step_size * next_velocity[e1]
+                    interim_r_e[e1] += diffuse_step[e1] + self.step_size * velocity_1e
                     diffuse_step_2 = np.sum(diffuse_step[e1] ** 2)
                     self.sum_proposed_diffusion += diffuse_step_2
-                    interim_wfn_value = self.wfn.value(interim_r_e)
+                    if cached:
+                        log_ratio, ratio_sign, orbitals, q_det = self.wfn.value_ratio_1e(state, n_powers, next_r_e, e1, interim_r_e[e1])
+                        interim_wfn_value = next_wfn_value * ratio_sign * np.exp(log_ratio)
+                    else:
+                        interim_wfn_value = self.wfn.value(interim_r_e)
+                        orbitals, q_det = np.zeros(0), np.zeros(0)
                     # prevent crossing nodal surface
                     if np.sign(wfn_value) == np.sign(interim_wfn_value):
-                        gf_forth = np.exp(-np.sum((interim_r_e[e1] - next_r_e[e1] - self.step_size * next_velocity[e1]) ** 2) / 2 / self.step_size)
-                        interim_velocity, interim_drift_velocity = self.limiting_velocity(interim_r_e)
-                        gf_back = np.exp(-np.sum((next_r_e[e1] - interim_r_e[e1] - self.step_size * interim_velocity[e1]) ** 2) / 2 / self.step_size)
+                        gf_forth = np.exp(-np.sum((interim_r_e[e1] - next_r_e[e1] - self.step_size * velocity_1e) ** 2) / 2 / self.step_size)
+                        if cached:
+                            # nothing but the moved electron is known here, the rest of the
+                            # velocity is what the end of the sweep is for
+                            interim_velocity = next_velocity
+                            interim_velocity_1e, interim_drift_1e = self.limiting_velocity_1e(state, n_powers, next_r_e, e1, interim_r_e[e1], q_det)
+                        else:
+                            interim_velocity, interim_drift_velocity = self.limiting_velocity(interim_r_e)
+                            interim_velocity_1e, interim_drift_1e = interim_velocity[e1], interim_drift_velocity[e1]
+                        gf_back = np.exp(-np.sum((next_r_e[e1] - interim_r_e[e1] - self.step_size * interim_velocity_1e) ** 2) / 2 / self.step_size)
                         p_i = min(1, age_p * (gf_back * interim_wfn_value**2) / (gf_forth * next_wfn_value**2))
                         # effective time step UNR (24)
                         self.sum_accepted_diffusion += p_i * diffuse_step_2
                         if p_i >= np.random.random():
                             moved = True
+                            if cached and not self.wfn.accept_1e(state, n_powers, e1, interim_r_e[e1], orbitals, q_det):
+                                state, n_powers = self.wfn.caches(interim_r_e)
                             next_r_e = interim_r_e
                             next_velocity = interim_velocity
                             next_wfn_value = interim_wfn_value
-                            drift_velocity[e1] = interim_drift_velocity[e1]
+                            drift_velocity[e1] = interim_drift_1e
                     else:
                         self.age_list[i] += 1
                         continue
+            if moved and cached:
+                # the branching energy is the only reader of the drift of a whole configuration,
+                # so the sweep pays it once at its end instead of after every accepted move
+                next_velocity, _ = self.limiting_velocity(next_r_e)
             next_energy = self.wfn.energy(next_r_e)
             next_branching_energy = self.branching_energy(next_energy, next_velocity, drift_velocity)
             # branching UNR (23)
