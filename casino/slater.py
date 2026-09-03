@@ -184,6 +184,64 @@ def slater_orbitals_1e(self, n_vector: np.ndarray, e: int):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Slater_class_t, 'orbitals_gradient_1e')
+def slater_orbitals_gradient_1e(self, n_vector: np.ndarray, e: int):
+    """Gradient of the orbitals of a single electron, i.e. the column of the gradient matrix
+    that the drift velocity of that electron is made of. As in orbitals_1e the basis is walked
+    over for that one electron only.
+    :param n_vector: electron-nuclei vectors of that electron - array(natom, 3)
+    :param e: electron
+    :return: array(orbitals, 3) of its own spin
+    """
+
+    def impl(self, n_vector: np.ndarray, e: int) -> np.ndarray:
+        orbital = np.zeros(shape=(3, self.nbasis_functions))
+        p = ao = 0
+        for atom in range(n_vector.shape[0]):
+            x, y, z = n_vector[atom]
+            r2 = n_vector[atom] @ n_vector[atom]
+            angular_1 = self.harmonics.get_value(x, y, z)
+            angular_2 = self.harmonics.get_gradient(x, y, z)
+            for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
+                l = self.shell_moments[nshell]
+                radial_1 = 0.0
+                radial_2 = 0.0
+                if self.orbital_types[nshell] == GAUSSIAN_TYPE:
+                    for primitive in range(self.primitives[nshell]):
+                        alpha = self.exponents[p + primitive]
+                        if alpha * r2 < log_10 * self.gautol:
+                            exponent = self.coefficients[p + primitive] * np.exp(-alpha * r2)
+                            radial_1 -= 2 * alpha * exponent
+                            radial_2 += exponent
+                elif self.orbital_types[nshell] == SLATER_TYPE:
+                    r = np.sqrt(r2)
+                    n = self.slater_orders[nshell]
+                    r_n = r**n
+                    for primitive in range(self.primitives[nshell]):
+                        minus_alpha_r = -self.exponents[p + primitive] * r
+                        exponent = r_n * self.coefficients[p + primitive] * np.exp(minus_alpha_r)
+                        radial_1 += (minus_alpha_r + n) / r2 * exponent
+                        radial_2 += exponent
+                p += self.primitives[nshell]
+                for m in range(2 * l + 1):
+                    orbital[0, ao + m] = x * angular_1[l * l + m] * radial_1 + angular_2[l * l + m, 0] * radial_2
+                    orbital[1, ao + m] = y * angular_1[l * l + m] * radial_1 + angular_2[l * l + m, 1] * radial_2
+                    orbital[2, ao + m] = z * angular_1[l * l + m] * radial_1 + angular_2[l * l + m, 2] * radial_2
+                ao += 2 * l + 1
+
+        ao_gradient = self.norm * orbital
+        if e < self.neu:
+            wfn = self.mo_up @ ao_gradient.T
+        else:
+            wfn = self.mo_down @ ao_gradient.T
+        if self.cusp is not None:
+            wfn = wfn + self.cusp.gradient_1e(n_vector, e)
+        return wfn
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'gradient_matrix')
 def slater_gradient_matrix(self, n_vectors: np.ndarray):
     """Value and gradient matrices in one pass over the basis.
@@ -664,6 +722,39 @@ def slater_state_ratio_1e(self, n_vector: np.ndarray, e: int):
                 q[i] = self.inv_d[i, e - self.slater.neu] @ orbitals[self.slater.permutation_down[i]]
         log_value, sign = log_sum_exp(self.log_det + np.log(np.abs(q)), self.sign_det * np.sign(q))
         return log_value, sign, orbitals, q
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(SlaterState_class_t, 'gradient_1e')
+def slater_state_gradient_1e(self, n_vector: np.ndarray, e: int, q: np.ndarray):
+    """Gradient ∇φ/φ of a single electron, out of the state rather than out of the gradient
+    matrix and the inverses of a whole configuration. Only the row of the inverse that the
+    electron owns takes part in its own trace, and replacing a column divides that row by Q,
+    so the row of the moved configuration is the row of the current one over Q and the state
+    needs no update. That Q cancels against the one the weight of the determinant gains, and
+    the move is left to be known only through the normalization of the weights.
+    :param n_vector: electron-nuclei vectors of the position the gradient is taken at
+    :param e: electron
+    :param q: ratios of the determinants there, as returned by ratio_1e, ones at the position
+        the state itself holds
+    :return: array(3)
+    """
+
+    def impl(self, n_vector: np.ndarray, e: int, q: np.ndarray) -> np.ndarray:
+        gradient = self.slater.orbitals_gradient_1e(n_vector, e)
+        log_value, sign = log_sum_exp(self.log_det + np.log(np.abs(q)), self.sign_det * np.sign(q))
+        res = np.zeros(shape=3)
+        if e < self.slater.neu:
+            for i in range(self.log_det.size):
+                c = self.sign_det[i] * np.exp(self.log_det[i] - log_value) / sign
+                res += c * (self.inv_u[i, e] @ gradient[self.slater.permutation_up[i]])
+        else:
+            for i in range(self.log_det.size):
+                c = self.sign_det[i] * np.exp(self.log_det[i] - log_value) / sign
+                res += c * (self.inv_d[i, e - self.slater.neu] @ gradient[self.slater.permutation_down[i]])
+        return res
 
     return impl
 
@@ -1451,6 +1542,10 @@ class SlaterState(structref.StructRefProxy):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def ratio_1e(self, n_vector, e):
         return self.ratio_1e(n_vector, e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def gradient_1e(self, n_vector, e, q):
+        return self.gradient_1e(n_vector, e, q)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def accept_1e(self, e, orbitals, q):

@@ -1,6 +1,25 @@
 v 0.4.0 (in progress)
 ---------------------
 * Added
+    * The caches of an electron-by-electron walker - the slater state and the powers of the e-n
+      distances - now live between the moves of a sweep instead of being rebuilt by every one of
+      them: wfn.caches builds both, wfn.value_ratio_1e takes a ratio out of them without touching
+      them and wfn.accept_1e commits an accepted move into them. VMC keeps them for the whole
+      walk, DMC rebuilds them per walker per step, which costs what a single move of the sweep
+      used to. EBES DMC no longer evaluates the whole wave function for every electron it moves:
+      of the two evaluations a move cost, the value is now a determinant ratio and only the drift
+      velocity is left. Not for backflow, which spreads a single-electron move over every
+      electron within its cutoff, nor for a geminal, which is not a slater determinant
+    * The drift velocity an electron-by-electron DMC move reads is now the drift of the one
+      electron it moves, not of the whole configuration: wfn.drift_velocity_1e takes it out of
+      the same caches. The row of the inverse matrix the moved electron owns is the only one its
+      own trace needs, and replacing a column divides that row by Q, so the far end of a proposal
+      is read out of the state the near end left, without an update and without a Q anywhere -
+      it cancels against the weight the determinant gains. Slater and cusp gained a
+      single-electron pass over the basis for the orbital gradients and the jastrow the gradient
+      of the terms one electron takes part in. A sweep is left with two evaluations of the whole
+      drift, one at each end, where it used to pay one per electron on top of one per accepted
+      move, and what stays quadratic in the electron count is the local energy at the end of it
     * Omega (e-e-e) three-electron backflow term: OMEGA TERM block reader/writer,
       analytical value/gradient/laplacian and their parameter derivatives,
       no-cusp and particle-symmetry constraints, and varmin/emin support
@@ -26,6 +45,10 @@ v 0.4.0 (in progress)
       determinant's, so an all-electron gaussian geminal no longer carries the uncorrected
       nuclear cusp
 * Fixes
+    * VMC_METHOD 2 (DBDS) is refused by the input check. Nothing dispatches it, so a run that
+      asked for it silently produced the initial configuration repeated VMC_NSTEP times
+    * Under VMC_METHOD 4 the density of the asymmetric proposal leaked into the logarithm the
+      walker carries, which nothing read, but which is the wave function of the walk
     * OPT_JASTROW, OPT_BACKFLOW, OPT_DET_COEFF and OPT_ORBITALS only ever reached the wave function
       through an opt_plan block, so a vmc_opt run that set them as plain keywords and relied on
       OPT_CYCLES optimized nothing at all. The keywords are now what every cycle an opt_plan block

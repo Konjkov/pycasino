@@ -16,7 +16,8 @@ SUPPORTED_VALUES = {
     'psi_s': ('slater', 'geminal'),
     'opt_method': ('varmin', 'emin'),
     'emin_method': ('newton', 'linear', 'reconf'),
-    'vmc_method': (1, 2, 3, 4),
+    # casino withdrew its method 2, 4 is the position dependent time step of pycasino
+    'vmc_method': (1, 3, 4),
     'opt_dtvmc': (0, 1, 2),
     'dmc_method': (1, 2),
 }

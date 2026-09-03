@@ -296,6 +296,47 @@ def cusp_value_1e(self, n_vector: np.ndarray, e: int):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Cusp_class_t, 'gradient_1e')
+def cusp_gradient_1e(self, n_vector: np.ndarray, e: int):
+    """Cusp part of the gradient of the orbitals of a single electron, the column of the
+    gradient matrix a single-electron drift is made of.
+    :param n_vector: electron-nuclei vectors of that electron shape = (natom, 3)
+    :param e: electron
+    """
+
+    def impl(self, n_vector: np.ndarray, e: int) -> np.ndarray:
+        if e < self.neu:
+            first, orbitals = 0, self.orbitals_up
+        else:
+            first, orbitals = self.orbitals_up, self.orbitals_down
+        gradient = np.zeros(shape=(orbitals, 3))
+        for i in range(first, first + orbitals):
+            p = ao = 0
+            for atom in range(n_vector.shape[0]):
+                if not self.is_pseudoatom[atom]:
+                    r = np.sqrt(n_vector[atom] @ n_vector[atom])
+                    if r < self.rc[atom, i]:
+                        gradient[i - first] = self.diff_1(atom, i, r) * self.exp(atom, i, r) * n_vector[atom]
+
+                    s_part = 0.0
+                    for nshell in range(self.first_shells[atom] - 1, self.first_shells[atom + 1] - 1):
+                        l = self.shell_moments[nshell]
+                        if r < self.rc[atom, i] and self.shell_moments[nshell] == 0:
+                            for primitive in range(self.primitives[nshell]):
+                                # look for Slater.gradient for s-radial gaussian function
+                                alpha = self.exponents[p + primitive]
+                                exponent = self.coefficients[p + primitive] * np.exp(-alpha * r * r)
+                                s_part -= 2 * alpha * exponent * self.mo[i, ao]
+                        p += self.primitives[nshell]
+                        ao += 2 * l + 1
+                    # subtract uncusped s-part
+                    gradient[i - first] -= n_vector[atom] * s_part * self.norm
+        return gradient
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Cusp_class_t, 'gradient')
 def cusp_gradient(self, n_vectors: np.ndarray):
     """Cusp part of gradient
