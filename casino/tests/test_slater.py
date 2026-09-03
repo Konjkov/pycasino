@@ -37,7 +37,9 @@ class TestSlater(unittest.TestCase):
         assert self.wfn.slater.gradient(self.n_vectors) == pytest.approx(self.wfn.slater.numerical_gradient(self.n_vectors))
 
     def test_laplacian(self):
-        assert self.wfn.slater.laplacian(self.n_vectors) == pytest.approx(self.wfn.slater.numerical_laplacian(self.n_vectors))
+        laplacian, gradient = self.wfn.slater.laplacian(self.n_vectors)
+        assert laplacian == pytest.approx(self.wfn.slater.numerical_laplacian(self.n_vectors))
+        assert gradient == pytest.approx(self.wfn.slater.numerical_gradient(self.n_vectors))
 
     def test_hessian(self):
         assert self.wfn.slater.hessian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.numerical_hessian(self.n_vectors), rel=1e-5)
@@ -47,6 +49,13 @@ class TestSlater(unittest.TestCase):
 
     def test_tressian_v2(self):
         assert self.wfn.slater.tressian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.tressian_v2(self.n_vectors)[0])
+
+    def test_tressian_dot(self):
+        ne = self.config.input.neu + self.config.input.ned
+        a = np.random.uniform(-1, 1, (ne * 3, ne * 3))
+        bb = a + a.T
+        tress = self.wfn.slater.tressian(self.n_vectors)[0]
+        assert self.wfn.slater.tressian_dot(self.n_vectors, bb)[0] == pytest.approx(np.tensordot(tress, bb, axes=([1, 2], [0, 1])))
 
     def test_wfn_laplacian(self):
         assert self.wfn.kinetic_energy(self.r_e) == pytest.approx(-self.wfn.numerical_laplacian(self.r_e) / 2)

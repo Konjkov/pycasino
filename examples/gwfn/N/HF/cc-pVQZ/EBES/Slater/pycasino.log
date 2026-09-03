@@ -1,0 +1,167 @@
+
+ ------------------------------------------------------------------------------
+ ########::'##:::'##::'######:::::'###:::::'######::'####:'##::: ##::'#######::
+ ##.... ##:. ##:'##::'##... ##:::'## ##:::'##... ##:. ##:: ###:: ##:'##.... ##:
+ ##:::: ##::. ####::: ##:::..:::'##:. ##:: ##:::..::: ##:: ####: ##: ##:::: ##:
+ ########::::. ##:::: ##:::::::'##:::. ##:. ######::: ##:: ## ## ##: ##:::: ##:
+ ##.....:::::: ##:::: ##::::::: #########::..... ##:: ##:: ##. ####: ##:::: ##:
+ ##::::::::::: ##:::: ##::: ##: ##.... ##:'##::: ##:: ##:: ##:. ###: ##:::: ##:
+ ##::::::::::: ##::::. ######:: ##:::: ##:. ######::'####: ##::. ##:. #######::
+ .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
+
+                     Python Quantum Monte Carlo Package
+                        v 0.4.0 [Vladimir Konkov]
+
+    Main Author : Vladimir Konkov
+ ------------------------------------------------------------------------------
+ Started 2026/08/03 08:33:25
+
+ Python 3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]
+ Numba 0.63.1
+ Numpy 2.2.6
+ Scipy 1.13.1
+
+ Running in parallel using 4 MPI processes.
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  5
+ NED (num down spin electrons)            :  2
+ RUNTYPE (type of run)                    :  vmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  F
+ BACKFLOW (use backflow corrections)      :  F
+ USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  T
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ RELATIVISTIC                             :  F
+
+ VMC input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  1
+ DTVMC (VMC time step)                    :  0.02
+ OPT_DTVMC (VMC time-step optimization)   :  T
+ VMC_NSTEP (num VMC steps)                :  10000000
+ VMC_NCONFIG_WRITE (num configs to write) :  0
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  1
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ Gaussian cusp correction
+ ========================
+ Activated.
+
+ Verbose print out flagged (turn off with cusp_info : F)
+
+ UP SPIN
+
+ Orbital 1 at position of ion 1
+ Sign of orbital at nucleus                : positive
+ Cusp radius (au)                          :   0.067000000000
+ Value of uncorrected orbital at nucleus   :   6.622597081122
+ Value of s part of orbital at nucleus     :   6.622597081122
+ Optimum corrected s orbital at nucleus    :   6.689083327233
+ Maximum deviation from ideal local energy :   0.276272084224
+ Effective nuclear charge                  :   7.000000000000
+
+ Orbital 2 at position of ion 1
+ Sign of orbital at nucleus                : negative
+ Cusp radius (au)                          :   0.069500000000
+ Value of uncorrected orbital at nucleus   :  -1.524529097318
+ Value of s part of orbital at nucleus     :  -1.524529097318
+ Optimum corrected s orbital at nucleus    :  -1.540813839295
+ Maximum deviation from ideal local energy :   0.225583824685
+ Effective nuclear charge                  :   7.000000000000
+
+ Orbital 3 at position of ion 1
+ Orbital s component effectively zero at this nucleus.
+
+ Orbital 4 at position of ion 1
+ Orbital s component effectively zero at this nucleus.
+
+ Orbital 5 at position of ion 1
+ Orbital s component effectively zero at this nucleus.
+
+ DOWN SPIN
+
+ Orbital 1 at position of ion 1
+ Sign of orbital at nucleus                : positive
+ Cusp radius (au)                          :   0.067500000000
+ Value of uncorrected orbital at nucleus   :   6.651752062660
+ Value of s part of orbital at nucleus     :   6.651752062660
+ Optimum corrected s orbital at nucleus    :   6.716793793088
+ Maximum deviation from ideal local energy :   0.033180952534
+ Effective nuclear charge                  :   7.000000000000
+
+ Orbital 2 at position of ion 1
+ Sign of orbital at nucleus                : positive
+ Cusp radius (au)                          :   0.068000000000
+ Value of uncorrected orbital at nucleus   :   1.384011384554
+ Value of s part of orbital at nucleus     :   1.384011384554
+ Optimum corrected s orbital at nucleus    :   1.397505677909
+ Maximum deviation from ideal local energy :   0.275274820581
+ Effective nuclear charge                  :   7.000000000000
+
+ Maximum deviation from ideal (averaged over orbitals) :   0.202577920506.
+
+ ====================================
+ PERFORMING A SINGLE VMC CALCULATION.
+ ====================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Optimized step size: 0.55080
+ DTVMC: 0.10113
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+  Number of VMC steps           = 10000000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -54.392282591500
+  Standard error                        +/-           0.001174044084
+
+  Constant energy contributions      (au) =           0.000000000000
+
+  Variance of local energy           (au) =          13.783793741868
+  Standard error                        +/-           0.000000000000
+
+ Time taken in block    : : :       182.5722
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -54.392282591500 +/- 0.001174044084      No correction
+ -54.392282591500 +/- 0.004167400932      Correlation time method
+ -54.392282591500 +/- 0.006397513682      On-the-fly reblocking method
+
+ Sample variance of E_L (au^2/sim.cell) : 13.783793741868
+
+
+ =========================================================================
+
+ Total PyCasino real time : : :    195.3666

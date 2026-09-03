@@ -13,3 +13,6 @@ Tutorial
     tutorial/slater
     tutorial/jastrow
     tutorial/backflow
+    tutorial/pfaffian
+    tutorial/vmc
+    tutorial/dmc

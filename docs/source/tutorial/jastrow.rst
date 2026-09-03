@@ -3,13 +3,58 @@
 Jastrow
 =======
 
-Jastrow factor is the sum of homogeneous, isotropic electron–electron terms :math:`u(r_{ij})`, isotropic electron–nucleus terms
-:math:`\chi(r_{iI})` centered on the nuclei, isotropic electron–electron–nucleus terms :math:`f(r_{ij}, r_{iI}, r_{jI})`,
-also centered on the nuclei:
+The Slater--Jastrow trial wave function is written as
+
+.. math::
+
+    \Psi(\mathbf{R}) = e^{J(\mathbf{R})}\Psi_S(\mathbf{R})
+
+where :math:`\Psi_S` is the Slater part of the wave function and :math:`e^{J(\mathbf{R})}` is the Jastrow correlation factor.
+The Jastrow factor is chosen to be everywhere positive and symmetric with respect to the exchange of identical particles,
+so it keeps the symmetry and the nodal surface of :math:`\Psi_S` unchanged while introducing dynamical correlation into
+the wave function. It is also used to enforce the Kato cusp conditions, which determine the behavior of the wave function
+when two charged particles approach one another; satisfying them removes divergences in the local energy at particle
+coalescence points and strongly reduces the statistical fluctuations of the energy. A good Jastrow factor typically allows
+one to recover 80--90% or more of the correlation energy in VMC [1]_ [2]_.
+
+The Jastrow factor implemented here follows the Drummond--Towler--Needs (DTN) form [1]_: it is the sum of homogeneous,
+isotropic electron–electron terms :math:`u(r_{ij})`, isotropic electron–nucleus terms :math:`\chi(r_{iI})` centered on
+the nuclei, and isotropic electron–electron–nucleus terms :math:`f(r_{ij}, r_{iI}, r_{jI})`, also centered on the nuclei:
 
 .. math::
 
     J = \sum_{i>j}^{N_e} u(r_{ij}) + \sum_{I=1}^{N_I}\sum_{i=1}^{N_e} \chi(r_{iI}) + \sum_{I=1}^{N_I}\sum_{i>j}^{N_e} f(r_{ij}, r_{iI}, r_{jI})
+
+Each term is a power expansion in the interparticle distances, cut off at a finite optimizable length. All the expansion
+coefficients enter the Jastrow factor linearly, which greatly simplifies the optimization; the only nonlinear parameters
+are the cutoff lengths. The parameters may depend on the spins of the electrons involved: separate sets of coefficients
+can be used for parallel spin-up, parallel spin-down and antiparallel electron pairs, and for spin-up and spin-down
+electrons in the electron–nucleus terms.
+
+The three-body :math:`f` term deserves a historical remark: explicit triplet correlations of this kind were first used in
+quantum Monte Carlo by Schmidt, Kalos, Lee, and Chester for liquid :math:`{}^4\mathrm{He}` [3]_, where they were shown to
+account for most of the difference between pair-product Jastrow and exact results.
+
+Cusp conditions
+---------------
+
+The Coulomb potential diverges when two charged particles coalesce, so the kinetic energy must diverge with the opposite
+sign to keep the local energy finite. This is achieved by demanding that the wave function obeys the Kato cusp
+conditions. For the spherical average :math:`\hat\Psi` of the wave function about the coalescence point,
+
+.. math::
+
+    \left(\frac{\partial\hat\Psi}{\partial r_{ij}}\right)_{r_{ij}=0} = \Gamma_{ij}\hat\Psi_{r_{ij}=0}
+
+where :math:`\Gamma_{ij} = 1/2` for antiparallel-spin electrons, :math:`\Gamma_{ij} = 1/4` for parallel-spin electrons
+(in that case the condition applies to the :math:`r_{ij}Y_{1m}` component of :math:`\Psi`), and
+:math:`\Gamma_{iI} = -Z_I` for an electron approaching a nucleus of charge :math:`Z_I`.
+
+It is common practice to impose the electron–nucleus cusp conditions on the Slater part of the wave function (or use a
+non-divergent pseudopotential) and the electron–electron cusp conditions on the Jastrow factor, since typical forms of
+:math:`\Psi_S` depend explicitly on the electron–nucleus distances but not on the electron–electron ones. Note that even
+when the cusp conditions are satisfied, the local energy retains a point discontinuity at coalescence points because the
+:math:`\mathcal{O}(r_{ij}^0)` term depends on the direction of approach [1]_; this is harmless in practice.
 
 Jastrow part of wavefunction is represented by the :class:`casino.Jastrow` class.
 
@@ -92,23 +137,32 @@ Jastrow class has a following methods:
 u-term
 ------
 
-:math:`u(r_{ij})` term consists of a complete power expansion in electron-electron distances :math:`r_{ij}`:
+:math:`u(r_{ij})` term consists of a complete power expansion in electron-electron distances :math:`r_{ij}`
+up to order :math:`r_{ij}^{C+N_u}`:
 
 .. math::
 
     u(r_{ij}) = (r_{ij} - L_u)^C\Theta(L_u - r_{ij})\sum_{l=0}^{N_u}\alpha_lr^l_{ij}
 
-where :math:`\Theta` is the Heaviside function. This term goes to zero at the cutoff length :math:`L_u` with :math:`C - 1` continuous derivatives at.
-In this expression C determines the behavior at the cutoff length. If :math:`C = 2`, the gradient of this term is continuous but the second derivative
-and hence the local energy is discontinuous, and if :math:`C = 3` then both the gradient of this term and the local energy are continuous.
-Electron-electron Kato cusp conditions at :math:`r_{ij} = 0` satisfied by constraint:
+where :math:`\Theta` is the Heaviside function. This term goes to zero at the cutoff length :math:`L_u` with
+:math:`C - 1` continuous derivatives. The truncation order :math:`C` determines the behavior of the local energy at the
+cutoff length: if :math:`C = 2`, the gradient of this term is continuous but the second derivative and hence the local
+energy is discontinuous, and if :math:`C = 3` then both the gradient of this term and the local energy are continuous.
+The price paid for a smoother local energy at :math:`C = 3` is a reduction in variational freedom; in practice
+:math:`C = 3` is used for all-electron atoms while :math:`C = 2` often gives slightly lower energies [1]_.
+The electron-electron Kato cusp condition at :math:`r_{ij} = 0` is satisfied by the constraint:
 
 .. math::
 
     \alpha_1 = \left[\frac{\Gamma_{ij}}{(-L_u)^C} + \frac{\alpha_0C}{L_u}\right]
 
-where :math:`\Gamma_{ij} = 1/2` if electrons :math:`i` and :math:`j` have opposite spins and :math:`\Gamma_{ij} = 1/4` if :math:`i` and :math:`j` have
-the same spin.
+where :math:`\Gamma_{ij} = 1/2` if electrons :math:`i` and :math:`j` have opposite spins and :math:`\Gamma_{ij} = 1/4`
+if :math:`i` and :math:`j` have the same spin. If the same :math:`u` function is used for all pairs of electrons then
+only the antiparallel-spin cusp condition can be satisfied; using different functions for parallel and antiparallel
+pairs allows both cusp conditions to hold. Since electrons of the same spin rarely come close to each other (their
+coalescence is suppressed by the Pauli principle), the error introduced by violating the parallel-spin cusp condition
+is small.
+
 For certain electron coordinates, :math:`u` term can be obtained with :py:meth:`casino.Jastrow.u_term` method::
 
     jastrow.u_term(e_powers)
@@ -131,7 +185,9 @@ chi-term
 
     \chi(r_{iI}) = (r_{iI} - L_{\chi I})^C\Theta(L_{\chi I} - r_{iI})\sum_{m=0}^{N_\chi}\beta_mr^m_{iI}
 
-where :math:`\Theta` is the Heaviside function. This term goes to zero at the cutoff length :math:`L_{\chi I}`.
+where :math:`\Theta` is the Heaviside function. This term goes to zero at the cutoff length :math:`L_{\chi I}` with
+:math:`C - 1` continuous derivatives. Separate sets of coefficients :math:`\beta_{mI}` are used for each inequivalent
+nucleus; for equivalent ions :math:`I` and :math:`J` it may be assumed that :math:`\beta_{mI} = \beta_{mJ}`.
 The term involving the ionic charge :math:`Z_I` enforces the electron–nucleus Kato cusp condition:
 
 .. math::
@@ -140,7 +196,9 @@ The term involving the ionic charge :math:`Z_I` enforces the electron–nucleus 
 
 if the Slater part of the wave function satisfies the electron–nucleus cusp condition, or if a non-divergent
 pseudopotential is used, then the Jastrow factor is required to be cuspless at the nuclei, i.e it should satisfy
-the above equation with :math:`Z_I = 0`
+the above equation with :math:`Z_I = 0`. It is clearly preferable to use orbitals that satisfy the electron–nucleus
+cusp condition rather than to enforce it through :math:`\chi`: the latter requires a very large number of
+:math:`\chi` parameters and still gives significantly poorer variational energies [1]_.
 
 For certain electron coordinates, :math:`\chi` term can be obtained with :py:meth:`casino.Jastrow.chi_term` method::
 
@@ -166,21 +224,44 @@ that is cuspless at the coalescence point and goes smoothly to zero when either 
     f(r_{ij}, r_{iI}, r_{jI}) = (r_{iI} - L_{fI})^C(r_{jI} - L_{fI})^C \Theta(L_{fI} - r_{iI})\Theta(L_{fI} - r_{jI})
     \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}\gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
-To ensure electron–electron Kato cusp conditions folowing :math:`2N_{fI}^{eN} + 1` constraints is applied:
+The :math:`f` term describes inhomogeneous two-electron correlations that are spherically symmetric about nucleus
+:math:`I`. Its importance for all-electron atoms is considerable: for the Ne atom less than 60% of the correlation
+energy can be retrieved using only :math:`u` and :math:`\chi`, whereas more than 90% can be retrieved when :math:`f`
+terms are used as well [1]_.
+
+Various linear restrictions are placed on :math:`\gamma_{lmnI}`. For the Jastrow factor to be symmetric under electron
+exchanges it is required that :math:`\gamma_{lmnI} = \gamma_{mlnI} \ \forall I, l, m, n`. The condition that the
+:math:`f` term has no electron–electron cusp,
 
 .. math::
 
-    \sum_{l,m}^{l+m=k}\gamma_{lm1I} = 0
+    \left(\frac{\partial f}{\partial r_{ij}}\right)_{\substack{r_{ij}=0 \\ r_{iI}=r_{jI}}} = 0
 
-and to ensure electron–nucleus Kato cusp conditions folowing :math:`N_{fI}^{eN} + N_{fI}^{ee} + 1` constraints is applied:
+leads to the following :math:`2N_{fI}^{eN} + 1` constraints (:math:`\forall k \in \{0,\ldots,2N_{fI}^{eN}\}`):
 
 .. math::
 
-    \sum_{l,m}^{l+m=k'}(C\gamma_{0mnI} - L_{fI}\gamma_{1mnI}) = 0
+    \sum_{l,m \,:\, l+m=k}\gamma_{lm1I} = 0
 
-If desired, there are :math:`N_{fI}^{ee}` constraints imposed to prevent duplication of :math:`u` term :math:`(γ_{00nI} = 0 \ \forall n)`
-and there are :math:`N_{fI}^{eI}` constraints imposed to prevent duplication of :math:`\chi` term :math:`(γ_{l00I} = 0 \ \forall l)`
-also the Jastrow factor to be symmetric under electron exchanges it is required that :math:`\gamma_{lmnI} = \gamma_{mlnI} \ \forall I, m, l, n`.
+and the condition that it has no electron–nucleus cusp,
+
+.. math::
+
+    \left(\frac{\partial f}{\partial r_{iI}}\right)_{\substack{r_{iI}=0 \\ r_{ij}=r_{jI}}} = 0
+
+leads to the following :math:`N_{fI}^{eN} + N_{fI}^{ee} + 1` constraints (:math:`\forall k' \in \{0,\ldots,N_{fI}^{eN} + N_{fI}^{ee}\}`):
+
+.. math::
+
+    \sum_{m,n \,:\, m+n=k'}(C\gamma_{0mnI} - L_{fI}\gamma_{1mnI}) = 0
+
+If desired, :math:`N_{fI}^{ee} + 1` constraints :math:`(\gamma_{00nI} = 0 \ \forall n)` may be imposed to prevent
+duplication of the :math:`u` term and :math:`N_{fI}^{eN} + 1` constraints :math:`(\gamma_{l00I} = 0 \ \forall l)` to
+prevent duplication of the :math:`\chi` term. Note, however, that the terms of :math:`f` with :math:`l = m = 0` do not
+exactly duplicate :math:`u`: they are electron–electron terms local to ion :math:`I`, and this extra variational
+freedom may be used to describe correlations on two different length scales. Since all constraints are linear in
+:math:`\gamma_{lmnI}`, they are imposed by Gaussian elimination: a subset of the parameters is expressed through the
+remaining independent ones, which are optimized directly [1]_.
 
 For certain electron coordinates, :math:`f` term can be obtained with :py:meth:`casino.Jastrow.f_term` method::
 
@@ -205,7 +286,7 @@ Considering that gradient of spherically symmetric function (in 3-D space) is:
 
     \nabla f(r) =  f'(r) \mathbf{\hat r}
 
-There is only two non-zero terms of :math:`u(r_{ij})` gradient, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
+There are only two non-zero terms of :math:`u(r_{ij})` gradient, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
 
 .. math::
 
@@ -274,7 +355,7 @@ Considering that gradient of spherically symmetric function (in 3-D space) is:
 
     \nabla f(r) =  f'(r) \mathbf{\hat r}
 
-There is only two non-zero terms of :math:`f(r_{ij}, r_{iI}, r_{jI})` gradient, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
+There are only two non-zero terms of :math:`f(r_{ij}, r_{iI}, r_{jI})` gradient, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
 
 .. math::
 
@@ -337,11 +418,11 @@ Considering that Laplace operator of spherically symmetric function (in 3-D spac
 
     \Delta f(r) = f''(r) + \frac{2}{r} f'(r)
 
-There is only two non-zero terms of :math:`u(r_{ij})` laplacian, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
+There are only two non-zero terms of :math:`u(r_{ij})` laplacian, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
 
 .. math::
 
-    \Delta_{e_i} u(r_{ij}) = \Delta_{e_j} u(r_{ij}) = (r_{ij} - L_u)^C\Theta(L_u - r_{ij}) \sum_{l=0}^{N_u}\left(\frac{C(C-1)}{(r_{ij} - L_u)^2} + \frac{2C(l+1)}{r_{ij}(r_{ij} + L_u)} + \frac{l(l+1)}{r_{ij}^2}\right)\alpha_lr^l_{ij}
+    \Delta_{e_i} u(r_{ij}) = \Delta_{e_j} u(r_{ij}) = (r_{ij} - L_u)^C\Theta(L_u - r_{ij}) \sum_{l=0}^{N_u}\left(\frac{C(C-1)}{(r_{ij} - L_u)^2} + \frac{2C(l+1)}{r_{ij}(r_{ij} - L_u)} + \frac{l(l+1)}{r_{ij}^2}\right)\alpha_lr^l_{ij}
 
 For certain electron coordinates, :math:`u` term laplacian can be obtained with :py:meth:`casino.Jastrow.u_term_laplacian` method::
 
@@ -373,7 +454,7 @@ then :math:`\chi(r_{iI})` term laplacian:
 
 .. math::
 
-    \Delta_{e_i} \chi(r_{iI}) = (r_{iI} - L_{\chi I})^C\Theta(L_{\chi I} - r_{iI}) \sum_{l=0}^{N_\chi}\left(\frac{C(C-1)}{(r_{iI} - L_{\chi I})^2} + \frac{2C(m+1)}{r_{iI}(r_{iI} - L_{\chi I})} + \frac{m(m+1)}{r_{iI}^2}\right)\beta_mr^m_{iI}
+    \Delta_{e_i} \chi(r_{iI}) = (r_{iI} - L_{\chi I})^C\Theta(L_{\chi I} - r_{iI}) \sum_{m=0}^{N_\chi}\left(\frac{C(C-1)}{(r_{iI} - L_{\chi I})^2} + \frac{2C(m+1)}{r_{iI}(r_{iI} - L_{\chi I})} + \frac{m(m+1)}{r_{iI}^2}\right)\beta_mr^m_{iI}
 
 For certain electron coordinates, :math:`\chi` term laplacian can be obtained with :py:meth:`casino.Jastrow.chi_term_laplacian` method::
 
@@ -405,9 +486,9 @@ and :math:`f` term is a product of two spherically symmetric functions :math:`g(
 
 .. math::
 
-    \Delta_{e_i}(g(r_{ij})h(r_{iI})) = g(r_{ij})\Delta_{e_i}h(r_{iI}) + 2\nabla_{e_i}g(r_{ij})\nabla_{e_i}h(r_{iI}) + g(r_{ij})\Delta_{e_i}h(r_{iI})
+    \Delta_{e_i}(g(r_{ij})h(r_{iI})) = h(r_{iI})\Delta_{e_i}g(r_{ij}) + 2\nabla_{e_i}g(r_{ij})\cdot\nabla_{e_i}h(r_{iI}) + g(r_{ij})\Delta_{e_i}h(r_{iI})
 
-There is only two non-zero terms of :math:`f(r_{ij}, r_{iI}, r_{jI})` laplacian, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
+There are only two non-zero terms of :math:`f(r_{ij}, r_{iI}, r_{jI})` laplacian, i.e. by :math:`i`-th or :math:`j`-th electron coordinates:
 
 .. math::
 
@@ -418,7 +499,7 @@ There is only two non-zero terms of :math:`f(r_{ij}, r_{iI}, r_{jI})` laplacian,
 .. math::
 
     l_{jI} = \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
-    \left(\frac{C(C-1)}{(r_{jI} - L_{fI})^2} + \frac{2C(l+1)}{r_{jI}(r_{jI} - L_{fI})} + \frac{l(l+1)}{r_{jI}^2}\right)
+    \left(\frac{C(C-1)}{(r_{jI} - L_{fI})^2} + \frac{2C(m+1)}{r_{jI}(r_{jI} - L_{fI})} + \frac{m(m+1)}{r_{jI}^2}\right)
     \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
@@ -431,7 +512,7 @@ There is only two non-zero terms of :math:`f(r_{ij}, r_{iI}, r_{jI})` laplacian,
 
     l_{dot,j} = \mathbf{\hat r}_{ij} \cdot \mathbf{\hat r}_{jI}
     \sum_{l=0}^{N_{fI}^{eN}}\sum_{m=0}^{N_{fI}^{eN}}\sum_{n=0}^{N_{fI}^{ee}}
-    \left(\frac{C}{(r_{jI} - L_{fI})} + \frac{l}{r_{jI}}\right) \frac{n}{r_{ij}} \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
+    \left(\frac{C}{(r_{jI} - L_{fI})} + \frac{m}{r_{jI}}\right) \frac{n}{r_{ij}} \gamma_{lmnI}r_{iI}^lr_{jI}^mr_{ij}^n
 
 .. math::
 
@@ -478,3 +559,18 @@ this is equivalent to (continues :ref:`from <intermediate data>`)::
     l_2 = np.choose(ee_spin_mask, poly_nn, mode='wrap') / r_ij ** 2
 
     np.sum(np.outer(cutoff[0], cutoff[0]) * np.nan_to_num(l_1 + 2 * l_dot + l_2))
+
+References
+----------
+
+.. [1] N. D. Drummond, M. D. Towler, and R. J. Needs,
+   *Jastrow correlation factor for atoms, molecules, and solids*,
+   Phys. Rev. B **70**, 235119 (2004).
+
+.. [2] P. López Ríos, P. Seth, N. D. Drummond, and R. J. Needs,
+   *Framework for constructing generic Jastrow correlation factors*,
+   Phys. Rev. E **86**, 036703 (2012).
+
+.. [3] K. E. Schmidt, M. A. Kalos, M. A. Lee, and G. V. Chester,
+   *Variational Monte Carlo Calculations of Liquid* :math:`{}^4He` *with Three-Body Correlations*,
+   Phys. Rev. Lett. **45**, 573 (1980).

@@ -5,7 +5,7 @@ import os
 import numba as nb
 import numpy as np
 
-from casino.backflow import construct_c_matrix
+from casino.backflow import construct_c_matrix, construct_omega_folded_matrix
 from casino.overload import rref
 
 labels_type = nb.int64[::1]
@@ -39,7 +39,7 @@ Expansion order
  Spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
    {eta_spin_dep}
  Cut-off radii ;      Optimizable (0=NO; 1=YES; 2=YES BUT NO SPIN-DEP)
-   {eta_cutoff:.16f}                {eta_cutoff_optimizable}
+   {eta_cutoffs}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
   {eta_parameters}"""
 
@@ -96,8 +96,24 @@ START SET {n_set}
  Cutoff (a.u.)     ;  Optimizable (0=NO; 1=YES)
    {phi_cutoff:.16f}                {phi_cutoff_optimizable}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
-  {phi_parameters}
+  {phi_parameters}'
  END SET {n_set}"""
+
+omega_term_template = """\
+ START OMEGA TERM
+ {omega_set}
+ END OMEGA TERM
+"""
+
+omega_set_template = """\
+Expansion order
+   {omega_order}
+ Spin dep
+   {omega_spin_dep}
+ Cut-off radius ;     Optimizable (0=NO; 1=YES)
+   {omega_cutoffs}
+ Parameter ;          Optimizable (0=NO; 1=YES)
+  {omega_parameters}"""
 
 ae_cutoff_template = """\
  START AE CUTOFFS
@@ -138,7 +154,9 @@ class Backflow:
     def read_ints(self):
         return list(map(int, self.f.readline().split()))
 
-    def __init__(self):
+    def __init__(self, neu=0, ned=0):
+        self.neu = neu
+        self.ned = ned
         self.title = 'no title given'
         self.trunc = 0
         self.eta_parameters = np.zeros((0, 0), dtype=float)  # uu, ud, dd order
@@ -149,6 +167,10 @@ class Backflow:
         self.phi_parameters_optimizable = nb.typed.List.empty_list(phi_parameters_optimizable_type)  # uu, ud, dd order
         self.theta_parameters = nb.typed.List.empty_list(theta_parameters_type)  # uu, ud, dd order
         self.theta_parameters_optimizable = nb.typed.List.empty_list(theta_parameters_optimizable_type)  # uu, ud, dd order
+        self.omega_parameters = np.zeros((0, 0, 0, 0), dtype=float)
+        self.omega_parameters_optimizable = np.zeros((0, 0, 0, 0), dtype=bool)
+        self.omega_spin_dep = 0
+        self.omega_cutoff = np.zeros(shape=0, dtype=[('value', float), ('optimizable', bool)])
         self.eta_cutoff = np.zeros(shape=0, dtype=[('value', float), ('optimizable', bool)])
         self.mu_cutoff = np.zeros(shape=0, dtype=[('value', float), ('optimizable', bool)])
         self.phi_cutoff = np.zeros(shape=0, dtype=[('value', float), ('optimizable', bool)])
@@ -167,7 +189,7 @@ class Backflow:
             print(f'{file_path} not found')
             return
         with open(file_path, 'r') as f:
-            eta_term = mu_term = phi_term = ae_term = False
+            eta_term = mu_term = phi_term = omega_term = ae_term = False
             self.f = f
             for line in f:
                 line = line.strip()
@@ -193,6 +215,11 @@ class Backflow:
                     self.fix_phi_parameters()
                     # self.check_phi_constrains()
                     phi_term = False
+                elif line.startswith('START OMEGA TERM'):
+                    omega_term = True
+                elif line.startswith('END OMEGA TERM'):
+                    self.fix_omega_parameters()
+                    omega_term = False
                 elif line.startswith('START AE CUTOFFS'):
                     ae_term = True
                 elif line.startswith('END AE CUTOFFS'):
@@ -318,6 +345,39 @@ class Backflow:
                         self.phi_irrotational[set_number] = phi_irrotational
                     elif line.startswith('END SET'):
                         pass
+                elif omega_term:
+                    if line.startswith('Expansion order'):
+                        omega_order = self.read_int()
+                    elif line.startswith('Spin dep'):
+                        self.omega_spin_dep = self.read_int()
+                    elif line.startswith('Cut-off radius'):
+                        omega_cutoff, omega_cutoff_optimizable = self.read_parameter()
+                        number_of_sets = 1 if self.omega_spin_dep == 0 else 4
+                        if omega_cutoff_optimizable == 2:
+                            self.omega_cutoff = np.zeros(shape=1, dtype=[('value', float), ('optimizable', bool)])
+                        else:
+                            self.omega_cutoff = np.zeros(shape=number_of_sets, dtype=[('value', float), ('optimizable', bool)])
+                        self.omega_cutoff[0] = omega_cutoff, omega_cutoff_optimizable
+                        for i in range(1, self.omega_cutoff.shape[0]):
+                            self.omega_cutoff[i] = self.read_parameter()
+                    elif line.startswith('Parameter'):
+                        number_of_sets = 1 if self.omega_spin_dep == 0 else 4
+                        shape = (number_of_sets, omega_order + 1, omega_order + 1, omega_order + 1)
+                        self.omega_parameters = np.zeros(shape, dtype=float)
+                        self.omega_parameters_optimizable = np.zeros(shape, dtype=bool)
+                        omega_parameters_independent = self.omega_parameters_independent(self.omega_parameters)
+                        try:
+                            for s in range(number_of_sets):
+                                for n in range(omega_order + 1):
+                                    for m in range(omega_order + 1):
+                                        for l in range(omega_order + 1):
+                                            if omega_parameters_independent[s, l, m, n]:
+                                                self.omega_parameters[s, l, m, n], self.omega_parameters_optimizable[s, l, m, n] = (
+                                                    self.read_parameter()
+                                                )
+                        except ValueError:
+                            omega_term = False
+                            self.omega_parameters_optimizable = omega_parameters_independent
                 elif ae_term:
                     if line.startswith('Nucleus'):
                         # Nucleus ; Set ; Cutoff length     ;  Optimizable (0=NO; 1=YES)
@@ -350,12 +410,17 @@ class Backflow:
                         eta_parameters_list.append(
                             f'{self.eta_parameters[i, j]: .16e}            {int(self.eta_parameters_optimizable[i, j])}       ! c_{j},{i + 1}'
                         )
+            eta_cutoff_list = []
+            if self.eta_cutoff.shape[0] < self.eta_parameters.shape[0]:
+                # one cutoff shared by every spin-dep is only self-consistent as "2=YES BUT NO SPIN-DEP"
+                eta_cutoff_list.append(f'{self.eta_cutoff[0]["value"]: .16e}           2')
+            else:
+                for eta_cutoff, eta_cutoff_optimizable in self.eta_cutoff:
+                    eta_cutoff_list.append(f'{eta_cutoff: .16e}           {int(eta_cutoff_optimizable)}')
             eta_set = eta_set_template.format(
                 eta_spin_dep=self.eta_parameters.shape[0] - 1,
                 eta_order=self.eta_parameters.shape[1] - 1,
-                # FIXME: Optimizable (0=NO; 1=YES; 2=YES BUT NO SPIN-DEP)
-                eta_cutoff=self.eta_cutoff[0]['value'],
-                eta_cutoff_optimizable=int(self.eta_cutoff[0]['optimizable']),
+                eta_cutoffs='\n   '.join(eta_cutoff_list),
                 eta_parameters='\n  '.join(eta_parameters_list),
             )
             eta_term = eta_term_template.format(eta_set=eta_set)
@@ -452,6 +517,33 @@ class Backflow:
         if phi_sets:
             phi_term = phi_term_template.format(n_phi_sets=n_phi_set + 1, phi_sets='\n '.join(phi_sets))
 
+        omega_term = ''
+        if self.omega_cutoff['value'].any():
+            omega_parameters_list = []
+            omega_parameters_independent = self.omega_parameters_independent(self.omega_parameters)
+            for s in range(self.omega_parameters.shape[0]):
+                for n in range(self.omega_parameters.shape[3]):
+                    for m in range(self.omega_parameters.shape[2]):
+                        for l in range(self.omega_parameters.shape[1]):
+                            if omega_parameters_independent[s, l, m, n]:
+                                omega_parameters_list.append(
+                                    f'{self.omega_parameters[s, l, m, n]: .16e}            {int(self.omega_parameters_optimizable[s, l, m, n])}       ! K_{l}{m}{n},{s + 1}'
+                                )
+            omega_cutoff_list = []
+            if self.omega_cutoff.shape[0] < self.omega_parameters.shape[0]:
+                # one cutoff shared by every spin-triplet, see "YES BUT NO SPIN-DEP"
+                omega_cutoff_list.append(f'{self.omega_cutoff[0]["value"]: .16e}           2       ! L_1')
+            else:
+                for i, (omega_cutoff, omega_cutoff_optimizable) in enumerate(self.omega_cutoff):
+                    omega_cutoff_list.append(f'{omega_cutoff: .16e}           {int(omega_cutoff_optimizable)}       ! L_{i + 1}')
+            omega_set = omega_set_template.format(
+                omega_spin_dep=self.omega_spin_dep,
+                omega_order=self.omega_parameters.shape[1] - 1,
+                omega_cutoffs='\n   '.join(omega_cutoff_list),
+                omega_parameters='\n  '.join(omega_parameters_list),
+            )
+            omega_term = omega_term_template.format(omega_set=omega_set)
+
         ae_cutoffs = ''
         ae_cutoff_list = []
         for i, (ae_cutoff, ae_cutoff_optimizable) in enumerate(zip(self.ae_cutoff, self.ae_cutoff_optimizable)):
@@ -462,7 +554,7 @@ class Backflow:
         backflow = backflow_template.format(
             title=self.title,
             trunc=self.trunc,
-            terms=eta_term + mu_term + phi_term + ae_cutoffs,
+            terms=eta_term + mu_term + phi_term + omega_term + ae_cutoffs,
         )
         return backflow
 
@@ -484,6 +576,29 @@ class Backflow:
             mask[:, 0:2] = False
         else:
             mask[:, 1] = False
+        return mask
+
+    def striplet_exists(self, spin_dep, number_of_sets):
+        """Whether a spin-triplet occurs in the system, see assign_spin_deps in monte_carlo.f90.
+        The doubled spin is always the lower index, so the (d,d,u) triplet is never registered.
+        """
+        if number_of_sets == 1:
+            return self.neu > 2 or self.ned > 2 or (self.neu > 1 and self.ned > 0)
+        return (self.neu > 2, self.neu > 1 and self.ned > 0, False, self.ned > 2)[spin_dep]
+
+    def omega_parameters_independent(self, parameters):
+        """Mask dependent parameters in omega-term."""
+        mask = np.zeros(shape=parameters.shape, dtype=bool)
+        for spin_dep in range(parameters.shape[0]):
+            if not self.striplet_exists(spin_dep, parameters.shape[0]):
+                continue
+            omega_cutoff = self.omega_cutoff['value'][spin_dep % self.omega_cutoff.shape[0]]
+            c, _, rep_indices = construct_omega_folded_matrix(self.trunc, parameters, omega_cutoff, spin_dep)
+            _, pivot_positions = rref(c)
+
+            for q in range(rep_indices.shape[0]):
+                if q not in pivot_positions:
+                    mask[spin_dep, rep_indices[q, 0], rep_indices[q, 1], rep_indices[q, 2]] = True
         return mask
 
     def phi_theta_parameters_independent(self, phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational):
@@ -580,6 +695,35 @@ class Backflow:
                                 theta_parameters[spin_dep, m, l, k] = x[p]
                                 p += 1
                             temp += 1
+
+    def fix_omega_parameters(self):
+        """Fix omega-term parameters"""
+        if not self.omega_parameters.any():
+            return
+        for spin_dep in range(self.omega_parameters.shape[0]):
+            if not self.striplet_exists(spin_dep, self.omega_parameters.shape[0]):
+                continue
+            omega_cutoff = self.omega_cutoff['value'][spin_dep % self.omega_cutoff.shape[0]]
+            c, rep, rep_indices = construct_omega_folded_matrix(self.trunc, self.omega_parameters, omega_cutoff, spin_dep)
+            c, pivot_positions = rref(c)
+
+            x = np.zeros(shape=(rep_indices.shape[0],))
+            for q in range(rep_indices.shape[0]):
+                x[q] = self.omega_parameters[spin_dep, rep_indices[q, 0], rep_indices[q, 1], rep_indices[q, 2]]
+            for p in pivot_positions:
+                x[p] = 0
+            for temp in range(pivot_positions.size):
+                p = pivot_positions[temp]
+                res = 0.0
+                for q in range(c.shape[1]):
+                    if q != p:
+                        res -= c[temp, q] * x[q]
+                x[p] = res
+
+            for n in range(self.omega_parameters.shape[3]):
+                for m in range(self.omega_parameters.shape[2]):
+                    for l in range(self.omega_parameters.shape[1]):
+                        self.omega_parameters[spin_dep, l, m, n] = x[rep[l, m, n]]
 
     def check_phi_constrains(self):
         """Check phi-term constrains"""

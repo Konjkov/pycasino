@@ -1,3 +1,345 @@
+v 0.4.0 (in progress)
+---------------------
+* Added
+    * The caches of an electron-by-electron walker - the slater state and the powers of the e-n
+      distances - now live between the moves of a sweep instead of being rebuilt by every one of
+      them: wfn.caches builds both, wfn.value_ratio_1e takes a ratio out of them without touching
+      them and wfn.accept_1e commits an accepted move into them. VMC keeps them for the whole
+      walk, DMC rebuilds them per walker per step, which costs what a single move of the sweep
+      used to. EBES DMC no longer evaluates the whole wave function for every electron it moves:
+      of the two evaluations a move cost, the value is now a determinant ratio and only the drift
+      velocity is left. Not for backflow, which spreads a single-electron move over every
+      electron within its cutoff, nor for a geminal, which is not a slater determinant
+    * The drift velocity an electron-by-electron DMC move reads is now the drift of the one
+      electron it moves, not of the whole configuration: wfn.drift_velocity_1e takes it out of
+      the same caches. The row of the inverse matrix the moved electron owns is the only one its
+      own trace needs, and replacing a column divides that row by Q, so the far end of a proposal
+      is read out of the state the near end left, without an update and without a Q anywhere -
+      it cancels against the weight the determinant gains. Slater and cusp gained a
+      single-electron pass over the basis for the orbital gradients and the jastrow the gradient
+      of the terms one electron takes part in. A sweep is left with two evaluations of the whole
+      drift, one at each end, where it used to pay one per electron on top of one per accepted
+      move, and what stays quadratic in the electron count is the local energy at the end of it
+    * Omega (e-e-e) three-electron backflow term: OMEGA TERM block reader/writer,
+      analytical value/gradient/laplacian and their parameter derivatives,
+      no-cusp and particle-symmetry constraints, and varmin/emin support
+      (parameter mask, scale, constraint matrix, projector, parameter derivatives).
+      Note that PyCasino constrains the K_lmn to be symmetric under index exchange,
+      while CASINO up to at least v2.13.1313 imposes the opposite sign and so makes
+      them antisymmetric; omega parameters are not interchangeable between the codes
+      until that is resolved.
+    * AGP/geminal wave function (``psi_s : geminal``): casino/geminal.py, GEMINAL block
+      reader for parameters.casl, and the pfaffian design doc (Milestone 1); the
+      Hartree-Fock default geminal reproduces the Slater determinant
+    * OPT_GEMINAL: the geminal parameters (the c coefficients, the upper triangle of every g
+      and the unpaired columns u) now take part in varmin and emin. The optimizability flags the
+      reader already parsed reach the wave function, the parameter derivatives are taken by
+      finite differences of the determinants over an orbital pool that is built once, and the
+      geminal block is written back to parameters.N.casl at the end of every cycle
+    * The Constraints section of the GEMINAL block is read. Every member of a tied group takes
+      the value and the optimizability of the one member that carries an explicit flag, and only
+      that reference is an independent parameter, the rest being restored from it after every
+      parameter update and left out of what is written back. Until now the section was skipped,
+      so any constrained casl was a different wave function in PyCasino than in Casino
+    * The geminal orbital pool is cusp corrected, over its own orbital range rather than the
+      determinant's, so an all-electron gaussian geminal no longer carries the uncorrected
+      nuclear cusp
+    * The derivatives of the geminal w.r.t its own parameters are analytic, where they were
+      finite differences of the determinants over a pool built once. A parameter of g or of u
+      changes the geminal matrix by a rank one term - a column of the up-spin orbital pool times
+      a row of the down-spin one, or times a unit row for an unpaired column - so tr(M^-1 • dM/dp)
+      is one element of a matrix product rather than a determinant of its own, and the product
+      with the derivative of a coordinate, which is rank one as well, is one element of another.
+      The sum over the geminals collapses into d(ln(psi))/dp · (what this geminal carries - what
+      the sum carries) + its weight · the derivative of what it carries, whose first half
+      vanishes identically for a single geminal. Where a rank one term does not appear - the
+      laplacian of the matrix is a sum over every electron - M^-1 • that sum is folded once per
+      geminal instead. This takes an emin or varmin cycle from 2·nparam determinant evaluations
+      per configuration to one inverse and a handful of matrix products, nparam being of the
+      order of half the square of the orbital pool
+    * OPT_GEMINAL with BACKFLOW : T. The derivatives w.r.t the geminal parameters are taken at the
+      quasi-particle coordinates and carried through the jacobian of the transformation, so the
+      laplacian of the geminal becomes its hessian contracted with that jacobian plus its gradient
+      against the laplacian of the transformation. The hessian w.r.t the parameters is contracted
+      with the jacobian as it is built, the (nparam, 3N, 3N) tensor never existing: differentiating
+      d²ln(det) by a parameter leaves five traces, of which the two carrying d²M/(da dp) are equal
+      under a symmetric contraction, and every factor of every one of them is of rank one
+    * Hessian and tressian of the geminal, so that psi_s : geminal with backflow : T is no longer
+      an input error: the local energy reads the hessian and the derivative of the local energy
+      w.r.t the backflow parameters reads the tressian, and both now come from the geminal rather
+      than from the determinant. An entry of the geminal matrix carries an up electron through
+      its row and a down electron through its column, so it has second and third derivatives
+      across two electrons at once, which a slater determinant has none of. What makes them
+      cheap is that M^-1 • dM is of rank one whatever the coordinate is - a column of the inverse
+      times a row of orbital gradients for an up electron, a column times a unit row for a down
+      one - so every trace of a product of such factors collapses into the one matrix
+      s[a, b] = row(a) • col(b). The gradient is its diagonal, the second trace is s[a,b]·s[b,a],
+      and the two triple products of the third derivative are equal under a symmetric bb and
+      contract into the diagonal of s • (s∘bb) • s. The second derivatives are rank one as well,
+      which leaves the tressian a loop over pairs rather than over triples
+* Fixes
+    * VMC_METHOD 2 (DBDS) is refused by the input check. Nothing dispatches it, so a run that
+      asked for it silently produced the initial configuration repeated VMC_NSTEP times
+    * Under VMC_METHOD 4 the density of the asymmetric proposal leaked into the logarithm the
+      walker carries, which nothing read, but which is the wave function of the walk
+    * OPT_JASTROW, OPT_BACKFLOW, OPT_DET_COEFF and OPT_ORBITALS only ever reached the wave function
+      through an opt_plan block, so a vmc_opt run that set them as plain keywords and relied on
+      OPT_CYCLES optimized nothing at all. The keywords are now what every cycle an opt_plan block
+      does not mention falls back to
+    * Under backflow the derivative of the local energy w.r.t. the determinant coefficients
+      contracted the laplacian of the transformation with the gradient the jacobian had already
+      been applied to (wfn.kinetic_energy_parameters_d1). One variable served two roles: the
+      laplacian of the transformation goes against the gradient over the quasi-particle
+      coordinates, exactly as kinetic_energy takes it, and only the cross term with the jastrow
+      wants the jacobian, the jastrow gradient being one over the electron coordinates. The
+      shapes agree either way, so nothing ever raised. Affected every emin/varmin run with
+      OPT_DET_COEFF and BACKFLOW : T, by 5% of the derivative on the four-determinant Be of
+      tests/inputs/MDET, which now carries a BACKFLOW block so that the new
+      test_mdet.TestMdetBackflow enters the branch at all - no test did before
+    * The derivative of the local energy w.r.t. the determinant coefficients carried a spurious
+      gradient**2 term (wfn.kinetic_energy_parameters_d1). The formula in wfn.rst is written in
+      the d²lnPhi form and is right, but the laplacian it is fed comes in the d²Phi/Phi form,
+      which already contains the square of the gradient, so the nablaPhi/Phi half of its bracket
+      had to go. Affected every emin/varmin run with OPT_DET_COEFF since January 2026, and not by
+      a little: on the four-determinant CASSCF(2,4) Be the spurious term is of order 1e3 where the
+      derivative itself is of order 1. The new casino/tests/test_mdet.py compares both parameter
+      derivatives of that wave function against finite differences
+    * The Jastrow part of the emin gradient used the gradient of the Slater determinant even when
+      the wave function was a geminal (wfn.kinetic_energy_parameters_d1)
+    * psi_s : geminal with backflow : T is now an input error rather than a wave function whose
+      local energy comes from the determinant while its drift comes from the geminal: the backflow
+      branch of wfn.kinetic_energy needs a hessian, which the geminal does not have yet. The same
+      check rejects ned > neu, which the neu x neu geminal matrix cannot describe
+    * wfn.drift_kinetic_energy, the drift form F@F/2 of the kinetic energy, and its section in
+      wfn.rst. Unbiased for the same expectation value as wfn.kinetic_energy by parts and differing
+      only in variance, the pair being what Casino reports as FISQ and KEI. Neither dominates:
+      Var(KEI)/Var(FISQ) measures 199 on He, 0.2 on Ne and 0.03 on pseudo-carbon. It is the
+      estimator the VMC step size sum rule contains, and it was already computed inside
+      kinetic_energy and merely not returned
+    * slater.tressian_dot method returning third derivatives pre-contracted with the
+      backflow Jacobian, and its documentation in slater.rst
+    * Quick start guide and MPI parallelisation page in documentation
+    * Documented all previously undocumented input keywords (GAUTOL, OPT_DTVMC, OPT_MAXITER,
+      OPT_NOCTF_CYCLES, POSTFIT_VMC, OPT_FIXNL, VM_SMOOTH_LIMIT, VM_W_MAX, VM_W_MIN,
+      EMIN_XI_VALUE, DMC_METHOD, LIMDMC, ALIMIT, NUCLEUS_GF_MODS, EBEST_AV_WINDOW, BACKFLOW)
+    * drift_velocity and energy_parameters_d1 sections in wfn.rst
+    * OPT_ORBITALS and USE_TMOVE keywords in config.rst
+    * DMC tutorial page (dmc.rst): drift-diffusion, velocity limiting, branching,
+      population control, T-move, load balancing
+    * VMC tutorial page (vmc.rst): the time step derived from the kinetic-energy sum rule
+      Var(ln(psi'^2/psi^2)) = 8/3 * dtvmc^2 * <T>, with the two averages (over the proposal
+      at fixed R, and over the chain) kept apart, so that the classic ts*sqrt(<T>) = 0.826
+      appears as what is obtained by interchanging them and the fitted correction as the
+      Jensen gap of that interchange; the three kinetic-energy estimators KEI/TI/FISQ and
+      where each of them enters; the Thomas-Fermi estimate of <T>; the range of validity;
+      the EBES sqrt(N) law; acceptance_ratio and optimize_vmc_step
+    * VMC_DECORR_PERIOD = 0 now selects the decorrelation period that maximizes efficiency
+      instead of silently falling back to 3. The correlation time is measured on the production
+      block itself, where thinning by the current period turns the autocorrelation rho into
+      rho**period, so inverting that recovers the correlation time of the unthinned walk. A block
+      of 1e6 configurations pins it down to better than +-0.5 even on Be, where a dedicated
+      calibration run of the length CASINO uses leaves an uncertainty of +-20
+    * Level-shift stabilization of the emin linear method: bisection over the shift, which only
+      solves the eigenvalue problem, finds the largest step that still keeps every parameter
+      variation within the trust radius, and the four
+      shifts from there are compared by the correlated sampling estimate of energy + 3 * error
+      over the very same configurations. That error accounts both for the effective sample size of
+      the reweighting and for the serial correlation left after VMC_DECORR_PERIOD thinning, which
+      reaches a factor of two on Be and N and would otherwise make the threshold system dependent.
+      The no-step candidate always takes part in the comparison, so a cycle can never make the
+      target function worse, and eigenvalues below EMIN_MIN_ENERGY are discarded as spurious.
+      New keywords EMIN_MIN_ENERGY and EMIN_VAR_PREFACTOR
+* Fixes
+    * The cusp correction radius was fixed at 1/Z instead of being searched for. On C2H2 that put
+      r_c of the carbon 3sigma_g orbital right next to a node of the s-part, where phi'(r_c)/phi(r_c)
+      diverges, and the quartic fit blew up: VMC gave +374.46 instead of -76.85 au with a sample
+      variance of 77953. The Casino search is now implemented: the largest radius below r_c,max at
+      which the deviation from the ideal curve exceeds Z^2/CUSP_CONTROL, semi-optimized by +/-20%
+      in nine steps, on a 0.0005 bohr grid with nodes located by bisection and blanked within
+      0.02 bohr, r_c moved inwards out of a nodal region, and the shift set from the extremum of
+      the s-part when a node stays inside r_c. New keyword CUSP_CONTROL
+    * The effective one-electron local energy of the corrected orbital used an r-dependent Z_eff
+      instead of the constant one defined by phi_tilde(0), and the ideal curve was scaled by Z^2
+      rather than Z_eff^2, which matters for orbitals with a large Z_eff (-38 for the hydrogen
+      1st orbital of C2H2)
+    * cusp_info printed "positive" for every orbital because the sign was tested for truth rather
+      than compared with zero, and reported Z_eff of the uncorrected rather than the corrected orbital
+    * vmc_step_graph divided the acceptance ratio by the electron count unconditionally, so every
+      CBCS graph it produced was scaled down by that factor
+    * the EBES acceptance ratio was divided by the electron count, but a step is recorded as
+      accepted when at least one electron moved, so the quantity was 1 - (1 - a)**N over N and
+      could never exceed 1/N. For N = 7 it stayed within 0.8% of 1/N while the true acceptance
+      swept 50% to 90%, leaving the step-size fit blind and unable to reach its 50% target.
+      The per-electron probability is now recovered by inverting that expression, and the whole
+      measurement lives in one place, Casino.acceptance_ratio, shared with vmc_step_graph
+    * correlation.data writer emitted a single eta cut-off line whatever the spin-dependence,
+      and lost the "2=YES BUT NO SPIN-DEP" flag because it is stored as a boolean, so the
+      written file could not be read back
+    * PSI_S header printed a hardcoded ``slater`` regardless of the actual psi_s value
+    * Input keywords parsed with wrong type: VM_W_MAX, VM_W_MIN, EMIN_XI_VALUE read as
+      booleans instead of floats, NON_LOCAL_GRID as boolean instead of integer;
+      LIMDMC misspelled as "limdmct" so the keyword was silently ignored
+    * Misleading NUMBA_NUM_THREADS advice in parallel.rst: JIT kernels are single-threaded
+    * Cusp initialisation description in cusp.rst: Cusp is created by CuspFactory,
+      not by Slater
+    * Missing underscores in DMC_EQUIL_NBLOCK and DMC_STATS_NBLOCK keyword names in config.rst
+    * Third derivatives of Slater orbitals: yyy and zzz components of tressian_matrix
+      used the x-component of the angular gradient, and tressian doubled one ordering
+      of the triple-product trace instead of summing both (verified against numerical
+      derivatives on Ne)
+    * False trace-reversal identity in tressian snippets of slater.rst
+    * Broken Numba documentation link in index.rst
+    * Incorrect output description for kinetic_energy_parameters_d1 in wfn.rst
+    * Missing backflow-parameters formula in kinetic_energy_parameters_d1 section of wfn.rst
+    * Incorrect output description for nonlocal_energy_parameters_d1 and missing sign
+      in kinetic energy derivative in wfn.rst
+    * Methods summary in wfn.rst attributed to Slater class instead of Wfn
+    * Duplicate Sphinx anchor ``intermediate data`` between jastrow.rst and backflow.rst
+    * Duplicate Sphinx anchor ``value`` between wfn.rst and slater.rst
+    * Typo "Input parameter are supported" → "Input parameters supported" in config.rst
+    * emin linear method took Q = 1 / eigvector[0]**2 - 1, which holds only for an eigvector
+      normalized in the S metric, while scipy.linalg.eig returns a Euclidean-normalized one,
+      so the semi-orthogonalization rescaling of Δp was wrong whenever the derivatives were
+      strongly correlated; Q is now evaluated as Δp · S · Δp
+    * emin linear method divided by the standard deviation of every wave function derivative,
+      so a parameter the sample does not depend on produced an infinite scale and a singular
+      overlap matrix; such parameters are now excluded from the eigenproblem and left unchanged
+    * UNR drift-velocity limiting used the squared drift of the whole configuration for every
+      electron instead of the electron's own, over-limiting the step by a factor that grows with
+      the electron count. On Be the drift was 0.7% shorter on average and up to 8% in the tail.
+      The limiting factor is also evaluated as 2 / (1 + sqrt(1 + 2*a*v^2*t)), which is the same
+      expression without the cancellation at small v
+    * CBCS branching used the UNR reweighting factor (23), which applies
+      exp[t_eff*(S(r) + S(r'))/2] to an accepted move and exp[t_eff*S(r)] to a rejected one,
+      rather than (25), which applies exp[t_eff*((1 - p/2)*S(r) + p/2*S(r'))] to every move and
+      is what Casino uses. The two agree as t -> 0 and differ in the time-step error, which is
+      what UNR report and what a fixed-node energy at finite t sees: the gap grows with the
+      spread of the local energy over a move, so it is invisible for He, where the trial function
+      is nearly exact, and largest for Be with backflow. The local energy is now evaluated at the
+      proposed position even when the move is rejected, which costs one extra evaluation on the
+      8% of moves that are rejected. EBES keeps (23), as Casino does, since there is no single
+      acceptance probability for the configuration
+    * The effective time step was t * <p> instead of the UNR (24) estimator
+      t * <p*|dr|^2> / <|dr|^2>, which is not the same average whenever the acceptance is
+      correlated with the size of the diffusive displacement, as it is. The diffusive
+      displacement is now measured from the drifted position in the near-nucleus branch of the
+      modified Green's function too, where the sampled offset from the nucleus was used
+    * The energy jacobian and hessian were divided by the number of parameters rather than the
+      number of configurations. Both carry the same factor, so the Newton step itself was
+      unaffected and only the gradient the optimizer reports and the thresholds it converges
+      against saw the wrong scale
+    * emin centered the energy gradient over the sample. That changes nothing in the i,j block of
+      H, where wfn_gradient is centered already, and only drops <E_L,j> from the first row,
+      turning the exact g_L into g_R; that term is what keeps delta p exact on a finite sample
+      when psi_lin is an eigenstate
+* Improved
+    * CBCS initial time step is now sqrt(3) * erfinv(1/2) * (1 + 0.045/nuclei) / sqrt(<T>) instead
+      of one over the electron count, with <T> summed over the nuclei from the Thomas-Fermi
+      expansion 0.7687*Z^(7/3) - 0.5*Z^2 + 0.2699*Z^(5/3) and
+      nuclei = sum(Z^(7/3))^2 / sum(Z^(14/3)). Only the last constant is fitted. A uniform
+      displacement by ts gives Var(ln(psi'^2/psi^2)) = 8/3 * ts^2 * <T> while detailed balance
+      pins the mean of that log ratio to minus half its variance, so a gaussian one is accepted
+      with probability 2*Phi(-sigma/2) and the 50% point sits at ts*sqrt(<T>) = sqrt(3)*erfinv(1/2)
+      = 0.826; <T> = abs(E) follows from the virial theorem, and the Thomas-Fermi expansion reproduces
+      the Hartree-Fock energies to 1.8% with no free constant. The remaining correction is the
+      non-gaussianity of the log ratio, which falls off with the number of nuclei sharing <T>,
+      since the drift is of order Z at a nucleus and outer shells contribute almost nothing
+      to the tails.
+      Measured on the seventeen systems in examples/time_step/CBCS the 50% acceptance point lands
+      within 0.9% rms of the initial guess for atoms, ions, hydrides and hydrocarbons alike, where
+      the old guess spread it over 0.61 to 1.86 and left molecules against the edge of the scanned
+      range. The electron count deliberately does not appear: it equals sum(Z) only for a neutral
+      system, and substituting it costs 27% on Be(2+)
+    * optimize_vmc_step no longer scans eleven step sizes and fits them to an empirical
+      two-parameter curve. Since sigma is proportional to the step size, one measurement fixes the
+      whole curve: inverting the gaussian acceptance law at the measured A and reading it back at
+      1/2 gives ts <- ts * Phi^-1(3/4) / Phi^-1(1 - A/2), whose fixed point is A = 1/2 for any monotone
+      acceptance curve, so the law sets only the rate of convergence and the map cannot converge to
+      the wrong step size where the gaussian fails. Replayed on the curves in
+      examples/time_step/CBCS it takes a 40% error to 2%, then 0.2%, then 0.02%. Three iterations
+      are used, starting from the current step size rather than resetting to the initial guess, so
+      a re-optimization after a wave-function update is a single correction, and the curve_fit
+      failure path is gone
+    * vmc_step_graph now places its points equally in acceptance rather than in step size, nineteen
+      targets from 0.95 to 0.05 through the same inverse, anchored on the 50% point the optimizer
+      has just measured. A grid in step size spends most of its points in the saturated tails, where
+      the acceptance says nothing about the 50% point, and spends them at system-dependent places.
+      Step sizes are still written out in atomic units, and each point also reports the kinetic
+      energy the law implies there, 3/(8*ts^2) * (2*Phi^-1(1 - A/2))^2, which is flat across the
+      grid exactly when the law holds. Its level is fixed by <T>, which the same run now measures
+      on the same walk and writes into the header, so each file is self-contained and the column
+      divided by that value is comparable between systems
+    * Initial time step for pseudopotentials: Thomas-Fermi is a semiclassical theory of many
+      electrons and overshoots fourfold on pseudo-carbon, 13.2 against a measured 3.3, by placing
+      the four valence electrons in a 1s shell. Those are hydrogenic instead,
+      Z_v*(0.65*Z_v + 0.35)^2 / (2*n^2) per pseudoatom with the principal number of the row and
+      Slater screening by the other valence electrons: exact on hydrogen and 10 to 50% high across
+      the second row. The virial theorem does not survive a pseudopotential either, <T>/abs(E_val)
+      running from 0.62 on carbon to 0.81 on neon, but the sum rule itself does: over the 184
+      all-electron and 72 pseudopotential CBCS runs under examples, dtvmc*KEI is constant at
+      0.261 and 0.293 against a gaussian 0.227475, over a factor of 1160 in <T>
+    * The nuclei participation ratio is now taken over the kinetic energy shares themselves,
+      sum(T_a)^2 / sum(T_a^2), which is the same number to 0.03% for all-electron systems and
+      extends to pseudoatoms
+    * EBES and DBDS initial time steps now follow from their own sum rule, N and 2 times the CBCS
+      dtvmc (sqrt(N) and sqrt(2) in the displacement), instead of 1/log(max(Z)) and 1/N. Both are
+      exact statements about Var(X); what the EBES factor is knowingly missing is the spread of
+      grad_i(ln psi) between electrons, which the sum rule averages over, so the guess is off by
+      1.0 to 2.6 on anything with more than one occupied shell; optimize_vmc_step supplies the
+      rest, its fixed point not depending on the model
+    * VMC proposes from a gaussian rather than a cube, in CBCS and EBES alike, and dtvmc is carried
+      as the variance of one displacement component exactly as Casino states it, so the two codes'
+      step sizes are directly comparable and no sqrt(3) conversion is left anywhere. The reason is
+      EBES: X = ln(psi'^2/psi^2) is a sum of three terms there, one electron by three axes, so no
+      central limit theorem is available and a cube leaves X an Irwin-Hall variable - the excess
+      kurtosis of -0.33 measured on one-shell systems is the proposal and not the wave function.
+      With a gaussian displacement 2*dr*grad(ln psi) is exactly gaussian at leading order however
+      few components move. The sum rule reads Var(X) = 8*dtvmc*<T>, the 50% point sits at
+      dtvmc*<T> = erfinv(1/2)^2 = 0.227475, and the initial guess, the acceptance inversion and
+      both diagnostic graphs are stated in those units. Existing dtvmc values keep their meaning.
+      Re-measured over all 31 systems in examples/time_step, both modes: with the cube removed
+      the width of X at its measured variance comes out at 1.000 on every one-shell system,
+      He 0.9995 and Li+ 1.0013 in CBCS, He 1.0008 and Li+ 1.0040 in EBES, where the cube gave
+      0.956 and 0.918 - the deficit doubling in EBES is the missing central limit theorem, and
+      the cube's excess kurtosis reaches -0.719 on pseudo-hydrogen at small step, which is
+      -1.2*E[sum n^4] = -0.72 for three components with an isotropic drift. It also drifts to
+      zero along the acceptance curve, so no fitted constant could have absorbed it
+    * The fitted correction to the initial CBCS step is now 1 + 0.080/nuclei^0.82 instead of
+      1 + 0.045/nuclei, refitted on the gaussian campaign: 0.3% rms and 0.8% at worst over the
+      seventeen all-electron systems, against 0.9% rms before. The old constant was hiding the
+      shape of the cube, which moved the 50% point by 4% in a system-dependent way and left a
+      spurious Z dependence inside it - over the atoms and ions the fitted value ran from 0.038
+      on Be to 0.065 on Kr, where the gaussian holds 0.075 to 0.086. Gaussian and Slater twins
+      of the same atom now agree to 0.3%
+    * Slater value, gradient and laplacian are built in one pass over the basis, so the local
+      energy makes one pass where it made two. A solid harmonic is homogeneous of degree l and
+      harmonic, so r•∇Y = l•Y and ΔY = 0, which leaves the laplacian of an orbital as
+      Y * (r**2 * radial_1 + (2*l + 3) * radial_2), out of the same radial sums the gradient is
+      made of: neither the exponentials nor the angular parts are evaluated twice, and one inverse
+      of the slater matrix serves both traces. A Slater-only VMC run is now as fast as Casino from
+      about ten electrons and faster beyond that, see examples/stowfn/READ.ME
+    * Statistics are accumulated as the run goes and the local energies of the whole run are no
+      longer held anywhere. Reblocking keeps one partial sum per block length, so its storage grows
+      with the logarithm of the number of steps, and the block length is the first one satisfying
+      the Wolff criterion 8**k >= 2 * nstep * ncorr**2. The correlation time is integrated over the
+      autocorrelation function with Sokal's self-consistent window w >= 3*tau, measured on the block
+      it belongs to, instead of summing the partial autocorrelations of a Burg AR fit over the whole
+      run: on an AR(1) chain of a known tau of 4 it gives 3.964 +- 0.063 where Burg gave 4.776.
+      Block averages, variances and their errors are accumulated per block, which retires the
+      shared MPI window that held every local energy of the run, and the walk is taken in chunks
+      bounded to 10 MB of positions, the tail a subsequent DMC run starts from being carried across
+      the chunk boundaries. The memory of a VMC run is now flat in vmc_nstep and vmc_nblock: O3 at
+      vmc_nstep 1e8 on four processes went from 12.3 GB per node to 0.24 GB. The energy, its
+      uncorrected error and the reblocked error are unchanged to twelve digits
+    * VMC block header reports the acceptance ratio, the correlation time with its error, and the
+      efficiency nmove / (time * variance * tau), the wall time an independent sample of a given
+      variance costs, which is the quantity vmc_decorr_period is there to minimize
+    * pyblock, pandas and statsmodels are no longer dependencies
+    * Speed up backflow optimization: kinetic_energy_parameters_d1 uses slater.tressian_dot
+      to avoid materializing the (3N)³ tressian tensor, vectorized bf_d1 loop and
+      fused reduction loop in backflow_laplacian_parameters_d1
+    * Cusp correction page expanded with physical motivation, correction scheme, and API reference
+
 v 0.3.0 (2025-10-30)
 --------------------
 * Added
@@ -7,7 +349,7 @@ v 0.3.0 (2025-10-30)
     * scipy.optimize.least_squares optimization in one thread
     * Add tests
 * Fixes
-    * Remove np.float_ as it not supported in Numpy 2.X
+    * Remove ``np.float_`` as it not supported in Numpy 2.X
     * Fix reweighted VMC variance optimization.
 
 v 0.2.0 (2024-10-30)

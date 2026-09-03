@@ -151,6 +151,24 @@ def jastrow_ee_powers(self, e_vectors: np.ndarray):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'ee_powers_1e')
+def jastrow_ee_powers_1e(self, e_vectors_1e: np.ndarray):
+    """Powers of the e-e distances of a single electron
+    :param e_vectors_1e: e-e vectors of that electron - array(nelec, 3)
+    :return: powers of e-e distances - array(nelec, max_ee_order)
+    """
+
+    def impl(self, e_vectors_1e: np.ndarray) -> np.ndarray:
+        res = np.ones(shape=(e_vectors_1e.shape[0], self.max_ee_order))
+        r_ee = np.sqrt((e_vectors_1e * e_vectors_1e).sum(axis=1))
+        for k in range(1, self.max_ee_order):
+            res[:, k] = r_ee**k
+        return res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Jastrow_class_t, 'en_powers')
 def jastrow_en_powers(self, n_vectors: np.ndarray):
     """Powers of e-n distances
@@ -165,6 +183,28 @@ def jastrow_en_powers(self, n_vectors: np.ndarray):
         for k in range(1, self.max_en_order):
             res[:, :, k] = r_eI**k
         return res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'update_en_powers_1e')
+def jastrow_update_en_powers_1e(self, n_powers: np.ndarray, n_vector: np.ndarray, e: int):
+    """Overwrite the powers of the e-n distances of a single electron in place. The rows of the
+    electrons that did not move are the same at both ends of a single-electron move, so they are
+    built once and only this one is replaced.
+    :param n_powers: powers of e-n distances - array(natom, nelec, max_en_order)
+    :param n_vector: e-n vectors of that electron - array(natom, 3)
+    :param e: electron
+    """
+
+    def impl(self, n_powers: np.ndarray, n_vector: np.ndarray, e: int):
+        for atom in range(n_vector.shape[0]):
+            # written out rather than as a dot product: the caller may hand in a column of a
+            # larger array, and numba only likes the contiguous case
+            r_eI = np.sqrt(n_vector[atom, 0] ** 2 + n_vector[atom, 1] ** 2 + n_vector[atom, 2] ** 2)
+            for k in range(1, self.max_en_order):
+                n_powers[atom, e, k] = r_eI**k
 
     return impl
 
@@ -204,6 +244,42 @@ def jastrow_u_term(self, e_powers: np.ndarray):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'u_term_1e')
+def jastrow_u_term_1e(self, e_powers_1e: np.ndarray, e: int):
+    """Jastrow u-term of the pairs containing electron e
+    :param e_powers_1e: powers of the e-e distances of electron e
+    :param e: electron
+    :return:
+    """
+
+    def impl(self, e_powers_1e: np.ndarray, e: int) -> float:
+        res = 0.0
+        if not self.u_cutoff:
+            return res
+
+        C = self.trunc
+        parameters = self.u_parameters
+        for e2 in range(self.neu + self.ned):
+            if e2 == e:
+                continue
+            r_ee = e_powers_1e[e2, 1]
+            if r_ee < self.u_cutoff:
+                cusp_set = int(e >= self.neu) + int(e2 >= self.neu)
+                u_set = cusp_set % parameters.shape[0]
+                poly = 0.0
+                for k in range(parameters.shape[1]):
+                    if parameters.shape[0] == 1 and cusp_set == 1 and k == 1:
+                        p = parameters[u_set, k] * 2
+                    else:
+                        p = parameters[u_set, k]
+                    poly += p * e_powers_1e[e2, k]
+                res += poly * (r_ee - self.u_cutoff) ** C
+        return res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Jastrow_class_t, 'chi_term')
 def jastrow_chi_term(self, n_powers: np.ndarray):
     """Jastrow chi-term
@@ -224,6 +300,32 @@ def jastrow_chi_term(self, n_powers: np.ndarray):
                         for k in range(parameters.shape[1]):
                             poly += parameters[chi_set, k] * n_powers[label, e1, k]
                         res += poly * (r_eI - L) ** C
+        return res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'chi_term_1e')
+def jastrow_chi_term_1e(self, n_powers: np.ndarray, e: int):
+    """Jastrow chi-term of electron e
+    :param n_powers: powers of e-n distances
+    :param e: electron
+    :return:
+    """
+
+    def impl(self, n_powers: np.ndarray, e: int) -> float:
+        res = 0.0
+        C = self.trunc
+        for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
+            for label in chi_labels:
+                r_eI = n_powers[label, e, 1]
+                if r_eI < L:
+                    chi_set = int(e >= self.neu) % parameters.shape[0]
+                    poly = 0.0
+                    for k in range(parameters.shape[1]):
+                        poly += parameters[chi_set, k] * n_powers[label, e, k]
+                    res += poly * (r_eI - L) ** C
         return res
 
     return impl
@@ -254,6 +356,41 @@ def jastrow_f_term(self, e_powers, n_powers):
                                 for m in range(parameters.shape[2]):
                                     for l in range(parameters.shape[3]):
                                         poly += parameters[f_set, n, m, l] * n_powers[label, e1, l] * n_powers[label, e2, m] * e_powers[e1, e2, n]
+                            res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
+        return res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'f_term_1e')
+def jastrow_f_term_1e(self, e_powers_1e, n_powers, e: int):
+    """Jastrow f-term of the pairs containing electron e. The parameters are symmetric in their
+    two electron-nucleus indices, so which of the pair is taken as the first does not matter.
+    :param e_powers_1e: powers of the e-e distances of electron e
+    :param n_powers: powers of e-n distances
+    :param e: electron
+    :return:
+    """
+
+    def impl(self, e_powers_1e, n_powers, e: int) -> float:
+        res = 0.0
+        C = self.trunc
+        for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
+            for label in f_labels:
+                r_e1I = n_powers[label, e, 1]
+                if r_e1I < L:
+                    for e2 in range(self.neu + self.ned):
+                        if e2 == e:
+                            continue
+                        r_e2I = n_powers[label, e2, 1]
+                        if r_e2I < L:
+                            f_set = (int(e >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
+                            poly = 0.0
+                            for n in range(parameters.shape[1]):
+                                for m in range(parameters.shape[2]):
+                                    for l in range(parameters.shape[3]):
+                                        poly += parameters[f_set, n, m, l] * n_powers[label, e, l] * n_powers[label, e2, m] * e_powers_1e[e2, n]
                             res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
         return res
 
@@ -301,6 +438,46 @@ def jastrow_u_term_gradient(self, e_powers, e_vectors):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'u_term_gradient_1e')
+def jastrow_u_term_gradient_1e(self, e_powers_1e, e_vectors_1e, e: int):
+    """Jastrow u-term gradient w.r.t the coordinates of electron e
+    :param e_powers_1e: powers of the e-e distances of electron e
+    :param e_vectors_1e: e-e vectors of electron e - array(nelec, 3)
+    :param e: electron
+    :return:
+    """
+
+    def impl(self, e_powers_1e, e_vectors_1e, e: int) -> np.ndarray:
+        res = np.zeros(shape=3)
+
+        if not self.u_cutoff:
+            return res
+
+        C = self.trunc
+        L = self.u_cutoff
+        parameters = self.u_parameters
+        for e2 in range(self.neu + self.ned):
+            if e2 == e:
+                continue
+            r_ee = e_powers_1e[e2, 1]
+            if r_ee < L:
+                r_vec = e_vectors_1e[e2] / r_ee**2
+                cusp_set = int(e >= self.neu) + int(e2 >= self.neu)
+                u_set = cusp_set % parameters.shape[0]
+                poly = 0.0
+                for k in range(parameters.shape[1]):
+                    if parameters.shape[0] == 1 and cusp_set == 1 and k == 1:
+                        p = parameters[u_set, k] * e_powers_1e[e2, k] * 2
+                    else:
+                        p = parameters[u_set, k] * e_powers_1e[e2, k]
+                    poly += (C * r_ee / (r_ee - L) + k) * p
+                res += r_vec * (r_ee - L) ** C * poly
+        return res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Jastrow_class_t, 'chi_term_gradient')
 def jastrow_chi_term_gradient(self, n_powers, n_vectors):
     """Jastrow chi-term gradient w.r.t e-coordinates
@@ -324,6 +501,34 @@ def jastrow_chi_term_gradient(self, n_powers, n_vectors):
                             poly += (C * r_eI / (r_eI - L) + k) * parameters[chi_set, k] * n_powers[label, e1, k]
                         res[e1, :] += r_vec * (r_eI - L) ** C * poly
         return res.ravel()
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'chi_term_gradient_1e')
+def jastrow_chi_term_gradient_1e(self, n_powers, n_vector_1e, e: int):
+    """Jastrow chi-term gradient w.r.t the coordinates of electron e
+    :param n_powers: powers of e-n distances
+    :param n_vector_1e: e-n vectors of electron e - array(natom, 3)
+    :param e: electron
+    :return:
+    """
+
+    def impl(self, n_powers, n_vector_1e, e: int) -> np.ndarray:
+        C = self.trunc
+        res = np.zeros(shape=3)
+        for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
+            for label in chi_labels:
+                r_eI = n_powers[label, e, 1]
+                if r_eI < L:
+                    r_vec = n_vector_1e[label] / r_eI**2
+                    chi_set = int(e >= self.neu) % parameters.shape[0]
+                    poly = 0.0
+                    for k in range(parameters.shape[1]):
+                        poly += (C * r_eI / (r_eI - L) + k) * parameters[chi_set, k] * n_powers[label, e, k]
+                    res += r_vec * (r_eI - L) ** C * poly
+        return res
 
     return impl
 
@@ -372,6 +577,55 @@ def jastrow_f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
                                 res[e1, t1] += cutoff * (e1_gradient + ee_gradient)
                                 res[e2, t1] += cutoff * (e2_gradient - ee_gradient)
         return res.ravel()
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'f_term_gradient_1e')
+def jastrow_f_term_gradient_1e(self, e_powers_1e, n_powers, e_vectors_1e, n_vector_1e, e: int):
+    """Jastrow f-term gradient w.r.t the coordinates of electron e. The parameters are symmetric
+    in their two electron-nucleus indices, so electron e is taken as the first one of every pair
+    it belongs to.
+    :param e_powers_1e: powers of the e-e distances of electron e
+    :param n_powers: powers of e-n distances
+    :param e_vectors_1e: e-e vectors of electron e - array(nelec, 3)
+    :param n_vector_1e: e-n vectors of electron e - array(natom, 3)
+    :param e: electron
+    :return:
+    """
+
+    def impl(self, e_powers_1e, n_powers, e_vectors_1e, n_vector_1e, e: int) -> np.ndarray:
+        C = self.trunc
+        res = np.zeros(shape=3)
+        for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
+            for label in f_labels:
+                r_e1I = n_powers[label, e, 1]
+                if r_e1I < L:
+                    r_e1I_vec = n_vector_1e[label] / r_e1I / r_e1I
+                    for e2 in range(self.neu + self.ned):
+                        if e2 == e:
+                            continue
+                        r_e2I = n_powers[label, e2, 1]
+                        if r_e2I < L:
+                            r_ee = e_powers_1e[e2, 1]
+                            r_ee_vec = e_vectors_1e[e2] / r_ee / r_ee
+                            cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
+                            f_set = (int(e >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
+                            poly = poly_diff_e1I = poly_diff_ee = 0.0
+                            for n in range(parameters.shape[1]):
+                                for m in range(parameters.shape[2]):
+                                    for l in range(parameters.shape[3]):
+                                        p = parameters[f_set, n, m, l] * n_powers[label, e, l] * n_powers[label, e2, m] * e_powers_1e[e2, n]
+                                        poly += p
+                                        poly_diff_e1I += l * p
+                                        poly_diff_ee += n * p
+                            # workaround do not create temporary 1-d numpy array
+                            for t1 in range(3):
+                                e1_gradient = r_e1I_vec[t1] * (C * r_e1I / (r_e1I - L) * poly + poly_diff_e1I)
+                                ee_gradient = r_ee_vec[t1] * poly_diff_ee
+                                res[t1] += cutoff * (e1_gradient + ee_gradient)
+        return res
 
     return impl
 
@@ -538,6 +792,25 @@ def jastrow_value(self, e_vectors, n_vectors):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'value_1e')
+def jastrow_value_1e(self, e_vectors_1e, n_powers, e: int):
+    """Part of the jastrow that contains electron e, CASINO's jas1_diff. Everything else is
+    common to both ends of a single-electron move and cancels in the ratio.
+    :param e_vectors_1e: e-e vectors of electron e - array(nelec, 3)
+    :param n_powers: powers of e-n distances
+    :param e: electron
+    :return:
+    """
+
+    def impl(self, e_vectors_1e, n_powers, e: int) -> float:
+        e_powers_1e = self.ee_powers_1e(e_vectors_1e)
+
+        return self.u_term_1e(e_powers_1e, e) + self.chi_term_1e(n_powers, e) + self.f_term_1e(e_powers_1e, n_powers, e)
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Jastrow_class_t, 'gradient')
 def jastrow_gradient(self, e_vectors, n_vectors):
     """Jastrow gradient w.r.t. e-coordinates
@@ -554,6 +827,30 @@ def jastrow_gradient(self, e_vectors, n_vectors):
             self.u_term_gradient(e_powers, e_vectors)
             + self.chi_term_gradient(n_powers, n_vectors)
             + self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors)
+        )
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'gradient_1e')
+def jastrow_gradient_1e(self, e_vectors_1e, n_vector_1e, n_powers, e: int):
+    """Jastrow gradient w.r.t the coordinates of electron e, which is all a single-electron
+    drift asks of the jastrow. Everything else it contains does not depend on that electron.
+    :param e_vectors_1e: e-e vectors of electron e - array(nelec, 3)
+    :param n_vector_1e: e-n vectors of electron e - array(natom, 3)
+    :param n_powers: powers of e-n distances
+    :param e: electron
+    :return:
+    """
+
+    def impl(self, e_vectors_1e, n_vector_1e, n_powers, e: int) -> np.ndarray:
+        e_powers_1e = self.ee_powers_1e(e_vectors_1e)
+
+        return (
+            self.u_term_gradient_1e(e_powers_1e, e_vectors_1e, e)
+            + self.chi_term_gradient_1e(n_powers, n_vector_1e, e)
+            + self.f_term_gradient_1e(e_powers_1e, n_powers, e_vectors_1e, n_vector_1e, e)
         )
 
     return impl

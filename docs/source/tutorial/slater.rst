@@ -3,7 +3,7 @@
 Slater determinant
 ==================
 
-The Slater determinant component of the wavefunction is implemented in the :class:`casino.Slater` class.
+The Slater determinant component of the wavefunction is implemented in the :class:`casino.slater.Slater` class.
 This class provides methods to compute the value, gradient, Laplacian, Hessian, and Tressian of a multi-determinant Slater wavefunction.
 
 It must be initialized from the configuration files::
@@ -19,7 +19,7 @@ It must be initialized from the configuration files::
 Summary of Methods
 ------------------
 
-Slater class has a following methods:
+The Slater class has the following methods:
 
 .. list-table::
    :widths: 30 30 40
@@ -31,19 +31,19 @@ Slater class has a following methods:
      - Shape
    * - :ref:`value_matrix <value-matrix>`
      - :math:`A^\uparrow, A^\downarrow`
-     - :math:`(N^\uparrow_e, MO^\uparrow), (N^\downarrow_e, MO^\downarrow)`
+     - :math:`(MO^\uparrow, N^\uparrow_e), (MO^\downarrow, N^\downarrow_e)`
    * - :ref:`gradient_matrix <gradient-matrix>`
      - :math:`G^\uparrow, G^\downarrow`
-     - :math:`(N^\uparrow_e, MO^\uparrow, 3), (N^\downarrow_e, MO^\downarrow, 3)`
+     - :math:`(MO^\uparrow, N^\uparrow_e, 3), (MO^\downarrow, N^\downarrow_e, 3)`
    * - :ref:`laplacian_matrix <laplacian-matrix>`
      - :math:`L^\uparrow, L^\downarrow`
-     - :math:`(N^\uparrow_e, MO^\uparrow), (N^\downarrow_e, MO^\downarrow)`
+     - :math:`(MO^\uparrow, N^\uparrow_e), (MO^\downarrow, N^\downarrow_e)`
    * - :ref:`hessian_matrix <hessian-matrix>`
      - :math:`H^\uparrow, H^\downarrow`
-     - :math:`(N^\uparrow_e, MO^\uparrow, 3, 3), (N^\downarrow_e, MO^\downarrow, 3, 3)`
+     - :math:`(MO^\uparrow, N^\uparrow_e, 3, 3), (MO^\downarrow, N^\downarrow_e, 3, 3)`
    * - :ref:`tressian_matrix <tressian-matrix>`
      - :math:`T^\uparrow, T^\downarrow`
-     - :math:`(N^\uparrow_e, MO^\uparrow, 3, 3, 3), (N^\downarrow_e, MO^\downarrow, 3, 3, 3)`
+     - :math:`(MO^\uparrow, N^\uparrow_e, 3, 3, 3), (MO^\downarrow, N^\downarrow_e, 3, 3, 3)`
    * - :ref:`value <value>`
      - :math:`\Psi(r)`
      - :math:`scalar`
@@ -54,11 +54,14 @@ Slater class has a following methods:
      - :math:`\Delta \Psi(r)/\Psi(r)`
      - :math:`scalar`
    * - :ref:`hessian <hessian>`
-     - :math:`\nabla^2 \Psi(r)/\Psi(r)`
-     - :math:`(3N_e, 3N_e)`
+     - :math:`\nabla^2 \Psi(r)/\Psi(r), \nabla \Psi(r)/\Psi(r)`
+     - :math:`(3N_e, 3N_e), (3N_e,)`
    * - :ref:`tressian <tressian>`
-     - :math:`\nabla^3 \Psi(r)/\Psi(r)`
-     - :math:`(3N_e, 3N_e, 3N_e)`
+     - :math:`\nabla^3 \Psi(r)/\Psi(r), \nabla^2 \Psi(r)/\Psi(r), \nabla \Psi(r)/\Psi(r)`
+     - :math:`(3N_e, 3N_e, 3N_e), (3N_e, 3N_e), (3N_e,)`
+   * - :ref:`tressian_dot <tressian_dot>`
+     - :math:`T_B, \nabla^2 \Psi(r)/\Psi(r), \nabla \Psi(r)/\Psi(r)`
+     - :math:`(3N_e,), (3N_e, 3N_e), (3N_e,)`
 
 .. _value-matrix:
 
@@ -77,14 +80,14 @@ also to avoid overflows and underflows a normalization coefficient is multiplied
 
 .. math::
 
-    A_{ip} = \frac{1}{\sqrt[2N]{N!}} \phi_p(r_i)
+    A_{ip} = \frac{1}{\sqrt[2N]{N^\uparrow! \, N^\downarrow!}} \phi_p(r_i)
 
 
-In multi-determinant case :math:`p` indexes should includes an occupied plus virtual MOs to span for excited states. Therefore it is reasonable to
+In the multi-determinant case the :math:`p` index should include occupied plus virtual MOs to span excited states. Therefore it is reasonable to
 define electrons :math:`\times` (occupied + virtual MOs) matrix :math:`\mathcal{A}`.
 For a system described by a spin-independent Hamiltonian, the spatial and spin degrees of freedom are separable and we can split :math:`\mathcal{A}_{ip}`
 into two: :math:`\mathcal{A}^\uparrow_{ip}` for spin-up and :math:`\mathcal{A}^\downarrow_{ip}` for spin-down electrons.
-For certain electron coordinates, the values of these matrices can be obtained with :py:meth:`casino.Slater.value_matrix` method::
+For certain electron coordinates, the values of these matrices can be obtained with :py:meth:`casino.slater.Slater.value_matrix` method::
 
     import numpy as np
 
@@ -95,9 +98,14 @@ For certain electron coordinates, the values of these matrices can be obtained w
     n_vectors = np.expand_dims(r_e, 0) - np.expand_dims(atom_positions, 1)
     A_up, A_down = slater.value_matrix(n_vectors)
 
+note that the returned arrays are indexed as (orbital, electron), i.e. the transpose of :math:`A_{ip}` defined above;
+since all expressions below are traces, they are invariant under this transposition.
+
 .. _inverse-matrix:
 
-the inverse matrix will be needed to calculate the gradient, laplacian, hesian and tressian::
+the inverse matrix will be needed to calculate the gradient, laplacian, hessian and tressian
+(in the single-determinant case the matrices are square; in the multi-determinant case the rows
+must first be selected with ``permutation_up``/``permutation_down``)::
 
     inv_A_up = np.linalg.inv(A_up)
     inv_A_down = np.linalg.inv(A_down)
@@ -126,11 +134,11 @@ hence all non-zero values compose the matrix of vectors: :math:`(x, y, z)` index
 
     G_{ipa} = \nabla_{e_i} A_{ip}
 
-In multi-determinant case :math:`p` indexes should includes an occupied plus virtual MOs to span for excited states. Therefore it is reasonable to
+In the multi-determinant case the :math:`p` index should include occupied plus virtual MOs to span excited states. Therefore it is reasonable to
 define electrons :math:`\times` (occupied + virtual MOs) matrix :math:`\mathcal{G}_{ip}`.
 For a system described by a spin-independent Hamiltonian, the spatial and spin degrees of freedom are separable and we can split :math:`\mathcal{G}_{ip}`
 into two: :math:`\mathcal{G}^\uparrow_{ip}` for spin-up and :math:`\mathcal{G}^\downarrow_{ip}` for spin-down electrons.
-For certain electron coordinates, the values of these matrices can be obtained with :py:meth:`casino.Slater.gradient_matrix` method::
+For certain electron coordinates, the values of these matrices can be obtained with :py:meth:`casino.slater.Slater.gradient_matrix` method::
 
     G_up, G_down = slater.gradient_matrix(n_vectors)
 
@@ -158,11 +166,11 @@ hence all non-zero values compose the matrix of scalars:
 
     L_{ip} = \Delta_{e_i} A_{ip}
 
-In multi-determinant case :math:`p` indexes should includes an occupied plus virtual MOs to span for excited states. Therefore it is reasonable to
+In the multi-determinant case the :math:`p` index should include occupied plus virtual MOs to span excited states. Therefore it is reasonable to
 define electrons :math:`\times` (occupied + virtual MOs) matrix :math:`\mathcal{L}_{ip}`.
 For a system described by a spin-independent Hamiltonian, the spatial and spin degrees of freedom are separable and we can split :math:`\mathcal{L}_{ip}`
 into two: :math:`\mathcal{L}^\uparrow_{ip}` for spin-up and :math:`\mathcal{L}^\downarrow_{ip}` for spin-down electrons.
-For certain electron coordinates, the values of these matrices can be obtained with :py:meth:`casino.Slater.laplacian_matrix` method::
+For certain electron coordinates, the values of these matrices can be obtained with :py:meth:`casino.slater.Slater.laplacian_matrix` method::
 
     L_up, L_down = slater.laplacian_matrix(n_vectors)
 
@@ -189,11 +197,11 @@ hence all non-zero values compose the matrix of hessians: :math:`(x, y, z) \otim
 
     H_{ipab} = (\nabla_{e_i} \otimes \nabla_{e_i}) A_{ip}
 
-In multi-determinant case :math:`p` indexes should includes an occupied plus virtual MOs to span for excited states. Therefore it is reasonable to
+In the multi-determinant case the :math:`p` index should include occupied plus virtual MOs to span excited states. Therefore it is reasonable to
 define electrons :math:`\times` (occupied + virtual MOs) matrix :math:`\mathcal{H}_{ip}`.
 For a system described by a spin-independent Hamiltonian, the spatial and spin degrees of freedom are separable and we can split :math:`\mathcal{H}_{ip}`
 into two: :math:`\mathcal{H}^\uparrow_{ip}` for spin-up and :math:`\mathcal{H}^\downarrow_{ip}` for spin-down electrons.
-For certain electron coordinates, the values of these matrices can be obtained with :py:meth:`casino.Slater.hessian_matrix` method::
+For certain electron coordinates, the values of these matrices can be obtained with :py:meth:`casino.slater.Slater.hessian_matrix` method::
 
     H_up, H_down = slater.hessian_matrix(n_vectors)
 
@@ -221,11 +229,11 @@ hence all non-zero values compose the matrix of tressians: :math:`(x, y, z) \oti
     T_{ipabc} = (\nabla_{e_i} \otimes \nabla_{e_i} \otimes \nabla_{e_i}) A_{ip}
 
 
-In multi-determinant case :math:`p` indexes should includes an occupied plus virtual MOs to span for excited states. Therefore it is reasonable to
+In the multi-determinant case the :math:`p` index should include occupied plus virtual MOs to span excited states. Therefore it is reasonable to
 define electrons :math:`\times` (occupied + virtual MOs) matrix :math:`\mathcal{T}_{ip}`.
 For a system described by a spin-independent Hamiltonian, the spatial and spin degrees of freedom are separable and we can split :math:`\mathcal{T}_{ip}`
 into two: :math:`\mathcal{T}^\uparrow_{ip}` for spin-up and :math:`\mathcal{T}^\downarrow_{ip}` for spin-down electrons.
-For certain electron coordinates, the values of these matrices can be obtained with :py:meth:`casino.Slater.tressian_matrix` method::
+For certain electron coordinates, the values of these matrices can be obtained with :py:meth:`casino.slater.Slater.tressian_matrix` method::
 
     T_up, T_down = slater.tressian_matrix(n_vectors)
 
@@ -248,7 +256,7 @@ we can get the value of multideterminant wavefunction:
 
 and  :math:`\mathbf{r}=\{r_{1}...r_{N}\}` are the coordinates of the N spin-up and spin-down electrons.
 
-For certain electron coordinates, the value can be obtained with casino.Slater.value() method::
+For certain electron coordinates, the value can be obtained with casino.slater.Slater.value() method::
 
     value = slater.value(n_vectors)
 
@@ -257,11 +265,11 @@ For certain electron coordinates, the value can be obtained with casino.Slater.v
 gradient
 --------
 
-Consider Slater determinant gradien by :math:`i`-th electron coordinates:
+Consider Slater determinant gradient by :math:`i`-th electron coordinates:
 
 .. math::
 
-    \frac{\nabla_{e_i} \psi(\mathbf{r})}{\phi(\mathbf{r})} = \left[
+    \frac{\nabla_{e_i} \psi(\mathbf{r})}{\psi(\mathbf{r})} = \left[
     tr\left(A^{-1}\frac{\partial{A}}{\partial{x_i}}\right),
     tr\left(A^{-1}\frac{\partial{A}}{\partial{y_i}}\right),
     tr\left(A^{-1}\frac{\partial{A}}{\partial{z_i}}\right)
@@ -283,17 +291,17 @@ expand gradient vector over :math:`i`:
 
 .. math::
 
-    \frac{\nabla \psi(\mathbf{r})}{\phi(\mathbf{r})} = {(A^{-1})_i}^j G_{jia}
+    \frac{\nabla \psi(\mathbf{r})}{\psi(\mathbf{r})} = {(A^{-1})_i}^j G_{jia}
 
 and get gradient of multideterminant wavefunction:
 
 .. math::
 
-    \nabla \Psi(\mathbf{r}) / \Phi(\mathbf{r}) = \sum_n c_n \nabla \psi(\mathbf{r})_n / \sum_n c_n \psi(\mathbf{r})_n
+    \nabla \Psi(\mathbf{r}) / \Psi(\mathbf{r}) = \sum_n c_n \nabla \psi(\mathbf{r})_n / \sum_n c_n \psi(\mathbf{r})_n
 
 where :math:`\mathbf{r}=\{r_{1}...r_{N}\}` are the coordinates of the N spin-up and spin-down electrons
 
-For certain electron coordinates, the gradient vector can be obtained with casino.Slater.gradient() method::
+For certain electron coordinates, the gradient vector can be obtained with casino.slater.Slater.gradient() method::
 
     slater.gradient(n_vectors)
 
@@ -314,7 +322,7 @@ Consider Slater determinant laplacian by :math:`i`-th electron coordinates:
 
 .. math::
 
-    \frac{\Delta_{e_i} \phi(\mathbf{r})}{\phi(\mathbf{r})} =
+    \frac{\Delta_{e_i} \psi(\mathbf{r})}{\psi(\mathbf{r})} =
     tr\left(A^{-1}\frac{\partial^2{A}}{\partial{x_i}^2}\right) +
     tr\left(A^{-1}\frac{\partial^2{A}}{\partial{y_i}^2}\right) +
     tr\left(A^{-1}\frac{\partial^2{A}}{\partial{z_i}^2}\right) =
@@ -336,17 +344,17 @@ sum laplacian over :math:`i`:
 
 .. math::
 
-    \frac{\Delta \psi(\mathbf{r})}{\phi(\mathbf{r})} = (A^{-1})_{ij} L^{ji}
+    \frac{\Delta \psi(\mathbf{r})}{\psi(\mathbf{r})} = (A^{-1})_{ij} L^{ji}
 
 and get laplacian of multideterminant wavefunction:
 
 .. math::
 
-    \Delta \Phi(\mathbf{r}) / \Phi(\mathbf{r}) = \sum_n c_n \Delta \phi(\mathbf{r})_n / \sum_n c_n \phi(\mathbf{r})_n
+    \Delta \Psi(\mathbf{r}) / \Psi(\mathbf{r}) = \sum_n c_n \Delta \psi(\mathbf{r})_n / \sum_n c_n \psi(\mathbf{r})_n
 
 where :math:`\mathbf{r}=\{r_{1}...r_{N}\}` are the coordinates of the N spin-up and spin-down electrons
 
-For certain electron coordinates, the laplacian can be obtained with casino.Slater.laplacian() method::
+For certain electron coordinates, the laplacian can be obtained with casino.slater.Slater.laplacian() method::
 
     slater.laplacian(n_vectors)
 
@@ -366,9 +374,9 @@ Consider Slater determinant hessian by :math:`i`-th and :math:`j`-th electrons c
 
 .. math::
 
-    \frac{\nabla^2_{{e_i}{e_j}} \phi(\mathbf{r})}{\phi(\mathbf{r})} =
+    \frac{\nabla^2_{{e_i}{e_j}} \psi(\mathbf{r})}{\psi(\mathbf{r})} =
     tr(A^{-1} \nabla_{e_i} \nabla_{e_j} A - (A^{-1} \nabla_{e_i} A)(A^{-1} \nabla_{e_j} A))
-    + \frac{\nabla_{e_i} \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla_{e_j} \phi(\mathbf{r})}{\phi(\mathbf{r})}
+    + \frac{\nabla_{e_i} \psi(\mathbf{r})}{\psi(\mathbf{r})} \otimes \frac{\nabla_{e_j} \psi(\mathbf{r})}{\psi(\mathbf{r})}
 
 to express the trace through sum using equality:
 
@@ -388,20 +396,20 @@ expand gradient vectors and hessian tensor over :math:`i` and :math:`j` (with Kr
 
 .. math::
 
-    \frac{\nabla^2 \phi(\mathbf{r})}{\phi(\mathbf{r})} =
+    \frac{\nabla^2 \psi(\mathbf{r})}{\psi(\mathbf{r})} =
     \delta_{ij}{(A^{-1})_i}^j H_{jiab} - (A^{-1} G)_{jia} (A^{-1} G)_{ijb}
-    + \frac{\nabla \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla \phi(\mathbf{r})}{\phi(\mathbf{r})} \\
+    + \frac{\nabla \psi(\mathbf{r})}{\psi(\mathbf{r})} \otimes \frac{\nabla \psi(\mathbf{r})}{\psi(\mathbf{r})} \\
 
 
 we can get hessian of multideterminant wavefunction:
 
 .. math::
 
-    \nabla^2 \Phi(\mathbf{r}) / \Phi(\mathbf{r}) = \sum_n c_n \nabla^2 \phi(\mathbf{r})_n / \sum_n c_n \phi(\mathbf{r})_n
+    \nabla^2 \Psi(\mathbf{r}) / \Psi(\mathbf{r}) = \sum_n c_n \nabla^2 \psi(\mathbf{r})_n / \sum_n c_n \psi(\mathbf{r})_n
 
 where :math:`\mathbf{r}=\{r_{1}...r_{N}\}` are the coordinates of the N spin-up and spin-down electrons
 
-For certain electron coordinates, the hessian matrix can be obtained with casino.Slater.hessian() method::
+For certain electron coordinates, the hessian matrix can be obtained with casino.slater.Slater.hessian() method::
 
     slater.hessian(n_vectors)[0]
 
@@ -436,17 +444,11 @@ Consider Slater determinant tressian by :math:`i`-th, :math:`j`-th and :math:`k`
 .. math::
 
     \begin{align}
-    & \frac{\nabla^3_{{e_i}{e_j}{e_k}} \phi(\mathbf{r})}{\phi(\mathbf{r})} = tr(A^{-1} \nabla_{e_i} \nabla_{e_j} \nabla_{e_k} A) - 2 \cdot \frac{\nabla_{e_i} \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla_{e_j} \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla_{e_k} \phi(\mathbf{r})}{\phi(\mathbf{r})} \\
-    & + \frac{\nabla^2_{{e_i}{e_j}} \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla_{e_k} \phi(\mathbf{r})}{\phi(\mathbf{r})} + \frac{\nabla^2_{{e_i}{e_k}} \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla_{e_j} \phi(\mathbf{r})}{\phi(\mathbf{r})} + \frac{\nabla^2_{{e_j}{e_k}} \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla_{e_i} \phi(\mathbf{r})}{\phi(\mathbf{r})} \\
+    & \frac{\nabla^3_{{e_i}{e_j}{e_k}} \psi(\mathbf{r})}{\psi(\mathbf{r})} = tr(A^{-1} \nabla_{e_i} \nabla_{e_j} \nabla_{e_k} A) - 2 \cdot \frac{\nabla_{e_i} \psi(\mathbf{r})}{\psi(\mathbf{r})} \otimes \frac{\nabla_{e_j} \psi(\mathbf{r})}{\psi(\mathbf{r})} \otimes \frac{\nabla_{e_k} \psi(\mathbf{r})}{\psi(\mathbf{r})} \\
+    & + \frac{\nabla^2_{{e_i}{e_j}} \psi(\mathbf{r})}{\psi(\mathbf{r})} \otimes \frac{\nabla_{e_k} \psi(\mathbf{r})}{\psi(\mathbf{r})} + \frac{\nabla^2_{{e_i}{e_k}} \psi(\mathbf{r})}{\psi(\mathbf{r})} \otimes \frac{\nabla_{e_j} \psi(\mathbf{r})}{\psi(\mathbf{r})} + \frac{\nabla^2_{{e_j}{e_k}} \psi(\mathbf{r})}{\psi(\mathbf{r})} \otimes \frac{\nabla_{e_i} \psi(\mathbf{r})}{\psi(\mathbf{r})} \\
     & - tr((A^{-1} \nabla_{e_i} \nabla_{e_j} A)(A^{-1} \nabla_{e_k} A) + (A^{-1} \nabla_{e_i} \nabla_{e_k} A)(A^{-1} \nabla_{e_j} A) + (A^{-1} \nabla_{e_j} \nabla_{e_k} A)(A^{-1} \nabla_{e_i} A)) \\
     & + tr((A^{-1} \nabla_{e_i} A)(A^{-1} \nabla_{e_j} A)(A^{-1} \nabla_{e_k} A)) + tr((A^{-1} \nabla_{e_k} A)(A^{-1} \nabla_{e_j} A)(A^{-1} \nabla_{e_i} A))
     \end{align}
-
-noting that:
-
-.. math::
-
-    tr((A^{-1} \nabla_{e_i} A)(A^{-1} \nabla_{e_j} A)(A^{-1} \nabla_{e_k} A)) = tr((A^{-1} \nabla_{e_k} A)(A^{-1} \nabla_{e_j} A)(A^{-1} \nabla_{e_i} A))
 
 to express the trace through sum using equalities:
 
@@ -477,8 +479,8 @@ and expand gradient vectors, hessian and tressian tensors over :math:`i`, :math:
 .. math::
 
     \begin{align}
-    & \frac{\nabla^3 \phi(\mathbf{r})}{\phi(\mathbf{r})} = \delta_{ijk}{(A^{-1})_i}^jT_{jiabc} - 2 \cdot \frac{\nabla \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla \phi(\mathbf{r})}{\phi(\mathbf{r})} \\
-    & + \frac{\nabla^2 \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla \phi(\mathbf{r})}{\phi(\mathbf{r})} + \frac{\nabla^2 \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla \phi(\mathbf{r})}{\phi(\mathbf{r})} + \frac{\nabla^2 \phi(\mathbf{r})}{\phi(\mathbf{r})} \otimes \frac{\nabla \phi(\mathbf{r})}{\phi(\mathbf{r})} \\
+    & \frac{\nabla^3 \psi(\mathbf{r})}{\psi(\mathbf{r})} = \delta_{ijk}{(A^{-1})_i}^jT_{jiabc} - 2 \cdot \frac{\nabla \psi(\mathbf{r})}{\psi(\mathbf{r})} \otimes \frac{\nabla \psi(\mathbf{r})}{\psi(\mathbf{r})} \otimes \frac{\nabla \psi(\mathbf{r})}{\psi(\mathbf{r})} \\
+    & + \left(\frac{\nabla^2 \psi(\mathbf{r})}{\psi(\mathbf{r})}\right)_{iajb} \left(\frac{\nabla \psi(\mathbf{r})}{\psi(\mathbf{r})}\right)_{kc} + \left(\frac{\nabla^2 \psi(\mathbf{r})}{\psi(\mathbf{r})}\right)_{iakc} \left(\frac{\nabla \psi(\mathbf{r})}{\psi(\mathbf{r})}\right)_{jb} + \left(\frac{\nabla^2 \psi(\mathbf{r})}{\psi(\mathbf{r})}\right)_{jbkc} \left(\frac{\nabla \psi(\mathbf{r})}{\psi(\mathbf{r})}\right)_{ia} \\
     & - \delta_{ij}(A^{-1} H)_{ijab}(A^{-1} G)_{ijc} - \delta_{jk}(A^{-1} H)_{jkac}(A^{-1} G)_{jkb} - \delta_{ki}(A^{-1} G)_{kia}(A^{-1} H)_{kibc} \\
     & + (A^{-1} G)_{jia}(A^{-1} G)_{kjb}(A^{-1} G)_{ikc} + (A^{-1} G)_{kia}(A^{-1} G)_{ijb}(A^{-1} G)_{jkc}
     \end{align}
@@ -488,11 +490,11 @@ we can get tressian of multideterminant wavefunction:
 
 .. math::
 
-    \nabla^3 \Phi(\mathbf{r}) / \Phi(\mathbf{r}) = \sum_n c_n \nabla^3 \phi(\mathbf{r})_n / \sum_n c_n \phi(\mathbf{r})_n
+    \nabla^3 \Psi(\mathbf{r}) / \Psi(\mathbf{r}) = \sum_n c_n \nabla^3 \psi(\mathbf{r})_n / \sum_n c_n \psi(\mathbf{r})_n
 
 where :math:`\mathbf{r}=\{r_{1}...r_{N}\}` are the coordinates of the N spin-up and spin-down electrons
 
-For certain electron coordinates, the tressian metrix can be obtained with casino.Slater.tressian() method::
+For certain electron coordinates, the tressian matrix can be obtained with casino.slater.Slater.tressian() method::
 
     slater.tressian(n_vectors)[0]
 
@@ -530,10 +532,10 @@ this is equivalent to (continues :ref:`from <inverse-matrix>`)::
     tress_d -= np.einsum('ij,kajb,jkc->iajbkc', np.eye(ned), mul_hess_d, mul_grad_d)
     tress_d -= np.einsum('ki,jaic,ijb->iajbkc', np.eye(ned), mul_hess_d, mul_grad_d)
     tress_d -= np.einsum('jk,ibkc,kia->iajbkc', np.eye(ned), mul_hess_d, mul_grad_d)
-    tress_u += 2 * np.einsum('jia,kjb,ikc->iajbkc', mul_grad_u, mul_grad_u, mul_grad_u)
-    tress_d += 2 * np.einsum('jia,kjb,ikc->iajbkc', mul_grad_d, mul_grad_d, mul_grad_d)
-    # tress_u += np.einsum('kia,ijb,jkc->iajbkc', mul_grad_u, mul_grad_u, mul_grad_u)
-    # tress_d += np.einsum('kia,ijb,jkc->iajbkc', mul_grad_d, mul_grad_d, mul_grad_d)
+    tress_u += np.einsum('jia,kjb,ikc->iajbkc', mul_grad_u, mul_grad_u, mul_grad_u)
+    tress_d += np.einsum('jia,kjb,ikc->iajbkc', mul_grad_d, mul_grad_d, mul_grad_d)
+    tress_u += np.einsum('kia,ijb,jkc->iajbkc', mul_grad_u, mul_grad_u, mul_grad_u)
+    tress_d += np.einsum('kia,ijb,jkc->iajbkc', mul_grad_d, mul_grad_d, mul_grad_d)
     tress = np.zeros((ne * 3, ne * 3, ne * 3))
     tress[:neu * 3, :neu * 3, :neu * 3] = tress_u.reshape(neu * 3, neu * 3, neu * 3)
     tress[neu * 3:, neu * 3:, neu * 3:] = tress_d.reshape(ned * 3, ned * 3, ned * 3)
@@ -543,3 +545,196 @@ this is equivalent to (continues :ref:`from <inverse-matrix>`)::
         np.einsum('j,ki->ijk', grad, hess) -
         2 * np.einsum('i,j,k->ijk', grad, grad, grad)
     )
+
+Implementation
+~~~~~~~~~~~~~~
+
+The tressian tensor :math:`T[a, b, c]` has shape :math:`(3N_e, 3N_e, 3N_e)`
+where :math:`N_e` is the number of electrons of a given spin.  A naïve implementation
+iterates over all triples :math:`(e_1, e_2, e_3)` with conditional checks inside the loop body:
+
+.. code-block:: python
+
+    for e1 in range(neu):
+        for e2 in range(neu):
+            for e3 in range(neu):
+                res = 0
+                if e1 == e2 == e3:
+                    res += tr_tress[e1, ...]
+                if e1 == e2:
+                    res -= matrix_hess[e3, e1, ...] * matrix_grad[e1, e3, ...]
+                # ... etc
+                tress[e1*3+r1, e2*3+r2, e3*3+r3] += c * res
+
+This costs :math:`O(N_e^6 \cdot 27)` iterations and the runtime branches prevent
+LLVM from auto-vectorising the inner loops.
+
+The key structural observation is that the determinant-specific contributions to
+:math:`T[a, b, c]` are **sparse in the electron indices**: each term is non-zero
+only when at least two of :math:`e_1, e_2, e_3` coincide.  Specifically:
+
+- :math:`\mathrm{tr}(A^{-1} \nabla^3 A)` — non-zero only when :math:`e_1 = e_2 = e_3`
+- :math:`\mathrm{tr}(A^{-1} \nabla^2_{e_i e_j} A \cdot A^{-1} \nabla_{e_k} A)` — non-zero only when :math:`e_i = e_j` (one constrained pair, :math:`e_k` free)
+- :math:`(A^{-1}G)_{e_3 e_2}(A^{-1}G)_{e_1 e_3}(A^{-1}G)_{e_2 e_1}` — non-zero for **all** :math:`(e_1, e_2, e_3)`
+
+This motivates decomposing the computation into five **branch-free** loop nests:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 45 20 35
+
+   * - Loop nest
+     - Complexity
+     - Replaces
+   * - :math:`e_1 = e_2 = e_3 = e` (tr_tress diagonal)
+     - :math:`O(N_e \cdot 27)`
+     - ``if e1 == e2 == e3``
+   * - :math:`e_1 = e_2`, free :math:`e_3` (hess×grad, pair 12)
+     - :math:`O(N_e^2 \cdot 27)`
+     - ``if e1 == e2``
+   * - :math:`e_1 = e_3`, free :math:`e_2` (hess×grad, pair 13)
+     - :math:`O(N_e^2 \cdot 27)`
+     - ``if e1 == e3``
+   * - :math:`e_2 = e_3`, free :math:`e_1` (hess×grad, pair 23)
+     - :math:`O(N_e^2 \cdot 27)`
+     - ``if e2 == e3``
+   * - all :math:`(e_1, e_2, e_3)` free (triple product)
+     - :math:`O(N_e^3 \cdot 27)`
+     - always executed
+
+Because no loop nest carries runtime conditionals, LLVM auto-vectorises all five
+loops via SIMD instructions.  The outer-product term
+:math:`\nabla\phi \otimes H + H \otimes \nabla\phi + \nabla\phi \otimes \nabla\phi \otimes \nabla\phi`
+involves all :math:`(N_e \cdot 3)^3` elements and is unchanged.
+
+.. code-block:: python
+
+    # tr_tress: e1 == e2 == e3
+    for e in range(neu):
+        for r1, r2, r3 in product(range(3), repeat=3):
+            tress[e*3+r1, e*3+r2, e*3+r3] += c * tr_tress_u[e, r1, r2, r3]
+
+    # hess × grad: e1 == e2, free e3
+    for e12 in range(neu):
+        for e3 in range(neu):
+            for r1, r2, r3 in product(range(3), repeat=3):
+                tress[e12*3+r1, e12*3+r2, e3*3+r3] -= (
+                    c * matrix_hess_u[e3, e12, r1, r2] * matrix_grad_u[e12, e3, r3]
+                )
+
+    # ... similarly for (e1==e3, free e2) and (e2==e3, free e1) ...
+
+    # triple product: all (e1, e2, e3) free
+    for e1 in range(neu):
+        for e2 in range(neu):
+            for e3 in range(neu):
+                for r1, r2, r3 in product(range(3), repeat=3):
+                    tress[e1*3+r1, e2*3+r2, e3*3+r3] += c * (
+                        matrix_grad_u[e3, e2, r2]
+                        * matrix_grad_u[e1, e3, r3]
+                        * matrix_grad_u[e2, e1, r1]
+                        + matrix_grad_u[e2, e3, r3]
+                        * matrix_grad_u[e3, e1, r1]
+                        * matrix_grad_u[e1, e2, r2]
+                    )
+
+On the He atom (:math:`N_e = 1` per spin, ``ne3 = 6``) the refactored implementation
+is **5.5× faster** than the original (33 µs vs 184 µs per call).
+
+The actual wall-clock speedup depends on system size.  The total cost of
+:py:meth:`casino.slater.Slater.tressian` is:
+
+.. math::
+
+    t_\text{total} = t_\text{matrix calls} + t_\text{index loops}
+
+where :math:`t_\text{matrix calls}` is the combined time of
+``value_matrix`` + ``gradient_matrix`` + ``hessian_matrix`` + ``tressian_matrix``
+(all scale with system size and basis set), and :math:`t_\text{index loops}` is
+the time of the electron-index loop nests described above.
+
+For small systems (He, :math:`N_e = 1`) the index loops dominate and the 5.5×
+speedup is realised.  For larger systems such as Ar (:math:`N_e = 9` per spin)
+the matrix calls dominate — in particular ``tressian_matrix`` grows with the number
+of orbitals and primitives — and the loop optimisation contributes only ~20% of
+the total runtime.  The next bottleneck to address for large-:math:`N_e` systems
+is therefore ``tressian_matrix`` itself.
+
+.. _tressian_dot:
+
+tressian_dot
+------------
+
+The tressian enters the local-energy parameter derivatives only through its
+contraction with a symmetric matrix :math:`B = b_g\,b_g^\top` over the last two
+axes:
+
+.. math::
+
+    (T_B)_a = \sum_{b, c} T_{abc}\, B_{bc}
+
+:py:meth:`casino.slater.Slater.tressian_dot` returns this vector of shape ``(ne3,)``
+without ever forming the ``(ne3, ne3, ne3)`` tensor, so the working set stays
+:math:`O(\text{ne3}^2)` and cache-resident.
+
+Contracting the **dense outer part** with :math:`B` collapses to a closed form
+(using :math:`B = B^\top`):
+
+.. math::
+
+    \sum_{bc} \big(g_c\,\mathrm{PH}_{ab} + g_b\,\mathrm{PH}_{ac}
+    + g_a\,\mathrm{PH}_{bc}\big) B_{bc}
+    = 2\,\big(\mathrm{PH}\,(B\,g)\big)_a + g_a\,\langle \mathrm{PH}, B\rangle
+
+with :math:`\langle \mathrm{PH}, B\rangle = \sum_{bc}\mathrm{PH}_{bc} B_{bc}`.
+This costs :math:`O(\text{ne3}^2)`.
+
+The **sparse determinant part** is contracted inside the same per-spin six-fold
+loop, accumulating directly into the scalar :math:`(T_B)_a` instead of storing the
+tensor.  The flop count stays :math:`O(\text{ne3}^3)` but the memory footprint
+drops to :math:`O(\text{ne3}^2)`.
+
+For certain electron coordinates::
+
+    bb = b_g @ b_g.T
+    t_bb, hess, grad = slater.tressian_dot(n_vectors, bb)
+
+is equivalent to::
+
+    tress, hess, grad = slater.tressian(n_vectors)
+    t_bb = np.tensordot(tress, bb, axes=([1, 2], [0, 1]))
+
+Because the :math:`\text{ne3}^3` tensor is never materialised, the speedup over
+:py:meth:`casino.slater.Slater.tressian` grows with system size as the tensor outgrows
+the cache (wall-clock seconds for an equal number of calls):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 16 22 22 20
+
+   * - System
+     - ne3
+     - tressian
+     - tressian_dot
+     - speedup
+   * - Ne
+     - 30
+     - 0.8
+     - 0.6
+     - 1.3×
+   * - Ar
+     - 54
+     - 3.0
+     - 1.6
+     - 1.9×
+   * - O3
+     - 72
+     - 9.9
+     - 4.2
+     - 2.4×
+   * - Kr
+     - 108
+     - 28.4
+     - 7.8
+     - 3.6×
+

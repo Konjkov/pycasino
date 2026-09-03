@@ -10,18 +10,20 @@
  .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
 
                      Python Quantum Monte Carlo Package
-                        v 0.2.0 [Vladimir Konkov]
+                        v 0.4.0 [Vladimir Konkov]
 
     Main Author : Vladimir Konkov
  ------------------------------------------------------------------------------
- Started 2024/08/02 15:09:21
+ Started 2026/08/21 18:28:12
 
- Python 3.10.12 (main, Jul 29 2024, 16:56:48) [GCC 11.4.0]
- Numba 0.59.0
- Numpy 1.26.4
- Scipy 1.11.3
+ Python 3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]
+ Numba 0.63.1
+ Numpy 2.2.6
+ Scipy 1.13.1
 
  Running in parallel using 4 MPI processes.
+
+ Warning: keywords not read by pycasino: newrun periodic writeout_vmc_hist
 
  General input parameters
  ========================
@@ -38,22 +40,25 @@
  USE_JASTROW (use Jastrow factor)         :  F
  BACKFLOW (use backflow corrections)      :  F
  USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  F
+ NON_LOCAL_GRID (NL integration grid)     :  4
  E_OFFSET (energy offset)                 :  0.0000
- CHECKPOINT (checkpointing level)         :  1
- CON_LOC (Dir to read/write config.*)     :  ./
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
  RELATIVISTIC                             :  F
 
  VMC input parameters
  ====================
  NEWRUN (start new run)                   :  T
  VMC_METHOD (choice of VMC algorithm)     :  1
- DTVMC (VMC time step)                    :  1.0000E-02
+ DTVMC (VMC time step)                    :  0.02
  OPT_DTVMC (VMC time-step optimization)   :  1
- VMC_NSTEP (num VMC steps)                :  10000000
+ VMC_NSTEP (num VMC steps)                :  100000000
  VMC_NCONFIG_WRITE (num configs to write) :  0
- VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_NBLOCK (num VMC blocks)              :  10
  VMC_EQUIL_NSTEP (num equil steps)        :  5000
- VMC_DECORR_PERIOD (length of inner loop) :  1
+ VMC_DECORR_PERIOD (length of inner loop) :  3
  VMC_AVE_PERIOD (hist reduction factor)   :  1
  VMC_SAMPLING                             :  standard
  MAKEMOVIE                                :  F
@@ -69,37 +74,222 @@
 
  Running VMC equilibration (5000 moves).
  Performing time-step optimization.
- Optimized step size: 0.75507
- DTVMC: 0.19004
+ DTVMC: 4.35422e-02
 
  Starting VMC.
 
  =========================================================================
  In block : 1
-  Number of VMC steps           = 10000000
+
+ Acceptance ratio         (%)  =  70.1057
+ Correlation time     (steps)  = 1.7179E+00 +- 2.5481E-03
+ Efficiency      (au^-2 s^-1)  = 2.2771E+04
+ Number of VMC steps           = 10000000
 
   Block average energies (au)
 
-  Total energy                       (au) =         -14.572895289672
-  Standard error                        +/-           0.001881372656
+  Total energy                       (au) =         -14.572348233338
+  Standard error                        +/-           0.000549548032
 
   Constant energy contributions      (au) =           0.000000000000
 
-  Variance of local energy           (au) =           2.858309151571
+  Variance of local energy           (au) =           3.020030089624
   Standard error                        +/-           0.000000000000
 
- Time taken in block    : : :       135.9870
+ Time taken in block    : : :       84.6474
+
+ =========================================================================
+ In block : 2
+
+ Acceptance ratio         (%)  =  70.1106
+ Correlation time     (steps)  = 1.6951E+00 +- 2.5143E-03
+ Efficiency      (au^-2 s^-1)  = 2.3846E+04
+ Number of VMC steps           = 10000000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.572939841409
+  Standard error                        +/-           0.000540067928
+
+  Constant energy contributions      (au) =           0.000000000000
+
+  Variance of local energy           (au) =           2.916733378589
+  Standard error                        +/-           0.000000000000
+
+ Time taken in block    : : :       84.8188
+
+ =========================================================================
+ In block : 3
+
+ Acceptance ratio         (%)  =  70.1038
+ Correlation time     (steps)  = 1.7152E+00 +- 2.5442E-03
+ Efficiency      (au^-2 s^-1)  = 2.4011E+04
+ Number of VMC steps           = 10000000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.573057691641
+  Standard error                        +/-           0.000535152220
+
+  Constant energy contributions      (au) =           0.000000000000
+
+  Variance of local energy           (au) =           2.863878703908
+  Standard error                        +/-           0.000000000000
+
+ Time taken in block    : : :       84.7830
+
+ =========================================================================
+ In block : 4
+
+ Acceptance ratio         (%)  =  70.1014
+ Correlation time     (steps)  = 1.7063E+00 +- 2.5311E-03
+ Efficiency      (au^-2 s^-1)  = 2.3855E+04
+ Number of VMC steps           = 10000000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.572847431688
+  Standard error                        +/-           0.000538047664
+
+  Constant energy contributions      (au) =           0.000000000000
+
+  Variance of local energy           (au) =           2.894952596716
+  Standard error                        +/-           0.000000000000
+
+ Time taken in block    : : :       84.8626
+
+ =========================================================================
+ In block : 5
+
+ Acceptance ratio         (%)  =  70.1074
+ Correlation time     (steps)  = 1.6994E+00 +- 2.5207E-03
+ Efficiency      (au^-2 s^-1)  = 2.3770E+04
+ Number of VMC steps           = 10000000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.572607039288
+  Standard error                        +/-           0.000540279567
+
+  Constant energy contributions      (au) =           0.000000000000
+
+  Variance of local energy           (au) =           2.919019816417
+  Standard error                        +/-           0.000000000000
+
+ Time taken in block    : : :       84.8107
+
+ =========================================================================
+ In block : 6
+
+ Acceptance ratio         (%)  =  70.1065
+ Correlation time     (steps)  = 1.5655E+00 +- 2.3021E-03
+ Efficiency      (au^-2 s^-1)  = 1.8430E+04
+ Number of VMC steps           = 10000000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.572092801425
+  Standard error                        +/-           0.000638247999
+
+  Constant energy contributions      (au) =           0.000000000000
+
+  Variance of local energy           (au) =           4.073604677241
+  Standard error                        +/-           0.000000000000
+
+ Time taken in block    : : :       85.0789
+
+ =========================================================================
+ In block : 7
+
+ Acceptance ratio         (%)  =  70.1009
+ Correlation time     (steps)  = 1.7018E+00 +- 2.5243E-03
+ Efficiency      (au^-2 s^-1)  = 2.3403E+04
+ Number of VMC steps           = 10000000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.573083452240
+  Standard error                        +/-           0.000544277131
+
+  Constant energy contributions      (au) =           0.000000000000
+
+  Variance of local energy           (au) =           2.962375658518
+  Standard error                        +/-           0.000000000000
+
+ Time taken in block    : : :       84.7573
+
+ =========================================================================
+ In block : 8
+
+ Acceptance ratio         (%)  =  70.1068
+ Correlation time     (steps)  = 1.7118E+00 +- 2.5391E-03
+ Efficiency      (au^-2 s^-1)  = 2.3395E+04
+ Number of VMC steps           = 10000000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.573164553582
+  Standard error                        +/-           0.000542841497
+
+  Constant energy contributions      (au) =           0.000000000000
+
+  Variance of local energy           (au) =           2.946768611827
+  Standard error                        +/-           0.000000000000
+
+ Time taken in block    : : :       84.7356
+
+ =========================================================================
+ In block : 9
+
+ Acceptance ratio         (%)  =  70.1060
+ Correlation time     (steps)  = 1.6909E+00 +- 2.5081E-03
+ Efficiency      (au^-2 s^-1)  = 2.3443E+04
+ Number of VMC steps           = 10000000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.572710107590
+  Standard error                        +/-           0.000544482948
+
+  Constant energy contributions      (au) =           0.000000000000
+
+  Variance of local energy           (au) =           2.964616506768
+  Standard error                        +/-           0.000000000000
+
+ Time taken in block    : : :       85.0935
+
+ =========================================================================
+ In block : 10
+
+ Acceptance ratio         (%)  =  70.1140
+ Correlation time     (steps)  = 1.7230E+00 +- 2.5557E-03
+ Efficiency      (au^-2 s^-1)  = 2.3412E+04
+ Number of VMC steps           = 10000000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -14.571966360962
+  Standard error                        +/-           0.000539167656
+
+  Constant energy contributions      (au) =           0.000000000000
+
+  Variance of local energy           (au) =           2.907017323365
+  Standard error                        +/-           0.000000000000
+
+ Time taken in block    : : :       85.2791
 
  =========================================================================
  FINAL RESULT:
 
   VMC energy (au)    Standard error      Correction for serial correlation
 
- -14.572895289672 +/- 0.001881372656      On-the-fly reblocking method
+ -14.572681751316 +/- 0.000174553715      No correction
+ -14.572681751316 +/- 0.000227101014      Correlation time method
+ -14.572681751316 +/- 0.000239596166      On-the-fly reblocking method
 
- Sample variance of E_L (au^2/sim.cell) : 2.858309151571
+ Sample variance of E_L (au^2/sim.cell) : 3.046899896909
 
 
  =========================================================================
 
- Total PyCasino real time : : :    136.5336
+ Total PyCasino real time : : :    849.2191
