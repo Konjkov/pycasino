@@ -57,6 +57,13 @@ v 0.4.0 (in progress)
       geminal instead. This takes an emin or varmin cycle from 2·nparam determinant evaluations
       per configuration to one inverse and a handful of matrix products, nparam being of the
       order of half the square of the orbital pool
+    * OPT_GEMINAL with BACKFLOW : T. The derivatives w.r.t the geminal parameters are taken at the
+      quasi-particle coordinates and carried through the jacobian of the transformation, so the
+      laplacian of the geminal becomes its hessian contracted with that jacobian plus its gradient
+      against the laplacian of the transformation. The hessian w.r.t the parameters is contracted
+      with the jacobian as it is built, the (nparam, 3N, 3N) tensor never existing: differentiating
+      d²ln(det) by a parameter leaves five traces, of which the two carrying d²M/(da dp) are equal
+      under a symmetric contraction, and every factor of every one of them is of rank one
     * Hessian and tressian of the geminal, so that psi_s : geminal with backflow : T is no longer
       an input error: the local energy reads the hessian and the derivative of the local energy
       w.r.t the backflow parameters reads the tressian, and both now come from the geminal rather
@@ -79,6 +86,16 @@ v 0.4.0 (in progress)
       through an opt_plan block, so a vmc_opt run that set them as plain keywords and relied on
       OPT_CYCLES optimized nothing at all. The keywords are now what every cycle an opt_plan block
       does not mention falls back to
+    * Under backflow the derivative of the local energy w.r.t. the determinant coefficients
+      contracted the laplacian of the transformation with the gradient the jacobian had already
+      been applied to (wfn.kinetic_energy_parameters_d1). One variable served two roles: the
+      laplacian of the transformation goes against the gradient over the quasi-particle
+      coordinates, exactly as kinetic_energy takes it, and only the cross term with the jastrow
+      wants the jacobian, the jastrow gradient being one over the electron coordinates. The
+      shapes agree either way, so nothing ever raised. Affected every emin/varmin run with
+      OPT_DET_COEFF and BACKFLOW : T, by 5% of the derivative on the four-determinant Be of
+      tests/inputs/MDET, which now carries a BACKFLOW block so that the new
+      test_mdet.TestMdetBackflow enters the branch at all - no test did before
     * The derivative of the local energy w.r.t. the determinant coefficients carried a spurious
       gradient**2 term (wfn.kinetic_energy_parameters_d1). The formula in wfn.rst is written in
       the d²lnPhi form and is right, but the laplacian it is fed comes in the d²Phi/Phi form,

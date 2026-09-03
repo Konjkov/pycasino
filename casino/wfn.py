@@ -448,7 +448,11 @@ def wfn_value_parameters_d1(self, r_e):
                 s_g = self.slater.gradient(b_v)
             res = np.concatenate((res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ s_g))
         if self.geminal is not None and self.opt_geminal:
-            res = np.concatenate((res, self.geminal.value_parameters_d1(n_vectors)))
+            if self.backflow is not None:
+                gem_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
+            else:
+                gem_v = n_vectors
+            res = np.concatenate((res, self.geminal.value_parameters_d1(gem_v)))
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
             if self.backflow is not None:
                 n_vectors = self.backflow.value(e_vectors, n_vectors) + n_vectors
@@ -511,20 +515,31 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
             # geminal parameters part. The laplacian of the geminal is its own second derivative
             # over its own value, so the square of its gradient is already inside it and the only
             # cross term left in the local energy is the one with the jastrow
-            gem_d1 = self.geminal.laplacian_parameters_d1(n_vectors) / 2
+            if self.backflow is not None:
+                # under backflow the laplacian of the geminal over the electron coordinates is
+                # its hessian over the quasi-particle ones contracted with the jacobian, plus its
+                # gradient there against the laplacian of the transformation
+                gem_g_d1 = self.geminal.gradient_parameters_d1(b_v + n_vectors)
+                gem_d1 = (self.geminal.hessian_parameters_d1_dot(b_v + n_vectors, b_g @ b_g.T) + gem_g_d1 @ b_l) / 2
+                gem_g_d1 = gem_g_d1 @ b_g
+            else:
+                gem_g_d1 = self.geminal.gradient_parameters_d1(n_vectors)
+                gem_d1 = self.geminal.laplacian_parameters_d1(n_vectors) / 2
             if self.jastrow is not None:
-                gem_d1 += self.geminal.gradient_parameters_d1(n_vectors) @ j_g
+                gem_d1 += gem_g_d1 @ j_g
             res = np.concatenate((res, gem_d1))
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
             # determinants coefficients part
             if self.backflow is not None:
                 s_g_d1 = self.slater.gradient_parameters_d1(b_v + n_vectors)
                 s_h_d1 = self.slater.hessian_parameters_d1(b_v + n_vectors)
-                s_g_d1 = s_g_d1 @ b_g
                 # because slater gradient w.r.t parameters is already projected
                 sl_d1 = np.zeros(shape=s_g_d1.shape[0])
                 for i in range(s_g_d1.shape[0]):
+                    # the laplacian of the transformation goes against the gradient over the
+                    # quasi-particle coordinates, the one the jacobian has not yet been applied to
                     sl_d1[i] = (np.sum(s_h_d1[i] * (b_g @ b_g.T)) + s_g_d1[i] @ b_l) / 2
+                s_g_d1 = s_g_d1 @ b_g
             else:
                 s_g_d1 = self.slater.gradient_parameters_d1(n_vectors)
                 sl_d1 = self.slater.laplacian_parameters_d1(n_vectors) / 2

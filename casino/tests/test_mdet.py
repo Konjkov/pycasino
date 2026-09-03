@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from casino.backflow import Backflow
 from casino.jastrow import Jastrow
 from casino.readers import CasinoConfig
 from casino.slater import Slater
@@ -49,6 +50,19 @@ class TestMdet(unittest.TestCase):
         analytical = self.wfn.energy_parameters_d1(self.r_e)
         numerical = self.wfn.energy_parameters_numerical_d1(self.r_e)
         assert analytical == pytest.approx(numerical, rel=1e-4, abs=1e-6)
+
+
+class TestMdetBackflow(TestMdet):
+    """The same with backflow, where the determinant is read at the quasi-particle coordinates
+    and the laplacian of the transformation goes against the gradient taken there, before the
+    jacobian is applied to it. Without backflow that branch is never entered.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.wfn = Wfn(self.config, self.wfn.slater, jastrow=Jastrow(self.config), backflow=Backflow(self.config))
+        self.wfn.opt_det_coeff = True
+        self.wfn.set_parameters_projector()
 
 
 if __name__ == '__main__':

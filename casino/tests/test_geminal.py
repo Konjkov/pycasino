@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from casino import delta
 from casino.backflow import Backflow
 from casino.cusp import CuspFactory
 from casino.geminal import Geminal
@@ -202,6 +203,39 @@ class TestGeminalBackflow(unittest.TestCase):
         assert analytical == pytest.approx(self.slater_wfn.energy_parameters_d1(self.r_e))
 
 
+class TestGeminalBackflowParameters(unittest.TestCase):
+    """The derivatives w.r.t the geminal parameters are taken at the quasi-particle coordinates
+    and carried through the jacobian of the backflow transformation, so the laplacian of the
+    geminal is its hessian contracted with that jacobian plus its gradient against the laplacian
+    of the transformation.
+    """
+
+    def setUp(self):
+        np.random.seed(1)
+        self.config = CasinoConfig(Path(__file__).resolve().parent / 'inputs/Backflow/He')
+        self.config.read()
+        self.config.geminal = GeminalReader(self.config.input.neu, self.config.input.ned)
+        self.config.geminal.c_mask[:] = True
+        self.config.geminal.g_mask[:] = self.config.geminal.g_available[:] = True
+        self.geminal = Geminal(self.config)
+        self.wfn = Wfn(
+            self.config, Slater(self.config, cusp=None), geminal=self.geminal, jastrow=Jastrow(self.config), backflow=Backflow(self.config)
+        )
+        self.wfn.opt_geminal = True
+        self.wfn.set_parameters_projector()
+        self.r_e = initial_position(self.config)
+
+    def test_value_parameters_d1(self):
+        analytical = self.wfn.value_parameters_d1(self.r_e)
+        numerical = self.wfn.value_parameters_numerical_d1(self.r_e)
+        assert analytical == pytest.approx(numerical, rel=1e-5, abs=1e-8)
+
+    def test_energy_parameters_d1(self):
+        analytical = self.wfn.energy_parameters_d1(self.r_e)
+        numerical = self.wfn.energy_parameters_numerical_d1(self.r_e)
+        assert analytical == pytest.approx(numerical, rel=1e-4, abs=1e-6)
+
+
 class GeminalParameters:
     """Derivatives w.r.t. the geminal parameters against finite differences of the wave function
     taken through the parameter interface of Wfn.
@@ -236,6 +270,30 @@ class GeminalParameters:
         analytical = self.wfn.energy_parameters_d1(self.r_e)
         numerical = self.wfn.energy_parameters_numerical_d1(self.r_e)
         assert analytical == pytest.approx(numerical, rel=1e-4, abs=1e-6)
+
+    def test_hessian_parameters_d1_dot(self):
+        """The derivative the backflow branch of the local energy reads, against a finite
+        difference of the hessian contracted with the same matrix. Backflow itself does not take
+        part, so this runs on the open shell too, where the unpaired columns are parameters.
+        """
+        np.random.seed(2)
+        ne = self.config.input.neu + self.config.input.ned
+        a = np.random.uniform(-1, 1, (ne * 3, ne * 3))
+        bb = a + a.T
+        _, n_vectors = self.wfn._relative_coordinates(self.r_e)
+        analytical = self.geminal.hessian_parameters_d1_dot(n_vectors, bb)
+        parameters = self.wfn.get_parameters()
+        numerical = np.zeros(shape=parameters.size)
+        for i in range(parameters.size):
+            parameters[i] -= delta
+            self.wfn.set_parameters(parameters)
+            numerical[i] -= np.sum(self.geminal.hessian(n_vectors)[0] * bb)
+            parameters[i] += 2 * delta
+            self.wfn.set_parameters(parameters)
+            numerical[i] += np.sum(self.geminal.hessian(n_vectors)[0] * bb)
+            parameters[i] -= delta
+            self.wfn.set_parameters(parameters)
+        assert analytical == pytest.approx(numerical / delta / 2, rel=1e-4, abs=1e-6)
 
 
 class TestGeminalParametersBe(GeminalParameters, unittest.TestCase):

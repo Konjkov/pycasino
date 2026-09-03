@@ -1299,6 +1299,230 @@ def geminal_laplacian_parameters_d1(self, n_vectors: np.ndarray):
     return impl
 
 
+@nb.njit(nogil=True, parallel=False, cache=True)
+def hessian_parameters_term(ned, i1, j1, unpaired, p_row, col_p, bb, kbb, col, row, ri, inv, hu, ihd, xg, grad_u, grad_d, hess_u, hess_d):
+    """The traces one rank one term of a geminal parameter contributes to the derivative of the
+    hessian, contracted with bb over both coordinate axes. Differentiating
+        d²ln(det(M)) = tr(M^-1 • d²M) - tr(M^-1 • dM/da • M^-1 • dM/db)
+    by a parameter leaves five of them, of which the two carrying d²M/(da dp) are equal under a
+    symmetric bb and are taken twice instead. A parameter of the unpaired columns has no
+    down-spin side, so the terms that differentiate one are its alone to skip.
+    :param p_row: the row of the rank one term, a row of the down-spin pool or a unit row
+    :param col_p: its column, M^-1 • the column of the up-spin pool
+    """
+    neu = col.shape[1]
+    # the products the rank one of the parameter makes with the rank one of a coordinate
+    pinv = p_row @ inv
+    sp_row = col @ p_row
+    sp_col = row @ col_p
+    acc = 0.0
+    # tr(M^-1 • d³M/(da db dp)), which needs the three of them to meet on the same entry
+    for r in range(neu):
+        for d1 in range(3):
+            for d2 in range(3):
+                acc += bb[r * 3 + d1, r * 3 + d2] * hess_u[i1, r, d1, d2] * pinv[r]
+    if not unpaired:
+        for s in range(ned):
+            for d1 in range(3):
+                for d2 in range(3):
+                    acc += bb[(neu + s) * 3 + d1, (neu + s) * 3 + d2] * hess_d[j1, s, d1, d2] * col_p[s]
+        for r in range(neu):
+            for d1 in range(3):
+                for s in range(ned):
+                    for d2 in range(3):
+                        acc += 2 * bb[r * 3 + d1, (neu + s) * 3 + d2] * inv[s, r] * grad_u[i1, r, d1] * grad_d[j1, s, d2]
+    # - tr(M^-1 • dM/dp • M^-1 • d²M/(da db))
+    for r in range(neu):
+        for d1 in range(3):
+            for d2 in range(3):
+                acc -= bb[r * 3 + d1, r * 3 + d2] * pinv[r] * (hu[r, d1, d2] @ col_p)
+            for s in range(ned):
+                for d2 in range(3):
+                    acc -= 2 * bb[r * 3 + d1, (neu + s) * 3 + d2] * xg[r * 3 + d1, s * 3 + d2] * pinv[r] * col_p[s]
+    for s in range(ned):
+        for d1 in range(3):
+            for d2 in range(3):
+                acc -= bb[(neu + s) * 3 + d1, (neu + s) * 3 + d2] * (p_row @ ihd[s, d1, d2]) * col_p[s]
+    # - 2 tr(M^-1 • d²M/(da dp) • M^-1 • dM/db)
+    for r in range(neu):
+        z = sp_row * ri[:, r]
+        for d1 in range(3):
+            acc -= 2 * grad_u[i1, r, d1] * (bb[r * 3 + d1] @ z)
+    if not unpaired:
+        for s in range(ned):
+            y = col[:, s] * sp_col
+            for d1 in range(3):
+                acc -= 2 * grad_d[j1, s, d1] * (bb[(neu + s) * 3 + d1] @ y)
+    # + the two products of three, which a symmetric bb does not make equal
+    acc += sp_row @ (kbb @ sp_col) + sp_col @ (kbb.T @ sp_row)
+    return acc
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Geminal_class_t, 'hessian_parameters_d1_dot')
+def geminal_hessian_parameters_d1_dot(self, n_vectors: np.ndarray, bb: np.ndarray):
+    """First derivatives of the hessian w.r.t the parameters, contracted with a symmetric bb
+    over both of its coordinate axes, which is the only shape the backflow branch of the local
+    energy ever reads them in, so the (nparam, 3N, 3N) tensor is never built.
+    :param bb: symmetric matrix shape = (nelec * 3, nelec * 3)
+    :return: array(nparam)
+    """
+
+    def impl(self, n_vectors: np.ndarray, bb: np.ndarray) -> np.ndarray:
+        pool_u, pool_d, pool_grad_u, pool_grad_d, pool_hess_u, pool_hess_d = self.pool_hessian_matrix(n_vectors)
+        ne = self.neu + self.ned
+        ngem = self.c.size
+        pool_d_full = np.zeros(shape=(self.norb, self.neu))
+        pool_d_full[:, : self.ned] = pool_d
+        flat_grad_u = pool_grad_u.reshape(self.norb, self.neu * 3)
+        flat_grad_d = pool_grad_d.reshape(self.norb, self.ned * 3)
+        flat_hess_u = pool_hess_u.reshape(self.norb, self.neu * 9)
+        flat_hess_d = pool_hess_d.reshape(self.norb, self.ned * 9)
+
+        weights = np.zeros(shape=ngem)
+        c_weights = np.zeros(shape=ngem)
+        inverses = np.zeros(shape=(ngem, self.neu, self.neu))
+        iu = np.zeros(shape=(ngem, self.neu, self.norb))
+        zg = np.zeros(shape=(ngem, self.norb, self.norb))
+        col = np.zeros(shape=(ngem, ne * 3, self.neu))
+        rows = np.zeros(shape=(ngem, ne * 3, self.neu))
+        kbb = np.zeros(shape=(ngem, ne * 3, ne * 3))
+        ri = np.zeros(shape=(ngem, ne * 3, self.neu))
+        guiu = np.zeros(shape=(ngem, self.neu * 3, self.norb))
+        pdinv = np.zeros(shape=(ngem, self.norb, self.neu))
+        pdw = np.zeros(shape=(ngem, self.norb, self.ned * 3))
+        w_col = np.zeros(shape=(ngem, self.neu, self.ned * 3))
+        hu = np.zeros(shape=(ngem, self.neu, 3, 3, self.neu))
+        ihd = np.zeros(shape=(ngem, self.ned, 3, 3, self.neu))
+        xg = np.zeros(shape=(ngem, self.neu * 3, self.ned * 3))
+        bbgr = np.zeros(shape=(ngem, ne * 3))
+        hbb = np.zeros(shape=ngem)
+        val = 0.0
+        for n in range(ngem):
+            full_c = np.empty(shape=(self.norb, self.neu))
+            full_c[:, : self.ned] = self.g[n] @ pool_d
+            if self.nunpaired:
+                full_c[:, self.ned :] = self.u[n]
+            matrix = pool_u.T @ full_c
+            inv = np.linalg.inv(matrix)
+            a_mat = pool_u.T @ self.g[n]
+            gu = flat_grad_u.T @ full_c
+            gd = (a_mat @ flat_grad_d).reshape(self.neu, self.ned, 3)
+            hd = (a_mat @ flat_hess_d).reshape(self.neu, self.ned, 3, 3)
+            inverses[n] = inv
+            iu[n] = inv @ pool_u.T
+            zg[n] = pool_d_full @ iu[n]
+            pdinv[n] = pool_d_full @ inv
+            w_col[n] = inv @ gd.reshape(self.neu, self.ned * 3)
+            pdw[n] = pool_d_full @ w_col[n]
+            guiu[n] = gu @ iu[n]
+            hu[n] = (flat_hess_u.T @ full_c).reshape(self.neu, 3, 3, self.neu)
+            for s in range(self.ned):
+                for d1 in range(3):
+                    for d2 in range(3):
+                        ihd[n, s, d1, d2] = inv @ hd[:, s, d1, d2]
+            xg[n] = flat_grad_u.T @ (self.g[n] @ flat_grad_d)
+
+            for r in range(self.neu):
+                for d in range(3):
+                    col[n, r * 3 + d] = inv[:, r]
+                    rows[n, r * 3 + d] = gu[r * 3 + d]
+            for s in range(self.ned):
+                for d in range(3):
+                    col[n, (self.neu + s) * 3 + d] = w_col[n, :, s * 3 + d]
+                    rows[n, (self.neu + s) * 3 + d, s] = 1.0
+            s_mat = rows[n] @ col[n].T
+            ri[n] = rows[n] @ inv
+            kbb[n] = s_mat * bb
+            gr = np.zeros(shape=ne * 3)
+            for k in range(ne * 3):
+                gr[k] = s_mat[k, k]
+            hln = -s_mat * s_mat.T
+            for r in range(self.neu):
+                for d1 in range(3):
+                    for d2 in range(3):
+                        hln[r * 3 + d1, r * 3 + d2] += inv[:, r] @ hu[n, r, d1, d2]
+                    for s in range(self.ned):
+                        for d2 in range(3):
+                            v = inv[s, r] * xg[n, r * 3 + d1, s * 3 + d2]
+                            hln[r * 3 + d1, (self.neu + s) * 3 + d2] += v
+                            hln[(self.neu + s) * 3 + d2, r * 3 + d1] += v
+            for s in range(self.ned):
+                for d1 in range(3):
+                    for d2 in range(3):
+                        hln[(self.neu + s) * 3 + d1, (self.neu + s) * 3 + d2] += inv[s] @ hd[:, s, d1, d2]
+            bbgr[n] = bb @ gr
+            hbb[n] = np.sum((hln + np.outer(gr, gr)) * bb)
+            c_weights[n] = np.linalg.det(matrix)
+            weights[n] = self.c[n] * c_weights[n]
+            val += weights[n]
+        weights /= val
+        c_weights /= val
+        hbb_total = 0.0
+        for n in range(ngem):
+            hbb_total += weights[n] * hbb[n]
+
+        res = np.zeros(shape=self.get_parameters(True).size)
+        n_par = 0
+        for n in range(ngem):
+            inv = inverses[n]
+            res[n_par] = c_weights[n] * (hbb[n] - hbb_total)
+            n_par += 1
+            for i in range(self.norb):
+                for j in range(i, self.norb):
+                    if self.g_available[n, i, j]:
+                        if i == j:
+                            terms = 1
+                            trace = zg[n, i, i]
+                        else:
+                            terms = 2
+                            trace = zg[n, j, i] + zg[n, i, j]
+                        acc = 0.0
+                        d_gr = np.zeros(shape=ne * 3)
+                        for term in range(terms):
+                            if term == 0:
+                                i1, j1 = i, j
+                            else:
+                                i1, j1 = j, i
+                            acc += hessian_parameters_term(
+                                self.ned, i1, j1, False, pool_d_full[j1], iu[n, :, i1], bb, kbb[n], col[n], rows[n],
+                                ri[n], inv, hu[n], ihd[n], xg[n], pool_grad_u, pool_grad_d, pool_hess_u, pool_hess_d,
+                            )  # fmt: skip
+                            for r in range(self.neu):
+                                for d in range(3):
+                                    a = r * 3 + d
+                                    d_gr[a] += pdinv[n, j1, r] * (pool_grad_u[i1, r, d] - guiu[n, a, i1])
+                            for s in range(self.ned):
+                                for d in range(3):
+                                    a = (self.neu + s) * 3 + d
+                                    d_gr[a] += iu[n, s, i1] * (pool_grad_d[j1, s, d] - pdw[n, j1, s * 3 + d])
+                        res[n_par] = weights[n] * (trace * (hbb[n] - hbb_total) + acc + 2 * (d_gr @ bbgr[n]))
+                        n_par += 1
+            for i in range(self.norb):
+                for k in range(self.nunpaired):
+                    if self.u_available[n, i, k]:
+                        p_row = np.zeros(shape=self.neu)
+                        p_row[self.ned + k] = 1.0
+                        acc = hessian_parameters_term(
+                            self.ned, i, 0, True, p_row, iu[n, :, i], bb, kbb[n], col[n], rows[n],
+                            ri[n], inv, hu[n], ihd[n], xg[n], pool_grad_u, pool_grad_d, pool_hess_u, pool_hess_d,
+                        )  # fmt: skip
+                        d_gr = np.zeros(shape=ne * 3)
+                        for r in range(self.neu):
+                            for d in range(3):
+                                a = r * 3 + d
+                                d_gr[a] += inv[self.ned + k, r] * (pool_grad_u[i, r, d] - guiu[n, a, i])
+                        for s in range(self.ned):
+                            for d in range(3):
+                                a = (self.neu + s) * 3 + d
+                                d_gr[a] -= w_col[n, self.ned + k, s * 3 + d] * iu[n, s, i]
+                        res[n_par] = weights[n] * (iu[n, self.ned + k, i] * (hbb[n] - hbb_total) + acc + 2 * (d_gr @ bbgr[n]))
+                        n_par += 1
+        return self.parameters_projector.T @ res
+
+    return impl
+
+
 class Geminal(structref.StructRefProxy, AbstractSlater):
     def __new__(cls, config, cusp=None):
         @nb.njit(nogil=True, parallel=False, cache=True)
@@ -1422,6 +1646,10 @@ class Geminal(structref.StructRefProxy, AbstractSlater):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def tressian_dot(self, n_vectors, bb):
         return self.tressian_dot(n_vectors, bb)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def hessian_parameters_d1_dot(self, n_vectors, bb):
+        return self.hessian_parameters_d1_dot(n_vectors, bb)
 
 
 structref.define_boxing(Geminal_class_t, Geminal)
