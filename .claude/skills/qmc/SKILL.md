@@ -248,6 +248,23 @@ accept = |Ψ(r')|² / |Ψ(r)|² > random()
 
 **EBES (method=1)** — electron-by-electron (Gibbs) sampling.
 
+A single-electron move never touches the whole configuration: the walker carries two caches,
+built by `wfn.caches(r_e)` and read by `wfn.value_ratio_1e` / committed by `wfn.accept_1e`
+(`wfn.py`):
+
+- the **slater state** (`slater.state`, CASINO's DBAR/LOGDET) — inverse matrices and log
+  determinants, updated by the rank-one formula in `SlaterState.accept_1e`, which refuses after
+  `dbar_max_age` updates or a zero Q and asks the caller to rebuild;
+- the **e-n powers** the jastrow reads — only the row of the moved electron is replaced, and put
+  back if the move is rejected.
+
+VMC keeps them for the whole walk (rebuilt in `VMC.reset`), DMC rebuilds them per walker per step
+(`ebe_drift_diffusion`), which costs what a single move of the sweep used to cost. Neither works
+with backflow (a one-electron move displaces every quasi-particle within the cutoff) nor with a
+geminal (not a slater determinant): both fall back to a whole wave function per move. What is
+left per accepted electron in EBES DMC is the **drift velocity**, still recomputed in full — the
+next item of the same kind, and it needs the orbital gradients in the state.
+
 **Step size** `step_size` is adjusted automatically (`OPT_DTVMC=T`) to achieve ~50%
 acceptance rate.
 

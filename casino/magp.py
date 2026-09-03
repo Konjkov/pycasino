@@ -87,7 +87,8 @@ def degenerate_groups(orbitals, occupation):
 class MultiGeminal:
     """MAGP expansion generated from a natural orbital spectrum."""
 
-    def __init__(self, file_path, neu, ned):
+    def __init__(self, file_path, neu, ned, scale=1.0):
+        self.scale = scale
         self.symmetry, self.occupation = read_natural_orbitals(file_path)
         if not self.occupation:
             raise ValueError(f'no natural orbital occupations found in {file_path}')
@@ -111,7 +112,7 @@ class MultiGeminal:
         return columns
 
     def seed(self, orb):
-        return -math.sqrt(self.occupation[orb - 1] / self.reference)
+        return -self.scale * math.sqrt(self.occupation[orb - 1] / self.reference)
 
     def parameter(self, pair):
         row, col = pair
@@ -176,8 +177,9 @@ def main():
     parser.add_argument('neu', type=int, help='number of up electrons')
     parser.add_argument('ned', type=int, help='number of down electrons')
     parser.add_argument('--no-unpaired', action='store_true', help='omit the geminals correlating the unpaired electrons')
+    parser.add_argument('--scale', type=float, default=1.0, help='factor on the seeds, to keep the excited weight down when the families are many')
     args = parser.parse_args()
 
-    magp = MultiGeminal(args.orca_output, args.neu, args.ned)
+    magp = MultiGeminal(args.orca_output, args.neu, args.ned, args.scale)
     magp.build(with_unpaired=not args.no_unpaired)
     sys.stdout.write(str(magp))

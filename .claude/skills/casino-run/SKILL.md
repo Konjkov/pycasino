@@ -101,15 +101,26 @@ L1/L2, so the extra four ranks buy almost nothing on a BLAS-bound QMC run and ma
 non-comparable. `runqmc` with no `-p` takes all logical cores — always pass `-p 4`
 explicitly (`nproc: 4` through the `casino` MCP server).
 
+**Run one calculation at a time.** Not four one-process jobs side by side — one job, wait,
+read it, start the next. Four concurrent runs on this machine do not behave.
+
 **Delete `out` before re-running in a directory that already has one.** `runqmc` *appends*,
 it does not truncate, so a restarted or previously killed run leaves one file holding two
 runs back to back — two `Geminal setup` banners, two sets of block energies, two FINAL
 RESULTs. `envmc` then reads the concatenation and gives nonsense, and any hand-read energy
-may come from the wrong run. Nothing warns you. The `casino` MCP server's `overwrite: true`
-only lifts the refusal to start; it does not clear the file — **known gap, to be fixed in a
-future server version (`~/PycharmProjects/casino-mcp`); until then clear by hand before
-every re-run**: `rm -f out config.in config.out correlation.out.* parameters.[0-9]*.casl
-vmc.hist dmc.hist`.
+may come from the wrong run. Nothing warns you. By hand:
+`rm -f out config.in config.out correlation.out.* parameters.[0-9]*.casl vmc.hist dmc.hist`.
+
+**MCP server (`~/PycharmProjects/casino-mcp`), state as of 2026-08-30.** The `out`-append
+gap is FIXED: `casino_run(workdir, restart=true)` now really deletes `out`, `vmc.hist`,
+`config.out` and the rest of the previous run's products, and its reply lists them under
+`removed`. Use it for every re-run. `casino_status`, `casino_wait` and `casino_list_jobs` —
+the three tools answering with the `JobState` family — used to raise
+`1 validation error ... binary: Input should be a valid string`, because
+`jobs.binary_stamp()` returns a dict (`path`/`exists`/`size`/`mtime`) and the model declared a
+string; **fixed 2026-08-30** (a `BinaryStamp` model, uncommitted in the working tree). An edit
+there does not reach a server that is already running, so restart the MCP server after one;
+until then `casino_results` carries `status` and covers what `casino_status` was for.
 
 `runqmc` refuses to start on a directory that another instance has locked; clear a stale
 lock with `-u`. `--force`/`-f` skips the input-file check. `-i` prints what runqmc thinks

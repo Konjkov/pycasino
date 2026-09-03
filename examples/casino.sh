@@ -55,6 +55,8 @@
 
 # ../casino/plot/plot.py stowfn/He/HF/QZ4P/CBCS/Backflow/ u
 
+path="geminal/Be/OO-RI-MP2/ano-pVDZ/CBCS/Jastrow_emin"
+
 # path="stowfn/Be/HF/QZ4P/${method}/Backflow_omega_emin/0_4"
 
 # pycasino.log and correlation.out.* are written to the current directory,
@@ -71,6 +73,6 @@ fi
 # single MPI-process
 # pycasino $path
 # multiple MPI-process
-# mpiexec pycasino $path
+mpiexec pycasino $path
 # hybrid code
 # mpiexec -n 2 --map-by slot:pe=${NUMBA_NUM_THREADS} pycasino $path
