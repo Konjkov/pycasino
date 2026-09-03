@@ -6,8 +6,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from casino.backflow import Backflow
 from casino.cusp import CuspFactory
 from casino.geminal import Geminal
+from casino.jastrow import Jastrow
 from casino.readers import CasinoConfig
 from casino.readers.geminal import Geminal as GeminalReader
 from casino.slater import Slater
@@ -68,6 +70,26 @@ class HartreeFockGeminal:
     def test_laplacian(self):
         assert self.geminal.laplacian(self.n_vectors) == pytest.approx(self.geminal.numerical_laplacian(self.n_vectors), rel=1e-5)
 
+    def test_hessian_vs_slater(self):
+        assert self.geminal.hessian(self.n_vectors)[0] == pytest.approx(self.wfn.slater.hessian(self.n_vectors)[0], rel=1e-5, abs=1e-8)
+
+    def test_hessian(self):
+        # the finite difference is what limits this comparison, not the analytic hessian: it
+        # misses the slater one by the same 1.9e-5 on Ne that it misses the geminal one by, on a
+        # hessian whose largest element is 102. The tight check is the one against slater above
+        hessian, gradient = self.geminal.hessian(self.n_vectors)
+        assert hessian == pytest.approx(self.geminal.numerical_hessian(self.n_vectors), rel=1e-4, abs=1e-4)
+        assert gradient == pytest.approx(self.geminal.numerical_gradient(self.n_vectors))
+
+    def test_tressian_dot_vs_slater(self):
+        np.random.seed(2)
+        ne = self.config.input.neu + self.config.input.ned
+        a = np.random.uniform(-1, 1, (ne * 3, ne * 3))
+        bb = a + a.T
+        assert self.geminal.tressian_dot(self.n_vectors, bb)[0] == pytest.approx(
+            self.wfn.slater.tressian_dot(self.n_vectors, bb)[0], rel=1e-5, abs=1e-8
+        )
+
 
 class TestGeminalHe(HartreeFockGeminal, unittest.TestCase):
     config_path = 'inputs/Slater/He'
@@ -90,6 +112,94 @@ class TestGeminalN(HartreeFockGeminal, unittest.TestCase):
     """Open shell, neu = 5 and ned = 2: three unpaired columns."""
 
     config_path = 'inputs/Cusp/N'
+
+
+class CorrelatedGeminal:
+    """The Hartree-Fock geminal factorizes, so its second derivative across an up and a down
+    electron at once is zero and the block that a slater determinant has no counterpart for
+    cancels. Filling the off-diagonal of g makes it survive.
+    """
+
+    config_path = None
+    numerical_tressian = False
+
+    def setUp(self):
+        np.random.seed(1)
+        self.config = CasinoConfig(Path(__file__).resolve().parent / self.config_path)
+        self.config.read()
+        self.config.geminal = GeminalReader(self.config.input.neu, self.config.input.ned)
+        norb = self.config.geminal.norb
+        off_diagonal = np.random.uniform(-0.1, 0.1, (norb, norb))
+        self.config.geminal.g[0] += off_diagonal + off_diagonal.T
+        self.geminal = Geminal(self.config)
+        self.wfn = Wfn(self.config, Slater(self.config, cusp=None), geminal=self.geminal)
+        self.r_e = initial_position(self.config)
+        _, self.n_vectors = self.wfn._relative_coordinates(self.r_e)
+
+    def test_hessian(self):
+        hessian, gradient = self.geminal.hessian(self.n_vectors)
+        assert hessian == pytest.approx(self.geminal.numerical_hessian(self.n_vectors), rel=1e-4, abs=1e-4)
+        assert gradient == pytest.approx(self.geminal.numerical_gradient(self.n_vectors))
+
+    def test_laplacian(self):
+        assert self.geminal.laplacian(self.n_vectors) == pytest.approx(self.geminal.numerical_laplacian(self.n_vectors), rel=1e-5)
+
+    def test_tressian_dot(self):
+        if not self.numerical_tressian:
+            self.skipTest('the finite-difference tressian costs (3 * nelec)**3 evaluations')
+        np.random.seed(2)
+        ne = self.config.input.neu + self.config.input.ned
+        a = np.random.uniform(-1, 1, (ne * 3, ne * 3))
+        bb = a + a.T
+        tressian_dot, hessian, gradient = self.geminal.tressian_dot(self.n_vectors, bb)
+        numerical = np.tensordot(self.geminal.numerical_tressian(self.n_vectors), bb, axes=([1, 2], [0, 1]))
+        assert tressian_dot == pytest.approx(numerical, rel=1e-3, abs=1e-3)
+        assert hessian == pytest.approx(self.geminal.hessian(self.n_vectors)[0])
+        assert gradient == pytest.approx(self.geminal.gradient(self.n_vectors))
+
+
+class TestCorrelatedGeminalNe(CorrelatedGeminal, unittest.TestCase):
+    config_path = 'inputs/Cusp/Ne'
+
+
+class TestCorrelatedGeminalN(CorrelatedGeminal, unittest.TestCase):
+    """Open shell: the unpaired columns depend on no down electron at all. The smaller of the two
+    is the one the finite-difference tressian is taken on, and it still carries both of the mixed
+    blocks that a slater determinant does not have.
+    """
+
+    config_path = 'inputs/Cusp/N'
+    numerical_tressian = True
+
+
+class TestGeminalBackflow(unittest.TestCase):
+    """Backflow reads the hessian of the determinant part, and the derivative of the local energy
+    w.r.t its own parameters reads the tressian. On the Hartree-Fock geminal both must give what
+    the slater determinant gives, and the local energy must still be the laplacian of the value.
+    """
+
+    def setUp(self):
+        np.random.seed(1)
+        self.config = CasinoConfig(Path(__file__).resolve().parent / 'inputs/Backflow/He')
+        self.config.read()
+        self.config.geminal = GeminalReader(self.config.input.neu, self.config.input.ned)
+        slater = Slater(self.config, cusp=None)
+        jastrow = Jastrow(self.config)
+        self.slater_wfn = Wfn(self.config, slater, jastrow=jastrow, backflow=Backflow(self.config))
+        self.wfn = Wfn(self.config, slater, geminal=Geminal(self.config), jastrow=jastrow, backflow=Backflow(self.config))
+        self.wfn.opt_backflow = self.slater_wfn.opt_backflow = True
+        self.wfn.set_parameters_projector()
+        self.slater_wfn.set_parameters_projector()
+        self.r_e = initial_position(self.config)
+
+    def test_kinetic_energy(self):
+        assert self.wfn.kinetic_energy(self.r_e) == pytest.approx(-self.wfn.numerical_laplacian(self.r_e) / 2)
+        assert self.wfn.kinetic_energy(self.r_e) == pytest.approx(self.slater_wfn.kinetic_energy(self.r_e))
+
+    def test_energy_parameters_d1(self):
+        analytical = self.wfn.energy_parameters_d1(self.r_e)
+        assert analytical == pytest.approx(self.wfn.energy_parameters_numerical_d1(self.r_e))
+        assert analytical == pytest.approx(self.slater_wfn.energy_parameters_d1(self.r_e))
 
 
 class GeminalParameters:

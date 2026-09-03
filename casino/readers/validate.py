@@ -145,13 +145,13 @@ def check_input(input, base_path, file_keywords):
         errors.append('opt_jastrow needs use_jastrow : T')
     if input.opt_geminal and input.psi_s != 'geminal':
         errors.append('opt_geminal needs psi_s : geminal')
-    if input.psi_s == 'geminal':
-        if input.ned > input.neu:
-            errors.append(f'psi_s : geminal pairs the {input.ned} down-spin electrons with up-spin ones, of which there are {input.neu}')
-        if input.backflow:
-            # the local energy would come from the determinant while the drift comes from the
-            # geminal, as geminal has no hessian for the backflow branch of kinetic_energy
-            errors.append('psi_s : geminal with backflow : T is not implemented')
+    if input.psi_s == 'geminal' and input.ned > input.neu:
+        errors.append(f'psi_s : geminal pairs the {input.ned} down-spin electrons with up-spin ones, of which there are {input.neu}')
+    if input.opt_geminal and input.backflow:
+        # the derivatives w.r.t the geminal parameters are taken at the electron coordinates, and
+        # under backflow they would have to be taken at the quasi-particle ones and carried
+        # through its jacobian, as the determinant coefficients already are
+        errors.append('opt_geminal with backflow : T is not implemented')
 
     orbital_file = ORBITAL_FILE.get(input.atom_basis_type)
     if orbital_file is not None and not os.path.isfile(os.path.join(base_path, orbital_file)):

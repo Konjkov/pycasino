@@ -387,7 +387,10 @@ def wfn_kinetic_energy(self, r_e):
 
         if self.backflow is not None:
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
-            s_h, s_g = self.slater.hessian(b_v + n_vectors)
+            if self.geminal is not None:
+                s_h, s_g = self.geminal.hessian(b_v + n_vectors)
+            else:
+                s_h, s_g = self.slater.hessian(b_v + n_vectors)
             s_l = np.sum(b_g * (s_h @ b_g)) + s_g @ b_l
             s_g = s_g @ b_g
         elif self.geminal is not None:
@@ -439,7 +442,11 @@ def wfn_value_parameters_d1(self, r_e):
             res = np.concatenate((res, self.jastrow.value_parameters_d1(e_vectors, n_vectors)))
         if self.backflow is not None and self.opt_backflow:
             b_v = self.backflow.value(e_vectors, n_vectors) + n_vectors
-            res = np.concatenate((res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ self.slater.gradient(b_v)))
+            if self.geminal is not None:
+                s_g = self.geminal.gradient(b_v)
+            else:
+                s_g = self.slater.gradient(b_v)
+            res = np.concatenate((res, self.backflow.value_parameters_d1(e_vectors, n_vectors) @ s_g))
         if self.geminal is not None and self.opt_geminal:
             res = np.concatenate((res, self.geminal.value_parameters_d1(n_vectors)))
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
@@ -464,7 +471,10 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
         e_vectors, n_vectors = self._relative_coordinates(r_e)
         if self.backflow is not None:
             b_l, b_g, b_v = self.backflow.laplacian(e_vectors, n_vectors)
-            s_g = self.slater.gradient(b_v + n_vectors) @ b_g
+            if self.geminal is not None:
+                s_g = self.geminal.gradient(b_v + n_vectors) @ b_g
+            else:
+                s_g = self.slater.gradient(b_v + n_vectors) @ b_g
         elif self.geminal is not None:
             s_g = self.geminal.gradient(n_vectors)
         else:
@@ -482,7 +492,10 @@ def wfn_kinetic_energy_parameters_d1(self, r_e):
             b_l_d1, b_g_d1, b_v_d1 = self.backflow.laplacian_parameters_d1(e_vectors, n_vectors)
             bb = b_g @ b_g.T
             # tressian is only ever contracted with bb over its last two axes, so compute that vector directly
-            s_t_bb, s_h, s_g = self.slater.tressian_dot(b_v + n_vectors, bb)
+            if self.geminal is not None:
+                s_t_bb, s_h, s_g = self.geminal.tressian_dot(b_v + n_vectors, bb)
+            else:
+                s_t_bb, s_h, s_g = self.slater.tressian_dot(b_v + n_vectors, bb)
             s_g_d1 = b_v_d1 @ (s_h - np.outer(s_g, s_g))  # as hessian is d²ln(phi)/dxdy
             # Σ_bc (s_t - s_g ⊗ s_h)[a,b,c] · bb[b,c] = s_t_bb[a] - s_g[a]·Σ_bc s_h[b,c]·bb[b,c]
             s_h_d1_bb = b_v_d1 @ (s_t_bb - s_g * np.sum(s_h * bb))

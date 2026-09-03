@@ -44,6 +44,32 @@ v 0.4.0 (in progress)
     * The geminal orbital pool is cusp corrected, over its own orbital range rather than the
       determinant's, so an all-electron gaussian geminal no longer carries the uncorrected
       nuclear cusp
+    * The derivatives of the geminal w.r.t its own parameters are analytic, where they were
+      finite differences of the determinants over a pool built once. A parameter of g or of u
+      changes the geminal matrix by a rank one term - a column of the up-spin orbital pool times
+      a row of the down-spin one, or times a unit row for an unpaired column - so tr(M^-1 • dM/dp)
+      is one element of a matrix product rather than a determinant of its own, and the product
+      with the derivative of a coordinate, which is rank one as well, is one element of another.
+      The sum over the geminals collapses into d(ln(psi))/dp · (what this geminal carries - what
+      the sum carries) + its weight · the derivative of what it carries, whose first half
+      vanishes identically for a single geminal. Where a rank one term does not appear - the
+      laplacian of the matrix is a sum over every electron - M^-1 • that sum is folded once per
+      geminal instead. This takes an emin or varmin cycle from 2·nparam determinant evaluations
+      per configuration to one inverse and a handful of matrix products, nparam being of the
+      order of half the square of the orbital pool
+    * Hessian and tressian of the geminal, so that psi_s : geminal with backflow : T is no longer
+      an input error: the local energy reads the hessian and the derivative of the local energy
+      w.r.t the backflow parameters reads the tressian, and both now come from the geminal rather
+      than from the determinant. An entry of the geminal matrix carries an up electron through
+      its row and a down electron through its column, so it has second and third derivatives
+      across two electrons at once, which a slater determinant has none of. What makes them
+      cheap is that M^-1 • dM is of rank one whatever the coordinate is - a column of the inverse
+      times a row of orbital gradients for an up electron, a column times a unit row for a down
+      one - so every trace of a product of such factors collapses into the one matrix
+      s[a, b] = row(a) • col(b). The gradient is its diagonal, the second trace is s[a,b]·s[b,a],
+      and the two triple products of the third derivative are equal under a symmetric bb and
+      contract into the diagonal of s • (s∘bb) • s. The second derivatives are rank one as well,
+      which leaves the tressian a loop over pairs rather than over triples
 * Fixes
     * VMC_METHOD 2 (DBDS) is refused by the input check. Nothing dispatches it, so a run that
       asked for it silently produced the initial configuration repeated VMC_NSTEP times
