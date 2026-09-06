@@ -6,10 +6,11 @@ description: >
   wfn.drift_velocity, wfn.energy, the nodal descriptor, or any other caller of
   slater.gradient / laplacian / hessian / tressian / tressian_dot / state. Covers why an
   individual determinant of an MDET expansion can be exactly singular where Ψ ≠ 0, why a
-  single-determinant run can never hit it, the guard that fixes it at no cost, and the second,
-  unrelated failure mode (`Array must not contain infs or NaNs`) that this skill does NOT fix.
-  Trigger on: LinAlgError, singular to machine precision, np.linalg.inv, MDET crash, gautol,
-  det_coeff, adjugate.
+  single-determinant run can never hit it, the guard that fixes it at no cost and the 10% it
+  costs in accuracy at the singular point itself, and why the `Array must not contain infs or
+  NaNs` that a debug script sees on the same runs is the deliberate NaN marker of a rejected
+  block rather than a second bug. Trigger on: LinAlgError, singular to machine precision,
+  np.linalg.inv, MDET crash, gautol, det_coeff, adjugate, NaN in random_walk output.
 ---
 
 # A singular determinant inside a non-singular wave function
@@ -172,21 +173,30 @@ Run the whole suite before the merge: the five functions are the hot path of eve
 move, and `test_slater.py`, `test_backflow.py`, `test_geminal.py`, `test_vmc.py`, `test_dmc.py`
 all go through them.
 
-## Out of scope — the second failure mode
+## Not a second failure mode — the NaN rows of a walk are deliberate
 
-A `|Ψ|` walk (`vmc.power = 1`, the nodal descriptor) also produces
+A debug script that walks the sample itself will hit
 
 ```
 numpy.linalg.LinAlgError: Array must not contain infs or NaNs.
 ```
 
-raised by `_check_finite_matrix`, which fires in `det` and `slogdet` as well as in `inv`, so
-`log_value` itself dies and the guard above does nothing for it. It appeared inside the first 10⁴
-steps of a debug walk on `nodal_0.01`, i.e. it is common, not a tail event. **Where the non-finite
-value is made is not yet known** — the gaussian truncation is what prevents overflow, so the
-source is elsewhere: the cusp correction or the backflow at large radius are the candidates. A
-finiteness check on the matrix costs O(n²) against n³ and would be almost free, but do not paper
-over it before finding out how a walker comes to stand where Ψ is not defined, and whether it gets
-stuck there — if `log_value` returns NaN, the acceptance `exp(power·(new − old))` is NaN, every
-comparison is False, and the walker freezes for the rest of the chunk. That would explain four
-ranks dying at once and early. See the `nodal-surface` skill for the run this came out of.
+within the first few thousand configurations, and it is **not a bug**. `vmc_random_walk` allocates
+the sample full of NaN and writes a row only when the block of `decorr_period` sub-steps accepted
+something:
+
+```python
+position = np.full(shape=(steps,) + self.r_e.shape, fill_value=np.nan)
+...
+if cond:
+    position[i] = self.r_e
+```
+
+and `VMC.observable` reads that marker back, `res[i] = res[i - 1]` when `position[i, 0, 0]` is NaN.
+A block that accepted nothing repeats the previous configuration's observable, which is what
+Metropolis asks for, and it saves the recomputation. The frequency is `(1 - p)^decorr_period` — one
+row in 1681 at p ≈ 0.53 and `decorr_period` 10, which is what a debug run measured.
+
+So never call a wave-function method on rows of `random_walk` output directly. Go through
+`vmc.observable`, or filter with `np.isnan(position[:, 0, 0])` first. Debug harnesses that forget
+this produce a convincing-looking second bug that does not exist.

@@ -433,14 +433,31 @@ def wfn_nodal_surface_integrand(self, r_e):
     """Everything a weighted nodal domain average needs of one configuration. The node enters the
     co-area form of the nodal hypersurface integral only through the value of Ψ, which the smeared
     delta is a function of, so the geometry of the surface is never asked for.
+
+    The last three are the weight Φ = Π_i Π_I exp(-ζ r_iI) and the potential it is the ground state
+    of, both of them left as sums that carry no ζ, so that a whole grid of ζ is scanned afterwards
+    from a single walk. With η = exp(-ζ Σ_I r_I) and e_Φ = 0, inverting the one-particle equation
+    gives V_Φ = (∆Φ/2)/Φ = ζ²/2 Σ_i |Σ_I r̂_iI|² - ζ Σ_i Σ_I 1/r_iI, whose first sum is the number of
+    electrons for one nucleus and is not for several.
     :param r_e: electron coordinates - array(nelec, 3)
-    :return: log|Ψ|, |∇Ψ/Ψ|² and the potential - array(3)
+    :return: log|Ψ|, |∇Ψ/Ψ|², the potential, Σ r_iI, Σ 1/r_iI and Σ_i |Σ_I r̂_iI|² - array(6)
     """
 
     def impl(self, r_e) -> np.ndarray:
         log_value, _ = self.log_value(r_e)
         grad = self.drift_velocity(r_e)
-        return np.array([log_value, grad @ grad, self.coulomb(r_e)])
+        n_vectors = self._relative_coordinates(r_e)[1]
+        distance = direction = 0.0
+        inverse = 0.0
+        for e1 in range(n_vectors.shape[1]):
+            unit = np.zeros(shape=3)
+            for atom in range(n_vectors.shape[0]):
+                r = np.linalg.norm(n_vectors[atom, e1])
+                distance += r
+                inverse += 1 / r
+                unit += n_vectors[atom, e1] / r
+            direction += unit @ unit
+        return np.array([log_value, grad @ grad, self.coulomb(r_e), distance, inverse, direction])
 
     return impl
 
@@ -868,7 +885,7 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
     def nodal_surface_integrand(self, r_e):
         """Everything a weighted nodal domain average needs of one configuration.
         :param r_e: electron coordinates - array(nelec, 3)
-        :return: log|Ψ|, |∇Ψ/Ψ|² and the potential - array(3)
+        :return: log|Ψ|, |∇Ψ/Ψ|², the potential, Σ r_iI, Σ 1/r_iI and Σ_i |Σ_I r̂_iI|² - array(6)
         """
         return self.nodal_surface_integrand(r_e)
 

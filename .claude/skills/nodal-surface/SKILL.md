@@ -30,7 +30,8 @@ geometry of that surface and turning the measurement into something useful.
   in the co-area section below.
 - **Track A2 done**: `vmc.power` selects the sampled power of `|Ψ|`, `pycasino --nodal` runs the
   averages after a `vmc` run.
-- **A3–A4 done. A5 done, and its answer is negative: none of these averages ranks nodes.** The
+- **A3–A4 done. A5 done, and its answer is negative — but read A6 below before acting on it: a
+  `Ψ`-independent weight overturns it.** The
   estimator reproduces the paper's *analytic* Table 1 on the four-electron noninteracting Be,
   standalone and through the production path; its Table 2 on the interacting Be is not reproducible
   and the evidence says the fault is not ours. Neither `E^nda - ⟨H⟩` nor `E_kin^nda` is
@@ -38,17 +39,21 @@ geometry of that surface and turning the measurement into something useful.
   `use_jastrow F`, removes the Jastrow exactly and leaves a quantity that is still not a measure of
   the node, because it tracks the *amplitude* of `D` instead. Stage 1 over Be, N and Ne says so at
   8.7 σ — see the stage-1 section, which is the thing to read before spending another hour here.
-- **One repair is still open and designed but not built: A6, a `Ψ`-independent weight.** Both A5
-  failures came from a `Φ` built out of the `Ψ` being measured. The affordable fix is the paper's own
+- **A6 built and measured 2026-09-06, and it reverses the A5 verdict on eight of nine points.**
+  Both A5 failures came from a `Φ` built out of the `Ψ` being measured. The fix is the paper's own
   §4.1, `Φ = Π η(r_i)` with `η = e^{-ζr}` and `V₀` obtained by inversion — Eq. (18), everything
-  analytic, `Φ` fixed once per Hamiltonian. **The exact bosonic ground state is not needed and is a
-  trap**: approximate it and Eq. (20)'s collapse into a constant is gone. See the "§4.1" section and
-  A6 in the work plan; the `c₂` scan is the benchmark to judge it by.
+  analytic, `Φ` fixed once per Hamiltonian. On the `c₂` scan at ζ ≥ 0.25 the descriptor's minimum is
+  at C = 0.15, next to the true 0.164, the rise at C = 0.20 is there at 4.7 σ, and `r` with `ΔE_FN`
+  goes from -0.09 at ζ = 0 to +0.98. **The ninth point, C = 0.25, is broken by a different
+  mechanism** — electrons clustering rather than flying apart — which a one-particle weight cannot
+  reach. **The exact bosonic ground state is still not needed and is still a trap**: approximate it
+  and Eq. (20)'s collapse into a constant is gone. A6 in the work plan carries the numbers and what
+  comes next.
 - **`casino/nodal_descriptor.py <run dir> ...`** is the tool to reach for: it measures the
   descriptor of any system, forcing `use_jastrow F` and choosing the ε grid from the wave
   function's own median σ (`median/100` to `median/8`), and prints a comparison table over several
-  runs. Executable with a shebang, like `casino/plot/plot.py`, and **deliberately untracked** —
-  `examples/casino.sh` carries the invocation. Beside this file are two narrower scripts:
+  runs, one block per ζ. Executable with a shebang, like `casino/plot/plot.py`, tracked since
+  2026-09-06; `examples/casino.sh` carries the invocation. Beside this file are two narrower scripts:
   `small_eps.py`, the bare measurement on a hand-chosen grid, and `noninteracting_be.py`, the
   analytic Table 1 check.
 - **The live direction is counting the nodal domains of the trial function**, which this file used
@@ -873,39 +878,88 @@ The campaign is therefore a test of that hypothesis, cheapest first, not a surve
    Node quality is carried by **connectivity**, which no smooth surface integral sees. Go count
    domains instead — the section near the top of this file.
 
-**A6. The one-particle product weight — designed 2026-09-05, not built.** The one repair A5 leaves
-open, and the section "§4.1 of the paper" above is the theory. `Φ = Π η(r_i)` with `η = e^{-ζr}`,
-`V₀` obtained by inversion rather than by solving anything, and Eq. (18) for the volume part. Fixed
-per Hamiltonian, so all wave functions of one system share a measure — which is the single thing
-stage 1 lacked. **Do not start from `Φ⁰_B`**: it is the same code with a bosonic optimization
-campaign attached and, being approximate in practice, loses the property that motivates it.
+**A6. The one-particle product weight — built and measured 2026-09-06. It works.** The one repair
+A5 left open, and the section "§4.1 of the paper" above is the theory. `Φ = Π η(r_i)` with
+`η = e^{-ζr}`, `V₀` obtained by inversion rather than by solving anything, and Eq. (18) for the
+volume part. Fixed per Hamiltonian, so all wave functions of one system share a measure — the
+single thing stage 1 lacked. **Do not start from `Φ⁰_B`**: it is the same code with a bosonic
+optimization campaign attached and, being approximate in practice, loses the property that
+motivates it.
 
-*Code, and it is small.* `nodal_domain_sums` already takes `log_weight = log(Φ/p)` and forms
-`weight = exp(log_weight + log|Ψ|)`, so with the existing `power = 1` walk passing
-`log_weight = Σ_i log η(r_i) - log|Ψ|` makes `weight` come out as exactly `Φ`. Two things are
-missing: `nodal_surface_integrand` must return `V_Φ` as a fourth component, and the `overlap` array
-must accumulate `weight·V_Φ` beside `weight·V` — then `E^nda` is `surface + e_Φ + (ΣwV - ΣwV_Φ)/Σw`.
-Reweighting an existing `|Ψ|` walk works and costs nothing to try, but `Φ` decays exponentially and
-the surface term already lives on 0.02% of the sample, so the effective sample size will suffer;
-sampling `Φ|Ψ|` directly is the right version, and the three acceptance exponents that `vmc.power`
-touches are where it goes.
+*Where the code is.* `wfn.nodal_surface_integrand` returns six components — `log|Ψ|`, `|∇lnΨ|²`,
+`V`, `Σ r_iI`, `Σ 1/r_iI`, `Σ_i |Σ_I r̂_iI|²`. **ζ deliberately does not enter it**, so a whole grid
+of ζ comes out of one walk; `nodal_domain_sums(integrand, epsilon, zeta)` builds
+`Φ = exp(-ζ Σ r_iI)` and `V_Φ = ζ²/2 Σ_i|Σ_I r̂_iI|² - ζ Σ 1/r_iI` from those sums, and
+`nodal_domain_accumulation(epsilon, zeta)` carries a ζ grid beside the ε grid.
+`nodal_descriptor.py -z 0,0.125,0.25` drives it. The third sum is the one worth not forgetting: it
+is the number of electrons for one nucleus and is not for several, where inverting `η` leaves a
+`∇η·∇η` cross term.
 
-*Tests, cheapest first — do not skip to the third.*
+*Reweighting is what makes the grid free, and it holds.* The walk stays `|Ψ|`, `Φ ≤ 1` bounds the
+weights from above so nothing can dominate, and what it costs is the effective sample size, printed
+per ζ. Measured on Be with four electrons: **100% at ζ = 0, 87% at 0.125, 70% at 0.25, 54% at
+0.375, 42% at 0.5, and 0.6% at ζ = 2.** So ζ ≲ 0.5 is free and ζ ≳ 1 is not; sampling `Φ|Ψ|`
+directly (`vmc.power`, or a walk targeting `Φ_{ζ*}|Ψ|` and reweighting in a window around ζ*) is
+what buys the larger ζ, and it was not needed for the result below.
 
-1. **`-Z²/8` on the hydrogenic 2p**, `ζ = Z`, in `casino/tests/test_nodal.py` next to the existing
-   `3Z²/8`. Analytic, seconds to run, catches every sign and normalization error in the weight path.
-2. **The Jastrow null test again, with the question corrected.** With a fixed `Φ` the quantity is an
-   *estimate of the energy*, not a node invariant, so demanding Jastrow-invariance (the A5 test) is
-   now the wrong demand. What must hold instead: `E^nda` approaches `⟨H⟩` as `Ψ` improves, and the
-   gap `E^nda - ⟨H⟩` shrinks. If it does not, Eq. (18) is not being computed correctly.
-3. **The Be `c₂` scan as the ranking benchmark** — the calibration set stage 1 did not have. Nine
-   wave functions, one Hamiltonian, one basis, `E_FN` known to 20–50 µHa and spanning 2.4 mHa with a
-   real minimum at `C = 0.164`; `Φ` is literally the same function for all nine, so the cross-system
-   amplitude confound that killed stage 1 cannot arise. The bar: reproduce the parabola and its
-   minimum, and correlate with `E_FN` better than `E_VMC` does. Reading those runs needs
-   `gwfn.data` + `correlation.data` (MDET + Φ-backflow) + `parameters.casl` together —
-   `readers/{mdet,backflow,gjastrow}.py` all exist but that combination has not been checked.
-4. **The true `Φ_B`** — only if 3 shows signal, and knowing what the section above says about it.
+*Test 1 is done and came out stronger than planned.* `TestWeightedNodalDomainAverage` in
+`casino/tests/test_nodal.py` does not check `-Z²/8` at `ζ = Z` alone; it checks the ζ-independence
+of Eq. (18) on ζ = Z/4, Z/2, Z. Closed forms, derived and verified: the surface term is
+`(ζ + Z/2)²/6`, the volume term `(ζ - Z)(ζ + Z/2)/3 - ζ²/2`, and their sum is `-Z²/8` identically.
+The sample is the walk's own `|Ψ|` so that the estimator builds Φ and `V_Φ` itself. The two terms
+are asserted separately and tightly (0.5% and 12%) and their sum loosely (30%), because the sum is
+a cancellation of two numbers four times larger than the answer. Mutation-checked: wrong sign on
+the weight exponent 300%, factor 2 on `ζ²` 419%, wrong sign on `ζ/r` 818%, `V_Φ` added instead of
+subtracted 74%, `V_Φ` built from Z instead of ζ 227%.
+
+*Test 3 is done — the Be `c₂` scan, nine points at 10⁷ steps, ζ = 0…0.5.* **The bar is met on eight
+of the nine.** At every ζ ≥ 0.25 the minimum of `E_kin^nda` sits at C = 0.15, the sampled point
+adjacent to the true 0.164, and the rise to C = 0.20 that the constant weight could not produce is
+there: `+0.129 ± 0.028` (4.7σ) at ζ = 0.25, `+0.096 ± 0.039` at 0.375, `+0.116 ± 0.053` at 0.5.
+Correlation with `ΔE_FN` over the eight: `r = -0.09` at ζ = 0, then `+0.66, +0.98, +0.99, +0.98`.
+The volume term is what does it — C = 0.20 has `⟨V⟩ = -8.76` au with no weight and
+`⟨V - V_Φ⟩ = -14.76` at ζ = 0.25, back in line with the healthy points.
+
+Two honest limits on that. The scale is unchanged: the descriptor spans 0.4 au where `ΔE_FN` spans
+2.4 mHa, so it ranks and does not measure; and it still overstates C = 0.20, ranking it fourth
+where DMC ranks it second.
+
+*The ninth point, C = 0.25, is not rescued, and it is a different disease.* `⟨V - V_Φ⟩` stays at
+-1.55…-1.98 au against -14.8…-15.7 for everything else. The diagnostic is the effective sample
+size, and it points the other way from C = 0.20: **0.96 at ζ = 0.125 against 0.855 for the healthy
+points**, where C = 0.20 gives 0.647. A high ESS means `Σ r_iI` has a *narrow* spread — the cloud
+has not flown apart. A dense cloud with `⟨V⟩ = -1.55` can only mean the e-e term: the electrons are
+sitting on each other and `Σ 1/r_ij` is eating the nuclear attraction. `exp(-ζ Σ r_iI)` governs
+distance from the nucleus and not distance between electrons, so it cannot help there, and did
+not. Mechanism, the same one as C = 0.20 but in the opposite direction: the backflow was optimized
+against a Jastrow whose job is keeping electrons apart, and stripping the Jastrow leaves it pulling
+them together. **Excluding C = 0.25 was not pre-registered — say so.** The grounds are independent
+of the outcome (13 au on the volume term, and the inverted ESS signature, both visible before any
+comparison with `ΔE_FN`), but it is a post-hoc exclusion.
+
+*Dead end, recorded so it is not retried.* The ζ-drift of `E^nda` — Eq. (18) is ζ-independent for
+an eigenstate and not for a trial function, so the drift measures how far `Ψ` is from one. It
+correlates at `r = 0.92` over the seven healthy points and collapses to 0.40 over eight. Worse than
+the descriptor itself. Dropped.
+
+*Next, in order.*
+
+1. **Split `wfn.coulomb` into its e-e and e-n parts.** It tests the C = 0.25 clustering diagnosis
+   directly instead of through the ESS, and it fills the `e-e interaction` and `e-n interaction`
+   lines that `vmc_energy_accumulation` currently prints empty in CASINO's block layout.
+2. **A weight with an e-e factor**, `Φ = exp(-ζ Σ r_iI + J_B)`, if clustering is confirmed. This is
+   *not* the `Φ⁰_B` trap: Eq. (18) is exact for any nodeless Φ whose `V_Φ` is obtained by inversion,
+   and for a Jastrow-shaped Φ that inversion is analytic — the Jastrow's laplacian is already in
+   the code. Nothing here needs Φ to be the bosonic ground state, which is the whole difference.
+3. **The Jastrow null test, with the question corrected.** Not run yet. With a fixed `Φ` the
+   quantity is an *estimate of the energy*, not a node invariant, so demanding Jastrow-invariance
+   (the A5 test) is the wrong demand. What must hold instead: `E^nda` approaches `⟨H⟩` as `Ψ`
+   improves, and the gap `E^nda - ⟨H⟩` shrinks. If it does not, Eq. (18) is not being computed
+   correctly.
+4. **Direct sampling of `Φ|Ψ|`** — only when ζ > 0.5 is wanted, and the ESS table above says when
+   that is.
+5. **The true `Φ_B`** — still only if everything above holds, and knowing what the section on it
+   says.
 
 **On gaussians.** `gwfn` runs work and the cusp correction is supported (`cusp_correction`
 defaults to T for a gaussian basis, and `nodal_surface_integrand` goes through the same

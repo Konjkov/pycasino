@@ -1653,12 +1653,18 @@ class Casino:
         mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
 
-    def nodal_domain_accumulation(self, epsilon=None):
-        """Weighted nodal domain averages (Mitas & Annaberdiyev, arXiv:2109.01734) with a constant
-        weight Φ, in which case the energy of the state is the nodal hypersurface integral and the
-        potential over the overlap:
+    def nodal_domain_accumulation(self, epsilon=None, zeta=None):
+        """Weighted nodal domain averages (Mitas & Annaberdiyev, arXiv:2109.01734). With the
+        one-particle weight Φ = Π exp(-ζ r_iI) and the potential it is the ground state of taken
+        out of the volume term, Eq. (18) is
 
-            E_nda = ∫_∂Ω |∇Ψ|dS / ∫ |Ψ|dR + <V>_|Ψ|
+            E_nda = ∫_∂Ω Φ|∇Ψ|dS / ∫ Φ|Ψ|dR + <V - V_Φ>_{Φ|Ψ|}
+
+        exact for every ζ, so ζ is a knob on the variance and not on the answer: the good ζ is the
+        one that leaves V - V_Φ closest to constant. ζ = 0 is the constant weight, where V_Φ
+        vanishes and the volume term is the bare <V>. The two are collected from one walk - the
+        weight is applied to the sample rather than sampled from - so a grid of ζ costs nothing
+        beyond its own sums.
 
         Both measures are |Ψ| rather than Ψ², so the walk is a walk of its own: the acceptance
         exponent is one instead of two, and the whole run stands apart from the VMC energy that
@@ -1674,11 +1680,16 @@ class Casino:
         All-electron only: the nonlocal part of a pseudopotential is not a multiplicative V and
         has no place in the identity the averages come from.
         :param epsilon: half-thicknesses of the tube around the node, in bohr
+        :param zeta: exponents of the one-particle weight, in inverse bohr, the constant weight if
+            None
         :return: epsilon, the configurations inside the tube, E_kin^nda and its standard error of
-            every row of the table, on the root process and None elsewhere - array(epsilon.size, 4)
+            every row of every table, on the root process and None elsewhere -
+            array(zeta.size, epsilon.size, 4)
         """
         if epsilon is None:
             epsilon = np.geomspace(0.005, 0.32, 12)
+        if zeta is None:
+            zeta = np.zeros(shape=1)
         logger.info(
             ' ==============================\n'
             ' PERFORMING A |PSI| CALCULATION.\n'
@@ -1695,40 +1706,54 @@ class Casino:
         steps = self.config.input.vmc_nstep // mpi_comm.size
         electrons = self.config.input.neu + self.config.input.ned
         chunk_steps = min(steps, max(1, 10**7 // (3 * 8 * electrons)))
-        surface = np.zeros(shape=(epsilon.size, 3))
-        overlap = np.zeros(shape=4)
+        surface = np.zeros(shape=(zeta.size, epsilon.size, 3))
+        overlap = np.zeros(shape=(zeta.size, 5))
         start_time = default_timer()
         for start in range(0, steps, chunk_steps):
             position = self.vmc.random_walk(min(chunk_steps, steps - start), self.decorr_period)
             integrand = self.vmc.observable(self.wfn.nodal_surface_integrand, position)
-            chunk_surface, chunk_overlap = nodal_domain_sums(integrand, epsilon)
-            surface += chunk_surface
-            overlap += chunk_overlap
+            for i, z in enumerate(zeta):
+                chunk_surface, chunk_overlap = nodal_domain_sums(integrand, epsilon, z)
+                surface[i] += chunk_surface
+                overlap[i] += chunk_overlap
         self.vmc.power = 2.0
         surface = mpi_comm.reduce(surface)
         overlap = mpi_comm.reduce(overlap)
         if self.root:
-            nconfig, norm = overlap[0], overlap[1]
-            potential = overlap[2] / norm
-            potential_sem = np.sqrt(max(overlap[3] / norm - potential**2, 0) / (nconfig - 1))
             logger.info(
                 f' =========================================================================\n'
                 f' WEIGHTED NODAL DOMAIN AVERAGES\n\n'
-                f'  Number of |psi| steps                   = {nconfig:.0f}\n'
-                f'  Potential component                (au) =       {potential:18.12f}\n'
-                f'  Standard error                        +/-       {potential_sem:18.12f}\n\n'
-                f'  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)\n'
+                f'  Number of |psi| steps                   = {overlap[0, 0]:.0f}\n'
             )
-            kinetic = surface[:, 0] / norm
-            kinetic_sem = np.sqrt(np.maximum(surface[:, 1] / nconfig - (surface[:, 0] / nconfig) ** 2, 0) / (nconfig - 1)) * nconfig / norm
-            for i, eps in enumerate(epsilon):
+            table = np.empty(shape=(zeta.size, epsilon.size, 4))
+            for i, z in enumerate(zeta):
+                nconfig, norm = overlap[i, 0], overlap[i, 1]
+                # a weighted mean is worth as much as an unweighted one of this many configurations
+                effective = norm**2 / overlap[i, 4]
+                potential = overlap[i, 2] / norm
+                potential_sem = np.sqrt(max(overlap[i, 3] / norm - potential**2, 0) / (effective - 1))
+                # the surface sum is over the configurations themselves, the weight being inside
+                # every term of it, so it is the count and not the effective count that divides it
+                variance = np.maximum(surface[i, :, 1] / nconfig - (surface[i, :, 0] / nconfig) ** 2, 0)
+                kinetic = surface[i, :, 0] / norm
+                kinetic_sem = np.sqrt(variance / (nconfig - 1)) * nconfig / norm
                 logger.info(
-                    f'    {eps:.3e} {surface[i, 2]:10.0f}   {kinetic[i]:12.6f} +/- {kinetic_sem[i]:.6f}   {kinetic[i] + potential:12.6f}'
-                )  # fmt: skip
+                    f'  zeta                          (au^-1) =       {z:18.12f}\n'
+                    f'  Effective sample size                   = {effective:.0f}\n'
+                    f'  Potential component                (au) =       {potential:18.12f}\n'
+                    f'  Standard error                        +/-       {potential_sem:18.12f}\n\n'
+                    f'  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)\n'
+                )
+                for j, eps in enumerate(epsilon):
+                    logger.info(
+                        f'    {eps:.3e} {surface[i, j, 2]:10.0f}   {kinetic[j]:12.6f} +/- {kinetic_sem[j]:.6f}   {kinetic[j] + potential:12.6f}'
+                    )  # fmt: skip
+                logger.info('')
+                table[i] = np.stack((epsilon, surface[i, :, 2], kinetic, kinetic_sem), axis=-1)
             logger.info(
-                f'\n Time taken in nodal domain averages : : :    {default_timer() - start_time:.4f}\n'
+                f' Time taken in nodal domain averages : : :    {default_timer() - start_time:.4f}\n'
             )  # fmt: skip
-            return np.stack((epsilon, surface[:, 2], kinetic, kinetic_sem), axis=-1)
+            return table
 
 
 def main():
