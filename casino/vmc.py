@@ -44,7 +44,7 @@ def vmc_simple_random_step(self):
         next_r_e = self.r_e + np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape((ne, 3))
         next_log_value = self.wfn.log_value(next_r_e)[0]
         self.moves += 1
-        if 2 * (next_log_value - self.log_value) > np.log(np.random.random()):
+        if self.power * (next_log_value - self.log_value) > np.log(np.random.random()):
             cond, self.r_e, self.log_value = True, next_r_e, next_log_value
             self.accepted += 1
         return cond
@@ -114,7 +114,7 @@ def vmc_one_electron_step(self, e):
         # them leaves one column to update: both recompute the whole configuration instead
         if self.wfn.backflow is None and self.wfn.geminal is None:
             value_log_ratio, _, orbitals, q = self.wfn.value_ratio_1e(self.state, self.n_powers, self.r_e, e, next_r_e[e])
-            log_ratio = 2 * value_log_ratio + proposal
+            log_ratio = self.power * value_log_ratio + proposal
             self.moves += 1
             if log_ratio > np.log(np.random.random()):
                 cond, self.r_e = True, next_r_e
@@ -124,7 +124,7 @@ def vmc_one_electron_step(self, e):
                     self.state = self.wfn.slater.state(self.wfn._relative_coordinates(next_r_e)[1])
         else:
             next_log_value = self.wfn.log_value(next_r_e)[0]
-            log_ratio = 2 * (next_log_value - self.log_value) + proposal
+            log_ratio = self.power * (next_log_value - self.log_value) + proposal
             self.moves += 1
             if log_ratio > np.log(np.random.random()):
                 cond, self.r_e, self.log_value = True, next_r_e, next_log_value
@@ -222,7 +222,7 @@ def vmc_log_ratio_walk(self, steps):
             for i in range(steps):
                 next_r_e = self.r_e + np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape((ne, 3))
                 next_log_value = self.wfn.log_value(next_r_e)[0]
-                log_ratio[i] = 2 * (next_log_value - self.log_value)
+                log_ratio[i] = self.power * (next_log_value - self.log_value)
                 self.moves += 1
                 if log_ratio[i] > np.log(np.random.random()):
                     self.r_e, self.log_value = next_r_e, next_log_value
@@ -261,6 +261,7 @@ VMC_t = VMC_class_t(
         ('step_size', nb.float64),
         ('wfn', Wfn_t),
         ('method', nb.int64),
+        ('power', nb.float64),
         ('log_value', nb.float64),
         ('state', SlaterState_t),
         ('n_powers', nb.float64[:, :, ::1]),
@@ -287,6 +288,7 @@ class VMC(structref.StructRefProxy):
             self.step_size = step_size
             self.wfn = wfn
             self.method = method
+            self.power = 2.0
             self.log_value = wfn.log_value(r_e)[0]
             self.state, self.n_powers = wfn.caches(r_e)
             self.moves = 0
@@ -324,6 +326,20 @@ class VMC(structref.StructRefProxy):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def method(self, value):
         self.method = value
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def power(self) -> float:
+        """Power of |psi| the walk is distributed as. Two is VMC, and the weighted nodal domain
+        averages ask for one instead: |psi| vanishes only linearly at the node, so the walk carries
+        a sample of it, which no amount of sampling from psi**2 gives.
+        """
+        return self.power
+
+    @power.setter
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def power(self, value):
+        self.power = value
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)

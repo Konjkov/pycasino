@@ -74,3 +74,19 @@ fi
 # mpiexec pycasino $path
 # hybrid code
 # mpiexec -n 2 --map-by slot:pe=${NUMBA_NUM_THREADS} pycasino $path
+
+# weighted nodal domain averages of the wave function a vmc run has just used
+# pycasino --nodal $path
+
+# nodal surface descriptor of the determinant part, any number of runs in one table. It forces
+# use_jastrow F and picks the epsilon grid itself. -n and -d are needed because a *_dmc directory
+# carries vmc_nstep 1024 and vmc_decorr_period 1, its VMC having only fed DMC, while a Slater one
+# carries 1e8 and 10. 1e7 gives about 2% on the widest tube, 1e8 about 0.7%, the relative error
+# being 72/sqrt(vmc_nstep) as long as the count in the flat region stays above ~1e4
+# mpiexec ../casino/nodal_descriptor.py -n 100000000 -d 10 stowfn/Be/HF/QZ4P/CBCS/Slater stowfn/Be/HF/QZ4P/CBCS/Backflow_dmc
+# mpiexec ../casino/nodal_descriptor.py -n 100000000 -d 10 stowfn/N/HF/QZ4P/CBCS/Slater stowfn/N/HF/QZ4P/CBCS/Backflow_dmc
+# mpiexec ../casino/nodal_descriptor.py -n 10000000 -d 10 stowfn/Ne/HF/QZ4P/CBCS/Slater stowfn/Ne/HF/QZ4P/CBCS/Backflow_dmc
+
+# mpiexec ../casino/nodal_descriptor.py -n 10000 -d 10 noda_surface/be_c2/0.15
+mpiexec ../casino/nodal_descriptor.py -n 10000000 -d 10 noda_surface/be_c2/0.*
+# mpiexec ../casino/nodal_descriptor.py -n 100000000 -d 10 noda_surface/be_c2/0.*

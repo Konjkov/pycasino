@@ -428,78 +428,19 @@ def wfn_energy(self, r_e):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Wfn_class_t, 'second_fundamental_form')
-def wfn_second_fundamental_form(self, r_e):
-    """The second fundamental form of φ(r) = const surface at point r.
-
-    Epsilon defines the thickness of the tubular neighborhood around the nodal surface
-    used to approximate the surface integral via the co-area formula:
-
-      ∫_S f dS ≈ 1/(2ε) · ∫_{|t_n|<ε} f(r_S(r)) · J(r) dr
-
-    where t_n = |ψ|/|∇ψ| is the normal coordinate and J is the co-area Jacobian.
-
-    The projection r → r_S(r) is a diffeomorphism provided t_n < R_cut, where
-    R_cut = 1/max(κ_i) is determined by the principal curvatures on the CONCAVE
-    side of the nodal surface (where geodesic normals converge). On the convex
-    side there is no geometric restriction: normals diverge, J < 1 everywhere.
-
-    Constraints on ε:
-      - ε < R_cut  (concave side only): avoids the fold locus where J → ∞
-      - ε not too small: insufficient VMC statistics near the node (ρ ∝ t_n²→ 0)
-      - ε not too large: co-area approximation requires J ≈ 1, i.e. ε ≪ R_cut
-
-    Optimal choice: ε ≈ R_cut / 3  (J deviates from 1 by ~10%)
-    R_cut is estimated from kappas computed at the projected point r_S.
-    When the concave side has no dangerous curvatures, R_cut = ∞ and ε is
-    limited only by the requirement of sufficient sampling density.
-
+@overload_method(Wfn_class_t, 'nodal_surface_integrand')
+def wfn_nodal_surface_integrand(self, r_e):
+    """Everything a weighted nodal domain average needs of one configuration. The node enters the
+    co-area form of the nodal hypersurface integral only through the value of Ψ, which the smeared
+    delta is a function of, so the geometry of the surface is never asked for.
     :param r_e: electron coordinates - array(nelec, 3)
-    :return:
+    :return: log|Ψ|, |∇Ψ/Ψ|² and the potential - array(3)
     """
 
     def impl(self, r_e) -> np.ndarray:
-        ne = self.neu + self.ned
-        epsilon = 0.4
-        print(np.sqrt(np.sum(r_e**2, axis=1)))
-        e_vectors, n_vectors = self._relative_coordinates(r_e)
-        value = self.slater.value(n_vectors)  # ψ
-        value_orig = value
-        hess, grad = self.slater.hessian(n_vectors)  # Hψ/ψ, ∇ψ/ψ
-        norm_log_grad = np.linalg.norm(grad)  # |∇ψ/ψ| = |∇ψ|/|ψ|
-        dist = 1 / norm_log_grad  # |ψ|/|∇ψ|
-        dist_orig = dist
-        i = 0
-        if dist < epsilon:
-            # Projection onto the nodal surface
-            while (np.abs(value) > 1e-10 or dist > 1e-10) and i < 40:
-                i += 1
-                step = grad / norm_log_grad**2  # Δr = -ψ·∇ψ/|∇ψ|² = -g/|g|²
-                r_e -= step
-                e_vectors, n_vectors = self._relative_coordinates(r_e)
-                value = self.slater.value(n_vectors)  # ψ
-                hess, grad = self.slater.hessian(n_vectors)  # Hψ/ψ, ∇ψ/ψ
-                norm_log_grad = np.linalg.norm(grad)  # |∇ψ/ψ| = |∇ψ|/|ψ|
-                dist = 1 / norm_log_grad  # |ψ|/|∇ψ|
-            P = np.eye(ne * 3) - np.outer(grad, grad) / norm_log_grad**2
-            II_full = -(P @ hess @ P) / norm_log_grad  # the sign does not depend on ψ
-            _, _, Vt = np.linalg.svd(P)
-            E = Vt.T[:, :-1]  # tangent_basis
-            II = E.T @ II_full @ E  # II in tangent basis (3N-1 × 3N-1)
-            kappas = np.linalg.eigvalsh(II)  # Principal curvatures
-            min_abs_kappa = np.min(np.abs(kappas))  # minimum curvature
-            print(np.sqrt(np.sum(r_e**2, axis=1)), min_abs_kappa)
-            # Jacobian = П 1/(1 - κ_i · t_n)
-            J = np.prod(1 / (1 - kappas * dist_orig))
-            # Invariants
-            H = np.mean(kappas)  # average curvature
-            K = np.prod(kappas)  # Gaussian curvature
-            # Surface measure is always positive
-            dS = J / (2.0 * epsilon * value_orig**2)
-            # Fixed-node error measure
-            HdF = H * norm_log_grad * abs(value)  # H · |∇ψ|
-            return np.array([dS, H * dS, HdF * dS, K * dS, min_abs_kappa, J, dist, i])
-        return np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, dist, 0])
+        log_value, _ = self.log_value(r_e)
+        grad = self.drift_velocity(r_e)
+        return np.array([log_value, grad @ grad, self.coulomb(r_e)])
 
     return impl
 
@@ -924,12 +865,12 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
         return self.energy(r_e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
-    def second_fundamental_form(self, r_e):
-        """The second fundamental form of φ(r) = const surface at point r.
+    def nodal_surface_integrand(self, r_e):
+        """Everything a weighted nodal domain average needs of one configuration.
         :param r_e: electron coordinates - array(nelec, 3)
-        :return:
+        :return: log|Ψ|, |∇Ψ/Ψ|² and the potential - array(3)
         """
-        return self.second_fundamental_form(r_e)
+        return self.nodal_surface_integrand(r_e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def get_parameters(self, all_parameters=False):

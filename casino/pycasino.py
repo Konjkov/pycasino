@@ -21,6 +21,7 @@ from .dmc import DMC
 from .geminal import Geminal
 from .gjastrow import Gjastrow
 from .jastrow import Jastrow
+from .nodal import nodal_domain_sums
 from .ppotential import PPotential
 from .readers import CasinoConfig
 from .readers.input import Input
@@ -95,8 +96,14 @@ double_size = MPI.DOUBLE.Get_size()
 
 
 def configure_logging():
-    # pycasino.log is written to the current directory, as correlation.out.* are
-    logging.basicConfig(level=logging.INFO, filename='pycasino.log', filemode='w', format='%(message)s')
+    # pycasino.log is written to the current directory, as correlation.out.* are. Only the root
+    # gets a file at all: every process opening the same name with mode 'w' keeps its own offset,
+    # so whatever a non-root logger emits - the input dump of casino.readers, which propagates
+    # here whatever this module's logger does - lands over the root's output rather than after it
+    if MPI.COMM_WORLD.rank == 0:
+        logging.basicConfig(level=logging.INFO, filename='pycasino.log', filemode='w', format='%(message)s')
+    else:
+        logging.basicConfig(level=logging.CRITICAL, handlers=[logging.NullHandler()])
     logger.info(logo)
     if MPI.COMM_WORLD.size > 1:
         logger.info(' Running in parallel using %i MPI processes.\n', MPI.COMM_WORLD.size)
@@ -618,8 +625,10 @@ class Casino:
             f' Optimized vmc_decorr_period: {self.auto_decorr_period}\n'
         )  # fmt: skip
 
-    def run(self):
-        """Run Casino workflow."""
+    def run(self, nodal=False):
+        """Run Casino workflow.
+        :param nodal: follow a vmc run by the weighted nodal domain averages of the same wfn
+        """
         start = default_timer()
         if self.config.input.testrun:
             logger.info(' TEST RUN only.\n' ' Quitting.\n')
@@ -629,14 +638,9 @@ class Casino:
                 ' PERFORMING A SINGLE VMC CALCULATION.\n'
                 ' ====================================\n\n'
             )  # fmt: skip
-            position = self.vmc_energy_accumulation()
-            nodal_domains_start = default_timer()
-            logger.info(f'Estimated number of nodal domains: {self.nodal_domains(position)}')
-            nodal_domains_stop = default_timer()
-            logger.info(
-                f' =========================================================================\n\n'
-                f' Nodal domains estimation time : : :    {nodal_domains_stop - nodal_domains_start:.4f}'
-            )  # fmt: skip
+            self.vmc_energy_accumulation()
+            if nodal:
+                self.nodal_domain_accumulation()
         elif self.config.input.runtype == 'vmc_opt':
             if self.root:
                 self.config.write('.', 0)
@@ -1630,26 +1634,82 @@ class Casino:
         mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
 
-    def nodal_domains(self, position):
-        """Calculating the number of nodal domains.
+    def nodal_domain_accumulation(self, epsilon=None):
+        """Weighted nodal domain averages (Mitas & Annaberdiyev, arXiv:2109.01734) with a constant
+        weight Φ, in which case the energy of the state is the nodal hypersurface integral and the
+        potential over the overlap:
 
-        :param position: np.ndarray [n_samples, d] - The array of positions in d-dimensional space.
-        :return:
+            E_nda = ∫_∂Ω |∇Ψ|dS / ∫ |Ψ|dR + <V>_|Ψ|
+
+        Both measures are |Ψ| rather than Ψ², so the walk is a walk of its own: the acceptance
+        exponent is one instead of two, and the whole run stands apart from the VMC energy that
+        precedes it. Nothing but the sums survives a chunk of it, the sample being of no use
+        afterwards.
+
+        The estimator is biased at a finite tube thickness and noisy at a small one, so the whole
+        range of thicknesses is reported rather than a single number: it is the plateau between the
+        two that is the result, and its absence means the sample is too small to see the node. The
+        number of configurations the tube holds falls off as ε², which is what limits the range
+        from below.
+
+        All-electron only: the nonlocal part of a pseudopotential is not a multiplicative V and
+        has no place in the identity the averages come from.
+        :param epsilon: half-thicknesses of the tube around the node, in bohr
+        :return: epsilon, the configurations inside the tube, E_kin^nda and its standard error of
+            every row of the table, on the root process and None elsewhere - array(epsilon.size, 4)
         """
-        arr = self.vmc.observable(self.wfn.second_fundamental_form, position)
-        res = arr[arr[:, -1] > 0]
-        res_sum = res.sum(axis=0)
-        print(
-            f'points={res.shape[0]}',
-            f'H={res_sum[1] / res_sum[0]}',
-            f'HdF={res_sum[2] / res_sum[0]}',
-            f'K={res_sum[3] / res_sum[0]}',
-            f'min_abs_kappa={res_sum[4] / res.shape[0]}',
-            f'Jacobian={res_sum[5] / res.shape[0]}',
-            f'dist={res_sum[6] / res.shape[0]}',
-            f'steps={res_sum[7] / res.shape[0]}',
-        )
-        return 2
+        if epsilon is None:
+            epsilon = np.geomspace(0.005, 0.32, 12)
+        logger.info(
+            ' ==============================\n'
+            ' PERFORMING A |PSI| CALCULATION.\n'
+            ' ==============================\n'
+        )  # fmt: skip
+        self.vmc.power = 1.0
+        self.equilibrate(self.config.input.vmc_equil_nstep)
+        if self.config.input.opt_dtvmc == 1:
+            self.optimize_vmc_step(3000)
+        logger.info(
+            f' DTVMC: {self.vmc.step_size:.5e}\n'
+        )  # fmt: skip
+
+        steps = self.config.input.vmc_nstep // mpi_comm.size
+        electrons = self.config.input.neu + self.config.input.ned
+        chunk_steps = min(steps, max(1, 10**7 // (3 * 8 * electrons)))
+        surface = np.zeros(shape=(epsilon.size, 3))
+        overlap = np.zeros(shape=4)
+        start_time = default_timer()
+        for start in range(0, steps, chunk_steps):
+            position = self.vmc.random_walk(min(chunk_steps, steps - start), self.decorr_period)
+            integrand = self.vmc.observable(self.wfn.nodal_surface_integrand, position)
+            chunk_surface, chunk_overlap = nodal_domain_sums(integrand, epsilon)
+            surface += chunk_surface
+            overlap += chunk_overlap
+        self.vmc.power = 2.0
+        surface = mpi_comm.reduce(surface)
+        overlap = mpi_comm.reduce(overlap)
+        if self.root:
+            nconfig, norm = overlap[0], overlap[1]
+            potential = overlap[2] / norm
+            potential_sem = np.sqrt(max(overlap[3] / norm - potential**2, 0) / (nconfig - 1))
+            logger.info(
+                f' =========================================================================\n'
+                f' WEIGHTED NODAL DOMAIN AVERAGES\n\n'
+                f'  Number of |psi| steps                   = {nconfig:.0f}\n'
+                f'  Potential component                (au) =       {potential:18.12f}\n'
+                f'  Standard error                        +/-       {potential_sem:18.12f}\n\n'
+                f'  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)\n'
+            )
+            kinetic = surface[:, 0] / norm
+            kinetic_sem = np.sqrt(np.maximum(surface[:, 1] / nconfig - (surface[:, 0] / nconfig) ** 2, 0) / (nconfig - 1)) * nconfig / norm
+            for i, eps in enumerate(epsilon):
+                logger.info(
+                    f'    {eps:.3e} {surface[i, 2]:10.0f}   {kinetic[i]:12.6f} +/- {kinetic_sem[i]:.6f}   {kinetic[i] + potential:12.6f}'
+                )  # fmt: skip
+            logger.info(
+                f'\n Time taken in nodal domain averages : : :    {default_timer() - start_time:.4f}\n'
+            )  # fmt: skip
+            return np.stack((epsilon, surface[:, 2], kinetic, kinetic_sem), axis=-1)
 
 
 def main():
@@ -1659,6 +1719,7 @@ def main():
     )
     parser.add_argument('config_path', type=str, help="path to CASINO config dir")
     parser.add_argument('--check', action='store_true', help="validate the input files and exit")
+    parser.add_argument('--nodal', action='store_true', help="weighted nodal domain averages after a vmc run")
     args = parser.parse_args()
 
     if not os.path.exists(os.path.join(args.config_path, 'input')):
@@ -1674,4 +1735,4 @@ def main():
         print(f'{os.path.join(args.config_path, "input")}: OK')
     else:
         configure_logging()
-        Casino(args.config_path).run()
+        Casino(args.config_path).run(args.nodal)
