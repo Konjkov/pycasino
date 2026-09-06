@@ -679,8 +679,15 @@ def slater_state(self, n_vectors: np.ndarray):
             matrix_d = wfn_d[self.permutation_down[i]]
             sign_u, log_u = np.linalg.slogdet(matrix_u)
             sign_d, log_d = np.linalg.slogdet(matrix_d)
-            inv_u[i] = np.linalg.inv(matrix_u)
-            inv_d[i] = np.linalg.inv(matrix_d)
+            if sign_u == 0 or sign_d == 0:
+                # an exactly singular determinant drops out of the sum of them by its own sign,
+                # and a zeroed inverse leaves ratio_1e a zero Q, which accept_1e already answers
+                # by asking the caller for a full recomputation
+                inv_u[i] = np.zeros(shape=(self.neu, self.neu))
+                inv_d[i] = np.zeros(shape=(self.ned, self.ned))
+            else:
+                inv_u[i] = np.linalg.inv(matrix_u)
+                inv_d[i] = np.linalg.inv(matrix_d)
             log_det[i] = log_u + log_d + np.log(np.abs(self.det_coeff[i]))
             sign_det[i] = sign_u * sign_d * np.sign(self.det_coeff[i])
         log_value, sign = log_sum_exp(log_det, sign_det)
@@ -818,11 +825,15 @@ def slater_gradient(self, n_vectors: np.ndarray):
         grad = np.zeros(shape=(self.neu + self.ned) * 3)
         single_det = self.det_coeff.size == 1
         for i in range(self.det_coeff.size):
+            # a determinant of an expansion may be exactly singular where the sum of them is not,
+            # and its weight is then zero, so it contributes nothing and its inverse is not needed
+            c = 1 if single_det else self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
+            if c == 0:
+                continue
             # einsum('ij,jik -> ik', np.linalg.inv(wfn_u[self.permutation_up[i]]), grad_u[self.permutation_up[i]])
             tr_grad_u = (np.linalg.inv(wfn_u[self.permutation_up[i]]) * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
             tr_grad_d = (np.linalg.inv(wfn_d[self.permutation_down[i]]) * grad_d[self.permutation_down[i]].T).T.sum(axis=0)
             tr_grad = np.concatenate((tr_grad_u, tr_grad_d)).ravel()
-            c = 1 if single_det else self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             grad += c * tr_grad
 
@@ -855,6 +866,11 @@ def slater_laplacian(self, n_vectors: np.ndarray):
         grad = np.zeros(shape=(self.neu + self.ned) * 3)
         single_det = self.det_coeff.size == 1
         for i in range(self.det_coeff.size):
+            # a determinant of an expansion may be exactly singular where the sum of them is not,
+            # and its weight is then zero, so it contributes nothing and its inverse is not needed
+            c = 1 if single_det else self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
+            if c == 0:
+                continue
             inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
             inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
             # einsum('ij,jik -> ik', inv_wfn_u, grad_u[self.permutation_up[i]])
@@ -863,7 +879,6 @@ def slater_laplacian(self, n_vectors: np.ndarray):
             # einsum('ij,ji', inv_wfn_u, lap_u[self.permutation_up[i]])
             tr_lap_u = (inv_wfn_u * lap_u[self.permutation_up[i]].T).sum()
             tr_lap_d = (inv_wfn_d * lap_d[self.permutation_down[i]].T).sum()
-            c = 1 if single_det else self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             grad += c * np.concatenate((tr_grad_u, tr_grad_d)).ravel()
             lap += c * (tr_lap_u + tr_lap_d)
@@ -899,6 +914,11 @@ def slater_hessian(self, n_vectors: np.ndarray):
         hess = np.zeros(shape=(ne * 3, ne * 3))
         single_det = self.det_coeff.size == 1
         for i in range(self.det_coeff.size):
+            # a determinant of an expansion may be exactly singular where the sum of them is not,
+            # and its weight is then zero, so it contributes nothing and its inverse is not needed
+            c = 1 if single_det else self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
+            if c == 0:
+                continue
             inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
             inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
             tr_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
@@ -908,7 +928,6 @@ def slater_hessian(self, n_vectors: np.ndarray):
             tr_hess_d = (inv_wfn_d * hess_d[self.permutation_down[i]].T).T.sum(axis=0)
             matrix_grad_u = (inv_wfn_u @ grad_u[self.permutation_up[i]].reshape(self.neu, self.neu * 3)).reshape(self.neu, self.neu, 3)
             matrix_grad_d = (inv_wfn_d @ grad_d[self.permutation_down[i]].reshape(self.ned, self.ned * 3)).reshape(self.ned, self.ned, 3)
-            c = 1 if single_det else self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             grad += c * tr_grad
             # tr(A^-1 • d²A/dxdy) - tr(A^-1 • dA/dx • A^-1 • dA/dy)
@@ -958,6 +977,11 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
         tress = np.zeros(shape=(ne * 3, ne * 3, ne * 3))
         single_det = self.det_coeff.size == 1
         for i in range(self.det_coeff.size):
+            # a determinant of an expansion may be exactly singular where the sum of them is not,
+            # and its weight is then zero, so it contributes nothing and its inverse is not needed
+            c = 1 if single_det else self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
+            if c == 0:
+                continue
             inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
             inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
             tr_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
@@ -984,7 +1008,6 @@ def slater_tressian(self, n_vectors: np.ndarray) -> tuple[np.ndarray, np.ndarray
             partial_hess[: self.neu * 3, : self.neu * 3] += res_u.reshape(self.neu * 3, self.neu * 3)
             partial_hess[self.neu * 3 :, self.neu * 3 :] += res_d.reshape(self.ned * 3, self.ned * 3)
 
-            c = 1 if single_det else self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             grad += c * tr_grad
             hess += c * (partial_hess + 2 / 3 * np.outer(tr_grad, tr_grad))
@@ -1077,6 +1100,11 @@ def slater_tressian_dot(self, n_vectors: np.ndarray, bb: np.ndarray):
         tress_bb = np.zeros(shape=ne * 3)
         single_det = self.det_coeff.size == 1
         for i in range(self.det_coeff.size):
+            # a determinant of an expansion may be exactly singular where the sum of them is not,
+            # and its weight is then zero, so it contributes nothing and its inverse is not needed
+            c = 1 if single_det else self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
+            if c == 0:
+                continue
             inv_wfn_u = np.linalg.inv(wfn_u[self.permutation_up[i]])
             inv_wfn_d = np.linalg.inv(wfn_d[self.permutation_down[i]])
             tr_grad_u = (inv_wfn_u * grad_u[self.permutation_up[i]].T).T.sum(axis=0)
@@ -1101,7 +1129,6 @@ def slater_tressian_dot(self, n_vectors: np.ndarray, bb: np.ndarray):
             partial_hess[: self.neu * 3, : self.neu * 3] += res_u.reshape(self.neu * 3, self.neu * 3)
             partial_hess[self.neu * 3 :, self.neu * 3 :] += res_d.reshape(self.ned * 3, self.ned * 3)
 
-            c = 1 if single_det else self.det_coeff[i] * np.linalg.det(wfn_u[self.permutation_up[i]]) * np.linalg.det(wfn_d[self.permutation_down[i]])
             val += c
             grad += c * tr_grad
             hess += c * (partial_hess + 2 / 3 * np.outer(tr_grad, tr_grad))

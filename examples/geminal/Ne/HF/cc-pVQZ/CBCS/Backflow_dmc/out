@@ -1,0 +1,895 @@
+CASINO v2.13.1291 [Mike Towler] (4 June 2026)
+Running on vladimir-kubuntu [linuxpc-gcc-parallel.openblas]
+Binary compiled in opt mode
+Job started: Ср 15 июл 2026 20:56:23 +07
+ ------------------------------------------------------------------------------
+
+                   #####
+                  ##   ##    ##     ####   ##  #   ##   ####
+                  ##        ####   ##      ##  ##  ##  ##  ##
+                  ##       ##  ##   ####   ##  ### ##  ##  ##
+                  ##       ######      ##  ##  ## ###  ##  ##
+                  ##   ##  ##  ##  ##  ##  ##  ##  ##  ##  ##
+                   #####   ##  ##   ####   ##  ##   #   ####
+
+                              Quantum Monte Carlo
+                 CASINO v2.13.1291 [Mike Towler] (4 June 2026)
+
+    Main Authors : R.J. Needs, M.D. Towler, N.D. Drummond, and P. Lopez Rios
+
+       Required citation in publications arising from the use of CASINO:
+     R.J. Needs, M.D. Towler, N.D. Drummond, P. Lopez Rios, and J.R. Trail,
+                       J. Chem. Phys. 152, 154106 (2020).
+                       https://doi.org/10.1063/1.5144288
+
+                 CASINO web page: https://vallico.net/casinoqmc
+
+                      Current contact: mdt26 at cantab.net
+
+ ------------------------------------------------------------------------------
+ Started 2026/07/15 20:56:23.459
+
+ Running in parallel using 4 MPI processes.
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  5
+ NED (num down spin electrons)            :  5
+ RUNTYPE (type of run)                    :  vmc_dmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  geminal
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  T
+ BACKFLOW (use backflow corrections)      :  T
+ USE_ORBMODS (use orbital modifications)  :  F
+ CUSP_CORRECTION                          :  T
+ MOLGSCREENING                            :  F
+ USE_DETLA (DLA approx. to NL PP)         :  F
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ ESUPERCELL                               :  F
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ CHECKPOINT (checkpointing level)         :  1
+ CHECKPOINT_NCPU (chkpnt group size)      :  4
+ CON_LOC (Dir to read/write config.*)     :  ./
+ RELATIVISTIC                             :  F
+
+ VMC/DMC input parameters
+ ========================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  1.0000E-02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  1024
+ VMC_NCONFIG_WRITE (num configs to write) :  1024
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  1
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ DMC_TARGET_WEIGHT                        :  1024.00
+ DMC_MD                                   :  F
+ DMC_EQUIL_NSTEP (num equil steps)        :  10000
+ DMC_EQUIL_NBLOCK (num blocks)            :  1
+ DMC_STATS_NSTEP (num stats steps)        :  50000
+ DMC_STATS_NBLOCK (num blocks)            :  5
+ DMC_DECORR_PERIOD (length of inner loop) :  1
+ DMC_AVE_PERIOD (hist reduction factor)   :  1
+ DMC_TRIP_WEIGHT (catastrophe thres)      :  0.00
+ EBEST_AV_WINDOW (running av for energy)  :  25
+ DMC_METHOD (choice of DMC algorithm)     :  2
+ DMC_REWEIGHT_CONF (Update weights)       :  F
+ DMC_SPACEWARPING (adjust e to new wfn)   :  F
+ REDIST_GRP_SIZE (size of redist groups)  :  500
+ DTDMC (DMC time step)                    :  3.33300E-03
+ TPDMC (DMC T_p parameter)                :  0
+ CEREFDMC (constant for EREF [DMC])       :  1.000
+ LIMDMC (limit type for drift vel/energy) :  4 [ZSGMA, PRB 93 241118(R) (2016)]
+ NUCLEUS_GF_MODS (DMC GF mods for nuclei) :  T
+ ALIMIT                                   :  0.500
+ ALPHALIMIT                               :  0.200
+ DMC_DTEFF_METHOD (eff time step method)  :  1 [Weighted average of diff^2]
+ DMC_EREF_METHOD (reference-energy method):  1 [Std reference-energy method]
+ IACCUM (flag for statistics run [DMC])   :  T
+ IBRAN (flag to enable branching [DMC])   :  T
+ LWDMC (flag for enabling weighted DMC)   :  F
+ LWDMC_FIXPOP (fixed population LWDMC)    :  F
+ DMC_NORM_CONSERVE                        :  F
+ DMC_POPRENORM (renormalize config popn)  :  F
+ GROWTH_ESTIMATOR (calc growth estimator) :  F
+ USE_TMOVE                                :  F
+ FUTURE_WALKING                           :  F
+ SMALL_TRANSFER (redist. transf. size)    :  F
+ ORBBUF (orbital buffering)               :  T
+ JASBUF (Jastrow buffering)               :  T
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ Particles
+ =========
+ Particle name                 Charge        Mass         Spin   Type
+ -------------------------------------------------------------------------
+ 1: Spin-up electron          -1.00000       1.0000000     0.5   Fermion
+ 2: Spin-down electron        -1.00000       1.0000000    -0.5   Fermion
+ -------------------------------------------------------------------------
+
+ Number of diffusion types : 1
+
+ Single-particle groupings
+ -------------------------
+ Spin dep. 0 : (1,2) [F] [E]
+ Spin dep. 1 : (1) (2)
+
+ NB, partitions defining spin-[F]amilies and [E]quivalent particles flagged.
+
+ Particle-pair groupings
+ -----------------------
+ Spin-pair dep. 0 : (1-1,1-2,2-2)
+ Spin-pair dep. 1 : (1-1,2-2) (1-2)
+ Spin-pair dep. 2 : (1-1) (1-2) (2-2)
+
+ Initialize random number generator
+ ==================================
+ Generator                                 :  RANLUX
+ RANLUX luxury level                       :  3
+ p value                                   :  223
+ Value of random seed on MPI process 0     :  1532195026
+
+ Initialized with seed derived from timer.
+
+ Reading correlation.data
+ ========================
+ Header:
+   No title given.
+ Version of correlation.data : 1
+ A Jastrow factor is present in correlation.data.
+ A backflow function is present in correlation.data.
+
+ Reading parameters.casl
+ =======================
+ Contents of parameters.casl:
+  * GEMINAL
+
+ No multideterminant/excitation data supplied.
+ Using ground state defined in xwfn.data file.
+
+ Reading Gaussian wave function and associated data
+ ==================================================
+
+ Title: TITLE
+
+ Generating code                           :  molden2qmc version: 4.0.4
+ Method                                    :
+ DFT functional                            :
+ Periodicity                               :  0 (molecule)
+ Spin restricted?                          :  Yes
+
+ Total number of electrons                 :  10
+
+ Basis set information
+
+ Number of atoms                           :  1
+ Number of shells                          :  15
+ Number of basis fns                       :  55
+ Number of primitives                      :  33
+ Highest ang momentum                      :  5
+
+ Gaussian basis sets:
+ ------------------------------------------------------------------
+   Atom  x(au)  y(au)  z(au)    No. Type  Exponent    Coefficients
+ ------------------------------------------------------------------
+   1 Ne    0.000    0.000    0.000
+                             1-   1  s
+                                         9.992E+04     3.476E-01
+                                         1.496E+04     6.508E-01
+                                         3.399E+03     1.126E+00
+                                         9.589E+02     1.817E+00
+                                         3.112E+02     2.715E+00
+                                         1.117E+02     3.552E+00
+                                         4.332E+01     3.698E+00
+                                         1.780E+01     2.493E+00
+                                         7.503E+00     7.128E-01
+                             2-   2  s
+                                         9.992E+04    -2.195E-01
+                                         1.496E+04    -4.173E-01
+                                         3.399E+03    -7.163E-01
+                                         9.589E+02    -1.178E+00
+                                         3.112E+02    -1.770E+00
+                                         1.117E+02    -2.484E+00
+                                         4.332E+01    -2.839E+00
+                                         1.780E+01    -2.680E+00
+                                         7.503E+00    -1.012E+00
+                             3-   3  s
+                                         2.337E+00     1.347E+00
+                             4-   4  s
+                                         9.001E-01     6.586E-01
+                             5-   5  s
+                                         3.301E-01     3.104E-01
+                             6-   8  p
+                                         9.968E+01     1.413E+01
+                                         2.315E+01     1.595E+01
+                                         7.108E+00     1.375E+01
+                             9-  11  p
+                                         2.441E+00     4.349E+00
+                            12-  14  p
+                                         8.339E-01     1.136E+00
+                            15-  17  p
+                                         2.662E-01     2.726E-01
+                            18-  22  d
+                                         6.471E+00     4.321E+01
+                            23-  27  d
+                                         2.213E+00     6.609E+00
+                            28-  32  d
+                                         7.470E-01     9.879E-01
+                            33-  39  f
+                                         4.657E+00     4.690E+01
+                            40-  46  f
+                                         1.524E+00     3.799E+00
+                            47-  55  g
+                                         2.983E+00     2.248E+01
+ ------------------------------------------------------------------
+ Single determinant :
+
+ Det 1 spin 1           : ground state
+ Det 1 spin 2           : ground state
+ Det 1 coefficient      : 1.00000000
+
+ Pseudopotentials
+ ================
+ No pseudopotential for Ne - treating as all-electron.
+
+ Geometry derived from information in gwfn.data
+ ==============================================
+
+ Simulation cell : Finite (atomic/molecular geometry)
+
+ Atom Atno  Type              Position (Cartesian au)
+ -------------------------------------------------------------
+    1  10   1         0.00000000     0.00000000     0.00000000
+
+
+ Neighbour analysis of single atom not required.
+
+ Gaussian cusp correction
+ ========================
+ Activated.
+
+ Expectation values
+ ==================
+ None requested.
+
+ Interactions
+ ============
+ Interaction type: Coulomb
+ System is aperiodic. Using 1/r only.
+
+ Geminal setup
+ =============
+ Using a pool of 55 orbitals.
+ Percentage of non-zero geminal matrix elements: 1%
+ The geminal matrices will be represented by sparse matrices.
+
+ Jastrow factor
+ ==============
+ Reading Jastrow factor from correlation.data file.
+
+ Title: Ne atom
+
+ Truncation order                   :  3
+
+ U term:
+  SET 1
+   Spherical harmonic l             :  0
+   Spherical harmonic m             :  0
+   Expansion order (N_u)            :  8
+   Spin dependence                  :  1
+   Cutoff             (optimizable) :  4.360886299778982E+00
+   alpha_0,1          (optimizable) :  2.536193155449152E-03
+   alpha_2,1          (optimizable) : -2.819522214931645E-03
+   alpha_3,1          (optimizable) :  2.954630325698977E-03
+   alpha_4,1          (optimizable) :  1.979826364597157E-03
+   alpha_5,1          (optimizable) : -2.867796663810823E-03
+   alpha_6,1          (optimizable) :  1.132610436323885E-03
+   alpha_7,1          (optimizable) : -2.096855722053013E-04
+   alpha_8,1          (optimizable) :  1.838144243417912E-05
+   alpha_0,2          (optimizable) :  6.372176507800755E-03
+   alpha_2,2          (optimizable) : -9.385271717478538E-04
+   alpha_3,2          (optimizable) : -3.988146915327106E-04
+   alpha_4,2          (optimizable) :  4.179539281868655E-03
+   alpha_5,2          (optimizable) : -3.961280657752824E-03
+   alpha_6,2          (optimizable) :  1.458616096237572E-03
+   alpha_7,2          (optimizable) : -2.153267966243651E-04
+   alpha_8,2          (optimizable) :  9.171019199345658E-06
+   No. of parameters in set         :  16
+   (In addition to the cutoff length.)
+
+ Chi term:
+  Number of sets                    :  1
+  SET 1:
+   Spherical harmonic l             :  0
+   Spherical harmonic m             :  0
+   Number of atoms in set           :  1
+   The atoms are:
+    1
+   Electron-nucleus cusp not imposed in Jastrow Chi term
+   Expansion order (N_chi)          :  8
+   Spin dependence                  :  0
+   Cutoff             (optimizable) :  3.088334123792626E+00
+   beta_0,1,1         (optimizable) : -1.279682454177296E-01
+   beta_2,1,1         (optimizable) : -5.386319869057365E-02
+   beta_3,1,1         (optimizable) :  9.291833505412675E-02
+   beta_4,1,1         (optimizable) : -4.844947625179158E-02
+   beta_5,1,1         (optimizable) :  1.848740254432672E-02
+   beta_6,1,1         (optimizable) : -8.773325434306886E-03
+   beta_7,1,1         (optimizable) :  2.410858207956073E-02
+   beta_8,1,1         (optimizable) : -8.076847141951742E-03
+   No. of parameters in set         :  8
+   (In addition to the cutoff length.)
+
+ F term:
+  Number of sets                    :  1
+  SET 1:
+   Number of atoms in set           :  1
+   The atoms are:
+    1
+   No constraints applied to avoid duplicating u.
+   No constraints applied to avoid duplicating chi.
+   Expansion order (N_f_eN)         :  3
+   Expansion order (N_f_ee)         :  3
+   Spin dependence                  :  1
+   Cutoff             (optimizable) :  3.027514341422736E+00
+   gamma_1,1,0,1,1    (optimizable) : -4.130328159191981E-04
+   gamma_2,1,0,1,1    (optimizable) : -1.032970800844110E-03
+   gamma_3,1,0,1,1    (optimizable) : -3.265364109141536E-03
+   gamma_2,2,0,1,1    (optimizable) :  1.623110140116714E-03
+   gamma_3,2,0,1,1    (optimizable) :  7.134062865785571E-04
+   gamma_3,3,0,1,1    (optimizable) :  1.352552496448644E-03
+   gamma_1,1,1,1,1    (optimizable) :  2.990823415713287E-04
+   gamma_2,2,1,1,1    (optimizable) : -6.075198157585153E-03
+   gamma_0,0,2,1,1    (optimizable) : -4.651744300786236E-04
+   gamma_1,0,2,1,1    (optimizable) : -6.348549477643356E-05
+   gamma_2,0,2,1,1    (optimizable) :  1.417279419223005E-03
+   gamma_1,1,2,1,1    (optimizable) :  2.119769922064947E-03
+   gamma_2,1,2,1,1    (optimizable) : -4.387778510689161E-03
+   gamma_3,1,2,1,1    (optimizable) : -1.812631917663246E-04
+   gamma_2,2,2,1,1    (optimizable) :  4.114197852180135E-03
+   gamma_3,2,2,1,1    (optimizable) :  2.212838954934953E-03
+   gamma_3,3,2,1,1    (optimizable) : -3.599953799294672E-03
+   gamma_0,0,3,1,1    (optimizable) :  2.026377650517454E-04
+   gamma_1,0,3,1,1    (optimizable) :  1.114254767813654E-04
+   gamma_2,0,3,1,1    (optimizable) : -1.164359065531261E-03
+   gamma_1,1,3,1,1    (optimizable) :  4.820493087646326E-04
+   gamma_2,1,3,1,1    (optimizable) :  5.530930970659160E-04
+   gamma_3,1,3,1,1    (optimizable) :  6.719917592926671E-07
+   gamma_2,2,3,1,1    (optimizable) : -7.337930668729330E-04
+   gamma_3,2,3,1,1    (optimizable) : -7.658757756401731E-04
+   gamma_3,3,3,1,1    (optimizable) :  1.280772704118134E-03
+   gamma_1,1,0,2,1    (optimizable) : -2.923095013731030E-04
+   gamma_2,1,0,2,1    (optimizable) : -5.581485408834790E-03
+   gamma_3,1,0,2,1    (optimizable) :  6.362452942314208E-03
+   gamma_2,2,0,2,1    (optimizable) :  1.773977564088827E-02
+   gamma_3,2,0,2,1    (optimizable) : -1.224558837981017E-02
+   gamma_3,3,0,2,1    (optimizable) :  7.026615671620474E-03
+   gamma_1,1,1,2,1    (optimizable) :  1.810945932603223E-03
+   gamma_2,2,1,2,1    (optimizable) :  5.727323651687406E-03
+   gamma_0,0,2,2,1    (optimizable) : -1.892984841232720E-03
+   gamma_1,0,2,2,1    (optimizable) :  2.658535296157595E-03
+   gamma_2,0,2,2,1    (optimizable) : -1.527993700042192E-03
+   gamma_1,1,2,2,1    (optimizable) :  1.886177741263693E-03
+   gamma_2,1,2,2,1    (optimizable) : -1.696250445470949E-03
+   gamma_3,1,2,2,1    (optimizable) :  1.654100463385504E-03
+   gamma_2,2,2,2,1    (optimizable) : -2.532985857119986E-03
+   gamma_3,2,2,2,1    (optimizable) :  3.140851003298984E-03
+   gamma_3,3,2,2,1    (optimizable) : -2.317479280905052E-03
+   gamma_0,0,3,2,1    (optimizable) :  1.287437542413599E-03
+   gamma_1,0,3,2,1    (optimizable) : -3.100816213763792E-03
+   gamma_2,0,3,2,1    (optimizable) :  2.433700437868037E-03
+   gamma_1,1,3,2,1    (optimizable) :  4.050660487274950E-03
+   gamma_2,1,3,2,1    (optimizable) : -1.032571898243008E-03
+   gamma_3,1,3,2,1    (optimizable) : -2.145261818717896E-04
+   gamma_2,2,3,2,1    (optimizable) : -2.000989571878107E-03
+   gamma_3,2,3,2,1    (optimizable) :  4.168878989166052E-04
+   gamma_3,3,3,2,1    (optimizable) :  1.200975988983031E-04
+   No. of parameters in set         :  52
+   (In addition to the cutoff length.)
+
+ Finished reading Jastrow factor from correlation.data.
+
+ Imposed symmetry and no-cusp constraints on gamma array.
+ Checked that gamma array satisfies its constraints.
+ Polynomials constructed.
+ Checked that cusp and cutoff conditions are satisfied.
+
+ Finished Jastrow setup.
+
+ Backflow setup
+ ==============
+ Reading correlation.data file.
+
+ Backflow function:
+  Title:  title
+  Truncation order       :  3
+  Discontinuities        :  None
+
+  Eta term:
+   Expansion order       :  9
+   Spin dependence       :  1
+   All cutoffs     (opt) :  4.357987467817
+   No. of free params    :  19 + 1 cut-off length
+   c_0,1   (optimizable) :  0.016509823200
+   c_2,1   (optimizable) : -0.121405640275
+   c_3,1   (optimizable) :  0.110530968467
+   c_4,1   (optimizable) : -0.045383037217
+   c_5,1   (optimizable) :  0.005710203134
+   c_6,1   (optimizable) :  0.003696536450
+   c_7,1   (optimizable) : -0.001135591941
+   c_8,1   (optimizable) : -0.000120224801
+   c_9,1   (optimizable) :  0.000045291628
+   c_0,2   (optimizable) :  0.014319799549
+   c_1,2   (optimizable) : -0.028839210151
+   c_2,2   (optimizable) :  0.067890484415
+   c_3,2   (optimizable) : -0.088193968321
+   c_4,2   (optimizable) :  0.035823164099
+   c_5,2   (optimizable) :  0.005367742363
+   c_6,2   (optimizable) : -0.004376410752
+   c_7,2   (optimizable) : -0.000525445013
+   c_8,2   (optimizable) :  0.000430210466
+   c_9,2   (optimizable) : -0.000041261531
+
+  Mu term:
+   Number of sets        :  1
+   Set 1
+    Atoms in set         :  1
+    The atoms are        :  1
+    Type of cusp conds.  :  AE with cusp
+    Expansion order      :  9
+    Spin dependence      :  0
+    Cutoff (optimizable) :  2.944229447657
+    No. of free params   :  8 + cut-off length
+    mu_2,1 (optimizable) : -0.281885768361
+    mu_3,1 (optimizable) : -0.552646042158
+    mu_4,1 (optimizable) :  0.755627863490
+    mu_5,1 (optimizable) : -1.202022755806
+    mu_6,1 (optimizable) :  0.439669939518
+    mu_7,1 (optimizable) :  0.038444824654
+    mu_8,1 (optimizable) : -0.095476402566
+    mu_9,1 (optimizable) :  0.023870971728
+   Completeness of mu    :  All atoms included
+
+  Phi term:
+   Number of sets        :  1
+   Set 1
+    Atoms in set         :  1
+    The atoms are        :  1
+    Type of cusp conds.  :  AE with cusp
+    Irrotational constr. :  Not applied
+    Expansion order e-N  :  3
+    Expansion order e-e  :  3
+    Spin dependence      :  1
+    Cutoff (optimizable) :  3.025516095602
+    No. of free params   :  114 + cut-off length
+    phi_2,2,0,1    (opt) : -0.046058617461
+    phi_3,2,0,1    (opt) :  0.888668012904
+    phi_2,3,0,1    (opt) :  0.103857404437
+    phi_3,3,0,1    (opt) : -0.328962422918
+    phi_1,2,1,1    (opt) :  0.048015813604
+    phi_2,3,1,1    (opt) :  0.419793353997
+    phi_1,0,2,1    (opt) : -0.110871850062
+    phi_0,1,2,1    (opt) :  0.110034522749
+    phi_1,1,2,1    (opt) :  0.285311153905
+    phi_2,1,2,1    (opt) :  0.185747884133
+    phi_1,2,2,1    (opt) : -0.304900088513
+    phi_2,2,2,1    (opt) :  0.110613307162
+    phi_3,2,2,1    (opt) : -0.009075731781
+    phi_2,3,2,1    (opt) : -0.255846413497
+    phi_3,3,2,1    (opt) :  0.119966207780
+    phi_0,0,3,1    (opt) : -0.048748610830
+    phi_1,0,3,1    (opt) :  0.099048829456
+    phi_0,1,3,1    (opt) :  0.044326025163
+    phi_1,1,3,1    (opt) : -0.144243378196
+    phi_2,1,3,1    (opt) : -0.109499901498
+    phi_1,2,3,1    (opt) :  0.113216963607
+    phi_2,2,3,1    (opt) :  0.088120065034
+    phi_3,2,3,1    (opt) : -0.040217664924
+    phi_2,3,3,1    (opt) :  0.013306750145
+    phi_3,3,3,1    (opt) : -0.005975491079
+    theta_2,1,0,1  (opt) :  0.202937770308
+    theta_3,1,0,1  (opt) : -0.991469262540
+    theta_2,2,0,1  (opt) : -1.067299934215
+    theta_3,2,0,1  (opt) :  0.471471575792
+    theta_2,3,0,1  (opt) :  1.990105667911
+    theta_3,3,0,1  (opt) : -0.486105698171
+    theta_1,2,1,1  (opt) : -0.060801526821
+    theta_2,3,1,1  (opt) : -1.139691754223
+    theta_1,0,2,1  (opt) : -0.217584726606
+    theta_2,0,2,1  (opt) :  0.462113998427
+    theta_0,1,2,1  (opt) : -0.513088740056
+    theta_1,1,2,1  (opt) :  0.710903413704
+    theta_2,1,2,1  (opt) : -0.459050576055
+    theta_1,2,2,1  (opt) : -0.057661888948
+    theta_2,2,2,1  (opt) : -0.074571812589
+    theta_3,2,2,1  (opt) : -0.435522879586
+    theta_2,3,2,1  (opt) :  0.536635666251
+    theta_3,3,2,1  (opt) : -0.164534593467
+    theta_0,0,3,1  (opt) :  0.290082997957
+    theta_1,0,3,1  (opt) : -0.149882072148
+    theta_2,0,3,1  (opt) : -0.136655789373
+    theta_0,1,3,1  (opt) :  0.001197841038
+    theta_1,1,3,1  (opt) : -0.177940952412
+    theta_2,1,3,1  (opt) :  0.114668668068
+    theta_1,2,3,1  (opt) :  0.075987694342
+    theta_2,2,3,1  (opt) :  0.142806974181
+    theta_3,2,3,1  (opt) :  0.009814552847
+    theta_2,3,3,1  (opt) : -0.143814237262
+    theta_3,3,3,1  (opt) :  0.082093003703
+    phi_2,2,0,2    (opt) :  0.588034652504
+    phi_3,2,0,2    (opt) : -0.378476261799
+    phi_2,3,0,2    (opt) : -0.081218603498
+    phi_3,3,0,2    (opt) :  0.166011289116
+    phi_1,1,1,2    (opt) :  0.120133681140
+    phi_2,1,1,2    (opt) : -1.506487621512
+    phi_1,2,1,2    (opt) : -0.829040047671
+    phi_2,2,1,2    (opt) : -0.508662886406
+    phi_3,2,1,2    (opt) :  0.377896947585
+    phi_2,3,1,2    (opt) :  0.360118211871
+    phi_3,3,1,2    (opt) : -0.177369723179
+    phi_0,0,2,2    (opt) :  0.182264664205
+    phi_1,0,2,2    (opt) : -0.117677460950
+    phi_0,1,2,2    (opt) : -0.116865250377
+    phi_1,1,2,2    (opt) :  1.024129780316
+    phi_2,1,2,2    (opt) :  0.388267350312
+    phi_1,2,2,2    (opt) : -0.035225647921
+    phi_2,2,2,2    (opt) :  0.253455799614
+    phi_3,2,2,2    (opt) : -0.140776574969
+    phi_2,3,2,2    (opt) : -0.171431521982
+    phi_3,3,2,2    (opt) :  0.092698197513
+    phi_0,0,3,2    (opt) : -0.082437947828
+    phi_1,0,3,2    (opt) : -0.055378408756
+    phi_0,1,3,2    (opt) :  0.203728864905
+    phi_1,1,3,2    (opt) : -0.482431326218
+    phi_2,1,3,2    (opt) :  0.161182609783
+    phi_1,2,3,2    (opt) :  0.263858203442
+    phi_2,2,3,2    (opt) : -0.165704758309
+    phi_3,2,3,2    (opt) :  0.001527233519
+    phi_2,3,3,2    (opt) :  0.026273927776
+    phi_3,3,3,2    (opt) :  0.007109261405
+    theta_2,1,0,2  (opt) : -0.389321076686
+    theta_3,1,0,2  (opt) : -0.265852798028
+    theta_2,2,0,2  (opt) :  1.862341148950
+    theta_3,2,0,2  (opt) : -0.438548580913
+    theta_2,3,0,2  (opt) : -0.912253918397
+    theta_3,3,0,2  (opt) :  0.519946646608
+    theta_1,2,1,2  (opt) : -0.152790537523
+    theta_2,3,1,2  (opt) :  0.644436207106
+    theta_1,0,2,2  (opt) : -0.118654734702
+    theta_2,0,2,2  (opt) : -0.147318360297
+    theta_0,1,2,2  (opt) :  0.019012864536
+    theta_1,1,2,2  (opt) :  0.589005509238
+    theta_2,1,2,2  (opt) :  0.246463201968
+    theta_1,2,2,2  (opt) :  0.443988755741
+    theta_2,2,2,2  (opt) : -0.103714782800
+    theta_3,2,2,2  (opt) :  0.651115407402
+    theta_2,3,2,2  (opt) : -0.176208873155
+    theta_3,3,2,2  (opt) : -0.115215266036
+    theta_0,0,3,2  (opt) :  0.080855108023
+    theta_1,0,3,2  (opt) : -0.025535159931
+    theta_2,0,3,2  (opt) :  0.182338533915
+    theta_0,1,3,2  (opt) :  0.137253359754
+    theta_1,1,3,2  (opt) : -0.683555411847
+    theta_2,1,3,2  (opt) :  0.216437969421
+    theta_1,2,3,2  (opt) :  0.233833595304
+    theta_2,2,3,2  (opt) : -0.254835686874
+    theta_3,2,3,2  (opt) :  0.029581882929
+    theta_2,3,3,2  (opt) :  0.118935399266
+    theta_3,3,3,2  (opt) : -0.043830584852
+   Completeness of Phi   :  All atoms included
+
+  AE cutoffs:
+   Nucleus 1 in set      :  1
+   Total number of sets  :  1
+   Cutoff_1       (fixed):  1.000000000000
+
+ Finished reading backflow functions from correlation.data.
+
+ Allocated work arrays, using 17.5 KiB.
+ Imposed e-e and e-N cusp conditions and checked them.
+ Will apply cut-offs around AE atoms.
+
+ Finished backflow setup.
+
+
+ Setup complete.
+
+ Time taken in setup    : : :        0.0200 s
+
+ ======================================================
+ PERFORMING A VMC CONFIGURATION-GENERATION CALCULATION.
+ ======================================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  1.8707E-03
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Geminals - gradient: optimal, Laplacian: optimal.
+  Jastrow factor - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio <level 1>        (%)  =  48.8281
+ Acceptance ratio <levels 1-2>     (%)  =  47.4609
+ Diffusion constant           (Bohr^2)  = 7.1415E-04
+ Correlation time              (steps)  = 8.4224E+00 +- 4.9059E+00
+ Efficiency               (au^-2 s^-1)  = 2.1619E+02
+ No. of VMC steps per MPI process       = 256
+
+  Block average energies (au)
+
+  Total energy                       (au) =        -128.699047097155
+  Standard error                        +/-           0.076227872358
+
+  Kinetic energy KEI (used in Total) (au) =         118.781744322718
+  Standard error                        +/-           3.827072381375
+
+  Kinetic energy TI                  (au) =         125.296169373855
+  Standard error                        +/-           2.167673199628
+
+  Kinetic energy FISQ                (au) =         131.810594424992
+  Standard error                        +/-           1.845865281444
+
+  Potential energy                   (au) =        -247.480791419873
+  Standard error                        +/-           3.809234903164
+
+  e-e interaction                    (au) =          54.377404544111
+  Standard error                        +/-           0.167204565334
+
+  e-n interaction                    (au) =        -301.858195963985
+  Standard error                        +/-           3.849403969582
+
+  Variance of local energy           (au) =           6.248546461259
+  Standard error                        +/-           1.611026035516
+
+  Maximum distance from origin       (au) =           3.025394949668
+
+  Particles within backflow range   (%) :  99.9945
+
+
+ Time taken in block    : : :        0.0900 s
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -128.699047097155 +/- 0.076227872358      No correction
+ -128.699047097155 +/- 0.221223119253      Correlation time method
+ -128.699047097155 +/- 0.172845490062      On-the-fly reblocking method
+
+ Bad reblock convergence - probably not enough data samples.
+
+ Dumping reblock data for energy:
+      mean:   -128.699047097155 +/-       0.172845490062
+    stderr:      0.172845490062 +/-       0.046194900333
+    errfac:      2.267484119860 +/-       0.606010621891
+    N_corr:      5.141484233819 +/-       2.748238923207
+   ------------------------------------------------------
+    Block len      Std error   Err in error
+            1   7.622787E-02   3.375427E-03
+            2   9.558362E-02   5.997450E-03
+            4   1.140730E-01   1.016243E-02
+            8   1.336640E-01   1.697535E-02
+           16   1.372699E-01   2.506193E-02
+           32   1.728455E-01   4.619490E-02  *** BEST ***
+           64   2.521037E-01   1.029209E-01
+          128   3.695708E-01   2.613260E-01
+   ------------------------------------------------------
+
+  Sample variance of E_L (au^2/sim.cell) : 6.248546461259
+
+ =========================================================================
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ ===========================================
+ PERFORMING A DMC EQUILIBRATION CALCULATION.
+ ===========================================
+
+
+ BEGIN DMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ EBEST = -128.69904709715490 (au/prim cell inc. N-N)
+ EREF  = -128.69904709715490
+
+ =========================================================================
+ In block : 1
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 99.853
+ Number of config transfers               : 6410
+ Acceptance ratio (%)                     : 90.015
+ New best estimate of DMC energy (au)     : -128.92587006
+ Max no of attempts before accept move    : 12
+ Particles within backflow range     (%)  : 99.9405
+ Maximum distance from origin (au)        : 5.98196501
+
+ Time taken in block    : : :     2576.1799 s
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =====================================================
+ PERFORMING A DMC STATISTICS-ACCUMULATION CALCULATION.
+ =====================================================
+
+
+ BEGIN DMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ EBEST = -128.92587006143131 (au/prim cell inc. N-N)
+ EREF  = -128.91404252832081
+
+ Number of previous DMC stats accumulation moves : 0
+
+ =========================================================================
+ In block : 1
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 99.853
+ Number of config transfers               : 6165
+ Acceptance ratio (%)                     : 90.013
+ New best estimate of DMC energy (au)     : -128.93181432
+ Max no of attempts before accept move    : 10
+ New best estimate of effective time step : 0.00300014
+ Particles within backflow range     (%)  : 99.9469
+ Maximum distance from origin (au)        : 6.37924185
+
+ Time taken in block    : : :     1707.1001 s
+
+ =========================================================================
+ In block : 2
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 99.855
+ Number of config transfers               : 6295
+ Acceptance ratio (%)                     : 90.004
+ New best estimate of DMC energy (au)     : -128.93186139
+ Max no of attempts before accept move    : 8
+ New best estimate of effective time step : 0.00300030
+ Particles within backflow range     (%)  : 99.9461
+ Maximum distance from origin (au)        : 5.99824069
+
+ Time taken in block    : : :     1951.3701 s
+
+ =========================================================================
+ In block : 3
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 99.853
+ Number of config transfers               : 6361
+ Acceptance ratio (%)                     : 90.018
+ New best estimate of DMC energy (au)     : -128.93209401
+ Max no of attempts before accept move    : 11
+ New best estimate of effective time step : 0.00300019
+ Particles within backflow range     (%)  : 99.9272
+ Maximum distance from origin (au)        : 5.90992166
+
+ Time taken in block    : : :     1682.9595 s
+
+ =========================================================================
+ In block : 4
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 99.854
+ Number of config transfers               : 6302
+ Acceptance ratio (%)                     : 89.996
+ New best estimate of DMC energy (au)     : -128.93227942
+ Max no of attempts before accept move    : 9
+ New best estimate of effective time step : 0.00300016
+ Particles within backflow range     (%)  : 99.9284
+ Maximum distance from origin (au)        : 5.63714227
+
+ Time taken in block    : : :     1691.5503 s
+
+ =========================================================================
+ In block : 5
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 99.855
+ Number of config transfers               : 6284
+ Acceptance ratio (%)                     : 89.996
+ New best estimate of DMC energy (au)     : -128.93230555
+ Max no of attempts before accept move    : 11
+ New best estimate of effective time step : 0.00300010
+ Particles within backflow range     (%)  : 99.9496
+ Maximum distance from origin (au)        : 5.42058623
+
+ Time taken in block    : : :     1711.6201 s
+
+
+ Mixed estimators of the energies at the end of the run
+ ------------------------------------------------------
+ [All energies given in (au)]
+ [All error bars obtained by reblocking]
+
+ Total energy                 =     -128.932305554080 +/-        0.000408370905
+ Kinetic energy (TI)          =      129.098373278844 +/-        0.118792361254
+ Kinetic energy (KEI)         =      128.971007810805 +/-        0.040636895194
+ Kinetic energy (FISQ)        =      129.225738746883 +/-        0.232577386925
+ e-e interac. (Ewald/Coulomb) =       53.293361267002 +/-        0.022243769621
+ e-i interaction (local)      =     -311.196674631889 +/-        0.052066132948
+
+ Dump of raw reblock data
+ ------------------------
+ Number of data points collected = 50000
+ Dumping reblock data for energy:
+      mean:   -128.932305554080 +/-       0.000408370905
+    stderr:      0.000408370905 +/-       0.000014629059
+    errfac:      1.627869183968 +/-       0.058315109635
+    N_corr:      2.649958080111 +/-       0.189858739868
+   ------------------------------------------------------
+    Block len      Std error   Err in error
+            1   2.508622E-04   7.933040E-07
+            2   2.825022E-04   1.263413E-06
+            4   3.120884E-04   1.973900E-06
+            8   3.395226E-04   3.037026E-06
+           16   3.615681E-04   4.574247E-06
+           32   3.781746E-04   6.767159E-06
+           64   4.017298E-04   1.016956E-05
+          128   4.083709E-04   1.462906E-05  *** BEST ***
+          256   4.084031E-04   2.071685E-05
+          512   4.160290E-04   2.992221E-05
+         1024   4.555096E-04   4.657372E-05
+         2048   3.478031E-04   5.082532E-05
+         4096   4.254576E-04   8.986612E-05
+         8192   3.850975E-04   1.205372E-04
+        16384   2.390458E-04   1.180057E-04
+   ------------------------------------------------------
+
+ Analysis of statistical efficiency -- see PRB 81, 035119 (2010).
+ ------------------------------------------------------------------
+ Int corr length (steps)      =        2.649958080111 +/-        0.189858739868
+ DMC time step (au)           =        0.003333000000
+ Int correlation time (au)    =        0.008832310281 +/-        0.000632799180
+ Var of loc en (au / simcell) =        3.201461575540 +/-        0.001017001544
+ Std dev of local energy      =        1.789262858146
+ Number of steps of accum data=    50000.000000000000
+ Effective number of steps    =    49981.483157584589
+ Target weight                =     1024.000000000000
+ Average population           =     1022.658920000000 +/-        0.088307039859
+ Effective population         =     1050.783500419542
+ Stat inefficiency (est)      =        1.006324530322 +/-        0.000455564542
+ Stat inefficiency (measured) =        0.973595215553
+
+ =========================================================================
+
+ Total CASINO CPU time  : : :    11321.3604 s
+ Total CASINO real time : : :    11377.4609 s
+
+
+ Subroutine timers deactivated (use TIMING_INFO input keyword)
+
+ =========================================================================
+ Ends 2026/07/16 00:06:00.919
+
+Job finished: Чт 16 июл 2026 00:06:00 +07

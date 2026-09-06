@@ -65,5 +65,24 @@ class TestMdetBackflow(TestMdet):
         self.wfn.set_parameters_projector()
 
 
+class TestMdetSingularDeterminant(unittest.TestCase):
+    """A determinant of the expansion may be exactly singular where their sum is not, and then
+    its inverse does not exist while the wave function is perfectly finite. Both down electrons
+    on the z axis is the cheapest such configuration: the p_x and p_y orbitals are zero for both
+    of them, so two of the four determinants have a zero row, and the other two carry the value.
+    """
+
+    def setUp(self):
+        config = CasinoConfig(Path(__file__).resolve().parent / 'inputs/MDET/Be')
+        config.read()
+        self.wfn = Wfn(config, Slater(config, cusp=None))
+        self.r_e = np.array([[0.3, 0.1, 0.2], [-0.2, 0.4, 0.1], [0.0, 0.0, 0.5], [0.0, 0.0, -0.9]])
+
+    def test_singular_determinant(self):
+        assert np.isfinite(self.wfn.log_value(self.r_e)[0])
+        assert np.all(np.isfinite(self.wfn.drift_velocity(self.r_e)))
+        assert np.isfinite(self.wfn.energy(self.r_e))
+
+
 if __name__ == '__main__':
     unittest.main()

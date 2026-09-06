@@ -817,20 +817,39 @@ class Casino:
                 # the wall time one independent sample of a given variance costs, which is what
                 # the decorrelation period is there to minimize
                 efficiency = nmove_block[i] / ((block_stop - block_start) * variance_block[i] * max(tau_block[i], 1.0))
+                # casino's layout, with the components it prints and pycasino does not computed
+                # left blank rather than filled with a zero
+                constant = ''
+                if self.wfn.nuclear_repulsion:
+                    constant = f'  Constant energy contributions      (au) =       {self.wfn.nuclear_repulsion:18.12f}\n\n'
                 logger.info(
                     f' =========================================================================\n'
                     f' In block : {i + 1}\n\n'
                     f' Acceptance ratio         (%)  = {100 * acceptance:8.4f}\n'
+                    f' Diffusion constant  (Bohr^2)  =\n'
                     f' Correlation time     (steps)  = {tau_block[i]:.4E} +- {tau_error:.4E}\n'
                     f' Efficiency      (au^-2 s^-1)  = {efficiency:.4E}\n'
-                    f' Number of VMC steps           = {steps // nblock}\n\n'
+                    f' No. of VMC steps per process  = {nblock_steps}\n\n'
                     f'  Block average energies (au)\n\n'
                     f'  Total energy                       (au) =       {energy_block[i]:18.12f}\n'
                     f'  Standard error                        +/-       {energy_block_sem[i]:18.12f}\n\n'
-                    f'  Constant energy contributions      (au) =       {self.wfn.nuclear_repulsion:18.12f}\n\n'
+                    f'  Kinetic energy KEI (used in Total) (au) =\n'
+                    f'  Standard error                        +/-\n\n'
+                    f'  Kinetic energy TI                  (au) =\n'
+                    f'  Standard error                        +/-\n\n'
+                    f'  Kinetic energy FISQ                (au) =\n'
+                    f'  Standard error                        +/-\n\n'
+                    f'  Potential energy                   (au) =\n'
+                    f'  Standard error                        +/-\n\n'
+                    f'  e-e interaction                    (au) =\n'
+                    f'  Standard error                        +/-\n\n'
+                    f'  e-n interaction                    (au) =\n'
+                    f'  Standard error                        +/-\n\n'
+                    f'{constant}'
                     f'  Variance of local energy           (au) =       {variance_block[i]:18.12f}\n'
-                    f'  Standard error                        +/-       {0:18.12f}\n\n'
-                    f' Time taken in block    : : :       {block_stop - block_start:.4f}\n'
+                    f'  Standard error                        +/-\n\n'
+                    f'  Maximum distance from origin       (au) =\n\n\n'
+                    f' Time taken in block    : : :{block_stop - block_start:14.4f} s\n\n'
                 )
         # every process reblocks its own chain, the chains being independent
         block_sem = mpi_comm.gather(reblock.stderr())

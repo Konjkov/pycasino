@@ -10,7 +10,10 @@ description: >
   backflow+geminal emin crash is specific to CASINO's emin and cannot occur in
   PyCasino, open-shell support for unequal numbers of up- and down-spin electrons
   (unpaired-orbital columns, the u_n,k CASL parameters),
-  the off-diagonal-as-orbital-rotation construction technique, the
+  the off-diagonal-as-orbital-rotation construction technique, why the ansatz is
+  basis-independent but the orbital file still decides how many g elements you need
+  (averaged vs high-spin ROHF on B, and how to map channels by SVD direction rather
+  than by MO index), the
   3-geminal junk-cancellation trick, CASL constraint syntax, construction
   pitfalls (degenerate starting points), and the ansatz-choice debate with
   Pablo López Ríos (perfect backflow / FermiNet Appendix B / size consistency),
@@ -763,7 +766,9 @@ pair (0.0512), then 2p along the occupied direction (0.0889). By direction `α4 
 occupied-direction one: wrong channel, ²P symmetry broken, pair block no longer 2s²→2p². CASL
 *can* express the UHF pairing — `g` need not be symmetric, `Symmetrize` is an optional constraint
 block — but it costs an asymmetric casl (`g_5,3`, `g_9,8`, `g_8,7`, `g_7,6`, …) on a
-spin-contaminated reference. **Use restricted orbitals for geminal work.**
+spin-contaminated reference. **Use restricted orbitals for geminal work.** (Completed with the
+full double map, seeds and the 12.6 mHa measurement in the basis-independence section below; that
+asymmetric casl now exists as `UHF/cc-pVQZ/CBCS/Jastrow_emin_ext`.)
 
 The ROHF tree (`! ROHF`, E = -24.52886200) is the clean one: ORCA gives the three 2p **fractional
 occupations of ⅓ each**, i.e. a spherically averaged ²P, so all three share one radial function
@@ -830,8 +835,10 @@ parameterization differs.
 - *non-seniority-0, involving the unpaired electron*: e.g. `DET 4 1 PR 2 1 6 1` + `PR 3 1 7 1`
   against `DET 4 2 PR 2 1 3 1` — different orbitals in the two spin channels, and promotions out
   of orbital 3, the singly occupied 2p_z. Groups 4, 7, 9, 10 are of this kind. The geminal can
-  represent **none** of them: `u_n,k` are fixed by construction so the open shell cannot relax,
-  and a singlet pairing function cannot give the two spin channels different orbitals.
+  represent **none** of them: `u_n,k` were fixed by construction so the open shell could not
+  relax, and a singlet pairing function cannot give the two spin channels different orbitals.
+  (Optimizable `u` shipped 2026-08-30 and took ~2 mHa of this; what is left is the ↑↑ channel —
+  see the AGPu section below.)
 
 That is the first measured price of the two restrictions in the TODO — optimizable `u`, and
 beyond it triplet pairing — on a system where the reference number is known. The active-space
@@ -843,6 +850,11 @@ still seniority-0, and see how much of the 7.4 closes — that bounds the part r
 new code; (2) DMC on all three wave functions, since VMC ordering says nothing about nodes (Ne,
 above), and B is on Bajdich–Mitas's list of atoms where the nodal gain is real; (3) optimizable
 `u`.
+
+(1) and (3) are done — see the two subsections below; together they closed 1.73 of the 7.4 mHa.
+(2) is still owed, and Genovese's free-atom DMC numbers make it the interesting one: at the DMC
+level the whole AGPs/AGPu/AGP ladder collapses on atoms, so a VMC-only story about B says nothing
+about nodes.
 
 ### (1) is done, 2026-08-25: the seniority-0 extension is worth ~1 mHa of the 7.4
 
@@ -881,6 +893,233 @@ the orbital file. A tie `2^g_4,8=2^g_5,7` would have been wrong, as predicted.
 
 Therefore the next thing to try is **not** more block, but the unpaired column — see the
 multilinearity trick under "Optimizable `u` without new code" in the TODO.
+
+### (3) is done, 2026-08-31: optimizable `u` plus a third p shell buys 1.73 mHa
+
+`ROHF/cc-pVQZ/CBCS/Jastrow_emin_ext`, same protocol, block extended to the 4p shell (all three
+cross pairs) and the 3d spherical invariant, plus `u_9,1`/`u_17,1` declared optimizable in all
+three geminals with `u_3,1` fixed at 1: 10 `g` + 6 `u` = 16 parameters against the baseline's 1.
+**-24.644103(355)**, i.e. **1.73 ± 0.51 mHa** over the converged baseline (-24.642373); 90.5% →
+92.0% of `Ec`; the gap to CAS(3,8) closes from 7.41 to **5.46 ± 1.02 mHa**. Cycle 4 was still
+descending by 0.53 mHa, so this is a lower bound, and the old 1.15 mHa seniority-0 figure above
+is under-converged for the same reason (it was read at cycle 2). The run does **not** separate
+the `u` contribution from the extra seniority-0 terms; the control (same file, six `u` fixed) was
+never run.
+
+**The mirror survived, and the diagnostic works.** `u_9,1` came out -0.0499 (G2) against -0.0458
+(G3) — 8% apart, and `u_17,1` 13% apart, which is all the junk cancellation needs. G1 went its
+own way (-0.0284, about half), and that is correct rather than degraded: G1 is not in the
+cancelling pair. The consequence is worth stating, because tecmer2022 §5.1 says an open-shell
+vacuum leaves "unpaired electrons not correlated with the geminals" — **CASINO MAGP escapes
+that**, since Σ c_n det with a per-geminal `u` gives the HF term and the correlating term
+different unpaired orbitals.
+
+**Structurally: all three cross terms grew, every diagonal but `g_4,4` died.** `g_4,16` ×3,
+`g_8,16` ×5, `g_7,15` ×4 against their seeds, while `g_10,10` (3d) shrank 5.6× and `g_15,15`
+(4p²) came out with the sign rank-1 forbids. So the extra freedom is still radial reshaping of
+one correlating p orbital, now over three shells — radial vector ≈ (1, 0.19, 0.13) on (2p, 3p,
+4p). **The angular channel is empty on B: 3d bought nothing, and 4d will not either.** The sign
+rule tightened to `g_5,7/g_4,8 = -0.9984` (was |1.10| with five parameters).
+
+### AGPu (non-symmetric `g`) is a measured zero on B, 2026-08-31
+
+`ROHF/cc-pVQZ/CBCS/Jastrow_emin_agpu`. Genovese's ladder is AGPs (symmetric `f`) → AGPu
+(`f = f₊ + f₋`, Sz=0 triplet, still `det F`, their eq. 14-15) → full AGP = Pfaffian. **The middle
+rung costs no code**: `gmat` is a general matrix, symmetry is the opt-in `Symmetrize i:` block,
+and the manual says so (`manual/geminal_manual_section.tex:98`). Untying the five transpose pairs
+gives 15 `g` + 6 `u`; both halves seeded at the AGPs optimum so the antisymmetric part starts at
+exactly zero.
+
+Result: **nothing**. Cycle 2 better by 0.37 mHa, cycle 3 worse by 0.51, against a difference
+error of 0.50 — a draw. The antisymmetric parts `A = (g_mk - g_km)/2` sat at 3-9% of the
+symmetric ones and **two of five flipped sign between cycles 2 and 4** while the rest wandered by
+50%: a flat direction filling with noise, the κ signature. Since AGPu ⊇ AGPs the deficit cannot
+be variational — it is the five near-null directions degrading the linear method, visible as the
+symmetric parameters drifting off the optimum they were seeded at (`g_4,4` -3.3%, `g_6,6` -27%,
+and the x/z tie decaying from -0.9984 to -0.962).
+
+Only the *radial* antisymmetry was tested (within a channel). The *angular* one (x⊗z - z⊗x)
+was deliberately left out and should stay out: it is odd under the σ_v reflections containing the
+SOMO axis, so E(α) = E(-α), α = 0 is stationary — the same pseudovector argument that killed
+[[kappa-term-design]]. **AGPu on B is therefore exhausted, not half-tested.**
+
+The useful part is what it implies. B has Sz = 1/2: 3 up, 2 down. AGPu adds ↑↓ triplet, but the
+MDET decomposition above put the missing groups in "different orbitals in the two spin channels".
+Optimizable `u` took ~2 mHa of that; the remaining 5.5 mHa is the **↑↑ channel**, pairing among
+the three same-spin electrons, which no up×down determinant contains for any `g`, symmetric or
+not. Only ξ↑↑ in the STU Pfaffian. So the negative result narrows the target rather than closing
+it — and Genovese's free-atom numbers say there is room: on N, AGPs→AGPu is 2.0 mHa and
+AGPu→AGP another 6.4 (VMC; in **DMC on atoms all three collapse to the same energy**, the gain
+lives in molecules — C₂ DMC 10.7 mHa. Do not validate a Pfaffian on a free atom.)
+
+---
+
+## The ansatz is basis-independent; the orbital set only sets how many `g` you need
+
+Found 2026-08-31 on B, and it is the sharpest statement in this file about what an orbital file
+does to a geminal. **`g` is a free matrix over the whole 55-orbital pool, so any pairing function
+reachable in one orbital basis is reachable in any other spanning the same space:**
+`g' = Uᵀ g U`. What the orbital set changes is not what is representable but **how many nonzero
+`g` elements it takes** — and that is worth mHa, not decimals.
+
+**The limit case that fixes the scope of the claim: raw AOs would also work.** `f = Σ g_pq φ_p φ_q`
+spans `span{φ} ⊗ span{φ}`, which depends only on the span — not on the basis, and not even on
+orthonormality, since this is a bilinear form and AOs are not orthogonal. The B `gwfn.data` MO
+matrix is 55×55, rank 55, cond 1.96e3, so `span{AO} = span{MO}` exactly and a **full** `g` in the
+AO basis reaches the identical variational space and the identical optimum. What kills it in
+practice is that a full `g` is never used:
+
+| same wave function, expressed in | MO basis | AO basis |
+|---|---|---|
+| correlation part of the 1-parameter geminal | **2** nonzero (one tied pair) | **32** nonzero, 20 carry 99.9% of the norm |
+| the converged ext block | 24 (10 independent) | **110**, 26 carry 99.9% |
+| the HF part `g_1,1 = g_2,2 = 1` | **2**, and they are *fixed* | **25** |
+
+Three consequences, and they are why the orbital file still decides everything:
+
+1. One parameter against ~20. "A geminal reproduces a three-determinant CAS with one parameter"
+   is a statement about how **compressible** the target pairing function is in that basis, not
+   about the ansatz. The MO file is a preconditioner for the parameterization.
+2. **The HF part is pinned, not optimized.** `g_1,1 = g_2,2 = 1` and `u_3,1 = 1` mean "start from
+   the HF determinant" in two symbols. In an AO basis the same two symbols become a dense
+   25-element block that would have to be computed from the SCF coefficients and written into
+   `parameters.casl` by hand — i.e. you would transcribe the MO coefficient matrix into the casl.
+   Basis independence stops being free the moment part of the ansatz is frozen.
+3. **Symmetry would become inexpressible.** `2^g_4,4=2^g_5,5` states the degeneracy of the two
+   empty p directions in one line *because the MOs are symmetry-adapted*. In an AO basis the same
+   degeneracy is a relation among dozens of elements, and CASL constraints — equalities with no
+   signs and no coefficients — cannot write it.
+
+Plus the hard practical wall: 1540 independent elements of a symmetric 55×55 against 10⁶
+configurations in emin, when five near-null directions already measurably degraded the linear
+method (AGPu, above). A full `g` is not slow, it is uncomputable.
+
+**So the correct formulation is: the variational space is fixed by the span of the orbital pool,
+not by the choice of basis within it; the orbital file selects not the model but how compactly the
+target is written in it.** The measured ranking below — averaged ROHF (94.9% of the correlating
+orbital in one MO) > high-spin (69%) > UHF (70/67%, and two different sets) — is exactly a ranking
+by compressibility, and the energies at fixed small parameter count follow it in order. AOs are the
+end point of that same series: zero compressibility, same ceiling.
+
+**The experiment.** Two `gwfn.data` for the same B atom, same cc-pVQZ, both ROHF:
+
+| | `ROHF/` averaged | `ROHF_HIGHSPIN/` |
+|---|---|---|
+| ORCA | configuration-averaged, 2p occupations ⅓ ⅓ ⅓ | `ROHF_case HIGHSPIN`, `ROHF_NEl[1] 1` |
+| MO 3 | 2p occupied, ε = -0.309423 | 2p SOMO, ε = -0.309882 |
+| MO 4, 5 | 2p empty, ε = **-0.309423** (3-fold shell) | 2p empty, ε = **+0.038293** (true virtuals) |
+| MO 4 radial | [+0.156, +0.331, +0.462, +0.273] | [+0.089, +0.223, +0.180, **+0.719**] |
+| weight in the most diffuse p (ζ = 0.06463) | 18% | **85%** |
+
+Same one-parameter ansatz, same Jastrow, same protocol: **-24.642335(363) against
+-24.636172(386), a 6.2 mHa penalty**, and `g_4,4` converges to -0.0973 instead of -0.1207
+because the overlap with what is wanted is worse.
+
+**Why, quantitatively.** Decompose the converged correlating orbital into the radial basis of each
+file (every p MO is rank-1 direction ⊗ radial, so this is a 4×4 problem per channel):
+
+| basis | 2p | 3p | 4p | 5p |
+|---|---|---|---|---|
+| averaged (MO 4, 8, 16, 41) | **94.9%** | 3.5% | 1.6% | 0 |
+| high-spin (MO 4, 9, 16, 40) | **69.0%** | 27.1% | 3.9% | 0.002% |
+
+Averaged ROHF hands you the correlating orbital as 95% of a single MO, which is exactly why *one*
+parameter reproduces a three-determinant CAS. High-spin ROHF spreads the same function 69/27/4,
+so one parameter cannot build it. The 5p weight is zero, so the block closes at 4p — the deficit
+is recoverable, not fundamental. `ROHF_HIGHSPIN/cc-pVQZ/CBCS/Jastrow_emin_ext` was built to
+verify this (seeds below) and had not been run when this was written.
+
+**The reason is the standard virtual-orbital problem**: virtuals of a neutral N-electron SCF see
+the wrong potential and come out diffuse. Configuration-averaged ROHF sidesteps it by making the
+empty 2p *fractionally occupied*, i.e. genuine valence orbitals degenerate with the SOMO. **For an
+AGP this is the right orbital file, and the 6.2 mHa is the measured price of the other one.**
+Corollary: numbers from the two trees are not comparable, and the penalty is of the same size as
+the whole remaining CAS(3,8) gap.
+
+**High-spin ROHF also renumbers the channels, silently.** Its SOMO breaks spherical symmetry down
+to cylindrical, so degeneracies go σ/π/δ (3d splits 2+2+1 at 0.406192/0.399709/0.397979 — the
+spherical tie `g_10,10=…=g_14,14` is **not** an invariant there), and the p orbitals are not
+axis-aligned: the SOMO points along [+0.061, +0.836, -0.545] and MO 4, 5 are an arbitrary
+orthonormal basis of the perpendicular plane. Matching by direction (|dot| ≥ 0.999):
+
+| channel | averaged | high-spin |
+|---|---|---|
+| SOMO | 3, 9, 17, 42 | **3, 7, 17, 42** |
+| empty A | 4, 8, 16, 41 | **4, 9, 16, 40** |
+| empty B | 5, 7, 15, 40 | **5, 8, 15, 41** |
+
+MO 7 and 9 swap roles, as do 15 and 16. Copying a `parameters.casl` across trees therefore
+produces, with no error message: `g_7,7` correlating the *occupied* direction, `g_4,8` and
+`g_8,16` coupling two *perpendicular* channels (the dead angular term), and `u` relaxing into
+MO 9 instead of MO 7. Only `g_4,16` and `g_5,15` survive, by accident.
+
+The correctly mapped high-spin block, seeded by transforming the converged averaged wavefunction
+(two channels computed independently, agreeing to 4 decimals):
+
+| | A (4, 9, 16) | B (5, 8, 15) | |
+|---|---|---|---|
+| 2p² | -0.085045 | = | tied |
+| 3p² | -0.033354 | = | tied |
+| 4p² | -0.004862 | = | tied |
+| 2p·3p | +0.053260 | = | **tied** |
+| 2p·4p | -0.020335 | +0.020337 | **independent** |
+| 3p·4p | +0.012735 | -0.012728 | **independent** |
+
+Note the ties **invert** relative to the averaged tree, where 2p·4p was tied and 2p·3p was not.
+Do not carry a tie pattern across orbital files either; rederive it from the radial signs.
+
+Exact equality is not expected even so: the SOMO differs radially between the two files
+([-0.157, -0.332, -0.472, -0.258] against [-0.156, -0.330, -0.463, -0.273], 2p occupied 1 against
+⅓) and 1s/2s differ too (ε = -7.695303 against -7.698314), while `g_1,1` and `g_2,2` are pinned to
+1 and cannot relax. `u_7,1`/`u_17,1` absorb the SOMO part; the core residue is the floor.
+
+### UHF (`Spin unrestricted: .true.`) is the same story with two maps instead of one
+
+`UHF/cc-pVQZ/`, 126256 bytes, the file the tree was briefly repointed at in 2026-08. It carries
+110 MOs (α rows 1-55, β rows 56-110) and **no `EIGENVALUES` section at all** — molden2qmc writes
+none for the unrestricted case, so degeneracies can only be read by SVD.
+
+The span argument still applies, now with a different unitary on each index: α and β are both rank
+55 over the same 55 AOs, `V = A B⁻¹` is unitary to 1.9e-12, so `g_restricted = U_αᵀ g U_β` and the
+ceiling is unchanged. **UHF adds no expressive power** — "different orbitals in the two spin
+channels" is already what a non-symmetric `g` does on a restricted pool, and that was measured dead
+(AGPu, above). What UHF still cannot do is ↑↑ pairing; only the Pfaffian can.
+
+What it does do is renumber both sides, differently:
+
+| | α (1s, 2s, 2p_σ occupied) | β (1s, 2s occupied) |
+|---|---|---|
+| 2p | **3 = σ**, 4, 5 = π | 3, 4 = π, **5 = σ** |
+| 3s | **7** | **6** |
+| 3p | **6 = σ**, 8, 9 = π | 7, 8 = π, **9 = σ** |
+| 4p | **15 = σ**, 16, 17 = π | 15, 16 = π, **17 = σ** |
+
+σ comes *first* in every α p shell and *last* in every β one, and the 3s sits at α 7 but β 6.
+Channels after direction matching: π-P = α{5,8,16} × β{3,7,15}, π-Q = α{4,9,17} × β{4,8,16},
+σ = α{3,6,15} (this is the one `u` uses, since unpaired electrons are up).
+
+Consequences for the casl that was there, all silent: `g_5,5` paired α MO 5 (an empty π) with
+β MO 5 (**the occupied σ**) — pure junk; `g_4,4` was right only by luck (α4·β4 = 0.9997); the tie
+`2^g_4,4=2^g_5,5` equated the two, and emin compensated by driving `g_4,4` to -0.1705. Result
+-24.629781(384), **12.6 mHa** below averaged ROHF and worse than high-spin. The s term is `g_7,6`,
+not `g_6,6`, and `u` relaxes into α MO **6** and **15** — a third different answer across the three
+trees (averaged 9/17, high-spin 7/17, UHF 6/15).
+
+The correctly mapped block is in `UHF/cc-pVQZ/CBCS/Jastrow_emin_ext` (built 2026-08-31, not yet
+run). It is **necessarily non-symmetric** — `g_5,7 = -0.027538` against its meaning-transpose
+`g_8,3 = -0.025593`, because α and β decompose the same function differently, so `Symmetrize` here
+would be an outright error. Four P/Q pairs come out equal (tieable), six opposite (declared
+separately): **15 optimizable `g` against 10 for averaged and 9 for high-spin** — the measured cost
+of the file. It also needs a term no restricted file has, `g_5,8`/`g_4,7` = ±0.0033, which exists
+only because the β 3p plane is rotated ~6° from the β 2p plane (dot 0.9928) while in α they
+coincide. Compressibility of the correlating orbital: α 70.5/25.7/3.8%, β 67.2/28.7/4.1% — both
+spin sets about as bad as high-spin.
+
+**How to use this.** Before writing any `parameters.casl` against a `gwfn.data` you did not just
+analyse: check `Spin unrestricted` first (if `.true.`, build **two** maps and expect no
+`EIGENVALUES`), read `EIGENVALUES` for the degeneracy pattern (3-fold p = averaged/spherical, 1+2 =
+high-spin/cylindrical), then SVD-factorize each p MO into direction ⊗ radial and match channels by
+direction, never by index. The `orca` skill covers the ORCA side of choosing the file.
 
 ---
 
@@ -945,7 +1184,41 @@ history, not state. One loose end: the shipped `manual/casino_manual.pdf` still
 prints the old "available on request" stub, so the PDF in the tarball predates
 the LaTeX edit — check the next beta before assuming the text is lost.
 
-### CASINO — pseudopotentials (the largest untested corner)
+### CASINO — pseudopotentials: DONE and green, 2026-08-30
+
+All three stages below were run and all three agree with `psi_s:slater` **bit for
+bit** — same energy, same variance, same acceptance ratios, i.e. the identical
+Markov chain, which is the strongest form the test can take:
+
+| test | geminal | slater |
+|---|---|---|
+| SiH₄ + Si pp, closed shell, 4+4 | -6.093067395424 | -6.093067395424 |
+| C + C pp, open shell, neu=3 ned=1 | -5.328671045706 | -5.328671045706 |
+| C pp, DMC with `use_tmove T` | -5.39319755909(283) | -5.39319755909(283) |
+
+So the non-local quadrature ratio through `get_chscr_igem`, including the
+up-spin branch that builds the unpaired-column entries, is correct; and T-moves,
+which lean on that same ratio, are correct too. The C orbitals are UHF, so this
+also clears spin-resolved orbital indexing in the geminal for the pp case.
+
+Shipped as autotests: `examples/TEST/Input/c_pp_geminal/{vmc,vmc_slater,
+dmc_tmove,opt}` and `examples/TEST/Input/sih4_GS/vmc_geminal`. The `vmc` /
+`vmc_slater` pair is the bit-for-bit assertion in permanent form.
+
+**What it cost: one real bug in `cusp_setup`, not in the geminal.** SiH₄ died
+with `ERROR : CUSP_SETUP / Exceeded maximum number of orbital nodes`. A Slater
+run cusp-corrects only the occupied orbitals; a geminal takes the whole pool, so
+every virtual is corrected too, and high virtuals oscillate. Instrumented count
+on SiH₄ (116 orbitals, 4 H): node counts run 1..8 monotonically with orbital
+index, so it is genuine radial structure, not noise near zero. `maxnodes=7`
+(i.e. 6 allowed) in `gaussians.f90` was simply too small. Fixed by raising it to
+64 — the arrays it dimensions are a few tens of kB. The same edit moved the
+overflow check *inside* the grid loop: it used to fire only after the loop that
+already wrote `rnode(found_nodes)`, so 8+ nodes corrupted memory before the
+errstop could report it. Scaling to keep in mind: nodes grow with position in
+the pool, so a much larger basis may want more than 64.
+
+### CASINO — the original pseudopotential plan (kept for the reasoning)
 
 Nothing structurally forbids `psi_s:geminal` with pseudopotentials — the
 non-local energy asks for a one-electron ratio and gets `wfn_ratio_geminal` →
@@ -973,15 +1246,35 @@ quadrature ratio exercises.
 
 ### CASINO — remaining restrictions and gaps
 
-- `read_geminal` still errstops for `nunpaired>0` with `complex_wf`,
-  `use_backflow` or `opt_geminal`. Backflow+open-shell is real work (the
-  `gem_lsderiv_pair` dgemm needs the `umat` block and several `nemax`→`nele(2)`
-  conversions in the backflow routines — a WIP version of exactly this sat in
-  the July backup and was deliberately NOT shipped); `opt_geminal` is the
-  cheaper one (u fixed, only g/c optimized — the errstop is conservative).
-- `u_n,k` are fixed by construction. Optimizable u = orbital relaxation of the
-  open shell; needs the same derivative plumbing g already has.
-- **Optimizable `u` without new code — the multilinearity trick.** The unpaired
+- `read_geminal` still errstops for `nunpaired>0` with `complex_wf` or
+  `use_backflow`. The `opt_geminal` one is gone (our patch). Backflow+open-shell
+  is real work (the `gem_lsderiv_pair` dgemm needs the `umat` block and several
+  `nemax`→`nele(2)` conversions in the backflow routines — a WIP version of
+  exactly this sat in the July backup and was deliberately NOT shipped).
+  `complex_wf`+open-shell is by contrast only six `dgemm`/`dgemv` calls: `umat`
+  is real and the complex orbitals are stored as two real components, so the
+  unpaired columns just need the same call repeated on slice 2 (sites are the
+  six `if(nunpaired>0)` lines in `geminal.f90`). **Deliberately not done** —
+  complex_wf means periodic k-points and the HEG, so open-shell there is a
+  spin-polarized gas, which is not on our path; written, reverted 2026-08-30 on
+  Vladimir's call. Redo it only with a polarized-HEG bit-for-bit test attached.
+- ~~`u_n,k` are fixed by construction.~~ **Optimizable `u` shipped 2026-08-30.**
+  It is pure plumbing, not new maths: `get_geminal_params` sets
+  `has_aderiv=.false.` for every geminal parameter, so CASINO differentiates
+  them numerically and `u` needs no derivative code at all. What was added:
+  `umat_opt` + `umat_params` + `n_opt_umat` beside the `gmat` ones,
+  `build_umat_params_list`, the `u` block in get/put, a `u` branch in
+  `invalidate_param1_geminal` (invalidating a `u` = invalidating that geminal's
+  matrix, exactly `invalidate_gmat_element`), write-back in
+  `update_geminal_casl`, and `umat_opt` instead of a hardcoded `opt_fixed` in
+  `set_geminal_casl`. Parameter order is now `[g | c | u | bf]`. Unpaired
+  orbitals take no constraints (`determined` is rejected in `parse_umat_el`).
+  **Watch the redundancy**: scaling an unpaired column scales the whole geminal
+  determinant, so it is redundant with that geminal's `c` — keep one component
+  of each column `fixed` (the natural choice is the ROHF orbital itself at 1.0)
+  or emin gets a null direction.
+- **Optimizable `u` without new code — the multilinearity trick** (superseded by
+  the above, kept because the algebra is still the way to think about `u`). The unpaired
   orbitals occupy whole *columns* of the geminal matrix and a determinant is
   linear in each column, so for geminals sharing one `g`,
   `Σ_n c_n·det[A,B,u⁽ⁿ⁾] = det[A,B, Σ_n c_n u⁽ⁿ⁾]` exactly. Duplicate the whole
@@ -997,53 +1290,106 @@ quadrature ratio exercises.
   Expected payoff is concrete: fractional-occupancy ROHF hands the geminal a
   spherically averaged 2p that is not optimal for the ²P determinant (~3 mHa by
   the historical single-configuration file), and this wins it back inside VMC.
-- No autotest covers optimization. Bugs 8 and 9 are FIXED and upstream, but both
-  were found by reading the source, not by running anything, and nothing guards
-  them now: the three subtests are plain VMC with every parameter `fixed`, so
-  `update_geminal_casl` is never called and the "no member of the group declared"
-  branch of `check_g_constraint` is never reached. One cheap `vmc_opt varmin`
-  cycle with `Default g optimizability: optimizable` and a `Constraints` section
-  would exercise both (it writes `parameters.1.casl` and reads it back next
-  cycle) — worth adding.
+- ~~No autotest covers optimization.~~ Upstream v3.1.23/24 added
+  `be_geminal/opt` and `heg_geminal/opt`, and we added `c_pp_geminal/opt`
+  (2026-08-30), which is the only one carrying a `Constraints` section, an
+  optimizable `c` and optimizable `u`. Its casl is built to hit both branches of
+  `check_g_constraint`: `1^g_4,4=2^g_4,4` has a declared reference element (the
+  swap branch), `1^g_10,10=2^g_10,10` has none (the `opt_g_default` branch).
 
-### PyCasino (`casino/geminal.py`, 394 lines)
+## Bugs 10 and 11: the optimizable-`c` path was broken end to end (2026-08-30)
 
-Implemented: reader (`casino/readers/geminal.py`, incl. optimizability masks),
-value / log_value / gradient / laplacian, HF-identity test on He. Missing, in
-order of how badly it bites:
+Found by reading `put_geminal_params` while adding `u`, then **proved** with a
+control binary. Both are in stock v3.1.24 and both are invisible unless a `c`
+coefficient is declared `optimizable` — which no example and no autotest did,
+exactly as the "no autotest covers optimization" note predicted.
 
-1. **Parameter interface absent** — `parameters_projector` is a `(0,0)` stub and
-   `Wfn.get_parameters` / `set_parameters` / `value_parameters_d1`
-   (`casino/wfn.py:459,479,333`) only ever reach `self.slater`. So `opt_geminal`
-   is parsed (`readers/input.py:137`) and then silently ignored: a varmin/emin
-   run with `psi_s:geminal` optimizes the Jastrow only. The masks the reader
-   already builds are what the projector needs.
-2. **The reader drops the `Constraints` section** (`readers/geminal.py`: a line
-   starting with `Constraints` just sets `current = None`), so any casl that
-   leans on ties reads as a DIFFERENT wave function in PyCasino than in CASINO —
-   silently, with no warning. On the B example the mirror geminal comes out
-   completely empty. Every constrained example in `examples/geminal` is affected;
-   `apply_constraints` is ~20 lines and belongs next to the mask machinery.
-3. **No hessian → backflow+geminal is silently the wrong wave function.**
-   `wfn.kinetic_energy` (`casino/wfn.py:293`) takes the backflow branch and
-   calls `self.slater.hessian(...)`, because `Geminal` has no `hessian`, while
-   `wfn.drift_velocity` (`:161`) does use `self.geminal.gradient` in the same
-   situation. Drift and local energy therefore come from different wave
-   functions. Until `hessian`/`tressian` exist, this combination must errstop.
-4. **No single-electron ratio.** `wfn.nonlocal_potential` (`:262`) falls back to
+**Bug 10 — off-by-one in `put_geminal_params`.** The `c` loop reused `iparam`
+left over from the g loop:
+
+```fortran
+ do iparam=1,n_opt_gmat            ! after the loop iparam = n_opt_gmat+1
+  ...
+ enddo
+ do igem=1,ngems
+  if(c_coeffs_opt(igem)/=opt_optimizable)cycle
+  iparam=iparam+1                  ! first c reads params(n_opt_gmat+2). Wrong.
+```
+
+`get_geminal_params` puts the c's at `n_opt_gmat+1 : n_opt_gmat+n_opt_c_coeff`,
+so every c took the value of the *next* slot and the last one read one past the
+end of `params` (a plain out-of-bounds read when there is no backflow). Fix:
+`iparam=n_opt_gmat` before the loop.
+
+Control run, `c_pp_geminal/opt` casl, buggy binary vs fixed:
+
+```
+buggy   c: -2.8636512719130508E-004     u_5,1: -2.8636512719130508E-004
+fixed   c: -1.5337831362970357E-003     u_5,1:  6.0060669986885726E-004
+```
+
+The buggy `c` is bit-identical to `u_5,1` — the predicted signature. Note the
+optimizer's line search was minimizing over a `c` that never received the value
+it asked for, and `update_geminal_casl` then wrote the wrong value to disk, so
+the corruption is silent and persistent.
+
+**Bug 11 — wrong range test in `invalidate_param1_geminal`.**
+`elseif(iparam<=n_opt_c_coeff)` compares a global index against a *count*. Since
+that branch is only reached with `iparam>n_opt_gmat`, and `n_opt_c_coeff` is
+normally ≤ `n_opt_gmat`, the c branch is effectively dead: a changed c fell
+through to the backflow branch, calling `clear_scratch_geminal` plus
+`invalidate_param1_bf` with an index outside the bf range. Fix:
+`iparam<=n_opt_gmat+n_opt_c_coeff`.
+
+Moral, and the reason the autotest above exists: both bugs sat in a feature that
+had a full parser, a CASL writer and an optimizer entry point, and nothing ever
+executed the four lines that connect them.
+
+### PyCasino (`casino/geminal.py`)
+
+Implemented: reader (`casino/readers/geminal.py`, incl. optimizability masks and
+the `Constraints` section), value / log_value / gradient / laplacian, cusp
+correction of the pool, the varmin/emin parameter interface, HF-identity tests on
+He / Ne / N (± cusp) and FD tests of the parameter derivatives on Be / N.
+
+Closed 2026-09-02 (items 1, 2, 3, 5, 6 of the old list):
+
+- **Parameter interface.** `c`, the upper triangle of `g` and the `u` columns go
+  through `get_parameters` / `set_parameters` / masks / constraint matrix /
+  projector, exactly as the jastrow terms do; `opt_geminal` reaches `Wfn` through
+  a new `opt_geminal` field. Derivatives (`value_/gradient_/laplacian_parameters_d1`)
+  are **finite differences**, like the `det_coeff` ones in `slater.py`, but over an
+  orbital pool built once per configuration (`pool_value` / `pool_gradient` /
+  `pool_laplacian` take the pool as an argument), so a parameter costs two small
+  determinants and not two basis passes. Analytic
+  `d ln det/d g_pq = ((P_u M^-1[:ned]ᵀ) P_dᵀ)[p,q]` is the obvious upgrade if the
+  FD cost ever shows up in a profile.
+- **Constraints.** `parse_constraint` / `apply_constraints` in the reader: the one
+  member of a group carrying an explicit flag is the reference and the only
+  independent parameter, the rest are determined — value and flag copied, mask
+  cleared, `x_det - x_ref = 0` rows in `get_parameters_constraints`, restored by
+  `fix_parameters` after every update, and skipped by `write` (declaring them is
+  what makes CASINO errstop on re-read). Off-diagonals are canonicalized to the
+  upper triangle, so `n^g_i,j=n^g_j,i` collapses to nothing, as it should.
+- **backflow+geminal now errstops** in `readers/validate.py` (together with
+  `ned > neu`), instead of taking the drift from the geminal and the local energy
+  from the determinant. Lifting it needs `hessian`/`tressian` on the geminal.
+- **Cusp.** `CuspFactory(config, orbitals)` corrects `orbitals` MOs of both spins
+  instead of those the determinant uses, and `Geminal(config, cusp)` adds it in
+  the three `pool_*_matrix` methods. Two Cusp objects now exist in a geminal run
+  (the determinant's and the pool's) — the fit is startup-only.
+
+Still open:
+
+1. **No single-electron ratio.** `wfn.nonlocal_potential` falls back to
    a full `self.value(r_e_q)` per quadrature point, i.e. O(N³) where the Slater
    path pays a Sherman-Morrison update; the same is true for EBES moves. This is
    the PyCasino side of the pseudopotential item above — correct but slow.
-5. **No cusp correction on the geminal orbital pool** — `geminal.py` builds AO
-   values itself (`pool_matrix`) with no cusp machinery, so an all-electron
-   Gaussian geminal run carries the uncorrected nuclear cusp while CASINO
-   corrects the same pool. Expect ~0.3 mHa-scale disagreement in cross-checks
-   (the size of the cusp shift measured on B).
-6. **Tests are He-only, `cusp=None`** (`casino/tests/test_geminal.py`) — same
-   hole as the Slater tests (see memory `slater-tests-he-only`). Need Be/Ne for
-   `l>0` and `neu≥2`, plus FD tests of the parameter derivatives once (1) exists,
-   and an open-shell case (B) for the unpaired columns.
-7. Milestone 1 steps 1 and 5 of `docs/source/tutorial/pfaffian.rst` are still
+   Needs a `GeminalState` beside `SlaterState`: a row update of `M_n` for an up
+   electron, a column update of the paired block for a down one.
+2. **No hessian/tressian**, hence no backflow, and no Newton emin
+   (`wfn.value_parameters_d2` raises for the geminal as it does for backflow).
+3. Milestone 1 steps 1 and 5 of `docs/source/tutorial/pfaffian.rst` are still
    open: the `molden2qmc` GEMINAL generator (occupations → HF default or
    CASSCF-NO seeds `λ=±sqrt(n/2)`) and the CASINO↔PyCasino cross-validation on
    `examples/geminal`.
@@ -1070,6 +1416,16 @@ order of how badly it bites:
   `vmc.f90:3852` (`COMPUTE_FINAL_VARIANCE`, `var_too_big=1e15`). As of v3.1.17
   the tree is stock upstream — every fix described in this skill is IN it, so
   a local `geminal.f90` diff should now be empty.
+- **The live local patch is `~/bin/geminal_open_shell.patch`** (copy also inside
+  `~/bin/CASINO/`), regenerated 2026-08-30 against stock v3.1.24 from
+  `~/bin/CASINO_current_beta.tar.gz`. Two files, 22 hunks: `src/geminal.f90`
+  (opt_geminal-with-unpaired allowed, `check_umat` zero-c exemption, the two
+  optimizable-`c` bugs 10/11, and the whole optimizable-`u` block) and
+  `src/gaussians.f90` (`maxnodes` 7→64 and the in-loop overflow check). It
+  **supersedes** the older `geminal_opt_unpaired.patch`, whose hunks it contains.
+  Re-apply it after every tarball unpack; the new autotest trees
+  (`examples/TEST/Input/c_pp_geminal/`, `sih4_GS/vmc_geminal/`) are not in the
+  patch and must be copied separately.
 - Patches: the four that were sent to Pablo
   (`geminal_sto_load_all_orbitals`, `geminal_unpaired_electrons`,
   `geminal_g_constraint_default`, `geminal_casl_roundtrip`) plus the manual
@@ -1094,6 +1450,15 @@ order of how badly it bites:
   Open shell: `examples/geminal/B/HF/cc-pVQZ/{EBES,CBCS}/Geminal/` (one unpaired
   column) and N (`neu=5,ned=2`, three columns), EBES and CBCS, all validated
   at 10x against ORCA SCF (see the open-shell section's table).
+  B campaign, `examples/geminal/B/`: the live tree is `ROHF/cc-pVQZ/` (**averaged**
+  ROHF — the right orbital file, see the basis-independence section), with
+  `CBCS/{Jastrow_emin,Jastrow_emin_ext,Jastrow_emin_agpu}/` = 1 parameter / 16 /
+  AGPu, and the same under `EBES/`. `ROHF_HIGHSPIN/cc-pVQZ/` is the one-off
+  comparison tree; its `CBCS/Jastrow_emin_ext/` carries the channel-remapped block.
+  `UHF/cc-pVQZ/` is the unrestricted negative control, with `CBCS/Jastrow_emin_ext/`
+  carrying the double-mapped non-symmetric block.
+  cc-pVQZ B p-MO channel maps for all three files are tabulated in that section — use
+  them, the MO indices differ between all of them.
   STO: `examples/geminal/Be/HF/QZ4P/EBES/Jastrow_varmin{,_p2,_p3}/` (stepwise p
   active space; casl hand-written — make_geminal_casl.py parses gwfn.data only).
   QZ4P Be p-MO map (from stowfn.data coefficients): 2p={3(x),4(y),5(z)},
