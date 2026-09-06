@@ -41,7 +41,7 @@ class CasinoConfig:
         else:
             self.geminal = None
         if self.input.use_gjastrow:
-            self.jastrow = Gjastrow()
+            self.jastrow = Gjastrow(self.input.neu, self.input.ned)
         elif self.input.use_jastrow:
             self.jastrow = Jastrow()
         else:
@@ -59,6 +59,8 @@ class CasinoConfig:
         if self.geminal:
             self.geminal.read(self.base_path)
         if self.jastrow:
+            if self.input.use_gjastrow:
+                self.jastrow.set_atoms(self.wfn.atom_numbers, self.wfn.atom_charges)
             self.jastrow.read(self.base_path)
         if self.backflow:
             self.backflow.set_ae_cutoff(self.wfn.is_pseudoatom)
