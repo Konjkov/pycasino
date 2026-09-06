@@ -1,0 +1,1058 @@
+CASINO v2.13.1309 [Mike Towler] (15 July 2026)
+Running on vladimir-kubuntu [linuxpc-gcc-parallel.openblas]
+Binary compiled in opt mode
+Job started: Пн 20 июл 2026 10:01:57 +07
+ ------------------------------------------------------------------------------
+
+                   #####
+                  ##   ##    ##     ####   ##  #   ##   ####
+                  ##        ####   ##      ##  ##  ##  ##  ##
+                  ##       ##  ##   ####   ##  ### ##  ##  ##
+                  ##       ######      ##  ##  ## ###  ##  ##
+                  ##   ##  ##  ##  ##  ##  ##  ##  ##  ##  ##
+                   #####   ##  ##   ####   ##  ##   #   ####
+
+                              Quantum Monte Carlo
+                 CASINO v2.13.1309 [Mike Towler] (15 July 2026)
+
+    Main Authors : R.J. Needs, M.D. Towler, N.D. Drummond, and P. Lopez Rios
+
+       Required citation in publications arising from the use of CASINO:
+     R.J. Needs, M.D. Towler, N.D. Drummond, P. Lopez Rios, and J.R. Trail,
+                       J. Chem. Phys. 152, 154106 (2020).
+                       https://doi.org/10.1063/1.5144288
+
+                 CASINO web page: https://vallico.net/casinoqmc
+
+                      Current contact: mdt26 at cantab.net
+
+ ------------------------------------------------------------------------------
+ Started 2026/07/20 10:01:57.953
+
+ Running in parallel using 4 MPI processes.
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  5
+ NED (num down spin electrons)            :  5
+ RUNTYPE (type of run)                    :  vmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  geminal
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  T
+ BACKFLOW (use backflow corrections)      :  T
+ USE_ORBMODS (use orbital modifications)  :  F
+ CUSP_CORRECTION                          :  T
+ MOLGSCREENING                            :  F
+ USE_DETLA (DLA approx. to NL PP)         :  F
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ ESUPERCELL                               :  F
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ CHECKPOINT (checkpointing level)         :  1
+ CHECKPOINT_NCPU (chkpnt group size)      :  4
+ CON_LOC (Dir to read/write config.*)     :  ./
+ RELATIVISTIC                             :  F
+
+ VMC input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  1.0000E-02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  100000000
+ VMC_NCONFIG_WRITE (num configs to write) :  0
+ VMC_NBLOCK (num VMC blocks)              :  10
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  1
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ Particles
+ =========
+ Particle name                 Charge        Mass         Spin   Type
+ -------------------------------------------------------------------------
+ 1: Spin-up electron          -1.00000       1.0000000     0.5   Fermion
+ 2: Spin-down electron        -1.00000       1.0000000    -0.5   Fermion
+ -------------------------------------------------------------------------
+
+ Number of diffusion types : 1
+
+ Single-particle groupings
+ -------------------------
+ Spin dep. 0 : (1,2) [F] [E]
+ Spin dep. 1 : (1) (2)
+
+ NB, partitions defining spin-[F]amilies and [E]quivalent particles flagged.
+
+ Particle-pair groupings
+ -----------------------
+ Spin-pair dep. 0 : (1-1,1-2,2-2)
+ Spin-pair dep. 1 : (1-1,2-2) (1-2)
+ Spin-pair dep. 2 : (1-1) (1-2) (2-2)
+
+ Initialize random number generator
+ ==================================
+ Generator                                 :  RANLUX
+ RANLUX luxury level                       :  3
+ p value                                   :  223
+ Value of random seed on MPI process 0     :  1779581498
+
+ Initialized with seed derived from timer.
+
+ Reading correlation.data
+ ========================
+ Header:
+   No title given.
+ Version of correlation.data : 1
+ A Jastrow factor is present in correlation.data.
+ A backflow function is present in correlation.data.
+
+ Reading parameters.casl
+ =======================
+ Contents of parameters.casl:
+  * GEMINAL
+
+ No multideterminant/excitation data supplied.
+ Using ground state defined in xwfn.data file.
+
+ Reading Gaussian wave function and associated data
+ ==================================================
+
+ Title: TITLE
+
+ Generating code                           :  molden2qmc version: 4.0.4
+ Method                                    :
+ DFT functional                            :
+ Periodicity                               :  0 (molecule)
+ Spin restricted?                          :  Yes
+
+ Total number of electrons                 :  10
+
+ Basis set information
+
+ Number of atoms                           :  1
+ Number of shells                          :  15
+ Number of basis fns                       :  55
+ Number of primitives                      :  33
+ Highest ang momentum                      :  5
+
+ Gaussian basis sets:
+ ------------------------------------------------------------------
+   Atom  x(au)  y(au)  z(au)    No. Type  Exponent    Coefficients
+ ------------------------------------------------------------------
+   1 Ne    0.000    0.000    0.000
+                             1-   1  s
+                                         9.992E+04     3.476E-01
+                                         1.496E+04     6.508E-01
+                                         3.399E+03     1.126E+00
+                                         9.589E+02     1.817E+00
+                                         3.112E+02     2.715E+00
+                                         1.117E+02     3.552E+00
+                                         4.332E+01     3.698E+00
+                                         1.780E+01     2.493E+00
+                                         7.503E+00     7.128E-01
+                             2-   2  s
+                                         9.992E+04    -2.195E-01
+                                         1.496E+04    -4.173E-01
+                                         3.399E+03    -7.163E-01
+                                         9.589E+02    -1.178E+00
+                                         3.112E+02    -1.770E+00
+                                         1.117E+02    -2.484E+00
+                                         4.332E+01    -2.839E+00
+                                         1.780E+01    -2.680E+00
+                                         7.503E+00    -1.012E+00
+                             3-   3  s
+                                         2.337E+00     1.347E+00
+                             4-   4  s
+                                         9.001E-01     6.586E-01
+                             5-   5  s
+                                         3.301E-01     3.104E-01
+                             6-   8  p
+                                         9.968E+01     1.413E+01
+                                         2.315E+01     1.595E+01
+                                         7.108E+00     1.375E+01
+                             9-  11  p
+                                         2.441E+00     4.349E+00
+                            12-  14  p
+                                         8.339E-01     1.136E+00
+                            15-  17  p
+                                         2.662E-01     2.726E-01
+                            18-  22  d
+                                         6.471E+00     4.321E+01
+                            23-  27  d
+                                         2.213E+00     6.609E+00
+                            28-  32  d
+                                         7.470E-01     9.879E-01
+                            33-  39  f
+                                         4.657E+00     4.690E+01
+                            40-  46  f
+                                         1.524E+00     3.799E+00
+                            47-  55  g
+                                         2.983E+00     2.248E+01
+ ------------------------------------------------------------------
+ Single determinant :
+
+ Det 1 spin 1           : ground state
+ Det 1 spin 2           : ground state
+ Det 1 coefficient      : 1.00000000
+
+ Pseudopotentials
+ ================
+ No pseudopotential for Ne - treating as all-electron.
+
+ Geometry derived from information in gwfn.data
+ ==============================================
+
+ Simulation cell : Finite (atomic/molecular geometry)
+
+ Atom Atno  Type              Position (Cartesian au)
+ -------------------------------------------------------------
+    1  10   1         0.00000000     0.00000000     0.00000000
+
+
+ Neighbour analysis of single atom not required.
+
+ Gaussian cusp correction
+ ========================
+ Activated.
+
+ Expectation values
+ ==================
+ None requested.
+
+ Interactions
+ ============
+ Interaction type: Coulomb
+ System is aperiodic. Using 1/r only.
+
+ Geminal setup
+ =============
+ Using a pool of 55 orbitals.
+ Percentage of non-zero geminal matrix elements: 1%
+ The geminal matrices will be represented by sparse matrices.
+
+ Jastrow factor
+ ==============
+ Reading Jastrow factor from correlation.data file.
+
+ Title: Ne atom
+
+ Truncation order                   :  3
+
+ U term:
+  SET 1
+   Spherical harmonic l             :  0
+   Spherical harmonic m             :  0
+   Expansion order (N_u)            :  8
+   Spin dependence                  :  1
+   Cutoff             (optimizable) :  4.360886299778982E+00
+   alpha_0,1          (optimizable) :  2.536193155449152E-03
+   alpha_2,1          (optimizable) : -2.819522214931645E-03
+   alpha_3,1          (optimizable) :  2.954630325698977E-03
+   alpha_4,1          (optimizable) :  1.979826364597157E-03
+   alpha_5,1          (optimizable) : -2.867796663810823E-03
+   alpha_6,1          (optimizable) :  1.132610436323885E-03
+   alpha_7,1          (optimizable) : -2.096855722053013E-04
+   alpha_8,1          (optimizable) :  1.838144243417912E-05
+   alpha_0,2          (optimizable) :  6.372176507800755E-03
+   alpha_2,2          (optimizable) : -9.385271717478538E-04
+   alpha_3,2          (optimizable) : -3.988146915327106E-04
+   alpha_4,2          (optimizable) :  4.179539281868655E-03
+   alpha_5,2          (optimizable) : -3.961280657752824E-03
+   alpha_6,2          (optimizable) :  1.458616096237572E-03
+   alpha_7,2          (optimizable) : -2.153267966243651E-04
+   alpha_8,2          (optimizable) :  9.171019199345658E-06
+   No. of parameters in set         :  16
+   (In addition to the cutoff length.)
+
+ Chi term:
+  Number of sets                    :  1
+  SET 1:
+   Spherical harmonic l             :  0
+   Spherical harmonic m             :  0
+   Number of atoms in set           :  1
+   The atoms are:
+    1
+   Electron-nucleus cusp not imposed in Jastrow Chi term
+   Expansion order (N_chi)          :  8
+   Spin dependence                  :  0
+   Cutoff             (optimizable) :  3.088334123792626E+00
+   beta_0,1,1         (optimizable) : -1.279682454177296E-01
+   beta_2,1,1         (optimizable) : -5.386319869057365E-02
+   beta_3,1,1         (optimizable) :  9.291833505412675E-02
+   beta_4,1,1         (optimizable) : -4.844947625179158E-02
+   beta_5,1,1         (optimizable) :  1.848740254432672E-02
+   beta_6,1,1         (optimizable) : -8.773325434306886E-03
+   beta_7,1,1         (optimizable) :  2.410858207956073E-02
+   beta_8,1,1         (optimizable) : -8.076847141951742E-03
+   No. of parameters in set         :  8
+   (In addition to the cutoff length.)
+
+ F term:
+  Number of sets                    :  1
+  SET 1:
+   Number of atoms in set           :  1
+   The atoms are:
+    1
+   No constraints applied to avoid duplicating u.
+   No constraints applied to avoid duplicating chi.
+   Expansion order (N_f_eN)         :  3
+   Expansion order (N_f_ee)         :  3
+   Spin dependence                  :  1
+   Cutoff             (optimizable) :  3.027514341422736E+00
+   gamma_1,1,0,1,1    (optimizable) : -4.130328159191981E-04
+   gamma_2,1,0,1,1    (optimizable) : -1.032970800844110E-03
+   gamma_3,1,0,1,1    (optimizable) : -3.265364109141536E-03
+   gamma_2,2,0,1,1    (optimizable) :  1.623110140116714E-03
+   gamma_3,2,0,1,1    (optimizable) :  7.134062865785571E-04
+   gamma_3,3,0,1,1    (optimizable) :  1.352552496448644E-03
+   gamma_1,1,1,1,1    (optimizable) :  2.990823415713287E-04
+   gamma_2,2,1,1,1    (optimizable) : -6.075198157585153E-03
+   gamma_0,0,2,1,1    (optimizable) : -4.651744300786236E-04
+   gamma_1,0,2,1,1    (optimizable) : -6.348549477643356E-05
+   gamma_2,0,2,1,1    (optimizable) :  1.417279419223005E-03
+   gamma_1,1,2,1,1    (optimizable) :  2.119769922064947E-03
+   gamma_2,1,2,1,1    (optimizable) : -4.387778510689161E-03
+   gamma_3,1,2,1,1    (optimizable) : -1.812631917663246E-04
+   gamma_2,2,2,1,1    (optimizable) :  4.114197852180135E-03
+   gamma_3,2,2,1,1    (optimizable) :  2.212838954934953E-03
+   gamma_3,3,2,1,1    (optimizable) : -3.599953799294672E-03
+   gamma_0,0,3,1,1    (optimizable) :  2.026377650517454E-04
+   gamma_1,0,3,1,1    (optimizable) :  1.114254767813654E-04
+   gamma_2,0,3,1,1    (optimizable) : -1.164359065531261E-03
+   gamma_1,1,3,1,1    (optimizable) :  4.820493087646326E-04
+   gamma_2,1,3,1,1    (optimizable) :  5.530930970659160E-04
+   gamma_3,1,3,1,1    (optimizable) :  6.719917592926671E-07
+   gamma_2,2,3,1,1    (optimizable) : -7.337930668729330E-04
+   gamma_3,2,3,1,1    (optimizable) : -7.658757756401731E-04
+   gamma_3,3,3,1,1    (optimizable) :  1.280772704118134E-03
+   gamma_1,1,0,2,1    (optimizable) : -2.923095013731030E-04
+   gamma_2,1,0,2,1    (optimizable) : -5.581485408834790E-03
+   gamma_3,1,0,2,1    (optimizable) :  6.362452942314208E-03
+   gamma_2,2,0,2,1    (optimizable) :  1.773977564088827E-02
+   gamma_3,2,0,2,1    (optimizable) : -1.224558837981017E-02
+   gamma_3,3,0,2,1    (optimizable) :  7.026615671620474E-03
+   gamma_1,1,1,2,1    (optimizable) :  1.810945932603223E-03
+   gamma_2,2,1,2,1    (optimizable) :  5.727323651687406E-03
+   gamma_0,0,2,2,1    (optimizable) : -1.892984841232720E-03
+   gamma_1,0,2,2,1    (optimizable) :  2.658535296157595E-03
+   gamma_2,0,2,2,1    (optimizable) : -1.527993700042192E-03
+   gamma_1,1,2,2,1    (optimizable) :  1.886177741263693E-03
+   gamma_2,1,2,2,1    (optimizable) : -1.696250445470949E-03
+   gamma_3,1,2,2,1    (optimizable) :  1.654100463385504E-03
+   gamma_2,2,2,2,1    (optimizable) : -2.532985857119986E-03
+   gamma_3,2,2,2,1    (optimizable) :  3.140851003298984E-03
+   gamma_3,3,2,2,1    (optimizable) : -2.317479280905052E-03
+   gamma_0,0,3,2,1    (optimizable) :  1.287437542413599E-03
+   gamma_1,0,3,2,1    (optimizable) : -3.100816213763792E-03
+   gamma_2,0,3,2,1    (optimizable) :  2.433700437868037E-03
+   gamma_1,1,3,2,1    (optimizable) :  4.050660487274950E-03
+   gamma_2,1,3,2,1    (optimizable) : -1.032571898243008E-03
+   gamma_3,1,3,2,1    (optimizable) : -2.145261818717896E-04
+   gamma_2,2,3,2,1    (optimizable) : -2.000989571878107E-03
+   gamma_3,2,3,2,1    (optimizable) :  4.168878989166052E-04
+   gamma_3,3,3,2,1    (optimizable) :  1.200975988983031E-04
+   No. of parameters in set         :  52
+   (In addition to the cutoff length.)
+
+ Finished reading Jastrow factor from correlation.data.
+
+ Imposed symmetry and no-cusp constraints on gamma array.
+ Checked that gamma array satisfies its constraints.
+ Polynomials constructed.
+ Checked that cusp and cutoff conditions are satisfied.
+
+ Finished Jastrow setup.
+
+ Backflow setup
+ ==============
+ Reading correlation.data file.
+
+ Backflow function:
+  Title:  title
+  Truncation order       :  3
+  Discontinuities        :  None
+
+  Eta term:
+   Expansion order       :  9
+   Spin dependence       :  1
+   All cutoffs     (opt) :  4.357987467817
+   No. of free params    :  19 + 1 cut-off length
+   c_0,1   (optimizable) :  0.016509823200
+   c_2,1   (optimizable) : -0.121405640275
+   c_3,1   (optimizable) :  0.110530968467
+   c_4,1   (optimizable) : -0.045383037217
+   c_5,1   (optimizable) :  0.005710203134
+   c_6,1   (optimizable) :  0.003696536450
+   c_7,1   (optimizable) : -0.001135591941
+   c_8,1   (optimizable) : -0.000120224801
+   c_9,1   (optimizable) :  0.000045291628
+   c_0,2   (optimizable) :  0.014319799549
+   c_1,2   (optimizable) : -0.028839210151
+   c_2,2   (optimizable) :  0.067890484415
+   c_3,2   (optimizable) : -0.088193968321
+   c_4,2   (optimizable) :  0.035823164099
+   c_5,2   (optimizable) :  0.005367742363
+   c_6,2   (optimizable) : -0.004376410752
+   c_7,2   (optimizable) : -0.000525445013
+   c_8,2   (optimizable) :  0.000430210466
+   c_9,2   (optimizable) : -0.000041261531
+
+  Mu term:
+   Number of sets        :  1
+   Set 1
+    Atoms in set         :  1
+    The atoms are        :  1
+    Type of cusp conds.  :  AE with cusp
+    Expansion order      :  9
+    Spin dependence      :  0
+    Cutoff (optimizable) :  2.944229447657
+    No. of free params   :  8 + cut-off length
+    mu_2,1 (optimizable) : -0.281885768361
+    mu_3,1 (optimizable) : -0.552646042158
+    mu_4,1 (optimizable) :  0.755627863490
+    mu_5,1 (optimizable) : -1.202022755806
+    mu_6,1 (optimizable) :  0.439669939518
+    mu_7,1 (optimizable) :  0.038444824654
+    mu_8,1 (optimizable) : -0.095476402566
+    mu_9,1 (optimizable) :  0.023870971728
+   Completeness of mu    :  All atoms included
+
+  Phi term:
+   Number of sets        :  1
+   Set 1
+    Atoms in set         :  1
+    The atoms are        :  1
+    Type of cusp conds.  :  AE with cusp
+    Irrotational constr. :  Not applied
+    Expansion order e-N  :  3
+    Expansion order e-e  :  3
+    Spin dependence      :  1
+    Cutoff (optimizable) :  3.025516095602
+    No. of free params   :  114 + cut-off length
+    phi_2,2,0,1    (opt) : -0.046058617461
+    phi_3,2,0,1    (opt) :  0.888668012904
+    phi_2,3,0,1    (opt) :  0.103857404437
+    phi_3,3,0,1    (opt) : -0.328962422918
+    phi_1,2,1,1    (opt) :  0.048015813604
+    phi_2,3,1,1    (opt) :  0.419793353997
+    phi_1,0,2,1    (opt) : -0.110871850062
+    phi_0,1,2,1    (opt) :  0.110034522749
+    phi_1,1,2,1    (opt) :  0.285311153905
+    phi_2,1,2,1    (opt) :  0.185747884133
+    phi_1,2,2,1    (opt) : -0.304900088513
+    phi_2,2,2,1    (opt) :  0.110613307162
+    phi_3,2,2,1    (opt) : -0.009075731781
+    phi_2,3,2,1    (opt) : -0.255846413497
+    phi_3,3,2,1    (opt) :  0.119966207780
+    phi_0,0,3,1    (opt) : -0.048748610830
+    phi_1,0,3,1    (opt) :  0.099048829456
+    phi_0,1,3,1    (opt) :  0.044326025163
+    phi_1,1,3,1    (opt) : -0.144243378196
+    phi_2,1,3,1    (opt) : -0.109499901498
+    phi_1,2,3,1    (opt) :  0.113216963607
+    phi_2,2,3,1    (opt) :  0.088120065034
+    phi_3,2,3,1    (opt) : -0.040217664924
+    phi_2,3,3,1    (opt) :  0.013306750145
+    phi_3,3,3,1    (opt) : -0.005975491079
+    theta_2,1,0,1  (opt) :  0.202937770308
+    theta_3,1,0,1  (opt) : -0.991469262540
+    theta_2,2,0,1  (opt) : -1.067299934215
+    theta_3,2,0,1  (opt) :  0.471471575792
+    theta_2,3,0,1  (opt) :  1.990105667911
+    theta_3,3,0,1  (opt) : -0.486105698171
+    theta_1,2,1,1  (opt) : -0.060801526821
+    theta_2,3,1,1  (opt) : -1.139691754223
+    theta_1,0,2,1  (opt) : -0.217584726606
+    theta_2,0,2,1  (opt) :  0.462113998427
+    theta_0,1,2,1  (opt) : -0.513088740056
+    theta_1,1,2,1  (opt) :  0.710903413704
+    theta_2,1,2,1  (opt) : -0.459050576055
+    theta_1,2,2,1  (opt) : -0.057661888948
+    theta_2,2,2,1  (opt) : -0.074571812589
+    theta_3,2,2,1  (opt) : -0.435522879586
+    theta_2,3,2,1  (opt) :  0.536635666251
+    theta_3,3,2,1  (opt) : -0.164534593467
+    theta_0,0,3,1  (opt) :  0.290082997957
+    theta_1,0,3,1  (opt) : -0.149882072148
+    theta_2,0,3,1  (opt) : -0.136655789373
+    theta_0,1,3,1  (opt) :  0.001197841038
+    theta_1,1,3,1  (opt) : -0.177940952412
+    theta_2,1,3,1  (opt) :  0.114668668068
+    theta_1,2,3,1  (opt) :  0.075987694342
+    theta_2,2,3,1  (opt) :  0.142806974181
+    theta_3,2,3,1  (opt) :  0.009814552847
+    theta_2,3,3,1  (opt) : -0.143814237262
+    theta_3,3,3,1  (opt) :  0.082093003703
+    phi_2,2,0,2    (opt) :  0.588034652504
+    phi_3,2,0,2    (opt) : -0.378476261799
+    phi_2,3,0,2    (opt) : -0.081218603498
+    phi_3,3,0,2    (opt) :  0.166011289116
+    phi_1,1,1,2    (opt) :  0.120133681140
+    phi_2,1,1,2    (opt) : -1.506487621512
+    phi_1,2,1,2    (opt) : -0.829040047671
+    phi_2,2,1,2    (opt) : -0.508662886406
+    phi_3,2,1,2    (opt) :  0.377896947585
+    phi_2,3,1,2    (opt) :  0.360118211871
+    phi_3,3,1,2    (opt) : -0.177369723179
+    phi_0,0,2,2    (opt) :  0.182264664205
+    phi_1,0,2,2    (opt) : -0.117677460950
+    phi_0,1,2,2    (opt) : -0.116865250377
+    phi_1,1,2,2    (opt) :  1.024129780316
+    phi_2,1,2,2    (opt) :  0.388267350312
+    phi_1,2,2,2    (opt) : -0.035225647921
+    phi_2,2,2,2    (opt) :  0.253455799614
+    phi_3,2,2,2    (opt) : -0.140776574969
+    phi_2,3,2,2    (opt) : -0.171431521982
+    phi_3,3,2,2    (opt) :  0.092698197513
+    phi_0,0,3,2    (opt) : -0.082437947828
+    phi_1,0,3,2    (opt) : -0.055378408756
+    phi_0,1,3,2    (opt) :  0.203728864905
+    phi_1,1,3,2    (opt) : -0.482431326218
+    phi_2,1,3,2    (opt) :  0.161182609783
+    phi_1,2,3,2    (opt) :  0.263858203442
+    phi_2,2,3,2    (opt) : -0.165704758309
+    phi_3,2,3,2    (opt) :  0.001527233519
+    phi_2,3,3,2    (opt) :  0.026273927776
+    phi_3,3,3,2    (opt) :  0.007109261405
+    theta_2,1,0,2  (opt) : -0.389321076686
+    theta_3,1,0,2  (opt) : -0.265852798028
+    theta_2,2,0,2  (opt) :  1.862341148950
+    theta_3,2,0,2  (opt) : -0.438548580913
+    theta_2,3,0,2  (opt) : -0.912253918397
+    theta_3,3,0,2  (opt) :  0.519946646608
+    theta_1,2,1,2  (opt) : -0.152790537523
+    theta_2,3,1,2  (opt) :  0.644436207106
+    theta_1,0,2,2  (opt) : -0.118654734702
+    theta_2,0,2,2  (opt) : -0.147318360297
+    theta_0,1,2,2  (opt) :  0.019012864536
+    theta_1,1,2,2  (opt) :  0.589005509238
+    theta_2,1,2,2  (opt) :  0.246463201968
+    theta_1,2,2,2  (opt) :  0.443988755741
+    theta_2,2,2,2  (opt) : -0.103714782800
+    theta_3,2,2,2  (opt) :  0.651115407402
+    theta_2,3,2,2  (opt) : -0.176208873155
+    theta_3,3,2,2  (opt) : -0.115215266036
+    theta_0,0,3,2  (opt) :  0.080855108023
+    theta_1,0,3,2  (opt) : -0.025535159931
+    theta_2,0,3,2  (opt) :  0.182338533915
+    theta_0,1,3,2  (opt) :  0.137253359754
+    theta_1,1,3,2  (opt) : -0.683555411847
+    theta_2,1,3,2  (opt) :  0.216437969421
+    theta_1,2,3,2  (opt) :  0.233833595304
+    theta_2,2,3,2  (opt) : -0.254835686874
+    theta_3,2,3,2  (opt) :  0.029581882929
+    theta_2,3,3,2  (opt) :  0.118935399266
+    theta_3,3,3,2  (opt) : -0.043830584852
+   Completeness of Phi   :  All atoms included
+
+  AE cutoffs:
+   Nucleus 1 in set      :  1
+   Total number of sets  :  1
+   Cutoff_1       (fixed):  1.000000000000
+
+ Finished reading backflow functions from correlation.data.
+
+ Allocated work arrays, using 17.5 KiB.
+ Imposed e-e and e-N cusp conditions and checked them.
+ Will apply cut-offs around AE atoms.
+
+ Finished backflow setup.
+
+
+ Setup complete.
+
+ Time taken in setup    : : :        0.0200 s
+
+ ====================================
+ PERFORMING A SINGLE VMC CALCULATION.
+ ====================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  1.9231E-03
+ Done. [total CPU time: 0s]
+
+ Kinetic energy check performed.
+  Geminals - gradient: optimal, Laplacian: optimal.
+  Jastrow factor - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio <level 1>        (%)  =  52.0140
+ Acceptance ratio <levels 1-2>     (%)  =  49.8360
+ Diffusion constant           (Bohr^2)  = 6.9991E-04
+ Correlation time              (steps)  = 5.5788E+00 +- 1.5253E-02
+ Efficiency               (au^-2 s^-1)  = 7.7129E+02
+ No. of VMC steps per MPI process       = 2500000
+
+  Block average energies (au)
+
+  Total energy                       (au) =        -128.921374395234
+  Standard error                        +/-           0.000593131928
+
+  Kinetic energy KEI (used in Total) (au) =         129.168884561368
+  Standard error                        +/-           0.043826456677
+
+  Kinetic energy TI                  (au) =         128.830901709370
+  Standard error                        +/-           0.055623164660
+
+  Kinetic energy FISQ                (au) =         128.492918857386
+  Standard error                        +/-           0.102260275347
+
+  Potential energy                   (au) =        -258.090258956605
+  Standard error                        +/-           0.043801032130
+
+  e-e interaction                    (au) =          53.235602437859
+  Standard error                        +/-           0.003122705799
+
+  e-n interaction                    (au) =        -311.325861394459
+  Standard error                        +/-           0.044682837560
+
+  Variance of local energy           (au) =           3.518644722903
+  Standard error                        +/-           0.471447382863
+
+  Maximum distance from origin       (au) =           5.048155187295
+
+  Particles within backflow range   (%) :  99.9566
+
+
+ Time taken in block    : : :      660.4900 s
+
+
+ =========================================================================
+ In block : 2
+
+ Acceptance ratio <level 1>        (%)  =  52.0321
+ Acceptance ratio <levels 1-2>     (%)  =  49.8587
+ Diffusion constant           (Bohr^2)  = 7.0020E-04
+ Correlation time              (steps)  = 6.0622E+00 +- 1.6491E-02
+ Efficiency               (au^-2 s^-1)  = 7.8251E+02
+ No. of VMC steps per MPI process       = 2500000
+
+  Block average energies (au)
+
+  Total energy                       (au) =        -128.922968113177
+  Standard error                        +/-           0.000560933453
+
+  Kinetic energy KEI (used in Total) (au) =         129.041848132184
+  Standard error                        +/-           0.043712661886
+
+  Kinetic energy TI                  (au) =         129.059152978281
+  Standard error                        +/-           0.099536559092
+
+  Kinetic energy FISQ                (au) =         129.076457824377
+  Standard error                        +/-           0.194178519236
+
+  Potential energy                   (au) =        -257.964816245371
+  Standard error                        +/-           0.043688110901
+
+  e-e interaction                    (au) =          53.351525831984
+  Standard error                        +/-           0.003079306591
+
+  e-n interaction                    (au) =        -311.316342077361
+  Standard error                        +/-           0.044581349553
+
+  Variance of local energy           (au) =           3.144617990831
+  Standard error                        +/-           0.043469274605
+
+  Maximum distance from origin       (au) =           5.440456583735
+
+  Particles within backflow range   (%) :  99.9563
+
+
+ Time taken in block    : : :      670.3699 s
+
+
+ =========================================================================
+ In block : 3
+
+ Acceptance ratio <level 1>        (%)  =  52.0867
+ Acceptance ratio <levels 1-2>     (%)  =  49.9098
+ Diffusion constant           (Bohr^2)  = 7.0096E-04
+ Correlation time              (steps)  = 6.0164E+00 +- 1.6367E-02
+ Efficiency               (au^-2 s^-1)  = 9.1560E+02
+ No. of VMC steps per MPI process       = 2500000
+
+  Block average energies (au)
+
+  Total energy                       (au) =        -128.921441962822
+  Standard error                        +/-           0.000553582642
+
+  Kinetic energy KEI (used in Total) (au) =         128.295094415962
+  Standard error                        +/-           0.043505460185
+
+  Kinetic energy TI                  (au) =         128.611466332610
+  Standard error                        +/-           0.073709307224
+
+  Kinetic energy FISQ                (au) =         128.927838249260
+  Standard error                        +/-           0.140771435418
+
+  Potential energy                   (au) =        -257.216536378777
+  Standard error                        +/-           0.043482172406
+
+  e-e interaction                    (au) =          53.267218897820
+  Standard error                        +/-           0.003097218913
+
+  e-n interaction                    (au) =        -310.483755276591
+  Standard error                        +/-           0.044375246686
+
+  Variance of local energy           (au) =           3.060274183298
+  Standard error                        +/-           0.045698705167
+
+  Maximum distance from origin       (au) =           5.372302840864
+
+  Particles within backflow range   (%) :  99.9605
+
+
+ Time taken in block    : : :      593.1901 s
+
+
+ =========================================================================
+ In block : 4
+
+ Acceptance ratio <level 1>        (%)  =  52.0247
+ Acceptance ratio <levels 1-2>     (%)  =  49.8503
+ Diffusion constant           (Bohr^2)  = 7.0048E-04
+ Correlation time              (steps)  = 6.0290E+00 +- 1.6429E-02
+ Efficiency               (au^-2 s^-1)  = 9.8151E+02
+ No. of VMC steps per MPI process       = 2500000
+
+  Block average energies (au)
+
+  Total energy                       (au) =        -128.921634556648
+  Standard error                        +/-           0.000559161824
+
+  Kinetic energy KEI (used in Total) (au) =         129.335608297684
+  Standard error                        +/-           0.043833982529
+
+  Kinetic energy TI                  (au) =         128.983029495656
+  Standard error                        +/-           0.048554730887
+
+  Kinetic energy FISQ                (au) =         128.630450693628
+  Standard error                        +/-           0.086567037030
+
+  Potential energy                   (au) =        -258.257242854332
+  Standard error                        +/-           0.043809368466
+
+  e-e interaction                    (au) =          53.377960938288
+  Standard error                        +/-           0.003096694435
+
+  e-n interaction                    (au) =        -311.635203792615
+  Standard error                        +/-           0.044704351667
+
+  Variance of local energy           (au) =           3.120819882142
+  Standard error                        +/-           0.040818314519
+
+  Maximum distance from origin       (au) =           5.363730749372
+
+  Particles within backflow range   (%) :  99.9559
+
+
+ Time taken in block    : : :      541.4900 s
+
+
+ =========================================================================
+ In block : 5
+
+ Acceptance ratio <level 1>        (%)  =  52.0370
+ Acceptance ratio <levels 1-2>     (%)  =  49.8569
+ Diffusion constant           (Bohr^2)  = 7.0014E-04
+ Correlation time              (steps)  = 5.7899E+00 +- 1.5482E-02
+ Efficiency               (au^-2 s^-1)  = 1.0004E+03
+ No. of VMC steps per MPI process       = 2500000
+
+  Block average energies (au)
+
+  Total energy                       (au) =        -128.922790627702
+  Standard error                        +/-           0.000568014287
+
+  Kinetic energy KEI (used in Total) (au) =         128.793044330317
+  Standard error                        +/-           0.044109182285
+
+  Kinetic energy TI                  (au) =         128.964489039556
+  Standard error                        +/-           0.083187619518
+
+  Kinetic energy FISQ                (au) =         129.135933748789
+  Standard error                        +/-           0.160324787131
+
+  Potential energy                   (au) =        -257.715834958029
+  Standard error                        +/-           0.044083480510
+
+  e-e interaction                    (au) =          53.320689828540
+  Standard error                        +/-           0.003110428625
+
+  e-n interaction                    (au) =        -311.036524786572
+  Standard error                        +/-           0.044953332870
+
+  Variance of local energy           (au) =           3.226007243538
+  Standard error                        +/-           0.083806823008
+
+  Maximum distance from origin       (au) =           4.944532979393
+
+  Particles within backflow range   (%) :  99.9485
+
+
+ Time taken in block    : : :      535.1802 s
+
+
+ =========================================================================
+ In block : 6
+
+ Acceptance ratio <level 1>        (%)  =  51.9868
+ Acceptance ratio <levels 1-2>     (%)  =  49.8230
+ Diffusion constant           (Bohr^2)  = 6.9883E-04
+ Correlation time              (steps)  = 6.0239E+00 +- 1.6439E-02
+ Efficiency               (au^-2 s^-1)  = 8.4983E+02
+ No. of VMC steps per MPI process       = 2500000
+
+  Block average energies (au)
+
+  Total energy                       (au) =        -128.920605189270
+  Standard error                        +/-           0.000570478900
+
+  Kinetic energy KEI (used in Total) (au) =         129.344106864807
+  Standard error                        +/-           0.044039715299
+
+  Kinetic energy TI                  (au) =         129.049360885439
+  Standard error                        +/-           0.060554978529
+
+  Kinetic energy FISQ                (au) =         128.754614906083
+  Standard error                        +/-           0.112759226625
+
+  Potential energy                   (au) =        -258.264712054081
+  Standard error                        +/-           0.044013930977
+
+  e-e interaction                    (au) =          53.415405377985
+  Standard error                        +/-           0.003067252201
+
+  e-n interaction                    (au) =        -311.680117432058
+  Standard error                        +/-           0.044882602554
+
+  Variance of local energy           (au) =           3.251363419250
+  Standard error                        +/-           0.048882670616
+
+  Maximum distance from origin       (au) =           5.031898671206
+
+  Particles within backflow range   (%) :  99.9552
+
+
+ Time taken in block    : : :      600.7900 s
+
+
+ =========================================================================
+ In block : 7
+
+ Acceptance ratio <level 1>        (%)  =  52.0174
+ Acceptance ratio <levels 1-2>     (%)  =  49.8493
+ Diffusion constant           (Bohr^2)  = 7.0075E-04
+ Correlation time              (steps)  = 5.5364E+00 +- 1.4577E-02
+ Efficiency               (au^-2 s^-1)  = 8.9381E+02
+ No. of VMC steps per MPI process       = 2500000
+
+  Block average energies (au)
+
+  Total energy                       (au) =        -128.923958093788
+  Standard error                        +/-           0.000586692369
+
+  Kinetic energy KEI (used in Total) (au) =         128.965380944802
+  Standard error                        +/-           0.043341226895
+
+  Kinetic energy TI                  (au) =         128.996236960265
+  Standard error                        +/-           0.084858199344
+
+  Kinetic energy FISQ                (au) =         129.027092975720
+  Standard error                        +/-           0.164086161390
+
+  Potential energy                   (au) =        -257.889339038587
+  Standard error                        +/-           0.043316056853
+
+  e-e interaction                    (au) =          53.225297378496
+  Standard error                        +/-           0.003078484446
+
+  e-n interaction                    (au) =        -311.114636417084
+  Standard error                        +/-           0.044195840983
+
+  Variance of local energy           (au) =           3.445292680945
+  Standard error                        +/-           0.185984932282
+
+  Maximum distance from origin       (au) =           5.726869017106
+
+  Particles within backflow range   (%) :  99.9394
+
+
+ Time taken in block    : : :      586.5500 s
+
+
+ =========================================================================
+ In block : 8
+
+ Acceptance ratio <level 1>        (%)  =  52.0766
+ Acceptance ratio <levels 1-2>     (%)  =  49.9047
+ Diffusion constant           (Bohr^2)  = 7.0092E-04
+ Correlation time              (steps)  = 6.1322E+00 +- 1.6816E-02
+ Efficiency               (au^-2 s^-1)  = 9.0603E+02
+ No. of VMC steps per MPI process       = 2500000
+
+  Block average energies (au)
+
+  Total energy                       (au) =        -128.923130800456
+  Standard error                        +/-           0.000560744177
+
+  Kinetic energy KEI (used in Total) (au) =         128.652920445474
+  Standard error                        +/-           0.043788288992
+
+  Kinetic energy TI                  (au) =         128.845626848821
+  Standard error                        +/-           0.071896793252
+
+  Kinetic energy FISQ                (au) =         129.038333252173
+  Standard error                        +/-           0.136907991894
+
+  Potential energy                   (au) =        -257.576051245925
+  Standard error                        +/-           0.043766147816
+
+  e-e interaction                    (au) =          53.284071434989
+  Standard error                        +/-           0.003062741923
+
+  e-n interaction                    (au) =        -310.860122680928
+  Standard error                        +/-           0.044645940018
+
+  Variance of local energy           (au) =           3.142148363377
+  Standard error                        +/-           0.041981124506
+
+  Maximum distance from origin       (au) =           5.263913184753
+
+  Particles within backflow range   (%) :  99.9576
+
+
+ Time taken in block    : : :      572.8096 s
+
+
+ =========================================================================
+ In block : 9
+
+ Acceptance ratio <level 1>        (%)  =  52.0682
+ Acceptance ratio <levels 1-2>     (%)  =  49.8924
+ Diffusion constant           (Bohr^2)  = 7.0039E-04
+ Correlation time              (steps)  = 5.9204E+00 +- 1.5898E-02
+ Efficiency               (au^-2 s^-1)  = 8.8713E+02
+ No. of VMC steps per MPI process       = 2500000
+
+  Block average energies (au)
+
+  Total energy                       (au) =        -128.920733635916
+  Standard error                        +/-           0.000560687159
+
+  Kinetic energy KEI (used in Total) (au) =         128.715415512299
+  Standard error                        +/-           0.043466362217
+
+  Kinetic energy TI                  (au) =         128.729517416738
+  Standard error                        +/-           0.054559841515
+
+  Kinetic energy FISQ                (au) =         128.743619321179
+  Standard error                        +/-           0.099957185032
+
+  Potential energy                   (au) =        -257.636149148210
+  Standard error                        +/-           0.043440211837
+
+  e-e interaction                    (au) =          53.311527133402
+  Standard error                        +/-           0.003086915180
+
+  e-n interaction                    (au) =        -310.947676281620
+  Standard error                        +/-           0.044336532950
+
+  Variance of local energy           (au) =           3.145043202911
+  Standard error                        +/-           0.043433111862
+
+  Maximum distance from origin       (au) =           5.218326851363
+
+  Particles within backflow range   (%) :  99.9563
+
+
+ Time taken in block    : : :      605.3901 s
+
+
+ =========================================================================
+ In block : 10
+
+ Acceptance ratio <level 1>        (%)  =  52.0223
+ Acceptance ratio <levels 1-2>     (%)  =  49.8565
+ Diffusion constant           (Bohr^2)  = 7.0006E-04
+ Correlation time              (steps)  = 5.9887E+00 +- 1.6292E-02
+ Efficiency               (au^-2 s^-1)  = 8.7944E+02
+ No. of VMC steps per MPI process       = 2500000
+
+  Block average energies (au)
+
+  Total energy                       (au) =        -128.921473506364
+  Standard error                        +/-           0.000565410458
+
+  Kinetic energy KEI (used in Total) (au) =         129.094029328696
+  Standard error                        +/-           0.047923214307
+
+  Kinetic energy TI                  (au) =         129.166148417768
+  Standard error                        +/-           0.172671676494
+
+  Kinetic energy FISQ                (au) =         129.238267506840
+  Standard error                        +/-           0.342026624956
+
+  Potential energy                   (au) =        -258.015502835051
+  Standard error                        +/-           0.047898876092
+
+  e-e interaction                    (au) =          53.374034502820
+  Standard error                        +/-           0.003096529868
+
+  e-n interaction                    (au) =        -311.389537337872
+  Standard error                        +/-           0.048699307419
+
+  Variance of local energy           (au) =           3.198807140047
+  Standard error                        +/-           0.056119291077
+
+  Maximum distance from origin       (au) =           5.985612692428
+
+  Particles within backflow range   (%) :  99.9547
+
+
+ Time taken in block    : : :      593.5698 s
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -128.922011088138 +/- 0.000179620595      No correction
+ -128.922011088138 +/- 0.000436585061      Correlation time method
+ -128.922011088124 +/- 0.000510988563      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 3.225301882924 +- 0.046409305783
+
+ =========================================================================
+
+
+ Total CASINO CPU time  : : :     5960.2100 s
+ Total CASINO real time : : :     6023.6592 s
+
+
+ Subroutine timers deactivated (use TIMING_INFO input keyword)
+
+ =========================================================================
+ Ends 2026/07/20 11:42:21.611
+
+Job finished: Пн 20 июл 2026 11:42:21 +07
