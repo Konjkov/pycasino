@@ -285,6 +285,13 @@ v 0.4.0 (in progress)
       turning the exact g_L into g_R; that term is what keeps delta p exact on a finite sample
       when psi_lin is an eigenstate
 * Improved
+    * The geminal takes its matrix products on contiguous operands. Numba turns @ into a BLAS
+      call and copies any operand that is not contiguous beforehand, and three of them were not:
+      one direction of the orbital gradient pool is a slice of its last axis, the inverse comes
+      back from LAPACK in fortran order so its rows are strided, and the down-spin hessian was
+      indexed over the axis it is contracted on. The two pool slices are now copied once per
+      call rather than once per determinant, the inverse keeps a C copy beside it and the hessian
+      is built with the contracted index last
     * CBCS initial time step is now sqrt(3) * erfinv(1/2) * (1 + 0.045/nuclei) / sqrt(<T>) instead
       of one over the electron count, with <T> summed over the nuclei from the Thomas-Fermi
       expansion 0.7687*Z^(7/3) - 0.5*Z^2 + 0.2699*Z^(5/3) and
