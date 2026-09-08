@@ -77,6 +77,58 @@ v 0.4.0 (in progress)
       and the two triple products of the third derivative are equal under a symmetric bb and
       contract into the diagonal of s • (s∘bb) • s. The second derivatives are rank one as well,
       which leaves the tressian a loop over pairs rather than over triples
+    * Generic Jastrow factor (USE_GJASTROW : T): the JASTROW block of parameters.casl is read,
+      constrained and evaluated, so a wave function whose jastrow lives in a casl file is no
+      longer a jastrow PyCasino has to be run without. A term is a linear expansion in the
+      products of the basis functions of every pair of its rank_e electrons and rank_n nuclei,
+      cut off so that it and its derivatives vanish at the cutoff length, and the rules of the
+      term sort the sets of particles into channels that carry their own parameters - and their
+      own cutoff length, which the standard u, chi and f terms have no room for. The symmetry
+      of a channel under the permutations that leave it as it is, and the Kato cusp or the
+      no-cusp condition at every coalescence, are solved as one linear system when the file is
+      read, so the kernel carries no constraint of its own; on He, Be, N, Ne and Ar the equation
+      counts and the free-parameter split are the ones casino prints, and a jastrow written out
+      of a correlation.data reproduces the standard u, chi and f terms to machine precision,
+      value, gradient and laplacian alike
+    * The generic jastrow is computed for the terms of rank [2, 0], [1, 1] and [2, 1] with a
+      natural power basis and a polynomial or an alt polynomial cutoff, which is what all 27
+      examples carrying a JASTROW block use. The restriction is numba's: a term of rank
+      (rank_e, rank_n) is a function of rank_e(rank_e - 1)/2 + rank_e·rank_n distances, so its
+      linear parameters are a tensor whose number of dimensions the file decides, and numba has
+      no array of runtime dimensionality. The reader and the writer stay general - any casl
+      still round-trips - and a term outside the set is refused when the numba object is built.
+      Value, gradient and laplacian are analytic, and so are the single-electron parts a sweep
+      needs, so VMC and DMC run on a casl jastrow
+    * The linear parameters of a generic jastrow take part in varmin and emin. A term is linear
+      in its coefficients, so the derivative of the value w.r.t one of them is the basis product
+      it multiplies and the derivatives of the gradient and of the laplacian are that product
+      differentiated over the electron coordinates; the second derivatives w.r.t the parameters
+      are zero. The constraints are solved when the file is read, which leaves every determined
+      coefficient an affine function of the ones no equation pivots on, and that map is the
+      projector the optimizer differentiates through: setting the free coefficients recomputes
+      the determined ones, so the cusp and the symmetry of a channel survive every step. A
+      coefficient the file declares fixed stays fixed and one it does not mention is optimizable,
+      as it is in casino, and the optimized coefficients are written back to parameters.N.casl at
+      the end of every cycle
+    * The cutoff length of every channel takes part in varmin and emin as well. Its own
+      derivative is a finite difference of the term it truncates, as the standard jastrow takes
+      the derivative w.r.t its own cutoffs, but a cutoff length also enters the equations of a
+      coalescence - through the value and the radial derivative of the cutoff function where the
+      two particles meet - so the coefficients those equations determine move with it. The
+      equations are therefore kept in the two parts that scale, and every time a cutoff length
+      moves the system is rebuilt and solved again at the new one, which is what keeps the cusp
+      exactly rather than to first order. Elimination has already chosen which equation
+      determines which coefficient, and no cutoff length changes that, so what is left inside
+      the kernel is one inversion of the block of the determined coefficients - the same shape
+      as CASINO's fix_f_parameters, which reduces its own A matrix at every step. The chain rule
+      that carries a cutoff length into the coefficients it determines is analytic:
+      dc/dL = -A⁻¹(dA/dL)c out of the same inverse. The basis functions have no parameters to
+      optimize while the natural powers are the only basis computed. The second derivatives
+      w.r.t the cutoff lengths are not implemented, so the newton emin hessian is short of them
+    * A wave function can hold either kind of jastrow. Numba has no union type and the standard
+      and the generic jastrow are structures of their own, so Wfn, VMC and DMC are now built
+      from type factories and the kind of the jastrow picks which instance of the one structref
+      class a run uses; the methods are registered on the class, so nothing is duplicated
 * Fixes
     * VMC_METHOD 2 (DBDS) is refused by the input check. Nothing dispatches it, so a run that
       asked for it silently produced the initial configuration repeated VMC_NSTEP times

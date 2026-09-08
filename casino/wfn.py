@@ -6,6 +6,7 @@ from numba.extending import overload_method
 from casino.abstract import AbstractWfn
 from casino.backflow import Backflow_t
 from casino.geminal import Geminal_t
+from casino.gjastrow import Gjastrow, Gjastrow_t
 from casino.jastrow import Jastrow_t
 from casino.overload import block_diag
 from casino.ppotential import PPotential_t
@@ -635,29 +636,41 @@ def wfn_set_parameters(self, parameters, all_parameters=False):
     return impl
 
 
-Wfn_t = Wfn_class_t(
-    [
-        ('neu', nb.int64),
-        ('ned', nb.int64),
-        ('atom_positions', nb.float64[:, ::1]),
-        ('atom_charges', nb.float64[::1]),
-        ('nuclear_repulsion', nb.float64),
-        ('slater', Slater_t),
-        ('geminal', nb.optional(Geminal_t)),
-        ('jastrow', nb.optional(Jastrow_t)),
-        ('backflow', nb.optional(Backflow_t)),
-        ('ppotential', nb.optional(PPotential_t)),
-        ('opt_jastrow', nb.boolean),
-        ('opt_backflow', nb.boolean),
-        ('opt_geminal', nb.boolean),
-        ('opt_orbitals', nb.boolean),
-        ('opt_det_coeff', nb.boolean),
-    ]
-)
+def wfn_type(jastrow_t):
+    """The type of a wave function holding a given kind of jastrow. Numba has no
+    union type and the standard and the generic jastrow are structures of their
+    own, so a wave function of each is an instance of this one class, which
+    carries the methods of both.
+    """
+    return Wfn_class_t(
+        [
+            ('neu', nb.int64),
+            ('ned', nb.int64),
+            ('atom_positions', nb.float64[:, ::1]),
+            ('atom_charges', nb.float64[::1]),
+            ('nuclear_repulsion', nb.float64),
+            ('slater', Slater_t),
+            ('geminal', nb.optional(Geminal_t)),
+            ('jastrow', nb.optional(jastrow_t)),
+            ('backflow', nb.optional(Backflow_t)),
+            ('ppotential', nb.optional(PPotential_t)),
+            ('opt_jastrow', nb.boolean),
+            ('opt_backflow', nb.boolean),
+            ('opt_geminal', nb.boolean),
+            ('opt_orbitals', nb.boolean),
+            ('opt_det_coeff', nb.boolean),
+        ]
+    )
+
+
+Wfn_t = wfn_type(Jastrow_t)
+Gwfn_t = wfn_type(Gjastrow_t)
 
 
 class Wfn(structref.StructRefProxy, AbstractWfn):
     def __new__(cls, config, slater, geminal=None, jastrow=None, backflow=None, ppotential=None):
+        wfn_t = Gwfn_t if isinstance(jastrow, Gjastrow) else Wfn_t
+
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(neu, ned, atom_positions, atom_charges, slater, geminal, jastrow, backflow, ppotential):
             """Wave function in general form.
@@ -670,7 +683,7 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
             :param backflow: instance of Backflow class
             :param ppotential: instance of Pseudopotential class
             """
-            self = structref.new(Wfn_t)
+            self = structref.new(wfn_t)
             self.neu = neu
             self.ned = ned
             self.atom_positions = atom_positions
