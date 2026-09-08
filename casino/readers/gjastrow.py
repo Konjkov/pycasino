@@ -312,6 +312,7 @@ class Term:
         self.channel_cusp_given = np.zeros(shape=(0, 2), dtype=bool)
         self.parameters = np.zeros(shape=(0,))
         self.flags = np.zeros(shape=(0,), dtype=int)
+        self.constraints = []
 
     @property
     def size_ee(self):
@@ -456,7 +457,8 @@ class Term:
             basis, cutoff = (self.ee_basis, self.ee_cutoff) if k == 0 else (self.en_basis, self.en_cutoff)
             f0, dfdr0 = basis.at_zero(group - 1) if basis else (np.ones(self.orders[k]), np.zeros(self.orders[k]))
             f0_cut, dfdr0_cut = cutoff.at_zero(group - 1) if cutoff else (np.ones(1), np.zeros(1))
-            target = dfdr0_cut[0] * f0 + f0_cut[0] * dfdr0
+            factor = (f0_cut[0], dfdr0_cut[0])
+            target = factor[1] * f0 + factor[0] * dfdr0
             cusp = 0.0
             pairs = self.pairs(group, k)
             if self.channel_cusp[i, k] and not pairs & applied[k]:
@@ -469,7 +471,9 @@ class Term:
                     pending[k].update(pairs)
             if not target.any() and not cusp:
                 continue
-            yield position, target, cusp
+            # a pair with no cutoff of its own contributes no cutoff length to the
+            # equations, so the cutoff lengths are the ones of the truncated pairs
+            yield position, (f0, dfdr0), factor, group - 1 if cutoff and cutoff.code else -1, cusp
 
     def constrain(self, atom_charges, applied):
         """Impose the symmetry and the cusp constraints of every channel: flag the
@@ -491,11 +495,14 @@ class Term:
         for i in range(len(self.channels)):
             system = constraints.Constraints(self.rank, self.parameters.shape[1:], self.groups.signatures[i], self.groups.permutations[i])
             system.symmetry()
-            for position, target, cusp in self.coalescences(i, atom_charges, applied, pending):
-                system.coalescence(position, target, cusp, tables, unity)
+            for position, basis, factor, channel, cusp in self.coalescences(i, atom_charges, applied, pending):
+                system.coalescence(position, basis, factor, channel, cusp, tables, unity)
             determined, values = system.solve(self.parameters[i])
             self.equations.append(system.counts)
+            self.constraints.append(system.reduced())
             self.parameters[i] = values
+            # a coefficient the file does not mention is optimizable, as it is in casino
+            self.flags[i] = np.where(self.flags[i] == UNSET, OPTIMIZABLE, self.flags[i])
             self.flags[i] = np.where(self.flags[i] == DETERMINED, OPTIMIZABLE, self.flags[i])
             self.flags[i] = np.where(determined, DETERMINED, self.flags[i])
         for k in (0, 1):

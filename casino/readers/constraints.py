@@ -14,9 +14,16 @@ P. López Ríos, P. Seth, N. D. Drummond, and R. J. Needs
 Phys. Rev. E 86, 036703
 """
 
+import collections
+
 import numpy as np
 
 TOLERANCE = 1e-12
+
+# the equations that determine a coefficient, one per coefficient they determine:
+# the two parts a cutoff length scales, the cutoff length of every equation, its
+# right hand side, and the coefficient it determines
+Reduced = collections.namedtuple('Reduced', 'value slope channel rhs pivot')
 
 
 def power_products(order_a, order_b):
@@ -115,13 +122,40 @@ class Constraints:
         self.permutations = permutations
         self.size = int(np.prod(shape))
         self.rows = []
+        self.values = []
+        self.slopes = []
+        self.channels = []
         self.rhs = []
+        # the affine map from the coefficients no equation determines to all of
+        # them, which is the identity until an equation determines one
+        self.jacobian = np.eye(self.size)
+        self.offset = np.zeros(shape=self.size)
+        self.pivots = []
+        self.pivot_rows = []
         # how many equations each kind of constraint contributed, as casino reports
         self.counts = {'removal': 0, 'symmetry': 0, 'coalescence': 0}
 
-    def add(self, kind, row, value=0.0):
+    def add(self, kind, value, slope=None, channel=-1, factor=(0.0, 1.0), rhs=0.0):
+        """One equation, kept in the two parts the cutoff of a pair scales: the values
+        of the basis functions where the two particles meet, which the radial
+        derivative of the cutoff there multiplies, and their radial derivatives, which
+        its value multiplies. An equation no cutoff length enters is kept in the first
+        part alone, so that changing a cutoff length rebuilds the system it belongs to.
+        :param factor: value and radial derivative of the cutoff of the pair at zero
+        :param channel: the cutoff length of the pair, -1 for an equation without one
+        """
+        if slope is None:
+            slope = np.zeros(self.size)
+        row = factor[1] * value + factor[0] * slope
         self.rows.append(row)
-        self.rhs.append(value)
+        if channel < 0:
+            # a pair with no cutoff of its own scales nothing, so the equation is
+            # kept as it comes out, and the first part is the whole of it
+            value, slope = row, np.zeros(self.size)
+        self.values.append(value)
+        self.slopes.append(slope)
+        self.channels.append(channel)
+        self.rhs.append(rhs)
         self.counts[kind] += 1
 
     def index(self, index):
@@ -156,7 +190,7 @@ class Constraints:
                 row[self.index(other)] = -1.0
                 self.add('symmetry', row)
 
-    def coalescence(self, position, target, cusp, products, unity):
+    def coalescence(self, position, basis, factor, channel, cusp, products, unity):
         """Where the two particles of a pair meet, the radial derivative of the term
         is pinned: to the Kato value of the pair for the part of the term that is a
         function of that pair alone, and to zero for every other part of it, or the
@@ -168,8 +202,10 @@ class Constraints:
         into one equation. PRODUCTS says which products those are.
 
         :param position: the pair whose particles meet, as an axis of the shape
-        :param target: derivative at zero of the basis times the cutoff of that
-            pair, one per expansion index
+        :param basis: values and radial derivatives of the basis functions of that
+            pair at zero, one per expansion index
+        :param factor: value and radial derivative of the cutoff of that pair at zero
+        :param channel: the cutoff length of that pair, -1 where it has no cutoff
         :param cusp: the Kato value of the pair, zero where the term is not to
             carry the cusp
         :param products: index of the product of two basis functions, one table per
@@ -177,18 +213,20 @@ class Constraints:
         :param unity: index of the basis function that is one, per kind of pair, and
             zero where a cutoff makes the pair contribute more than its basis
         """
+        target = factor[1] * basis[0] + factor[0] * basis[1]
         equations = {}
         for index in np.ndindex(self.shape):
             signature, coalescing = self.equation(index, position, products)
             carries_cusp = bool(cusp) and self.is_pair_only(index, position, unity)
             if target[coalescing - 1] == 0.0 and not carries_cusp:
                 continue
-            row, value = equations.setdefault(signature, (np.zeros(self.size), [0.0]))
-            row[self.index(index)] = target[coalescing - 1]
+            value, slope, rhs = equations.setdefault(signature, (np.zeros(self.size), np.zeros(self.size), [0.0]))
+            value[self.index(index)] = basis[0][coalescing - 1]
+            slope[self.index(index)] = basis[1][coalescing - 1]
             if carries_cusp:
-                value[0] = cusp
-        for row, value in equations.values():
-            self.add('coalescence', row, value[0])
+                rhs[0] = cusp
+        for value, slope, rhs in equations.values():
+            self.add('coalescence', value, slope, channel, factor, rhs[0])
 
     def is_pair_only(self, index, position, unity):
         """Whether a coefficient belongs to the part of the term that is a function
@@ -255,7 +293,7 @@ class Constraints:
             return determined.reshape(self.shape), values.reshape(self.shape)
         matrix = np.array(self.rows)
         rhs = np.array(self.rhs)
-        pivots = []
+        order = list(range(len(matrix)))
         row = 0
         for column in range(self.size):
             if row == len(matrix):
@@ -265,20 +303,44 @@ class Constraints:
                 continue
             matrix[[row, candidate]] = matrix[[candidate, row]]
             rhs[[row, candidate]] = rhs[[candidate, row]]
+            order[row], order[candidate] = order[candidate], order[row]
             rhs[row] /= matrix[row, column]
             matrix[row] /= matrix[row, column]
             factor = matrix[:, column].copy()
             factor[row] = 0.0
             matrix -= np.outer(factor, matrix[row])
             rhs -= factor * rhs[row]
-            pivots.append(column)
+            self.pivots.append(column)
+            self.pivot_rows.append(order[row])
             row += 1
+        pivots = self.pivots
         for i in range(row, len(matrix)):
             if abs(rhs[i]) > TOLERANCE:
                 raise ValueError('the constraints on the channel have no solution')
+        # elimination leaves every equation with one coefficient of its own, so a
+        # determined coefficient is an affine function of the coefficients that are
+        # left, and the map is what the optimizer differentiates through
         for i, column in enumerate(pivots):
             determined[column] = True
-            values[column] = 0.0
-        for i, column in enumerate(pivots):
-            values[column] = rhs[i] - matrix[i] @ values
+            self.jacobian[column] = -matrix[i]
+            self.jacobian[column, column] = 0.0
+            self.offset[column] = rhs[i]
+        values[determined] = 0.0
+        values = self.jacobian @ values + self.offset
         return determined.reshape(self.shape), values.reshape(self.shape)
+
+    def reduced(self):
+        """The equations elimination kept, one per coefficient they determine. Which
+        equations those are, and which coefficient each of them determines, is what
+        elimination decides, and a cutoff length only scales the equations it is in,
+        so the system can be rebuilt and solved again at another cutoff length
+        without eliminating anything twice.
+        """
+        rows = np.array(self.pivot_rows, dtype=int)
+        return Reduced(
+            np.array(self.values).reshape(-1, self.size)[rows],
+            np.array(self.slopes).reshape(-1, self.size)[rows],
+            np.array(self.channels, dtype=int)[rows],
+            np.array(self.rhs)[rows],
+            np.array(self.pivots, dtype=int),
+        )

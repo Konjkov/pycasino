@@ -13,6 +13,7 @@
 # operation="Jastrow_dmc"
 # operation="Backflow_dmc"
 # operation="Geminal"
+# operation="Gjastrow"
 
 # path="gwfn/He/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/Be/HF/cc-pVQZ/${method}/${operation}/"
@@ -50,12 +51,12 @@
 # path="stowfn/Kr/HF/QZ4P/${method}/${operation}/"
 # path="stowfn/O3/HF/QZ4P/${method}/${operation}/"
 
-# path="stowfn/He/HF/QZ4P/${method}/Gjastrow/"
+# path="stowfn/He/HF/QZ4P/${method}/${operation}/"
 # path="stowfn/Be/HF/QZ4P/${method}/Gjastrow/"
 
 # ../casino/plot/plot.py stowfn/He/HF/QZ4P/CBCS/Backflow/ u
 
-path="geminal/Be/OO-RI-MP2/ano-pVDZ/CBCS/Jastrow_emin"
+# path="geminal/Be/OO-RI-MP2/ano-pVDZ/CBCS/Jastrow_emin"
 
 # path="stowfn/Be/HF/QZ4P/${method}/Backflow_omega_emin/0_4"
 
@@ -73,6 +74,6 @@ fi
 # single MPI-process
 # pycasino $path
 # multiple MPI-process
-mpiexec pycasino $path
+# mpiexec pycasino $path
 # hybrid code
 # mpiexec -n 2 --map-by slot:pe=${NUMBA_NUM_THREADS} pycasino $path

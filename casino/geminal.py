@@ -505,6 +505,10 @@ def geminal_pool_gradient(self, pool_u, pool_d, pool_grad_u, pool_grad_d):
         val = 0.0
         grad = np.zeros(shape=(self.neu + self.ned) * 3)
         single = self.c.size == 1
+        # one direction of a pool is a slice of its last axis, which numba would have
+        # to copy at every matrix product, so the copy is made once here instead
+        grad_u_by_d = np.ascontiguousarray(pool_grad_u.T)
+        grad_d_by_d = np.ascontiguousarray(pool_grad_d.transpose(2, 0, 1))
         for n in range(self.c.size):
             full_c = np.empty(shape=(self.norb, self.neu))
             full_c[:, : self.ned] = self.g[n] @ pool_d
@@ -516,9 +520,9 @@ def geminal_pool_gradient(self, pool_u, pool_d, pool_grad_u, pool_grad_d):
             tr_grad_u = np.zeros(shape=(self.neu, 3))
             tr_grad_d = np.zeros(shape=(self.ned, 3))
             for d in range(3):
-                grad_matrix_u = pool_grad_u[:, :, d].T @ full_c
+                grad_matrix_u = grad_u_by_d[d] @ full_c
                 tr_grad_u[:, d] = (inv.T * grad_matrix_u).sum(axis=1)
-                grad_matrix_d = a @ pool_grad_d[:, :, d]
+                grad_matrix_d = a @ grad_d_by_d[d]
                 tr_grad_d[:, d] = (inv[: self.ned] * grad_matrix_d.T).sum(axis=1)
             tr_grad = np.concatenate((tr_grad_u.ravel(), tr_grad_d.ravel()))
             c = 1.0 if single else self.c[n] * np.linalg.det(matrix)
@@ -712,6 +716,8 @@ def geminal_pool_tressian_dot(self, pool_u, pool_d, pool_grad_u, pool_grad_d, po
                 full_c[:, self.ned :] = self.u[n]
             matrix = pool_u.T @ full_c
             inv = np.linalg.inv(matrix)
+            # the inverse comes back in fortran order, whose rows are strided
+            inv_c = np.ascontiguousarray(inv)
             a = pool_u.T @ self.g[n]
             flat_grad_u = pool_grad_u.reshape(self.norb, self.neu * 3)
             flat_grad_d = pool_grad_d.reshape(self.norb, self.ned * 3)
@@ -721,7 +727,8 @@ def geminal_pool_tressian_dot(self, pool_u, pool_d, pool_grad_u, pool_grad_d, po
             gu = flat_grad_u.T @ full_c
             gd = (a @ flat_grad_d).reshape(self.neu, self.ned, 3)
             hu = (flat_hess_u.T @ full_c).reshape(self.neu, 3, 3, self.neu)
-            hd = (a @ flat_hess_d).reshape(self.neu, self.ned, 3, 3)
+            # the up-spin index of hd is the one contracted over, so it goes last
+            hd = np.ascontiguousarray((a @ flat_hess_d).T).reshape(self.ned, 3, 3, self.neu)
             tu = pool_tress_u.reshape(self.norb, self.neu * 27).T @ full_c
             td = (a @ pool_tress_d.reshape(self.norb, self.ned * 27)).reshape(self.neu, self.ned, 3, 3, 3)
             # the derivatives that fall on one up and one down electron at once
@@ -761,7 +768,7 @@ def geminal_pool_tressian_dot(self, pool_u, pool_d, pool_grad_u, pool_grad_d, po
             for j in range(self.ned):
                 for d1 in range(3):
                     for d2 in range(3):
-                        h[(self.neu + j) * 3 + d1, (self.neu + j) * 3 + d2] += inv[j] @ hd[:, j, d1, d2]
+                        h[(self.neu + j) * 3 + d1, (self.neu + j) * 3 + d2] += inv_c[j] @ hd[j, d1, d2]
 
             # tr(M^-1 • d³M), which needs the three coordinates to meet on the same entry
             t3 = np.zeros(shape=ne * 3)
@@ -811,7 +818,7 @@ def geminal_pool_tressian_dot(self, pool_u, pool_d, pool_grad_u, pool_grad_d, po
             for j in range(self.ned):
                 for d1 in range(3):
                     for d2 in range(3):
-                        d_vec = col[:, j] * (row @ (inv @ hd[:, j, d1, d2]))
+                        d_vec = col[:, j] * (row @ (inv @ hd[j, d1, d2]))
                         pair_1[(self.neu + j) * 3 + d1] += bb[(self.neu + j) * 3 + d2] @ d_vec
                         pair_2 += bb[(self.neu + j) * 3 + d1, (self.neu + j) * 3 + d2] * d_vec
 

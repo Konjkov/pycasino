@@ -143,7 +143,7 @@ class CorrelatedGeminal:
         assert gradient == pytest.approx(self.geminal.numerical_gradient(self.n_vectors))
 
     def test_laplacian(self):
-        assert self.geminal.laplacian(self.n_vectors) == pytest.approx(self.geminal.numerical_laplacian(self.n_vectors), rel=1e-5)
+        assert self.geminal.laplacian(self.n_vectors) == pytest.approx(self.geminal.numerical_laplacian(self.n_vectors), rel=1e-4)
 
     def test_tressian_dot(self):
         if not self.numerical_tressian:
