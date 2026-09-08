@@ -1408,6 +1408,20 @@ Still open:
   like-for-like rerun of CAS(3,4) on our own `gwfn.data`, without which the
   2.9 mHa is basis and Jastrow rather than ansatz. See the B section above.
 
+## PyCasino: the strided-matmul warnings in `casino/geminal.py` (2026-09-08)
+
+Every `NumbaPerformanceWarning: '@' is faster on contiguous arrays` that pytest
+reports out of `wfn.py` comes from here — `pool_gradient`
+(`pool_grad_u[:, :, d].T @ full_c`, `a @ pool_grad_d[:, :, d]`) and
+`pool_tressian_dot` (`inv[j] @ hd[:, j, d1, d2]`, `inv @ hd[:, j, d1, d2]`);
+`np.linalg.inv` returns an F array, so its **rows** are strided while its columns
+are free. They surface even in runs with no geminal, because `('geminal',
+nb.optional(Geminal_t))` makes numba compile both sides of `if self.geminal is not
+None`. Measured cost of fixing all four: −4% on those two kernels, ≈1% of a geminal
+VMC/DMC step, ≈3% of a geminal+backflow emin step. Timings, the layout rules and
+the recipe for locating such a warning are in the `numba` skill under
+"Contiguity matters" — read it before redoing the measurement.
+
 ## File map
 
 - CASINO source: `~/bin/CASINO/src/geminal.f90`, `emin.f90`

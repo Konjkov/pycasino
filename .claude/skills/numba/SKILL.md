@@ -170,6 +170,98 @@ Common type strings:
 Numba generates fastest code for C-contiguous arrays. If you slice a non-contiguous
 view, pass `np.ascontiguousarray(x)` before calling the JIT function.
 
+Inside `@njit` the layout is part of the type: `C`, `F` or `A` (any, i.e. strided).
+`@` on an `A` operand raises
+
+```
+NumbaPerformanceWarning: '@' is faster on contiguous arrays, called on
+    (Array(float64, 1, 'A', ...), Array(float64, 1, 'A', ...))
+```
+
+and numba then **allocates a C copy of every non-contiguous operand before the BLAS
+call** (`make_contiguous`, numba/np/linalg.py). The warning carries no file or line.
+
+#### Which patterns give `A`, and which do not
+
+Verified with `f.nopython_signatures[0].return_type` (numba 0.61, 2026-09):
+
+| expression on a C array | layout |
+|---|---|
+| `a[i, j]`, `a[i, j, :]`, `a[i, j, :k]` (integers on the leading axes) | `C` |
+| `a[:, i]`, `a[:, :, d]`, `a[:, j, d1, d2]` (slice of a **non-last** axis) | `A` |
+| `a.T` of a C array | `F` |
+| `a3 + a2` (broadcast), any array expression | `C` |
+| `np.linalg.inv(a)` | **`F`** |
+| a variable unified across branches with different layouts | `A` |
+
+The `inv` one is the trap: an F matrix has **contiguous columns and strided rows**, so
+`inv[:, i] @ v` is free while `inv[j] @ v` copies. `.reshape` on an `A` array raises at
+runtime, so a reshape in the code proves its input was contiguous.
+
+#### What it costs (this machine, dot of two length-n vectors)
+
+| n | strided `a[:, i] @ b[:, i]` | contiguous `a[i] @ b[i]` | explicit loop |
+|---|---|---|---|
+| 2 | 122 ns | 31 ns | 3.7 ns |
+| 4 | 126 ns | 33 ns | 4.5 ns |
+| 16 | 136 ns | 35 ns | 19 ns |
+| 64 | 210 ns | 38 ns | 99 ns |
+
+So the copy is ~90 ns per call, and below n ≈ 30 **BLAS itself is the wrong tool**: an
+explicit loop beats even the contiguous `@` by 8–30×. Rules of thumb:
+
+- vector dots over `neu`/`ned`-sized things inside nested loops → write the loop;
+- matrix products → keep `@`, but hoist one `np.ascontiguousarray` out of the loop
+  (or build the array with the sliced axis first) instead of paying a copy per call.
+
+#### Finding the site the warning came from
+
+Numba raises it while typing, and the typing constraint being solved is on the python
+stack with its `loc`. Patch `warnings.warn` before the (uncached!) compile:
+
+```python
+def patched(message, *args, **kwargs):
+    if 'contiguous' in str(message):
+        for frame in inspect.stack():
+            loc = getattr(frame.frame.f_locals.get('self', None), 'loc', None)
+            if loc is not None:
+                print(message, loc)   # first few frames give file:line
+    return original(message, *args, **kwargs)
+```
+
+To recompile an `overload_method` impl on demand without touching the sources:
+
+```python
+impl = module.the_overload_generator.py_func(*[None] * nargs)   # returns the closure
+nb.njit(cache=False)(impl)(struct_ref_proxy, *args)             # fresh compile, warns
+```
+
+An A/B of a fixed copy of the same impl (paste it into a scratch file, edit, `njit`)
+is then a real measurement rather than a guess.
+
+#### Warnings from branches that never run
+
+A structref field typed `nb.optional(X_t)` makes numba compile **both** sides of
+`if self.x is not None:`, so a wave function with no geminal still compiles — and warns
+about — every `@` inside geminal.py. Those warnings cost nothing at run time; check
+whether the site is even reachable before optimising it.
+
+#### Measured payoff in this project (2026-09-08, do not redo)
+
+The four warnings out of `wfn.kinetic_energy_parameters_d1` are all in `geminal.py`:
+`pool_gradient` (`pool_grad_u[:, :, d].T @ full_c`, `a @ pool_grad_d[:, :, d]`) and
+`pool_tressian_dot` (`inv[j] @ hd[:, j, d1, d2]`, `inv @ hd[:, j, d1, d2]`). Fixing all
+four on Ne (neu = ned = norb = 5, one geminal):
+
+| | original | fixed |
+|---|---|---|
+| `pool_gradient` | 10.98 µs | 10.54 µs (−4%) |
+| `pool_tressian_dot` | 175.2 µs | 167.5 µs (−4.5%) |
+
+against `geminal.gradient` 22.2 µs, `geminal.tressian_dot` 242 µs, `wfn.energy` 42 µs —
+so **≈1% of a geminal VMC/DMC step, ≈3% of a geminal+backflow emin step, 0% of any run
+without a geminal**. Worth doing as hygiene and to keep the log clean, not as a speedup.
+
 ---
 
 ## Debugging Numba errors
