@@ -18,11 +18,19 @@ def nodal_domain_sums(integrand, epsilon, zeta=0.0, sampled=0.0):
     are merely far away and the limit is approached too slowly to be of use. σ stays of order one
     out there, |Ψ| and |∇Ψ| vanishing together, and the tube holds the node alone.
 
-    The kernel is δ_ε(σ) = |σ|/ε² for |σ| < ε, whose factor |σ| cancels the |∇Ψ|/|Ψ| the change of
-    variable brings, so that with configurations distributed as Φ|Ψ| the surface integral is the
-    occupancy of the tube over ε²: bounded, and Poisson in the number of configurations it holds.
-    |∇σ| = 1 on the node itself and is not evaluated off it, which leaves an O(ε) bias — visible
-    in the scan over ε as the departure from the plateau, along with the O(ε²) of the kernel.
+    The kernel is δ_ε(σ) = 3|σ|(ε - |σ|)/ε³ for |σ| < ε, whose factor |σ| cancels the |∇Ψ|/|Ψ| the
+    change of variable brings, leaving 3(ε - |σ|)/ε³ to be summed: bounded by 3/ε², and carrying no
+    |∇lnΨ|, which is what keeps the estimator from inheriting that quantity's variance near the
+    node. |∇σ| = 1 on the node itself and is not evaluated off it, which leaves an O(ε) bias —
+    visible in the scan over ε as the departure from the plateau.
+
+    The density of σ under Φ|Ψ| vanishes linearly at the node, so what a kernel has to satisfy is
+    ∫δ_ε = 1 and nothing more; every normalized kernel returns the same leading term. The plain
+    |σ|/ε², which reduces the sum to a count of the configurations in the tube, satisfies it too
+    and was what this used. It is dropped because a count is discontinuous in the parameters of Ψ
+    and so has no gradient, while this kernel goes to zero at the tube edge and is differentiable
+    there. What it costs is 3/2 in variance, 1.22 in the error bar; what it gains beside the
+    gradient is a quarter off the O(ε) bias, whose coefficient goes 2/3 → 1/2.
 
     The weight carries the configurations from the measure the chain sampled, Φ_sampled·|Ψ|, to
     the one the estimator is written on, Φ_ζ·|Ψ|, so it is exp(-(ζ - sampled)·Σ r_iI) and is one
@@ -62,7 +70,7 @@ def nodal_domain_sums(integrand, epsilon, zeta=0.0, sampled=0.0):
     surface = np.empty(shape=(epsilon.size, 3))
     for i, eps in enumerate(epsilon):
         inside = sigma < eps
-        value = np.where(inside, weight / eps**2, 0.0)
+        value = np.where(inside, 3 * weight * (eps - sigma) / eps**3, 0.0)
         surface[i] = value.sum(), value @ value, inside.sum()
     overlap = np.array(
         [

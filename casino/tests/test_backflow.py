@@ -83,6 +83,14 @@ class TestBackflow(unittest.TestCase):
         numerical = self.wfn.energy_parameters_numerical_d1(self.r_e)
         assert analytical == pytest.approx(numerical)
 
+    def test_wfn_gradient_square_parameters_d1(self):
+        """What a nodal surface integral is differentiated through: sigma = 1/|grad ln psi| is the
+        distance to the node, so the node moves with the parameters as this does.
+        """
+        analytical = self.wfn.gradient_square_parameters_d1(self.r_e)
+        numerical = self.wfn.gradient_square_parameters_numerical_d1(self.r_e)
+        assert analytical == pytest.approx(numerical, rel=1e-4)
+
 
 if __name__ == '__main__':
     unittest.main()

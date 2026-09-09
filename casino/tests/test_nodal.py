@@ -20,7 +20,7 @@ class TestNodalDomainSums(unittest.TestCase):
     def setUp(self):
         np.random.seed(1)
         self.z = 2.0
-        nconfig = 10**6
+        nconfig = 3 * 10**6
         # Φ|Ψ| = exp(-3Zr/2)·r|cosθ| in spherical coordinates
         r = np.random.gamma(4, 2 / (3 * self.z), nconfig)
         mu = np.sqrt(np.random.random(nconfig)) * np.sign(np.random.random(nconfig) - 0.5)
@@ -40,9 +40,11 @@ class TestNodalDomainSums(unittest.TestCase):
         )
 
     def test_surface_integral(self):
-        # the tube holds a number of configurations that falls off as ε², so a sample of this size
-        # has nothing left to say below ε ≈ 0.01 bohr, and the bias shows above ε ≈ 0.05
-        epsilon = np.geomspace(0.01, 0.05, 4)
+        # the tube holds a number of configurations that falls off as ε², and the kernel weights
+        # what is left towards the node, so a sample of this size has nothing to say below
+        # ε ≈ 0.02 bohr - the tubes are nested and one fluctuation of the innermost carries the
+        # whole left edge down with it. The O(ε) bias is still under a per cent at ε = 0.08
+        epsilon = np.geomspace(0.03, 0.08, 4)
         surface, overlap = nodal_domain_sums(self.integrand, epsilon)
         assert overlap[0] == self.integrand.shape[0]
         assert overlap[1] == pytest.approx(self.integrand.shape[0])

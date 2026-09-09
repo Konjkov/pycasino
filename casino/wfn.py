@@ -558,6 +558,63 @@ def wfn_value_parameters_d1(self, r_e):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'gradient_square_parameters_d1')
+def wfn_gradient_square_parameters_d1(self, r_e):
+    """First-order derivatives of |∇lnΨ|² w.r.t the parameters. The first-order distance to the
+    node is σ = 1/|∇lnΨ|, so ∂σ/∂p is -σ³/2 times this, and that is how a nodal surface integral
+    is differentiated: the node moves with the parameters and the tube around it moves with it.
+    :param r_e: electron coordinates - array(nelec, 3)
+    :return: array over the optimizable parameters, in the order set_parameters takes them
+    """
+
+    def impl(self, r_e):
+        res = np.zeros(0)
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        if self.backflow is not None:
+            b_g, b_v = self.backflow.gradient(e_vectors, n_vectors)
+            b_v = b_v + n_vectors
+            if self.geminal is not None:
+                s_h, s_g = self.geminal.hessian(b_v)
+            else:
+                s_h, s_g = self.slater.hessian(b_v)
+            grad = s_g @ b_g
+        elif self.geminal is not None:
+            s_h, s_g = self.geminal.hessian(n_vectors)
+            grad = s_g
+        else:
+            s_h, s_g = self.slater.hessian(n_vectors)
+            grad = s_g
+        if self.jastrow is not None:
+            grad = grad + self.jastrow.gradient(e_vectors, n_vectors)
+        if self.jastrow is not None and self.opt_jastrow:
+            j_g_d1 = self.jastrow.gradient_parameters_d1(e_vectors, n_vectors)
+            res = np.concatenate((res, 2 * (j_g_d1 @ grad)))
+        if self.backflow is not None and self.opt_backflow:
+            b_g_d1, b_v_d1 = self.backflow.gradient_parameters_d1(e_vectors, n_vectors)
+            parameters = b_v_d1.shape[0]
+            # the quasi-particle coordinates move with the parameters and the jacobian moves with
+            # them, so d(s_g @ b_g)/dp has both terms. s_h is d²phi/phi, whence the log-hessian
+            s_g_d1 = b_v_d1 @ (s_h - np.outer(s_g, s_g))
+            bf_d1 = s_g_d1 @ (b_g @ grad) + b_g_d1.reshape(parameters, -1) @ np.outer(s_g, grad).ravel()
+            res = np.concatenate((res, 2 * (bf_d1 @ self.backflow.parameters_projector)))
+        if self.geminal is not None and self.opt_geminal:
+            if self.backflow is not None:
+                gem_g_d1 = self.geminal.gradient_parameters_d1(b_v) @ b_g
+            else:
+                gem_g_d1 = self.geminal.gradient_parameters_d1(n_vectors)
+            res = np.concatenate((res, 2 * (gem_g_d1 @ grad)))
+        if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
+            if self.backflow is not None:
+                det_g_d1 = self.slater.gradient_parameters_d1(b_v) @ b_g
+            else:
+                det_g_d1 = self.slater.gradient_parameters_d1(n_vectors)
+            res = np.concatenate((res, 2 * (det_g_d1 @ grad)))
+        return res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, 'kinetic_energy_parameters_d1')
 def wfn_kinetic_energy_parameters_d1(self, r_e):
     """First-order derivatives of kinetic energy w.r.t parameters.
@@ -1033,6 +1090,14 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
         if self.slater.det_coeff.size > 1 and self.opt_det_coeff:
             raise NotImplementedError
         return block_diag(res)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def gradient_square_parameters_d1(self, r_e):
+        """First-order derivatives of |∇lnΨ|² w.r.t parameters.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :return:
+        """
+        return self.gradient_square_parameters_d1(r_e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     # @nb.vectorize('float64[:](float64[:, :])', cache=True)

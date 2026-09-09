@@ -405,6 +405,29 @@ class AbstractWfn:
         return res / delta / 2 / self.value(r_e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
+    def gradient_square_parameters_numerical_d1(self, r_e, all_parameters=False):
+        """First-order derivatives of |∇lnΨ|² w.r.t parameters.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :param all_parameters: optimize all parameters or only independent
+        :return:
+        """
+        parameters = self.get_parameters(all_parameters)
+        res = np.zeros(shape=parameters.shape)
+        for i in range(parameters.size):
+            parameters[i] -= delta
+            self.set_parameters(parameters, all_parameters)
+            grad = self.drift_velocity(r_e)
+            res[i] -= grad @ grad
+            parameters[i] += 2 * delta
+            self.set_parameters(parameters, all_parameters)
+            grad = self.drift_velocity(r_e)
+            res[i] += grad @ grad
+            parameters[i] -= delta
+            self.set_parameters(parameters, all_parameters)
+
+        return res / delta / 2
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
     def energy_parameters_numerical_d1(self, r_e, all_parameters=False):
         """First-order derivatives of local energy w.r.t parameters.
         :param r_e: electron coordinates - array(nelec, 3)
