@@ -44,9 +44,12 @@ geometry of that surface and turning the measurement into something useful.
   §4.1, `Φ = Π η(r_i)` with `η = e^{-ζr}` and `V₀` obtained by inversion — Eq. (18), everything
   analytic, `Φ` fixed once per Hamiltonian. On the `c₂` scan at ζ ≥ 0.25 the descriptor's minimum is
   at C = 0.15, next to the true 0.164, the rise at C = 0.20 is there at 4.7 σ, and `r` with `ΔE_FN`
-  goes from -0.09 at ζ = 0 to +0.98. **The ninth point, C = 0.25, is broken by a different
-  mechanism** — electrons clustering rather than flying apart — which a one-particle weight cannot
-  reach. **The exact bosonic ground state is still not needed and is still a trap**: approximate it
+  goes from -0.09 at ζ = 0 to +0.98. **A chain that walks `Φ|Ψ|` itself (`vmc.zeta`, `-w`) then put
+  all nine points on one measure at ζ = 1**, with no exclusion left: minimum at C = 0.15, the rise
+  at C = 0.20 at 7.5σ, `r = +0.836` over nine and +0.955 over the eight without C = 0.20, which is
+  now the one point out of place. **It ranks and it does not measure** — 129 mHa of descriptor per
+  mHa of fixed-node error, and `E^nda` itself scatters over an au around the true energy.
+  **The exact bosonic ground state is still not needed and is still a trap**: approximate it
   and Eq. (20)'s collapse into a constant is gone. A6 in the work plan carries the numbers and what
   comes next.
 - **`casino/nodal_descriptor.py <run dir> ...`** is the tool to reach for: it measures the
@@ -902,6 +905,13 @@ per ζ. Measured on Be with four electrons: **100% at ζ = 0, 87% at 0.125, 70% 
 directly (`vmc.power`, or a walk targeting `Φ_{ζ*}|Ψ|` and reweighting in a window around ζ*) is
 what buys the larger ζ, and it was not needed for the result below.
 
+**Read the ESS as a spread and never as a distance.** It is (Σw)²/Σw² and it measures how much
+`Σ r_iI` varies, not how large it is: a density that has moved out as a whole scores *high*. The
+one wave function of the nine whose density had moved was the one with the highest ESS of all, and
+it is the one reweighting cannot reach — see C = 0.25 below. When the ESS on one run stands out
+from its neighbours in either direction, that is the signal, and only the potential split says
+which way.
+
 *Test 1 is done and came out stronger than planned.* `TestWeightedNodalDomainAverage` in
 `casino/tests/test_nodal.py` does not check `-Z²/8` at `ζ = Z` alone; it checks the ζ-independence
 of Eq. (18) on ζ = Z/4, Z/2, Z. Closed forms, derived and verified: the surface term is
@@ -924,41 +934,224 @@ Two honest limits on that. The scale is unchanged: the descriptor spans 0.4 au w
 2.4 mHa, so it ranks and does not measure; and it still overstates C = 0.20, ranking it fourth
 where DMC ranks it second.
 
-*The ninth point, C = 0.25, is not rescued, and it is a different disease.* `⟨V - V_Φ⟩` stays at
--1.55…-1.98 au against -14.8…-15.7 for everything else. The diagnostic is the effective sample
-size, and it points the other way from C = 0.20: **0.96 at ζ = 0.125 against 0.855 for the healthy
-points**, where C = 0.20 gives 0.647. A high ESS means `Σ r_iI` has a *narrow* spread — the cloud
-has not flown apart. A dense cloud with `⟨V⟩ = -1.55` can only mean the e-e term: the electrons are
-sitting on each other and `Σ 1/r_ij` is eating the nuclear attraction. `exp(-ζ Σ r_iI)` governs
-distance from the nucleus and not distance between electrons, so it cannot help there, and did
-not. Mechanism, the same one as C = 0.20 but in the opposite direction: the backflow was optimized
-against a Jastrow whose job is keeping electrons apart, and stripping the Jastrow leaves it pulling
-them together. **Excluding C = 0.25 was not pre-registered — say so.** The grounds are independent
-of the outcome (13 au on the volume term, and the inverted ESS signature, both visible before any
-comparison with `ΔE_FN`), but it is a post-hoc exclusion.
+*The ninth point, C = 0.25, is not rescued, and the reason is overlap, not a second disease.*
+`⟨V - V_Φ⟩` stays at -1.55…-1.98 au against -14.8…-15.7 for everything else. Splitting the
+potential (2026-09-09) settles what is happening:
+
+```
+              e-e        e-n         V
+C = 0.15    +2.534    -16.922    -14.388
+C = 0.20    +2.498    -17.147    -14.649
+C = 0.25    +1.338     -2.904     -1.566
+```
+
+The e-e term is *smaller* at C = 0.25, not larger. From `e-n = -Z⟨Σ 1/r_i⟩` with Z = 4 the typical
+electron-nucleus distance is 0.93 bohr on a healthy point and **5.5 bohr** there, and from the
+six pairs of the e-e term the typical e-e distance goes 2.4 → 4.5 bohr. The cloud has expanded
+about sixfold, uniformly. Same disease as C = 0.20 — a backflow left without the Jastrow it was
+optimized with — several times worse.
+
+**The ESS argument that said otherwise was wrong, and the mistake is worth keeping.** ESS =
+(Σw)²/Σw² with `w = exp(-ζ Σ r_iI)` is sensitive to the *spread* of `Σ r_iI`, not to its size. A
+cloud that has moved out as a whole has a narrow spread and therefore a **high** ESS — 0.96 at
+ζ = 0.125 against 0.855 for the healthy points. Read as "not diffuse", that is exactly backwards.
+
+So the weight is not too weak; there is nothing in the sample to reweight. Every configuration
+sits at `Σ r_iI ≈ 22`, all the weights are equally tiny, and the average barely moves — hence
+-1.55 → -1.98 across the whole ζ grid. `Φ|Ψ|` lives where this point's `|Ψ|` has almost no mass:
+an overlap failure, which no ζ fixes while the walk is over `|Ψ|`. The old numbers already showed
+it starting — at ζ = 0.5 the ESS at C = 0.25 falls to 0.200 against 0.42 for the healthy points,
+crossing over from the highest to the lowest. **Excluding C = 0.25 was not pre-registered — say
+so**, though the grounds (13 au on the volume term) are independent of the outcome.
 
 *Dead end, recorded so it is not retried.* The ζ-drift of `E^nda` — Eq. (18) is ζ-independent for
 an eigenstate and not for a trial function, so the drift measures how far `Ψ` is from one. It
 correlates at `r = 0.92` over the seven healthy points and collapses to 0.40 over eight. Worse than
 the descriptor itself. Dropped.
 
+*Direct sampling of `Φ|Ψ|`, built 2026-09-09, and the nine points measured on one measure at last.*
+`vmc` carries a `zeta` field beside `power`; the acceptance is `power·Δlog|Ψ| + ΔlogΦ` at three
+sites — `simple_random_step`, `one_electron_step` (through `proposal`, so the single-electron move
+stays O(1)) and `log_ratio_walk` — and `wfn.log_weight` / `log_weight_1e` supply `logΦ`.
+`nodal_domain_sums(integrand, epsilon, zeta, sampled)` separates the measure the average is taken
+on from the one the chain walked, the weight being `exp(-(ζ-sampled)Σr)` and one when they agree;
+**`V_Φ` goes by `zeta` alone in either case** — it belongs to the average, not to the route taken
+to it, and getting that wrong is silent. `nodal_domain_accumulation(..., direct=True)` puts the ζ
+loop outside the walk, with its own equilibration and dtvmc per ζ. `nodal_descriptor.py -w`.
+
+*Validation.* On C = 0.15, where reweighting works, the two agree: `E_kin^nda` within 0.7σ at
+ζ = 0.25 and 1.2σ at 0.7. The potentials differ by 0.10 au, nominally 2.9σ, which is the
+`⟨V⟩` error bar being optimistic on a `1/r` estimator rather than a discrepancy. Every direct row
+reports ESS equal to the full sample, which is the check that `sampled == zeta` took the right
+branch.
+
+*The threshold is sharp and it is ζ ≈ 1.* `⟨Σ r_iI⟩` of C = 0.25 goes 22.4 (ζ=0), 21.8 (0.25,
+reweighted — nothing moves), 13.6 (0.7, direct), **5.48 (1.0, direct)**, against 5.62 for C = 0.15.
+Below 1 the confining weight loses to the wave function's own spread; at 1 it wins.
+
+*The nine points, direct, ζ = 1.0, 10⁷ steps.* **The bar is met on all nine, no exclusions.**
+
+```
+  C     dE_FN     <Σr>    <V-Vφ>    e-e     E_kin^nda        E^nda
+ 0.00   2.379    5.419   -15.885   4.278   1.9213±0.0190   -13.963
+ 0.01   2.068    5.465   -15.684   4.226   1.8645±0.0183   -13.819
+ 0.02   1.781    5.551   -15.477   4.143   1.8067±0.0176   -13.670
+ 0.05   1.087    5.569   -15.518   4.120   1.7660±0.0174   -13.752
+ 0.10   0.235    5.678   -15.548   4.048   1.6391±0.0166   -13.909
+ 0.12   0.077    5.669   -15.596   4.048   1.6631±0.0167   -13.933
+ 0.15  -0.022    5.626   -15.848   4.085   1.6287±0.0165   -14.219
+ 0.20   0.065    5.191   -16.405   4.325   1.8122±0.0182   -14.593
+ 0.25   0.537    5.442   -16.528   4.304   1.7443±0.0375   -14.783
+```
+
+`⟨Σr⟩` spans 9% where it spanned a factor of 2.3 at ζ = 0, and the volume term 1.05 au where it
+spanned 13.5. Minimum at C = 0.15, the sampled point next to the true 0.164; the rise to C = 0.20
+is **7.5σ**; `r` with `ΔE_FN` over all nine is **+0.836**.
+
+*The residual failure has moved to C = 0.20.* The descriptor ranks it sixth of nine where DMC ranks
+it second; without it `r` over the other eight is **+0.955**. C = 0.25, the point that used to need
+a post-hoc exclusion, now ranks third against DMC's fourth. And the reason is the same one as
+always, one order of magnitude down: C = 0.20 has the *smallest* `⟨Σr⟩` and the *largest* e-e of
+the nine, so it is the one still furthest from the common density, and the descriptor charges it
+for that.
+
+*A defect found and closed by the same run.* The ε grid comes from a pilot walk, and the pilot ran
+over `|Ψ|` while the measurement ran over `Φ|Ψ|`. On C = 0.25 the pilot's median σ came out 0.089
+bohr against 0.184–0.195 elsewhere, so its widest tube was 2.2× narrower and held a fifth of the
+configurations. Re-reading all nine at a common ε = 1.11e-2 changes nothing — `r = 0.839`, same
+minimum, rise 3.8σ — so the conclusion is not resting on it, but the pilot now runs at the
+sampling ζ.
+
+*Unchanged, and it is the ceiling.* The descriptor spans 0.31 au over the nine where `ΔE_FN` spans
+2.4 mHa: 129 mHa of descriptor per mHa of fixed-node error, the same ratio measured at ζ = 0.25 by
+reweighting. And `E^nda` itself lands between -13.67 and -14.78 against a true `E_FN` of -14.667
+(the jastrowless function shares the node, hence the energy), with a ζ-drift of 0.1-0.3 au within
+one point. Eq. (18) is an identity for an eigenstate and this is the size of the deviation for a
+trial function. **It ranks; it does not measure**, and no amount of sampling changes that.
+
+### A6b. The optimization algorithm — specified 2026-09-09, estimator built, optimizer not
+
+Everything above measures a node. This is how it is *improved*.
+
+**The target is the backflow of a single determinant.** The question the whole programme is aimed
+at: given one Slater determinant, can its node be improved by optimizing the backflow against the
+nodal functional rather than against the energy? So `p` is the backflow parameters — `η, μ, Φ, Θ,
+Ω` — and not the Jastrow, which is optimized separately by emin and needed only at stage 3. MDET
+coefficients move the node too and the algorithm takes them, but the `c₂` scan was the calibration
+polygon, not the goal.
+
+**The test bed already exists and it is C = 0.00 of that scan.** At `c₂ = 0` there is no MDET block
+at all: a bare HF node, one determinant, with backflow and Jastrow emin-optimized, and its
+fixed-node energy is known — **2.379 ± 0.054 mHa** above the optimum of the scan. The experiment is
+one line: re-optimize that backflow on `F`, run DMC, and see whether it goes below 2.379. Same
+ansatz, same topology, same system; the only thing that differs is the functional the backflow was
+optimized against. That is the question with nothing in between.
+
+**The ceiling is known in advance and must be stated.** Backflow is a continuous transformation and
+cannot change the topology of the node — Bressanini §III C, and Pablo's argument in the t=225
+thread that a smooth `x_i = r_i + ξ_i` cannot turn a sphere inside out without `ξ_i` diverging.
+Be's HF node has four domains, the exact one two. So the optimization runs **inside the
+four-domain topology** and its limit is the best four-domain node. "Improved" here means recovering
+part of the 2.379 mHa, not reaching zero.
+
+**Stage 0.** emin the Jastrow at fixed `p`. Every evaluation of the objective then runs with
+`use_jastrow F` / `use_gjastrow F`: `J` does not move the node, `Φ = 1/J` removes it exactly, and
+"weight by `1/J`" and "do not switch `J` on" are the same operation.
+
+**Stage 1, fix the constants once.**
+
+- `ζ`: run 10⁶ steps of direct sampling at ζ ∈ {0.25, 0.5, 1, 1.4, 2} on two or three deliberately
+  different `p`, and take **the smallest ζ at which `⟨Σ r_iI⟩` agrees between them to a few
+  percent**. That is the condition that the measure stops following the density as `p` moves. On Be
+  it is ζ = 1.0, and the threshold is sharp — 2.3× spread at ζ = 0, 9% at ζ = 1. Larger ζ is worse,
+  not better: both terms grow while their sum does not, so the cancellation sharpens.
+- `ε`: one value from the plateau of the ε scan at that ζ, **frozen for the whole optimization**.
+  Re-deriving it from a pilot at each `p` redefines `F` as `p` moves; the C = 0.25 mismatch, a
+  factor 2.2 in ε, cost a factor 5 in tube occupancy.
+
+**Stage 2, minimize `F(p) = E_kin^nda`.** Not `E^nda`: with the volume term added the function
+falls monotonically to the edge of the c₂ range and has no interior minimum at all, because the
+volume term is amplitude.
+
+*The kernel must change first.* As built, `δ_ε(σ) = |σ|/ε²` cancels against `|∇Ψ|/|Ψ|` and leaves a
+plain **count** of configurations — bounded, Poisson, and discontinuous in `p`, so no gradient
+exists. Replace it by
+
+```
+δ_ε(σ) = 3|σ|(ε - |σ|)/ε³        ⟹  after the cancellation:  3(ε - |σ|)/ε³
+```
+
+which normalizes, keeps the cancellation, stays bounded (`3/ε²` at σ = 0) and **vanishes at the
+tube edge**, so `F` becomes continuous and differentiable in `p`. One line in `nodal_domain_sums`.
+Then
+
+```
+dF/dp = ⟨ δ'_ε(σ)·∂σ/∂p ⟩ + cov[ δ_ε(σ), ∂ln|Ψ|/∂p ]
+```
+
+the first term through `σ = 1/|∇lnΨ|` from `gradient_parameters_d1`, the second the ordinary score
+term from `value_parameters_d1`; both exist. `Φ` carries no `p` and drops out of the score.
+Derivative-free (Powell) would do for a handful of MDET coefficients, but backflow has tens to
+hundreds of parameters, so **for the actual target the gradient is not optional and the kernel
+change is the first thing to build** — without it there is no algorithm, only an estimator.
+
+*A failure mode specific to optimizing the backflow, which did not exist for `c_k`.* `F` is
+measured on the jastrowless object while the optimizer is free to deform the backflow. What that
+produces has already been measured on this very scan: C = 0.20 and C = 0.25 blew up precisely
+because their backflow was optimized *with* a Jastrow and evaluated *without* one, the density
+expanding by a factor of 2.3 in the worst case. There it happened by accident; here the optimizer
+will look for such deformations on purpose, because they lower `F`. The fixed weight `Φ` is what
+holds it back and mostly does — but C = 0.20, the point with the smallest `⟨Σ r_iI⟩` of the nine,
+is still the one the descriptor misplaces.
+
+So carry `⟨Σ r_iI⟩` as a **constraint and not as a diagnostic**: it is already printed, and a step
+that moves it by more than a few percent is rejected. Keep the backflow cutoffs fixed and optimize
+the linear parameters only.
+
+Sample size from the measured conversion, **129 mHa of `F` per mHa of `E_FN`**: 10⁷ steps give
+0.017 au on `F`, i.e. 0.13 mHa of fixed-node energy.
+
+**Stage 3, a DMC line search, and it is not optional.** Take `p(t) = p₀ + t(p* - p₀)`, three or
+four `t` near 1, each with its Jastrow re-optimized and DMC on a `dt·N_w = const` ladder. On the
+test bed the answer is read straight off it: below 2.379 mHa and the backflow of a single
+determinant has been improved by the nodal functional; at or above it, and emin was already doing
+as well as this can. The
+reason is structural, not statistical: `⟨H⟩` is a Rayleigh quotient and errs at second order, while
+Eq. (18) is an identity only at `Ψ_FN` and errs at **first** order in either direction
+(Eqs. 24-25), so its stationary point is displaced. Measured: the minimum of `F` lies between
+c₂ = 0.10 and 0.15 against the true 0.1639 ± 0.0013, worth 0.01-0.27 mHa out of 2.4. What the first
+two stages buy is that a many-parameter node search becomes one-dimensional.
+
+**Why not just emin.** `⟨H⟩ = ∫Ψ²E_L/∫Ψ²` weights the node quadratically to zero — the set that
+defines the node contributes almost nothing to the objective — and `⟨H⟩` and `E_FN` are different
+functionals, so a better variational energy can come with a worse node. `F` integrates over the
+node and over nothing else. Sampling `|Ψ|` rather than `Ψ²` is what makes the tube visible at all:
+`|Ψ| ~ σ` against `Ψ² ~ σ²`, so its share of the sample goes as ε² instead of ε³.
+
+*Not yet measured, and it is the missing calibration:* `E_VMC(c₂)` with each point's own Jastrow
+and backflow is literally the curve emin would descend if c₂ were free, so the distance from its
+minimum to 0.164 is how far energy minimization misses the node optimum, in mHa. The archive
+cannot give it — 1024-step VMC phases, 4-7 mHa against a 2.4 mHa curve. Nine VMC runs at 10⁷.
+
 *Next, in order.*
 
-1. **Split `wfn.coulomb` into its e-e and e-n parts.** It tests the C = 0.25 clustering diagnosis
-   directly instead of through the ESS, and it fills the `e-e interaction` and `e-n interaction`
-   lines that `vmc_energy_accumulation` currently prints empty in CASINO's block layout.
-2. **A weight with an e-e factor**, `Φ = exp(-ζ Σ r_iI + J_B)`, if clustering is confirmed. This is
-   *not* the `Φ⁰_B` trap: Eq. (18) is exact for any nodeless Φ whose `V_Φ` is obtained by inversion,
-   and for a Jastrow-shaped Φ that inversion is analytic — the Jastrow's laplacian is already in
-   the code. Nothing here needs Φ to be the bosonic ground state, which is the whole difference.
-3. **The Jastrow null test, with the question corrected.** Not run yet. With a fixed `Φ` the
+1. ~~Split `wfn.coulomb` into e-e and e-n.~~ **Done 2026-09-09.** `wfn.coulomb_parts` returns the
+   pair, `coulomb` is their sum plus the nuclear repulsion, the integrand carries both. The
+   `e-e interaction` and `e-n interaction` lines of the *VMC* block are still empty — that needs
+   `vmc_energy_accumulation` to carry a multi-component observable, which this did not do.
+2. ~~A weight with an e-e factor.~~ **Cancelled**: the e-e term at C = 0.25 is smaller than on the
+   healthy points, so there is no e-e pathology to cure.
+3. ~~Direct sampling of `Φ|Ψ|`.~~ **Done, and it delivered the result above.**
+4. **C = 0.20.** The one point out of place, and the only lead left on the residual density
+   sensitivity. Its `⟨Σr⟩` is 5.19 against 5.42-5.68; a larger ζ tightens every density but not
+   obviously the spread (at ζ = 1.4 the three-point subset sat at 4.85/4.56/4.48, at 2.0 at
+   4.03/3.86/3.77). Worth one nine-point run at ζ = 1.4 to see whether its rank moves.
+5. **The Jastrow null test, with the question corrected.** Still not run. With a fixed `Φ` the
    quantity is an *estimate of the energy*, not a node invariant, so demanding Jastrow-invariance
-   (the A5 test) is the wrong demand. What must hold instead: `E^nda` approaches `⟨H⟩` as `Ψ`
-   improves, and the gap `E^nda - ⟨H⟩` shrinks. If it does not, Eq. (18) is not being computed
-   correctly.
-4. **Direct sampling of `Φ|Ψ|`** — only when ζ > 0.5 is wanted, and the ESS table above says when
-   that is.
-5. **The true `Φ_B`** — still only if everything above holds, and knowing what the section on it
+   (the A5 test) is the wrong demand. What must hold: `E^nda` approaches `⟨H⟩` as `Ψ` improves.
+   The nine-point table above is the first evidence on it and it is not encouraging — `E^nda`
+   scatters over an au around the right answer.
+6. **The true `Φ_B`** — still only if everything above holds, and knowing what the section on it
    says.
 
 **On gaussians.** `gwfn` runs work and the cusp correction is supported (`cusp_correction`

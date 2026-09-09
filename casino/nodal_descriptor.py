@@ -44,13 +44,21 @@ come from.
 
 Usage, from anywhere:
 
-    nodal_descriptor.py [-n <steps>] [-d <period>] [-b] [-z <ζ,ζ,...>] <run dir> [<run dir> ...]
+    nodal_descriptor.py [-n <steps>] [-d <period>] [-b] [-z <ζ,ζ,...>] [-w] <run dir> [<run dir> ...]
     mpiexec nodal_descriptor.py -n 100000000 -d 10 <run dir> [<run dir> ...]
 
 -z is the grid of exponents of the one-particle weight Φ = Π exp(-ζ r_iI), taken from one walk
 because the weight is applied to the sample rather than sampled from. Eq. (18) is exact for every
 ζ, so what a scan over it shows is variance and not bias, and what it costs is the effective
 sample size the run reports next to every ζ. ζ = 0 is the constant weight and the default.
+
+-w walks Φ|Ψ| itself instead, one walk per ζ, and so costs the grid. Take it when reweighting has
+nothing to work with rather than merely too little: a wave function whose density has moved away
+from where Φ|Ψ| lives gives uniformly tiny weights, a deceptively high effective sample size and
+an average taken over the wrong region. On the Be c_2 scan that is the C = 0.25 point, sitting at
+<Σ r_iI> = 22.4 bohr against 9.8 on the other eight, which no ζ reached by reweighting. Under -w
+the pilot that fixes the epsilon grid runs at the first ζ of the grid, so the grid follows the
+measure; without it that point's tube came out 2.2 times narrower than everyone else's.
 
 A run dir is an ordinary CASINO one: input, gwfn.data or stowfn.data, and correlation.data or
 parameters.casl if the wave function has them. A jastrowless copy of the input is written to
@@ -124,18 +132,25 @@ def jastrowless(path, nstep, decorr, no_backflow):
     return out
 
 
-def descriptor(path, nstep, decorr, no_backflow, zeta):
+def descriptor(path, nstep, decorr, no_backflow, zeta, direct):
     """E_kin^nda of the determinant part over a grid of tube thicknesses
     :param path: a CASINO run directory
     :param nstep: vmc_nstep to run at, the input's own if None
     :param decorr: vmc_decorr_period to run at, the input's own if None
     :param no_backflow: measure the bare determinant, dropping the backflow with the Jastrow
     :param zeta: exponents of the one-particle weight, in inverse bohr
+    :param direct: walk Phi|psi| itself, one walk per zeta, instead of reweighting one walk of |psi|
     :return: epsilon, the configurations inside the tube, E_kin^nda and its standard error of every
         row of every table, on the root process and None elsewhere - array(zeta.size, 9, 4)
     """
     casino = Casino(jastrowless(path, nstep, decorr, no_backflow))
     casino.vmc.power = 1.0
+    # the grid has to be read off the measure the run will use, not off |psi|. Measured on the Be
+    # c_2 scan: at zeta 1 the pilot of the C = 0.25 point gave a median sigma of 0.089 bohr under
+    # |psi| against 0.184-0.195 for the other eight, so its widest tube came out 2.2 times narrower
+    # and held a fifth of the configurations. Under -w with a grid of zeta the first one sets it
+    if direct:
+        casino.vmc.zeta = zeta[0]
     casino.equilibrate(casino.config.input.vmc_equil_nstep)
     if casino.config.input.opt_dtvmc == 1:
         casino.optimize_vmc_step(3000)
@@ -145,7 +160,7 @@ def descriptor(path, nstep, decorr, no_backflow, zeta):
     logger.info(
         f' Median sigma = 1/|grad ln psi| : {scale:.5e} bohr\n'
     )  # fmt: skip
-    return casino.nodal_domain_accumulation(np.geomspace(scale / 100, scale / 8, 9), zeta)
+    return casino.nodal_domain_accumulation(np.geomspace(scale / 100, scale / 8, 9), zeta, direct)
 
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
@@ -154,11 +169,12 @@ parser.add_argument('-n', '--nstep', type=int, help='vmc_nstep to run at, overri
 parser.add_argument('-d', '--decorr', type=int, help='vmc_decorr_period to run at, overriding every input')
 parser.add_argument('-b', '--no-backflow', action='store_true', help='drop the backflow too, leaving the bare determinant')
 parser.add_argument('-z', '--zeta', type=str, default='0', help='comma separated exponents of the one-particle weight, 0 for a constant one')
+parser.add_argument('-w', '--direct', action='store_true', help='walk Phi|psi| itself, one walk per zeta')
 args = parser.parse_args()
 
 configure_logging()
 zeta = np.array([float(z) for z in args.zeta.split(',')])
-table = {path: descriptor(path, args.nstep, args.decorr, args.no_backflow, zeta) for path in args.path}
+table = {path: descriptor(path, args.nstep, args.decorr, args.no_backflow, zeta, args.direct) for path in args.path}
 if mpi_comm.rank == 0:
     for i, z in enumerate(zeta):
         logger.info(

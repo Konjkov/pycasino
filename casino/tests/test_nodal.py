@@ -30,6 +30,11 @@ class TestNodalDomainSums(unittest.TestCase):
                 -self.z * r / 2 + np.log(np.abs(z_e)),
                 self.z**2 / 4 - self.z / r + 1 / z_e**2,
                 -self.z / r,
+                r,
+                1 / r,
+                np.ones(shape=nconfig),
+                np.zeros(shape=nconfig),
+                -self.z / r,
             ),
             axis=-1,
         )
@@ -92,6 +97,8 @@ class TestWeightedNodalDomainAverage(unittest.TestCase):
                 r,
                 1 / r,
                 np.ones(shape=self.nconfig),
+                np.zeros(shape=self.nconfig),
+                -self.z / r,
             ),
             axis=-1,
         )

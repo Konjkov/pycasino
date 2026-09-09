@@ -43,8 +43,11 @@ def vmc_simple_random_step(self):
         ne = self.wfn.neu + self.wfn.ned
         next_r_e = self.r_e + np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape((ne, 3))
         next_log_value = self.wfn.log_value(next_r_e)[0]
+        log_ratio = self.power * (next_log_value - self.log_value)
+        if self.zeta:
+            log_ratio += self.wfn.log_weight(next_r_e, self.zeta) - self.wfn.log_weight(self.r_e, self.zeta)
         self.moves += 1
-        if self.power * (next_log_value - self.log_value) > np.log(np.random.random()):
+        if log_ratio > np.log(np.random.random()):
             cond, self.r_e, self.log_value = True, next_r_e, next_log_value
             self.accepted += 1
         return cond
@@ -109,6 +112,8 @@ def vmc_one_electron_step(self, e):
             next_step_size = self.step_size * self.step_profile(next_r_e, e)
             d2 = ((next_r_e[e] - self.r_e[e]) ** 2).sum()
             proposal = 1.5 * np.log(step_size / next_step_size) + d2 / 2 * (1 / step_size - 1 / next_step_size)
+        if self.zeta:
+            proposal += self.wfn.log_weight_1e(next_r_e[e], self.zeta) - self.wfn.log_weight_1e(self.r_e[e], self.zeta)
         # backflow spreads a single-electron move over the quasi-particle coordinates of every
         # electron within its cutoff, and a geminal is not a slater determinant, so neither of
         # them leaves one column to update: both recompute the whole configuration instead
@@ -223,6 +228,8 @@ def vmc_log_ratio_walk(self, steps):
                 next_r_e = self.r_e + np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape((ne, 3))
                 next_log_value = self.wfn.log_value(next_r_e)[0]
                 log_ratio[i] = self.power * (next_log_value - self.log_value)
+                if self.zeta:
+                    log_ratio[i] += self.wfn.log_weight(next_r_e, self.zeta) - self.wfn.log_weight(self.r_e, self.zeta)
                 self.moves += 1
                 if log_ratio[i] > np.log(np.random.random()):
                     self.r_e, self.log_value = next_r_e, next_log_value
@@ -266,6 +273,7 @@ def vmc_type(wfn_t):
             ('wfn', wfn_t),
             ('method', nb.int64),
             ('power', nb.float64),
+            ('zeta', nb.float64),
             ('log_value', nb.float64),
             ('state', SlaterState_t),
             ('n_powers', nb.float64[:, :, ::1]),
@@ -298,6 +306,7 @@ class VMC(structref.StructRefProxy):
             self.wfn = wfn
             self.method = method
             self.power = 2.0
+            self.zeta = 0.0
             self.log_value = wfn.log_value(r_e)[0]
             self.state, self.n_powers = wfn.caches(r_e)
             self.moves = 0
@@ -349,6 +358,21 @@ class VMC(structref.StructRefProxy):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def power(self, value):
         self.power = value
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def zeta(self) -> float:
+        """Exponent of the one-particle weight the walk carries beside |psi|, so that the chain
+        samples Phi*|psi| rather than reaching it by reweighting afterwards. Zero is a walk of
+        |psi| alone. It is needed where reweighting cannot go: a wave function whose density has
+        moved has no sample where Phi*|psi| lives, and no weight applied after the fact reaches it.
+        """
+        return self.zeta
+
+    @zeta.setter
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def zeta(self, value):
+        self.zeta = value
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)

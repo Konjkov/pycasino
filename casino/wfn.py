@@ -51,29 +51,81 @@ def wfn__get_nuclear_repulsion(self):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-@overload_method(Wfn_class_t, 'coulomb')
-def wfn_coulomb(self, r_e):
-    """Value of e-e, e-n and n-n coulomb interaction."""
+@overload_method(Wfn_class_t, 'coulomb_parts')
+def wfn_coulomb_parts(self, r_e):
+    """e-e and e-n parts of the coulomb interaction, the local channel of a pseudopotential
+    counted with the second of them.
+    :param r_e: electron coordinates - array(nelec, 3)
+    :return: e-e and e-n interaction
+    """
 
-    def impl(self, r_e) -> float:
-        res = 0.0
+    def impl(self, r_e) -> tuple[float, float]:
+        electron = nucleus = 0.0
         e_vectors, n_vectors = self._relative_coordinates(r_e)
-        # e-e coulomb interaction
         for e1 in range(e_vectors.shape[0] - 1):
             for e2 in range(e1 + 1, e_vectors.shape[1]):
-                res += 1 / np.linalg.norm(e_vectors[e1, e2])
-        # e-n coulomb interaction
+                electron += 1 / np.linalg.norm(e_vectors[e1, e2])
         for atom in range(n_vectors.shape[0]):
             for e1 in range(n_vectors.shape[1]):
-                res -= self.atom_charges[atom] / np.linalg.norm(n_vectors[atom, e1])
-        # local channel pseudopotential
+                nucleus -= self.atom_charges[atom] / np.linalg.norm(n_vectors[atom, e1])
         if self.ppotential is not None:
             potential = self.ppotential.get_ppotential(n_vectors)
             for atom in range(n_vectors.shape[0]):
                 if self.ppotential.is_pseudoatom[atom]:
                     for e1 in range(self.neu + self.ned):
-                        res += potential[atom][e1, 2]
-        return res + self.nuclear_repulsion
+                        nucleus += potential[atom][e1, 2]
+        return electron, nucleus
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'log_weight')
+def wfn_log_weight(self, r_e, zeta):
+    """Logarithm of the one-particle weight Φ = Π_i Π_I exp(-ζ r_iI) of a weighted nodal domain
+    average. It belongs to the Hamiltonian rather than to the wave function, so nothing of Ψ
+    enters it, and a chain sampling Φ|Ψ| carries it beside log|Ψ|.
+    :param r_e: electron coordinates - array(nelec, 3)
+    :param zeta: exponent, in inverse bohr
+    :return: log(Φ)
+    """
+
+    def impl(self, r_e, zeta) -> float:
+        res = 0.0
+        for e1 in range(r_e.shape[0]):
+            for atom in range(self.atom_positions.shape[0]):
+                res -= np.linalg.norm(r_e[e1] - self.atom_positions[atom])
+        return zeta * res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'log_weight_1e')
+def wfn_log_weight_1e(self, r_e_1e, zeta):
+    """The share of one electron in log(Φ), which is all a single-electron move changes.
+    :param r_e_1e: coordinates of that electron - array(3)
+    :param zeta: exponent, in inverse bohr
+    :return: its term of log(Φ)
+    """
+
+    def impl(self, r_e_1e, zeta) -> float:
+        res = 0.0
+        for atom in range(self.atom_positions.shape[0]):
+            res -= np.linalg.norm(r_e_1e - self.atom_positions[atom])
+        return zeta * res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'coulomb')
+def wfn_coulomb(self, r_e):
+    """Value of e-e, e-n and n-n coulomb interaction."""
+
+    def impl(self, r_e) -> float:
+        electron, nucleus = self.coulomb_parts(r_e)
+        return electron + nucleus + self.nuclear_repulsion
 
     return impl
 
@@ -440,13 +492,19 @@ def wfn_nodal_surface_integrand(self, r_e):
     from a single walk. With η = exp(-ζ Σ_I r_I) and e_Φ = 0, inverting the one-particle equation
     gives V_Φ = (∆Φ/2)/Φ = ζ²/2 Σ_i |Σ_I r̂_iI|² - ζ Σ_i Σ_I 1/r_iI, whose first sum is the number of
     electrons for one nucleus and is not for several.
+
+    The potential comes with its two parts beside it, which is what tells a wave function whose
+    electrons have flown apart from one whose electrons have collapsed onto each other: both show
+    the same rise in V and only the split says which.
     :param r_e: electron coordinates - array(nelec, 3)
-    :return: log|Ψ|, |∇Ψ/Ψ|², the potential, Σ r_iI, Σ 1/r_iI and Σ_i |Σ_I r̂_iI|² - array(6)
+    :return: log|Ψ|, |∇Ψ/Ψ|², the potential, Σ r_iI, Σ 1/r_iI, Σ_i |Σ_I r̂_iI|², and the e-e and
+        e-n parts of the potential - array(8)
     """
 
     def impl(self, r_e) -> np.ndarray:
         log_value, _ = self.log_value(r_e)
         grad = self.drift_velocity(r_e)
+        electron, nucleus = self.coulomb_parts(r_e)
         n_vectors = self._relative_coordinates(r_e)[1]
         distance = direction = 0.0
         inverse = 0.0
@@ -458,7 +516,8 @@ def wfn_nodal_surface_integrand(self, r_e):
                 inverse += 1 / r
                 unit += n_vectors[atom, e1] / r
             direction += unit @ unit
-        return np.array([log_value, grad @ grad, self.coulomb(r_e), distance, inverse, direction])
+        potential = electron + nucleus + self.nuclear_repulsion
+        return np.array([log_value, grad @ grad, potential, distance, inverse, direction, electron, nucleus])
 
     return impl
 
@@ -898,7 +957,8 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
     def nodal_surface_integrand(self, r_e):
         """Everything a weighted nodal domain average needs of one configuration.
         :param r_e: electron coordinates - array(nelec, 3)
-        :return: log|Ψ|, |∇Ψ/Ψ|², the potential, Σ r_iI, Σ 1/r_iI and Σ_i |Σ_I r̂_iI|² - array(6)
+        :return: log|Ψ|, |∇Ψ/Ψ|², the potential, Σ r_iI, Σ 1/r_iI, Σ_i |Σ_I r̂_iI|², and the e-e
+            and e-n parts of the potential - array(8)
         """
         return self.nodal_surface_integrand(r_e)
 

@@ -1656,7 +1656,7 @@ class Casino:
         mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
 
-    def nodal_domain_accumulation(self, epsilon=None, zeta=None):
+    def nodal_domain_accumulation(self, epsilon=None, zeta=None, direct=False):
         """Weighted nodal domain averages (Mitas & Annaberdiyev, arXiv:2109.01734). With the
         one-particle weight Φ = Π exp(-ζ r_iI) and the potential it is the ground state of taken
         out of the volume term, Eq. (18) is
@@ -1685,6 +1685,8 @@ class Casino:
         :param epsilon: half-thicknesses of the tube around the node, in bohr
         :param zeta: exponents of the one-particle weight, in inverse bohr, the constant weight if
             None
+        :param direct: walk Φ|Ψ| itself, one walk per ζ, instead of reweighting a single walk of
+            |Ψ| into the whole grid
         :return: epsilon, the configurations inside the tube, E_kin^nda and its standard error of
             every row of every table, on the root process and None elsewhere -
             array(zeta.size, epsilon.size, 4)
@@ -1699,26 +1701,33 @@ class Casino:
             ' ==============================\n'
         )  # fmt: skip
         self.vmc.power = 1.0
-        self.equilibrate(self.config.input.vmc_equil_nstep)
-        if self.config.input.opt_dtvmc == 1:
-            self.optimize_vmc_step(3000)
-        logger.info(
-            f' DTVMC: {self.vmc.step_size:.5e}\n'
-        )  # fmt: skip
-
         steps = self.config.input.vmc_nstep // mpi_comm.size
         electrons = self.config.input.neu + self.config.input.ned
         chunk_steps = min(steps, max(1, 10**7 // (3 * 8 * electrons)))
         surface = np.zeros(shape=(zeta.size, epsilon.size, 3))
-        overlap = np.zeros(shape=(zeta.size, 5))
+        overlap = np.zeros(shape=(zeta.size, 8))
         start_time = default_timer()
-        for start in range(0, steps, chunk_steps):
-            position = self.vmc.random_walk(min(chunk_steps, steps - start), self.decorr_period)
-            integrand = self.vmc.observable(self.wfn.nodal_surface_integrand, position)
-            for i, z in enumerate(zeta):
-                chunk_surface, chunk_overlap = nodal_domain_sums(integrand, epsilon, z)
-                surface[i] += chunk_surface
-                overlap[i] += chunk_overlap
+        # one walk of |Ψ| serving the whole grid by reweighting, or a walk of Φ|Ψ| per ζ. The
+        # second costs the grid but is the only one that reaches a wave function whose density
+        # sits away from where Φ|Ψ| has its mass, which no weight applied afterwards can find
+        for sampled in zeta if direct else np.zeros(shape=1):
+            self.vmc.zeta = sampled
+            self.equilibrate(self.config.input.vmc_equil_nstep)
+            if self.config.input.opt_dtvmc == 1:
+                self.optimize_vmc_step(3000)
+            logger.info(
+                f' zeta of the walk: {sampled:.5e}   DTVMC: {self.vmc.step_size:.5e}\n'
+            )  # fmt: skip
+            for start in range(0, steps, chunk_steps):
+                position = self.vmc.random_walk(min(chunk_steps, steps - start), self.decorr_period)
+                integrand = self.vmc.observable(self.wfn.nodal_surface_integrand, position)
+                for i, z in enumerate(zeta):
+                    if direct and z != sampled:
+                        continue
+                    chunk_surface, chunk_overlap = nodal_domain_sums(integrand, epsilon, z, sampled)
+                    surface[i] += chunk_surface
+                    overlap[i] += chunk_overlap
+        self.vmc.zeta = 0.0
         self.vmc.power = 2.0
         surface = mpi_comm.reduce(surface)
         overlap = mpi_comm.reduce(overlap)
@@ -1744,7 +1753,10 @@ class Casino:
                     f'  zeta                          (au^-1) =       {z:18.12f}\n'
                     f'  Effective sample size                   = {effective:.0f}\n'
                     f'  Potential component                (au) =       {potential:18.12f}\n'
-                    f'  Standard error                        +/-       {potential_sem:18.12f}\n\n'
+                    f'  Standard error                        +/-       {potential_sem:18.12f}\n'
+                    f'  e-e interaction                    (au) =       {overlap[i, 5] / norm:18.12f}\n'
+                    f'  e-n interaction                    (au) =       {overlap[i, 6] / norm:18.12f}\n'
+                    f'  Sum of e-n distances             (bohr) =       {overlap[i, 7] / norm:18.12f}\n\n'
                     f'  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)\n'
                 )
                 for j, eps in enumerate(epsilon):

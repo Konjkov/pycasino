@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def nodal_domain_sums(integrand, epsilon, zeta=0.0):
+def nodal_domain_sums(integrand, epsilon, zeta=0.0, sampled=0.0):
     """Sums that the weighted nodal domain averages of Mitas & Annaberdiyev (arXiv:2109.01734)
     are made of, for every tube half-thickness at once.
 
@@ -24,32 +24,56 @@ def nodal_domain_sums(integrand, epsilon, zeta=0.0):
     |∇σ| = 1 on the node itself and is not evaluated off it, which leaves an O(ε) bias — visible
     in the scan over ε as the departure from the plateau, along with the O(ε²) of the kernel.
 
-    The configurations are the walk's own, distributed as |Ψ|, and the weight Φ = exp(-ζ Σ r_iI)
-    carries them to the measure Φ|Ψ| the estimator is written on. Reweighting is safe in this
-    direction and only in this one: Φ ≤ 1, so the weights are bounded above and no configuration
-    can dominate the sums. What it can cost is the effective sample size (Σw)²/Σw², which is
-    returned along with them. ζ = 0 is the constant weight, for which Φ = 1 and V_Φ = 0.
+    The weight carries the configurations from the measure the chain sampled, Φ_sampled·|Ψ|, to
+    the one the estimator is written on, Φ_ζ·|Ψ|, so it is exp(-(ζ - sampled)·Σ r_iI) and is one
+    when the chain already walked the measure being estimated. ζ = 0 is the constant weight, for
+    which Φ = 1 and V_Φ = 0.
 
-    :param integrand: log|Ψ|, |∇Ψ/Ψ|², V, Σ r_iI, Σ 1/r_iI and Σ_i |Σ_I r̂_iI|² of every
-        configuration - array(nconfig, 6), of which only the first three are read at ζ = 0
+    Reweighting from below, sampled < ζ, is safe in that the weights are bounded above and no
+    configuration can dominate the sums, and what it costs is the effective sample size (Σw)²/Σw²,
+    returned along with them. What it cannot do is invent a sample: if Φ_ζ|Ψ| is large where the
+    chain never went, no weight recovers it, the ESS stays high because the weights are uniformly
+    tiny, and the answer comes out of the wrong region entirely. That is what a walk carrying its
+    own ζ is for.
+
+    :param integrand: log|Ψ|, |∇Ψ/Ψ|², V, Σ r_iI, Σ 1/r_iI, Σ_i |Σ_I r̂_iI|² and the e-e and e-n
+        parts of V, of every configuration - array(nconfig, 8)
     :param epsilon: tube half-thicknesses, in bohr
-    :param zeta: exponent of the one-particle weight, in inverse bohr
+    :param zeta: exponent of the one-particle weight the average is taken with, in inverse bohr
+    :param sampled: exponent the chain itself walked, equal to zeta for a walk of Φ|Ψ| and zero
+        for a walk of |Ψ|
     :return: array(epsilon.size, 3) of the surface sum, its sum of squares and the number of
-        configurations inside the tube, and array(5) of the number of configurations, the overlap
-        sum, the sums of V - V_Φ and (V - V_Φ)² over it and the sum of the squared weights
+        configurations inside the tube, and array(8) of the number of configurations, the overlap
+        sum, the sums of V - V_Φ and (V - V_Φ)² over it, the sum of the squared weights, the sums
+        of the e-e and e-n parts and the sum of Σ r_iI, which is the scale ζ is read against
     """
     sigma = 1 / np.sqrt(integrand[:, 1])
-    if zeta:
-        # exp(-ζ Σ r_iI) against the walk's own |Ψ|, up to the normalization the ratios divide out
-        weight = np.exp(-zeta * integrand[:, 3])
-        potential = integrand[:, 2] - (zeta**2 * integrand[:, 5] / 2 - zeta * integrand[:, 4])
+    if zeta != sampled:
+        # up to the normalization of Φ, which every ratio taken here divides out
+        weight = np.exp(-(zeta - sampled) * integrand[:, 3])
     else:
         weight = np.ones(shape=sigma.shape)
+    # V_Φ belongs to the average being taken and not to the measure it was reached from, so it
+    # goes by zeta alone, whether the chain walked Φ|Ψ| or the weight brought it there
+    if zeta:
+        potential = integrand[:, 2] - (zeta**2 * integrand[:, 5] / 2 - zeta * integrand[:, 4])
+    else:
         potential = integrand[:, 2]
     surface = np.empty(shape=(epsilon.size, 3))
     for i, eps in enumerate(epsilon):
         inside = sigma < eps
         value = np.where(inside, weight / eps**2, 0.0)
         surface[i] = value.sum(), value @ value, inside.sum()
-    overlap = np.array([sigma.size, weight.sum(), weight @ potential, weight @ (potential * potential), weight @ weight])
+    overlap = np.array(
+        [
+            sigma.size,
+            weight.sum(),
+            weight @ potential,
+            weight @ (potential * potential),
+            weight @ weight,
+            weight @ integrand[:, 6],
+            weight @ integrand[:, 7],
+            weight @ integrand[:, 3],
+        ]
+    )
     return surface, overlap
