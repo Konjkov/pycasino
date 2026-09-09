@@ -1,21 +1,9 @@
-import os
 import re
 
 import numpy as np
 
-geminal_template = """\
-GEMINAL:
-  Default g optimizability: fixed
-  Default c optimizability: fixed
-{geminals}"""
+from casino.readers import casl
 
-geminal_block_template = """\
-  Geminal {n}:
-    Parameters:
-{parameters}
-"""
-
-parameter_re = re.compile(r'^([cgu][_\d,]*)\s*:\s*\[\s*([^,\]]+?)\s*(?:,\s*([a-z]+)\s*)?\]')
 constraint_re = re.compile(r'^(\d+)\^([cgu])(?:_(\d+),(\d+))?$')
 
 
@@ -59,52 +47,19 @@ class Geminal:
         self.u_ties = np.zeros(shape=(0, 6), dtype=int)
 
     def read(self, base_path):
-        file_path = os.path.join(base_path, 'parameters.casl')
-        if not os.path.isfile(file_path):
+        tree = casl.read(base_path)
+        block = tree and tree.item('GEMINAL')
+        if not block:
             return
-        with open(file_path, 'r') as f:
-            lines = f.readlines()
-        # locate the GEMINAL top-level block
-        start = None
-        for i, line in enumerate(lines):
-            if line.rstrip() == 'GEMINAL:':
-                start = i + 1
-                break
-        if start is None:
-            return
+        g_default = block.item('Default g optimizability') == 'optimizable'
+        c_default = block.item('Default c optimizability') == 'optimizable'
         geminals = []
         constraints = []
-        g_default = c_default = False
-        current = None
-        for line in lines[start:]:
-            if line and not line[0].isspace():
-                break
-            stripped = line.strip()
-            if stripped.startswith('Default g optimizability'):
-                g_default = stripped.split(':')[-1].strip() == 'optimizable'
-            elif stripped.startswith('Default c optimizability'):
-                c_default = stripped.split(':')[-1].strip() == 'optimizable'
-            elif stripped.startswith('Geminal '):
-                current = {'c': (1.0, None), 'g': {}, 'u': {}}
-                geminals.append(current)
-            elif stripped.startswith('Constraints'):
-                current = None
-            elif current is None:
-                if '=' in stripped:
-                    constraints.append(stripped)
-            else:
-                match = parameter_re.match(stripped)
-                if match is None:
-                    continue
-                key, value, flag = match.group(1), float(match.group(2)), match.group(3)
-                if key == 'c':
-                    current['c'] = (value, flag)
-                elif key.startswith('g_'):
-                    row, col = (int(x) - 1 for x in key[2:].split(','))
-                    current['g'][min(row, col), max(row, col)] = (value, flag)
-                elif key.startswith('u_'):
-                    row, col = (int(x) - 1 for x in key[2:].split(','))
-                    current['u'][row, col] = (value, flag)
+        for name, item in block.items():
+            if casl.unique(name).startswith('geminal'):
+                geminals.append(self.parameters(item.item('Parameters')))
+            elif casl.unique(name) == 'constraints':
+                constraints = item.implicit()
         if not geminals:
             return
         groups = [self.parse_constraint(line) for line in constraints]
@@ -141,6 +96,25 @@ class Geminal:
                 self.u_mask[n, row, col] = self.optimizable(flag, g_default)
                 self.u_available[n, row, col] = True
         self.apply_constraints(groups, geminals, g_default, c_default)
+
+    @staticmethod
+    def parameters(block):
+        """The c, g and u parameters of one geminal, each as its value and the optimizability flag
+        it was given, None if it was given none.
+        """
+        geminal = {'c': (1.0, None), 'g': {}, 'u': {}}
+        for name, item in (block or {}).items():
+            values = item.implicit() if isinstance(item, casl.Block) else [item]
+            value = casl.to_float(values[0])
+            flag = values[1] if len(values) > 1 else None
+            if casl.unique(name) == 'c':
+                geminal['c'] = (value, flag)
+            elif name[0] in 'gu':
+                row, col = (int(x) - 1 for x in name[2:].split(','))
+                if name[0] == 'g':
+                    row, col = min(row, col), max(row, col)
+                geminal[name[0]][row, col] = (value, flag)
+        return geminal
 
     @staticmethod
     def optimizable(flag, default):
@@ -214,28 +188,32 @@ class Geminal:
         return gem[key[0]].get(key[2:], (0.0, None))[1] is not None
 
     def write(self):
-        blocks = []
+        block = casl.Block()
+        block.add('Default g optimizability', 'fixed')
+        block.add('Default c optimizability', 'fixed')
         # a determined parameter is regenerated from its reference on every read, and casino
         # errstops if it is declared as well, so it is left out of the Parameters block
         c_determined = {tie[0] for tie in self.c_ties}
         g_determined = {tuple(tie[:3]) for tie in self.g_ties}
         u_determined = {tuple(tie[:3]) for tie in self.u_ties}
         for n in range(self.c.size):
-            parameters = []
+            parameters = casl.Block()
             if n not in c_determined:
-                parameters.append(f'      c: [ {self.c[n]: .8e}, {"optimizable" if self.c_mask[n] else "fixed"} ]')
+                parameters.add('c', self.parameter(self.c[n], self.c_mask[n]))
             for row in range(self.norb):
                 for col in range(row, self.norb):
                     if (self.g[n, row, col] != 0.0 or self.g_mask[n, row, col]) and (n, row, col) not in g_determined:
-                        flag = 'optimizable' if self.g_mask[n, row, col] else 'fixed'
-                        parameters.append(f'      g_{row + 1},{col + 1}: [ {self.g[n, row, col]: .8e}, {flag} ]')
+                        parameters.add(f'g_{row + 1},{col + 1}', self.parameter(self.g[n, row, col], self.g_mask[n, row, col]))
             for col in range(self.nunpaired):
                 for row in range(self.norb):
                     if (self.u[n, row, col] != 0.0 or self.u_mask[n, row, col]) and (n, row, col) not in u_determined:
-                        flag = 'optimizable' if self.u_mask[n, row, col] else 'fixed'
-                        parameters.append(f'      u_{row + 1},{col + 1}: [ {self.u[n, row, col]: .8e}, {flag} ]')
-            blocks.append(geminal_block_template.format(n=n + 1, parameters='\n'.join(parameters)))
-        res = geminal_template.format(geminals=''.join(blocks))
+                        parameters.add(f'u_{row + 1},{col + 1}', self.parameter(self.u[n, row, col], self.u_mask[n, row, col]))
+            block.add(f'Geminal {n + 1}', casl.Block([('Parameters', parameters)]))
         if self.constraints:
-            res += '  Constraints:\n' + ''.join(f'    {line}\n' for line in self.constraints)
-        return res
+            block.add('Constraints', casl.Block([(f'%u{i}', line) for i, line in enumerate(self.constraints, 1)]))
+        return casl.dumps(casl.Block([('GEMINAL', block)]))
+
+    @staticmethod
+    def parameter(value, optimizable):
+        """One parameter as casino writes it, value and optimizability flag."""
+        return casl.inline(f'{value: .8e}', 'optimizable' if optimizable else 'fixed')

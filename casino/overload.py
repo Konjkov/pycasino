@@ -1,10 +1,7 @@
-import math
-
 import numba as nb
 import numpy as np
 from numba.core.extending import overload
 from numpy.polynomial import polynomial as poly
-from scipy.special import factorial2
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -25,45 +22,6 @@ def block_diag(res_list):
         return res
     else:
         return np.zeros(shape=(0, 0))
-
-
-@overload(factorial2)
-def fact2(n):
-    """n!! = 1 * 3 * 5 ...n."""
-
-    def impl(n):
-        res = 1
-        for i in range(n, 0, -2):
-            res *= i
-        return res
-
-    return impl
-
-
-@overload(math.comb)
-def math_comb(n, k) -> float:
-    """(n, k)"""
-
-    def impl(n, k):
-        # return math.comb(n, k)
-        return math.gamma(n + 1) / math.gamma(k + 1) / math.gamma(n - k + 1)
-
-    return impl
-
-
-@nb.njit(nogil=True, parallel=False, cache=True)
-def boys(n, x):
-    """Boys function.
-
-    F_n(x) = \int_0^1 t^{2n}e^{-xt^2} dt
-    https://github.com/berquist/boys?tab=readme-ov-file
-    """
-    if x == 0:
-        return 1 / (2 * n + 1)
-    elif n == 0:
-        return math.sqrt(math.pi / 4 / x) * math.erf(math.sqrt(x))
-    # else:
-    #     return math.gamma(n + 1/2) * sp.special.gammaincc(n + 1/2, x) / (2 * x ** (n + 1/2))
 
 
 @overload(poly.polyval2d)

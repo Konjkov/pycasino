@@ -684,7 +684,10 @@ class Casino:
                         self.vmc_energy_minimization_linear_method(self.config.input.vmc_nconfig_write)
                     elif self.config.input.emin_method == 'reconf':
                         self.vmc_energy_minimization_stochastic_reconfiguration(self.config.input.vmc_nconfig_write)
-                self.config.jastrow.u_cutoff[0]['value'] = self.wfn.jastrow.u_cutoff
+                if not self.config.input.use_gjastrow:
+                    # the arrays of a generic jastrow are the ones the config holds, so
+                    # they are already up to date, but this cutoff is a number of its own
+                    self.config.jastrow.u_cutoff[0]['value'] = self.wfn.jastrow.u_cutoff
                 if self.root:
                     self.config.write('.', i + 1)
             if self.config.input.postfit_vmc:

@@ -6,7 +6,7 @@ from numba.experimental import structref
 from numba.extending import overload_method
 
 from casino.mpi import Comm, Comm_t
-from casino.wfn import Wfn_t
+from casino.wfn import Gwfn_t, Wfn_t
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
@@ -51,37 +51,46 @@ class DMC_class_t(nb.types.StructRef):
 
 efficiency_type = nb.float64
 
-DMC_t = DMC_class_t(
-    [
-        ('mpi_size', nb.int64),
-        ('method', nb.int64),
-        ('alimit', nb.float64),
-        ('step_size', nb.float64),
-        ('step_eff', nb.float64),
-        ('target_weight', nb.float64),
-        ('nucleus_gf_mods', nb.boolean),
-        ('use_tmove', nb.boolean),
-        ('age_list', nb.int64[::1]),
-        ('r_e_list', nb.float64[:, :, ::1]),
-        ('wfn_value_list', nb.float64[::1]),
-        ('velocity_list', nb.float64[:, :, ::1]),
-        ('energy_list', nb.float64[::1]),
-        ('branching_energy_list', nb.float64[::1]),
-        ('weight_list', nb.float64[::1]),
-        ('best_estimate_energy', nb.float64),
-        ('energy_t', nb.float64),
-        ('ntransfers_tot', nb.int64),
-        ('sum_proposed_diffusion', nb.float64),
-        ('sum_accepted_diffusion', nb.float64),
-        ('efficiency_list', nb.types.ListType(efficiency_type)),
-        ('wfn', Wfn_t),
-        ('mpi_comm', Comm_t),
-    ]
-)
+
+def dmc_type(wfn_t):
+    """The type of a chain walking a given kind of wave function, which the kind
+    of its jastrow makes a type of its own.
+    """
+    return DMC_class_t(
+        [
+            ('mpi_size', nb.int64),
+            ('method', nb.int64),
+            ('alimit', nb.float64),
+            ('step_size', nb.float64),
+            ('step_eff', nb.float64),
+            ('target_weight', nb.float64),
+            ('nucleus_gf_mods', nb.boolean),
+            ('use_tmove', nb.boolean),
+            ('age_list', nb.int64[::1]),
+            ('r_e_list', nb.float64[:, :, ::1]),
+            ('wfn_value_list', nb.float64[::1]),
+            ('velocity_list', nb.float64[:, :, ::1]),
+            ('energy_list', nb.float64[::1]),
+            ('branching_energy_list', nb.float64[::1]),
+            ('weight_list', nb.float64[::1]),
+            ('best_estimate_energy', nb.float64),
+            ('energy_t', nb.float64),
+            ('ntransfers_tot', nb.int64),
+            ('sum_proposed_diffusion', nb.float64),
+            ('sum_accepted_diffusion', nb.float64),
+            ('efficiency_list', nb.types.ListType(efficiency_type)),
+            ('wfn', wfn_t),
+            ('mpi_comm', Comm_t),
+        ]
+    )
+
+
+DMC_t = dmc_type(Wfn_t)
+GDMC_t = dmc_type(Gwfn_t)
 
 
 class DMC(structref.StructRefProxy):
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
         """Markov chain Monte Carlo.
         :param r_e_list: initial positions of walkers
         :param alimit: parameter required by DMC drift-velocity- and energy-limiting schemes
@@ -94,9 +103,11 @@ class DMC(structref.StructRefProxy):
         :return:
         """
 
+        dmc_t = GDMC_t if nb.typeof(wfn) == Gwfn_t else DMC_t
+
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(mpi_comm, r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method):
-            self = structref.new(DMC_t)
+            self = structref.new(dmc_t)
             self.mpi_comm = mpi_comm
             self.mpi_size = mpi_comm.size
             self.wfn = wfn
@@ -133,7 +144,7 @@ class DMC(structref.StructRefProxy):
             return self
 
         mpi_comm = Comm()
-        return init(mpi_comm, *args, **kwargs)
+        return init(mpi_comm, r_e_list, alimit, nucleus_gf_mods, use_tmove, step_size, target_weight, wfn, method)
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)

@@ -4,7 +4,7 @@ from numba.experimental import structref
 from numba.extending import overload_method
 
 from casino.slater import SlaterState_t
-from casino.wfn import Wfn_t
+from casino.wfn import Gwfn_t, Wfn_t
 
 
 @structref.register
@@ -255,24 +255,32 @@ def vmc_acceptance_1e(self, steps):
     return impl
 
 
-VMC_t = VMC_class_t(
-    [
-        ('r_e', nb.float64[:, ::1]),
-        ('step_size', nb.float64),
-        ('wfn', Wfn_t),
-        ('method', nb.int64),
-        ('power', nb.float64),
-        ('log_value', nb.float64),
-        ('state', SlaterState_t),
-        ('n_powers', nb.float64[:, :, ::1]),
-        ('moves', nb.int64),
-        ('accepted', nb.int64),
-    ]
-)
+def vmc_type(wfn_t):
+    """The type of a chain walking a given kind of wave function, which the kind
+    of its jastrow makes a type of its own.
+    """
+    return VMC_class_t(
+        [
+            ('r_e', nb.float64[:, ::1]),
+            ('step_size', nb.float64),
+            ('wfn', wfn_t),
+            ('method', nb.int64),
+            ('power', nb.float64),
+            ('log_value', nb.float64),
+            ('state', SlaterState_t),
+            ('n_powers', nb.float64[:, :, ::1]),
+            ('moves', nb.int64),
+            ('accepted', nb.int64),
+        ]
+    )
+
+
+VMC_t = vmc_type(Wfn_t)
+GVMC_t = vmc_type(Gwfn_t)
 
 
 class VMC(structref.StructRefProxy):
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, r_e, step_size, wfn, method):
         """Markov chain Monte Carlo.
         :param r_e: initial position
         :param step_size: time step size
@@ -280,10 +288,11 @@ class VMC(structref.StructRefProxy):
         :param method: vmc method: (1) - EBES, (3) - CBCS, (4) - EBES with the step of step_profile.
         :return:
         """
+        vmc_t = GVMC_t if nb.typeof(wfn) == Gwfn_t else VMC_t
 
         @nb.njit(nogil=True, parallel=False, cache=True)
         def init(r_e, step_size, wfn, method):
-            self = structref.new(VMC_t)
+            self = structref.new(vmc_t)
             self.r_e = r_e
             self.step_size = step_size
             self.wfn = wfn
@@ -295,7 +304,7 @@ class VMC(structref.StructRefProxy):
             self.accepted = 0
             return self
 
-        return init(*args, **kwargs)
+        return init(r_e, step_size, wfn, method)
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)
