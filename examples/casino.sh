@@ -14,6 +14,7 @@
 # operation="Backflow_dmc"
 # operation="Geminal"
 # operation="Gjastrow"
+# operation="Gjastrow_emin"
 
 # path="gwfn/He/HF/cc-pVQZ/${method}/${operation}/"
 # path="gwfn/Be/HF/cc-pVQZ/${method}/${operation}/"
@@ -52,7 +53,12 @@
 # path="stowfn/O3/HF/QZ4P/${method}/${operation}/"
 
 # path="stowfn/He/HF/QZ4P/${method}/${operation}/"
-# path="stowfn/Be/HF/QZ4P/${method}/Gjastrow/"
+# path="stowfn/Be/HF/QZ4P/${method}/${operation}/"
+# path="stowfn/N/HF/QZ4P/${method}/${operation}/"
+# path="stowfn/Ne/HF/QZ4P/${method}/${operation}/"
+# path="stowfn/Ar/HF/QZ4P/${method}/${operation}/"
+# path="stowfn/Kr/HF/QZ4P/${method}/${operation}/"
+# path="stowfn/O3/HF/QZ4P/${method}/${operation}/"
 
 # ../casino/plot/plot.py stowfn/He/HF/QZ4P/CBCS/Backflow/ u
 
