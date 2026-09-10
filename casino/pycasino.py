@@ -21,7 +21,7 @@ from .dmc import DMC
 from .geminal import Geminal
 from .gjastrow import Gjastrow
 from .jastrow import Jastrow
-from .nodal import nodal_domain_sums
+from .nodal import PILOT_STEPS, nodal_domain_gradient_sums, nodal_domain_sums
 from .ppotential import PPotential
 from .readers import CasinoConfig
 from .readers.input import Input
@@ -93,6 +93,14 @@ trf.check_termination = check_termination
 
 mpi_comm = MPI.COMM_WORLD
 double_size = MPI.DOUBLE.Get_size()
+
+# nmin: the fraction of <sum r_iI> a cycle may move the density by, the trust radius it starts
+# from in units of the parameter scale, and how many times that radius may be halved. The density
+# is what has to stay put - the objective is measured on a jastrowless object and lowering it by
+# wrecking the density is a thing the optimizer will find if it is left free to
+NMIN_DRIFT = 0.03
+NMIN_RADIUS = 0.1
+NMIN_ATTEMPTS = 6
 
 
 def configure_logging():
@@ -677,6 +685,8 @@ class Casino:
                     # https://optimization.cbe.cornell.edu/index.php?title=Optimization_with_absolute_values
                     # use scipy.optimize.linprog
                     raise NotImplementedError
+                elif opt_method == 'nmin':
+                    self.vmc_nodal_minimization(self.config.input.vmc_nconfig_write)
                 elif opt_method == 'emin':
                     if self.config.input.emin_method == 'newton':
                         self.vmc_energy_minimization_newton(self.config.input.vmc_nconfig_write)
@@ -684,7 +694,7 @@ class Casino:
                         self.vmc_energy_minimization_linear_method(self.config.input.vmc_nconfig_write)
                     elif self.config.input.emin_method == 'reconf':
                         self.vmc_energy_minimization_stochastic_reconfiguration(self.config.input.vmc_nconfig_write)
-                if not self.config.input.use_gjastrow:
+                if self.wfn.jastrow is not None and not self.config.input.use_gjastrow:
                     # the arrays of a generic jastrow are the ones the config holds, so
                     # they are already up to date, but this cutoff is a number of its own
                     self.config.jastrow.u_cutoff[0]['value'] = self.wfn.jastrow.u_cutoff
@@ -1655,6 +1665,128 @@ class Casino:
         energy_gradient_buffer.Free()
         mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
+
+    def vmc_nodal_minimization(self, steps):
+        """Minimize the nodal surface integral of Eq. (18) rather than the energy, over the
+        parameters that move the node.
+
+            F(p) = ∫_∂Ω Φ|∇D|dS / ∫ Φ|D|dR
+
+        ⟨H⟩ weights the node quadratically to zero - the set that defines it contributes almost
+        nothing to the objective - and ⟨H⟩ and E_FN are different functionals anyway, so a better
+        variational energy can come with a worse node. F integrates over the node and over nothing
+        else. What it does not have is the variational guarantee: ⟨H⟩ is a Rayleigh quotient and
+        errs at second order, while Eq. (18) is an identity only at Ψ_FN and errs at first order in
+        either direction, so the stationary point of F is displaced from that of E_FN and only DMC
+        along p₀ → p* says whether the move was worth making.
+
+        **The Jastrow has to be off.** F is a functional of D. With a Jastrow present ∇(JD) = J∇D
+        on the node while |Ψ| = J|D| in the bulk, so J does not cancel - it reweights the surface
+        integral by its value on the node against its value away from it, which is worth a factor
+        of 14. The Jastrow does not move the node, is optimized separately, and is needed only for
+        the DMC that follows.
+
+        One walk serves the whole cycle: the chain carries ζ and samples Φ|Ψ| directly, and the
+        optimizer then moves over that fixed sample reweighted by |Ψ_p|/|Ψ_p₀|. The derivative
+        stays exact under that reweighting, the sampled measure cancelling out of every ratio, so
+        scipy is handed the gradient of the function it is minimizing. What goes stale is the
+        sample, which is what the effective size in the table is for.
+
+        The density is watched as well as the objective. F is measured on a jastrowless object
+        while the optimizer is free to deform the backflow, and lowering F by wrecking the density
+        is what two points of the Be c₂ scan did by accident - a backflow optimized with a Jastrow
+        and evaluated without one, the density expanding 2.3-fold. Here it would be deliberate.
+        :param steps: number of configurations to walk
+        """
+        if self.config.input.use_jastrow or self.config.input.use_gjastrow:
+            raise ValueError('nmin needs use_jastrow F and use_gjastrow F: F is a functional of the determinant part')
+        zeta = self.config.input.nmin_zeta
+        self.wfn.set_parameters_projector()
+        self.vmc.power = 1.0
+        self.vmc.zeta = zeta
+        self.equilibrate(self.config.input.vmc_equil_nstep)
+        if self.config.input.opt_dtvmc == 1:
+            self.optimize_vmc_step(3000)
+        epsilon = self.config.input.nmin_epsilon
+        if not epsilon:
+            position = self.vmc.random_walk(PILOT_STEPS, self.decorr_period)
+            integrand = self.vmc.observable(self.wfn.nodal_surface_integrand, position)
+            epsilon = mpi_comm.bcast(float(np.median(1 / np.sqrt(integrand[:, 1])) / 8))
+        scale = self.wfn.get_parameters_scale()
+        start = self.wfn.get_parameters()
+        position = self.vmc.random_walk(steps // mpi_comm.size, self.decorr_period)
+        reference = self.vmc.observable(self.wfn.nodal_surface_integrand, position)[:, 0].copy()
+        state = {'nfev': 0, 'iteration': 0}
+
+        def sums():
+            """F, dF/dp and the density, at whatever parameters the wave function now has"""
+            integrand = self.vmc.observable(self.wfn.nodal_surface_integrand, position)
+            gradient = self.vmc.observable(self.wfn.nodal_surface_gradient_integrand, position)
+            log_weight = integrand[:, 0] - reference
+            scalars, vectors = nodal_domain_gradient_sums(integrand, gradient, epsilon, zeta, zeta, log_weight)
+            weight = np.exp(log_weight)
+            density = np.array([weight.sum(), weight @ integrand[:, 3], weight @ weight])
+            scalars, vectors, density = (mpi_comm.allreduce(x) for x in (scalars, vectors, density))
+            value = scalars[0] / scalars[1]
+            return value, (vectors[0] + vectors[1]) / scalars[1] - value * vectors[2] / scalars[1], density
+
+        def fun(x):
+            self.wfn.set_parameters(x * scale)
+            # the constraints the projector is built from move with the parameters they constrain
+            self.wfn.set_parameters_projector()
+            value, gradient, density = sums()
+            state['nfev'] += 1
+            state['value'] = value
+            state['density'] = density[1] / density[0]
+            state['effective'] = density[0] ** 2 / density[2]
+            return value, gradient * scale
+
+        def callback(intermediate_result):
+            state['iteration'] += 1
+            logger.info(
+                f'    {state["iteration"]:9d} {state["nfev"]:7d}   {state["value"]:16.8f} {state["density"]:16.6f} {state["effective"]:16.0f}'
+            )  # fmt: skip
+
+        density = sums()[2]
+        anchor = density[1] / density[0]
+        logger.info(
+            f' Nodal surface minimization\n'
+            f' ==========================\n\n'
+            f'  zeta                          (au^-1) = {zeta:.5f}\n'
+            f'  epsilon                         (bohr) = {epsilon:.5e}\n'
+            f'  parameters                             = {scale.size}\n'
+            f'  <sum r_iI>                      (bohr) = {anchor:.5f}\n'
+        )  # fmt: skip
+        # a trust region rather than a bound on the step: what has to stay put is the density, not
+        # the parameters, but only the parameters can be bounded, so the radius is halved until the
+        # density it lets through has stayed inside NMIN_DRIFT. Every retry is over the same sample
+        # and costs no walk, which is what makes a search over the radius affordable at all
+        radius = NMIN_RADIUS
+        for attempt in range(NMIN_ATTEMPTS):
+            state['iteration'] = state['nfev'] = 0
+            logger.info(
+                f'  trust radius {radius:.4f}\n\n'
+                f'    iteration    nfev            F              <sum r_iI>        effective\n'
+            )  # fmt: skip
+            bounds = np.stack((start / scale - radius, start / scale + radius), axis=-1)
+            res = minimize(
+                fun, start / scale, jac=True, method='L-BFGS-B', bounds=bounds, callback=callback, options={'maxiter': self.config.input.opt_maxeval}
+            )
+            self.wfn.set_parameters(res.x * scale)
+            density = sums()[2]
+            drift = abs(density[1] / density[0] / anchor - 1)
+            if drift <= NMIN_DRIFT:
+                break
+            logger.info(f'\n    the density moved by {drift:.2%} of {anchor:.4f} bohr, halving the radius\n')
+            radius /= 2
+        else:
+            self.wfn.set_parameters(start)
+            logger.info('\n    no radius held the density, the cycle is left where it started\n')
+        parameters = self.wfn.get_parameters()
+        mpi_comm.Bcast(parameters)
+        self.wfn.set_parameters(parameters)
+        self.vmc.zeta = 0.0
+        self.vmc.power = 2.0
 
     def nodal_domain_accumulation(self, epsilon=None, zeta=None, direct=False):
         """Weighted nodal domain averages (Mitas & Annaberdiyev, arXiv:2109.01734). With the

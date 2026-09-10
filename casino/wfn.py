@@ -558,6 +558,27 @@ def wfn_value_parameters_d1(self, r_e):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Wfn_class_t, 'nodal_surface_gradient_integrand')
+def wfn_nodal_surface_gradient_integrand(self, r_e):
+    """The two parameter vectors a nodal surface integral is differentiated with. The first is the
+    score of the measure being sampled, Φ|Ψ|, of which only |Ψ| carries parameters. The second is
+    the derivative of |∇lnΨ|², from which σ's follows as -σ³/2 times it.
+    :param r_e: electron coordinates - array(nelec, 3)
+    :return: array(2, parameters)
+    """
+
+    def impl(self, r_e) -> np.ndarray:
+        score = self.value_parameters_d1(r_e)
+        square = self.gradient_square_parameters_d1(r_e)
+        res = np.empty(shape=(2, score.size))
+        res[0] = score
+        res[1] = square
+        return res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Wfn_class_t, 'gradient_square_parameters_d1')
 def wfn_gradient_square_parameters_d1(self, r_e):
     """First-order derivatives of |∇lnΨ|² w.r.t the parameters. The first-order distance to the
@@ -1098,6 +1119,14 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
         :return:
         """
         return self.gradient_square_parameters_d1(r_e)
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def nodal_surface_gradient_integrand(self, r_e):
+        """The score of the sampled measure and the derivative of |∇Ψ/Ψ|², of one configuration.
+        :param r_e: electron coordinates - array(nelec, 3)
+        :return: array(2, parameters)
+        """
+        return self.nodal_surface_gradient_integrand(r_e)
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     # @nb.vectorize('float64[:](float64[:, :])', cache=True)

@@ -311,6 +311,6 @@ CASINO_KEYWORDS = {
 }
 
 # read by pycasino but unknown to CASINO
-PYCASINO_KEYWORDS = {'emin_method': 'str'}
+PYCASINO_KEYWORDS = {'emin_method': 'str', 'nmin_zeta': 'float', 'nmin_epsilon': 'float'}
 
 KEYWORD_TYPE = dict(CASINO_KEYWORDS, **PYCASINO_KEYWORDS)

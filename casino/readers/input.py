@@ -119,6 +119,11 @@ class Input:
         self.read_float('emin_xi_value', 1.0)
         self.read_float('emin_min_energy', None)
         self.read_float('emin_var_prefactor', -1.0)
+        # nmin: exponent of the one-particle weight, and the tube half-thickness, which is taken
+        # from a pilot walk when left at zero. Neither has a sensible default - zeta has to be
+        # measured for the system with nodal_descriptor.py -w -z first
+        self.read_float('nmin_zeta', 0.0)
+        self.read_float('nmin_epsilon', 0.0)
         # DMC keywords
         self.read_float('dmc_target_weight')
         self.read_int('dmc_equil_nstep')

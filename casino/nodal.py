@@ -1,5 +1,9 @@
 import numpy as np
 
+# configurations of the pilot walk that fixes the epsilon grid, or the single epsilon of an
+# optimization; sigma converges far faster than the surface integral it goes on to define
+PILOT_STEPS = 10000
+
 
 def nodal_domain_sums(integrand, epsilon, zeta=0.0, sampled=0.0):
     """Sums that the weighted nodal domain averages of Mitas & Annaberdiyev (arXiv:2109.01734)
@@ -85,3 +89,49 @@ def nodal_domain_sums(integrand, epsilon, zeta=0.0, sampled=0.0):
         ]
     )
     return surface, overlap
+
+
+def nodal_domain_gradient_sums(integrand, gradient, epsilon, zeta=0.0, sampled=0.0, log_weight=None):
+    """Sums the derivative of E_kin^nda with respect to the parameters is made of, at one tube
+    thickness rather than over a grid of them, because an optimization holds epsilon fixed while
+    a measurement scans it.
+
+        dF/dp = <K'(σ)·∂σ/∂p> + cov[K(σ), s_p]
+
+    The first term is the node moving under the parameters, the second the measure moving with it,
+    s_p being the score ∂ln|Ψ|/∂p of the sampled Φ|Ψ| - Φ carries no parameters and drops out.
+    What is summed is K(σ) = 3(ε - σ)/ε³ inside the tube, so K' is the constant -3/ε³ there, and
+    with ∂σ/∂p = -σ³/2 · ∂|∇lnΨ|²/∂p the first term collects 3σ³/2ε³ against that derivative.
+
+    :param integrand: as nodal_domain_sums takes it - array(nconfig, 8)
+    :param gradient: the score and the derivative of |∇lnΨ|² - array(nconfig, 2, parameters)
+    :param epsilon: half-thickness of the tube, in bohr
+    :param zeta: exponent of the one-particle weight the average is taken with
+    :param sampled: exponent the chain walked
+    :param log_weight: log|Ψ_p| - log|Ψ_p0| of every configuration, when the sample was drawn at
+        one set of parameters and the average is being taken at another. The expression above is
+        unchanged by it - the sampled measure cancels out of every ratio and what is left is the
+        score of Ψ_p, which is what gradient carries - so an optimization can walk once and then
+        move over the fixed sample with an exact derivative rather than an approximate one
+    :return: array(2) of the surface sum and the overlap sum, and array(3, parameters) of the sums
+        the two terms are built from - the node term, and the two halves of the covariance
+    """
+    sigma = 1 / np.sqrt(integrand[:, 1])
+    if zeta != sampled:
+        weight = np.exp(-(zeta - sampled) * integrand[:, 3])
+    else:
+        weight = np.ones(shape=sigma.shape)
+    if log_weight is not None:
+        weight = weight * np.exp(log_weight)
+    inside = sigma < epsilon
+    value = np.where(inside, 3 * (epsilon - sigma) / epsilon**3, 0.0)
+    node = np.where(inside, 3 * sigma**3 / (2 * epsilon**3), 0.0)
+    scalars = np.array([(weight * value).sum(), weight.sum()])
+    vectors = np.stack(
+        (
+            (weight * node) @ gradient[:, 1],
+            (weight * value) @ gradient[:, 0],
+            weight @ gradient[:, 0],
+        )
+    )
+    return scalars, vectors

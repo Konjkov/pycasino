@@ -1,9 +1,15 @@
 import unittest
+from pathlib import Path
 
 import numpy as np
 import pytest
 
-from casino.nodal import nodal_domain_sums
+from casino.backflow import Backflow
+from casino.jastrow import Jastrow
+from casino.nodal import nodal_domain_gradient_sums, nodal_domain_sums
+from casino.readers import CasinoConfig
+from casino.slater import Slater
+from casino.wfn import Wfn
 
 
 class TestNodalDomainSums(unittest.TestCase):
@@ -113,6 +119,66 @@ class TestWeightedNodalDomainAverage(unittest.TestCase):
             assert volume == pytest.approx((zeta - self.z) * a / 3 - zeta**2 / 2, rel=5e-3)
             assert surface[:, 0] / overlap[1] == pytest.approx(a**2 / 6, rel=0.12)
             assert surface[:, 0] / overlap[1] + volume == pytest.approx(-(self.z**2) / 8, rel=0.3)
+
+
+class TestNodalDomainGradient(unittest.TestCase):
+    """The derivative of E_kin^nda w.r.t. the parameters that move the node, against a finite
+    difference of the estimator itself. Both sides are the same function of the same fixed sample -
+    the reweighting by |Ψ_p|/|Ψ_p0| is what makes them so - and the identity being checked is
+    therefore algebraic rather than statistical, which is why it holds to nine figures and why a
+    sign error anywhere in it cannot hide behind Monte Carlo noise.
+
+    Along a random direction rather than parameter by parameter: the derivatives of the backflow
+    expansion span five orders of magnitude, and no single step serves both ends of that. A random
+    direction has a generic overlap with every component, so an error in any one of them shows.
+
+    Beryllium and not the helium of test_backflow: helium's determinant is a product of one
+    orbital per spin and has no node at all, so the tube is empty and every side of this is zero.
+    """
+
+    def setUp(self):
+        np.random.seed(1)
+        config = CasinoConfig(Path(__file__).resolve().parent / 'inputs/MDET/Be')
+        config.read()
+        self.wfn = Wfn(config, Slater(config, cusp=None), jastrow=Jastrow(config), backflow=Backflow(config))
+        self.wfn.opt_backflow = True
+        self.wfn.set_parameters_projector()
+        self.parameters = self.wfn.get_parameters()
+        self.r_e = np.random.uniform(-2, 2, (500, 4, 3))
+        self.integrand = np.stack([self.wfn.nodal_surface_integrand(r) for r in self.r_e])
+        self.epsilon = float(np.median(1 / np.sqrt(self.integrand[:, 1])) / 2)
+
+    def surface(self, parameters):
+        """E_kin^nda at other parameters on the sample drawn at self.parameters, the weight being
+        the ratio of the two wave functions there"""
+        self.wfn.set_parameters(parameters)
+        integrand = np.stack([self.wfn.nodal_surface_integrand(r) for r in self.r_e])
+        weight = np.exp(integrand[:, 0] - self.integrand[:, 0])
+        sigma = 1 / np.sqrt(integrand[:, 1])
+        value = np.where(sigma < self.epsilon, 3 * (self.epsilon - sigma) / self.epsilon**3, 0.0)
+        return (weight * value).sum() / weight.sum()
+
+    def test_surface_agrees_with_the_grid(self):
+        """the two entry points build the same surface sum by different routes, one over a grid of
+        tube thicknesses and one at a single thickness, and nothing else compares them"""
+        gradient = np.stack([self.wfn.nodal_surface_gradient_integrand(r) for r in self.r_e])
+        surface, overlap = nodal_domain_sums(self.integrand, np.array([self.epsilon]))
+        scalars, _ = nodal_domain_gradient_sums(self.integrand, gradient, self.epsilon)
+        assert scalars[0] / scalars[1] == pytest.approx(surface[0, 0] / overlap[1], rel=1e-14)
+
+    def test_gradient(self):
+        gradient = np.stack([self.wfn.nodal_surface_gradient_integrand(r) for r in self.r_e])
+        scalars, vectors = nodal_domain_gradient_sums(self.integrand, gradient, self.epsilon)
+        surface, norm = scalars
+        analytical = (vectors[0] + vectors[1]) / norm - surface / norm * vectors[2] / norm
+        for _ in range(3):
+            direction = np.random.normal(size=self.parameters.size)
+            direction /= np.linalg.norm(direction)
+            derivative = analytical @ direction
+            # the step is set by the size of the derivative, not by the size of the parameters
+            step = 1e-4 / abs(derivative)
+            numerical = self.surface(self.parameters + step * direction) - self.surface(self.parameters - step * direction)
+            assert derivative == pytest.approx(numerical / step / 2, rel=1e-6)
 
 
 if __name__ == '__main__':

@@ -93,9 +93,9 @@ import os
 
 import numpy as np
 
+from casino.nodal import PILOT_STEPS
 from casino.pycasino import Casino, configure_logging, logger, mpi_comm
 
-PILOT_STEPS = 10000
 LINKED = ('gwfn.data', 'stowfn.data', 'correlation.data', 'parameters.casl')
 
 
@@ -163,27 +163,28 @@ def descriptor(path, nstep, decorr, no_backflow, zeta, direct):
     return casino.nodal_domain_accumulation(np.geomspace(scale / 100, scale / 8, 9), zeta, direct)
 
 
-parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-parser.add_argument('path', type=str, nargs='+', help='CASINO run directories to compare')
-parser.add_argument('-n', '--nstep', type=int, help='vmc_nstep to run at, overriding every input')
-parser.add_argument('-d', '--decorr', type=int, help='vmc_decorr_period to run at, overriding every input')
-parser.add_argument('-b', '--no-backflow', action='store_true', help='drop the backflow too, leaving the bare determinant')
-parser.add_argument('-z', '--zeta', type=str, default='0', help='comma separated exponents of the one-particle weight, 0 for a constant one')
-parser.add_argument('-w', '--direct', action='store_true', help='walk Phi|psi| itself, one walk per zeta')
-args = parser.parse_args()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('path', type=str, nargs='+', help='CASINO run directories to compare')
+    parser.add_argument('-n', '--nstep', type=int, help='vmc_nstep to run at, overriding every input')
+    parser.add_argument('-d', '--decorr', type=int, help='vmc_decorr_period to run at, overriding every input')
+    parser.add_argument('-b', '--no-backflow', action='store_true', help='drop the backflow too, leaving the bare determinant')
+    parser.add_argument('-z', '--zeta', type=str, default='0', help='comma separated exponents of the one-particle weight, 0 for a constant one')
+    parser.add_argument('-w', '--direct', action='store_true', help='walk Phi|psi| itself, one walk per zeta')
+    args = parser.parse_args()
 
-configure_logging()
-zeta = np.array([float(z) for z in args.zeta.split(',')])
-table = {path: descriptor(path, args.nstep, args.decorr, args.no_backflow, zeta, args.direct) for path in args.path}
-if mpi_comm.rank == 0:
-    for i, z in enumerate(zeta):
-        logger.info(
-            f' =========================================================================\n'
-            f' NODAL SURFACE DESCRIPTOR, zeta = {z:.4f}\n\n'
-            f' {"run":<40} {"widest tube":>22} {"1.9x narrower":>22}\n'
-        )
-        for path, rows in table.items():
+    configure_logging()
+    zeta = np.array([float(z) for z in args.zeta.split(',')])
+    table = {path: descriptor(path, args.nstep, args.decorr, args.no_backflow, zeta, args.direct) for path in args.path}
+    if mpi_comm.rank == 0:
+        for i, z in enumerate(zeta):
             logger.info(
-                f' {path:<40} {rows[i, 8, 2]:12.6f} +/- {rows[i, 8, 3]:.6f} {rows[i, 6, 2]:12.6f} +/- {rows[i, 6, 3]:.6f}'
-            )  # fmt: skip
-        logger.info('')
+                f' =========================================================================\n'
+                f' NODAL SURFACE DESCRIPTOR, zeta = {z:.4f}\n\n'
+                f' {"run":<40} {"widest tube":>22} {"1.9x narrower":>22}\n'
+            )
+            for path, rows in table.items():
+                logger.info(
+                    f' {path:<40} {rows[i, 8, 2]:12.6f} +/- {rows[i, 8, 3]:.6f} {rows[i, 6, 2]:12.6f} +/- {rows[i, 6, 3]:.6f}'
+                )  # fmt: skip
+            logger.info('')

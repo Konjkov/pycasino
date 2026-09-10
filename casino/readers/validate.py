@@ -14,7 +14,7 @@ SUPPORTED_VALUES = {
     'runtype': ('vmc', 'vmc_opt', 'vmc_dmc'),
     'atom_basis_type': ('gaussian', 'slater-type'),
     'psi_s': ('slater', 'geminal'),
-    'opt_method': ('varmin', 'emin'),
+    'opt_method': ('varmin', 'emin', 'nmin'),
     'emin_method': ('newton', 'linear', 'reconf'),
     # casino withdrew its method 2, 4 is the position dependent time step of pycasino
     'vmc_method': (1, 3, 4),
