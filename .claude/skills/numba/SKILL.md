@@ -120,12 +120,15 @@ def matvec(A, x, out):
 - `np.linalg.eigh`, `np.linalg.svd` (limited)
 - Array indexing, slicing, boolean indexing (basic)
 - `math.pi`, `math.e`, `math.sin`, `math.cos`, `math.exp`, `math.sqrt`
-- `numba.typed.List`, `numba.typed.Dict`
+- `numba.typed.List`, `numba.typed.Dict`, `numba.typed.Set` (0.66+)
 - Calling other `@njit` functions (inlined automatically)
 
 ### Does NOT work ✗
 
-- `list`, `dict`, `set` (Python built-in containers — use `numba.typed.*` or arrays)
+- Python `list`/`set` **as arguments** from the interpreter: they are "reflected" types,
+  work but raise `NumbaPendingDeprecationWarning` — pass `numba.typed.List`/`numba.typed.Set`
+  (0.66+) or arrays. Built locally inside `@njit` (`set()`, `[]`, `{}`), all three work and
+  are homogeneous; checked on 0.63.1. No jitted code in `casino/` uses a set
 - `print` with f-strings (use `print(x)` with scalars only)
 - `try/except`
 - Generator expressions, list comprehensions (sometimes work, often don't)
@@ -545,9 +548,47 @@ Open Numba issues the user is tracking for pycasino:
 
 | Issue | Subject | Why it matters here |
 |---|---|---|
-| [#5149](https://github.com/numba/numba/issues/5149) | access to `np.array` data / `tobytes` etc. | raw buffer access from inside `@njit` |
+| [#5149](https://github.com/numba/numba/issues/5149) | access to `np.array` data / `tobytes` etc. | raw buffer access from inside `@njit`; `ndarray.tobytes()` itself landed in 0.62 |
 | [#6972](https://github.com/numba/numba/issues/6972) | wrapper or type to avoid inlining | no supported way to force a call boundary; matters where inlining blows up compile time or defeats a shared kernel |
 | [#9776](https://github.com/numba/numba/issues/9776) | parallelisation approach | worth trying as an alternative to the current `prange`/MPI split |
 | [#9712](https://github.com/numba/numba/issues/9712) | allocations in Numba significantly slower than in NumPy | directly relevant — the hot kernels allocate per call (harmonics buffers, `ee_powers`/`en_powers`, the `_d1` result arrays). Reinforces the "Memory and array patterns" rule above: preallocate into struct fields and write in place rather than returning fresh arrays |
 
 These are also listed at the top of `backlog.txt`.
+
+### 0.62 → 0.67 and what it means for this code (audit 2026-09-11)
+
+`pyproject.toml` now requires `numba>=0.66.0` and `requires-python >=3.10` (numba dropped 3.9
+in 0.61 already). What each release added:
+
+| version | additions | removals / breaks |
+|---|---|---|
+| 0.62 | `ufunc.reduceat`, `ndarray.tobytes()`, `np.frombuffer(offset=, count=)`, `np.nan_to_num(posinf=, neginf=)`, `is` on structref, `NUMBA_CACHE_LOCATOR_CLASSES`, LLVM 20 + New Pass Manager | **SVML dropped** (no vectorised Intel `exp`/`log`); failed overload resolutions are cached per compile session (`NUMBA_DISABLE_TYPEINFER_FAIL_CACHE` to undo) |
+| 0.63 | Python 3.14, experimental free-threading, `math.exp2`, `np.unique` on non-numeric, `np.copy` on lists/scalars | gufunc refcount leak fixed |
+| 0.64 | NumPy 2.4, `np.moveaxis`, scalar `np.all`/`np.any` | `np.trapz`, `np.in1d` gone with NumPy 2.4 |
+| 0.65 | Python 3.14t, `a[None]`, scalar `np.min`/`max`/`mean`/`prod` | |
+| 0.66 | **`numba.typed.Set`**, **full NumPy fancy indexing** (several index arrays, multidimensional indices, `np.newaxis`), type annotations on `jit`/`njit`, **faster compile** of functions with many single-assigned variables, LLVM 22 | |
+| 0.67 | NumPy 2.5, `np.insert`, `ddof` in `np.nanvar`/`np.nanstd`, runtime `axis` in `np.sum`/`np.cumsum`, faster compile (liveness order) | `np.row_stack`, 2-D `np.cross` |
+
+The installed 0.63.1 already has `SVML Operational: False` and LLVM 20, so the bump does not
+change run-time speed; the only payoff is cold-compile time on the big jastrow/backflow/gjastrow
+kernels (measure with the cache cleared, see "Compilation cache").
+
+**Nothing in `casino/` needed changing.** Every workaround found is still required under 0.67:
+
+| site | why it stays |
+|---|---|
+| `overload.py` `@overload(np.repeat)`, used by DMC branching on `(nwalk, ne, 3)` arrays | built-in `np.repeat` still has no `axis` and flattens |
+| `overload.py` `polyval2d`/`polyval3d` | only `polyval` is supported |
+| `wfn.py` `wfn_type` — one class for both jastrow kinds | still no union types |
+| `gjastrow.py` — one array per rank | still no runtime ndim |
+| `jastrow.py`/`gjastrow.py` hand-written `r_eI` norm | `@`/`dot` on a strided column still copies |
+| `jastrow.py` "do not create temporary 1-d numpy array" loops, `backflow.py` explicit loops | array expressions still allocate |
+| `geminal.py` `ascontiguousarray` before the pool products | contiguity rule unchanged |
+
+New features checked and found to have no taker: fancy indexing (every gather in the code is a
+single index array, e.g. `wfn_u[self.permutation_up[i]]`, which always worked; and the docs warn
+that multi-array fancy indexing "can be slower than expected" — do not put it in a hot kernel);
+`a[:, None]` instead of `np.expand_dims` (cosmetic only); `typed.Set` (every `set()` is in
+pure-Python readers); scalar reductions (no `np.max(np.array([a, b]))` workarounds exist);
+`np.moveaxis` and `nan_to_num(posinf=)` in `cusp.py` (plain Python class, not jitted). Runtime
+`axis` and `np.insert` need 0.67, above the current floor.
