@@ -393,7 +393,10 @@ CASINO polynomial, and the file stays readable by CASINO. The expansion order mu
 - **χ set:** the same line, `Functional form (0=polynomial; 1=bell A*w(r/L))`, placed after
   `Impose electron-nucleus cusp`, which must be 0.
 - **Default b:** a u parameter left at 0 starts from b = 1 bohr, the typical hole radius found in §3.1.
-- **Example:** `examples/stowfn/Be/HF/QZ4P/CBCS/Jastrow_emin_analytic` has exponential u and bell χ (no f term), with the same input as `Jastrow_emin` (emin optimization).
+- **Examples:** `examples/stowfn/{Be,He}/HF/QZ4P/CBCS/Jastrow_emin_analytic` have exponential u and bell χ
+  (no f term), with the same input as the neighbouring `Jastrow_emin` (emin optimization). For He the ↑↑
+  channel has no pairs and its b is excluded from the optimization. The starting values b ≈ 0.75 and
+  A = 0.6 come from the fits of §3.
 - **Test:** `TestJastrowAnalytic` in `casino/tests/test_jastrow.py` compares the analytic derivatives with
   numerical ones.
 
