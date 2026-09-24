@@ -65,6 +65,57 @@ def construct_a_matrix(trunc, f_parameters, f_cutoff, spin_dep, no_dup_u_term, n
     return a, cutoff_constraints
 
 
+# functional form of the u and chi terms
+POLYNOMIAL = 0
+# u = -gamma b exp(-r/b) w(r/L), chi = A w(r/L)
+ANALYTIC = 1
+# e-e cusp gamma for uu, ud, dd pairs
+U_CUSP = np.array([0.25, 0.5, 0.25])
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def window(r, L, C):
+    """Smooth cutoff w = (1 - r/L)^C (1 + C r/L) and its first and second derivatives w.r.t r.
+    w(0) = 1 and w'(0) = 0, so the value and the slope at r = 0 are those of the function it multiplies.
+    """
+    x = r / L
+    w = (1 - x) ** C * (1 + C * x)
+    w1 = -C * (C + 1) * x * (1 - x) ** (C - 1) / L
+    w2 = -C * (C + 1) * (1 - x) ** (C - 2) * (1 - C * x) / L**2
+    return w, w1, w2
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def u_exp(r, b, gamma, L, C):
+    """Exponential correlation hole u = -gamma b exp(-r/b) w(r/L), u'(0) = gamma (Kato cusp).
+    :return: u, du/dr, d2u/dr2
+    """
+    w, w1, w2 = window(r, L, C)
+    e = np.exp(-r / b)
+    f = -gamma * b * e
+    f1 = gamma * e
+    f2 = -gamma / b * e
+    return f * w, f1 * w + f * w1, f2 * w + 2 * f1 * w1 + f * w2
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def u_exp_b_d1(r, b, gamma, L, C):
+    """Derivatives of u, du/dr, d2u/dr2 of the exponential hole w.r.t the hole radius b."""
+    w, w1, w2 = window(r, L, C)
+    e = np.exp(-r / b)
+    f = -gamma * e * (1 + r / b)
+    f1 = gamma * e * r / b**2
+    f2 = gamma * e * (1 / b**2 - r / b**3)
+    return f * w, f1 * w + f * w1, f2 * w + 2 * f1 * w1 + f * w2
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def u_exp_b_d2(r, b, gamma, L, C):
+    """Second derivative of the exponential hole u w.r.t the hole radius b."""
+    w, _, _ = window(r, L, C)
+    return -gamma * np.exp(-r / b) * r**2 / b**3 * w
+
+
 @structref.register
 class Jastrow_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
@@ -230,6 +281,9 @@ def jastrow_u_term(self, e_powers: np.ndarray):
                 if r_ee < self.u_cutoff:
                     cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
                     u_set = cusp_set % parameters.shape[0]
+                    if self.u_form == ANALYTIC:
+                        res += u_exp(r_ee, parameters[u_set, 0], U_CUSP[cusp_set], self.u_cutoff, C)[0]
+                        continue
                     poly = 0.0
                     for k in range(parameters.shape[1]):
                         if parameters.shape[0] == 1 and cusp_set == 1 and k == 1:
@@ -266,6 +320,9 @@ def jastrow_u_term_1e(self, e_powers_1e: np.ndarray, e: int):
             if r_ee < self.u_cutoff:
                 cusp_set = int(e >= self.neu) + int(e2 >= self.neu)
                 u_set = cusp_set % parameters.shape[0]
+                if self.u_form == ANALYTIC:
+                    res += u_exp(r_ee, parameters[u_set, 0], U_CUSP[cusp_set], self.u_cutoff, C)[0]
+                    continue
                 poly = 0.0
                 for k in range(parameters.shape[1]):
                     if parameters.shape[0] == 1 and cusp_set == 1 and k == 1:
@@ -290,12 +347,15 @@ def jastrow_chi_term(self, n_powers: np.ndarray):
     def impl(self, n_powers: np.ndarray) -> float:
         res = 0.0
         C = self.trunc
-        for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
+        for parameters, L, chi_labels, chi_form in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels, self.chi_form):
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
                     r_eI = n_powers[label, e1, 1]
                     if r_eI < L:
                         chi_set = int(e1 >= self.neu) % parameters.shape[0]
+                        if chi_form == ANALYTIC:
+                            res += parameters[chi_set, 0] * window(r_eI, L, C)[0]
+                            continue
                         poly = 0.0
                         for k in range(parameters.shape[1]):
                             poly += parameters[chi_set, k] * n_powers[label, e1, k]
@@ -317,11 +377,14 @@ def jastrow_chi_term_1e(self, n_powers: np.ndarray, e: int):
     def impl(self, n_powers: np.ndarray, e: int) -> float:
         res = 0.0
         C = self.trunc
-        for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
+        for parameters, L, chi_labels, chi_form in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels, self.chi_form):
             for label in chi_labels:
                 r_eI = n_powers[label, e, 1]
                 if r_eI < L:
                     chi_set = int(e >= self.neu) % parameters.shape[0]
+                    if chi_form == ANALYTIC:
+                        res += parameters[chi_set, 0] * window(r_eI, L, C)[0]
+                        continue
                     poly = 0.0
                     for k in range(parameters.shape[1]):
                         poly += parameters[chi_set, k] * n_powers[label, e, k]
@@ -422,6 +485,11 @@ def jastrow_u_term_gradient(self, e_powers, e_vectors):
                     r_vec = e_vectors[e1, e2] / r_ee**2
                     cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
                     u_set = cusp_set % parameters.shape[0]
+                    if self.u_form == ANALYTIC:
+                        gradient = r_vec * r_ee * u_exp(r_ee, parameters[u_set, 0], U_CUSP[cusp_set], L, C)[1]
+                        res[e1, :] += gradient
+                        res[e2, :] -= gradient
+                        continue
                     poly = 0.0
                     for k in range(parameters.shape[1]):
                         if parameters.shape[0] == 1 and cusp_set == 1 and k == 1:
@@ -464,6 +532,9 @@ def jastrow_u_term_gradient_1e(self, e_powers_1e, e_vectors_1e, e: int):
                 r_vec = e_vectors_1e[e2] / r_ee**2
                 cusp_set = int(e >= self.neu) + int(e2 >= self.neu)
                 u_set = cusp_set % parameters.shape[0]
+                if self.u_form == ANALYTIC:
+                    res += r_vec * r_ee * u_exp(r_ee, parameters[u_set, 0], U_CUSP[cusp_set], L, C)[1]
+                    continue
                 poly = 0.0
                 for k in range(parameters.shape[1]):
                     if parameters.shape[0] == 1 and cusp_set == 1 and k == 1:
@@ -489,13 +560,16 @@ def jastrow_chi_term_gradient(self, n_powers, n_vectors):
     def impl(self, n_powers, n_vectors) -> np.ndarray:
         C = self.trunc
         res = np.zeros(shape=(self.neu + self.ned, 3))
-        for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
+        for parameters, L, chi_labels, chi_form in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels, self.chi_form):
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
                     r_eI = n_powers[label, e1, 1]
                     if r_eI < L:
                         r_vec = n_vectors[label, e1] / r_eI**2
                         chi_set = int(e1 >= self.neu) % parameters.shape[0]
+                        if chi_form == ANALYTIC:
+                            res[e1, :] += r_vec * r_eI * parameters[chi_set, 0] * window(r_eI, L, C)[1]
+                            continue
                         poly = 0.0
                         for k in range(parameters.shape[1]):
                             poly += (C * r_eI / (r_eI - L) + k) * parameters[chi_set, k] * n_powers[label, e1, k]
@@ -518,12 +592,15 @@ def jastrow_chi_term_gradient_1e(self, n_powers, n_vector_1e, e: int):
     def impl(self, n_powers, n_vector_1e, e: int) -> np.ndarray:
         C = self.trunc
         res = np.zeros(shape=3)
-        for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
+        for parameters, L, chi_labels, chi_form in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels, self.chi_form):
             for label in chi_labels:
                 r_eI = n_powers[label, e, 1]
                 if r_eI < L:
                     r_vec = n_vector_1e[label] / r_eI**2
                     chi_set = int(e >= self.neu) % parameters.shape[0]
+                    if chi_form == ANALYTIC:
+                        res += r_vec * r_eI * parameters[chi_set, 0] * window(r_eI, L, C)[1]
+                        continue
                     poly = 0.0
                     for k in range(parameters.shape[1]):
                         poly += (C * r_eI / (r_eI - L) + k) * parameters[chi_set, k] * n_powers[label, e, k]
@@ -652,6 +729,10 @@ def jastrow_u_term_laplacian(self, e_powers):
                 if r_ee < L:
                     cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
                     u_set = cusp_set % parameters.shape[0]
+                    if self.u_form == ANALYTIC:
+                        _, u1, u2 = u_exp(r_ee, parameters[u_set, 0], U_CUSP[cusp_set], L, C)
+                        res += u2 + 2 * u1 / r_ee
+                        continue
                     poly = poly_diff = poly_diff_2 = 0.0
                     for k in range(parameters.shape[1]):
                         if parameters.shape[1] == 1 and cusp_set == 1 and k == 1:
@@ -679,12 +760,16 @@ def jastrow_chi_term_laplacian(self, n_powers):
     def impl(self, n_powers) -> float:
         res = 0.0
         C = self.trunc
-        for parameters, L, chi_labels in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels):
+        for parameters, L, chi_labels, chi_form in zip(self.chi_parameters, self.chi_cutoff, self.chi_labels, self.chi_form):
             for label in chi_labels:
                 for e1 in range(self.neu + self.ned):
                     r_eI = n_powers[label, e1, 1]
                     if r_eI < L:
                         chi_set = int(e1 >= self.neu) % parameters.shape[0]
+                        if chi_form == ANALYTIC:
+                            _, w1, w2 = window(r_eI, L, C)
+                            res += parameters[chi_set, 0] * (w2 + 2 * w1 / r_eI)
+                            continue
                         poly = poly_diff = poly_diff_2 = 0.0
                         for k in range(parameters.shape[1]):
                             p = parameters[chi_set, k] * n_powers[label, e1, k]
@@ -887,6 +972,8 @@ def jastrow_set_u_parameters_for_emin(self):
     """Set u-term dependent parameters for CASINO emin."""
 
     def impl(self):
+        if self.u_form == ANALYTIC:
+            return
         C = self.trunc
         L = self.u_cutoff
         Gamma = 1 / np.array([4, 2, 4][: self.u_parameters.shape[0]])
@@ -901,6 +988,9 @@ def jastrow_fix_u_parameters(self):
     """Fix u-term dependent parameters."""
 
     def impl(self):
+        if self.u_form == ANALYTIC:
+            # the cusp is built into the form, there are no dependent parameters
+            return
         C = self.trunc
         L = self.u_cutoff
         Gamma = 1 / np.array([4, 2, 4][: self.u_parameters.shape[0]])
@@ -916,7 +1006,9 @@ def jastrow_fix_chi_parameters(self):
 
     def impl(self):
         C = self.trunc
-        for chi_parameters, L, chi_cusp in zip(self.chi_parameters, self.chi_cutoff, self.chi_cusp):
+        for chi_parameters, L, chi_cusp, chi_form in zip(self.chi_parameters, self.chi_cutoff, self.chi_cusp, self.chi_form):
+            if chi_form == ANALYTIC:
+                continue
             chi_parameters[:, 1] = chi_parameters[:, 0] * C / L
             if chi_cusp:
                 pass
@@ -1041,7 +1133,11 @@ def jastrow_get_parameters_scale(self, all_parameters):
             for j1 in range(self.u_parameters.shape[0]):
                 for j2 in range(self.u_parameters.shape[1]):
                     if (self.u_parameters_optimizable[j1, j2] or all_parameters) and self.u_parameters_available[j1, j2]:
-                        scale.append(2 / self.u_cutoff**j2 / ne**2)
+                        if self.u_form == ANALYTIC:
+                            # hole radius is a length
+                            scale.append(1)
+                        else:
+                            scale.append(2 / self.u_cutoff**j2 / ne**2)
 
         if self.chi_cutoff.any():
             for chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available in zip(
@@ -1121,15 +1217,25 @@ def jastrow_get_parameters_constraints(self):
                 u_b = [c / 4]
                 u_spin_deps = [0]
 
-            u_block = block_diag([u_matrix] * len(u_spin_deps))
-            if self.u_cutoff_optimizable and self.cutoffs_optimizable:
-                u_block = np.hstack(
-                    (-((1 - self.trunc) * np.array(u_b) / self.u_cutoff + self.u_parameters[np.array(u_spin_deps), 1]).reshape(-1, 1), u_block)
-                )
-            a_list.append(u_block)
-            b_list += u_b
+            if self.u_form == ANALYTIC:
+                # the cusp is built into the form: no constraints, only columns of the parameters
+                a_list.append(np.zeros(shape=(0, self.u_parameters_available.sum() + int(self.u_cutoff_optimizable and self.cutoffs_optimizable))))
+            else:
+                u_block = block_diag([u_matrix] * len(u_spin_deps))
+                if self.u_cutoff_optimizable and self.cutoffs_optimizable:
+                    u_block = np.hstack(
+                        (-((1 - self.trunc) * np.array(u_b) / self.u_cutoff + self.u_parameters[np.array(u_spin_deps), 1]).reshape(-1, 1), u_block)
+                    )
+                a_list.append(u_block)
+                b_list += u_b
 
-        for chi_parameters, chi_cutoff, chi_cutoff_optimizable in zip(self.chi_parameters, self.chi_cutoff, self.chi_cutoff_optimizable):
+        for chi_parameters, chi_cutoff, chi_cutoff_optimizable, chi_parameters_available, chi_form in zip(
+            self.chi_parameters, self.chi_cutoff, self.chi_cutoff_optimizable, self.chi_parameters_available, self.chi_form
+        ):
+            if chi_form == ANALYTIC:
+                # zero slope at the nucleus is built into the form
+                a_list.append(np.zeros(shape=(0, chi_parameters_available.sum() + int(chi_cutoff_optimizable and self.cutoffs_optimizable))))
+                continue
             # a0*C - a1*L = -Z/(-L)**(C-1) or 0 if cusp imposed by WFN, after differentiation on variables: a0, a1, L
             # -a1 * dL + С * da0 - L * da1 = 0
             chi_matrix = np.zeros(shape=(1, chi_parameters.shape[1]))
@@ -1197,7 +1303,11 @@ def jastrow_set_parameters_projector(self):
 
     def impl(self):
         a, b = self.get_parameters_constraints()
-        p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
+        if a.shape[0]:
+            p = np.eye(a.shape[1]) - a.T @ np.linalg.pinv(a.T)
+        else:
+            # analytic terms only: every parameter is independent
+            p = np.eye(a.shape[1])
         mask_idx = np.argwhere(self.get_parameters_mask()).ravel()
         inv_p = np.linalg.inv(p[:, mask_idx][mask_idx, :])
         self.parameters_projector = p[:, mask_idx] @ inv_p
@@ -1350,13 +1460,17 @@ def jastrow_u_term_parameters_d1(self, e_powers):
                 r = e_powers[e1, e2, 1]
                 cutoff = (r - L) ** C
                 if r < self.u_cutoff:
-                    u_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.u_parameters.shape[0]
+                    cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
+                    u_set = cusp_set % self.u_parameters.shape[0]
                     for j1 in range(self.u_parameters.shape[0]):
                         for j2 in range(self.u_parameters.shape[1]):
                             if self.u_parameters_available[j1, j2]:
                                 n += 1
                                 if u_set == j1:
-                                    res[n] += e_powers[e1, e2, j2] * cutoff
+                                    if self.u_form == ANALYTIC:
+                                        res[n] += u_exp_b_d1(r, self.u_parameters[j1, 0], U_CUSP[cusp_set], L, C)[0]
+                                    else:
+                                        res[n] += e_powers[e1, e2, j2] * cutoff
         return res
 
     return impl
@@ -1401,6 +1515,8 @@ def jastrow_chi_term_parameters_d1(self, n_powers):
                     n = n_start
                     r = n_powers[label, e1, 1]
                     cutoff = (r - L) ** C
+                    if self.chi_form[i] == ANALYTIC:
+                        cutoff = window(r, L, C)[0]
                     if r < L:
                         chi_set = int(e1 >= self.neu) % chi_parameters.shape[0]
                         for j1 in range(chi_parameters.shape[0]):
@@ -1506,15 +1622,19 @@ def jastrow_u_term_gradient_parameters_d1(self, e_powers, e_vectors):
                 r = e_powers[e1, e2, 1]
                 if r < self.u_cutoff:
                     r_vec = e_vectors[e1, e2] / r
-                    u_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.u_parameters.shape[0]
+                    cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
+                    u_set = cusp_set % self.u_parameters.shape[0]
                     cutoff = (r - L) ** C
                     for j1 in range(self.u_parameters.shape[0]):
                         for j2 in range(self.u_parameters.shape[1]):
                             if self.u_parameters_available[j1, j2]:
                                 n += 1
                                 if u_set == j1:
-                                    poly = e_powers[e1, e2, j2]
-                                    gradient = r_vec * cutoff * (C / (r - L) + j2 / r) * poly
+                                    if self.u_form == ANALYTIC:
+                                        gradient = r_vec * u_exp_b_d1(r, self.u_parameters[j1, 0], U_CUSP[cusp_set], L, C)[1]
+                                    else:
+                                        poly = e_powers[e1, e2, j2]
+                                        gradient = r_vec * cutoff * (C / (r - L) + j2 / r) * poly
                                     res[n, e1, :] += gradient
                                     res[n, e2, :] -= gradient
         return res.reshape(size, (self.neu + self.ned) * 3)
@@ -1571,8 +1691,11 @@ def jastrow_chi_term_gradient_parameters_d1(self, n_powers, n_vectors):
                                 if chi_parameters_available[j1, j2]:
                                     n += 1
                                     if chi_set == j1:
-                                        poly = n_powers[label, e1, j2]
-                                        res[n, e1, :] += r_vec * cutoff * (C / (r - L) + j2 / r) * poly
+                                        if self.chi_form[i] == ANALYTIC:
+                                            res[n, e1, :] += r_vec * window(r, L, C)[1]
+                                        else:
+                                            poly = n_powers[label, e1, j2]
+                                            res[n, e1, :] += r_vec * cutoff * (C / (r - L) + j2 / r) * poly
         return res.reshape(size, (self.neu + self.ned) * 3)
 
     return impl
@@ -1685,13 +1808,17 @@ def jastrow_u_term_laplacian_parameters_d1(self, e_powers):
                 n = int(self.u_cutoff_optimizable and self.cutoffs_optimizable) - 1
                 r = e_powers[e1, e2, 1]
                 if r < self.u_cutoff:
-                    u_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % self.u_parameters.shape[0]
+                    cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
+                    u_set = cusp_set % self.u_parameters.shape[0]
                     cutoff = (r - L) ** C
                     for j1 in range(self.u_parameters.shape[0]):
                         for j2 in range(self.u_parameters.shape[1]):
                             if self.u_parameters_available[j1, j2]:
                                 n += 1
-                                if u_set == j1:
+                                if u_set == j1 and self.u_form == ANALYTIC:
+                                    _, u1, u2 = u_exp_b_d1(r, self.u_parameters[j1, 0], U_CUSP[cusp_set], L, C)
+                                    res[n] += 2 * (u2 + 2 * u1 / r)
+                                elif u_set == j1:
                                     poly = e_powers[e1, e2, j2]
                                     res[n] += 2 * cutoff * (C * (C - 1) / (r - L) ** 2 + 2 * C / (r - L) * (j2 + 1) / r + j2 * (j2 + 1) / r**2) * poly
         return res
@@ -1745,7 +1872,10 @@ def jastrow_chi_term_laplacian_parameters_d1(self, n_powers):
                             for j2 in range(chi_parameters.shape[1]):
                                 if chi_parameters_available[j1, j2]:
                                     n += 1
-                                    if chi_set == j1:
+                                    if chi_set == j1 and self.chi_form[i] == ANALYTIC:
+                                        _, w1, w2 = window(r, L, C)
+                                        res[n] += w2 + 2 * w1 / r
+                                    elif chi_set == j1:
                                         poly = n_powers[label, e1, j2]
                                         res[n] += cutoff * (C * (C - 1) / (r - L) ** 2 + 2 * C / (r - L) * (j2 + 1) / r + j2 * (j2 + 1) / r**2) * poly
         return res
@@ -1947,6 +2077,20 @@ def jastrow_u_term_parameters_d2(self, e_powers):
             res[n] += self.u_term_parameters_d1(e_powers) / delta / 2
             self.u_cutoff -= delta
             res[:, n] = res[n, :]
+            n += 1
+
+        if self.u_form == ANALYTIC:
+            # the hole radius enters nonlinearly, different spin sets do not mix
+            C = self.trunc
+            L = self.u_cutoff
+            for e1 in range(1, self.neu + self.ned):
+                for e2 in range(e1):
+                    r = e_powers[e1, e2, 1]
+                    if r < L:
+                        cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
+                        u_set = cusp_set % self.u_parameters.shape[0]
+                        m = n + self.u_parameters_available[:u_set, 0].sum()
+                        res[m, m] += u_exp_b_d2(r, self.u_parameters[u_set, 0], U_CUSP[cusp_set], L, C)
 
         return res
 
@@ -2092,6 +2236,8 @@ Jastrow_t = Jastrow_class_t(
         ('no_dup_chi_term', nb.boolean[::1]),
         ('parameters_projector', nb.float64[:, ::1]),
         ('cutoffs_optimizable', nb.boolean),
+        ('u_form', nb.int64),
+        ('chi_form', nb.int64[::1]),
     ]
 )
 
@@ -2117,8 +2263,12 @@ class Jastrow(structref.StructRefProxy, AbstractJastrow):
             f_labels,
             no_dup_u_term,
             no_dup_chi_term,
+            u_form,
+            chi_form,
         ):
             self = structref.new(Jastrow_t)
+            self.u_form = u_form
+            self.chi_form = chi_form
             self.neu = neu
             self.ned = ned
             self.trunc = trunc
@@ -2143,14 +2293,17 @@ class Jastrow(structref.StructRefProxy, AbstractJastrow):
             self.f_parameters_optimizable = f_parameters_optimizable
             self.f_parameters_available = nb.typed.List.empty_list(f_parameters_mask_type)
 
+            # at least the first power (the distance itself) is needed by the analytic forms
             self.max_ee_order = max(
                 (
+                    2,
                     self.u_parameters.shape[1],
                     max([p.shape[1] for p in self.f_parameters]) if self.f_parameters else 0,
                 )
             )
             self.max_en_order = max(
                 (
+                    2,
                     max([p.shape[1] for p in self.chi_parameters]) if self.chi_parameters else 0,
                     max([p.shape[2] for p in self.f_parameters]) if self.f_parameters else 0,
                 )
@@ -2180,6 +2333,8 @@ class Jastrow(structref.StructRefProxy, AbstractJastrow):
             config.jastrow.f_labels,
             config.jastrow.no_dup_u_term,
             config.jastrow.no_dup_chi_term,
+            config.jastrow.u_form,
+            config.jastrow.chi_form,
         )
 
     @property

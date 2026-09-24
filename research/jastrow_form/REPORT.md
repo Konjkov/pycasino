@@ -357,7 +357,47 @@ two-body ones. For f the reference is |u(1)|; for Φ/Θ it is the pair-weighted 
 All these conclusions are about profile shapes (caveat a) and, for molecules, about two molecules only
 (caveat b).
 
-## 7. Files and reproduction
+## 7. Implementation in PyCasino
+
+`casino/jastrow.py` implements two of the recommended forms (see `FORMALISM.md` §2):
+
+- **u:** the exponential hole u = −γ b e^{−r/b} w(r/L), with one parameter b per spin set. γ = 1/4 (↑↑, ↓↓)
+  or 1/2 (↑↓) is taken for each pair, so the Kato cusp holds exactly for any b and L.
+- **χ:** the bell χ = A w(r/L), with one parameter A per spin set. χ'(0) = 0 by construction.
+
+Both have analytic value, gradient, Laplacian, single-electron versions, and first derivatives w.r.t. the
+parameters. The u term also has the second derivative w.r.t. b. Cutoff derivatives are numerical, as for the
+polynomial. There are no constraints, so they drop out of the projector.
+
+The form is selected per set by an optional line in `correlation.data`. Without the line the set is the
+CASINO polynomial, and the file stays readable by CASINO. The expansion order must be 0:
+
+```
+ START SET 1
+ Spherical harmonic l,m
+   0 0
+ Functional form (0=polynomial; 1=exponential hole -gamma*b*exp(-r/b)*w(r/L))
+   1
+ Expansion order N_u
+   0
+ Spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
+   1
+ Cutoff (a.u.)     ;  Optimizable (0=NO; 1=YES)
+   6.0                               1
+ Parameter values  ;  Optimizable (0=NO; 1=YES)
+   1.3                               1       ! b_1
+   1.1                               1       ! b_2
+ END SET 1
+```
+
+- **χ set:** the same line, `Functional form (0=polynomial; 1=bell A*w(r/L))`, placed after
+  `Impose electron-nucleus cusp`, which must be 0.
+- **Default b:** a u parameter left at 0 starts from b = 1 bohr, the typical hole radius found in §3.1.
+- **Example:** `casino/tests/inputs/Jastrow/Be_analytic` has exponential u, bell χ and a polynomial f term.
+- **Test:** `TestJastrowAnalytic` in `casino/tests/test_jastrow.py` compares the analytic derivatives with
+  numerical ones.
+
+## 8. Files and reproduction
 
 Run the scripts in this order from `research/jastrow_form`. They need numpy, scipy, numba and matplotlib,
 plus gplearn for `symreg.py`. The whole pipeline takes about 30 min; symreg alone takes about 20 min.

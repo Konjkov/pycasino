@@ -11,9 +11,12 @@ from casino.wfn import Wfn
 
 
 class TestJastrow(unittest.TestCase):
+    config_dir = 'inputs/Jastrow/He'
+    tolerance = {}
+
     def setUp(self):
         np.random.seed(1)
-        config_path = Path(__file__).resolve().parent / 'inputs/Jastrow/He'
+        config_path = Path(__file__).resolve().parent / self.config_dir
         self.config = CasinoConfig(config_path)
         self.config.read()
         slater = Slater(self.config, cusp=None)
@@ -39,27 +42,27 @@ class TestJastrow(unittest.TestCase):
     def test_gradient(self):
         analytical = self.wfn.jastrow.gradient(self.e_vectors, self.n_vectors)
         numerical = self.wfn.jastrow.numerical_gradient(self.e_vectors, self.n_vectors)
-        assert analytical == pytest.approx(numerical)
+        assert analytical == pytest.approx(numerical, **self.tolerance)
 
     def test_laplacian(self):
         analytical = self.wfn.jastrow.laplacian(self.e_vectors, self.n_vectors)[0]
         numerical = self.wfn.jastrow.numerical_laplacian(self.e_vectors, self.n_vectors)
-        assert analytical == pytest.approx(numerical)
+        assert analytical == pytest.approx(numerical, **self.tolerance)
 
     def test_value_parameters_d1(self):
         analytical = self.wfn.jastrow.value_parameters_d1(self.e_vectors, self.n_vectors)
         numerical = self.wfn.jastrow.value_parameters_numerical_d1(self.e_vectors, self.n_vectors, False)
-        assert analytical == pytest.approx(numerical)
+        assert analytical == pytest.approx(numerical, **self.tolerance)
 
     def test_gradient_parameters_d1(self):
         analytical = self.wfn.jastrow.gradient_parameters_d1(self.e_vectors, self.n_vectors)
         numerical = self.wfn.jastrow.gradient_parameters_numerical_d1(self.e_vectors, self.n_vectors, False)
-        assert analytical == pytest.approx(numerical)
+        assert analytical == pytest.approx(numerical, **self.tolerance)
 
     def test_laplacian_parameters_d1(self):
         analytical = self.wfn.jastrow.laplacian_parameters_d1(self.e_vectors, self.n_vectors)
         numerical = self.wfn.jastrow.laplacian_parameters_numerical_d1(self.e_vectors, self.n_vectors, False)
-        assert analytical == pytest.approx(numerical)
+        assert analytical == pytest.approx(numerical, **self.tolerance)
 
     def test_wfn_laplacian(self):
         assert self.wfn.kinetic_energy(self.r_e) == pytest.approx(-self.wfn.numerical_laplacian(self.r_e) / 2)
@@ -69,6 +72,14 @@ class TestJastrow(unittest.TestCase):
 
     def test_wfn_energy_parameters_d1(self):
         assert self.wfn.energy_parameters_d1(self.r_e) == pytest.approx(self.wfn.energy_parameters_numerical_d1(self.r_e))
+
+
+class TestJastrowAnalytic(TestJastrow):
+    """Exponential u-term and bell chi-term (Functional form = 1)."""
+
+    config_dir = 'inputs/Jastrow/Be_analytic'
+    # cutoff derivatives are finite differences and the projector mixes the blocks at the 1e-11 level
+    tolerance = {'rel': 1e-5, 'abs': 1e-9}
 
 
 if __name__ == '__main__':
