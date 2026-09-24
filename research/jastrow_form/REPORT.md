@@ -393,7 +393,7 @@ CASINO polynomial, and the file stays readable by CASINO. The expansion order mu
 - **χ set:** the same line, `Functional form (0=polynomial; 1=bell A*w(r/L))`, placed after
   `Impose electron-nucleus cusp`, which must be 0.
 - **Default b:** a u parameter left at 0 starts from b = 1 bohr, the typical hole radius found in §3.1.
-- **Example:** `casino/tests/inputs/Jastrow/Be_analytic` has exponential u, bell χ and a polynomial f term.
+- **Example:** `examples/stowfn/Be/HF/QZ4P/CBCS/Jastrow_emin_analytic` has exponential u and bell χ (no f term), with the same input as `Jastrow_emin` (emin optimization).
 - **Test:** `TestJastrowAnalytic` in `casino/tests/test_jastrow.py` compares the analytic derivatives with
   numerical ones.
 

@@ -77,7 +77,7 @@ class TestJastrow(unittest.TestCase):
 class TestJastrowAnalytic(TestJastrow):
     """Exponential u-term and bell chi-term (Functional form = 1)."""
 
-    config_dir = 'inputs/Jastrow/Be_analytic'
+    config_dir = '../../examples/stowfn/Be/HF/QZ4P/CBCS/Jastrow_emin_analytic'
     # cutoff derivatives are finite differences and the projector mixes the blocks at the 1e-11 level
     tolerance = {'rel': 1e-5, 'abs': 1e-9}
 
