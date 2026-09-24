@@ -1,5 +1,8 @@
 # Functional form of the optimized Jastrow factor and backflow transformation
 
+The mathematical definitions (forms, cusp conditions, window, weights, metrics, mean-field χ, local-density hole)
+are in [`FORMALISM.md`](FORMALISM.md).
+
 The question: can the CASINO polynomial terms (Jastrow u, χ, f and backflow η, μ, Φ/Θ) be replaced by
 simpler analytic forms with fewer parameters and a physical meaning? This is a study of function shapes only.
 No VMC or DMC calculation was run.
