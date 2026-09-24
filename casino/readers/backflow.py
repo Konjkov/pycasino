@@ -96,7 +96,7 @@ START SET {n_set}
  Cutoff (a.u.)     ;  Optimizable (0=NO; 1=YES)
    {phi_cutoff:.16f}                {phi_cutoff_optimizable}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
-  {phi_parameters}'
+  {phi_parameters}
  END SET {n_set}"""
 
 omega_term_template = """\

@@ -228,7 +228,12 @@ def jastrow_u_term(self, e_powers: np.ndarray):
             for e2 in range(e1):
                 r_ee = e_powers[e1, e2, 1]
                 if r_ee < self.u_cutoff:
-                    cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
+                    if self.boson:
+                        # every pair of a bosonic weight meets in s-wave, so the cusp of all of
+                        # them is the antiparallel one: no determinant vanishes to supply half
+                        cusp_set = 1
+                    else:
+                        cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
                     u_set = cusp_set % parameters.shape[0]
                     poly = 0.0
                     for k in range(parameters.shape[1]):
@@ -264,7 +269,10 @@ def jastrow_u_term_1e(self, e_powers_1e: np.ndarray, e: int):
                 continue
             r_ee = e_powers_1e[e2, 1]
             if r_ee < self.u_cutoff:
-                cusp_set = int(e >= self.neu) + int(e2 >= self.neu)
+                if self.boson:
+                    cusp_set = 1
+                else:
+                    cusp_set = int(e >= self.neu) + int(e2 >= self.neu)
                 u_set = cusp_set % parameters.shape[0]
                 poly = 0.0
                 for k in range(parameters.shape[1]):
@@ -420,7 +428,12 @@ def jastrow_u_term_gradient(self, e_powers, e_vectors):
                 r_ee = e_powers[e1, e2, 1]
                 if r_ee < L:
                     r_vec = e_vectors[e1, e2] / r_ee**2
-                    cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
+                    if self.boson:
+                        # every pair of a bosonic weight meets in s-wave, so the cusp of all of
+                        # them is the antiparallel one: no determinant vanishes to supply half
+                        cusp_set = 1
+                    else:
+                        cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
                     u_set = cusp_set % parameters.shape[0]
                     poly = 0.0
                     for k in range(parameters.shape[1]):
@@ -462,7 +475,10 @@ def jastrow_u_term_gradient_1e(self, e_powers_1e, e_vectors_1e, e: int):
             r_ee = e_powers_1e[e2, 1]
             if r_ee < L:
                 r_vec = e_vectors_1e[e2] / r_ee**2
-                cusp_set = int(e >= self.neu) + int(e2 >= self.neu)
+                if self.boson:
+                    cusp_set = 1
+                else:
+                    cusp_set = int(e >= self.neu) + int(e2 >= self.neu)
                 u_set = cusp_set % parameters.shape[0]
                 poly = 0.0
                 for k in range(parameters.shape[1]):
@@ -650,7 +666,12 @@ def jastrow_u_term_laplacian(self, e_powers):
             for e2 in range(e1):
                 r_ee = e_powers[e1, e2, 1]
                 if r_ee < L:
-                    cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
+                    if self.boson:
+                        # every pair of a bosonic weight meets in s-wave, so the cusp of all of
+                        # them is the antiparallel one: no determinant vanishes to supply half
+                        cusp_set = 1
+                    else:
+                        cusp_set = int(e1 >= self.neu) + int(e2 >= self.neu)
                     u_set = cusp_set % parameters.shape[0]
                     poly = poly_diff = poly_diff_2 = 0.0
                     for k in range(parameters.shape[1]):
@@ -2068,6 +2089,7 @@ Jastrow_t = Jastrow_class_t(
         ('neu', nb.int64),
         ('ned', nb.int64),
         ('trunc', nb.int64),
+        ('boson', nb.boolean),
         ('u_parameters', u_parameters_type),
         ('chi_parameters', nb.types.ListType(chi_parameters_type)),
         ('f_parameters', nb.types.ListType(f_parameters_type)),
@@ -2122,6 +2144,7 @@ class Jastrow(structref.StructRefProxy, AbstractJastrow):
             self.neu = neu
             self.ned = ned
             self.trunc = trunc
+            self.boson = False
             # spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
             self.u_cutoff = u_cutoff[0]['value']
             self.u_cutoff_optimizable = u_cutoff[0]['optimizable']
@@ -2186,6 +2209,16 @@ class Jastrow(structref.StructRefProxy, AbstractJastrow):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def trunc(self):
         return self.trunc
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def boson(self):
+        return self.boson
+
+    @boson.setter
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def boson(self, value):
+        self.boson = value
 
     @property
     @nb.njit(nogil=True, parallel=False, cache=True)

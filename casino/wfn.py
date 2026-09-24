@@ -85,6 +85,14 @@ def wfn_log_weight(self, r_e, zeta):
     """Logarithm of the one-particle weight Φ = Π_i Π_I exp(-ζ r_iI) of a weighted nodal domain
     average. It belongs to the Hamiltonian rather than to the wave function, so nothing of Ψ
     enters it, and a chain sampling Φ|Ψ| carries it beside log|Ψ|.
+
+    A boson_jastrow multiplies it, Φ = J·Π exp(-ζ r_iI), which is the affordable step towards the
+    bosonic ground state of Eq. (20): the volume term of Eq. (18) is the local energy of Φ read as a
+    bosonic trial function, and a one-particle Φ leaves the whole e-e repulsion in it uncancelled.
+    The Jastrow carries the e-e cusp, so that singularity goes; what is left is the e-n mismatch
+    (Z - ζ)/r and the smooth error of the envelope. It is a copy of the wave function's Jastrow with
+    the cusps of a nodeless function - every pair in s-wave - and must be held fixed, the weight
+    being what every wave function is compared through.
     :param r_e: electron coordinates - array(nelec, 3)
     :param zeta: exponent, in inverse bohr
     :return: log(Φ)
@@ -95,7 +103,14 @@ def wfn_log_weight(self, r_e, zeta):
         for e1 in range(r_e.shape[0]):
             for atom in range(self.atom_positions.shape[0]):
                 res -= np.linalg.norm(r_e[e1] - self.atom_positions[atom])
-        return zeta * res
+        res *= zeta
+        if self.boson_jastrow is not None or self.weight_density:
+            e_vectors, n_vectors = self._relative_coordinates(r_e)
+            if self.boson_jastrow is not None:
+                res += self.boson_jastrow.value(e_vectors, n_vectors)
+            if self.weight_density:
+                res += self.slater.log_density(n_vectors)
+        return res
 
     return impl
 
@@ -496,16 +511,33 @@ def wfn_nodal_surface_integrand(self, r_e):
     The potential comes with its two parts beside it, which is what tells a wave function whose
     electrons have flown apart from one whose electrons have collapsed onto each other: both show
     the same rise in V and only the split says which.
+
+    The last four are what a weight beyond the bare exponent adds to V_Φ = ½(|∇lnΦ|² + ∇²lnΦ). With
+    lnΦ = lnJ + Σ_i ln√n(r_i) - ζ Σ r_iI every cross term of that square is a piece of its own, and
+    none of them carries ζ, so a grid of ζ still costs one walk. The two density pieces are computed
+    only under weight_density, an orbital laplacian per configuration being too dear to spend
+    otherwise.
     :param r_e: electron coordinates - array(nelec, 3)
-    :return: log|Ψ|, |∇Ψ/Ψ|², the potential, Σ r_iI, Σ 1/r_iI, Σ_i |Σ_I r̂_iI|², and the e-e and
-        e-n parts of the potential - array(8)
+    :return: log|Ψ|, |∇Ψ/Ψ|², the potential, Σ r_iI, Σ 1/r_iI, Σ_i |Σ_I r̂_iI|², the e-e and e-n
+        parts of the potential, ½(|∇lnJ|² + ∇²lnJ), Σ_i ∇_i lnJ · Σ_I r̂_iI,
+        ½Σ_i(|∇_i ln√n|² + ∇²_i ln√n) and Σ_i ∇_i lnJ · ∇_i ln√n - array(12)
     """
 
     def impl(self, r_e) -> np.ndarray:
         log_value, _ = self.log_value(r_e)
         grad = self.drift_velocity(r_e)
         electron, nucleus = self.coulomb_parts(r_e)
-        n_vectors = self._relative_coordinates(r_e)[1]
+        e_vectors, n_vectors = self._relative_coordinates(r_e)
+        jastrow_kinetic = jastrow_cross = 0.0
+        if self.boson_jastrow is not None:
+            j_l, j_g = self.boson_jastrow.laplacian(e_vectors, n_vectors)
+            jastrow_kinetic = (j_g @ j_g + j_l) / 2
+        density_kinetic = density_cross = 0.0
+        if self.weight_density:
+            d_g, d_l = self.slater.density_laplacian(n_vectors)
+            density_kinetic = (np.sum(d_g * d_g) + d_l) / 2
+            if self.boson_jastrow is not None:
+                density_cross = j_g @ d_g.ravel()
         distance = direction = 0.0
         inverse = 0.0
         for e1 in range(n_vectors.shape[1]):
@@ -516,8 +548,15 @@ def wfn_nodal_surface_integrand(self, r_e):
                 inverse += 1 / r
                 unit += n_vectors[atom, e1] / r
             direction += unit @ unit
+            if self.boson_jastrow is not None:
+                jastrow_cross += j_g[3 * e1 : 3 * e1 + 3] @ unit
         potential = electron + nucleus + self.nuclear_repulsion
-        return np.array([log_value, grad @ grad, potential, distance, inverse, direction, electron, nucleus])
+        return np.array(
+            [
+                log_value, grad @ grad, potential, distance, inverse, direction, electron, nucleus,
+                jastrow_kinetic, jastrow_cross, density_kinetic, density_cross,
+            ]
+        )  # fmt: skip
 
     return impl
 
@@ -826,6 +865,8 @@ def wfn_type(jastrow_t):
             ('jastrow', nb.optional(jastrow_t)),
             ('backflow', nb.optional(Backflow_t)),
             ('ppotential', nb.optional(PPotential_t)),
+            ('boson_jastrow', nb.optional(jastrow_t)),
+            ('weight_density', nb.boolean),
             ('opt_jastrow', nb.boolean),
             ('opt_backflow', nb.boolean),
             ('opt_geminal', nb.boolean),
@@ -866,6 +907,8 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
             self.jastrow = jastrow
             self.backflow = backflow
             self.ppotential = ppotential
+            self.boson_jastrow = None
+            self.weight_density = False
             self.opt_jastrow = False
             self.opt_backflow = False
             self.opt_geminal = False
@@ -925,6 +968,31 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def opt_det_coeff(self):
         return self.opt_det_coeff
+
+    @jastrow.setter
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def jastrow(self, value):
+        self.jastrow = value
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def boson_jastrow(self):
+        return self.boson_jastrow
+
+    @boson_jastrow.setter
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def boson_jastrow(self, value):
+        self.boson_jastrow = value
+
+    @property
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def weight_density(self):
+        return self.weight_density
+
+    @weight_density.setter
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def weight_density(self, value):
+        self.weight_density = value
 
     @opt_jastrow.setter
     @nb.njit(nogil=True, parallel=False, cache=True)
@@ -1035,8 +1103,9 @@ class Wfn(structref.StructRefProxy, AbstractWfn):
     def nodal_surface_integrand(self, r_e):
         """Everything a weighted nodal domain average needs of one configuration.
         :param r_e: electron coordinates - array(nelec, 3)
-        :return: log|Ψ|, |∇Ψ/Ψ|², the potential, Σ r_iI, Σ 1/r_iI, Σ_i |Σ_I r̂_iI|², and the e-e
-            and e-n parts of the potential - array(8)
+        :return: log|Ψ|, |∇Ψ/Ψ|², the potential, Σ r_iI, Σ 1/r_iI, Σ_i |Σ_I r̂_iI|², the e-e and
+            e-n parts of the potential, and the four terms a jastrow or a density weight adds to
+            V_Φ - array(12)
         """
         return self.nodal_surface_integrand(r_e)
 

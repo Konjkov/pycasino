@@ -1,4 +1,5 @@
 import os
+import re
 
 from .validate import check_file, check_input
 
@@ -66,6 +67,14 @@ class Input:
                         block_line[k] = float(v)
                 value.append(block_line)
         setattr(self, 'opt_plan', value)
+
+    @staticmethod
+    def casl_has_jastrow(base_path):
+        file_path = os.path.join(base_path, 'parameters.casl')
+        if not os.path.isfile(file_path):
+            return False
+        with open(file_path, 'r') as f:
+            return re.search(r'^JASTROW\s*:', f.read(), re.MULTILINE) is not None
 
     def read(self, base_path):
         """Read input config."""
@@ -142,7 +151,11 @@ class Input:
         self.read_bool('opt_geminal', False)
         self.read_bool('backflow', self.opt_backflow)
         self.read_bool('use_jastrow', self.opt_jastrow)
-        self.read_bool('use_gjastrow', False)
+        # when the keyword is not given CASINO takes the gjastrow if parameters.casl has a JASTROW
+        # block or correlation.data has none (monte_carlo.f90, read_jastrow_function). Only the
+        # first half is followed: with no jastrow in either file both forms are empty, and the
+        # gjastrow reader wants a parameters.casl that may not be there
+        self.read_bool('use_gjastrow', self.use_jastrow and self.casl_has_jastrow(base_path))
         # Cusp correction keywords
         self.read_bool('cusp_correction', self.atom_basis_type == 'gaussian')
         self.read_float('cusp_threshold', 1e-7)

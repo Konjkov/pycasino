@@ -5,7 +5,7 @@ import numpy as np
 PILOT_STEPS = 10000
 
 
-def nodal_domain_sums(integrand, epsilon, zeta=0.0, sampled=0.0):
+def nodal_domain_sums(integrand, epsilon, zeta=0.0, sampled=0.0, jastrow_weight=False, density_weight=False):
     """Sums that the weighted nodal domain averages of Mitas & Annaberdiyev (arXiv:2109.01734)
     are made of, for every tube half-thickness at once.
 
@@ -54,6 +54,13 @@ def nodal_domain_sums(integrand, epsilon, zeta=0.0, sampled=0.0):
     :param zeta: exponent of the one-particle weight the average is taken with, in inverse bohr
     :param sampled: exponent the chain itself walked, equal to zeta for a walk of Φ|Ψ| and zero
         for a walk of |Ψ|
+    :param jastrow_weight: the weight is Φ = J·Π exp(-ζ r_iI), so V_Φ carries the Jastrow's two
+        terms beside the two of ζ. The Jastrow cancels out of the reweighting from sampled to zeta,
+        being the same factor in both, and only V_Φ knows about it
+    :param density_weight: the envelope is the density amplitude Π √n(r_i) rather than the exponent,
+        which no ζ can be scanned over: it has the cusp of the nucleus, the decay of the ionization
+        energy and the shell structure at once, where one exponent has at most one of the three.
+        It replaces the ζ terms of V_Φ rather than joining them, so zeta must be zero with it
     :return: array(epsilon.size, 3) of the surface sum, its sum of squares and the number of
         configurations inside the tube, and array(8) of the number of configurations, the overlap
         sum, the sums of V - V_Φ and (V - V_Φ)² over it, the sum of the squared weights, the sums
@@ -71,6 +78,12 @@ def nodal_domain_sums(integrand, epsilon, zeta=0.0, sampled=0.0):
         potential = integrand[:, 2] - (zeta**2 * integrand[:, 5] / 2 - zeta * integrand[:, 4])
     else:
         potential = integrand[:, 2]
+    if jastrow_weight:
+        potential = potential - (integrand[:, 8] - zeta * integrand[:, 9])
+    if density_weight:
+        potential = potential - integrand[:, 10]
+        if jastrow_weight:
+            potential = potential - integrand[:, 11]
     surface = np.empty(shape=(epsilon.size, 3))
     for i, eps in enumerate(epsilon):
         inside = sigma < eps
@@ -104,7 +117,9 @@ def nodal_domain_gradient_sums(integrand, gradient, epsilon, zeta=0.0, sampled=0
     with ∂σ/∂p = -σ³/2 · ∂|∇lnΨ|²/∂p the first term collects 3σ³/2ε³ against that derivative.
 
     :param integrand: as nodal_domain_sums takes it - array(nconfig, 8)
-    :param gradient: the score and the derivative of |∇lnΨ|² - array(nconfig, 2, parameters)
+    :param gradient: the score and the derivative of |∇lnΨ|² of the configurations inside the tube,
+        in their order - array(inside, 2, parameters). Outside it the kernel and its derivative
+        both vanish, so the costly derivative is never needed there
     :param epsilon: half-thickness of the tube, in bohr
     :param zeta: exponent of the one-particle weight the average is taken with
     :param sampled: exponent the chain walked
@@ -113,8 +128,10 @@ def nodal_domain_gradient_sums(integrand, gradient, epsilon, zeta=0.0, sampled=0
         unchanged by it - the sampled measure cancels out of every ratio and what is left is the
         score of Ψ_p, which is what gradient carries - so an optimization can walk once and then
         move over the fixed sample with an exact derivative rather than an approximate one
-    :return: array(2) of the surface sum and the overlap sum, and array(3, parameters) of the sums
-        the two terms are built from - the node term, and the two halves of the covariance
+    :return: array(2) of the surface sum and the overlap sum, and array(2, parameters) of the node
+        term and the first half of the covariance. The second half, the weighted sum of the score,
+        runs over every configuration and is left to the caller, so that nothing of that size is
+        ever held
     """
     sigma = 1 / np.sqrt(integrand[:, 1])
     if zeta != sampled:
@@ -123,15 +140,14 @@ def nodal_domain_gradient_sums(integrand, gradient, epsilon, zeta=0.0, sampled=0
         weight = np.ones(shape=sigma.shape)
     if log_weight is not None:
         weight = weight * np.exp(log_weight)
-    inside = sigma < epsilon
-    value = np.where(inside, 3 * (epsilon - sigma) / epsilon**3, 0.0)
-    node = np.where(inside, 3 * sigma**3 / (2 * epsilon**3), 0.0)
-    scalars = np.array([(weight * value).sum(), weight.sum()])
-    vectors = np.stack(
-        (
-            (weight * node) @ gradient[:, 1],
-            (weight * value) @ gradient[:, 0],
-            weight @ gradient[:, 0],
-        )
-    )
+    inside = tube(integrand, epsilon)
+    sigma, inner = sigma[inside], weight[inside]
+    value = 3 * (epsilon - sigma) / epsilon**3
+    node = 3 * sigma**3 / (2 * epsilon**3)
+    scalars = np.array([inner @ value, weight.sum()])
+    vectors = np.stack(((inner * node) @ gradient[:, 1], (inner * value) @ gradient[:, 0]))
     return scalars, vectors
+
+
+def tube(integrand, epsilon):
+    return 1 / np.sqrt(integrand[:, 1]) < epsilon

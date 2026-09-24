@@ -6,6 +6,7 @@ mdet_template = """\
 START MDET
 Title
  {title}
+
 MD
   {n_dets}
   {det_weights}

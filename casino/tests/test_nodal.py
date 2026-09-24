@@ -6,7 +6,7 @@ import pytest
 
 from casino.backflow import Backflow
 from casino.jastrow import Jastrow
-from casino.nodal import nodal_domain_gradient_sums, nodal_domain_sums
+from casino.nodal import nodal_domain_gradient_sums, nodal_domain_sums, tube
 from casino.readers import CasinoConfig
 from casino.slater import Slater
 from casino.wfn import Wfn
@@ -161,16 +161,18 @@ class TestNodalDomainGradient(unittest.TestCase):
     def test_surface_agrees_with_the_grid(self):
         """the two entry points build the same surface sum by different routes, one over a grid of
         tube thicknesses and one at a single thickness, and nothing else compares them"""
-        gradient = np.stack([self.wfn.nodal_surface_gradient_integrand(r) for r in self.r_e])
+        gradient = np.stack([self.wfn.nodal_surface_gradient_integrand(r) for r in self.r_e[tube(self.integrand, self.epsilon)]])
         surface, overlap = nodal_domain_sums(self.integrand, np.array([self.epsilon]))
         scalars, _ = nodal_domain_gradient_sums(self.integrand, gradient, self.epsilon)
         assert scalars[0] / scalars[1] == pytest.approx(surface[0, 0] / overlap[1], rel=1e-14)
 
     def test_gradient(self):
-        gradient = np.stack([self.wfn.nodal_surface_gradient_integrand(r) for r in self.r_e])
+        gradient = np.stack([self.wfn.nodal_surface_gradient_integrand(r) for r in self.r_e[tube(self.integrand, self.epsilon)]])
         scalars, vectors = nodal_domain_gradient_sums(self.integrand, gradient, self.epsilon)
+        # the score summed over the whole sample, as the caller does it, the tube holding a part
+        score = np.stack([self.wfn.value_parameters_d1(r) for r in self.r_e]).sum(axis=0)
         surface, norm = scalars
-        analytical = (vectors[0] + vectors[1]) / norm - surface / norm * vectors[2] / norm
+        analytical = (vectors[0] + vectors[1]) / norm - surface / norm * score / norm
         for _ in range(3):
             direction = np.random.normal(size=self.parameters.size)
             direction /= np.linalg.norm(direction)

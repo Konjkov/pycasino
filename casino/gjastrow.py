@@ -974,6 +974,28 @@ def gjastrow_f_term_laplacian(self, e_powers: np.ndarray, n_powers: np.ndarray, 
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Gjastrow_class_t, 'set_boson')
+def gjastrow_set_boson(self):
+    """Send every e-e pair of the rank (2, 0) term to the channel of an antiparallel pair, which is
+    what a nodeless weight Φ needs of a Jastrow: no determinant vanishes at a parallel coalescence
+    to supply half of the cusp, so every pair meets in s-wave and wants the antiparallel ½. The cusp
+    is carried by the constraints of each channel's own coefficients, so a pair read through the
+    antiparallel channel takes that cusp with it. Only the lookup tables change, and only after the
+    construction has read the channel scales off them.
+    """
+
+    def impl(self):
+        channel = self.u_channel[0, 1]
+        cutoff_channel = self.u_cutoff_channel[0, 1]
+        for s1 in range(self.u_channel.shape[0]):
+            for s2 in range(self.u_channel.shape[1]):
+                self.u_channel[s1, s2] = channel
+                self.u_cutoff_channel[s1, s2] = cutoff_channel
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Gjastrow_class_t, 'value')
 def gjastrow_value(self, e_vectors: np.ndarray, n_vectors: np.ndarray):
     """Jastrow value
@@ -1986,6 +2008,10 @@ class Gjastrow(structref.StructRefProxy, AbstractJastrow):
     @nb.njit(nogil=True, parallel=False, cache=True)
     def f_parameters(self):
         return self.f_parameters
+
+    @nb.njit(nogil=True, parallel=False, cache=True)
+    def set_boson(self):
+        self.set_boson()
 
     @nb.njit(nogil=True, parallel=False, cache=True)
     def ee_powers(self, e_vectors):

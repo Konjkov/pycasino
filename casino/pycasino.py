@@ -21,7 +21,7 @@ from .dmc import DMC
 from .geminal import Geminal
 from .gjastrow import Gjastrow
 from .jastrow import Jastrow
-from .nodal import PILOT_STEPS, nodal_domain_gradient_sums, nodal_domain_sums
+from .nodal import PILOT_STEPS, nodal_domain_gradient_sums, nodal_domain_sums, tube
 from .ppotential import PPotential
 from .readers import CasinoConfig
 from .readers.input import Input
@@ -101,6 +101,7 @@ double_size = MPI.DOUBLE.Get_size()
 NMIN_DRIFT = 0.03
 NMIN_RADIUS = 0.1
 NMIN_ATTEMPTS = 6
+NMIN_ZETA_GRID = (0.25, 0.5, 0.7, 1.0, 1.4, 2.0)
 
 
 def configure_logging():
@@ -249,10 +250,10 @@ class Casino:
 
         jastrow = None
         if self.config.jastrow:
-            if self.config.input.use_jastrow:
-                jastrow = Jastrow(self.config)
-            elif self.config.input.use_gjastrow:
+            if self.config.input.use_gjastrow:
                 jastrow = Gjastrow(self.config)
+            elif self.config.input.use_jastrow:
+                jastrow = Jastrow(self.config)
 
         if self.config.backflow:
             backflow = Backflow(self.config)
@@ -534,7 +535,6 @@ class Casino:
         |grad_i ln psi| that makes EBES non gaussian is what the target itself accounts for, and
         the map converges to it regardless of how far off the law is.
         """
-        logger.info(' Performing time-step optimization.')
         for _ in range(3):
             # a rank that accepts everything or nothing carries no scale of its own
             acceptance = np.clip(mpi_comm.allreduce(self.acceptance_ratio(steps)) / mpi_comm.size, 0.05, 0.95)
@@ -739,6 +739,13 @@ class Casino:
             f' Running VMC equilibration ({steps} moves).'
         )  # fmt: skip
 
+    def burn_in(self):
+        # the nodal paths restart the chain for every walk, a new zeta or new parameters, so this
+        # says nothing and the step is reported in their own tables
+        self.vmc.random_walk(self.config.input.vmc_equil_nstep, self.decorr_period)
+        if self.config.input.opt_dtvmc == 1:
+            self.optimize_vmc_step(3000)
+
     def vmc_energy_accumulation(self):
         """VMC energy accumulation"""
         logger.info(
@@ -754,6 +761,7 @@ class Casino:
             # input written for casino samples at a different step here. Three iterations of
             # 3000 steps cost less than the ten of 1000 they replace, and the noise of the last
             # acceptance is what is left over, 2.33 of it reaching the step size
+            logger.info(' Performing time-step optimization.')
             self.optimize_vmc_step(3000)
         elif self.config.input.opt_dtvmc == 2:
             # to maximize the diffusion constant with respect to dtvmc (CBCS default).
@@ -1082,14 +1090,14 @@ class Casino:
             ' Optimization start\n'
             ' =================='
         )  # fmt: skip
-        wfn_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
-        # create wfn numpy array whose data points to the shared buffer
-        buffer, _ = wfn_buffer.Shared_query(rank=0)
-        wfn = np.ndarray(buffer=buffer, shape=(steps,))
-        wfn_0_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
-        # create wfn_0 numpy array whose data points to the shared buffer
-        buffer, _ = wfn_0_buffer.Shared_query(rank=0)
-        wfn_0 = np.ndarray(buffer=buffer, shape=(steps,))
+        log_wfn_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
+        # create log_wfn numpy array whose data points to the shared buffer
+        buffer, _ = log_wfn_buffer.Shared_query(rank=0)
+        log_wfn = np.ndarray(buffer=buffer, shape=(steps,))
+        log_wfn_0_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
+        # create log_wfn_0 numpy array whose data points to the shared buffer
+        buffer, _ = log_wfn_0_buffer.Shared_query(rank=0)
+        log_wfn_0 = np.ndarray(buffer=buffer, shape=(steps,))
         energy_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
         # create energy numpy array whose data points to the shared buffer
         buffer, _ = energy_buffer.Shared_query(rank=0)
@@ -1102,15 +1110,18 @@ class Casino:
         # create energy_gradient numpy array whose data points to the shared buffer
         buffer, _ = energy_gradient_buffer.Shared_query(rank=0)
         energy_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
-        wfn_0[start:stop] = self.vmc.observable(self.wfn.value, position)
+        # the wave function is carried as a logarithm, as exp(J) of a whole configuration leaves the range
+        # of a double long before the ratio of two of them does
+        log_wfn_0[start:stop] = self.vmc.observable(self.wfn.log_value, position)[:, 0]
         mpi_comm.Barrier()
 
         def fun(x, *args, **kwargs):
             self.wfn.set_parameters(x)
-            wfn[start:stop] = self.vmc.observable(self.wfn.value, position)
+            log_wfn[start:stop] = self.vmc.observable(self.wfn.log_value, position)[:, 0]
             energy[start:stop] = self.vmc.observable(self.wfn.energy, position)
             mpi_comm.Barrier()
-            weights = (wfn / wfn_0) ** 2
+            # the weights enter only normalized, so the largest one is factored out
+            weights = np.exp(2 * (log_wfn - log_wfn_0 - np.max(log_wfn - log_wfn_0)))
             mean_energy = np.average(energy, weights=weights)
             ddof = np.average(weights, weights=weights)  # Delta Degrees of Freedom
             # rescale for "Cost column" in output of scipy.optimize.least_squares to be variance of E local
@@ -1131,7 +1142,7 @@ class Casino:
             self.wfn.set_parameters(x)
             self.wfn.set_parameters_projector()
             # jac(x) call allways follows fun(x) call
-            # wfn[start:stop] = self.vmc.observable(self.wfn.value, position)
+            # log_wfn[start:stop] = self.vmc.observable(self.wfn.log_value, position)[:, 0]
             # energy[start:stop] = self.vmc.observable(self.wfn.energy, position)
             wfn_gradient[start:stop] = self.vmc.observable(self.wfn.value_parameters_d1, position)
             if self.config.input.opt_fixnl:
@@ -1139,7 +1150,7 @@ class Casino:
             else:
                 energy_gradient[start:stop] = self.vmc.observable(self.wfn.energy_parameters_d1, position)
             mpi_comm.Barrier()
-            weights = (wfn / wfn_0) ** 2
+            weights = np.exp(2 * (log_wfn - log_wfn_0 - np.max(log_wfn - log_wfn_0)))
             mean_energy = np.average(energy, weights=weights)
             mean_wfn_gradient = np.average(wfn_gradient, axis=0, weights=weights)
             mean_energy_gradient = np.average(energy_gradient, axis=0, weights=weights)
@@ -1182,8 +1193,8 @@ class Casino:
             parameters = np.empty_like(x0)
             norm = 0
 
-        wfn_buffer.Free()
-        wfn_0_buffer.Free()
+        log_wfn_buffer.Free()
+        log_wfn_0_buffer.Free()
         energy_buffer.Free()
         wfn_gradient_buffer.Free()
         energy_gradient_buffer.Free()
@@ -1349,6 +1360,9 @@ class Casino:
             pass
         # FIXME: reuse from vmc_energy_accumulation run
         position = self.vmc.random_walk(steps // mpi_comm.size, self.decorr_period)
+        # a rejected step is marked by NaN and stands for the configuration before it, which a chunk of the
+        # sample below may begin with and then would have nothing to take its value from
+        expand(position)
         logger.info(
             ' Optimization start\n'
             ' =================='
@@ -1357,31 +1371,43 @@ class Casino:
         # create energy numpy array whose data points to the shared buffer
         buffer, _ = energy_buffer.Shared_query(rank=0)
         energy = np.ndarray(buffer=buffer, shape=(steps,))
-        wfn_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
-        # create wfn numpy array whose data points to the shared buffer
-        buffer, _ = wfn_buffer.Shared_query(rank=0)
-        wfn = np.ndarray(buffer=buffer, shape=(steps,))
-        wfn_0_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
-        # create wfn_0 numpy array whose data points to the shared buffer
-        buffer, _ = wfn_0_buffer.Shared_query(rank=0)
-        wfn_0 = np.ndarray(buffer=buffer, shape=(steps,))
-        wfn_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=mpi_comm)
-        # create wfn_gradient numpy array whose data points to the shared buffer
-        buffer, _ = wfn_gradient_buffer.Shared_query(rank=0)
-        wfn_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
-        energy_gradient_buffer = MPI.Win.Allocate_shared(steps * x0.size * double_size if self.root else 0, comm=mpi_comm)
-        # create energy_gradient numpy array whose data points to the shared buffer
-        buffer, _ = energy_gradient_buffer.Shared_query(rank=0)
-        energy_gradient = np.ndarray(buffer=buffer, shape=(steps, x0.size))
-        # wfn_0 is the wave function the configurations are distributed with, so it is sampled before anything else
-        wfn_0[start:stop] = self.vmc.observable(self.wfn.value, position)
+        log_wfn_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
+        # create log_wfn numpy array whose data points to the shared buffer
+        buffer, _ = log_wfn_buffer.Shared_query(rank=0)
+        log_wfn = np.ndarray(buffer=buffer, shape=(steps,))
+        log_wfn_0_buffer = MPI.Win.Allocate_shared(steps * double_size if self.root else 0, comm=mpi_comm)
+        # create log_wfn_0 numpy array whose data points to the shared buffer
+        buffer, _ = log_wfn_0_buffer.Shared_query(rank=0)
+        log_wfn_0 = np.ndarray(buffer=buffer, shape=(steps,))
+        # wfn_0 is the wave function the configurations are distributed with, so it is sampled before anything else.
+        # It is carried as a logarithm, as exp(J) of a whole configuration leaves the range of a double long
+        # before the ratio of two of them does, and the walk, which only ever takes that ratio, does not notice
+        log_wfn_0[start:stop] = self.vmc.observable(self.wfn.log_value, position)[:, 0]
         energy[start:stop] = self.vmc.observable(self.wfn.energy, position)
         self.wfn.set_parameters_projector()
-        wfn_gradient[start:stop] = self.vmc.observable(self.wfn.value_parameters_d1, position)
-        if self.config.input.opt_fixnl:
-            energy_gradient[start:stop] = self.vmc.observable(self.wfn.kinetic_energy_parameters_d1, position)
-        else:
-            energy_gradient[start:stop] = self.vmc.observable(self.wfn.energy_parameters_d1, position)
+        # A configuration weighs 8 bytes per parameter in each of the two gradients, so a sample of them
+        # outgrows the memory long before the positions do. Only S and H of the uncentered gradient are
+        # summed over chunks of a bounded size instead, which is all the centering and rescaling below needs.
+        # Every gradient is shifted by a common estimate of its mean, so that <gg> - <g><g> loses no digits
+        # to a parameter whose mean is large next to its spread.
+        chunk_steps = max(1, 10**7 // (8 * x0.size))
+        S = np.zeros(shape=(x0.size + 1, x0.size + 1))
+        H = np.zeros(shape=(x0.size + 1, x0.size + 1))
+        for chunk_start in range(0, stop - start, chunk_steps):
+            chunk_stop = min(chunk_start + chunk_steps, stop - start)
+            wfn_gradient = self.vmc.observable(self.wfn.value_parameters_d1, position[chunk_start:chunk_stop])
+            if self.config.input.opt_fixnl:
+                energy_gradient = self.vmc.observable(self.wfn.kinetic_energy_parameters_d1, position[chunk_start:chunk_stop])
+            else:
+                energy_gradient = self.vmc.observable(self.wfn.energy_parameters_d1, position[chunk_start:chunk_stop])
+            if chunk_start == 0:
+                shift = mpi_comm.allreduce(np.mean(wfn_gradient, axis=0)) / mpi_comm.size
+            wfn_gradient -= shift
+            chunk_energy = energy[start + chunk_start : start + chunk_stop]
+            S += overlap_matrix(wfn_gradient) * (chunk_stop - chunk_start)
+            H += hamiltonian_matrix(wfn_gradient, chunk_energy, energy_gradient) * (chunk_stop - chunk_start)
+        S = mpi_comm.reduce(S)
+        H = mpi_comm.reduce(H)
         mpi_comm.Barrier()
         energy_mean = np.mean(energy)
         energy_std = np.std(energy)
@@ -1417,11 +1443,12 @@ class Casino:
             Reuses the energy buffer, so it must not be called before H is built.
             """
             self.wfn.set_parameters(x0 + dp)
-            wfn[start:stop] = self.vmc.observable(self.wfn.value, position)
+            log_wfn[start:stop] = self.vmc.observable(self.wfn.log_value, position)[:, 0]
             energy[start:stop] = self.vmc.observable(self.wfn.energy, position)
             mpi_comm.Barrier()
-            weights = (wfn / wfn_0) ** 2
-            # a candidate far enough from the current wave function makes exp(J) over- or underflow
+            # the weights enter only normalized, so the largest one is factored out and none of them overflows
+            weights = np.exp(2 * (log_wfn - log_wfn_0 - np.max(log_wfn - log_wfn_0)))
+            # a candidate far enough from the current wave function may have no finite logarithm left
             if not np.isfinite(weights).all() or not weights.sum() > 0:
                 return np.nan, np.nan
             mean = np.average(energy, weights=weights)
@@ -1434,19 +1461,29 @@ class Casino:
 
         if self.root:
             try:
-                wfn_gradient -= np.mean(wfn_gradient, axis=0)
-                # centering energy_gradient changes nothing in the i,j block of H, since wfn_gradient is
-                # already centered there, and only drops <E_L,j> from the first row, turning g_R into g_L.
-                # That term is what keeps dp exact on a finite sample when psi_lin is an eigenstate.
-                # energy_gradient -= np.mean(energy_gradient, axis=0)
+                S /= steps
+                H /= steps
+                # the first column of the uncentered S holds the mean of the shifted wfn_gradient
+                wfn_gradient_mean = S[1:, 0]
+                wfn_gradient_variance = np.diag(S)[1:] - wfn_gradient_mean**2
                 # parameters the wave function does not depend on for this sample would make S singular
-                active = np.std(wfn_gradient, axis=0) > 0
+                active = wfn_gradient_variance > 0
                 # rescale parameters so that S becomes the Pearson correlation matrix
-                scale = 1 / np.std(wfn_gradient[:, active], axis=0)
-                S = overlap_matrix(wfn_gradient[:, active] * scale)
-                H = hamiltonian_matrix(wfn_gradient[:, active] * scale, energy, energy_gradient[:, active] * scale)
-                # measured before the correlated sampling overwrites the energy buffer
-                gradient = 2 * np.mean(wfn_gradient * np.expand_dims(energy - energy_mean, 1), axis=0) + np.mean(energy_gradient, axis=0)
+                scale = 1 / np.sqrt(wfn_gradient_variance[active])
+                # centering and rescaling wfn_gradient is a linear map T of the extended gradient (1, g),
+                # so S and H of the uncentered one are carried over as T @ S @ T.T and T @ H @ T.T.
+                # T leaves energy_gradient uncentered: centering it changes nothing in the i,j block of H,
+                # since wfn_gradient is already centered there, and only drops <E_L,j> from the first row,
+                # turning g_R into g_L. That term is what keeps dp exact on a finite sample when psi_lin is
+                # an eigenstate.
+                transform = np.zeros(shape=(scale.size + 1, x0.size + 1))
+                transform[0, 0] = 1
+                transform[1:, 0] = -wfn_gradient_mean[active] * scale
+                transform[np.arange(1, scale.size + 1), np.flatnonzero(active) + 1] = scale
+                S = transform @ S @ transform.T
+                H = transform @ H @ transform.T
+                # the scaled energy gradient 2 * <g (E_L - E)> + <E_L,i> is the sum of the first row and column of H
+                gradient = H[0, 1:] + H[1:, 0]
                 # logger.info(f'epsilon:\n{np.diag(H[1:, 1:]) / np.diag(S[1:, 1:]) - H[0, 0]}')
                 level_shift = np.eye(S.shape[0])
                 level_shift[0, 0] = 0
@@ -1551,7 +1588,7 @@ class Casino:
             # in the same scaled variables the eigenvalue problem is solved in, i.e. a parameter is measured
             # in units of the variation that moves log(psi) by one standard deviation on this sample, which
             # makes parameters of different nature comparable and the norm comparable between cycles
-            logger.info(f' Norm of scaled energy gradient at the starting point: {np.linalg.norm(gradient[active] * scale):.5e}')
+            logger.info(f' Norm of scaled energy gradient at the starting point: {np.linalg.norm(gradient):.5e}')
             if best_shift == np.inf:
                 logger.info(
                     f' No candidate lowered the target function {best_target:.8f},'
@@ -1569,10 +1606,8 @@ class Casino:
                 )  # fmt: skip
         self.wfn.set_parameters(x0 + dp)
         energy_buffer.Free()
-        wfn_buffer.Free()
-        wfn_0_buffer.Free()
-        wfn_gradient_buffer.Free()
-        energy_gradient_buffer.Free()
+        log_wfn_buffer.Free()
+        log_wfn_0_buffer.Free()
 
     def vmc_energy_minimization_stochastic_reconfiguration(self, steps):
         """Minimize vmc energy by stochastic reconfiguration.
@@ -1666,6 +1701,61 @@ class Casino:
         mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
 
+    def nmin_zeta_scan(self, scale):
+        """Choose the exponent of the one-particle weight, which is what nmin_zeta 0 asks for.
+
+        Φ has to be fixed and independent of the wave function, but not every fixed Φ is far
+        enough from it: a weight too weak to hold the measure lets the density follow the
+        parameters, and the surface integral then answers how diffuse the determinant is rather
+        than where its node is. The condition is therefore not about ζ in isolation but about the
+        moves the optimizer is allowed to make - **the smallest ζ at which a step of the trust
+        radius leaves ⟨Σ r_iI⟩ inside the same allowance the trust region enforces**. On a Be
+        c₂ scan measured the other way round, by asking when nine different wave functions agree
+        on their density, the answer was 1.0 and the threshold was sharp between 0.7 and 1.0.
+
+        The probe is a random direction rather than the gradient: what matters is that the density
+        is insensitive to a step of that size, and the direction the optimizer will take is not
+        known before ζ is, since ζ defines the objective.
+        :param scale: the parameter scale the trust radius is measured in
+        :return: the exponent, in inverse bohr
+        """
+        start = self.wfn.get_parameters()
+        direction = np.random.default_rng(0).normal(size=start.size)
+        probe = start + NMIN_RADIUS * scale * direction / np.linalg.norm(direction)
+        logger.info(
+            f' Choosing zeta, a step of {NMIN_RADIUS} of the parameter scale having to leave the density\n'
+            f' inside {NMIN_DRIFT:.1%}\n\n'
+            f'      zeta        <sum r_iI>      probed          drift       effective\n'
+        )  # fmt: skip
+        for zeta in NMIN_ZETA_GRID:
+            self.vmc.zeta = zeta
+            self.burn_in()
+            position = self.vmc.random_walk(PILOT_STEPS, self.decorr_period)
+            integrand = self.vmc.observable(self.wfn.nodal_surface_integrand, position)
+            # the probe is read off the same configurations, reweighted by |Ψ_probe|/|Ψ_start| - Φ
+            # carries no parameters - so that what the two have in common cancels out of their
+            # difference, which is all that is asked of them. Two walks of their own differed by
+            # 4.4% at identical parameters on Be, more than the allowance being tested
+            self.wfn.set_parameters(probe)
+            self.wfn.set_parameters_projector()
+            weight = np.exp(self.vmc.observable(self.wfn.nodal_surface_integrand, position)[:, 0] - integrand[:, 0])
+            self.wfn.set_parameters(start)
+            self.wfn.set_parameters_projector()
+            total = np.array([integrand.shape[0], integrand[:, 3].sum(), weight.sum(), weight @ integrand[:, 3], weight @ weight])
+            total = mpi_comm.allreduce(total)
+            density = total[1] / total[0]
+            probed = total[3] / total[2]
+            drift = abs(probed / density - 1)
+            logger.info(f'    {zeta:8.4f} {density:16.6f} {probed:15.6f} {drift:14.2%} {total[2] ** 2 / total[4]:15.0f}')
+            if drift <= NMIN_DRIFT:
+                break
+        else:
+            logger.info(f'\n no zeta of the grid held the density, taking the largest, {zeta:.4f}\n')
+        self.wfn.set_parameters(start)
+        self.wfn.set_parameters_projector()
+        logger.info(f'\n  zeta chosen: {zeta:.4f}\n')
+        return zeta
+
     def vmc_nodal_minimization(self, steps):
         """Minimize the nodal surface integral of Eq. (18) rather than the energy, over the
         parameters that move the node.
@@ -1680,11 +1770,12 @@ class Casino:
         either direction, so the stationary point of F is displaced from that of E_FN and only DMC
         along p₀ → p* says whether the move was worth making.
 
-        **The Jastrow has to be off.** F is a functional of D. With a Jastrow present ∇(JD) = J∇D
-        on the node while |Ψ| = J|D| in the bulk, so J does not cancel - it reweights the surface
-        integral by its value on the node against its value away from it, which is worth a factor
-        of 14. The Jastrow does not move the node, is optimized separately, and is needed only for
-        the DMC that follows.
+        **The Jastrow is switched off for the duration.** F is a functional of D. With a Jastrow
+        present ∇(JD) = J∇D on the node while |Ψ| = J|D| in the bulk, so J does not cancel - it
+        reweights the surface integral by its value on the node against its value away from it,
+        which is worth a factor of 14. The Jastrow does not move the node and is optimized
+        separately, so it is taken out here and put back afterwards untouched: every
+        correlation.out then carries it, ready for the DMC that follows.
 
         One walk serves the whole cycle: the chain carries ζ and samples Φ|Ψ| directly, and the
         optimizer then moves over that fixed sample reweighted by |Ψ_p|/|Ψ_p₀|. The derivative
@@ -1698,37 +1789,69 @@ class Casino:
         and evaluated without one, the density expanding 2.3-fold. Here it would be deliberate.
         :param steps: number of configurations to walk
         """
-        if self.config.input.use_jastrow or self.config.input.use_gjastrow:
-            raise ValueError('nmin needs use_jastrow F and use_gjastrow F: F is a functional of the determinant part')
-        zeta = self.config.input.nmin_zeta
+        if self.wfn.opt_jastrow:
+            raise ValueError('nmin needs opt_jastrow F: it moves the node, and the jastrow does not')
+        jastrow = self.wfn.jastrow
+        self.wfn.jastrow = None
+        if self.wfn.backflow is not None:
+            # a cutoff sets how far the backflow displacement reaches and moves the amplitude more
+            # than the node, which is to be moved by the expansion coefficients alone. run() sets the
+            # flag afresh every cycle, so the cycles of other methods keep their cutoffs free
+            self.wfn.backflow.cutoffs_optimizable = False
         self.wfn.set_parameters_projector()
+        scale = self.wfn.get_parameters_scale()
         self.vmc.power = 1.0
+        zeta = self.config.input.nmin_zeta or self.nmin_zeta_scan(scale)
         self.vmc.zeta = zeta
-        self.equilibrate(self.config.input.vmc_equil_nstep)
-        if self.config.input.opt_dtvmc == 1:
-            self.optimize_vmc_step(3000)
+        self.burn_in()
         epsilon = self.config.input.nmin_epsilon
         if not epsilon:
             position = self.vmc.random_walk(PILOT_STEPS, self.decorr_period)
             integrand = self.vmc.observable(self.wfn.nodal_surface_integrand, position)
             epsilon = mpi_comm.bcast(float(np.median(1 / np.sqrt(integrand[:, 1])) / 8))
-        scale = self.wfn.get_parameters_scale()
+        # F is one functional only as long as the measure and the tube it is written on stay what
+        # they were, so the first cycle's choice holds for every cycle after it
+        self.config.input.nmin_zeta = zeta
+        self.config.input.nmin_epsilon = epsilon
         start = self.wfn.get_parameters()
         position = self.vmc.random_walk(steps // mpi_comm.size, self.decorr_period)
-        reference = self.vmc.observable(self.wfn.nodal_surface_integrand, position)[:, 0].copy()
+        # a NaN row is a block in which nothing moved and stands for the configuration before it,
+        # which is how observable reads it; made explicit, since the sums take subsets of the sample
+        moved = ~np.isnan(position[:, 0, 0])
+        position = position[np.maximum.accumulate(np.where(moved, np.arange(moved.size), 0))]
+        integrand = self.vmc.observable(self.wfn.nodal_surface_integrand, position)
+        reference = integrand[:, 0].copy()
+        surface, overlap = nodal_domain_sums(integrand, np.array([epsilon]), zeta, zeta)
+        surface, overlap = mpi_comm.allreduce(surface), mpi_comm.allreduce(overlap)
+        nconfig, norm = overlap[0], overlap[1]
+        value = surface[0, 0] / norm
+        # the error of F on this sample, which is what a step has to gain to be more than noise. It is
+        # carried by the configurations inside the tube and not by all of them, so it is far larger
+        # than the 2/sqrt(N) of varmin - 18% of F at 1e5 configurations on Be
+        sem = np.sqrt(max(surface[0, 1] / nconfig - (surface[0, 0] / nconfig) ** 2, 0) / (nconfig - 1)) * nconfig / norm
         state = {'nfev': 0, 'iteration': 0}
 
         def sums():
-            """F, dF/dp and the density, at whatever parameters the wave function now has"""
+            """F, dF/dp and the density, at whatever parameters the wave function now has. The
+            derivative of |∇lnΨ|² is the costly half and is taken inside the tube alone, where the
+            kernel lives - the tube of the present parameters, which moves with them. The score is
+            wanted on every configuration, for the normalization, and is summed as it goes"""
             integrand = self.vmc.observable(self.wfn.nodal_surface_integrand, position)
-            gradient = self.vmc.observable(self.wfn.nodal_surface_gradient_integrand, position)
             log_weight = integrand[:, 0] - reference
-            scalars, vectors = nodal_domain_gradient_sums(integrand, gradient, epsilon, zeta, zeta, log_weight)
             weight = np.exp(log_weight)
+            inside = tube(integrand, epsilon)
+            if inside.any():
+                gradient = self.vmc.observable(self.wfn.nodal_surface_gradient_integrand, position[inside])
+            else:
+                gradient = np.zeros(shape=(0, 2, scale.size))
+            scalars, vectors = nodal_domain_gradient_sums(integrand, gradient, epsilon, zeta, zeta, log_weight)
+            score = np.zeros(shape=scale.size)
+            for w, r_e in zip(weight, position):
+                score += w * self.wfn.value_parameters_d1(r_e)
             density = np.array([weight.sum(), weight @ integrand[:, 3], weight @ weight])
-            scalars, vectors, density = (mpi_comm.allreduce(x) for x in (scalars, vectors, density))
+            scalars, vectors, score, density = (mpi_comm.allreduce(x) for x in (scalars, vectors, score, density))
             value = scalars[0] / scalars[1]
-            return value, (vectors[0] + vectors[1]) / scalars[1] - value * vectors[2] / scalars[1], density
+            return value, (vectors[0] + vectors[1]) / scalars[1] - value * score / scalars[1], density
 
         def fun(x):
             self.wfn.set_parameters(x * scale)
@@ -1746,6 +1869,13 @@ class Casino:
             logger.info(
                 f'    {state["iteration"]:9d} {state["nfev"]:7d}   {state["value"]:16.8f} {state["density"]:16.6f} {state["effective"]:16.0f}'
             )  # fmt: skip
+            # as varmin stops: a step that gains less than the error of F is a step in the noise. Not
+            # on the first iteration, which L-BFGS-B takes along the gradient with no curvature to
+            # scale it by, so that a small gain there says nothing about convergence
+            gain = state['last'] - intermediate_result.fun
+            state['last'] = intermediate_result.fun
+            if state['iteration'] > 1 and gain < sem:
+                raise StopIteration
 
         density = sums()[2]
         anchor = density[1] / density[0]
@@ -1753,8 +1883,11 @@ class Casino:
             f' Nodal surface minimization\n'
             f' ==========================\n\n'
             f'  zeta                          (au^-1) = {zeta:.5f}\n'
+            f'  DTVMC                                  = {self.vmc.step_size:.5e}\n'
             f'  epsilon                         (bohr) = {epsilon:.5e}\n'
             f'  parameters                             = {scale.size}\n'
+            f'  inside the tube                        = {surface[0, 2]:.0f}\n'
+            f'  F                                      = {value:.8f} +/- {sem:.8f}\n'
             f'  <sum r_iI>                      (bohr) = {anchor:.5f}\n'
         )  # fmt: skip
         # a trust region rather than a bound on the step: what has to stay put is the density, not
@@ -1764,13 +1897,20 @@ class Casino:
         radius = NMIN_RADIUS
         for attempt in range(NMIN_ATTEMPTS):
             state['iteration'] = state['nfev'] = 0
+            state['last'] = value
             logger.info(
                 f'  trust radius {radius:.4f}\n\n'
                 f'    iteration    nfev            F              <sum r_iI>        effective\n'
             )  # fmt: skip
             bounds = np.stack((start / scale - radius, start / scale + radius), axis=-1)
             res = minimize(
-                fun, start / scale, jac=True, method='L-BFGS-B', bounds=bounds, callback=callback, options={'maxiter': self.config.input.opt_maxeval}
+                fun,
+                start / scale,
+                jac=True,
+                method='L-BFGS-B',
+                bounds=bounds,
+                callback=callback,
+                options={'maxiter': self.config.input.opt_maxeval},
             )
             self.wfn.set_parameters(res.x * scale)
             density = sums()[2]
@@ -1785,10 +1925,11 @@ class Casino:
         parameters = self.wfn.get_parameters()
         mpi_comm.Bcast(parameters)
         self.wfn.set_parameters(parameters)
+        self.wfn.jastrow = jastrow
         self.vmc.zeta = 0.0
         self.vmc.power = 2.0
 
-    def nodal_domain_accumulation(self, epsilon=None, zeta=None, direct=False):
+    def nodal_domain_accumulation(self, epsilon=None, zeta=None, direct=False, jastrow_weight=False, density_weight=False):
         """Weighted nodal domain averages (Mitas & Annaberdiyev, arXiv:2109.01734). With the
         one-particle weight Φ = Π exp(-ζ r_iI) and the potential it is the ground state of taken
         out of the volume term, Eq. (18) is
@@ -1819,6 +1960,15 @@ class Casino:
             None
         :param direct: walk Φ|Ψ| itself, one walk per ζ, instead of reweighting a single walk of
             |Ψ| into the whole grid
+        :param jastrow_weight: take Φ = J·Π exp(-ζ r_iI) rather than the one-particle weight alone.
+            A one-particle Φ leaves the whole e-e repulsion in V - V_Φ, which is what makes E^nda
+            scatter; the Jastrow carries the e-e cusp and cancels it. It goes into the acceptance
+            of the walk as well, so CBCS only - an EBES move updates one electron's share of Φ,
+            which a Jastrow does not have
+        :param density_weight: take the density amplitude Π √n(r_i) as the envelope of Φ instead of
+            the exponent, n being the orbital set's own density. One exponent is either right at the
+            nucleus or right in the tail - on beryllium the two rates differ by a factor of five -
+            and √n is right at both ends and has the shells besides. There is no ζ to scan then
         :return: epsilon, the configurations inside the tube, E_kin^nda and its standard error of
             every row of every table, on the root process and None elsewhere -
             array(zeta.size, epsilon.size, 4)
@@ -1827,6 +1977,26 @@ class Casino:
             epsilon = np.geomspace(0.005, 0.32, 12)
         if zeta is None:
             zeta = np.zeros(shape=1)
+        if jastrow_weight or density_weight:
+            if self.config.input.vmc_method != 3:
+                raise ValueError('a weight beyond the exponent needs vmc_method 3: an EBES move has no one-electron share of it')
+            self.wfn.weight_density = density_weight
+        if jastrow_weight:
+            if self.wfn.jastrow is None:
+                raise ValueError('a jastrow weight needs a jastrow')
+            # the weight's own copy, differing from the wave function's in the cusps alone: every
+            # pair of a nodeless Φ meets in s-wave, where the condition is the antiparallel ½, and
+            # the parallel ¼ the jastrow was optimized with leaves half of that pair's e-e
+            # singularity in V - V_Φ - two of the six pairs of a beryllium
+            if self.config.input.use_gjastrow:
+                boson_jastrow = Gjastrow(self.config)
+                boson_jastrow.set_boson()
+            else:
+                boson_jastrow = Jastrow(self.config)
+                boson_jastrow.boson = True
+            self.wfn.boson_jastrow = boson_jastrow
+        if density_weight and zeta.any():
+            raise ValueError('the density amplitude replaces the exponent of the weight: run it at zeta 0')
         logger.info(
             ' ==============================\n'
             ' PERFORMING A |PSI| CALCULATION.\n'
@@ -1844,9 +2014,7 @@ class Casino:
         # sits away from where Φ|Ψ| has its mass, which no weight applied afterwards can find
         for sampled in zeta if direct else np.zeros(shape=1):
             self.vmc.zeta = sampled
-            self.equilibrate(self.config.input.vmc_equil_nstep)
-            if self.config.input.opt_dtvmc == 1:
-                self.optimize_vmc_step(3000)
+            self.burn_in()
             logger.info(
                 f' zeta of the walk: {sampled:.5e}   DTVMC: {self.vmc.step_size:.5e}\n'
             )  # fmt: skip
@@ -1856,11 +2024,13 @@ class Casino:
                 for i, z in enumerate(zeta):
                     if direct and z != sampled:
                         continue
-                    chunk_surface, chunk_overlap = nodal_domain_sums(integrand, epsilon, z, sampled)
+                    chunk_surface, chunk_overlap = nodal_domain_sums(integrand, epsilon, z, sampled, jastrow_weight, density_weight)
                     surface[i] += chunk_surface
                     overlap[i] += chunk_overlap
         self.vmc.zeta = 0.0
         self.vmc.power = 2.0
+        self.wfn.boson_jastrow = None
+        self.wfn.weight_density = False
         surface = mpi_comm.reduce(surface)
         overlap = mpi_comm.reduce(overlap)
         if self.root:

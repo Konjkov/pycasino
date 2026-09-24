@@ -44,7 +44,7 @@ def vmc_simple_random_step(self):
         next_r_e = self.r_e + np.random.normal(0, np.sqrt(self.step_size), ne * 3).reshape((ne, 3))
         next_log_value = self.wfn.log_value(next_r_e)[0]
         log_ratio = self.power * (next_log_value - self.log_value)
-        if self.zeta:
+        if self.zeta or self.wfn.boson_jastrow is not None or self.wfn.weight_density:
             log_ratio += self.wfn.log_weight(next_r_e, self.zeta) - self.wfn.log_weight(self.r_e, self.zeta)
         self.moves += 1
         if log_ratio > np.log(np.random.random()):

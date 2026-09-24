@@ -296,9 +296,14 @@ needs `Φ_B(R)` pointwise. Getting that means optimizing an explicit bosonic tri
 (Eq. (22)'s envelope `e^{J_B}·Π ρ(r_i)`, i.e. our Slater-Jastrow with the determinant replaced by a
 product of one orbital) — and the moment `Φ_B` is approximate, the collapse of both volume terms
 into the constant `E_0B` is lost and the full Eq. (15) comes back, with `T_kin Φ_B` now needing the
-trial function's own local kinetic energy. **The entire advantage of Eq. (20) evaporates exactly
-when it becomes computable.** Note also that `E_0B` is a pure additive constant, so for ranking
-nodes on one Hamiltonian its *value* is never needed — only the *function* is.
+trial function's own local kinetic energy. **The exact collapse of Eq. (20) evaporates exactly when
+it becomes computable.** Note also that `E_0B` is a pure additive constant, so for ranking nodes on
+one Hamiltonian its *value* is never needed — only the *function* is.
+
+**What does not evaporate, and this correction is from 2026-09-11.** Eq. (18) stays exact for every
+nodeless `Φ`, approximate `Φ_B` included, and the volume term is then `⟨V - ½∇²Φ/Φ⟩`, the local
+energy of `Φ` as a bosonic trial function: it degrades smoothly with the quality of `Φ` rather than
+falling off a cliff, and `E_0B` cancels out of it. Item 9 of the plan carries the cheap version.
 
 **What a fixed `Φ` does and does not fix — do not repeat the A5 mistake in reverse.** It restores a
 common measure, so two trial functions become comparable. It does **not** make the number a property
@@ -1073,9 +1078,32 @@ part of the 2.379 mHa, not reaching zero.
 falls monotonically to the edge of the c₂ range and has no interior minimum at all, because the
 volume term is amplitude.
 
-*The kernel must change first.* As built, `δ_ε(σ) = |σ|/ε²` cancels against `|∇Ψ|/|Ψ|` and leaves a
-plain **count** of configurations — bounded, Poisson, and discontinuous in `p`, so no gradient
-exists. Replace it by
+*Built 2026-09-10 as `opt_method : nmin`*, a third method beside varmin and emin rather than a
+script of its own, so the `vmc_opt` loop supplies the cycles, the `opt_plan`, the writing of
+`correlation.out` and the VMC energy between cycles — the last being the `⟨H⟩` that `E^nda` is
+supposed to approach, so it is not overhead. Input keywords `nmin_zeta` and `nmin_epsilon`, the
+second taken from a pilot walk when left at zero. **The method raises if the Jastrow is on**: `F`
+is a functional of `D`, and with `J` present `∇(JD) = J∇D` on the node while `|Ψ| = J|D|` away
+from it, so `J` does not cancel but reweights the surface integral by its value on the node
+against its value in the bulk — a factor of fourteen that nothing in the numbers would reveal.
+
+*One walk per cycle.* The chain carries ζ and samples `Φ|Ψ|`; the optimizer then moves over that
+fixed sample reweighted by `|Ψ_p|/|Ψ_p₀|`, and the derivative stays exact under that reweighting
+because the sampled measure cancels out of every ratio. The effective sample size in the table is
+what says when the sample has gone stale. On the Be test bed three L-BFGS-B iterations left it
+untouched at the full count, so one walk carries far more than a handful of steps and `opt_maxeval`
+should be tens.
+
+*The trust region is on the density, not on the step.* What must stay put is `⟨Σ r_iI⟩`; only the
+parameters can be bounded, so the radius is halved until the density it lets through has held
+inside `NMIN_DRIFT` = 3%, starting from `NMIN_RADIUS` = 0.1 in units of `get_parameters_scale()`
+and at most `NMIN_ATTEMPTS` = 6 times. Every retry is over the same sample and costs no walk, which
+is what makes searching over the radius affordable at all. Unbounded, L-BFGS-B moved the density
+past three per cent on its opening probe and did nothing else.
+
+*The kernel had to change first, and did.* As originally built, `δ_ε(σ) = |σ|/ε²` cancels against
+`|∇Ψ|/|Ψ|` and leaves a plain **count** of configurations — bounded, Poisson, and discontinuous in
+`p`, so no gradient exists. It is now
 
 ```
 δ_ε(σ) = 3|σ|(ε - |σ|)/ε³        ⟹  after the cancellation:  3(ε - |σ|)/ε³
@@ -1089,11 +1117,22 @@ Then
 dF/dp = ⟨ δ'_ε(σ)·∂σ/∂p ⟩ + cov[ δ_ε(σ), ∂ln|Ψ|/∂p ]
 ```
 
-the first term through `σ = 1/|∇lnΨ|` from `gradient_parameters_d1`, the second the ordinary score
-term from `value_parameters_d1`; both exist. `Φ` carries no `p` and drops out of the score.
-Derivative-free (Powell) would do for a handful of MDET coefficients, but backflow has tens to
-hundreds of parameters, so **for the actual target the gradient is not optional and the kernel
-change is the first thing to build** — without it there is no algorithm, only an estimator.
+the first term through `σ = 1/|∇lnΨ|`, the second the ordinary score term from
+`value_parameters_d1`. `Φ` carries no `p` and drops out of the score. Built as
+`wfn.gradient_square_parameters_d1` — `∂|∇lnΨ|²/∂p`, from which `∂σ/∂p` is `-σ³/2` times it — whose
+backflow branch is the pair `kinetic_energy_parameters_d1` already assembles, the quasi-particle
+coordinates moving with the parameters and the jacobian moving with them, contracted here against
+the whole gradient instead of the Jastrow's. `nodal_surface_gradient_integrand` returns the score
+and that derivative per configuration, `nodal_domain_gradient_sums` collects them at one ε.
+
+Checked twice and the second check is the one that matters. Against finite differences of
+`|∇lnΨ|²` on helium: 1e-9 once the step is scaled, the backflow derivatives spanning five orders
+of magnitude so that no single step serves them all. And against a finite difference of `F` itself
+along random directions on the Be MDET fixture: **3e-9**, and exactly because both sides are the
+same function of the same fixed sample — the reweighting makes the identity algebraic rather than
+statistical, so a sign error in the covariance term cannot hide behind Monte Carlo noise. Helium
+is useless for the second: its determinant is one orbital per spin and has no node, so the tube is
+empty and every side of the comparison is zero.
 
 *A failure mode specific to optimizing the backflow, which did not exist for `c_k`.* `F` is
 measured on the jastrowless object while the optimizer is free to deform the backflow. What that
@@ -1133,6 +1172,15 @@ and backflow is literally the curve emin would descend if c₂ were free, so the
 minimum to 0.164 is how far energy minimization misses the node optimum, in mHa. The archive
 cannot give it — 1024-step VMC phases, 4-7 mHa against a 2.4 mHa curve. Nine VMC runs at 10⁷.
 
+*What a run looks like, and what the smoke test did and did not show.* The whole path runs: on
+C = 0.00, `opt_method : nmin` with `nmin_zeta : 1.0`, ζ and ε fixed from the pilot, 133 backflow
+parameters, three L-BFGS-B iterations in 103 s, `correlation.out` written. `F` fell monotonically
+and `⟨Σ r_iI⟩` moved by 2e-5 of itself against a 3% allowance, the trust radius accepted at its
+first value. **None of those numbers means anything about the node**: at `vmc_nconfig_write : 5000`
+the tube holds tens of configurations and two smoke runs of the same system from the same start
+gave `F` = 1.178 and 1.888, sixty per cent apart. A production cycle wants `vmc_nconfig_write` of
+order 10⁶ and `opt_maxeval` in the tens.
+
 *Next, in order.*
 
 1. ~~Split `wfn.coulomb` into e-e and e-n.~~ **Done 2026-09-09.** `wfn.coulomb_parts` returns the
@@ -1142,17 +1190,144 @@ cannot give it — 1024-step VMC phases, 4-7 mHa against a 2.4 mHa curve. Nine V
 2. ~~A weight with an e-e factor.~~ **Cancelled**: the e-e term at C = 0.25 is smaller than on the
    healthy points, so there is no e-e pathology to cure.
 3. ~~Direct sampling of `Φ|Ψ|`.~~ **Done, and it delivered the result above.**
-4. **C = 0.20.** The one point out of place, and the only lead left on the residual density
-   sensitivity. Its `⟨Σr⟩` is 5.19 against 5.42-5.68; a larger ζ tightens every density but not
-   obviously the spread (at ζ = 1.4 the three-point subset sat at 4.85/4.56/4.48, at 2.0 at
+4. ~~The smooth kernel, the gradient, and an optimizer.~~ **Done 2026-09-10 as `opt_method : nmin`.**
+5. **The run the whole thing was built for.** C = 0.00 of the scan is a single determinant on the
+   HF node whose backflow was optimized by emin and whose fixed-node energy is 2.379 ± 0.054 mHa
+   above exact. Re-optimize that backflow on `F` at `nmin_zeta : 1.0`, then DMC along
+   `p₀ → p*`. Below 2.379 and the backflow of a single determinant has been improved by the nodal
+   functional; at or above, and emin was already doing as well as this can. Nothing else on this
+   list is worth doing before it, because it is the question.
+6. **ANSWERED 2026-09-12, and against the method: at the finishing stage `F` does not rank nodes.**
+   The 21 backflows of the Goodhart set (`/mnt/sdb1/quantum_chemistry/Goodhart's law`, one emin
+   backflow and twenty random perturbations of it, DMC done, node differences ~0.2 mHa — exactly
+   the regime nmin was to finish in) measured at 10⁷, ζ = 0.25 direct, ε = 0.024 fixed:
+   **r(F, DMC) = -0.29 (p 0.22), Spearman -0.11, fitted slope -40 au/au against the +129 of the c₂
+   scan.** With the noise on both sides a true tracking would have shown r ≈ +0.7, and the 95% CI
+   (-0.64, +0.17) excludes it. `F`'s real spread beyond noise is 0.0197 where a node signal would
+   be 0.023: a foreign variation of the same size sits on top of it.
+
+   That run had to be fought for first, and the fight is the lesson. Jastrowless — the practice
+   since the A5 null test — `F` tracked the VMC energy instead (r = -0.72): this backflow is a Φ
+   term alone, and without the Jastrow it spreads Be to `⟨Σ r_iI⟩` 16.2 bohr against ~8.4, e-n
+   -4.5 au against ~-20. Not a bug: `E_L` on CASINO's own `config.in` walkers agrees to 3.5e-13.
+   **The split of `Ψ` into `J` and `D` is a gauge** — `J → J·g`, `D → D/g` leaves the node, `⟨H⟩`
+   and `E_FN` alone while moving `F` of `D` — and emin uses it. Removing the Jastrow removes the
+   dependence on *which* Jastrow at fixed `D`, and buys a dependence on the gauge instead;
+   `F` of `J·D` (`-j`) is the other way round. Neither is a node invariant, and for one frozen
+   Jastrow — nmin, or a family sharing it — `-j` is the right side of that trade: with it
+   r(F, VMC) fell to +0.19 and the sick measure came back to a sound Be. ζ = 1.0 jastrowless does
+   *not* cure it (⟨Σr⟩ 10.8 against ~5.5), so no weight gives back what emin put into `J`.
+
+   **Repeated at three times the resolution, 2026-09-12, and the answer holds.** The weight was
+   rebuilt twice more. `-p` puts the Jastrow into `Φ` as well, which cancels the e-e cusp in
+   `V - V_Φ` — the volume term of Eq. (18) being the local energy of `Φ` read as a bosonic trial
+   function — and ζ = Z gives the envelope the nuclear cusp, cancelling the other singularity. On
+   point 0, at the same tube:
+
+   | `Φ` | `⟨Σr⟩` | spread of `V - V_Φ` | tube | err(`F`) | `E^nda` |
+   |---|---|---|---|---|---|
+   | `Π exp(-0.25 r)`, `Ψ = JD` | 11.9 | 10 au | 4402 | 1.6% | -12.3 |
+   | `J·Π exp(-0.25 r)` | 20.5 | 8.4 au | 5880 | 1.6% | -7.2 |
+   | **`J·Π exp(-Z r)`** | **2.6** | **2.7 au** | **55545** | **0.52%** | **-14.4** |
+   | `J·Π √n(r)` | 11.5 | 4.0 au | 9552 | 1.26% | -11.7 |
+
+   against a true -14.663. **ζ = Z is the best weight of the four**, and the density amplitude — the
+   `-a` flag, `√n` being the exact orbital of the bosonic system with that density and right at both
+   the cusp and the tail where no exponent is — *loses*, because it is nobody's eigenfunction and
+   its shell structure lands in the local energy of `Φ` out in the valence, exactly where a physical
+   measure puts its weight. A measure squeezed onto the core both smooths `V - V_Φ` and fills the
+   tube. With that weight over the 21 points: **r(F, DMC) = +0.065 (p 0.78, CI -0.38…+0.48)**,
+   Spearman +0.07, r(F, VMC) = -0.16. `F`'s real spread is 0.35% where the c₂ sensitivity predicted
+   1.3%; had all of it been the node, r would have been +0.51. (At n = 12 the same run read +0.25.
+   Nothing below n ≈ 20 means anything here.)
+
+   **The c₂ scan with one common Jastrow — MEASURED 2026-09-13, and it reverses the pipeline.**
+   Nine points relinked to 0.15's casl, so every node and every `E_FN` stands; `Φ = Π exp(-4 r)`,
+   `-j -w -z 4.0 -e 0.024`, 10⁷ (`noda_surface/be_c2_j`). `F(c₂)` is real — χ²/ndf 5.3 against a
+   flat line — but it does not rank: r(F, ΔE_FN) = +0.21 (p 0.58), Spearman +0.30, slope 0.28% of
+   `F` per mHa. What it does is *locate*: a parabola through `F` has its minimum at
+   **c₂ = 0.102 ± 0.008 against the true 0.1646**, 8σ off, and stopping there costs
+   **+0.36 mHa (0.29–0.46) of `E_FN` out of the 2.4 available**. Minimizing `F` from the HF node
+   recovers 85% of the nodal gain and stalls 0.36 mHa short — a bias, which sampling does not
+   touch. The jastrowless scan had put the minimum between 0.10 and 0.15 at 0.01–0.27 mHa; with the
+   amplitude out of the way the bias is larger, and resolved.
+
+   **So nmin is a coarse-stage tool, and the emin-first, nmin-last order of item 7 is wrong.** After
+   emin some 0.2 mHa is left (the Goodhart set's real scatter), less than `F`'s own 0.36 mHa bias,
+   and at that scale `F` does not even rank. Use nmin far from the optimum — from a bare HF node,
+   say — and finish with emin, never the other way round. Measured along the MDET c₂ direction
+   only; a backflow direction may carry a different bias. The same nine with the boson Jastrow in
+   the weight (`be_c2_jb`, `-j -p`, every e-e pair read through the antiparallel channel) are in
+   `casino.sh`, to see whether the minimum moves.
+
+7. **SUPERSEDED 2026-09-13 by item 6: there is no final stage for nmin** — its minimum is biased by
+   more than emin leaves to gain. Kept for the reasoning that led here.
+   **ζ for the final stage, measured where it will be used.** Decided 2026-09-11: the node is
+   improved by emin first — cheap, and it takes the node most of the way — and nmin is the finishing
+   step from there, which is how both `Backflow_nmin` start. So ζ is to be chosen for a node that is
+   already nearly right, not over the whole scan, and by two quantities per ζ of `NMIN_ZETA_GRID`
+   (0.25, 0.5, 0.7, 1.0, 1.4, 2.0), with `-w` so every ζ sees its own measure:
+   - **where the minimum of `F` lands against the true c₂ = 0.1639 ± 0.0013** — first, because it
+     decides. Eq. (18) is exact for every ζ only at `Ψ_FN`; for a trial function its first-order
+     error depends on `Φ`, so the displacement of the stationary point does too. At ζ = 1 it is
+     worth 0.01-0.27 mHa, the size of what emin leaves to gain: a ζ whose displacement exceeds that
+     makes the finishing step worse than no step.
+   - **the resolution at the bottom**: the local slope `dF/dE_FN` over C = 0.10, 0.12, 0.15, 0.20
+     and `sem(F)` per configuration, i.e. mHa of `E_FN` per √N. The 129 mHa/mHa of the whole scan
+     (the same at ζ = 0.25 reweighted and 1.0 direct) is carried by the far points and says nothing
+     about the bottom. Tube density rises with ζ (3.5e-4 at 0.25, 5.3e-4 at 0.5 on the CBCS
+     backflow) but so does the absolute error (0.038 against 0.050 at 10⁶), so the direction is open.
+
+   **Cost is the obstacle.** Neighbouring points at the bottom differ by ~0.05 mHa of `E_FN`, ~6 mHa
+   of `F` at 129, ~0.4% of it: 10⁸-10⁹ steps per point per ζ by independent walks, against 88 min
+   for the nine-point run at 10⁷ and one ζ. The four points by six ζ at that depth is out of reach;
+   correlated sampling between them is not available, each point carrying its own backflow. The
+   affordable first look: at the emin optimum itself, the direction of `∇F` for every ζ of the grid
+   from one walk each — exact on a fixed sample, cheap next to a scan. If the directions agree, ζ
+   matters at the finishing stage only through the noise and the choice reduces to resolution; if
+   they do not, the displacement has to be measured, and on fewer ζ.
+8. **C = 0.20.** The one point of the nine out of place, and the only lead left on the residual
+   density sensitivity. Its `⟨Σr⟩` is 5.19 against 5.42-5.68; a larger ζ tightens every density but
+   not obviously the spread (at ζ = 1.4 the three-point subset sat at 4.85/4.56/4.48, at 2.0 at
    4.03/3.86/3.77). Worth one nine-point run at ζ = 1.4 to see whether its rank moves.
-5. **The Jastrow null test, with the question corrected.** Still not run. With a fixed `Φ` the
+9. **The Jastrow null test, with the question corrected.** Still not run. With a fixed `Φ` the
    quantity is an *estimate of the energy*, not a node invariant, so demanding Jastrow-invariance
    (the A5 test) is the wrong demand. What must hold: `E^nda` approaches `⟨H⟩` as `Ψ` improves.
    The nine-point table above is the first evidence on it and it is not encouraging — `E^nda`
    scatters over an au around the right answer.
-6. **The true `Φ_B`** — still only if everything above holds, and knowing what the section on it
-   says.
+10. **A correlated `Φ`, which is `Φ_B` done by halves — BUILT AND MEASURED 2026-09-12.** The
+   descriptor's `-p` (Jastrow in `Φ`) and `-a` (envelope `√n` instead of the exponent), and
+   `nodal_domain_accumulation(jastrow_weight, density_weight)`. Measured on the Goodhart set, see
+   item 6 for the table: `J·Π exp(-Z r)` cuts the spread of `V - V_Φ` from 10 au per configuration
+   to 2.7 and brings `E^nda` from -12.3 to -14.4 against a true -14.663, while `√n` — the
+   theoretically better envelope — comes out worse than the exponent at ζ = Z. What is left
+   unmeasured is the shell-structure remainder, which only a genuinely optimized bosonic `Φ_B`
+   would remove. Approximate the bosonic
+   ground state by a VMC-quality nodeless function instead of chasing the exact one. Eq. (18) is
+   exact for every nodeless `Φ`, and with `V_Φ = e_Φ + ½∇²Φ/Φ` the constant cancels between the two
+   terms, leaving
+
+       E^nda = ∫_∂Ω Φ|∇Ψ|dS / ∫Φ|Ψ|dR + ⟨V - ½∇²Φ/Φ⟩ = surface + ⟨E_L^B⟩
+
+   the volume term being nothing but the local energy of `Φ` read as a bosonic trial function. So
+   `E_0B` is never needed, only `∇²Φ/Φ` pointwise, and the term degrades smoothly with the quality
+   of `Φ`: zero variance at the exact `Φ_B`, the variance of a decent bosonic trial function at an
+   approximate one. **Today's `Φ = Π exp(-ζ r_iI)` is the worst case of it** — one-particle, so
+   nothing of the e-e repulsion cancels in `V - V_Φ`, which is why `E^nda` scatters over an au and
+   the descriptor ranks without measuring.
+
+   **The cheap step, first: `Φ = J·Π exp(-ζ r_iI)` with the system's own Jastrow**, no bosonic
+   optimization at all, `Φ` still fixed across everything sharing that Jastrow. It needs the
+   Jastrow in the VMC acceptance weight, one-electron update included, and
+   `V_Φ = ½(|∇lnΦ|² + ∇²lnΦ)` from `jastrow.gradient` and `jastrow.laplacian` beside the analytic
+   ζ part. The full version - `Φ_B = e^{J_B}·Π ρ(r_i)` optimized as a bosonic trial function - wants
+   a wave function class PyCasino does not have (a product of one orbital is not a determinant: the
+   columns coincide and it vanishes) and an optimization cycle of its own, and buys only that `J_B`
+   and `ρ` are fitted to the bosonic problem rather than the fermionic one.
+
+   **What it does not touch: nmin.** That minimizes the surface term alone, where `V_Φ` never
+   enters. This is for `E^nda` as an *energy* - items 7 and 8 - and for the descriptor measuring
+   rather than ranking.
 
 **On gaussians.** `gwfn` runs work and the cusp correction is supported (`cusp_correction`
 defaults to T for a gaussian basis, and `nodal_surface_integrand` goes through the same

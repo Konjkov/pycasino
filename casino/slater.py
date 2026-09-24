@@ -659,6 +659,76 @@ def slater_log_value(self, n_vectors: np.ndarray):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Slater_class_t, 'log_density')
+def slater_log_density(self, n_vectors: np.ndarray):
+    """Logarithm of Π_i √n(r_i), the density amplitude of the orbital set, n being Σ_k φ_k(r)² over
+    the orbitals of the electron's own spin.
+
+    It is the weight Φ that a weighted nodal domain average wants. The identity of Eq. (18) holds
+    for any nodeless Φ, and the volume term it leaves is the local energy of Φ read as a bosonic
+    trial function, so a Φ close to the bosonic ground state leaves little of it. √n is exactly the
+    orbital of the bosonic system carrying that density (Pan & Sahni 2009), and it has for free what
+    no single exponent has at once: the cusp of the nucleus, the decay of the true ionization
+    energy - for beryllium the two differ by a factor of five - and the shell structure. A
+    multideterminant expansion contributes its whole orbital set, which is a sum of squares either
+    way, hence nodeless.
+    :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+    :return: Σ_i ln √n(r_i)
+    """
+
+    def impl(self, n_vectors: np.ndarray) -> float:
+        wfn_u, wfn_d = self.value_matrix(n_vectors)
+        res = 0.0
+        for i in range(self.neu):
+            density = 0.0
+            for k in range(wfn_u.shape[0]):
+                density += wfn_u[k, i] * wfn_u[k, i]
+            res += np.log(density) / 2
+        for i in range(self.ned):
+            density = 0.0
+            for k in range(wfn_d.shape[0]):
+                density += wfn_d[k, i] * wfn_d[k, i]
+            res += np.log(density) / 2
+        return res
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Slater_class_t, 'density_laplacian')
+def slater_density_laplacian(self, n_vectors: np.ndarray):
+    """Gradient and laplacian of ln √n(r), which the potential V_Φ of the density amplitude weight
+    is built from: with n = Σ_k φ_k², ∇ln√n = Σφ∇φ / n and ∇²ln√n = Σ(|∇φ|² + φ∆φ)/n - 2|Σφ∇φ|²/n².
+    :param n_vectors: electron-nuclei vectors shape = (natom, nelec, 3)
+    :return: ∇_i ln √n of every electron - array(nelec, 3), and Σ_i ∇²_i ln √n
+    """
+
+    def impl(self, n_vectors: np.ndarray) -> tuple[np.ndarray, float]:
+        wfn_u, wfn_d, grad_u, grad_d, lap_u, lap_d = self.laplacian_matrix(n_vectors)
+        gradient = np.zeros(shape=(self.neu + self.ned, 3))
+        laplacian = 0.0
+        for i in range(self.neu + self.ned):
+            if i < self.neu:
+                value, grad, lap = wfn_u, grad_u, lap_u
+                e = i
+            else:
+                value, grad, lap = wfn_d, grad_d, lap_d
+                e = i - self.neu
+            density = 0.0
+            first = np.zeros(shape=3)
+            second = 0.0
+            for k in range(value.shape[0]):
+                density += value[k, e] * value[k, e]
+                first += value[k, e] * grad[k, e]
+                second += grad[k, e] @ grad[k, e] + value[k, e] * lap[k, e]
+            gradient[i] = first / density
+            laplacian += second / density - 2 * (first @ first) / density**2
+        return gradient, laplacian
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Slater_class_t, 'state')
 def slater_state(self, n_vectors: np.ndarray):
     """Slater part of a walker's configuration: the inverse of every slater matrix and the
