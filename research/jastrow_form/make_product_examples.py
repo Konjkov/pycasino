@@ -25,8 +25,6 @@ from terms import HERE, load
 from casino.jastrow import PRODUCT, UNCUT
 from casino.readers.jastrow import Jastrow, labels_type
 
-SYSTEMS = ['He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3']
-
 
 def build(system, uncut, product):
     entry = [e for e in load(['Jastrow_emin']) if e['basis'] == 'stowfn' and e['system'] == system][0]
@@ -87,7 +85,7 @@ def build(system, uncut, product):
 def main():
     with open(os.path.join(HERE, 'results', 'product_f.json')) as f:
         fits = json.load(f)
-    for system in SYSTEMS:
+    for system in fits:
         entry, text = build(system, np.array(fits[system]['uncut']), np.array(fits[system]['product']))
         source = os.path.join(ROOT, entry['path'])
         target = os.path.join(os.path.dirname(source), 'Jastrow_emin_product')
