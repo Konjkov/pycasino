@@ -465,3 +465,34 @@ correlation.out file (the independent parameters after the constraints), plus on
 
 The local-density hole of §7.3 would replace u + f by 2 universal parameters per spin channel plus one
 cutoff.
+
+## 12. Product f-term (`Functional form = 1` of an f set)
+
+$$f(r_1, r_2, r_{12}) = (r_1 - L)^C (r_2 - L)^C\, g(r_1)\, g(r_2)\, h(r_{12}), \qquad
+g(r) = \sum_{m=0}^{N_{eN}} g_m r^m, \quad h(r) = \sum_{n=0}^{N_{ee}} h_n r^n,$$
+
+per f set and spin channel, with $r_1, r_2 < L$. It is the CASINO polynomial of §1.1 of rank 1:
+$\gamma_{lmn} = h_n g_m g_l$. The value, gradient and Laplacian are evaluated from these coefficients.
+
+**Constraints.**
+- e-e no-cusp, $\partial f / \partial r_{12} = 0$ at $r_{12} = 0$: $h_1 = 0$.
+- e-n no-cusp, $\partial f / \partial r_1 = 0$ at $r_1 = 0$ for every $r_2, r_{12}$:
+  $C(-L)^{C-1} g_0 + (-L)^C g_1 = 0$, i.e. $g_1 = C g_0 / L$.
+- The scale of the product is shared between g and h: $g_0 = 1$.
+
+The CASINO conditions of §1.1 hold term by term: $\sum_{l+m=k} \gamma_{lm1} = h_1 \sum g_l g_m = 0$ and
+$C\gamma_{0mn} - L\gamma_{1mn} = h_n g_m (C g_0 - L g_1) = 0$. The independent parameters are
+$g_2, \dots, g_{N_{eN}}$ and $h_0, h_2, \dots, h_{N_{ee}}$, i.e. $N_{eN} + N_{ee} - 1$ per spin channel (5 for cubic g and h).
+$L$ is kept fixed, since $g_1$ depends on it.
+
+**Parameter derivatives.** f is linear in the coefficients $\gamma$, so every derivative of f is f evaluated with the
+derivatives of $\gamma$:
+
+$$\frac{\partial \gamma_{lmn}}{\partial g_k} = h_n(\delta_{mk} g_l + g_m \delta_{lk}), \qquad
+\frac{\partial \gamma_{lmn}}{\partial h_k} = \delta_{nk} g_m g_l,$$
+
+$$\frac{\partial^2 \gamma_{lmn}}{\partial g_k \partial g_{k'}} = h_n(\delta_{mk}\delta_{lk'} + \delta_{mk'}\delta_{lk}), \qquad
+\frac{\partial^2 \gamma_{lmn}}{\partial g_k \partial h_{k'}} = \delta_{nk'}(\delta_{mk} g_l + g_m \delta_{lk}), \qquad
+\frac{\partial^2 \gamma_{lmn}}{\partial h_k \partial h_{k'}} = 0.$$
+
+Different spin channels and f sets do not mix.

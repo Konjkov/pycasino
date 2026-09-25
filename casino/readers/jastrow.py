@@ -5,7 +5,7 @@ import os
 import numba as nb
 import numpy as np
 
-from casino.jastrow import ANALYTIC, POLYNOMIAL, UNCUT, construct_a_matrix
+from casino.jastrow import ANALYTIC, POLYNOMIAL, PRODUCT, UNCUT, construct_a_matrix, product_fix, product_independent
 from casino.overload import rref
 
 labels_type = nb.int64[::1]
@@ -13,6 +13,8 @@ chi_parameters_type = nb.float64[:, ::1]
 chi_parameters_optimizable_type = nb.boolean[:, ::1]
 f_parameters_type = nb.float64[:, :, :, ::1]
 f_parameters_optimizable_type = nb.boolean[:, :, :, ::1]
+f_product_type = nb.float64[:, ::1]
+f_product_optimizable_type = nb.boolean[:, ::1]
 
 jastrow_template = """\
  START JASTROW
@@ -92,7 +94,7 @@ START SET {n_set}
    {no_dup_u_term}
  Prevent duplication of chi term (0=NO; 1=YES)
    {no_dup_chi_term}
- Electron-nucleus expansion order N_f_eN
+{f_form} Electron-nucleus expansion order N_f_eN
    {f_en_order}
  Electron-electron expansion order N_f_ee
    {f_ee_order}
@@ -112,6 +114,11 @@ u_form_template = """\
 
 chi_form_template = """\
  Functional form (0=polynomial; 1=bell A*w(r/L); 2=Gaussian A*exp(-(r/a)^2) without cutoff)
+   {form}
+"""
+
+f_form_template = """\
+ Functional form (0=polynomial; 1=product (r1-L)^C*(r2-L)^C*g(r1)*g(r2)*h(r12))
    {form}
 """
 
@@ -165,6 +172,11 @@ class Jastrow:
         # functional form of the u and chi terms (POLYNOMIAL, ANALYTIC or UNCUT), see casino/jastrow.py
         self.u_form = POLYNOMIAL
         self.chi_form = np.zeros(0, np.int64)
+        # functional form of the f term (POLYNOMIAL or PRODUCT) and the product parameters [g_0..g_N, h_0..h_M] per spin set,
+        # empty for a polynomial set
+        self.f_form = np.zeros(0, np.int64)
+        self.f_product = nb.typed.List.empty_list(f_product_type)
+        self.f_product_optimizable = nb.typed.List.empty_list(f_product_optimizable_type)
 
     def read(self, base_path):
         """Read Jastrow config from file."""
@@ -280,6 +292,7 @@ class Jastrow:
                         self.f_cutoff = np.zeros(number_of_sets, dtype=[('value', float), ('optimizable', bool)])
                         self.no_dup_u_term = np.zeros(shape=number_of_sets, dtype=bool)
                         self.no_dup_chi_term = np.zeros(shape=number_of_sets, dtype=bool)
+                        self.f_form = np.zeros(number_of_sets, dtype=np.int64)
                     elif line.startswith('START SET'):
                         set_number = int(line.split()[2]) - 1
                     elif line.startswith('Label'):
@@ -291,6 +304,8 @@ class Jastrow:
                     elif line.startswith('Prevent duplication of chi term'):
                         no_dup_chi_term = self.read_bool()
                         self.no_dup_chi_term[set_number] = no_dup_chi_term
+                    elif line.startswith('Functional form'):
+                        self.f_form[set_number] = self.read_int()
                     elif line.startswith('Electron-nucleus expansion order'):
                         f_en_order = self.read_int()
                     elif line.startswith('Electron-electron expansion order'):
@@ -300,10 +315,30 @@ class Jastrow:
                     elif line.startswith('Cutoff'):
                         f_cutoff, f_cutoff_optimizable = self.read_parameter()
                         self.f_cutoff[set_number]['value'] = f_cutoff
-                        self.f_cutoff[set_number]['optimizable'] = f_cutoff_optimizable
+                        # g_1 = C/L of a product depends on the cutoff, which is kept fixed
+                        self.f_cutoff[set_number]['optimizable'] = f_cutoff_optimizable and self.f_form[set_number] == POLYNOMIAL
                     elif line.startswith('Parameter'):
                         f_parameters = np.zeros(shape=(f_spin_dep + 1, f_ee_order + 1, f_en_order + 1, f_en_order + 1), dtype=float)
                         f_parameters_optimizable = np.zeros(shape=(f_spin_dep + 1, f_ee_order + 1, f_en_order + 1, f_en_order + 1), dtype=bool)
+                        if self.f_form[set_number] == PRODUCT:
+                            if f_en_order < 1 or f_ee_order < 1:
+                                raise ValueError('product f-term needs g and h of order 1 at least')
+                            f_product = np.zeros(shape=(f_spin_dep + 1, f_en_order + f_ee_order + 2), dtype=float)
+                            f_product_optimizable = self.f_product_independent(f_product, f_en_order + 1)
+                            try:
+                                for i in range(f_spin_dep + 1):
+                                    for j in range(f_product.shape[1]):
+                                        if f_product_optimizable[i, j]:
+                                            f_product[i, j], f_product_optimizable[i, j] = self.read_parameter()
+                            except ValueError:
+                                f_product_optimizable = self.f_product_independent(f_product, f_en_order + 1)
+                            self.f_parameters.append(f_parameters)
+                            self.f_parameters_optimizable.append(f_parameters_optimizable)
+                            self.f_product.append(f_product)
+                            self.f_product_optimizable.append(f_product_optimizable)
+                            continue
+                        self.f_product.append(np.zeros(shape=(f_spin_dep + 1, 0), dtype=float))
+                        self.f_product_optimizable.append(np.zeros(shape=(f_spin_dep + 1, 0), dtype=bool))
                         f_parameters_independent = self.f_parameters_independent(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                         try:
                             for i in range(f_spin_dep + 1):
@@ -378,21 +413,55 @@ class Jastrow:
         n_f_set = 0
         f_term = ''
         f_sets = []
-        for n_f_set, (f_labels, f_parameters, f_parameters_optimizable, f_cutoff, no_dup_u_term, no_dup_chi_term) in enumerate(
-            zip(self.f_labels, self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term)
+        for n_f_set, (
+            f_labels,
+            f_parameters,
+            f_parameters_optimizable,
+            f_cutoff,
+            no_dup_u_term,
+            no_dup_chi_term,
+            f_form,
+            f_product,
+            f_product_optimizable,
+        ) in enumerate(
+            zip(
+                self.f_labels,
+                self.f_parameters,
+                self.f_parameters_optimizable,
+                self.f_cutoff,
+                self.no_dup_u_term,
+                self.no_dup_chi_term,
+                self.f_form,
+                self.f_product,
+                self.f_product_optimizable,
+            )
         ):
             f_parameters_list = []
-            f_parameters_independent = self.f_parameters_independent(f_parameters, f_cutoff['value'], no_dup_u_term, no_dup_chi_term)
-            for i in range(f_parameters.shape[0]):
-                for n in range(f_parameters.shape[1]):
-                    for m in range(f_parameters.shape[2]):
-                        for l in range(f_parameters.shape[3]):
-                            if f_parameters_independent[i, n, m, l]:
-                                f_parameters_list.append(
-                                    f'{f_parameters[i, n, m, l]: .16e}            {int(f_parameters_optimizable[i, n, m, l])}       ! gamma_{l},{m},{n},{i + 1},{n_f_set + 1}'
-                                )
+            if f_form == PRODUCT:
+                n_g = f_parameters.shape[2]
+                f_product_independent = self.f_product_independent(f_product, n_g)
+                for i in range(f_product.shape[0]):
+                    for j in range(f_product.shape[1]):
+                        if f_product_independent[i, j]:
+                            name = f'g_{j}'
+                            if j >= n_g:
+                                name = f'h_{j - n_g}'
+                            f_parameters_list.append(
+                                f'{f_product[i, j]: .16e}            {int(f_product_optimizable[i, j])}       ! {name},{i + 1},{n_f_set + 1}'
+                            )
+            else:
+                f_parameters_independent = self.f_parameters_independent(f_parameters, f_cutoff['value'], no_dup_u_term, no_dup_chi_term)
+                for i in range(f_parameters.shape[0]):
+                    for n in range(f_parameters.shape[1]):
+                        for m in range(f_parameters.shape[2]):
+                            for l in range(f_parameters.shape[3]):
+                                if f_parameters_independent[i, n, m, l]:
+                                    f_parameters_list.append(
+                                        f'{f_parameters[i, n, m, l]: .16e}            {int(f_parameters_optimizable[i, n, m, l])}       ! gamma_{l},{m},{n},{i + 1},{n_f_set + 1}'
+                                    )
             f_sets.append(
                 f_set_template.format(
+                    f_form=self.form_line(f_form_template, f_form),
                     n_set=n_f_set + 1,
                     n_atoms=len(f_labels),
                     f_labels=' '.join(['{}'.format(i + 1) for i in f_labels]),
@@ -437,6 +506,14 @@ class Jastrow:
         mask = np.ones(parameters.shape, bool)
         if form == POLYNOMIAL:
             mask[:, 1] = False
+        return mask
+
+    @staticmethod
+    def f_product_independent(f_product, n_g):
+        """Mask dependent parameters of a product f-term: g_0, g_1 and h_1."""
+        mask = np.ones(f_product.shape, bool)
+        for j in range(f_product.shape[1]):
+            mask[:, j] = product_independent(n_g, j)
         return mask
 
     def f_parameters_independent(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
@@ -496,7 +573,12 @@ class Jastrow:
         (f_en_order + 1) constraints imposed to prevent duplication of chi-term
         b-column has the sum of independent coefficients for each condition.
         """
-        for f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
+        for f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term, f_form, f_product in zip(
+            self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term, self.f_form, self.f_product
+        ):
+            if f_form == PRODUCT:
+                product_fix(f_product, f_parameters, self.trunc, f_cutoff['value'])
+                continue
             if not f_parameters.any():
                 continue
             L = f_cutoff['value']

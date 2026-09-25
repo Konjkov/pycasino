@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from casino import delta
 from casino.jastrow import Jastrow
 from casino.readers import CasinoConfig
 from casino.slater import Slater
@@ -90,6 +91,26 @@ class TestJastrowUncut(TestJastrowAnalytic):
     """Exponential u-term and Gaussian chi-term without cutoff (Functional form = 2) with the polynomial f-term."""
 
     config_dir = '../../examples/stowfn/He/HF/QZ4P/CBCS/Jastrow_emin_uncut'
+
+
+class TestJastrowProduct(TestJastrowAnalytic):
+    """u and chi without cutoff with the product f-term (r1-L)^C (r2-L)^C g(r1) g(r2) h(r12) (Functional form = 1)."""
+
+    config_dir = '../../examples/stowfn/He/HF/QZ4P/CBCS/Jastrow_emin_product'
+
+    def test_wfn_value_parameters_d2(self):
+        parameters = self.wfn.get_parameters()
+        numerical = np.zeros(shape=(parameters.size, parameters.size))
+        for i in range(parameters.size):
+            parameters[i] -= delta
+            self.wfn.set_parameters(parameters)
+            numerical[i] -= self.wfn.value_parameters_d1(self.r_e)
+            parameters[i] += 2 * delta
+            self.wfn.set_parameters(parameters)
+            numerical[i] += self.wfn.value_parameters_d1(self.r_e)
+            parameters[i] -= delta
+        self.wfn.set_parameters(parameters)
+        assert self.wfn.value_parameters_d2(self.r_e) == pytest.approx(numerical / delta / 2, **self.tolerance)
 
 
 if __name__ == '__main__':

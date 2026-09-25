@@ -16,13 +16,14 @@ Every model has a free constant. The criterion is rms(fit - J) against the sprea
 The product f is also fitted alone to the CASINO f on the same configurations.
 """
 
+import json
 import os
 import tempfile
 
 import numpy as np
 from scipy.optimize import least_squares
 
-from make_uncut_examples import casino_u_chi, geometry, model, sample
+from make_uncut_examples import B_MAX, B_MIN, casino_u_chi, geometry, model, sample
 from terms import f_value, load
 
 SYSTEMS = ['He', 'Be', 'N', 'Ne', 'Ar', 'Kr', 'O3']
@@ -145,7 +146,17 @@ def analyze(system):
     # (A) uncut u and chi and the product f together
     n_uncut = c.x.size
     x0 = np.concatenate([c.x, alone.x[:-1]])
-    a = least_squares(lambda x: uncut(x[:n_uncut]) + product_f(x[n_uncut:], blocks, offsets) - target, x0, method='lm')
+
+    def residuals(x):
+        return uncut(x[:n_uncut]) + product_f(x[n_uncut:], blocks, offsets) - target
+
+    a = least_squares(residuals, x0, method='lm')
+    lower = np.full(x0.size, -np.inf)
+    upper = np.full(x0.size, np.inf)
+    lower[:2], upper[:2] = np.log(B_MIN), np.log(B_MAX)
+    if np.any(a.x[:2] < lower[:2]) or np.any(a.x[:2] > upper[:2]):
+        # a hole radius ran away (Kr parallel pairs): refit inside the bounds from the clipped solution
+        a = least_squares(residuals, np.clip(a.x, lower + 1e-6, upper - 1e-6), bounds=(lower, upper), x_scale='jac')
 
     row = dict(
         system=system,
@@ -158,6 +169,8 @@ def analyze(system):
         n_f_casino=int(sum(np.count_nonzero(np.array(f['parameters'])) for f in entry['jastrow']['f'])),
         n_f_product=n_product,
         b=np.exp(a.x[:2]),
+        uncut=a.x[:n_uncut].tolist(),
+        product=a.x[n_uncut:].tolist(),
     )
     print(
         f'{system:3s} spread {row["spread"]:.3f}  f spread {row["f_spread"]:.3f}  '
@@ -187,8 +200,12 @@ def main():
             f'{r["b"][0]:.2f}, {r["b"][1]:.2f} |'
         )
     text = '\n'.join(lines) + '\n'
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'results', 'product_f.md'), 'w') as f:
+    results = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'results')
+    with open(os.path.join(results, 'product_f.md'), 'w') as f:
         f.write(text)
+    # starting values of the Jastrow_emin_product examples, in the parameters of model() and product_f()
+    with open(os.path.join(results, 'product_f.json'), 'w') as f:
+        json.dump({r['system']: dict(uncut=r['uncut'], product=r['product']) for r in rows}, f, indent=1)
     print(text)
 
 

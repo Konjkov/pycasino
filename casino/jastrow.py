@@ -173,6 +173,70 @@ def chi_value_d2(r, parameters, L, C, form):
     return res
 
 
+# functional form of the f term: rank-1 product (r1-L)^C (r2-L)^C g(r1) g(r2) h(r12) of polynomials g and h
+PRODUCT = 1
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def product_independent(n_g, j):
+    """Independent parameters of a product f spin set [g_0..g_N, h_0..h_M]:
+    g_0 = 1 fixes the scale of the product, g_1 = C/L removes the e-n cusp, h_1 = 0 removes the e-e cusp.
+    """
+    return j != 0 and j != 1 and j != n_g + 1
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def product_tensor(h, a, b):
+    """Coefficients h_n (a_m b_l + b_m a_l) of the polynomial f-term at the powers r12^n r1^m r2^l."""
+    res = np.zeros(shape=(h.size, a.size, a.size))
+    for n in range(h.size):
+        for m in range(a.size):
+            for l in range(a.size):
+                res[n, m, l] = h[n] * (a[m] * b[l] + b[m] * a[l])
+    return res
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def product_fix(product, f_parameters, C, L):
+    """Set the dependent parameters of a product f and its polynomial coefficients h_n g_m g_l."""
+    n_g = f_parameters.shape[2]
+    for i in range(product.shape[0]):
+        product[i, 0] = 1
+        product[i, 1] = C / L
+        product[i, n_g + 1] = 0
+        f_parameters[i] = product_tensor(product[i, n_g:], product[i, :n_g], product[i, :n_g]) / 2
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def product_tensor_d1(product, n_g, j):
+    """Derivatives of the polynomial coefficients of a product f spin set w.r.t its j-th parameter."""
+    g = product[:n_g]
+    h = product[n_g:]
+    e = np.zeros(product.size)
+    e[j] = 1
+    if j < n_g:
+        return product_tensor(h, e[:n_g], g)
+    return product_tensor(e[n_g:], g, g) / 2
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def product_tensor_d2(product, n_g, j1, j2):
+    """Second derivatives of the polynomial coefficients of a product f spin set w.r.t its j1-th and j2-th parameters."""
+    g = product[:n_g]
+    h = product[n_g:]
+    e1 = np.zeros(product.size)
+    e1[j1] = 1
+    e2 = np.zeros(product.size)
+    e2[j2] = 1
+    if j1 < n_g and j2 < n_g:
+        return product_tensor(h, e1[:n_g], e2[:n_g])
+    if j1 < n_g:
+        return product_tensor(e2[n_g:], e1[:n_g], g)
+    if j2 < n_g:
+        return product_tensor(e1[n_g:], e2[:n_g], g)
+    return np.zeros(shape=(h.size, n_g, n_g))
+
+
 @structref.register
 class Jastrow_class_t(nb.types.StructRef):
     def preprocess_fields(self, fields):
@@ -216,7 +280,7 @@ def jastrow_fix_optimizable(self):
             self.chi_parameters_available.append(chi_parameters_available)
 
         ee_order = 2
-        for f_parameters_optimizable in self.f_parameters_optimizable:
+        for i, f_parameters_optimizable in enumerate(self.f_parameters_optimizable):
             f_parameters_available = np.ones_like(f_parameters_optimizable)
             for j1 in range(f_parameters_optimizable.shape[2]):
                 for j2 in range(f_parameters_optimizable.shape[3]):
@@ -235,6 +299,11 @@ def jastrow_fix_optimizable(self):
                 if self.ned < ee_order:
                     f_parameters_available[2] = False
             self.f_parameters_available.append(f_parameters_available)
+            f_product_available = np.zeros_like(self.f_product_optimizable[i])
+            for j1 in range(f_product_available.shape[0]):
+                for j2 in range(f_product_available.shape[1]):
+                    f_product_available[j1, j2] = f_parameters_available[j1].any() and product_independent(f_parameters_optimizable.shape[2], j2)
+            self.f_product_available.append(f_product_available)
 
     return impl
 
@@ -1090,7 +1159,12 @@ def jastrow_fix_f_parameters(self):
     """
 
     def impl(self):
-        for f_parameters, L, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
+        for f_parameters, L, no_dup_u_term, no_dup_chi_term, f_form, f_product in zip(
+            self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term, self.f_form, self.f_product
+        ):
+            if f_form == PRODUCT:
+                product_fix(f_product, f_parameters, self.trunc, L)
+                continue
             f_spin_dep = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[1] - 1
             f_en_order = f_parameters.shape[2] - 1
@@ -1153,11 +1227,35 @@ def jastrow_get_parameters_mask(self):
                             res.append(chi_parameters_optimizable[j1, j2])
 
         if self.f_cutoff.any():
-            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(
-                self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available
+            for (
+                f_parameters,
+                f_parameters_optimizable,
+                f_cutoff,
+                f_cutoff_optimizable,
+                f_parameters_available,
+                f_form,
+                f_product,
+                f_product_optimizable,
+                f_product_available,
+            ) in zip(
+                self.f_parameters,
+                self.f_parameters_optimizable,
+                self.f_cutoff,
+                self.f_cutoff_optimizable,
+                self.f_parameters_available,
+                self.f_form,
+                self.f_product,
+                self.f_product_optimizable,
+                self.f_product_available,
             ):
                 if f_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
+                if f_form == PRODUCT:
+                    for j1 in range(f_product_available.shape[0]):
+                        for j2 in range(f_product_available.shape[1]):
+                            if f_product_available[j1, j2]:
+                                res.append(f_product_optimizable[j1, j2])
+                    continue
                 for j1 in range(f_parameters.shape[0]):
                     for j2 in range(f_parameters.shape[1]):
                         for j3 in range(f_parameters.shape[2]):
@@ -1217,11 +1315,39 @@ def jastrow_get_parameters_scale(self, all_parameters):
                                 scale.append(1 / chi_cutoff**j2 / ne)
 
         if self.f_cutoff.any():
-            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(
-                self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available
+            for (
+                f_parameters,
+                f_parameters_optimizable,
+                f_cutoff,
+                f_cutoff_optimizable,
+                f_parameters_available,
+                f_form,
+                f_product,
+                f_product_optimizable,
+                f_product_available,
+            ) in zip(
+                self.f_parameters,
+                self.f_parameters_optimizable,
+                self.f_cutoff,
+                self.f_cutoff_optimizable,
+                self.f_parameters_available,
+                self.f_form,
+                self.f_product,
+                self.f_product_optimizable,
+                self.f_product_available,
             ):
                 if f_cutoff_optimizable and self.cutoffs_optimizable:
                     scale.append(1)
+                if f_form == PRODUCT:
+                    n_g = f_parameters.shape[2]
+                    for j1 in range(f_product.shape[0]):
+                        for j2 in range(f_product.shape[1]):
+                            if (f_product_optimizable[j1, j2] or all_parameters) and f_product_available[j1, j2]:
+                                if j2 < n_g:
+                                    scale.append(1 / f_cutoff**j2)
+                                else:
+                                    scale.append(2 / f_cutoff ** (j2 - n_g) / ne**3)
+                    continue
                 for j1 in range(f_parameters.shape[0]):
                     for j2 in range(f_parameters.shape[1]):
                         for j3 in range(f_parameters.shape[2]):
@@ -1322,9 +1448,19 @@ def jastrow_get_parameters_constraints(self):
             a_list.append(chi_block)
             b_list += [0] * len(chi_spin_deps)
 
-        for f_parameters, f_cutoff, f_cutoff_optimizable, no_dup_u_term, no_dup_chi_term in zip(
-            self.f_parameters, self.f_cutoff, self.f_cutoff_optimizable, self.no_dup_u_term, self.no_dup_chi_term
+        for f_parameters, f_cutoff, f_cutoff_optimizable, no_dup_u_term, no_dup_chi_term, f_form, f_product_available in zip(
+            self.f_parameters,
+            self.f_cutoff,
+            self.f_cutoff_optimizable,
+            self.no_dup_u_term,
+            self.no_dup_chi_term,
+            self.f_form,
+            self.f_product_available,
         ):
+            if f_form == PRODUCT:
+                # the cusp conditions are built into g and h
+                a_list.append(np.zeros(shape=(0, f_product_available.sum() + int(f_cutoff_optimizable and self.cutoffs_optimizable))))
+                continue
             if f_parameters.shape[0] == 3:
                 f_spin_deps = [0, 1, 2]
                 if self.neu < 2:
@@ -1425,11 +1561,35 @@ def jastrow_get_parameters(self, all_parameters):
                                 res.append(chi_parameters[j1, j2])
 
         if self.f_cutoff.any():
-            for f_parameters, f_parameters_optimizable, f_cutoff, f_cutoff_optimizable, f_parameters_available in zip(
-                self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.f_cutoff_optimizable, self.f_parameters_available
+            for (
+                f_parameters,
+                f_parameters_optimizable,
+                f_cutoff,
+                f_cutoff_optimizable,
+                f_parameters_available,
+                f_form,
+                f_product,
+                f_product_optimizable,
+                f_product_available,
+            ) in zip(
+                self.f_parameters,
+                self.f_parameters_optimizable,
+                self.f_cutoff,
+                self.f_cutoff_optimizable,
+                self.f_parameters_available,
+                self.f_form,
+                self.f_product,
+                self.f_product_optimizable,
+                self.f_product_available,
             ):
                 if f_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(f_cutoff)
+                if f_form == PRODUCT:
+                    for j1 in range(f_product.shape[0]):
+                        for j2 in range(f_product.shape[1]):
+                            if (f_product_optimizable[j1, j2] or all_parameters) and f_product_available[j1, j2]:
+                                res.append(f_product[j1, j2])
+                    continue
                 for j1 in range(f_parameters.shape[0]):
                     for j2 in range(f_parameters.shape[1]):
                         for j3 in range(f_parameters.shape[2]):
@@ -1498,6 +1658,16 @@ def jastrow_set_parameters(self, parameters, all_parameters):
                     # Sequence types is a pointer, but numeric types is not.
                     self.f_cutoff[i] = parameters[n]
                     n += 1
+                if self.f_form[i] == PRODUCT:
+                    f_product = self.f_product[i]
+                    for j1 in range(f_product.shape[0]):
+                        for j2 in range(f_product.shape[1]):
+                            if (self.f_product_optimizable[i][j1, j2] or all_parameters) and self.f_product_available[i][j1, j2]:
+                                f_product[j1, j2] = parameters[n]
+                                n += 1
+                    # the polynomial coefficients follow the product parameters in any case
+                    product_fix(f_product, f_parameters, self.trunc, self.f_cutoff[i])
+                    continue
                 for j1 in range(f_parameters.shape[0]):
                     for j2 in range(f_parameters.shape[1]):
                         for j3 in range(f_parameters.shape[2]):
@@ -1615,6 +1785,54 @@ def jastrow_chi_term_parameters_d1(self, n_powers):
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'f_term_parameters_size')
+def jastrow_f_term_parameters_size(self):
+    """Number of the f-term parameters the derivatives are taken w.r.t, cutoffs included."""
+
+    def impl(self) -> int:
+        size = 0
+        for i in range(len(self.f_parameters)):
+            if self.f_cutoff_optimizable[i] and self.cutoffs_optimizable:
+                size += 1
+            if self.f_form[i] == PRODUCT:
+                size += self.f_product_available[i].sum()
+            else:
+                size += self.f_parameters_available[i].sum()
+        return size
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'f_term_product_only')
+def jastrow_f_term_product_only(self):
+    """Zero the polynomial coefficients of every f set and return a copy of them.
+    The f-term is linear in the coefficients, so with the coefficients of one product set replaced by their
+    derivatives w.r.t a product parameter the f-term and its gradient and laplacian are the derivatives of those.
+    """
+
+    def impl(self):
+        saved = [f_parameters.copy() for f_parameters in self.f_parameters]
+        for f_parameters in self.f_parameters:
+            f_parameters[:] = 0
+        return saved
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+@overload_method(Jastrow_class_t, 'f_term_restore')
+def jastrow_f_term_restore(self, saved):
+    """Restore the polynomial coefficients of every f set."""
+
+    def impl(self, saved):
+        for f_parameters, f_saved in zip(self.f_parameters, saved):
+            f_parameters[:] = f_saved
+
+    return impl
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
 @overload_method(Jastrow_class_t, 'f_term_parameters_d1')
 def jastrow_f_term_parameters_d1(self, e_powers, n_powers):
     """First derivatives of log wfn w.r.t f-term parameters
@@ -1627,12 +1845,7 @@ def jastrow_f_term_parameters_d1(self, e_powers, n_powers):
             return np.zeros((0,))
 
         C = self.trunc
-        size = sum(
-            [
-                f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
-                for f_parameters_available, f_cutoff_optimizable in zip(self.f_parameters_available, self.f_cutoff_optimizable)
-            ]
-        )
+        size = self.f_term_parameters_size()
         res = np.zeros(shape=(size,))
 
         n = -1
@@ -1645,6 +1858,19 @@ def jastrow_f_term_parameters_d1(self, e_powers, n_powers):
                 self.f_cutoff[i] += 2 * delta
                 res[n] += self.f_term(e_powers, n_powers) / delta / 2
                 self.f_cutoff[i] -= delta
+
+            if self.f_form[i] == PRODUCT:
+                saved = self.f_term_product_only()
+                f_product = self.f_product[i]
+                for j1 in range(f_product.shape[0]):
+                    for j2 in range(f_product.shape[1]):
+                        if self.f_product_available[i][j1, j2]:
+                            n += 1
+                            f_parameters[j1] = product_tensor_d1(f_product[j1], f_parameters.shape[2], j2)
+                            res[n] = self.f_term(e_powers, n_powers)
+                            f_parameters[j1] = 0
+                self.f_term_restore(saved)
+                continue
 
             n_start = n
             L = self.f_cutoff[i]
@@ -1801,12 +2027,7 @@ def jastrow_f_term_gradient_parameters_d1(self, e_powers, n_powers, e_vectors, n
             return np.zeros((0, (self.neu + self.ned) * 3))
 
         C = self.trunc
-        size = sum(
-            [
-                f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
-                for f_parameters_available, f_cutoff_optimizable in zip(self.f_parameters_available, self.f_cutoff_optimizable)
-            ]
-        )
+        size = self.f_term_parameters_size()
         res = np.zeros(shape=(size, (self.neu + self.ned), 3))
 
         n = -1
@@ -1818,6 +2039,19 @@ def jastrow_f_term_gradient_parameters_d1(self, e_powers, n_powers, e_vectors, n
                 self.f_cutoff[i] += 2 * delta
                 res[n] += self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
                 self.f_cutoff[i] -= delta
+
+            if self.f_form[i] == PRODUCT:
+                saved = self.f_term_product_only()
+                f_product = self.f_product[i]
+                for j1 in range(f_product.shape[0]):
+                    for j2 in range(f_product.shape[1]):
+                        if self.f_product_available[i][j1, j2]:
+                            n += 1
+                            f_parameters[j1] = product_tensor_d1(f_product[j1], f_parameters.shape[2], j2)
+                            res[n] = self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3)
+                            f_parameters[j1] = 0
+                self.f_term_restore(saved)
+                continue
 
             n_start = n
             L = self.f_cutoff[i]
@@ -1980,12 +2214,7 @@ def jastrow_f_term_laplacian_parameters_d1(self, e_powers, n_powers, e_vectors, 
         if not self.f_cutoff.any():
             return np.zeros((0,))
 
-        size = sum(
-            [
-                f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
-                for f_parameters_available, f_cutoff_optimizable in zip(self.f_parameters_available, self.f_cutoff_optimizable)
-            ]
-        )
+        size = self.f_term_parameters_size()
         res = np.zeros(shape=(size,))
 
         n = -1
@@ -1998,6 +2227,19 @@ def jastrow_f_term_laplacian_parameters_d1(self, e_powers, n_powers, e_vectors, 
                 self.f_cutoff[i] += 2 * delta
                 res[n] += self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
                 self.f_cutoff[i] -= delta
+
+            if self.f_form[i] == PRODUCT:
+                saved = self.f_term_product_only()
+                f_product = self.f_product[i]
+                for j1 in range(f_product.shape[0]):
+                    for j2 in range(f_product.shape[1]):
+                        if self.f_product_available[i][j1, j2]:
+                            n += 1
+                            f_parameters[j1] = product_tensor_d1(f_product[j1], f_parameters.shape[2], j2)
+                            res[n] = self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
+                            f_parameters[j1] = 0
+                self.f_term_restore(saved)
+                continue
 
             n_start = n
             L = self.f_cutoff[i]
@@ -2241,12 +2483,7 @@ def jastrow_f_term_parameters_d2(self, e_powers, n_powers):
         if not self.f_cutoff.any():
             return np.zeros((0, 0))
 
-        size = sum(
-            [
-                f_parameters_available.sum() + (f_cutoff_optimizable and self.cutoffs_optimizable)
-                for f_parameters_available, f_cutoff_optimizable in zip(self.f_parameters_available, self.f_cutoff_optimizable)
-            ]
-        )
+        size = self.f_term_parameters_size()
         res = np.zeros(shape=(size, size))
 
         n = 0
@@ -2259,6 +2496,26 @@ def jastrow_f_term_parameters_d2(self, e_powers, n_powers):
                 self.f_cutoff[i] -= delta
                 res[:, n] = res[n, :]
                 n += 1
+            if self.f_form[i] == PRODUCT:
+                # the product is nonlinear in g and h, different spin sets do not mix
+                saved = self.f_term_product_only()
+                f_product = self.f_product[i]
+                f_product_available = self.f_product_available[i]
+                for j1 in range(f_product.shape[0]):
+                    m1 = n
+                    for j2 in range(f_product.shape[1]):
+                        if f_product_available[j1, j2]:
+                            m2 = n
+                            for j3 in range(j2 + 1):
+                                if f_product_available[j1, j3]:
+                                    f_parameters[j1] = product_tensor_d2(f_product[j1], f_parameters.shape[2], j2, j3)
+                                    res[m1, m2] = res[m2, m1] = self.f_term(e_powers, n_powers)
+                                    m2 += 1
+                            m1 += 1
+                    f_parameters[j1] = 0
+                    n = m1
+                self.f_term_restore(saved)
+                continue
             n += f_parameters_available.sum()
 
         return res
@@ -2300,6 +2557,8 @@ f_parameters_type = nb.float64[:, :, :, ::1]
 u_parameters_mask_type = nb.boolean[:, ::1]
 chi_parameters_mask_type = nb.boolean[:, ::1]
 f_parameters_mask_type = nb.boolean[:, :, :, ::1]
+f_product_type = nb.float64[:, ::1]
+f_product_mask_type = nb.boolean[:, ::1]
 
 Jastrow_t = Jastrow_class_t(
     [
@@ -2332,6 +2591,10 @@ Jastrow_t = Jastrow_class_t(
         ('cutoffs_optimizable', nb.boolean),
         ('u_form', nb.int64),
         ('chi_form', nb.int64[::1]),
+        ('f_form', nb.int64[::1]),
+        ('f_product', nb.types.ListType(f_product_type)),
+        ('f_product_optimizable', nb.types.ListType(f_product_mask_type)),
+        ('f_product_available', nb.types.ListType(f_product_mask_type)),
     ]
 )
 
@@ -2359,10 +2622,17 @@ class Jastrow(structref.StructRefProxy, AbstractJastrow):
             no_dup_chi_term,
             u_form,
             chi_form,
+            f_form,
+            f_product,
+            f_product_optimizable,
         ):
             self = structref.new(Jastrow_t)
             self.u_form = u_form
             self.chi_form = chi_form
+            self.f_form = f_form
+            self.f_product = f_product
+            self.f_product_optimizable = f_product_optimizable
+            self.f_product_available = nb.typed.List.empty_list(f_product_mask_type)
             self.neu = neu
             self.ned = ned
             self.trunc = trunc
@@ -2429,6 +2699,9 @@ class Jastrow(structref.StructRefProxy, AbstractJastrow):
             config.jastrow.no_dup_chi_term,
             config.jastrow.u_form,
             config.jastrow.chi_form,
+            config.jastrow.f_form,
+            config.jastrow.f_product,
+            config.jastrow.f_product_optimizable,
         )
 
     @property
