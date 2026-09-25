@@ -167,11 +167,76 @@ which must be 0):
 - **The Be varmin/emin cutoff drift** (L_u −0.2 per emin cycle with form 1) disappears with form 2:
   no cutoff is optimized.
 
-## 5. Open directions
+## 5. Plan
 
-- **`exp2` u** for shell-correlated parallel channels: 3 parameters, cusp-free tail/bump.
-- **Local-density hole** replacing u + f: u(r12; r1, r2) = −γ b̄ e^{−r12/b̄} with b̄ = b(r_s(ρ(r̄))) and
-  r̄ = √((r1² + r2²)/2). The rms mean keeps the e-n no-cusp condition. Two universal parameters;
-  FORMALISM.md §7.
-- **Density-preserving χ** = β[V_u(r) − V_u(L)] w: one parameter per species.
-- **Backflow:** decide by VMC whether Φ/Θ can be reduced or dropped.
+Order: **cheap offline filter first, implementation second**. The f-term is the target: it holds 1483 of
+2149 Jastrow parameters (69 %). `exp2` is a small, local fix and waits.
+
+### Step 1. Offline filter: fit candidates to the full CASINO Jastrow (research/, no change in casino/)
+
+1. Extend `research/jastrow_form/make_uncut_examples.py` into a reusable fitter:
+   - sample VMC configurations of the CASINO Slater–Jastrow, as now;
+   - the target is the **full** CASINO J = Σu + Σχ + Σf on those configurations, plus a free constant;
+   - cache the configurations per system (npz in the scratchpad) so the models can be refitted without
+     re-running VMC.
+2. Fit three candidates on He, Be, N, Ne, Ar, Kr, O3:
+   - **(A) product f:** uncut u and χ plus f = κ(r1, r2)·g(r1)g(r2)h(r12), with κ the CASINO cutoff factor
+     and g, h cubic, i.e. 10 coefficients per spin channel. Rank 1 had R² 0.98 against the CASINO f.
+   - **(B) local-density hole:** u(r12; r1, r2) = −γ b̄ e^{−r12/b̄} with b̄ = B r_s/(r_s + c),
+     r_s = (3/(4π ρ̄(r̄)))^{1/3} and r̄ = √((r1² + r2²)/2), where ρ̄ is the spherical HF density around
+     the nucleus (`research/jastrow_form/data/densities.json`). Plus χ (Gaussian or β·V_u). No f. The
+     parameters are B and c per spin channel (start 3.24, 2.71), plus χ.
+   - **(C) reference:** uncut u and χ with the CASINO f fixed (the current examples).
+3. Criterion: the rms of (fit − target) against the spread of the target, per system.
+   - Reference points for Be: (C) gave 0.26 of 1.40 before fitting f, and it reaches −14.646 after emin.
+   - A candidate passes if its residual is ≤ the (C) residual on most systems.
+4. Record the results in `research/jastrow_form/REPORT.md` (a new section) and in this skill.
+
+### Step 2. Decision
+
+- **(B) passes:** go to the universal term, step 3B.
+- **(B) fails and (A) passes:** implement the product f, step 3A.
+- **Both fail:** keep the polynomial f. Only then consider an f of lower polynomial order.
+
+### Step 3A. Product f in casino/jastrow.py (`f_form = 1`)
+
+1. Reader: a `Functional form` line in the F TERM set. Parameters are g (4) and h (4) per spin channel,
+   stored as the (spin, 2, 4) layout; document it.
+2. Value, `_1e`, gradient, Laplacian. Each is a product of 1D polynomials times the cutoff factor.
+3. The e-e and e-n no-cusp conditions:
+   - h'(0) = 0 fixes one h coefficient;
+   - the e-n condition on g together with the cutoff factor fixes one g coefficient.
+   - Derive both in FORMALISM.md and eliminate the fixed coefficients exactly, as done for u and χ.
+4. Parameter d1 and d2: the form is nonlinear (a product), so the full d2 is needed for emin.
+5. Tests: a new class on the He example.
+6. Examples `Jastrow_emin_product` with a configuration-fit start. Run the Be emin and compare with
+   −14.6504.
+
+### Step 3B. Universal local-density term
+
+1. The density inside the Jastrow: the spherical HF density ρ̄_I(r) of each nucleus on a radial grid.
+   - Add it to the config: computed once from the orbitals, as in `density.py`.
+   - Use a cubic spline so that ρ̄, ρ̄' and ρ̄'' are available for the gradient and the Laplacian.
+   - Molecules: start with ρ̄ = Σ_I ρ̄_I(|r − R_I|) (promolecule).
+2. The term u(r12; r1I, r2I) replaces u + f. Its derivatives w.r.t. r1, r2 go through b̄(r̄) by the chain
+   rule. The e-n no-cusp condition holds automatically thanks to the rms mean r̄.
+3. χ: the Gaussian, or β[V_u(r) − V_u(L)] with V_u precomputed on the same grid.
+4. Parameters: B and c per spin channel (log scale), χ parameters. Analytic d1 and d2.
+5. Tests, examples `Jastrow_emin_universal`, then Be, N, Ne emin against the polynomial.
+
+### Step 4. exp2 u (independent, low priority)
+
+`Functional form = 3` for u: −γ b1 e^{−r/b1} − A2 (1 + r/b2) e^{−r/b2}, 3 parameters per channel, with
+b1 and b2 on a log scale. It targets the shell-correlated parallel channels (Be ↑↑, N ↓↓; restore spin
+dep 2 for N). Expected gain: the ~4 mHa of Be and ~3 mHa of N.
+
+### Step 5. Backflow (after the Jastrow)
+
+Φ/Θ holds 56 % of all parameters and its profiles are not reproducible. Test by VMC first whether it
+can be reduced or dropped, before looking for forms.
+
+### Always
+
+- Clear the numba cache after editing `casino/jastrow.py` (section 4).
+- Check derivatives with the `TestJastrow*` numerical tests before any VMC run.
+- Judge only by energy and variance after emin against the polynomial; a profile match is not enough.
