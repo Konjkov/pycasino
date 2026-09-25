@@ -404,6 +404,42 @@ CASINO polynomial, and the file stays readable by CASINO. The expansion order mu
 - **Test:** `TestJastrowAnalytic` in `casino/tests/test_jastrow.py` compares the analytic derivatives with
   numerical ones.
 
+### 7.1 Forms without cutoff (`Functional form = 2`)
+
+The cutoff is needed by the polynomial, a truncated Taylor series that departs from the function it
+approximates at large r. The analytic forms decay by themselves, so form 2 drops it:
+
+- **u:** u = −γ b e^{−r/b}. One parameter b per spin set, expansion order 0.
+- **χ:** χ = A e^{−(r/a)²}, the Gaussian found by the symbolic regression. Two parameters (A, a) per spin set,
+  expansion order 1. χ'(0) = 0 by construction.
+- **Cutoff:** the cutoff line of the set is read but ignored. Internally it is ∞ and not optimized, and it is
+  written back as `inf`.
+- **Derivatives:** all derivatives w.r.t. the parameters are analytic, including the second derivatives
+  used by emin.
+- **Positive lengths:** the hole radius b (forms 1 and 2) and the Gaussian width a are optimized as ln b and
+  ln a, so they cannot become ≤ 0. The Be run with form 1 had drifted to b = −3.79, a growing exponential.
+- **Examples:** `examples/stowfn/{He,Be,N,Ne,Ar,Kr,O3}/HF/QZ4P/CBCS/Jastrow_emin_uncut`, written by
+  `make_uncut_examples.py`.
+  - **f-term:** the f-term of the last CASINO stage is kept. The CASINO u and χ were optimized together
+    with it, and for Be f is as large as u + χ (rms 1.64 vs 1.70 over random configurations).
+  - **Start values:** the least-squares fit of Σ u + Σ χ to the same sum of the CASINO Jastrow, on
+    configurations sampled by VMC from the CASINO Slater–Jastrow wave function, plus a constant.
+  - **Why not the profile fits:** fitting the radial profiles one by one weights each function by the
+    density, not by how it enters Ψ. For Be such a start gives VMC −14.467 against −14.650, the
+    configuration fit gives −14.570.
+- **Be result** (this start, CASINO f, varmin + 3 emin with the example input): −14.6463 against −14.6504
+  for the CASINO polynomial, variance 0.079 against 0.042.
+  - Varmin makes no step here: the first Gauss–Newton step changes the cost by less than
+    ftol = 2/√(N−1). Emin does the work.
+  - The parallel hole radius keeps growing (3.9 → 7.1 bohr). The Be ↑↑ channel is a shell correlation
+    (§3.1) that one exponential does not describe; this is the remaining 4 mHa.
+- **Test:** `TestJastrowUncut`.
+
+**Numba cache.** The functions of `casino/wfn.py` are cached together with the Jastrow code they inline, and
+the cache is invalidated only by a change of `wfn.py` itself. After updating `casino/jastrow.py`, delete the
+cache (`find casino -name '*.nbi' -delete; find casino -name '*.nbc' -delete`), otherwise the old Jastrow
+code keeps running inside `Wfn`.
+
 ## 8. Files and reproduction
 
 Run the scripts in this order from `research/jastrow_form`. They need numpy, scipy, numba and matplotlib,
@@ -423,6 +459,7 @@ python scaling.py        # results/scaling.md, plots/scaling_laws.png (needs rad
 python molecules.py      # results/molecules.md, plots/molecule_*.png
 python param_count.py    # results/param_count.md
 python make_examples.py   # examples/stowfn/{N,Ne,Ar,Kr,O3}/HF/QZ4P/CBCS/Jastrow_emin_analytic
+python make_uncut_examples.py  # examples/stowfn/*/HF/QZ4P/CBCS/Jastrow_emin_uncut
 ```
 
 | file | content |

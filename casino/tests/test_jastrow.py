@@ -86,5 +86,11 @@ class TestJastrowAnalytic(TestJastrow):
         super().test_wfn_value_parameters_d1()
 
 
+class TestJastrowUncut(TestJastrowAnalytic):
+    """Exponential u-term and Gaussian chi-term without cutoff (Functional form = 2) with the polynomial f-term."""
+
+    config_dir = '../../examples/stowfn/He/HF/QZ4P/CBCS/Jastrow_emin_uncut'
+
+
 if __name__ == '__main__':
     unittest.main()

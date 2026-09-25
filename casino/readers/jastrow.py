@@ -5,7 +5,7 @@ import os
 import numba as nb
 import numpy as np
 
-from casino.jastrow import ANALYTIC, POLYNOMIAL, construct_a_matrix
+from casino.jastrow import ANALYTIC, POLYNOMIAL, UNCUT, construct_a_matrix
 from casino.overload import rref
 
 labels_type = nb.int64[::1]
@@ -106,12 +106,12 @@ START SET {n_set}
 
 
 u_form_template = """\
- Functional form (0=polynomial; 1=exponential hole -gamma*b*exp(-r/b)*w(r/L))
+ Functional form (0=polynomial; 1=exponential hole -gamma*b*exp(-r/b)*w(r/L); 2=the same without cutoff)
    {form}
 """
 
 chi_form_template = """\
- Functional form (0=polynomial; 1=bell A*w(r/L))
+ Functional form (0=polynomial; 1=bell A*w(r/L); 2=Gaussian A*exp(-(r/a)^2) without cutoff)
    {form}
 """
 
@@ -162,7 +162,7 @@ class Jastrow:
         self.f_labels = nb.typed.List.empty_list(labels_type)
         self.no_dup_u_term = np.zeros(0, bool)
         self.no_dup_chi_term = np.zeros(0, bool)
-        # functional form of the u and chi terms (POLYNOMIAL or ANALYTIC), see casino/jastrow.py
+        # functional form of the u and chi terms (POLYNOMIAL, ANALYTIC or UNCUT), see casino/jastrow.py
         self.u_form = POLYNOMIAL
         self.chi_form = np.zeros(0, np.int64)
 
@@ -210,8 +210,11 @@ class Jastrow:
                         u_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
                         self.u_cutoff[0] = self.read_parameter()
+                        if self.u_form == UNCUT:
+                            # no cutoff: every pair is inside, nothing to optimize
+                            self.u_cutoff[0] = np.inf, False
                     elif line.startswith('Parameter'):
-                        if self.u_form == ANALYTIC and u_order != 0:
+                        if self.u_form != POLYNOMIAL and u_order != 0:
                             raise ValueError('exponential u-term has one parameter per spin set: expansion order must be 0')
                         self.u_parameters = np.zeros(shape=(u_spin_dep + 1, u_order + 1), dtype=float)
                         self.u_parameters_optimizable = np.zeros(shape=(u_spin_dep + 1, u_order + 1), dtype=bool)
@@ -242,7 +245,7 @@ class Jastrow:
                         self.chi_cusp[set_number] = chi_cusp
                     elif line.startswith('Functional form'):
                         self.chi_form[set_number] = self.read_int()
-                        if self.chi_form[set_number] == ANALYTIC and self.chi_cusp[set_number]:
+                        if self.chi_form[set_number] != POLYNOMIAL and self.chi_cusp[set_number]:
                             raise ValueError('bell chi-term has zero slope at the nucleus, the e-n cusp must be imposed by the orbitals')
                     elif line.startswith('Expansion order'):
                         chi_order = self.read_int()
@@ -250,9 +253,13 @@ class Jastrow:
                         chi_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
                         self.chi_cutoff[set_number] = self.read_parameter()
+                        if self.chi_form[set_number] == UNCUT:
+                            self.chi_cutoff[set_number] = np.inf, False
                     elif line.startswith('Parameter'):
                         if self.chi_form[set_number] == ANALYTIC and chi_order != 0:
                             raise ValueError('bell chi-term has one parameter per spin set: expansion order must be 0')
+                        if self.chi_form[set_number] == UNCUT and chi_order != 1:
+                            raise ValueError('Gaussian chi-term has two parameters A, a per spin set: expansion order must be 1')
                         chi_parameters = np.zeros(shape=(chi_spin_dep + 1, chi_order + 1), dtype=float)
                         chi_parameters_optimizable = np.zeros(shape=(chi_spin_dep + 1, chi_order + 1), dtype=bool)
                         chi_parameters_independent = self.chi_parameters_independent(chi_parameters, self.chi_form[set_number])
@@ -450,7 +457,7 @@ class Jastrow:
 
     def fix_u_parameters(self):
         """Fix u-term parameters"""
-        if self.u_form == ANALYTIC:
+        if self.u_form != POLYNOMIAL:
             # the cusp is built into the exponential hole; an unset hole radius starts from 1 bohr
             self.u_parameters[self.u_parameters == 0] = 1.0
             return
@@ -466,6 +473,10 @@ class Jastrow:
         """Fix chi-term parameters"""
         C = self.trunc
         for chi_parameters, chi_cutoff, chi_cusp, chi_form in zip(self.chi_parameters, self.chi_cutoff, self.chi_cusp, self.chi_form):
+            if chi_form == UNCUT:
+                # an unset Gaussian width starts from 1 bohr
+                chi_parameters[chi_parameters[:, 1] == 0, 1] = 1.0
+                continue
             if not chi_parameters.any() or chi_form == ANALYTIC:
                 continue
             L = chi_cutoff['value']
