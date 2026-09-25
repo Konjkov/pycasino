@@ -440,6 +440,42 @@ the cache is invalidated only by a change of `wfn.py` itself. After updating `ca
 cache (`find casino -name '*.nbi' -delete; find casino -name '*.nbc' -delete`), otherwise the old Jastrow
 code keeps running inside `Wfn`.
 
+### 7.2 Product f against the full CASINO Jastrow (plan step 1 A)
+
+`product_f.py` fits the full CASINO Jastrow J = Σu + Σχ + Σf, plus a constant, on 50 000 VMC configurations
+of the CASINO Slater–Jastrow wave function (last emin stage). Two models are compared:
+
+- **(C):** uncut u and χ (form 2) with the CASINO f fixed, as in the `Jastrow_emin_uncut` examples.
+- **(A):** uncut u and χ with a rank-1 product f per f set, nucleus and spin channel, with the CASINO cutoff L:
+  f = (1 − x1)^C (1 − x2)^C g(x1) g(x2) h(x12), x = r/L.
+  - g = 1 + C x + g2 x² + g3 x³ satisfies the e-n no-cusp condition; g(0) = 1 fixes the scale of the product.
+  - h = h0 + h2 x² + h3 x³ satisfies the e-e no-cusp condition h'(0) = 0.
+  - 5 parameters per spin channel.
+
+The product f is also fitted alone to the CASINO f. Residuals are rms over the configurations, a.u.
+(`results/product_f.md`). "f params" counts the nonzero stored CASINO f coefficients, not the independent ones.
+
+| system | configs | spread | f spread | (C) | f alone | (A) | (A)/(C) | f params | b_par, b_anti |
+|---|---|---|---|---|---|---|---|---|---|
+| He | 49996 | 0.084 | 0.251 | 0.020 | 0.017 | 0.010 | 0.51 | 58 / 10 | 1.00, 1.58 |
+| Be | 49999 | 0.154 | 1.469 | 0.229 | 0.044 | 0.037 | 0.16 | 116 / 10 | 1.07, 3.45 |
+| N | 50000 | 0.142 | 0.674 | 0.041 | 0.036 | 0.029 | 0.70 | 174 / 15 | 1.69, 1.45 |
+| Ne | 50000 | 0.162 | 1.187 | 0.060 | 0.043 | 0.039 | 0.65 | 116 / 10 | 1.06, 0.97 |
+| Ar | 49998 | 0.194 | 1.625 | 0.248 | 0.092 | 0.088 | 0.35 | 116 / 10 | 0.55, 1.16 |
+| Kr | 50000 | 0.191 | 1.109 | 0.330 | 0.110 | 0.120 | 0.36 | 116 / 10 | 0.00, 0.73 |
+| O3 | 49999 | 0.341 | 1.190 | 0.147 | 0.106 | 0.086 | 0.58 | 232 / 20 | 0.77, 1.05 |
+
+- **(A) passes on all seven systems:** its residual is 0.16–0.70 of the (C) one, with 10–20 f parameters instead
+  of 58–232.
+- **The product f reproduces the CASINO f:** fitted alone, its residual (0.02–0.11) is 3–15 % of the spread
+  of Σf.
+- **Σf is large:** it is 3–10 times the spread of J itself. The CASINO u + χ and f largely cancel.
+- **(C) is poor for Be, Ar, Kr:** the (C) residual exceeds the spread of J. The uncut u and χ cannot take the
+  place of the CASINO u + χ while the CASINO f stays. This explains the poor Be start of the `Jastrow_emin_uncut`
+  example (§7.1). Refitting f together with u and χ removes the problem.
+- **Kr parallel hole radius:** b_par runs to 0, as in `make_uncut_examples.py`. It needs the same bound.
+- **Caveat:** this is a fit of ln Ψ on the CASINO distribution, not an energy. Only emin decides (caveat a).
+
 ## 8. Files and reproduction
 
 Run the scripts in this order from `research/jastrow_form`. They need numpy, scipy, numba and matplotlib,
@@ -460,6 +496,7 @@ python molecules.py      # results/molecules.md, plots/molecule_*.png
 python param_count.py    # results/param_count.md
 python make_examples.py   # examples/stowfn/{N,Ne,Ar,Kr,O3}/HF/QZ4P/CBCS/Jastrow_emin_analytic
 python make_uncut_examples.py  # examples/stowfn/*/HF/QZ4P/CBCS/Jastrow_emin_uncut
+python product_f.py          # results/product_f.md (VMC sampling, hours for Kr and O3)
 ```
 
 | file | content |

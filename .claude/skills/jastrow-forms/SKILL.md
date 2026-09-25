@@ -192,6 +192,27 @@ Order: **cheap offline filter first, implementation second**. The f-term is the 
    - A candidate passes if its residual is ≤ the (C) residual on most systems.
 4. Record the results in `research/jastrow_form/REPORT.md` (a new section) and in this skill.
 
+### Result of step 1 (A) (`research/jastrow_form/product_f.py`, REPORT §7.2)
+
+rms residual of the fit of the full CASINO J on 50 000 VMC configurations:
+
+| system | spread J | (C) | (A) | f params CASINO / product |
+|---|---|---|---|---|
+| He | 0.084 | 0.020 | 0.010 | 58 / 10 |
+| Be | 0.154 | 0.229 | 0.037 | 116 / 10 |
+| N | 0.142 | 0.041 | 0.029 | 174 / 15 |
+| Ne | 0.162 | 0.060 | 0.039 | 116 / 10 |
+| Ar | 0.194 | 0.248 | 0.088 | 116 / 10 |
+| Kr | 0.191 | 0.330 | 0.120 | 116 / 10 |
+| O3 | 0.341 | 0.147 | 0.086 | 232 / 20 |
+
+- **(A) passes everywhere**, with 5 parameters per spin channel.
+- **(C) is worse than the spread of J for Be, Ar, Kr:** the CASINO f fixed next to uncut u and χ is a bad start.
+- **(B) is not tested yet.**
+- **Kr:** b_par runs to 0 and needs a bound.
+- **Cost:** the fit is slow for Kr and O3 (hours), because the Jacobian is numerical and the pair loops are
+  Python loops. The configurations are cached in `$TMPDIR/jastrow_form_configs`.
+
 ### Step 2. Decision
 
 - **(B) passes:** go to the universal term, step 3B.
