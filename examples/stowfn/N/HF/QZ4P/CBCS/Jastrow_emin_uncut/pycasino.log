@@ -1,0 +1,478 @@
+
+ ------------------------------------------------------------------------------
+ ########::'##:::'##::'######:::::'###:::::'######::'####:'##::: ##::'#######::
+ ##.... ##:. ##:'##::'##... ##:::'## ##:::'##... ##:. ##:: ###:: ##:'##.... ##:
+ ##:::: ##::. ####::: ##:::..:::'##:. ##:: ##:::..::: ##:: ####: ##: ##:::: ##:
+ ########::::. ##:::: ##:::::::'##:::. ##:. ######::: ##:: ## ## ##: ##:::: ##:
+ ##.....:::::: ##:::: ##::::::: #########::..... ##:: ##:: ##. ####: ##:::: ##:
+ ##::::::::::: ##:::: ##::: ##: ##.... ##:'##::: ##:: ##:: ##:. ###: ##:::: ##:
+ ##::::::::::: ##::::. ######:: ##:::: ##:. ######::'####: ##::. ##:. #######::
+ .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
+
+                     Python Quantum Monte Carlo Package
+                        v 0.4.0 [Vladimir Konkov]
+
+    Main Author : Vladimir Konkov
+ ------------------------------------------------------------------------------
+ Started 2026/09/25 21:11:38
+
+ Python 3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]
+ Numba 0.67.0
+ Numpy 2.2.6
+ Scipy 1.13.1
+
+ Running in parallel using 4 MPI processes.
+
+ Warning: keywords not read by pycasino: newrun periodic writeout_vmc_hist
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  5
+ NED (num down spin electrons)            :  2
+ RUNTYPE (type of run)                    :  vmc_opt
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  slater-type
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  T
+ BACKFLOW (use backflow corrections)      :  F
+ USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  F
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ RELATIVISTIC                             :  F
+
+ VMC/optimization input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  0.02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  1000000
+ VMC_NCONFIG_WRITE (num configs to write) :  1000000
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  10
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ OPT_CYCLES (num optimization cycles)     :  4
+ POSTFIT_VMC (perform post-fit VMC calc)  :  T
+ POSTFIT_KEEP_CFG (keep post-fit VMC cfgs):  F
+ OPT_NOCTF_CYCLES (fixed cutoff cycles)   :  0
+ OPT_INFO (information level)             :  2
+ OPT_JASTROW (opt Jastrow factor)         :  T
+ OPT_DET_COEFF (opt det coeffs)           :  F
+ OPT_ORBITALS (opt orbitals)              :  F
+ OPT_BACKFLOW (opt backflow params)       :  F
+ OPT_FIXNL (fix nonlocal energy)          :  F
+ OPT_MAXITER (max num iterations)         :  10
+ OPT_MAXEVAL (max num evaluations)        :  200
+ VM_SMOOTH_LIMITS (smooth limiting)       :  F
+ VM_REWEIGHT (reweighting)                :  F
+ VM_FILTER (filter outlying configs)      :  F
+ VM_USE_E_GUESS (use guess energy)        :  F
+ EMIN_XI_VALUE (xi parameter)             :  1.0
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ DTVMC: 1.46054e-03
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio         (%)  =  69.7526
+ Diffusion constant  (Bohr^2)  =
+ Correlation time     (steps)  = 7.5403E+00 +- 7.2575E-02
+ Efficiency      (au^-2 s^-1)  = 4.1828E+02
+ No. of VMC steps per process  = 250000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -54.037080676423
+  Standard error                        +/-           0.002677017295
+
+  Kinetic energy KEI (used in Total) (au) =
+  Standard error                        +/-
+
+  Kinetic energy TI                  (au) =
+  Standard error                        +/-
+
+  Kinetic energy FISQ                (au) =
+  Standard error                        +/-
+
+  Potential energy                   (au) =
+  Standard error                        +/-
+
+  e-e interaction                    (au) =
+  Standard error                        +/-
+
+  e-n interaction                    (au) =
+  Standard error                        +/-
+
+  Variance of local energy           (au) =           7.166414430108
+  Standard error                        +/-
+
+  Maximum distance from origin       (au) =
+
+
+ Time taken in block    : : :       44.2426 s
+
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -54.037080676423 +/- 0.002677017295      No correction
+ -54.037080676423 +/- 0.007350960866      Correlation time method
+ -54.037080676423 +/- 0.009153168401      On-the-fly reblocking method
+
+ Sample variance of E_L (au^2/sim.cell) : 7.166414430108
+
+
+ ==========================================
+ PERFORMING OPTIMIZATION CALCULATION No. 1.
+ ==========================================
+
+
+ Optimization start
+ ==================
+   Iteration     Total nfev        Cost      Cost reduction    Step norm     Optimality
+       0              1         7.0404e+00                                    3.80e+05
+       1              2         5.3805e-01      6.50e+00       1.33e+00       2.48e+04
+       2              3         4.0946e-01      1.29e-01       8.37e-01       3.90e+04
+       3              4         4.0946e-01      0.00e+00       0.00e+00       3.90e+04
+`ftol` termination condition is satisfied.
+Function evaluations 4, initial cost 7.0404e+00, final cost 4.0946e-01, first-order optimality 3.90e+04.
+ Norm of Jacobian at the solution: 1.42265e-11
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ DTVMC: 1.43764e-03
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio         (%)  =  70.3519
+ Diffusion constant  (Bohr^2)  =
+ Correlation time     (steps)  = 1.6304E+01 +- 2.2932E-01
+ Efficiency      (au^-2 s^-1)  = 3.1408E+03
+ No. of VMC steps per process  = 250000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -54.532005426112
+  Standard error                        +/-           0.000647323689
+
+  Kinetic energy KEI (used in Total) (au) =
+  Standard error                        +/-
+
+  Kinetic energy TI                  (au) =
+  Standard error                        +/-
+
+  Kinetic energy FISQ                (au) =
+  Standard error                        +/-
+
+  Potential energy                   (au) =
+  Standard error                        +/-
+
+  e-e interaction                    (au) =
+  Standard error                        +/-
+
+  e-n interaction                    (au) =
+  Standard error                        +/-
+
+  Variance of local energy           (au) =           0.419027539288
+  Standard error                        +/-
+
+  Maximum distance from origin       (au) =
+
+
+ Time taken in block    : : :       46.6023 s
+
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -54.532005426112 +/- 0.000647323689      No correction
+ -54.532005426112 +/- 0.002613806539      Correlation time method
+ -54.532005426112 +/- 0.003090205522      On-the-fly reblocking method
+
+ Sample variance of E_L (au^2/sim.cell) : 0.419027539288
+
+
+ ==========================================
+ PERFORMING OPTIMIZATION CALCULATION No. 2.
+ ==========================================
+
+
+ Optimization start
+ ==================
+ E_0 -54.53009480 minimal allowed energy -57.10592135 serial correlation factor 4.70
+ Trust radius max|delta p| < 0.2 reached at level shift 1.64e-02
+   Level shift          E_lin        max|dp| max|dlog(psi)|         E_corr       Penalty         Target
+           inf                                                -54.53009480    0.00908815   -54.52100665
+      1.64e-02   -54.55875315     2.0000e-01     8.5297e-02   -54.55860684    0.00961397   -54.54899287
+      1.64e-01   -54.55553337     6.9127e-02     3.2808e-02   -54.55638587    0.00944443   -54.54694143
+      1.64e+00   -54.54989101     3.3992e-02     1.6133e-02   -54.55276688    0.00944999   -54.54331689
+      1.64e+01   -54.54080420     1.0072e-02     5.3595e-03   -54.54537579    0.00914897   -54.53622682
+ Best level shift is the smallest scanned one, the trust radius may be too large
+ Optimization end
+ ================
+ Norm of scaled energy gradient at the starting point: 1.46223e+00
+ Level shift 1.64e-02, target -54.52100665 -> -54.54899287, gain 0.02798622.
+ Scaled delta p over 85 of 85 parameters: norm 2.4404e-01, rms 2.6470e-02, max 8.5297e-02
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ DTVMC: 1.50940e-03
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio         (%)  =  69.5477
+ Diffusion constant  (Bohr^2)  =
+ Correlation time     (steps)  = 5.2023E+00 +- 4.1648E-02
+ Efficiency      (au^-2 s^-1)  = 9.3292E+03
+ No. of VMC steps per process  = 250000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -54.558864930492
+  Standard error                        +/-           0.000663483737
+
+  Kinetic energy KEI (used in Total) (au) =
+  Standard error                        +/-
+
+  Kinetic energy TI                  (au) =
+  Standard error                        +/-
+
+  Kinetic energy FISQ                (au) =
+  Standard error                        +/-
+
+  Potential energy                   (au) =
+  Standard error                        +/-
+
+  e-e interaction                    (au) =
+  Standard error                        +/-
+
+  e-n interaction                    (au) =
+  Standard error                        +/-
+
+  Variance of local energy           (au) =           0.440210229202
+  Standard error                        +/-
+
+  Maximum distance from origin       (au) =
+
+
+ Time taken in block    : : :       46.8057 s
+
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -54.558864930492 +/- 0.000663483737      No correction
+ -54.558864930492 +/- 0.001513308477      Correlation time method
+ -54.558864930492 +/- 0.001736116459      On-the-fly reblocking method
+
+ Sample variance of E_L (au^2/sim.cell) : 0.440210229202
+
+
+ ==========================================
+ PERFORMING OPTIMIZATION CALCULATION No. 3.
+ ==========================================
+
+
+ Optimization start
+ ==================
+ E_0 -54.56208798 minimal allowed energy -57.19748017 serial correlation factor 2.61
+ Trust radius max|delta p| < 0.2 reached at level shift 1.21e-02
+   Level shift          E_lin        max|dp| max|dlog(psi)|         E_corr       Penalty         Target
+           inf                                                -54.56208798    0.00515079   -54.55693718
+      1.21e-02   -54.56318204     1.9999e-01     9.5138e-02   -54.56350565    0.00526974   -54.55823591
+      1.21e-01   -54.56261146     2.7863e-02     1.4331e-02   -54.56276638    0.00519556   -54.55757082
+      1.21e+00   -54.56235992     4.3786e-03     3.6349e-03   -54.56244978    0.00515616   -54.55729362
+      1.21e+01   -54.56211962     8.5901e-04     5.2953e-04   -54.56217061    0.00514716   -54.55702345
+ Best level shift is the smallest scanned one, the trust radius may be too large
+ Optimization end
+ ================
+ Norm of scaled energy gradient at the starting point: 2.33928e-01
+ Level shift 1.21e-02, target -54.55693718 -> -54.55823591, gain 0.00129873.
+ Scaled delta p over 85 of 85 parameters: norm 1.6895e-01, rms 1.8325e-02, max 9.5138e-02
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ DTVMC: 1.52321e-03
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio         (%)  =  69.4470
+ Diffusion constant  (Bohr^2)  =
+ Correlation time     (steps)  = 4.4804E+00 +- 3.3247E-02
+ Efficiency      (au^-2 s^-1)  = 1.1858E+04
+ No. of VMC steps per process  = 250000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -54.564859672134
+  Standard error                        +/-           0.000674256114
+
+  Kinetic energy KEI (used in Total) (au) =
+  Standard error                        +/-
+
+  Kinetic energy TI                  (au) =
+  Standard error                        +/-
+
+  Kinetic energy FISQ                (au) =
+  Standard error                        +/-
+
+  Potential energy                   (au) =
+  Standard error                        +/-
+
+  e-e interaction                    (au) =
+  Standard error                        +/-
+
+  e-n interaction                    (au) =
+  Standard error                        +/-
+
+  Variance of local energy           (au) =           0.454620853082
+  Standard error                        +/-
+
+  Maximum distance from origin       (au) =
+
+
+ Time taken in block    : : :       41.4023 s
+
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -54.564859672134 +/- 0.000674256114      No correction
+ -54.564859672134 +/- 0.001427197178      Correlation time method
+ -54.564859672134 +/- 0.001574185743      On-the-fly reblocking method
+
+ Sample variance of E_L (au^2/sim.cell) : 0.454620853082
+
+
+ ==========================================
+ PERFORMING OPTIMIZATION CALCULATION No. 4.
+ ==========================================
+
+
+ Optimization start
+ ==================
+ E_0 -54.56175171 minimal allowed energy -57.26468205 serial correlation factor 2.44
+ Trust radius max|delta p| < 0.2 reached at level shift 1.01e-02
+   Level shift          E_lin        max|dp| max|dlog(psi)|         E_corr       Penalty         Target
+           inf                                                -54.56175171    0.00494689   -54.55680482
+      1.01e-02   -54.56223168     2.0000e-01     9.3624e-02   -54.56240431    0.00498651   -54.55741780
+      1.01e-01   -54.56189568     2.8032e-02     1.3122e-02   -54.56193557    0.00496165   -54.55697392
+      1.01e+00   -54.56178425     3.8798e-03     1.8162e-03   -54.56179306    0.00495211   -54.55684095
+      1.01e+01   -54.56175544     6.0210e-04     2.8186e-04   -54.56175961    0.00494877   -54.55681084
+ Best level shift is the smallest scanned one, the trust radius may be too large
+ Optimization end
+ ================
+ Norm of scaled energy gradient at the starting point: 3.08461e-01
+ Level shift 1.01e-02, target -54.55680482 -> -54.55741780, gain 0.00061298.
+ Scaled delta p over 85 of 85 parameters: norm 1.3865e-01, rms 1.5038e-02, max 9.3624e-02
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ DTVMC: 1.45342e-03
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio         (%)  =  70.0939
+ Diffusion constant  (Bohr^2)  =
+ Correlation time     (steps)  = 4.6631E+00 +- 3.5516E-02
+ Efficiency      (au^-2 s^-1)  = 1.0501E+04
+ No. of VMC steps per process  = 250000
+
+  Block average energies (au)
+
+  Total energy                       (au) =         -54.563973828897
+  Standard error                        +/-           0.000680618220
+
+  Kinetic energy KEI (used in Total) (au) =
+  Standard error                        +/-
+
+  Kinetic energy TI                  (au) =
+  Standard error                        +/-
+
+  Kinetic energy FISQ                (au) =
+  Standard error                        +/-
+
+  Potential energy                   (au) =
+  Standard error                        +/-
+
+  e-e interaction                    (au) =
+  Standard error                        +/-
+
+  e-n interaction                    (au) =
+  Standard error                        +/-
+
+  Variance of local energy           (au) =           0.463240698492
+  Standard error                        +/-
+
+  Maximum distance from origin       (au) =
+
+
+ Time taken in block    : : :       44.0831 s
+
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -54.563973828897 +/- 0.000680618220      No correction
+ -54.563973828897 +/- 0.001469744876      Correlation time method
+ -54.563973828897 +/- 0.001701231301      On-the-fly reblocking method
+
+ Sample variance of E_L (au^2/sim.cell) : 0.463240698492
+
+
+ =========================================================================
+
+ Total PyCasino real time : : :    955.8723
