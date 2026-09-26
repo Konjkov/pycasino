@@ -5,13 +5,14 @@ description: >
   exponential correlation hole u = -gamma b exp(-r/b), the bell chi = A w(r/L) and the Gaussian
   chi = A exp(-(r/a)^2), with or without cutoff ("Functional form" 1 and 2 in correlation.data),
   their implementation in casino/jastrow.py and casino/readers/jastrow.py, the examples
-  examples/stowfn/*/HF/QZ4P/CBCS/Jastrow_emin_analytic and Jastrow_emin_uncut, how their starting
+  examples/stowfn/*/HF/QZ4P/CBCS/Jastrow_emin_uncut and Jastrow_emin_product, the product f-term
+  (r1-L)^C (r2-L)^C g(r1) g(r2) h(r12) (f "Functional form" 1), examples/gwfn/*/HF/cc-pVQZ/CBCS/Jastrow_emin_uncut, how their starting
   values are made, and the research behind them in research/jastrow_form (profile fits of the
   CASINO u, chi, f, eta, mu, Phi, symbolic regression, local-density hole, mean-field chi).
   Also covers the traps met on the way: stale numba cache of wfn.py, a negative hole radius,
   varmin making no step, the f-term being as large as u + chi for Be. Trigger on: functional
   form, exponential u, bell chi, Gaussian chi, uncut, no cutoff, hole radius, u_form, chi_form,
-  make_uncut_examples, Jastrow_emin_analytic, Jastrow_emin_uncut, jastrow_form research.
+  make_uncut_examples, Jastrow_emin_uncut, Jastrow_emin_product, product f, f_form, jastrow_form research.
   See also the qmc skill (Jastrow in the wave function) and the numba skill.
 ---
 
@@ -109,17 +110,26 @@ which must be 0):
 ### Tests
 
 `casino/tests/test_jastrow.py`:
-- `TestJastrowAnalytic` and `TestJastrowUncut` run on the He examples, with tolerance rel=1e-5, abs=1e-9.
+- `TestJastrowUncut` and `TestJastrowProduct` run on the He examples, with tolerance rel=1e-5, abs=1e-9.
 - `test_wfn_value_parameters_d1` is xfail there: with an optimized polynomial f-term the wfn-level d1
   differs by ~1e-2 from the numerical one, the same with the pure CASINO Jastrow. This is pre-existing
   and not caused by the forms.
 
 ## 3. Examples and starting values
 
-- `examples/stowfn/{He,Be,N,Ne,Ar,Kr,O3}/HF/QZ4P/CBCS/Jastrow_emin_analytic` — form 1.
-  - Written by `research/jastrow_form/make_examples.py` (N..O3) or by hand (He, Be).
-  - The CASINO f-term was inserted later. The user may have edited these files (e.g. zeroed f for Be).
-- `.../Jastrow_emin_uncut` — form 2 + the CASINO f-term, written by `make_uncut_examples.py`.
+- The form-1 examples `Jastrow_emin_analytic` are removed: form 2 superseded them.
+- `.../Jastrow_emin_uncut` — form 2 + the CASINO f-term, written by `make_uncut_examples.py`. The user's
+  optimized runs (correlation.out.0-4, pycasino.log) are the starting point of the next examples.
+  Inputs have no `vm_filter`.
+- `.../Jastrow_emin_product` — u, χ of `Jastrow_emin_uncut/correlation.out.4` and the product f fitted to its
+  optimized polynomial f on cached VMC configurations (`make_product_examples.py`).
+- `examples/gwfn/{He,Be,N,Ne,Ar,Kr,O3}/HF/cc-pVQZ/CBCS/Jastrow_emin_uncut` — u, χ of the stowfn
+  `Jastrow_emin_uncut/correlation.out.4`, the empty polynomial f of the gwfn `Jastrow_emin`, its input without
+  `vm_filter` (`make_gwfn_uncut_examples.py`). The e-n cusp comes from the cusp correction of the orbitals.
+- `Jastrow_emin_uncut` with approximate starts (`make_uncut_inputs.py`), empty f, no `vm_filter`: gwfn B2H6,
+  C2H2, C4H4, C6H6, CH4, H2O, HF, NH3, Li⁺, Be²⁺ and ppotential_HF B, B2H6, C, F, H, N, Ne, O. u: b = 1.0 / 0.8;
+  χ per species set: (A, a) of the N and O3 runs for all-electron N and O, (1, 1.5) otherwise. The optimized f
+  of these runs is the data the product (or interpolated) f is to be fitted to.
 
 **The start matters. Fitting radial profiles one by one is not enough.**
 - **f is part of the Jastrow.** The CASINO u, χ were optimized together with f, and for Be f is as

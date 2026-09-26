@@ -393,16 +393,8 @@ CASINO polynomial, and the file stays readable by CASINO. The expansion order mu
 - **χ set:** the same line, `Functional form (0=polynomial; 1=bell A*w(r/L))`, placed after
   `Impose electron-nucleus cusp`, which must be 0.
 - **Default b:** a u parameter left at 0 starts from b = 1 bohr, the typical hole radius found in §3.1.
-- **Examples:** `examples/stowfn/{He,Be,N,Ne,Ar,Kr,O3}/HF/QZ4P/CBCS/Jastrow_emin_analytic` have
-  exponential u and bell χ (no f term), with the same input as the neighbouring `Jastrow_emin` (emin
-  optimization).
-  - For He the ↑↑ channel has no pairs and its b is excluded from the optimization.
-  - N, Ne, Ar, Kr and O3 are written by `make_examples.py`. The starting values are the §3 fits to the
-    CASINO profiles: `exp` b for the parallel and antiparallel channels, L_u limited to 8 bohr, and the
-    `window` A and L per χ set.
-  - For N the CASINO spin dep 2 of u is reduced to 1: the ↓↓ channel is shell-like and does not fit the hole.
-- **Test:** `TestJastrowAnalytic` in `casino/tests/test_jastrow.py` compares the analytic derivatives with
-  numerical ones.
+- **Examples:** the form-1 examples (`Jastrow_emin_analytic`, written by `make_examples.py` from the §3 profile
+  fits) were removed once form 2 superseded them. For He form 1 equalled the polynomial, for N it was 3 mHa worse.
 
 ### 7.1 Forms without cutoff (`Functional form = 2`)
 
@@ -494,9 +486,11 @@ python plot_universal.py # plots/universal_profiles.png
 python scaling.py        # results/scaling.md, plots/scaling_laws.png (needs radial_fits.json)
 python molecules.py      # results/molecules.md, plots/molecule_*.png
 python param_count.py    # results/param_count.md
-python make_examples.py   # examples/stowfn/{N,Ne,Ar,Kr,O3}/HF/QZ4P/CBCS/Jastrow_emin_analytic
 python make_uncut_examples.py  # examples/stowfn/*/HF/QZ4P/CBCS/Jastrow_emin_uncut
 python product_f.py          # results/product_f.md (VMC sampling, hours for Kr and O3)
+python make_product_examples.py    # examples/stowfn/*/HF/QZ4P/CBCS/Jastrow_emin_product (from the Jastrow_emin_uncut runs)
+python make_gwfn_uncut_examples.py # examples/gwfn/*/HF/cc-pVQZ/CBCS/Jastrow_emin_uncut (from the Jastrow_emin_uncut runs)
+python make_uncut_inputs.py        # Jastrow_emin_uncut inputs with approximate starts: gwfn molecules, ppotential_HF
 ```
 
 | file | content |

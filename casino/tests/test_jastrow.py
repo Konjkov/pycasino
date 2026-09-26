@@ -75,10 +75,10 @@ class TestJastrow(unittest.TestCase):
         assert self.wfn.energy_parameters_d1(self.r_e) == pytest.approx(self.wfn.energy_parameters_numerical_d1(self.r_e))
 
 
-class TestJastrowAnalytic(TestJastrow):
-    """Exponential u-term and bell chi-term (Functional form = 1) with the polynomial f-term."""
+class TestJastrowUncut(TestJastrow):
+    """Exponential u-term and Gaussian chi-term without cutoff (Functional form = 2) with the polynomial f-term."""
 
-    config_dir = '../../examples/stowfn/He/HF/QZ4P/CBCS/Jastrow_emin_analytic'
+    config_dir = '../../examples/stowfn/He/HF/QZ4P/CBCS/Jastrow_emin_uncut'
     # cutoff derivatives are finite differences and the projector mixes the blocks at the 1e-11 level
     tolerance = {'rel': 1e-5, 'abs': 1e-9}
 
@@ -87,13 +87,7 @@ class TestJastrowAnalytic(TestJastrow):
         super().test_wfn_value_parameters_d1()
 
 
-class TestJastrowUncut(TestJastrowAnalytic):
-    """Exponential u-term and Gaussian chi-term without cutoff (Functional form = 2) with the polynomial f-term."""
-
-    config_dir = '../../examples/stowfn/He/HF/QZ4P/CBCS/Jastrow_emin_uncut'
-
-
-class TestJastrowProduct(TestJastrowAnalytic):
+class TestJastrowProduct(TestJastrowUncut):
     """u and chi without cutoff with the product f-term (r1-L)^C (r2-L)^C g(r1) g(r2) h(r12) (Functional form = 1)."""
 
     config_dir = '../../examples/stowfn/He/HF/QZ4P/CBCS/Jastrow_emin_product'
