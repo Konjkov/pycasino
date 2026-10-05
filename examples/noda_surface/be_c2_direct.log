@@ -1,0 +1,257 @@
+
+ ------------------------------------------------------------------------------
+ ########::'##:::'##::'######:::::'###:::::'######::'####:'##::: ##::'#######::
+ ##.... ##:. ##:'##::'##... ##:::'## ##:::'##... ##:. ##:: ###:: ##:'##.... ##:
+ ##:::: ##::. ####::: ##:::..:::'##:. ##:: ##:::..::: ##:: ####: ##: ##:::: ##:
+ ########::::. ##:::: ##:::::::'##:::. ##:. ######::: ##:: ## ## ##: ##:::: ##:
+ ##.....:::::: ##:::: ##::::::: #########::..... ##:: ##:: ##. ####: ##:::: ##:
+ ##::::::::::: ##:::: ##::: ##: ##.... ##:'##::: ##:: ##:: ##:. ###: ##:::: ##:
+ ##::::::::::: ##::::. ######:: ##:::: ##:. ######::'####: ##::. ##:. #######::
+ .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
+
+                     Python Quantum Monte Carlo Package
+                        v 0.4.0 [Vladimir Konkov]
+
+    Main Author : Vladimir Konkov
+ ------------------------------------------------------------------------------
+ Started 2026/09/09 17:38:48
+
+ Python 3.12.3 (main, Jul 15 2026, 23:46:41) [GCC 13.3.0]
+ Numba 0.63.1
+ Numpy 2.2.6
+ Scipy 1.13.1
+
+ Running in parallel using 4 MPI processes.
+
+ Warning: keywords not read by pycasino: periodic
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  2
+ NED (num down spin electrons)            :  2
+ RUNTYPE (type of run)                    :  vmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  F
+ BACKFLOW (use backflow corrections)      :  T
+ USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  T
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ RELATIVISTIC                             :  F
+
+ VMC input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  0.02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  200000
+ VMC_NCONFIG_WRITE (num configs to write) :  None
+ VMC_NBLOCK (num VMC blocks)              :  10
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  10
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ Gaussian cusp correction
+ ========================
+ Activated.
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Median sigma = 1/|grad ln psi| : 1.95275e-01 bohr
+
+ ==============================
+ PERFORMING A |PSI| CALCULATION.
+ ==============================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 2.50000e-01   DTVMC: 2.05329e-02
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 7.00000e-01   DTVMC: 1.43695e-02
+
+ =========================================================================
+ WEIGHTED NODAL DOMAIN AVERAGES
+
+  Number of |psi| steps                   = 200000
+
+  zeta                          (au^-1) =           0.250000000000
+  Effective sample size                   = 200000
+  Potential component                (au) =         -14.647086344879
+  Standard error                        +/-           0.022208918415
+  e-e interaction                    (au) =           2.944537859919
+  e-n interaction                    (au) =         -18.631065818451
+  Sum of e-n distances             (bohr) =           8.194211509915
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    1.953e-03          1       1.311222 +/- 1.311222     -13.335864
+    2.678e-03          1       0.697347 +/- 0.697347     -13.949740
+    3.672e-03          1       0.370870 +/- 0.370870     -14.276217
+    5.035e-03          6       1.183437 +/- 0.483130     -13.463650
+    6.904e-03         10       1.048978 +/- 0.331708     -13.598108
+    9.467e-03         18       1.004179 +/- 0.236677     -13.642907
+    1.298e-02         32       0.949426 +/- 0.167823     -13.697660
+    1.780e-02         48       0.757400 +/- 0.109308     -13.889687
+    2.441e-02         81       0.679738 +/- 0.075511     -13.967349
+
+  zeta                          (au^-1) =           0.700000000000
+  Effective sample size                   = 200000
+  Potential component                (au) =         -15.340597815432
+  Standard error                        +/-           0.022461140817
+  e-e interaction                    (au) =           3.634716327831
+  e-n interaction                    (au) =         -21.812501991833
+  Sum of e-n distances             (bohr) =           6.401830610861
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    1.953e-03          0       0.000000 +/- 0.000000     -15.340598
+    2.678e-03          2       1.394694 +/- 0.986195     -13.945904
+    3.672e-03          2       0.741739 +/- 0.524488     -14.598858
+    5.035e-03          3       0.591718 +/- 0.341627     -14.748879
+    6.904e-03          8       0.839182 +/- 0.296691     -14.501416
+    9.467e-03         18       1.004179 +/- 0.236677     -14.336418
+    1.298e-02         33       0.979096 +/- 0.170425     -14.361502
+    1.780e-02         64       1.009866 +/- 0.126213     -14.330732
+    2.441e-02        133       1.116112 +/- 0.096747     -14.224485
+
+ Time taken in nodal domain averages : : :    26.0278
+
+ Warning: keywords not read by pycasino: periodic
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  2
+ NED (num down spin electrons)            :  2
+ RUNTYPE (type of run)                    :  vmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  F
+ BACKFLOW (use backflow corrections)      :  T
+ USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  T
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ RELATIVISTIC                             :  F
+
+ VMC input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  0.02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  200000
+ VMC_NCONFIG_WRITE (num configs to write) :  None
+ VMC_NBLOCK (num VMC blocks)              :  10
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  10
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ Gaussian cusp correction
+ ========================
+ Activated.
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Median sigma = 1/|grad ln psi| : 9.18033e-02 bohr
+
+ ==============================
+ PERFORMING A |PSI| CALCULATION.
+ ==============================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 2.50000e-01   DTVMC: 4.73514e-03
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 7.00000e-01   DTVMC: 7.59434e-03
+
+ =========================================================================
+ WEIGHTED NODAL DOMAIN AVERAGES
+
+  Number of |psi| steps                   = 200000
+
+  zeta                          (au^-1) =           0.250000000000
+  Effective sample size                   = 200000
+  Potential component                (au) =          -1.574242802567
+  Standard error                        +/-           0.001511520178
+  e-e interaction                    (au) =           1.380946608799
+  e-n interaction                    (au) =          -3.018868705456
+  Sum of e-n distances             (bohr) =          21.799793309181
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    9.180e-04          2      11.865434 +/- 8.390108      10.291191
+    1.259e-03          3       9.465583 +/- 5.464930       7.891340
+    1.726e-03          3       5.034077 +/- 2.906411       3.459834
+    2.367e-03          7       6.246966 +/- 2.361096       4.672723
+    3.246e-03         15       7.119260 +/- 1.838121       5.545017
+    4.451e-03         25       6.310389 +/- 1.262002       4.736146
+    6.103e-03         45       6.040893 +/- 0.900424       4.466650
+    8.369e-03         77       5.497330 +/- 0.626360       3.923087
+    1.148e-02        139       5.277745 +/- 0.447498       3.703502
+
+  zeta                          (au^-1) =           0.700000000000
+  Effective sample size                   = 200000
+  Potential component                (au) =          -8.635849419969
+  Standard error                        +/-           0.022977004005
+  e-e interaction                    (au) =           2.593182388418
+  e-n interaction                    (au) =         -12.423068858652
+  Sum of e-n distances             (bohr) =          13.648783110239
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    9.180e-04          1       5.932717 +/- 5.932717      -2.703133
+    1.259e-03          1       3.155194 +/- 3.155194      -5.480655
+    1.726e-03          2       3.356051 +/- 2.373081      -5.279798
+    2.367e-03          3       2.677271 +/- 1.545716      -5.958578
+    3.246e-03          3       1.423852 +/- 0.822057      -7.211997
+    4.451e-03          8       2.019324 +/- 0.713926      -6.616525
+    6.103e-03         15       2.013631 +/- 0.519899      -6.622219
+    8.369e-03         35       2.498786 +/- 0.422336      -6.137063
+    1.148e-02         65       2.468010 +/- 0.306070      -6.167839
+
+ Time taken in nodal domain averages : : :    26.0836
+
+ =========================================================================
+ NODAL SURFACE DESCRIPTOR, zeta = 0.2500
+
+ run                                                 widest tube          1.9x narrower
+
+ noda_surface/be_c2/0.15                      0.679738 +/- 0.075511     0.949426 +/- 0.167823
+ noda_surface/be_c2/0.25                      5.277745 +/- 0.447498     6.040893 +/- 0.900424
+
+ =========================================================================
+ NODAL SURFACE DESCRIPTOR, zeta = 0.7000
+
+ run                                                 widest tube          1.9x narrower
+
+ noda_surface/be_c2/0.15                      1.116112 +/- 0.096747     0.979096 +/- 0.170425
+ noda_surface/be_c2/0.25                      2.468010 +/- 0.306070     2.013631 +/- 0.519899
+

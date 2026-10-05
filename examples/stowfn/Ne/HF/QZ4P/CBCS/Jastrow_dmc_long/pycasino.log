@@ -1,0 +1,246 @@
+
+ ------------------------------------------------------------------------------
+ ########::'##:::'##::'######:::::'###:::::'######::'####:'##::: ##::'#######::
+ ##.... ##:. ##:'##::'##... ##:::'## ##:::'##... ##:. ##:: ###:: ##:'##.... ##:
+ ##:::: ##::. ####::: ##:::..:::'##:. ##:: ##:::..::: ##:: ####: ##: ##:::: ##:
+ ########::::. ##:::: ##:::::::'##:::. ##:. ######::: ##:: ## ## ##: ##:::: ##:
+ ##.....:::::: ##:::: ##::::::: #########::..... ##:: ##:: ##. ####: ##:::: ##:
+ ##::::::::::: ##:::: ##::: ##: ##.... ##:'##::: ##:: ##:: ##:. ###: ##:::: ##:
+ ##::::::::::: ##::::. ######:: ##:::: ##:. ######::'####: ##::. ##:. #######::
+ .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
+
+                     Python Quantum Monte Carlo Package
+                        v 0.3.0 [Vladimir Konkov]
+
+    Main Author : Vladimir Konkov
+ ------------------------------------------------------------------------------
+ Started 2025/05/31 10:17:10
+
+ Python 3.10.12 (main, Feb  4 2025, 14:57:36) [GCC 11.4.0]
+ Numba 0.59.0
+ Numpy 1.26.4
+ Scipy 1.11.3
+
+ Running in parallel using 4 MPI processes.
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  5
+ NED (num down spin electrons)            :  5
+ RUNTYPE (type of run)                    :  vmc_dmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  slater-type
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  T
+ BACKFLOW (use backflow corrections)      :  F
+ USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  F
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ RELATIVISTIC                             :  F
+
+ VMC/DMC input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  0.02
+ OPT_DTVMC (VMC time-step optimization)   :  T
+ VMC_NSTEP (num VMC steps)                :  1024
+ VMC_NCONFIG_WRITE (num configs to write) :  1024
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  1
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ DMC_TARGET_WEIGHT                        :  1024.0
+ DMC_MD                                   :  F
+ DMC_EQUIL_NSTEP (num equil steps)        :  10000
+ DMC_EQUIL_NBLOCK (num blocks)            :  1
+ DMC_STATS_NSTEP (num stats steps)        :  1000000
+ DMC_STATS_NBLOCK (num blocks)            :  5
+ DMC_DECORR_PERIOD (length of inner loop) :  1
+ DMC_AVE_PERIOD (hist reduction factor)   :  1
+ DMC_TRIP_WEIGHT (catastrophe thres)      :  0.00
+ EBEST_AV_WINDOW (running av for energy)  :  25
+ DMC_METHOD (choice of DMC algorithm)     :  2
+ DMC_REWEIGHT_CONF (Update weights)       :  F
+ DMC_SPACEWARPING (adjust e to new wfn)   :  F
+ REDIST_GRP_SIZE (size of redist groups)  :  500
+ DTDMC (DMC time step)                    :  0.003333
+ TPDMC (DMC T_p parameter)                :  0
+ CEREFDMC (constant for EREF [DMC])       :  1.000
+ NUCLEUS_GF_MODS (DMC GF mods for nuclei) :  T
+ ALPHALIMIT                               :  0.5
+ IACCUM (flag for statistics run [DMC])   :  T
+ IBRAN (flag to enable branching [DMC])   :  T
+ LWDMC (flag for enabling weighted DMC)   :  F
+ LWDMC_FIXPOP (fixed population LWDMC)    :  F
+ DMC_NORM_CONSERVE                        :  F
+ DMC_POPRENORM (renormalize config popn)  :  F
+ GROWTH_ESTIMATOR (calc growth estimator) :  F
+ USE_TMOVE                                :  False
+ FUTURE_WALKING                           :  F
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ ======================================================
+ PERFORMING A VMC CONFIGURATION-GENERATION CALCULATION.
+ ======================================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Optimized step size: 0.07539
+ DTVMC: 0.00189
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+  Number of VMC steps           = 1024
+
+  Block average energies (au)
+
+  Total energy                       (au) =        -128.865395019128
+  Standard error                        +/-           0.026094303090
+
+  Constant energy contributions      (au) =           0.000000000000
+
+  Variance of local energy           (au) =           0.696573644799
+  Standard error                        +/-           0.000000000000
+
+ Time taken in block    : : :       0.5144
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -128.865395019128 +/- 0.026094303090      No correction
+ -128.865395019128 +/- 0.071415448772      Correlation time method
+ -128.865395019128 +/- 0.076328851695      On-the-fly reblocking method
+
+ Sample variance of E_L (au^2/sim.cell) : 0.696573644799
+
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ ===========================================
+ PERFORMING A DMC EQUILIBRATION CALCULATION.
+ ===========================================
+
+ BEGIN DMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ EBEST = -128.86539501912847 (au/prim cell inc. N-N)
+ EREF  = -128.86539501912847
+
+
+ =========================================================================
+ In block : 1
+
+ Number of moves in block                 : 10000
+ Load-balancing efficiency (%)            : 92.204
+ Acceptance ratio (%)                     : 89.121
+ Number of config transfers               : 533
+ New best estimate of DMC energy (au)     : -128.92341520
+ New best estimate of effective time step : 0.00297039
+
+ Time taken in block    : : :       577.4733
+
+ *     *     *     *     *     *     *     *     *     *     *     *
+
+ =====================================================
+ PERFORMING A DMC STATISTICS-ACCUMULATION CALCULATION.
+ =====================================================
+
+ BEGIN DMC CALCULATION
+ =====================
+
+ Random number generator reset to state in config.in.
+
+ EBEST = -128.95728420718598 (au/prim cell inc. N-N)
+ EREF  = -128.94627258480077
+
+ Number of previous DMC stats accumulation moves : 0
+
+ =========================================================================
+ In block : 1
+
+ Number of moves in block                 : 200000
+ Load-balancing efficiency (%)            : 93.763
+ Acceptance ratio (%)                     : 89.291
+ Number of config transfers               : 8730
+ New best estimate of DMC energy (au)     : -128.92234018
+ New best estimate of effective time step : 0.00297606
+
+ Time taken in block    : : :       10603.4060
+
+ =========================================================================
+ In block : 2
+
+ Number of moves in block                 : 200000
+ Load-balancing efficiency (%)            : 93.653
+ Acceptance ratio (%)                     : 89.991
+ Number of config transfers               : 8969
+ New best estimate of DMC energy (au)     : -128.92258311
+ New best estimate of effective time step : 0.00299940
+
+ Time taken in block    : : :       10352.9149
+
+ =========================================================================
+ In block : 3
+
+ Number of moves in block                 : 200000
+ Load-balancing efficiency (%)            : 93.635
+ Acceptance ratio (%)                     : 88.676
+ Number of config transfers               : 9051
+ New best estimate of DMC energy (au)     : -128.92268431
+ New best estimate of effective time step : 0.00295556
+
+ Time taken in block    : : :       10394.3880
+
+ =========================================================================
+ In block : 4
+
+ Number of moves in block                 : 200000
+ Load-balancing efficiency (%)            : 93.466
+ Acceptance ratio (%)                     : 89.242
+ Number of config transfers               : 9251
+ New best estimate of DMC energy (au)     : -128.92273684
+ New best estimate of effective time step : 0.00297443
+
+ Time taken in block    : : :       10411.0474
+
+ =========================================================================
+ In block : 5
+
+ Number of moves in block                 : 200000
+ Load-balancing efficiency (%)            : 93.707
+ Acceptance ratio (%)                     : 89.287
+ Number of config transfers               : 9030
+ New best estimate of DMC energy (au)     : -128.92271153
+ New best estimate of effective time step : 0.00297593
+
+ Time taken in block    : : :       10347.8259
+
+Mixed estimators of the energies at the end of the run
+------------------------------------------------------
+
+Total energy                 =       -128.922711525301 +/- 0.000109881072
+
+ =========================================================================
+
+ Total PyCasino real time : : :    52689.3751

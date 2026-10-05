@@ -1,0 +1,208 @@
+
+ ------------------------------------------------------------------------------
+ ########::'##:::'##::'######:::::'###:::::'######::'####:'##::: ##::'#######::
+ ##.... ##:. ##:'##::'##... ##:::'## ##:::'##... ##:. ##:: ###:: ##:'##.... ##:
+ ##:::: ##::. ####::: ##:::..:::'##:. ##:: ##:::..::: ##:: ####: ##: ##:::: ##:
+ ########::::. ##:::: ##:::::::'##:::. ##:. ######::: ##:: ## ## ##: ##:::: ##:
+ ##.....:::::: ##:::: ##::::::: #########::..... ##:: ##:: ##. ####: ##:::: ##:
+ ##::::::::::: ##:::: ##::: ##: ##.... ##:'##::: ##:: ##:: ##:. ###: ##:::: ##:
+ ##::::::::::: ##::::. ######:: ##:::: ##:. ######::'####: ##::. ##:. #######::
+ .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
+
+                     Python Quantum Monte Carlo Package
+                        v 0.4.0 [Vladimir Konkov]
+
+    Main Author : Vladimir Konkov
+ ------------------------------------------------------------------------------
+ Started 2026/09/04 15:01:12
+
+ Python 3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]
+ Numba 0.63.1
+ Numpy 2.2.6
+ Scipy 1.13.1
+
+ Running in parallel using 4 MPI processes.
+
+ Warning: keywords not read by pycasino: newrun periodic writeout_vmc_hist
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  5
+ NED (num down spin electrons)            :  5
+ RUNTYPE (type of run)                    :  vmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  slater-type
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  F
+ BACKFLOW (use backflow corrections)      :  F
+ USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  F
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ RELATIVISTIC                             :  F
+
+ VMC input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  0.02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  10000000
+ VMC_NCONFIG_WRITE (num configs to write) :  0
+ VMC_NBLOCK (num VMC blocks)              :  10
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  10
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Median sigma = 1/|grad ln psi| : 6.91580e-02 bohr
+
+ ==============================
+ PERFORMING A |PSI| CALCULATION.
+ ==============================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ DTVMC: 2.55871e-03
+
+ =========================================================================
+ WEIGHTED NODAL DOMAIN AVERAGES
+
+  Number of |psi| steps                   = 10000000
+  Potential component                (au) =        -130.435449483630
+  Standard error                        +/-           0.022032814669
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    6.916e-04         45       9.408645 +/- 1.402555    -121.026805
+    9.483e-04         94      10.452373 +/- 1.078075    -119.983076
+    1.300e-03        163       9.639337 +/- 0.755005    -120.796112
+    1.783e-03        308       9.686854 +/- 0.551951    -120.748595
+    2.445e-03        590       9.868623 +/- 0.406273    -120.566826
+    3.353e-03       1138      10.123235 +/- 0.300071    -120.312215
+    4.598e-03       2176      10.294575 +/- 0.220664    -120.140874
+    6.304e-03       4003      10.071813 +/- 0.159158    -120.363637
+    8.645e-03       7590      10.156319 +/- 0.116533    -120.279131
+
+ Time taken in nodal domain averages : : :    295.8896
+
+ Warning: keywords not read by pycasino: newrun periodic popstats
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  5
+ NED (num down spin electrons)            :  5
+ RUNTYPE (type of run)                    :  vmc_dmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  slater-type
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  F
+ BACKFLOW (use backflow corrections)      :  T
+ USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  F
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ RELATIVISTIC                             :  F
+
+ VMC/DMC input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  0.02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  10000000
+ VMC_NCONFIG_WRITE (num configs to write) :  1024
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  10
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ DMC_TARGET_WEIGHT                        :  1024.0
+ DMC_MD                                   :  F
+ DMC_EQUIL_NSTEP (num equil steps)        :  10000
+ DMC_EQUIL_NBLOCK (num blocks)            :  1
+ DMC_STATS_NSTEP (num stats steps)        :  50000
+ DMC_STATS_NBLOCK (num blocks)            :  5
+ DMC_DECORR_PERIOD (length of inner loop) :  1
+ DMC_AVE_PERIOD (hist reduction factor)   :  1
+ DMC_TRIP_WEIGHT (catastrophe thres)      :  0.00
+ EBEST_AV_WINDOW (running av for energy)  :  25
+ DMC_METHOD (choice of DMC algorithm)     :  2
+ DMC_REWEIGHT_CONF (Update weights)       :  F
+ DMC_SPACEWARPING (adjust e to new wfn)   :  F
+ REDIST_GRP_SIZE (size of redist groups)  :  500
+ DTDMC (DMC time step)                    :  0.003333
+ TPDMC (DMC T_p parameter)                :  0
+ CEREFDMC (constant for EREF [DMC])       :  1.000
+ NUCLEUS_GF_MODS (DMC GF mods for nuclei) :  T
+ ALPHALIMIT                               :  0.5
+ IACCUM (flag for statistics run [DMC])   :  T
+ IBRAN (flag to enable branching [DMC])   :  T
+ LWDMC (flag for enabling weighted DMC)   :  F
+ LWDMC_FIXPOP (fixed population LWDMC)    :  F
+ DMC_NORM_CONSERVE                        :  F
+ DMC_POPRENORM (renormalize config popn)  :  F
+ GROWTH_ESTIMATOR (calc growth estimator) :  F
+ USE_TMOVE                                :  False
+ FUTURE_WALKING                           :  F
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Median sigma = 1/|grad ln psi| : 7.34849e-02 bohr
+
+ ==============================
+ PERFORMING A |PSI| CALCULATION.
+ ==============================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ DTVMC: 3.07911e-03
+
+ =========================================================================
+ WEIGHTED NODAL DOMAIN AVERAGES
+
+  Number of |psi| steps                   = 10000000
+  Potential component                (au) =        -118.557706870324
+  Standard error                        +/-           0.021100737399
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    7.348e-04         41       7.592556 +/- 1.185756    -110.965151
+    1.008e-03         87       8.568324 +/- 0.918617    -109.989382
+    1.382e-03        142       7.437680 +/- 0.624152    -111.120027
+    1.895e-03        269       7.493314 +/- 0.456869    -111.064393
+    2.598e-03        488       7.229595 +/- 0.327260    -111.328112
+    3.563e-03        949       7.477094 +/- 0.242705    -111.080613
+    4.885e-03       1832       7.676524 +/- 0.179334    -110.881183
+    6.699e-03       3457       7.703907 +/- 0.131005    -110.853800
+    9.186e-03       6540       7.751074 +/- 0.095814    -110.806633
+
+ Time taken in nodal domain averages : : :    1508.4823
+
+ =========================================================================
+ NODAL SURFACE DESCRIPTOR
+
+ run                                                 widest tube          1.9x narrower
+
+ stowfn/Ne/HF/QZ4P/CBCS/Slater               10.156319 +/- 0.116533    10.294575 +/- 0.220664
+ stowfn/Ne/HF/QZ4P/CBCS/Backflow_dmc          7.751074 +/- 0.095814     7.676524 +/- 0.179334

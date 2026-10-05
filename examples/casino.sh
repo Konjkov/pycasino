@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# method="CBCS"
+method="CBCS"
 # method="EBES"
 # method="EBES_new"
 # operation="Slater"
@@ -8,6 +8,7 @@
 # operation="Backflow"
 # operation="Jastrow_varmin"
 # operation="Jastrow_emin"
+operation="Jastrow_emin_uncut_polynomial"
 # operation="Backflow_varmin"
 # operation="Backflow_emin"
 # operation="Jastrow_dmc"
@@ -45,15 +46,7 @@
 # path="ppotential_${PP}/B2H6/HF/aug-cc-pVQZ-CDF/${method}/${operation}/"
 
 # path="stowfn/He/HF/QZ4P/${method}/${operation}/"
-# path="stowfn/Be/HF/QZ4P/${method}/${operation}/"
-# path="stowfn/N/HF/QZ4P/${method}/${operation}/"
-# path="stowfn/Ne/HF/QZ4P/${method}/${operation}/"
-# path="stowfn/Ar/HF/QZ4P/${method}/${operation}/"
-# path="stowfn/Kr/HF/QZ4P/${method}/${operation}/"
-# path="stowfn/O3/HF/QZ4P/${method}/${operation}/"
-
-# path="stowfn/He/HF/QZ4P/${method}/${operation}/"
-# path="stowfn/Be/HF/QZ4P/${method}/${operation}/"
+path="stowfn/Be/HF/QZ4P/${method}/${operation}/"
 # path="stowfn/N/HF/QZ4P/${method}/${operation}/"
 # path="stowfn/Ne/HF/QZ4P/${method}/${operation}/"
 # path="stowfn/Ar/HF/QZ4P/${method}/${operation}/"
@@ -80,6 +73,6 @@ fi
 # single MPI-process
 # pycasino $path
 # multiple MPI-process
-# mpiexec pycasino $path
+mpiexec pycasino $path
 # hybrid code
 # mpiexec -n 2 --map-by slot:pe=${NUMBA_NUM_THREADS} pycasino $path

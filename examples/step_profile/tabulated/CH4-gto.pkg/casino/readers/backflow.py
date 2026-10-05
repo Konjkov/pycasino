@@ -1,0 +1,828 @@
+#!/usr/bin/env python3
+
+import os
+
+import numba as nb
+import numpy as np
+
+from casino.backflow import construct_c_matrix, construct_omega_folded_matrix
+from casino.overload import rref
+
+labels_type = nb.int64[::1]
+mu_parameters_type = nb.float64[:, ::1]
+mu_parameters_optimizable_type = nb.boolean[:, ::1]
+phi_parameters_type = nb.float64[:, :, :, ::1]
+phi_parameters_optimizable_type = nb.boolean[:, :, :, ::1]
+theta_parameters_type = nb.float64[:, :, :, ::1]
+theta_parameters_optimizable_type = nb.boolean[:, :, :, ::1]
+
+backflow_template = """\
+ START BACKFLOW
+ Title
+  {title}
+ Truncation order
+   {trunc}
+ {terms}\
+ END BACKFLOW
+
+"""
+
+eta_term_template = """\
+ START ETA TERM
+ {eta_set}
+ END ETA TERM
+"""
+
+eta_set_template = """\
+Expansion order
+   {eta_order}
+ Spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
+   {eta_spin_dep}
+ Cut-off radii ;      Optimizable (0=NO; 1=YES; 2=YES BUT NO SPIN-DEP)
+   {eta_cutoffs}
+ Parameter values  ;  Optimizable (0=NO; 1=YES)
+  {eta_parameters}"""
+
+mu_term_template = """\
+ START MU TERM
+ Number of sets ; labelling (1->atom in s. cell; 2->atom in p. cell; 3->species)
+  {n_mu_sets} 1
+ {mu_sets}
+ END MU TERM
+"""
+
+mu_set_template = """\
+START SET {n_set}
+ Number of atoms in set
+   {n_atoms}
+ Labels of the atoms in this set
+   {mu_labels}
+ Type of e-N cusp conditions (0->PP/cuspless AE; 1->AE with cusp)
+   {mu_cusp}
+ Expansion order
+   {mu_order}
+ Spin dep (0->u=d; 1->u/=d)
+   {mu_spin_dep}
+ Cutoff (a.u.)     ;  Optimizable (0=NO; 1=YES)
+   {mu_cutoff:.16f}                {mu_cutoff_optimizable}
+ Parameter values  ;  Optimizable (0=NO; 1=YES)
+  {mu_parameters}
+ END SET {n_set}"""
+
+phi_term_template = """\
+ START PHI TERM
+ Number of sets ; labelling (1->atom in s. cell; 2->atom in p. cell; 3->species)
+  {n_phi_sets} 1
+ {phi_sets}
+ END PHI TERM
+"""
+
+phi_set_template = """\
+START SET {n_set}
+ Number of atoms in set
+   {n_atoms}
+ Label of the atom in this set
+   {phi_labels}
+ Type of e-N cusp conditions (0=PP; 1=AE)
+   {phi_cusp}
+ Irrotational Phi term (0=NO; 1=YES)
+   {phi_irrotational}
+ Electron-nucleus expansion order N_eN
+   {phi_en_order}
+ Electron-electron expansion order N_ee
+   {phi_ee_order}
+ Spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
+   {phi_spin_dep}
+ Cutoff (a.u.)     ;  Optimizable (0=NO; 1=YES)
+   {phi_cutoff:.16f}                {phi_cutoff_optimizable}
+ Parameter values  ;  Optimizable (0=NO; 1=YES)
+  {phi_parameters}'
+ END SET {n_set}"""
+
+omega_term_template = """\
+ START OMEGA TERM
+ {omega_set}
+ END OMEGA TERM
+"""
+
+omega_set_template = """\
+Expansion order
+   {omega_order}
+ Spin dep
+   {omega_spin_dep}
+ Cut-off radius ;     Optimizable (0=NO; 1=YES)
+   {omega_cutoffs}
+ Parameter ;          Optimizable (0=NO; 1=YES)
+  {omega_parameters}"""
+
+ae_cutoff_template = """\
+ START AE CUTOFFS
+ Nucleus ; Set ; Cutoff length     ;  Optimizable (0=NO; 1=YES)
+ {ae_cutoffs}
+ END AE CUTOFFS
+"""
+
+
+class Backflow:
+    """Backflow reader from file.
+    Inhomogeneous backflow transformations in quantum Monte Carlo.
+    P. Lopez Rıos, A. Ma, N. D. Drummond, M. D. Towler and R. J. Needs
+    """
+
+    def read_bool(self):
+        return bool(int(self.f.readline()))
+
+    def read_int(self):
+        return int(self.f.readline())
+
+    def read_parameter(self, index=None):
+        if index:
+            parameter, mask, _, comment = self.f.readline().split()
+            casino_index = list(map(int, comment.split('_')[1].split(',')))
+            if index != casino_index:
+                print(f'{index}, {casino_index}')
+        else:
+            # https://www.python.org/dev/peps/pep-3132/
+            parameter, mask, *_ = self.f.readline().split()
+        return float(parameter), int(mask)
+
+    def check_parameter(self):
+        """check parameter index against Casino"""
+        _, _, _, comment = self.f.readline().split()
+        return list(map(int, comment.split('_')[1].split(',')))
+
+    def read_ints(self):
+        return list(map(int, self.f.readline().split()))
+
+    def __init__(self, neu=0, ned=0):
+        self.neu = neu
+        self.ned = ned
+        self.title = 'no title given'
+        self.trunc = 0
+        self.eta_parameters = np.zeros((0, 0), dtype=float)  # uu, ud, dd order
+        self.eta_parameters_optimizable = np.zeros(shape=(0, 0), dtype=bool)  # uu, ud, dd order
+        self.mu_parameters = nb.typed.List.empty_list(mu_parameters_type)  # u, d order
+        self.mu_parameters_optimizable = nb.typed.List.empty_list(mu_parameters_optimizable_type)  # u, d order
+        self.phi_parameters = nb.typed.List.empty_list(phi_parameters_type)  # uu, ud, dd order
+        self.phi_parameters_optimizable = nb.typed.List.empty_list(phi_parameters_optimizable_type)  # uu, ud, dd order
+        self.theta_parameters = nb.typed.List.empty_list(theta_parameters_type)  # uu, ud, dd order
+        self.theta_parameters_optimizable = nb.typed.List.empty_list(theta_parameters_optimizable_type)  # uu, ud, dd order
+        self.omega_parameters = np.zeros((0, 0, 0, 0), dtype=float)
+        self.omega_parameters_optimizable = np.zeros((0, 0, 0, 0), dtype=bool)
+        self.omega_spin_dep = 0
+        self.omega_cutoff = np.zeros(shape=0, dtype=[('value', float), ('optimizable', bool)])
+        self.eta_cutoff = np.zeros(shape=0, dtype=[('value', float), ('optimizable', bool)])
+        self.mu_cutoff = np.zeros(shape=0, dtype=[('value', float), ('optimizable', bool)])
+        self.phi_cutoff = np.zeros(shape=0, dtype=[('value', float), ('optimizable', bool)])
+        self.phi_cutoff_optimizable = np.zeros(0)
+        self.mu_labels = nb.typed.List.empty_list(labels_type)
+        self.phi_labels = nb.typed.List.empty_list(labels_type)
+        self.mu_cusp = np.zeros(0, dtype=bool)
+        self.phi_cusp = np.zeros(0, dtype=bool)
+        self.ae_cutoff = np.zeros(0)
+        self.ae_cutoff_optimizable = np.zeros(0, dtype=bool)
+        self.phi_irrotational = np.zeros(0, dtype=bool)
+
+    def read(self, base_path):
+        file_path = os.path.join(base_path, 'correlation.data')
+        if not os.path.isfile(file_path):
+            print(f'{file_path} not found')
+            return
+        with open(file_path, 'r') as f:
+            eta_term = mu_term = phi_term = omega_term = ae_term = False
+            self.f = f
+            for line in f:
+                line = line.strip()
+                if line.startswith('START BACKFLOW'):
+                    pass
+                elif line.startswith('END BACKFLOW'):
+                    break
+                elif line.startswith('Truncation order'):
+                    self.trunc = self.read_int()
+                elif line.startswith('START ETA TERM'):
+                    eta_term = True
+                elif line.startswith('END ETA TERM'):
+                    self.fix_eta_parameters()
+                    eta_term = False
+                elif line.startswith('START MU TERM'):
+                    mu_term = True
+                elif line.startswith('END MU TERM'):
+                    self.fix_mu_parameters()
+                    mu_term = False
+                elif line.startswith('START PHI TERM'):
+                    phi_term = True
+                elif line.startswith('END PHI TERM'):
+                    self.fix_phi_parameters()
+                    # self.check_phi_constrains()
+                    phi_term = False
+                elif line.startswith('START OMEGA TERM'):
+                    omega_term = True
+                elif line.startswith('END OMEGA TERM'):
+                    self.fix_omega_parameters()
+                    omega_term = False
+                elif line.startswith('START AE CUTOFFS'):
+                    ae_term = True
+                elif line.startswith('END AE CUTOFFS'):
+                    ae_term = False
+                elif eta_term:
+                    if line.startswith('Expansion order'):
+                        eta_order = self.read_int()
+                    elif line.startswith('Spin dep'):
+                        eta_spin_dep = self.read_int()
+                    elif line.startswith('Cut-off radii'):
+                        eta_cutoff, eta_cutoff_optimizable = self.read_parameter()
+                        # Optimizable (0=NO; 1=YES; 2=YES BUT NO SPIN-DEP)
+                        if eta_cutoff_optimizable == 2:
+                            self.eta_cutoff = np.zeros(shape=1, dtype=[('value', float), ('optimizable', bool)])
+                        else:
+                            self.eta_cutoff = np.zeros(shape=eta_spin_dep + 1, dtype=[('value', float), ('optimizable', bool)])
+                        self.eta_cutoff[0] = eta_cutoff, eta_cutoff_optimizable
+                        for i in range(1, self.eta_cutoff.shape[0]):
+                            self.eta_cutoff[i] = self.read_parameter()
+                    elif line.startswith('Parameter'):
+                        self.eta_parameters = np.zeros((eta_spin_dep + 1, eta_order + 1), dtype=float)
+                        self.eta_parameters_optimizable = np.zeros((eta_spin_dep + 1, eta_order + 1), dtype=bool)
+                        eta_parameters_independent = self.eta_parameters_independent(self.eta_parameters)
+                        try:
+                            for i in range(eta_spin_dep + 1):
+                                for j in range(eta_order + 1):
+                                    if eta_parameters_independent[i, j]:
+                                        self.eta_parameters[i, j], self.eta_parameters_optimizable[i, j] = self.read_parameter()
+                        except ValueError:
+                            eta_term = False
+                            self.eta_parameters_optimizable = eta_parameters_independent
+                elif mu_term:
+                    if line.startswith('Number of sets'):
+                        number_of_sets = self.read_ints()[0]
+                        self.mu_cusp = np.zeros(number_of_sets, dtype=bool)
+                        self.mu_cutoff = np.zeros(number_of_sets, dtype=[('value', float), ('optimizable', bool)])
+                    elif line.startswith('START SET'):
+                        set_number = int(line.split()[2]) - 1
+                    elif line.startswith('Label'):
+                        mu_labels = np.array(self.read_ints()) - 1
+                        self.mu_labels.append(mu_labels)
+                    elif line.startswith('Type of e-N cusp conditions'):
+                        mu_cusp = self.read_bool()
+                        self.mu_cusp[set_number] = mu_cusp
+                    elif line.startswith('Expansion order'):
+                        mu_order = self.read_int()
+                    elif line.startswith('Spin dep'):
+                        mu_spin_dep = self.read_int()
+                    elif line.startswith('Cutoff (a.u.)'):
+                        self.mu_cutoff[set_number] = self.read_parameter()
+                    elif line.startswith('Parameter values'):
+                        mu_parameters = np.zeros((mu_spin_dep + 1, mu_order + 1), dtype=float)
+                        mu_parameters_optimizable = np.zeros((mu_spin_dep + 1, mu_order + 1), dtype=bool)
+                        mu_parameters_independent = self.mu_parameters_independent(mu_parameters, mu_cusp)
+                        try:
+                            for i in range(mu_spin_dep + 1):
+                                for j in range(mu_order + 1):
+                                    if mu_parameters_independent[i, j]:
+                                        mu_parameters[i, j], mu_parameters_optimizable[i, j] = self.read_parameter()
+                        except ValueError:
+                            mu_parameters_optimizable = mu_parameters_independent
+                        self.mu_parameters.append(mu_parameters)
+                        self.mu_parameters_optimizable.append(mu_parameters_optimizable)
+                    elif line.startswith('END SET'):
+                        pass
+                elif phi_term:
+                    if line.startswith('Number of sets'):
+                        number_of_sets = self.read_ints()[0]
+                        self.phi_cusp = np.zeros(number_of_sets, dtype=bool)
+                        self.phi_cutoff = np.zeros(number_of_sets, dtype=[('value', float), ('optimizable', bool)])
+                        self.phi_irrotational = np.zeros(number_of_sets, dtype=bool)
+                    elif line.startswith('START SET'):
+                        set_number = int(line.split()[2]) - 1
+                    elif line.startswith('Label'):
+                        phi_labels = np.array(self.read_ints()) - 1
+                        self.phi_labels.append(phi_labels)
+                    elif line.startswith('Type of e-N cusp conditions'):
+                        phi_cusp = self.read_bool()
+                        self.phi_cusp[set_number] = phi_cusp
+                    elif line.startswith('Irrotational Phi'):
+                        phi_irrotational = self.read_bool()
+                    elif line.startswith('Electron-nucleus expansion order'):
+                        phi_en_order = self.read_int()
+                    elif line.startswith('Electron-electron expansion order'):
+                        phi_ee_order = self.read_int()
+                    elif line.startswith('Spin dep'):
+                        phi_spin_dep = self.read_int()
+                    elif line.startswith('Cutoff (a.u.)'):
+                        phi_cutoff, phi_cutoff_optimizable = self.read_parameter()
+                        self.phi_cutoff[set_number]['value'] = phi_cutoff
+                        self.phi_cutoff[set_number]['optimizable'] = phi_cutoff_optimizable
+                    elif line.startswith('Parameter values'):
+                        phi_parameters = np.zeros((phi_spin_dep + 1, phi_ee_order + 1, phi_en_order + 1, phi_en_order + 1), float)
+                        phi_parameters_optimizable = np.zeros((phi_spin_dep + 1, phi_ee_order + 1, phi_en_order + 1, phi_en_order + 1), bool)
+                        theta_parameters = np.zeros((phi_spin_dep + 1, phi_ee_order + 1, phi_en_order + 1, phi_en_order + 1), float)
+                        theta_parameters_optimizable = np.zeros((phi_spin_dep + 1, phi_ee_order + 1, phi_en_order + 1, phi_en_order + 1), bool)
+                        phi_parameters_independent, theta_parameters_independent = self.phi_theta_parameters_independent(
+                            phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational
+                        )
+                        try:
+                            for i in range(phi_spin_dep + 1):
+                                for m in range(phi_ee_order + 1):
+                                    for l in range(phi_en_order + 1):
+                                        for k in range(phi_en_order + 1):
+                                            if phi_parameters_independent[i, m, l, k]:
+                                                phi_parameters[i, m, l, k], phi_parameters_optimizable[i, m, l, k] = self.read_parameter(
+                                                    [k, l, m, i + 1]
+                                                )
+                                for m in range(phi_ee_order + 1):
+                                    for l in range(phi_en_order + 1):
+                                        for k in range(phi_en_order + 1):
+                                            if theta_parameters_independent[i, m, l, k]:
+                                                theta_parameters[i, m, l, k], theta_parameters_optimizable[i, m, l, k] = self.read_parameter(
+                                                    [k, l, m, i + 1]
+                                                )
+                        except ValueError:
+                            phi_parameters_optimizable = phi_parameters_independent
+                            theta_parameters_optimizable = theta_parameters_independent
+                        self.phi_parameters.append(phi_parameters)
+                        self.theta_parameters.append(theta_parameters)
+                        self.phi_parameters_optimizable.append(phi_parameters_optimizable)
+                        self.theta_parameters_optimizable.append(theta_parameters_optimizable)
+                        self.phi_irrotational[set_number] = phi_irrotational
+                    elif line.startswith('END SET'):
+                        pass
+                elif omega_term:
+                    if line.startswith('Expansion order'):
+                        omega_order = self.read_int()
+                    elif line.startswith('Spin dep'):
+                        self.omega_spin_dep = self.read_int()
+                    elif line.startswith('Cut-off radius'):
+                        omega_cutoff, omega_cutoff_optimizable = self.read_parameter()
+                        number_of_sets = 1 if self.omega_spin_dep == 0 else 4
+                        if omega_cutoff_optimizable == 2:
+                            self.omega_cutoff = np.zeros(shape=1, dtype=[('value', float), ('optimizable', bool)])
+                        else:
+                            self.omega_cutoff = np.zeros(shape=number_of_sets, dtype=[('value', float), ('optimizable', bool)])
+                        self.omega_cutoff[0] = omega_cutoff, omega_cutoff_optimizable
+                        for i in range(1, self.omega_cutoff.shape[0]):
+                            self.omega_cutoff[i] = self.read_parameter()
+                    elif line.startswith('Parameter'):
+                        number_of_sets = 1 if self.omega_spin_dep == 0 else 4
+                        shape = (number_of_sets, omega_order + 1, omega_order + 1, omega_order + 1)
+                        self.omega_parameters = np.zeros(shape, dtype=float)
+                        self.omega_parameters_optimizable = np.zeros(shape, dtype=bool)
+                        omega_parameters_independent = self.omega_parameters_independent(self.omega_parameters)
+                        try:
+                            for s in range(number_of_sets):
+                                for n in range(omega_order + 1):
+                                    for m in range(omega_order + 1):
+                                        for l in range(omega_order + 1):
+                                            if omega_parameters_independent[s, l, m, n]:
+                                                self.omega_parameters[s, l, m, n], self.omega_parameters_optimizable[s, l, m, n] = (
+                                                    self.read_parameter()
+                                                )
+                        except ValueError:
+                            omega_term = False
+                            self.omega_parameters_optimizable = omega_parameters_independent
+                elif ae_term:
+                    if line.startswith('Nucleus'):
+                        # Nucleus ; Set ; Cutoff length     ;  Optimizable (0=NO; 1=YES)
+                        pass
+                    else:
+                        nucleus, _, cutoff_length, cutoff_length_optimizable = line.split()
+                        self.ae_cutoff[int(nucleus) - 1] = float(cutoff_length)
+                        self.ae_cutoff_optimizable[int(nucleus) - 1] = bool(int(cutoff_length_optimizable))
+
+    def set_ae_cutoff(self, is_pseudoatom):
+        """Set AE cut-off if not defined in input file.
+        :param is_pseudoatom:
+        :return:
+        """
+        self.ae_cutoff = np.ones_like(is_pseudoatom, dtype=float)
+        self.ae_cutoff_optimizable = np.ones_like(is_pseudoatom, dtype=bool)
+        for atom in range(is_pseudoatom.size):
+            if is_pseudoatom[atom]:
+                self.ae_cutoff[atom] = 0
+                self.ae_cutoff_optimizable[atom] = False
+
+    def write(self):
+        eta_term = ''
+        if self.eta_cutoff['value'].any():
+            eta_parameters_list = []
+            eta_parameters_independent = self.eta_parameters_independent(self.eta_parameters)
+            for i in range(self.eta_parameters.shape[0]):
+                for j in range(self.eta_parameters.shape[1]):
+                    if eta_parameters_independent[i, j]:
+                        eta_parameters_list.append(
+                            f'{self.eta_parameters[i, j]: .16e}            {int(self.eta_parameters_optimizable[i, j])}       ! c_{j},{i + 1}'
+                        )
+            eta_cutoff_list = []
+            if self.eta_cutoff.shape[0] < self.eta_parameters.shape[0]:
+                # one cutoff shared by every spin-dep is only self-consistent as "2=YES BUT NO SPIN-DEP"
+                eta_cutoff_list.append(f'{self.eta_cutoff[0]["value"]: .16e}           2')
+            else:
+                for eta_cutoff, eta_cutoff_optimizable in self.eta_cutoff:
+                    eta_cutoff_list.append(f'{eta_cutoff: .16e}           {int(eta_cutoff_optimizable)}')
+            eta_set = eta_set_template.format(
+                eta_spin_dep=self.eta_parameters.shape[0] - 1,
+                eta_order=self.eta_parameters.shape[1] - 1,
+                eta_cutoffs='\n   '.join(eta_cutoff_list),
+                eta_parameters='\n  '.join(eta_parameters_list),
+            )
+            eta_term = eta_term_template.format(eta_set=eta_set)
+
+        n_mu_set = 0
+        mu_term = ''
+        mu_sets = []
+        for n_mu_set, (mu_labels, mu_parameters, mu_parameters_optimizable, mu_cutoff, mu_cusp) in enumerate(
+            zip(self.mu_labels, self.mu_parameters, self.mu_parameters_optimizable, self.mu_cutoff, self.mu_cusp)
+        ):
+            mu_parameters_list = []
+            mu_parameters_independent = self.mu_parameters_independent(mu_parameters, mu_cusp)
+            for i in range(mu_parameters.shape[0]):
+                for j in range(mu_parameters.shape[1]):
+                    if mu_parameters_independent[i, j]:
+                        mu_parameters_list.append(
+                            f'{mu_parameters[i, j]: .16e}            {int(mu_parameters_optimizable[i, j])}       ! mu_{j},{i + 1}'
+                        )
+            mu_sets.append(
+                mu_set_template.format(
+                    n_set=n_mu_set + 1,
+                    n_atoms=len(mu_labels),
+                    mu_cusp=int(mu_cusp),
+                    mu_labels=' '.join(['{}'.format(i + 1) for i in mu_labels]),
+                    mu_spin_dep=mu_parameters.shape[0] - 1,
+                    mu_order=mu_parameters.shape[1] - 1,
+                    mu_cutoff=mu_cutoff['value'],
+                    mu_cutoff_optimizable=int(mu_cutoff['optimizable']),
+                    mu_parameters='\n  '.join(mu_parameters_list),
+                )
+            )
+        if mu_sets:
+            mu_term = mu_term_template.format(n_mu_sets=n_mu_set + 1, mu_sets='\n '.join(mu_sets))
+
+        n_phi_set = 0
+        phi_term = ''
+        phi_sets = []
+        for n_phi_set, (
+            phi_labels,
+            phi_parameters,
+            phi_parameters_optimizable,
+            theta_parameters,
+            theta_parameters_optimizable,
+            phi_cutoff,
+            phi_cusp,
+            phi_irrotational,
+        ) in enumerate(
+            zip(
+                self.phi_labels,
+                self.phi_parameters,
+                self.phi_parameters_optimizable,
+                self.theta_parameters,
+                self.theta_parameters_optimizable,
+                self.phi_cutoff,
+                self.phi_cusp,
+                self.phi_irrotational,
+            )
+        ):
+            phi_theta_parameters_list = []
+            phi_parameters_independent, theta_parameters_independent = self.phi_theta_parameters_independent(
+                phi_parameters, theta_parameters, phi_cutoff['value'], phi_cusp, phi_irrotational
+            )
+            for i in range(phi_parameters.shape[0]):
+                for m in range(phi_parameters.shape[1]):
+                    for l in range(phi_parameters.shape[2]):
+                        for k in range(phi_parameters.shape[3]):
+                            if phi_parameters_independent[i, m, l, k]:
+                                phi_theta_parameters_list.append(
+                                    f'{phi_parameters[i, m, l, k]: .16e}            {int(phi_parameters_optimizable[i, m, l, k])}       ! phi_{k},{l},{m},{i + 1}'
+                                )
+                for m in range(phi_parameters.shape[1]):
+                    for l in range(phi_parameters.shape[2]):
+                        for k in range(phi_parameters.shape[3]):
+                            if theta_parameters_independent[i, m, l, k]:
+                                phi_theta_parameters_list.append(
+                                    f'{theta_parameters[i, m, l, k]: .16e}            {int(theta_parameters_optimizable[i, m, l, k])}       ! theta_{k},{l},{m},{i + 1}'
+                                )
+            phi_sets.append(
+                phi_set_template.format(
+                    n_set=n_phi_set + 1,
+                    n_atoms=len(phi_labels),
+                    phi_cusp=int(phi_cusp),
+                    phi_labels=' '.join(['{}'.format(i + 1) for i in phi_labels]),
+                    phi_spin_dep=phi_parameters.shape[0] - 1,
+                    phi_ee_order=phi_parameters.shape[1] - 1,
+                    phi_en_order=phi_parameters.shape[2] - 1,
+                    # FIXME: 2=YES BUT NO SPIN-DEP
+                    phi_cutoff=phi_cutoff['value'],
+                    phi_cutoff_optimizable=int(phi_cutoff['optimizable']),
+                    phi_irrotational=int(phi_irrotational),
+                    phi_parameters='\n  '.join(phi_theta_parameters_list),
+                )
+            )
+        if phi_sets:
+            phi_term = phi_term_template.format(n_phi_sets=n_phi_set + 1, phi_sets='\n '.join(phi_sets))
+
+        omega_term = ''
+        if self.omega_cutoff['value'].any():
+            omega_parameters_list = []
+            omega_parameters_independent = self.omega_parameters_independent(self.omega_parameters)
+            for s in range(self.omega_parameters.shape[0]):
+                for n in range(self.omega_parameters.shape[3]):
+                    for m in range(self.omega_parameters.shape[2]):
+                        for l in range(self.omega_parameters.shape[1]):
+                            if omega_parameters_independent[s, l, m, n]:
+                                omega_parameters_list.append(
+                                    f'{self.omega_parameters[s, l, m, n]: .16e}            {int(self.omega_parameters_optimizable[s, l, m, n])}       ! K_{l}{m}{n},{s + 1}'
+                                )
+            omega_cutoff_list = []
+            if self.omega_cutoff.shape[0] < self.omega_parameters.shape[0]:
+                # one cutoff shared by every spin-triplet, see "YES BUT NO SPIN-DEP"
+                omega_cutoff_list.append(f'{self.omega_cutoff[0]["value"]: .16e}           2       ! L_1')
+            else:
+                for i, (omega_cutoff, omega_cutoff_optimizable) in enumerate(self.omega_cutoff):
+                    omega_cutoff_list.append(f'{omega_cutoff: .16e}           {int(omega_cutoff_optimizable)}       ! L_{i + 1}')
+            omega_set = omega_set_template.format(
+                omega_spin_dep=self.omega_spin_dep,
+                omega_order=self.omega_parameters.shape[1] - 1,
+                omega_cutoffs='\n   '.join(omega_cutoff_list),
+                omega_parameters='\n  '.join(omega_parameters_list),
+            )
+            omega_term = omega_term_template.format(omega_set=omega_set)
+
+        ae_cutoffs = ''
+        ae_cutoff_list = []
+        for i, (ae_cutoff, ae_cutoff_optimizable) in enumerate(zip(self.ae_cutoff, self.ae_cutoff_optimizable)):
+            if ae_cutoff:
+                ae_cutoff_list.append(f' {i + 1}         {i + 1}      {ae_cutoff: .16e}           {int(ae_cutoff_optimizable)}')
+        if ae_cutoff_list:
+            ae_cutoffs = ae_cutoff_template.format(ae_cutoffs='\n '.join(ae_cutoff_list))
+        backflow = backflow_template.format(
+            title=self.title,
+            trunc=self.trunc,
+            terms=eta_term + mu_term + phi_term + omega_term + ae_cutoffs,
+        )
+        return backflow
+
+    @staticmethod
+    def eta_parameters_independent(parameters):
+        """To obey the cusp conditions,
+        we constrain the parallel-spin η(rij) function to have zero derivative at rij = 0,
+        while the antiparallel-spin η function may have a nonzero derivative"""
+        mask = np.ones(parameters.shape, bool)
+        mask[0, 1] = False
+        if parameters.shape[0] == 3:
+            mask[2, 0] = False
+        return mask
+
+    @staticmethod
+    def mu_parameters_independent(parameters, mu_cusp):
+        mask = np.ones(parameters.shape, bool)
+        if mu_cusp:
+            mask[:, 0:2] = False
+        else:
+            mask[:, 1] = False
+        return mask
+
+    def striplet_exists(self, spin_dep, number_of_sets):
+        """Whether a spin-triplet occurs in the system, see assign_spin_deps in monte_carlo.f90.
+        The doubled spin is always the lower index, so the (d,d,u) triplet is never registered.
+        """
+        if number_of_sets == 1:
+            return self.neu > 2 or self.ned > 2 or (self.neu > 1 and self.ned > 0)
+        return (self.neu > 2, self.neu > 1 and self.ned > 0, False, self.ned > 2)[spin_dep]
+
+    def omega_parameters_independent(self, parameters):
+        """Mask dependent parameters in omega-term."""
+        mask = np.zeros(shape=parameters.shape, dtype=bool)
+        for spin_dep in range(parameters.shape[0]):
+            if not self.striplet_exists(spin_dep, parameters.shape[0]):
+                continue
+            omega_cutoff = self.omega_cutoff['value'][spin_dep % self.omega_cutoff.shape[0]]
+            c, _, rep_indices = construct_omega_folded_matrix(self.trunc, parameters, omega_cutoff, spin_dep)
+            _, pivot_positions = rref(c)
+
+            for q in range(rep_indices.shape[0]):
+                if q not in pivot_positions:
+                    mask[spin_dep, rep_indices[q, 0], rep_indices[q, 1], rep_indices[q, 2]] = True
+        return mask
+
+    def phi_theta_parameters_independent(self, phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational):
+        """Mask dependent parameters in phi-term."""
+        phi_mask = np.zeros(shape=phi_parameters.shape, dtype=bool)
+        theta_mask = np.zeros(shape=phi_parameters.shape, dtype=bool)
+        for spin_dep in range(phi_parameters.shape[0]):
+            c, _ = construct_c_matrix(self.trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+            _, pivot_positions = rref(c)
+
+            p = 0
+            for m in range(phi_parameters.shape[1]):
+                for l in range(phi_parameters.shape[2]):
+                    for k in range(phi_parameters.shape[3]):
+                        if p not in pivot_positions:
+                            phi_mask[spin_dep, m, l, k] = True
+                        p += 1
+
+            for m in range(phi_parameters.shape[1]):
+                for l in range(phi_parameters.shape[2]):
+                    for k in range(phi_parameters.shape[3]):
+                        if p not in pivot_positions:
+                            theta_mask[spin_dep, m, l, k] = True
+                        p += 1
+        return phi_mask, theta_mask
+
+    def fix_eta_parameters(self):
+        """Fix eta-term parameters"""
+        C = self.trunc
+        L = self.eta_cutoff[0]['value']
+        self.eta_parameters[0, 1] = C * self.eta_parameters[0, 0] / L
+        if self.eta_parameters.shape[0] == 3:
+            L = self.eta_cutoff[2]['value'] or self.eta_cutoff[0]['value']
+            self.eta_parameters[2, 1] = C * self.eta_parameters[2, 0] / L
+
+    def fix_mu_parameters(self):
+        """Fix mu-term parameters"""
+        C = self.trunc
+        for mu_parameters, mu_cutoff, mu_cusp in zip(self.mu_parameters, self.mu_cutoff, self.mu_cusp):
+            if mu_cusp:
+                # AE atoms (d0,I = 0; Lμ,I * d1,I = C * d0,I)
+                mu_parameters[:, 0:2] = 0
+            else:
+                # PP atoms (Lμ,I * d1,I = C * d0,I)
+                L = mu_cutoff['value']
+                mu_parameters[:, 1] = C * mu_parameters[:, 0] / L
+
+    def fix_phi_parameters(self):
+        """Fix phi-term parameters"""
+        for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(
+            self.phi_parameters, self.theta_parameters, self.phi_cutoff['value'], self.phi_cusp, self.phi_irrotational
+        ):
+            if not phi_parameters.any():
+                continue
+            for spin_dep in range(phi_parameters.shape[0]):
+                c, _ = construct_c_matrix(self.trunc, phi_parameters, theta_parameters, phi_cutoff, spin_dep, phi_cusp, phi_irrotational)
+                c, pivot_positions = rref(c)
+                c = c[: pivot_positions.size, :]
+
+                b = np.zeros((c.shape[0],))
+                p = 0
+                for m in range(phi_parameters.shape[1]):
+                    for l in range(phi_parameters.shape[2]):
+                        for k in range(phi_parameters.shape[3]):
+                            if p not in pivot_positions:
+                                for temp in range(c.shape[0]):
+                                    b[temp] -= c[temp, p] * phi_parameters[spin_dep, m, l, k]
+                            p += 1
+
+                for m in range(phi_parameters.shape[1]):
+                    for l in range(phi_parameters.shape[2]):
+                        for k in range(phi_parameters.shape[3]):
+                            if p not in pivot_positions:
+                                for temp in range(c.shape[0]):
+                                    b[temp] -= c[temp, p] * theta_parameters[spin_dep, m, l, k]
+                            p += 1
+
+                x = np.linalg.solve(c[:, pivot_positions], b)
+
+                p = 0
+                temp = 0
+                for m in range(phi_parameters.shape[1]):
+                    for l in range(phi_parameters.shape[2]):
+                        for k in range(phi_parameters.shape[3]):
+                            if temp in pivot_positions:
+                                phi_parameters[spin_dep, m, l, k] = x[p]
+                                p += 1
+                            temp += 1
+
+                for m in range(phi_parameters.shape[1]):
+                    for l in range(phi_parameters.shape[2]):
+                        for k in range(phi_parameters.shape[3]):
+                            if temp in pivot_positions:
+                                theta_parameters[spin_dep, m, l, k] = x[p]
+                                p += 1
+                            temp += 1
+
+    def fix_omega_parameters(self):
+        """Fix omega-term parameters"""
+        if not self.omega_parameters.any():
+            return
+        for spin_dep in range(self.omega_parameters.shape[0]):
+            if not self.striplet_exists(spin_dep, self.omega_parameters.shape[0]):
+                continue
+            omega_cutoff = self.omega_cutoff['value'][spin_dep % self.omega_cutoff.shape[0]]
+            c, rep, rep_indices = construct_omega_folded_matrix(self.trunc, self.omega_parameters, omega_cutoff, spin_dep)
+            c, pivot_positions = rref(c)
+
+            x = np.zeros(shape=(rep_indices.shape[0],))
+            for q in range(rep_indices.shape[0]):
+                x[q] = self.omega_parameters[spin_dep, rep_indices[q, 0], rep_indices[q, 1], rep_indices[q, 2]]
+            for p in pivot_positions:
+                x[p] = 0
+            for temp in range(pivot_positions.size):
+                p = pivot_positions[temp]
+                res = 0.0
+                for q in range(c.shape[1]):
+                    if q != p:
+                        res -= c[temp, q] * x[q]
+                x[p] = res
+
+            for n in range(self.omega_parameters.shape[3]):
+                for m in range(self.omega_parameters.shape[2]):
+                    for l in range(self.omega_parameters.shape[1]):
+                        self.omega_parameters[spin_dep, l, m, n] = x[rep[l, m, n]]
+
+    def check_phi_constrains(self):
+        """Check phi-term constrains"""
+        for phi_parameters, theta_parameters, phi_cutoff, phi_cusp, phi_irrotational in zip(
+            self.phi_parameters, self.theta_parameters, self.phi_cutoff['value'], self.phi_cusp, self.phi_irrotational
+        ):
+            phi_en_order = phi_parameters.shape[0] - 1
+            phi_ee_order = phi_parameters.shape[2] - 1
+
+            for spin_dep in range(phi_parameters.shape[3]):
+                lm_phi_sum = np.zeros((phi_en_order + phi_ee_order + 1,))
+                lm_phi_ae_sum = np.zeros((phi_en_order + phi_ee_order + 1,))
+                lm_phi_m_ae_sum = np.zeros((phi_en_order + phi_ee_order + 1,))
+                lm_theta_ae_sum = np.zeros((phi_en_order + phi_ee_order + 1,))
+                lm_theta_m_ae_sum = np.zeros((phi_en_order + phi_ee_order + 1,))
+
+                for l in range(phi_parameters.shape[1]):
+                    for m in range(phi_parameters.shape[2]):
+                        lm_phi_sum[l + m] += self.trunc * phi_parameters[0, l, m, spin_dep] - phi_cutoff * phi_parameters[1, l, m, spin_dep]
+                        lm_phi_ae_sum[l + m] += phi_parameters[0, l, m, spin_dep]
+                        lm_phi_m_ae_sum[l + m] += m * phi_parameters[0, l, m, spin_dep]
+                        lm_theta_ae_sum[l + m] += theta_parameters[0, l, m, spin_dep]
+                        lm_theta_m_ae_sum[l + m] += m * theta_parameters[0, l, m, spin_dep]
+
+                np.abs(lm_phi_sum).max() > 1e-14 and print(f'lm_phi_sum = {lm_phi_sum}')
+                np.abs(lm_phi_ae_sum).max() > 1e-14 and print(f'lm_phi_ae_sum = {lm_phi_ae_sum}')
+                np.abs(lm_phi_m_ae_sum).max() > 1e-14 and print(f'lm_phi_m_ae_sum = {lm_phi_m_ae_sum}')
+                np.abs(lm_theta_ae_sum).max() > 1e-14 and print(f'lm_theta_ae_sum = {lm_theta_ae_sum}')
+                np.abs(lm_theta_m_ae_sum).max() > 1e-14 and print(f'lm_theta_m_ae_sum = {lm_theta_m_ae_sum}')
+
+                km_phi_sum = np.zeros((phi_en_order + phi_ee_order + 1,))
+                km_theta_sum = np.zeros((phi_en_order + phi_ee_order + 1,))
+                km_phi_ae_sum = np.zeros((phi_en_order + phi_ee_order + 1,))
+                km_phi_m_ae_sum = np.zeros((phi_en_order + phi_ee_order + 1,))
+                km_theta_m_ae_sum = np.zeros((phi_en_order + phi_ee_order + 1,))
+
+                for k in range(phi_parameters.shape[0]):
+                    for m in range(phi_parameters.shape[2]):
+                        km_phi_sum[k + m] += self.trunc * phi_parameters[k, 0, m, spin_dep] - phi_cutoff * phi_parameters[k, 1, m, spin_dep]
+                        km_theta_sum[k + m] += self.trunc * theta_parameters[k, 0, m, spin_dep] - phi_cutoff * theta_parameters[k, 1, m, spin_dep]
+                        km_phi_ae_sum[k + m] += phi_parameters[k, 0, m, spin_dep]
+                        km_phi_m_ae_sum[k + m] += m * phi_parameters[k, 0, m, spin_dep]
+                        km_theta_m_ae_sum[k + m] += m * theta_parameters[k, 0, m, spin_dep]
+
+                np.abs(km_phi_sum).max() > 1e-14 and print(f'km_phi_sum = {km_phi_sum}')
+                np.abs(km_theta_sum).max() > 1e-13 and print(f'km_theta_sum = {km_theta_sum}')
+                np.abs(km_phi_ae_sum).max() > 1e-14 and print(f'km_phi_ae_sum = {km_phi_ae_sum}')
+                np.abs(km_phi_m_ae_sum).max() > 1e-14 and print(f'km_phi_m_ae_sum = {km_phi_m_ae_sum}')
+                np.abs(km_theta_m_ae_sum).max() > 1e-14 and print(f'km_theta_m_ae_sum = {km_theta_m_ae_sum}')
+
+                if spin_dep in (0, 2):
+                    kl_phi_sum = np.zeros((2 * phi_en_order + 1,))
+                    kl_theta_sum = np.zeros((2 * phi_en_order + 1,))
+                    for k in range(phi_parameters.shape[0]):
+                        for l in range(phi_parameters.shape[1]):
+                            kl_phi_sum[k + l] += phi_parameters[k, l, 1, spin_dep]
+                            kl_theta_sum[k + l] += theta_parameters[k, l, 1, spin_dep]
+
+                    np.abs(kl_phi_sum).max() > 1e-14 and print(f'kl_phi_sum = {kl_phi_sum}')
+                    np.abs(kl_theta_sum).max() > 1e-14 and print(f'kl_theta_sum = {kl_theta_sum}')
+
+                if phi_irrotational:
+                    irrot_sum = np.zeros((phi_parameters.shape[0] + 2, phi_parameters.shape[1], phi_parameters.shape[2] + 1))
+                    for k in range(phi_parameters.shape[0] + 2):
+                        for l in range(phi_parameters.shape[1]):
+                            for m in range(phi_parameters.shape[2] + 1):
+                                if self.trunc > 0:
+                                    if m - 1 >= 0:
+                                        if phi_parameters.shape[0] > k:
+                                            irrot_sum[k, l, m] += (self.trunc + k) * phi_parameters[k, l, m - 1, spin_dep]
+                                        if phi_parameters.shape[0] > k + 1:
+                                            irrot_sum[k, l, m] -= phi_cutoff * (k + 1) * phi_parameters[k + 1, l, m - 1, spin_dep]
+                                    if phi_parameters.shape[2] > m + 1:
+                                        if k - 2 >= 0:
+                                            irrot_sum[k, l, m] -= (m + 1) * theta_parameters[k - 2, l, m + 1, spin_dep]
+                                        if phi_parameters.shape[0] > k - 1 >= 0:
+                                            irrot_sum[k, l, m] += phi_cutoff * (m + 1) * theta_parameters[k - 1, l, m + 1, spin_dep]
+                                else:
+                                    if phi_parameters.shape[0] > k + 1 and phi_parameters.shape[2] > m - 1 >= 0:
+                                        irrot_sum[k, l, m] += (k + 1) * phi_parameters[k + 1, l, m - 1, spin_dep]
+                                    if phi_parameters.shape[0] > k - 1 >= 0 and phi_parameters.shape[2] > m + 1:
+                                        irrot_sum[k, l, m] -= (m + 1) * theta_parameters[k - 1, l, m + 1, spin_dep]
+
+                    np.abs(irrot_sum).max() > 1e-13 and print('irrot_sum', irrot_sum)
+
+
+if __name__ == '__main__':
+    """Read Backflow terms"""
+    for phi_term in (
+        '21', '22', '23', '24', '25',
+        '31', '32', '33', '34', '35',
+        '41', '42', '43', '44', '45',
+        '51', '52', '53', '54', '55',
+    ):  # fmt: skip
+        print(phi_term)
+        # Truncation order = 3; Type of e-N cusp conditions = 1; Irrotational Phi term = 0;
+        # path = f'test/backflow/0_1_0/{phi_term}/correlation.out.1'
+        # path = f'test/backflow/3_1_0/{phi_term}/correlation.out.1'
+        # path = f'test/backflow/0_1_1/{phi_term}/correlation.out.1'
+        # path = f'test/backflow/3_1_1/{phi_term}/correlation.out.1'
+        path = f'{os.path.dirname(__file__)}/../../tests/backflow/3_0_1/{phi_term}'
+        Backflow().read(path)

@@ -5,7 +5,7 @@ import os
 import numba as nb
 import numpy as np
 
-from casino.jastrow import construct_a_matrix
+from casino.jastrow import ANALYTIC, POLYNOMIAL, PRODUCT, UNCUT, construct_a_matrix, product_fix, product_independent
 from casino.overload import rref
 
 labels_type = nb.int64[::1]
@@ -13,6 +13,8 @@ chi_parameters_type = nb.float64[:, ::1]
 chi_parameters_optimizable_type = nb.boolean[:, ::1]
 f_parameters_type = nb.float64[:, :, :, ::1]
 f_parameters_optimizable_type = nb.boolean[:, :, :, ::1]
+f_product_type = nb.float64[:, ::1]
+f_product_optimizable_type = nb.boolean[:, ::1]
 
 jastrow_template = """\
  START JASTROW
@@ -36,7 +38,7 @@ u_set_template = """\
 START SET 1
  Spherical harmonic l,m
    0 0
- Expansion order N_u
+{u_form} Expansion order N_u
    {u_order}
  Spin dep (0->uu=dd=ud; 1->uu=dd/=ud; 2->uu/=dd/=ud)
    {u_spin_dep}
@@ -64,7 +66,7 @@ START SET {n_set}
    {chi_labels}
  Impose electron-nucleus cusp (0=NO; 1=YES)
    {chi_cusp}
- Expansion order N_chi
+{chi_form} Expansion order N_chi
    {chi_order}
  Spin dep (0->u=d; 1->u/=d)
    {chi_spin_dep}
@@ -92,7 +94,7 @@ START SET {n_set}
    {no_dup_u_term}
  Prevent duplication of chi term (0=NO; 1=YES)
    {no_dup_chi_term}
- Electron-nucleus expansion order N_f_eN
+{f_form} Electron-nucleus expansion order N_f_eN
    {f_en_order}
  Electron-electron expansion order N_f_ee
    {f_ee_order}
@@ -103,6 +105,22 @@ START SET {n_set}
  Parameter values  ;  Optimizable (0=NO; 1=YES)
   {f_parameters}
  END SET {n_set}"""
+
+
+u_form_template = """\
+ Functional form (0=polynomial; 1=exponential hole -gamma*b*exp(-r/b)*w(r/L); 2=the same without cutoff)
+   {form}
+"""
+
+chi_form_template = """\
+ Functional form (0=polynomial; 1=bell A*w(r/L); 2=Gaussian A*exp(-(r/a)^2) without cutoff)
+   {form}
+"""
+
+f_form_template = """\
+ Functional form (0=polynomial; 1=product (r1-L)^C*(r2-L)^C*g(r1)*g(r2)*h(r12))
+   {form}
+"""
 
 
 class Jastrow:
@@ -151,6 +169,14 @@ class Jastrow:
         self.f_labels = nb.typed.List.empty_list(labels_type)
         self.no_dup_u_term = np.zeros(0, bool)
         self.no_dup_chi_term = np.zeros(0, bool)
+        # functional form of the u and chi terms (POLYNOMIAL, ANALYTIC or UNCUT), see casino/jastrow.py
+        self.u_form = POLYNOMIAL
+        self.chi_form = np.zeros(0, np.int64)
+        # functional form of the f term (POLYNOMIAL or PRODUCT) and the product parameters [g_0..g_N, h_0..h_M] per spin set,
+        # empty for a polynomial set
+        self.f_form = np.zeros(0, np.int64)
+        self.f_product = nb.typed.List.empty_list(f_product_type)
+        self.f_product_optimizable = nb.typed.List.empty_list(f_product_optimizable_type)
 
     def read(self, base_path):
         """Read Jastrow config from file."""
@@ -188,16 +214,23 @@ class Jastrow:
                 elif u_term:
                     if line.startswith('START SET'):
                         pass
+                    elif line.startswith('Functional form'):
+                        self.u_form = self.read_int()
                     elif line.startswith('Expansion order'):
                         u_order = self.read_int()
                     elif line.startswith('Spin dep'):
                         u_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
                         self.u_cutoff[0] = self.read_parameter()
+                        if self.u_form == UNCUT:
+                            # no cutoff: every pair is inside, nothing to optimize
+                            self.u_cutoff[0] = np.inf, False
                     elif line.startswith('Parameter'):
+                        if self.u_form != POLYNOMIAL and u_order != 0:
+                            raise ValueError('exponential u-term has one parameter per spin set: expansion order must be 0')
                         self.u_parameters = np.zeros(shape=(u_spin_dep + 1, u_order + 1), dtype=float)
                         self.u_parameters_optimizable = np.zeros(shape=(u_spin_dep + 1, u_order + 1), dtype=bool)
-                        u_parameters_independent = self.u_parameters_independent(self.u_parameters)
+                        u_parameters_independent = self.u_parameters_independent(self.u_parameters, self.u_form)
                         try:
                             for i in range(u_spin_dep + 1):
                                 for l in range(u_order + 1):
@@ -213,6 +246,7 @@ class Jastrow:
                         number_of_sets = self.read_ints()[0]
                         self.chi_cutoff = np.zeros(number_of_sets, dtype=[('value', float), ('optimizable', bool)])
                         self.chi_cusp = np.zeros(number_of_sets, dtype=bool)
+                        self.chi_form = np.zeros(number_of_sets, dtype=np.int64)
                     elif line.startswith('START SET'):
                         set_number = int(line.split()[2]) - 1
                     elif line.startswith('Label'):
@@ -221,16 +255,26 @@ class Jastrow:
                     elif line.startswith('Impose electron-nucleus cusp'):
                         chi_cusp = self.read_bool()
                         self.chi_cusp[set_number] = chi_cusp
+                    elif line.startswith('Functional form'):
+                        self.chi_form[set_number] = self.read_int()
+                        if self.chi_form[set_number] != POLYNOMIAL and self.chi_cusp[set_number]:
+                            raise ValueError('bell chi-term has zero slope at the nucleus, the e-n cusp must be imposed by the orbitals')
                     elif line.startswith('Expansion order'):
                         chi_order = self.read_int()
                     elif line.startswith('Spin dep'):
                         chi_spin_dep = self.read_int()
                     elif line.startswith('Cutoff'):
                         self.chi_cutoff[set_number] = self.read_parameter()
+                        if self.chi_form[set_number] == UNCUT:
+                            self.chi_cutoff[set_number] = np.inf, False
                     elif line.startswith('Parameter'):
+                        if self.chi_form[set_number] == ANALYTIC and chi_order != 0:
+                            raise ValueError('bell chi-term has one parameter per spin set: expansion order must be 0')
+                        if self.chi_form[set_number] == UNCUT and chi_order != 1:
+                            raise ValueError('Gaussian chi-term has two parameters A, a per spin set: expansion order must be 1')
                         chi_parameters = np.zeros(shape=(chi_spin_dep + 1, chi_order + 1), dtype=float)
                         chi_parameters_optimizable = np.zeros(shape=(chi_spin_dep + 1, chi_order + 1), dtype=bool)
-                        chi_parameters_independent = self.chi_parameters_independent(chi_parameters)
+                        chi_parameters_independent = self.chi_parameters_independent(chi_parameters, self.chi_form[set_number])
                         try:
                             for i in range(chi_spin_dep + 1):
                                 for m in range(chi_order + 1):
@@ -248,6 +292,7 @@ class Jastrow:
                         self.f_cutoff = np.zeros(number_of_sets, dtype=[('value', float), ('optimizable', bool)])
                         self.no_dup_u_term = np.zeros(shape=number_of_sets, dtype=bool)
                         self.no_dup_chi_term = np.zeros(shape=number_of_sets, dtype=bool)
+                        self.f_form = np.zeros(number_of_sets, dtype=np.int64)
                     elif line.startswith('START SET'):
                         set_number = int(line.split()[2]) - 1
                     elif line.startswith('Label'):
@@ -259,6 +304,8 @@ class Jastrow:
                     elif line.startswith('Prevent duplication of chi term'):
                         no_dup_chi_term = self.read_bool()
                         self.no_dup_chi_term[set_number] = no_dup_chi_term
+                    elif line.startswith('Functional form'):
+                        self.f_form[set_number] = self.read_int()
                     elif line.startswith('Electron-nucleus expansion order'):
                         f_en_order = self.read_int()
                     elif line.startswith('Electron-electron expansion order'):
@@ -268,10 +315,30 @@ class Jastrow:
                     elif line.startswith('Cutoff'):
                         f_cutoff, f_cutoff_optimizable = self.read_parameter()
                         self.f_cutoff[set_number]['value'] = f_cutoff
-                        self.f_cutoff[set_number]['optimizable'] = f_cutoff_optimizable
+                        # g_1 = C/L of a product depends on the cutoff, which is kept fixed
+                        self.f_cutoff[set_number]['optimizable'] = f_cutoff_optimizable and self.f_form[set_number] == POLYNOMIAL
                     elif line.startswith('Parameter'):
                         f_parameters = np.zeros(shape=(f_spin_dep + 1, f_ee_order + 1, f_en_order + 1, f_en_order + 1), dtype=float)
                         f_parameters_optimizable = np.zeros(shape=(f_spin_dep + 1, f_ee_order + 1, f_en_order + 1, f_en_order + 1), dtype=bool)
+                        if self.f_form[set_number] == PRODUCT:
+                            if f_en_order < 1 or f_ee_order < 1:
+                                raise ValueError('product f-term needs g and h of order 1 at least')
+                            f_product = np.zeros(shape=(f_spin_dep + 1, f_en_order + f_ee_order + 2), dtype=float)
+                            f_product_optimizable = self.f_product_independent(f_product, f_en_order + 1)
+                            try:
+                                for i in range(f_spin_dep + 1):
+                                    for j in range(f_product.shape[1]):
+                                        if f_product_optimizable[i, j]:
+                                            f_product[i, j], f_product_optimizable[i, j] = self.read_parameter()
+                            except ValueError:
+                                f_product_optimizable = self.f_product_independent(f_product, f_en_order + 1)
+                            self.f_parameters.append(f_parameters)
+                            self.f_parameters_optimizable.append(f_parameters_optimizable)
+                            self.f_product.append(f_product)
+                            self.f_product_optimizable.append(f_product_optimizable)
+                            continue
+                        self.f_product.append(np.zeros(shape=(f_spin_dep + 1, 0), dtype=float))
+                        self.f_product_optimizable.append(np.zeros(shape=(f_spin_dep + 1, 0), dtype=bool))
                         f_parameters_independent = self.f_parameters_independent(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
                         try:
                             for i in range(f_spin_dep + 1):
@@ -295,7 +362,7 @@ class Jastrow:
         u_term = ''
         if self.u_cutoff:
             u_parameters_list = []
-            u_parameters_independent = self.u_parameters_independent(self.u_parameters)
+            u_parameters_independent = self.u_parameters_independent(self.u_parameters, self.u_form)
             for i in range(self.u_parameters.shape[0]):
                 for l in range(self.u_parameters.shape[1]):
                     if u_parameters_independent[i, l]:
@@ -303,6 +370,7 @@ class Jastrow:
                             f'{self.u_parameters[i, l]: .16e}            {int(self.u_parameters_optimizable[i, l])}       ! alpha_{l},{i + 1}'
                         )
             u_set = u_set_template.format(
+                u_form=self.form_line(u_form_template, self.u_form),
                 u_spin_dep=self.u_parameters.shape[0] - 1,
                 u_order=self.u_parameters.shape[1] - 1,
                 u_cutoff=self.u_cutoff[0]['value'],
@@ -314,11 +382,11 @@ class Jastrow:
         n_chi_set = 0
         chi_term = ''
         chi_sets = []
-        for n_chi_set, (chi_labels, chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cusp) in enumerate(
-            zip(self.chi_labels, self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cusp)
+        for n_chi_set, (chi_labels, chi_parameters, chi_parameters_optimizable, chi_cutoff, chi_cusp, chi_form) in enumerate(
+            zip(self.chi_labels, self.chi_parameters, self.chi_parameters_optimizable, self.chi_cutoff, self.chi_cusp, self.chi_form)
         ):
             chi_parameters_list = []
-            chi_parameters_independent = self.chi_parameters_independent(chi_parameters)
+            chi_parameters_independent = self.chi_parameters_independent(chi_parameters, chi_form)
             for i in range(chi_parameters.shape[0]):
                 for m in range(chi_parameters.shape[1]):
                     if chi_parameters_independent[i, m]:
@@ -327,6 +395,7 @@ class Jastrow:
                         )
             chi_sets.append(
                 chi_set_template.format(
+                    chi_form=self.form_line(chi_form_template, chi_form),
                     n_set=n_chi_set + 1,
                     n_atoms=len(chi_labels),
                     chi_cusp=int(chi_cusp),
@@ -344,21 +413,55 @@ class Jastrow:
         n_f_set = 0
         f_term = ''
         f_sets = []
-        for n_f_set, (f_labels, f_parameters, f_parameters_optimizable, f_cutoff, no_dup_u_term, no_dup_chi_term) in enumerate(
-            zip(self.f_labels, self.f_parameters, self.f_parameters_optimizable, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term)
+        for n_f_set, (
+            f_labels,
+            f_parameters,
+            f_parameters_optimizable,
+            f_cutoff,
+            no_dup_u_term,
+            no_dup_chi_term,
+            f_form,
+            f_product,
+            f_product_optimizable,
+        ) in enumerate(
+            zip(
+                self.f_labels,
+                self.f_parameters,
+                self.f_parameters_optimizable,
+                self.f_cutoff,
+                self.no_dup_u_term,
+                self.no_dup_chi_term,
+                self.f_form,
+                self.f_product,
+                self.f_product_optimizable,
+            )
         ):
             f_parameters_list = []
-            f_parameters_independent = self.f_parameters_independent(f_parameters, f_cutoff['value'], no_dup_u_term, no_dup_chi_term)
-            for i in range(f_parameters.shape[0]):
-                for n in range(f_parameters.shape[1]):
-                    for m in range(f_parameters.shape[2]):
-                        for l in range(f_parameters.shape[3]):
-                            if f_parameters_independent[i, n, m, l]:
-                                f_parameters_list.append(
-                                    f'{f_parameters[i, n, m, l]: .16e}            {int(f_parameters_optimizable[i, n, m, l])}       ! gamma_{l},{m},{n},{i + 1},{n_f_set + 1}'
-                                )
+            if f_form == PRODUCT:
+                n_g = f_parameters.shape[2]
+                f_product_independent = self.f_product_independent(f_product, n_g)
+                for i in range(f_product.shape[0]):
+                    for j in range(f_product.shape[1]):
+                        if f_product_independent[i, j]:
+                            name = f'g_{j}'
+                            if j >= n_g:
+                                name = f'h_{j - n_g}'
+                            f_parameters_list.append(
+                                f'{f_product[i, j]: .16e}            {int(f_product_optimizable[i, j])}       ! {name},{i + 1},{n_f_set + 1}'
+                            )
+            else:
+                f_parameters_independent = self.f_parameters_independent(f_parameters, f_cutoff['value'], no_dup_u_term, no_dup_chi_term)
+                for i in range(f_parameters.shape[0]):
+                    for n in range(f_parameters.shape[1]):
+                        for m in range(f_parameters.shape[2]):
+                            for l in range(f_parameters.shape[3]):
+                                if f_parameters_independent[i, n, m, l]:
+                                    f_parameters_list.append(
+                                        f'{f_parameters[i, n, m, l]: .16e}            {int(f_parameters_optimizable[i, n, m, l])}       ! gamma_{l},{m},{n},{i + 1},{n_f_set + 1}'
+                                    )
             f_sets.append(
                 f_set_template.format(
+                    f_form=self.form_line(f_form_template, f_form),
                     n_set=n_f_set + 1,
                     n_atoms=len(f_labels),
                     f_labels=' '.join(['{}'.format(i + 1) for i in f_labels]),
@@ -383,17 +486,34 @@ class Jastrow:
         return jastrow
 
     @staticmethod
-    def u_parameters_independent(parameters):
+    def form_line(template, form):
+        """Functional form line of a set, omitted for the polynomial so the file stays readable by CASINO."""
+        if form == POLYNOMIAL:
+            return ''
+        return template.format(form=form)
+
+    @staticmethod
+    def u_parameters_independent(parameters, form):
         """Mask dependent parameters in u-term"""
         mask = np.ones(parameters.shape, bool)
-        mask[:, 1] = False
+        if form == POLYNOMIAL:
+            mask[:, 1] = False
         return mask
 
     @staticmethod
-    def chi_parameters_independent(parameters):
+    def chi_parameters_independent(parameters, form):
         """Mask dependent parameters in chi-term"""
         mask = np.ones(parameters.shape, bool)
-        mask[:, 1] = False
+        if form == POLYNOMIAL:
+            mask[:, 1] = False
+        return mask
+
+    @staticmethod
+    def f_product_independent(f_product, n_g):
+        """Mask dependent parameters of a product f-term: g_0, g_1 and h_1."""
+        mask = np.ones(f_product.shape, bool)
+        for j in range(f_product.shape[1]):
+            mask[:, j] = product_independent(n_g, j)
         return mask
 
     def f_parameters_independent(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
@@ -414,6 +534,10 @@ class Jastrow:
 
     def fix_u_parameters(self):
         """Fix u-term parameters"""
+        if self.u_form != POLYNOMIAL:
+            # the cusp is built into the exponential hole; an unset hole radius starts from 1 bohr
+            self.u_parameters[self.u_parameters == 0] = 1.0
+            return
         # impose e-e cusp condition only if it's not initial Jastrow
         if not self.u_parameters.any():
             return
@@ -425,8 +549,12 @@ class Jastrow:
     def fix_chi_parameters(self):
         """Fix chi-term parameters"""
         C = self.trunc
-        for chi_parameters, chi_cutoff, chi_cusp in zip(self.chi_parameters, self.chi_cutoff, self.chi_cusp):
-            if not chi_parameters.any():
+        for chi_parameters, chi_cutoff, chi_cusp, chi_form in zip(self.chi_parameters, self.chi_cutoff, self.chi_cusp, self.chi_form):
+            if chi_form == UNCUT:
+                # an unset Gaussian width starts from 1 bohr
+                chi_parameters[chi_parameters[:, 1] == 0, 1] = 1.0
+                continue
+            if not chi_parameters.any() or chi_form == ANALYTIC:
                 continue
             L = chi_cutoff['value']
             chi_parameters[:, 1] = chi_parameters[:, 0] * C / L
@@ -445,7 +573,12 @@ class Jastrow:
         (f_en_order + 1) constraints imposed to prevent duplication of chi-term
         b-column has the sum of independent coefficients for each condition.
         """
-        for f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term in zip(self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term):
+        for f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term, f_form, f_product in zip(
+            self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term, self.f_form, self.f_product
+        ):
+            if f_form == PRODUCT:
+                product_fix(f_product, f_parameters, self.trunc, f_cutoff['value'])
+                continue
             if not f_parameters.any():
                 continue
             L = f_cutoff['value']
