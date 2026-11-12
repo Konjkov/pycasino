@@ -78,7 +78,7 @@ class TestJastrow(unittest.TestCase):
 class TestJastrowUncut(TestJastrow):
     """Exponential u-term and Gaussian chi-term without cutoff (Functional form = 2) with the polynomial f-term."""
 
-    config_dir = '../../examples/stowfn/He/HF/QZ4P/CBCS/Jastrow_emin_uncut'
+    config_dir = 'inputs/Jastrow/He_uncut'
     # cutoff derivatives are finite differences and the projector mixes the blocks at the 1e-11 level
     tolerance = {'rel': 1e-5, 'abs': 1e-9}
 
@@ -90,7 +90,7 @@ class TestJastrowUncut(TestJastrow):
 class TestJastrowProduct(TestJastrowUncut):
     """u and chi without cutoff with the product f-term (r1-L)^C (r2-L)^C g(r1) g(r2) h(r12) (Functional form = 1)."""
 
-    config_dir = '../../examples/stowfn/He/HF/QZ4P/CBCS/Jastrow_emin_product'
+    config_dir = 'inputs/Jastrow/He_product'
 
     def test_wfn_value_parameters_d2(self):
         parameters = self.wfn.get_parameters()
@@ -105,6 +105,20 @@ class TestJastrowProduct(TestJastrowUncut):
             parameters[i] -= delta
         self.wfn.set_parameters(parameters)
         assert self.wfn.value_parameters_d2(self.r_e) == pytest.approx(numerical / delta / 2, **self.tolerance)
+
+
+class TestJastrowUncutProduct(TestJastrowProduct):
+    """u, chi and the product f exp(-(r1/a)^2) exp(-(r2/a)^2) g(r1) g(r2) h(r12) all without cutoff (f Functional form = 2)."""
+
+    config_dir = 'inputs/Jastrow/He_uncut_product'
+
+
+class TestJastrowUncutPolynomial(TestJastrowUncut):
+    """u, chi and the polynomial f exp(-(r1/a)^2) exp(-(r2/a)^2) sum gamma r1^l r2^m r12^n all without cutoff (f Functional form = 3).
+    The second parameter derivatives are used by emin newton only and are not tested here."""
+
+    # a fitted, nonzero f, so that the derivatives w.r.t the Gaussian width are tested too
+    config_dir = 'inputs/Jastrow/He_uncut_polynomial'
 
 
 if __name__ == '__main__':

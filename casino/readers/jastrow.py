@@ -5,7 +5,17 @@ import os
 import numba as nb
 import numpy as np
 
-from casino.jastrow import ANALYTIC, POLYNOMIAL, PRODUCT, UNCUT, construct_a_matrix, product_fix, product_independent
+from casino.jastrow import (
+    ANALYTIC,
+    POLYNOMIAL,
+    UNCUT,
+    UNCUT_POLYNOMIAL,
+    construct_a_matrix,
+    f_constraint_trunc_cutoff,
+    is_product,
+    product_fix,
+    product_independent,
+)
 from casino.overload import rref
 
 labels_type = nb.int64[::1]
@@ -118,7 +128,7 @@ chi_form_template = """\
 """
 
 f_form_template = """\
- Functional form (0=polynomial; 1=product (r1-L)^C*(r2-L)^C*g(r1)*g(r2)*h(r12))
+ Functional form (0=polynomial; 1=product (r1-L)^C*(r2-L)^C*g(r1)*g(r2)*h(r12); 2=product exp(-(r1/a)^2-(r2/a)^2)*g(r1)*g(r2)*h(r12); 3=polynomial exp(-(r1/a)^2-(r2/a)^2)*sum gamma*r1^l*r2^m*r12^n; 2, 3 without cutoff)
    {form}
 """
 
@@ -172,7 +182,8 @@ class Jastrow:
         # functional form of the u and chi terms (POLYNOMIAL, ANALYTIC or UNCUT), see casino/jastrow.py
         self.u_form = POLYNOMIAL
         self.chi_form = np.zeros(0, np.int64)
-        # functional form of the f term (POLYNOMIAL or PRODUCT) and the product parameters [g_0..g_N, h_0..h_M] per spin set,
+        # functional form of the f term (POLYNOMIAL, PRODUCT, UNCUT or UNCUT_POLYNOMIAL) and the product parameters
+        # [g_0..g_N, h_0..h_M] per spin set, followed by the Gaussian width a for UNCUT; only a for UNCUT_POLYNOMIAL,
         # empty for a polynomial set
         self.f_form = np.zeros(0, np.int64)
         self.f_product = nb.typed.List.empty_list(f_product_type)
@@ -317,13 +328,18 @@ class Jastrow:
                         self.f_cutoff[set_number]['value'] = f_cutoff
                         # g_1 = C/L of a product depends on the cutoff, which is kept fixed
                         self.f_cutoff[set_number]['optimizable'] = f_cutoff_optimizable and self.f_form[set_number] == POLYNOMIAL
+                        if self.f_form[set_number] in (UNCUT, UNCUT_POLYNOMIAL):
+                            self.f_cutoff[set_number] = np.inf, False
                     elif line.startswith('Parameter'):
                         f_parameters = np.zeros(shape=(f_spin_dep + 1, f_ee_order + 1, f_en_order + 1, f_en_order + 1), dtype=float)
                         f_parameters_optimizable = np.zeros(shape=(f_spin_dep + 1, f_ee_order + 1, f_en_order + 1, f_en_order + 1), dtype=bool)
-                        if self.f_form[set_number] == PRODUCT:
+                        if is_product(self.f_form[set_number]):
                             if f_en_order < 1 or f_ee_order < 1:
                                 raise ValueError('product f-term needs g and h of order 1 at least')
-                            f_product = np.zeros(shape=(f_spin_dep + 1, f_en_order + f_ee_order + 2), dtype=float)
+                            # the UNCUT product has the Gaussian width a after g and h
+                            f_product = np.zeros(
+                                shape=(f_spin_dep + 1, f_en_order + f_ee_order + 2 + int(self.f_form[set_number] == UNCUT)), dtype=float
+                            )
                             f_product_optimizable = self.f_product_independent(f_product, f_en_order + 1)
                             try:
                                 for i in range(f_spin_dep + 1):
@@ -337,9 +353,13 @@ class Jastrow:
                             self.f_product.append(f_product)
                             self.f_product_optimizable.append(f_product_optimizable)
                             continue
-                        self.f_product.append(np.zeros(shape=(f_spin_dep + 1, 0), dtype=float))
-                        self.f_product_optimizable.append(np.zeros(shape=(f_spin_dep + 1, 0), dtype=bool))
-                        f_parameters_independent = self.f_parameters_independent(f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term)
+                        # the polynomial without cutoff has its Gaussian width a per spin set after the coefficients
+                        n_width = int(self.f_form[set_number] == UNCUT_POLYNOMIAL)
+                        f_product = np.zeros(shape=(f_spin_dep + 1, n_width), dtype=float)
+                        f_product_optimizable = np.ones(shape=(f_spin_dep + 1, n_width), dtype=bool)
+                        f_parameters_independent = self.f_parameters_independent(
+                            f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term, self.f_form[set_number]
+                        )
                         try:
                             for i in range(f_spin_dep + 1):
                                 for n in range(f_ee_order + 1):
@@ -350,10 +370,16 @@ class Jastrow:
                                                 p = self.read_parameter([l, m, n, i + 1, set_number + 1])
                                                 f_parameters[i, n, m, l], f_parameters_optimizable[i, n, m, l] = p
                                                 f_parameters[i, n, l, m], f_parameters_optimizable[i, n, l, m] = p
+                            for i in range(f_product.shape[0]):
+                                for j in range(n_width):
+                                    f_product[i, j], f_product_optimizable[i, j] = self.read_parameter()
                         except ValueError:
                             f_parameters_optimizable = f_parameters_independent
+                            f_product_optimizable[:] = True
                         self.f_parameters.append(f_parameters)
                         self.f_parameters_optimizable.append(f_parameters_optimizable)
+                        self.f_product.append(f_product)
+                        self.f_product_optimizable.append(f_product_optimizable)
                     elif line.startswith('END SET'):
                         set_number = None
 
@@ -437,20 +463,23 @@ class Jastrow:
             )
         ):
             f_parameters_list = []
-            if f_form == PRODUCT:
+            if is_product(f_form):
                 n_g = f_parameters.shape[2]
+                n_h = f_parameters.shape[1]
                 f_product_independent = self.f_product_independent(f_product, n_g)
                 for i in range(f_product.shape[0]):
                     for j in range(f_product.shape[1]):
                         if f_product_independent[i, j]:
                             name = f'g_{j}'
-                            if j >= n_g:
+                            if j == n_g + n_h:
+                                name = 'a'
+                            elif j >= n_g:
                                 name = f'h_{j - n_g}'
                             f_parameters_list.append(
                                 f'{f_product[i, j]: .16e}            {int(f_product_optimizable[i, j])}       ! {name},{i + 1},{n_f_set + 1}'
                             )
             else:
-                f_parameters_independent = self.f_parameters_independent(f_parameters, f_cutoff['value'], no_dup_u_term, no_dup_chi_term)
+                f_parameters_independent = self.f_parameters_independent(f_parameters, f_cutoff['value'], no_dup_u_term, no_dup_chi_term, f_form)
                 for i in range(f_parameters.shape[0]):
                     for n in range(f_parameters.shape[1]):
                         for m in range(f_parameters.shape[2]):
@@ -459,6 +488,11 @@ class Jastrow:
                                     f_parameters_list.append(
                                         f'{f_parameters[i, n, m, l]: .16e}            {int(f_parameters_optimizable[i, n, m, l])}       ! gamma_{l},{m},{n},{i + 1},{n_f_set + 1}'
                                     )
+                for i in range(f_product.shape[0]):
+                    for j in range(f_product.shape[1]):
+                        f_parameters_list.append(
+                            f'{f_product[i, j]: .16e}            {int(f_product_optimizable[i, j])}       ! a,{i + 1},{n_f_set + 1}'
+                        )
             f_sets.append(
                 f_set_template.format(
                     f_form=self.form_line(f_form_template, f_form),
@@ -516,9 +550,10 @@ class Jastrow:
             mask[:, j] = product_independent(n_g, j)
         return mask
 
-    def f_parameters_independent(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term):
+    def f_parameters_independent(self, f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term, f_form):
         """Mask dependent parameters in f-term."""
-        a, _ = construct_a_matrix(self.trunc, f_parameters.T, f_cutoff, 0, no_dup_u_term, no_dup_chi_term)
+        C, L = f_constraint_trunc_cutoff(self.trunc, f_cutoff, f_form)
+        a, _ = construct_a_matrix(C, f_parameters, L, 0, no_dup_u_term, no_dup_chi_term)
 
         _, pivot_positions = rref(a)
 
@@ -576,17 +611,21 @@ class Jastrow:
         for f_parameters, f_cutoff, no_dup_u_term, no_dup_chi_term, f_form, f_product in zip(
             self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term, self.f_form, self.f_product
         ):
-            if f_form == PRODUCT:
+            if f_form in (UNCUT, UNCUT_POLYNOMIAL):
+                # an unset Gaussian width starts from 1 bohr
+                width = f_product[:, f_product.shape[1] - 1]
+                width[width == 0] = 1.0
+            if is_product(f_form):
                 product_fix(f_product, f_parameters, self.trunc, f_cutoff['value'])
                 continue
             if not f_parameters.any():
                 continue
-            L = f_cutoff['value']
+            C, L = f_constraint_trunc_cutoff(self.trunc, f_cutoff['value'], f_form)
             f_spin_dep = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[1] - 1
             f_en_order = f_parameters.shape[2] - 1
 
-            a, _ = construct_a_matrix(self.trunc, f_parameters, L, 0, no_dup_u_term, no_dup_chi_term)
+            a, _ = construct_a_matrix(C, f_parameters, L, 0, no_dup_u_term, no_dup_chi_term)
             a, pivot_positions = rref(a)
             # remove zero-rows
             a = a[: pivot_positions.size, :]

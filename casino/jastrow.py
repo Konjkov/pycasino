@@ -3,7 +3,7 @@ import numpy as np
 from numba.experimental import structref
 from numba.extending import overload_method
 
-from casino import delta
+from casino import delta, delta_2
 from casino.abstract import AbstractJastrow
 from casino.overload import block_diag, rref
 
@@ -173,14 +173,52 @@ def chi_value_d2(r, parameters, L, C, form):
     return res
 
 
-# functional form of the f term: rank-1 product (r1-L)^C (r2-L)^C g(r1) g(r2) h(r12) of polynomials g and h
+# functional form of the f term: rank-1 product (r1-L)^C (r2-L)^C g(r1) g(r2) h(r12) of polynomials g and h;
+# UNCUT: exp(-(r1/a)^2) exp(-(r2/a)^2) g(r1) g(r2) h(r12) without cutoff, a per spin set
 PRODUCT = 1
+# the polynomial f-term with exp(-(r1/a)^2) exp(-(r2/a)^2) in place of (r1-L)^C (r2-L)^C, a per spin set
+UNCUT_POLYNOMIAL = 3
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def is_product(form):
+    """The f-term is a product g(r1) g(r2) h(r12) with its own parameters, not a polynomial in gamma."""
+    return form == PRODUCT or form == UNCUT
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def f_envelope(r, L, C, a, form):
+    """Envelope E of the f-term in one e-n distance: (r-L)^C, or exp(-(r/a)^2) without cutoff.
+    :return: E, r E'/E, E''/E
+    """
+    if form == UNCUT or form == UNCUT_POLYNOMIAL:
+        x2 = (r / a) ** 2
+        return np.exp(-x2), -2 * x2, (4 * x2 - 2) / a**2
+    return (r - L) ** C, C * r / (r - L), C * (C - 1) / (r - L) ** 2
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def f_width(f_product, f_set, form):
+    """Gaussian width a of the f-term without cutoff, the last column of f_product; unused by the other forms."""
+    if form == UNCUT or form == UNCUT_POLYNOMIAL:
+        return f_product[f_set, f_product.shape[1] - 1]
+    return 1.0
+
+
+@nb.njit(nogil=True, parallel=False, cache=True)
+def f_constraint_trunc_cutoff(C, L, form):
+    """Truncation order and cutoff to build the no-cusp constraints of a polynomial f-term with. Divided by -L, the
+    constraints of (r-L)^C tend to those of the Gaussian envelope as L -> inf: the C terms vanish, the L terms become 1.
+    """
+    if form == UNCUT_POLYNOMIAL:
+        return 0, -1.0
+    return C, L
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 def product_independent(n_g, j):
-    """Independent parameters of a product f spin set [g_0..g_N, h_0..h_M]:
-    g_0 = 1 fixes the scale of the product, g_1 = C/L removes the e-n cusp, h_1 = 0 removes the e-e cusp.
+    """Independent parameters of a product f spin set [g_0..g_N, h_0..h_M] (and a for UNCUT):
+    g_0 = 1 fixes the scale of the product, g_1 = C/L (0 for UNCUT) removes the e-n cusp, h_1 = 0 removes the e-e cusp.
     """
     return j != 0 and j != 1 and j != n_g + 1
 
@@ -198,18 +236,21 @@ def product_tensor(h, a, b):
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 def product_fix(product, f_parameters, C, L):
-    """Set the dependent parameters of a product f and its polynomial coefficients h_n g_m g_l."""
+    """Set the dependent parameters of a product f and its polynomial coefficients h_n g_m g_l.
+    Without cutoff L = inf, so g_1 = 0.
+    """
     n_g = f_parameters.shape[2]
+    n_h = f_parameters.shape[1]
     for i in range(product.shape[0]):
         product[i, 0] = 1
         product[i, 1] = C / L
         product[i, n_g + 1] = 0
-        f_parameters[i] = product_tensor(product[i, n_g:], product[i, :n_g], product[i, :n_g]) / 2
+        f_parameters[i] = product_tensor(product[i, n_g : n_g + n_h], product[i, :n_g], product[i, :n_g]) / 2
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
 def product_tensor_d1(product, n_g, j):
-    """Derivatives of the polynomial coefficients of a product f spin set w.r.t its j-th parameter."""
+    """Derivatives of the polynomial coefficients of a product f spin set [g, h] w.r.t its j-th parameter."""
     g = product[:n_g]
     h = product[n_g:]
     e = np.zeros(product.size)
@@ -302,7 +343,11 @@ def jastrow_fix_optimizable(self):
             f_product_available = np.zeros_like(self.f_product_optimizable[i])
             for j1 in range(f_product_available.shape[0]):
                 for j2 in range(f_product_available.shape[1]):
-                    f_product_available[j1, j2] = f_parameters_available[j1].any() and product_independent(f_parameters_optimizable.shape[2], j2)
+                    if self.f_form[i] == UNCUT_POLYNOMIAL:
+                        # f_product holds only the Gaussian width
+                        f_product_available[j1, j2] = f_parameters_available[j1].any()
+                    else:
+                        f_product_available[j1, j2] = f_parameters_available[j1].any() and product_independent(f_parameters_optimizable.shape[2], j2)
             self.f_product_available.append(f_product_available)
 
     return impl
@@ -532,7 +577,7 @@ def jastrow_f_term(self, e_powers, n_powers):
     def impl(self, e_powers, n_powers) -> float:
         res = 0.0
         C = self.trunc
-        for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
+        for parameters, L, f_labels, f_form, f_product in zip(self.f_parameters, self.f_cutoff, self.f_labels, self.f_form, self.f_product):
             for label in f_labels:
                 for e1 in range(1, self.neu + self.ned):
                     for e2 in range(e1):
@@ -540,12 +585,13 @@ def jastrow_f_term(self, e_powers, n_powers):
                         r_e2I = n_powers[label, e2, 1]
                         if r_e1I < L and r_e2I < L:
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
+                            a = f_width(f_product, f_set, f_form)
                             poly = 0.0
                             for n in range(parameters.shape[1]):
                                 for m in range(parameters.shape[2]):
                                     for l in range(parameters.shape[3]):
                                         poly += parameters[f_set, n, m, l] * n_powers[label, e1, l] * n_powers[label, e2, m] * e_powers[e1, e2, n]
-                            res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
+                            res += poly * f_envelope(r_e1I, L, C, a, f_form)[0] * f_envelope(r_e2I, L, C, a, f_form)[0]
         return res
 
     return impl
@@ -565,7 +611,7 @@ def jastrow_f_term_1e(self, e_powers_1e, n_powers, e: int):
     def impl(self, e_powers_1e, n_powers, e: int) -> float:
         res = 0.0
         C = self.trunc
-        for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
+        for parameters, L, f_labels, f_form, f_product in zip(self.f_parameters, self.f_cutoff, self.f_labels, self.f_form, self.f_product):
             for label in f_labels:
                 r_e1I = n_powers[label, e, 1]
                 if r_e1I < L:
@@ -575,12 +621,13 @@ def jastrow_f_term_1e(self, e_powers_1e, n_powers, e: int):
                         r_e2I = n_powers[label, e2, 1]
                         if r_e2I < L:
                             f_set = (int(e >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
+                            a = f_width(f_product, f_set, f_form)
                             poly = 0.0
                             for n in range(parameters.shape[1]):
                                 for m in range(parameters.shape[2]):
                                     for l in range(parameters.shape[3]):
                                         poly += parameters[f_set, n, m, l] * n_powers[label, e, l] * n_powers[label, e2, m] * e_powers_1e[e2, n]
-                            res += poly * (r_e1I - L) ** C * (r_e2I - L) ** C
+                            res += poly * f_envelope(r_e1I, L, C, a, f_form)[0] * f_envelope(r_e2I, L, C, a, f_form)[0]
         return res
 
     return impl
@@ -750,7 +797,7 @@ def jastrow_f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
     def impl(self, e_powers, n_powers, e_vectors, n_vectors) -> np.ndarray:
         C = self.trunc
         res = np.zeros(shape=(self.neu + self.ned, 3))
-        for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
+        for parameters, L, f_labels, f_form, f_product in zip(self.f_parameters, self.f_cutoff, self.f_labels, self.f_form, self.f_product):
             for label in f_labels:
                 for e1 in range(1, self.neu + self.ned):
                     for e2 in range(e1):
@@ -761,8 +808,11 @@ def jastrow_f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
                             r_ee_vec = e_vectors[e1, e2] / r_ee / r_ee
                             r_e1I_vec = n_vectors[label, e1] / r_e1I / r_e1I
                             r_e2I_vec = n_vectors[label, e2] / r_e2I / r_e2I
-                            cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
+                            a = f_width(f_product, f_set, f_form)
+                            envelope_e1I, envelope_diff_e1I, _ = f_envelope(r_e1I, L, C, a, f_form)
+                            envelope_e2I, envelope_diff_e2I, _ = f_envelope(r_e2I, L, C, a, f_form)
+                            cutoff = envelope_e1I * envelope_e2I
                             poly = poly_diff_e1I = poly_diff_e2I = poly_diff_ee = 0.0
                             for n in range(parameters.shape[1]):
                                 for m in range(parameters.shape[2]):
@@ -774,8 +824,8 @@ def jastrow_f_term_gradient(self, e_powers, n_powers, e_vectors, n_vectors):
                                         poly_diff_ee += n * p
                             # workaround do not create temporary 1-d numpy array
                             for t1 in range(3):
-                                e1_gradient = r_e1I_vec[t1] * (C * r_e1I / (r_e1I - L) * poly + poly_diff_e1I)
-                                e2_gradient = r_e2I_vec[t1] * (C * r_e2I / (r_e2I - L) * poly + poly_diff_e2I)
+                                e1_gradient = r_e1I_vec[t1] * (envelope_diff_e1I * poly + poly_diff_e1I)
+                                e2_gradient = r_e2I_vec[t1] * (envelope_diff_e2I * poly + poly_diff_e2I)
                                 ee_gradient = r_ee_vec[t1] * poly_diff_ee
                                 res[e1, t1] += cutoff * (e1_gradient + ee_gradient)
                                 res[e2, t1] += cutoff * (e2_gradient - ee_gradient)
@@ -801,7 +851,7 @@ def jastrow_f_term_gradient_1e(self, e_powers_1e, n_powers, e_vectors_1e, n_vect
     def impl(self, e_powers_1e, n_powers, e_vectors_1e, n_vector_1e, e: int) -> np.ndarray:
         C = self.trunc
         res = np.zeros(shape=3)
-        for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
+        for parameters, L, f_labels, f_form, f_product in zip(self.f_parameters, self.f_cutoff, self.f_labels, self.f_form, self.f_product):
             for label in f_labels:
                 r_e1I = n_powers[label, e, 1]
                 if r_e1I < L:
@@ -813,8 +863,10 @@ def jastrow_f_term_gradient_1e(self, e_powers_1e, n_powers, e_vectors_1e, n_vect
                         if r_e2I < L:
                             r_ee = e_powers_1e[e2, 1]
                             r_ee_vec = e_vectors_1e[e2] / r_ee / r_ee
-                            cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
                             f_set = (int(e >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
+                            a = f_width(f_product, f_set, f_form)
+                            envelope_e1I, envelope_diff_e1I, _ = f_envelope(r_e1I, L, C, a, f_form)
+                            cutoff = envelope_e1I * f_envelope(r_e2I, L, C, a, f_form)[0]
                             poly = poly_diff_e1I = poly_diff_ee = 0.0
                             for n in range(parameters.shape[1]):
                                 for m in range(parameters.shape[2]):
@@ -825,7 +877,7 @@ def jastrow_f_term_gradient_1e(self, e_powers_1e, n_powers, e_vectors_1e, n_vect
                                         poly_diff_ee += n * p
                             # workaround do not create temporary 1-d numpy array
                             for t1 in range(3):
-                                e1_gradient = r_e1I_vec[t1] * (C * r_e1I / (r_e1I - L) * poly + poly_diff_e1I)
+                                e1_gradient = r_e1I_vec[t1] * (envelope_diff_e1I * poly + poly_diff_e1I)
                                 ee_gradient = r_ee_vec[t1] * poly_diff_ee
                                 res[t1] += cutoff * (e1_gradient + ee_gradient)
         return res
@@ -929,7 +981,7 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
     def impl(self, e_powers, n_powers, e_vectors, n_vectors) -> float:
         res = 0.0
         C = self.trunc
-        for parameters, L, f_labels in zip(self.f_parameters, self.f_cutoff, self.f_labels):
+        for parameters, L, f_labels, f_form, f_product in zip(self.f_parameters, self.f_cutoff, self.f_labels, self.f_form, self.f_product):
             for label in f_labels:
                 r_e1I_vec_dot_r_e2I_vec = n_vectors[label] @ n_vectors[label].T
                 for e1 in range(1, self.neu + self.ned):
@@ -942,8 +994,9 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                         if r_e1I < L and r_e2I < L:
                             r_ee = e_powers[e1, e2, 1]
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % parameters.shape[0]
-                            cutoff_diff_e1I = C * r_e1I / (r_e1I - L)
-                            cutoff_diff_e2I = C * r_e2I / (r_e2I - L)
+                            a = f_width(f_product, f_set, f_form)
+                            envelope_e1I, cutoff_diff_e1I, cutoff_diff_2_e1I = f_envelope(r_e1I, L, C, a, f_form)
+                            envelope_e2I, cutoff_diff_e2I, cutoff_diff_2_e2I = f_envelope(r_e2I, L, C, a, f_form)
                             poly = poly_diff_e1I = poly_diff_e2I = 0.0
                             poly_diff_ee = poly_diff_e1I_2 = poly_diff_e2I_2 = 0.0
                             poly_diff_ee_2 = poly_diff_e1I_ee = poly_diff_e2I_ee = 0.0
@@ -961,8 +1014,8 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                         poly_diff_e1I_ee += l * n * p
                                         poly_diff_e2I_ee += m * n * p
                             diff_2 = (
-                                C * (C - 1) / (r_e1I - L) ** 2 * poly
-                                + C * (C - 1) / (r_e2I - L) ** 2 * poly
+                                cutoff_diff_2_e1I * poly
+                                + cutoff_diff_2_e2I * poly
                                 + poly_diff_e1I_2 / r_e1I**2
                                 + poly_diff_e2I_2 / r_e2I**2
                                 + 2 * poly_diff_ee_2 / r_ee**2
@@ -977,7 +1030,7 @@ def jastrow_f_term_laplacian(self, e_powers, n_powers, e_vectors, n_vectors):
                                 (1 - r_e1I_vec_dot_r_e2I_vec[e1, e2] / r_e1I**2) * (cutoff_diff_e1I * poly_diff_ee + poly_diff_e1I_ee)
                                 + (1 - r_e1I_vec_dot_r_e2I_vec[e1, e2] / r_e2I**2) * (cutoff_diff_e2I * poly_diff_ee + poly_diff_e2I_ee)
                             ) / r_ee**2
-                            res += (r_e1I - L) ** C * (r_e2I - L) ** C * (diff_2 + 2 * dot_product)
+                            res += envelope_e1I * envelope_e2I * (diff_2 + 2 * dot_product)
         return res
 
     return impl
@@ -1162,14 +1215,15 @@ def jastrow_fix_f_parameters(self):
         for f_parameters, L, no_dup_u_term, no_dup_chi_term, f_form, f_product in zip(
             self.f_parameters, self.f_cutoff, self.no_dup_u_term, self.no_dup_chi_term, self.f_form, self.f_product
         ):
-            if f_form == PRODUCT:
+            if is_product(f_form):
                 product_fix(f_product, f_parameters, self.trunc, L)
                 continue
             f_spin_dep = f_parameters.shape[0] - 1
             f_ee_order = f_parameters.shape[1] - 1
             f_en_order = f_parameters.shape[2] - 1
 
-            a, _ = construct_a_matrix(self.trunc, f_parameters, L, 0, no_dup_u_term, no_dup_chi_term)
+            C, L = f_constraint_trunc_cutoff(self.trunc, L, f_form)
+            a, _ = construct_a_matrix(C, f_parameters, L, 0, no_dup_u_term, no_dup_chi_term)
             a, pivot_positions = rref(a)
             # remove zero-rows
             a = a[: pivot_positions.size, :]
@@ -1250,7 +1304,7 @@ def jastrow_get_parameters_mask(self):
             ):
                 if f_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(1)
-                if f_form == PRODUCT:
+                if is_product(f_form):
                     for j1 in range(f_product_available.shape[0]):
                         for j2 in range(f_product_available.shape[1]):
                             if f_product_available[j1, j2]:
@@ -1262,6 +1316,11 @@ def jastrow_get_parameters_mask(self):
                             for j4 in range(j3, f_parameters.shape[3]):
                                 if f_parameters_available[j1, j2, j3, j4]:
                                     res.append(f_parameters_optimizable[j1, j2, j3, j4])
+                if f_form == UNCUT_POLYNOMIAL and self.cutoffs_optimizable:
+                    # the Gaussian widths follow the polynomial coefficients
+                    for j1 in range(f_product_available.shape[0]):
+                        if f_product_available[j1, 0]:
+                            res.append(f_product_optimizable[j1, 0])
 
         return np.array(res)
 
@@ -1338,22 +1397,39 @@ def jastrow_get_parameters_scale(self, all_parameters):
             ):
                 if f_cutoff_optimizable and self.cutoffs_optimizable:
                     scale.append(1)
-                if f_form == PRODUCT:
+                if is_product(f_form):
                     n_g = f_parameters.shape[2]
+                    n_h = f_parameters.shape[1]
                     for j1 in range(f_product.shape[0]):
+                        # length scale of the product: the cutoff or the Gaussian width
+                        length = f_cutoff
+                        if f_form == UNCUT:
+                            length = f_product[j1, n_g + n_h]
                         for j2 in range(f_product.shape[1]):
                             if (f_product_optimizable[j1, j2] or all_parameters) and f_product_available[j1, j2]:
-                                if j2 < n_g:
-                                    scale.append(1 / f_cutoff**j2)
+                                if j2 == n_g + n_h:
+                                    # ln of the Gaussian width
+                                    scale.append(1)
+                                elif j2 < n_g:
+                                    scale.append(1 / length**j2)
                                 else:
-                                    scale.append(2 / f_cutoff ** (j2 - n_g) / ne**3)
+                                    scale.append(2 / length ** (j2 - n_g) / ne**3)
                     continue
                 for j1 in range(f_parameters.shape[0]):
+                    # length scale of the polynomial: the cutoff or the Gaussian width
+                    length = f_cutoff
+                    if f_form == UNCUT_POLYNOMIAL:
+                        length = f_product[j1, 0]
                     for j2 in range(f_parameters.shape[1]):
                         for j3 in range(f_parameters.shape[2]):
                             for j4 in range(j3, f_parameters.shape[3]):
                                 if (f_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and f_parameters_available[j1, j2, j3, j4]:
-                                    scale.append(2 / f_cutoff ** (j2 + j3 + j4) / ne**3)
+                                    scale.append(2 / length ** (j2 + j3 + j4) / ne**3)
+                if f_form == UNCUT_POLYNOMIAL and self.cutoffs_optimizable:
+                    for j1 in range(f_product.shape[0]):
+                        if (f_product_optimizable[j1, 0] or all_parameters) and f_product_available[j1, 0]:
+                            # ln of the Gaussian width
+                            scale.append(1)
 
         return np.array(scale)
 
@@ -1457,7 +1533,7 @@ def jastrow_get_parameters_constraints(self):
             self.f_form,
             self.f_product_available,
         ):
-            if f_form == PRODUCT:
+            if is_product(f_form):
                 # the cusp conditions are built into g and h
                 a_list.append(np.zeros(shape=(0, f_product_available.sum() + int(f_cutoff_optimizable and self.cutoffs_optimizable))))
                 continue
@@ -1481,14 +1557,18 @@ def jastrow_get_parameters_constraints(self):
             f_list = []
             f_constrains_size = 0
             f_cutoff_matrix = np.zeros(0)
+            C, L = f_constraint_trunc_cutoff(self.trunc, f_cutoff, f_form)
             for spin_dep in f_spin_deps:
-                f_matrix, cutoff_constraints = construct_a_matrix(self.trunc, f_parameters, f_cutoff, spin_dep, no_dup_u_term, no_dup_chi_term)
+                f_matrix, cutoff_constraints = construct_a_matrix(C, f_parameters, L, spin_dep, no_dup_u_term, no_dup_chi_term)
                 f_constrains_size, f_parameters_size = f_matrix.shape
                 f_list.append(f_matrix)
                 f_cutoff_matrix = np.concatenate((f_cutoff_matrix, cutoff_constraints))
             f_block = block_diag(f_list)
             if f_cutoff_optimizable and self.cutoffs_optimizable:
                 f_block = np.hstack((f_cutoff_matrix.reshape(-1, 1), f_block))
+            if f_form == UNCUT_POLYNOMIAL and self.cutoffs_optimizable:
+                # the Gaussian widths are free
+                f_block = np.hstack((f_block, np.zeros(shape=(f_block.shape[0], f_product_available.sum()))))
             a_list.append(f_block)
             b_list += [0] * f_constrains_size * len(f_spin_deps)
 
@@ -1584,11 +1664,16 @@ def jastrow_get_parameters(self, all_parameters):
             ):
                 if f_cutoff_optimizable and self.cutoffs_optimizable:
                     res.append(f_cutoff)
-                if f_form == PRODUCT:
+                if is_product(f_form):
+                    n_gh = f_parameters.shape[1] + f_parameters.shape[2]
                     for j1 in range(f_product.shape[0]):
                         for j2 in range(f_product.shape[1]):
                             if (f_product_optimizable[j1, j2] or all_parameters) and f_product_available[j1, j2]:
-                                res.append(f_product[j1, j2])
+                                if j2 == n_gh:
+                                    # the Gaussian width is optimized on a log scale to stay positive
+                                    res.append(np.log(f_product[j1, j2]))
+                                else:
+                                    res.append(f_product[j1, j2])
                     continue
                 for j1 in range(f_parameters.shape[0]):
                     for j2 in range(f_parameters.shape[1]):
@@ -1596,6 +1681,11 @@ def jastrow_get_parameters(self, all_parameters):
                             for j4 in range(j3, f_parameters.shape[3]):
                                 if (f_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and f_parameters_available[j1, j2, j3, j4]:
                                     res.append(f_parameters[j1, j2, j3, j4])
+                if f_form == UNCUT_POLYNOMIAL and self.cutoffs_optimizable:
+                    for j1 in range(f_product.shape[0]):
+                        if (f_product_optimizable[j1, 0] or all_parameters) and f_product_available[j1, 0]:
+                            # the Gaussian width is optimized on a log scale to stay positive
+                            res.append(np.log(f_product[j1, 0]))
 
         return np.array(res)
 
@@ -1658,12 +1748,16 @@ def jastrow_set_parameters(self, parameters, all_parameters):
                     # Sequence types is a pointer, but numeric types is not.
                     self.f_cutoff[i] = parameters[n]
                     n += 1
-                if self.f_form[i] == PRODUCT:
+                if is_product(self.f_form[i]):
                     f_product = self.f_product[i]
+                    n_gh = f_parameters.shape[1] + f_parameters.shape[2]
                     for j1 in range(f_product.shape[0]):
                         for j2 in range(f_product.shape[1]):
                             if (self.f_product_optimizable[i][j1, j2] or all_parameters) and self.f_product_available[i][j1, j2]:
-                                f_product[j1, j2] = parameters[n]
+                                if j2 == n_gh:
+                                    f_product[j1, j2] = np.exp(parameters[n])
+                                else:
+                                    f_product[j1, j2] = parameters[n]
                                 n += 1
                     # the polynomial coefficients follow the product parameters in any case
                     product_fix(f_product, f_parameters, self.trunc, self.f_cutoff[i])
@@ -1675,6 +1769,12 @@ def jastrow_set_parameters(self, parameters, all_parameters):
                                 if (f_parameters_optimizable[j1, j2, j3, j4] or all_parameters) and f_parameters_available[j1, j2, j3, j4]:
                                     f_parameters[j1, j2, j3, j4] = f_parameters[j1, j2, j4, j3] = parameters[n]
                                     n += 1
+                if self.f_form[i] == UNCUT_POLYNOMIAL and self.cutoffs_optimizable:
+                    f_product = self.f_product[i]
+                    for j1 in range(f_product.shape[0]):
+                        if (self.f_product_optimizable[i][j1, 0] or all_parameters) and self.f_product_available[i][j1, 0]:
+                            f_product[j1, 0] = np.exp(parameters[n])
+                            n += 1
             if not all_parameters:
                 self.fix_f_parameters()
 
@@ -1794,10 +1894,12 @@ def jastrow_f_term_parameters_size(self):
         for i in range(len(self.f_parameters)):
             if self.f_cutoff_optimizable[i] and self.cutoffs_optimizable:
                 size += 1
-            if self.f_form[i] == PRODUCT:
+            if is_product(self.f_form[i]):
                 size += self.f_product_available[i].sum()
             else:
                 size += self.f_parameters_available[i].sum()
+            if self.f_form[i] == UNCUT_POLYNOMIAL and self.cutoffs_optimizable:
+                size += self.f_product_available[i].sum()
         return size
 
     return impl
@@ -1859,21 +1961,36 @@ def jastrow_f_term_parameters_d1(self, e_powers, n_powers):
                 res[n] += self.f_term(e_powers, n_powers) / delta / 2
                 self.f_cutoff[i] -= delta
 
-            if self.f_form[i] == PRODUCT:
+            if is_product(self.f_form[i]):
                 saved = self.f_term_product_only()
                 f_product = self.f_product[i]
+                n_gh = f_parameters.shape[1] + f_parameters.shape[2]
                 for j1 in range(f_product.shape[0]):
                     for j2 in range(f_product.shape[1]):
                         if self.f_product_available[i][j1, j2]:
                             n += 1
-                            f_parameters[j1] = product_tensor_d1(f_product[j1], f_parameters.shape[2], j2)
-                            res[n] = self.f_term(e_powers, n_powers)
+                            if j2 == n_gh:
+                                # ln of the Gaussian width: central difference with this spin set alone
+                                f_parameters[j1] = saved[i][j1]
+                                width = f_product[j1, j2]
+                                f_product[j1, j2] = width * np.exp(delta)
+                                res[n] = self.f_term(e_powers, n_powers) / delta / 2
+                                f_product[j1, j2] = width * np.exp(-delta)
+                                res[n] -= self.f_term(e_powers, n_powers) / delta / 2
+                                f_product[j1, j2] = width
+                            else:
+                                f_parameters[j1] = product_tensor_d1(f_product[j1, :n_gh], f_parameters.shape[2], j2)
+                                res[n] = self.f_term(e_powers, n_powers)
                             f_parameters[j1] = 0
                 self.f_term_restore(saved)
                 continue
 
             n_start = n
             L = self.f_cutoff[i]
+            f_form = self.f_form[i]
+            f_product = self.f_product[i]
+            # derivatives w.r.t the ln of the Gaussian widths: d E(r1) E(r2) / d ln a = 2 (r1^2 + r2^2) / a^2 E(r1) E(r2)
+            width_d1 = np.zeros(shape=f_parameters.shape[0])
             for label in f_labels:
                 for e1 in range(1, self.neu + self.ned):
                     for e2 in range(e1):
@@ -1882,7 +1999,20 @@ def jastrow_f_term_parameters_d1(self, e_powers, n_powers):
                         r_e2I = n_powers[label, e2, 1]
                         if r_e1I < L and r_e2I < L:
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % f_parameters.shape[0]
-                            cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
+                            a = f_width(f_product, f_set, f_form)
+                            cutoff = f_envelope(r_e1I, L, C, a, f_form)[0] * f_envelope(r_e2I, L, C, a, f_form)[0]
+                            if f_form == UNCUT_POLYNOMIAL:
+                                poly = 0.0
+                                for j2 in range(f_parameters.shape[1]):
+                                    for j3 in range(f_parameters.shape[2]):
+                                        for j4 in range(f_parameters.shape[3]):
+                                            poly += (
+                                                f_parameters[f_set, j2, j3, j4]
+                                                * n_powers[label, e1, j4]
+                                                * n_powers[label, e2, j3]
+                                                * e_powers[e1, e2, j2]
+                                            )
+                                width_d1[f_set] += 2 * (r_e1I**2 + r_e2I**2) / a**2 * cutoff * poly
                             for j1 in range(f_parameters.shape[0]):
                                 for j2 in range(f_parameters.shape[1]):
                                     for j3 in range(f_parameters.shape[2]):
@@ -1894,6 +2024,12 @@ def jastrow_f_term_parameters_d1(self, e_powers, n_powers):
                                                     if j3 != j4:
                                                         en_part += n_powers[label, e1, j4] * n_powers[label, e2, j3]
                                                     res[n] += en_part * e_powers[e1, e2, j2] * cutoff
+            n = n_start + f_parameters_available.sum()
+            if f_form == UNCUT_POLYNOMIAL and self.cutoffs_optimizable:
+                for j1 in range(f_product.shape[0]):
+                    if self.f_product_available[i][j1, 0]:
+                        n += 1
+                        res[n] = width_d1[j1]
         return res
 
     return impl
@@ -2040,21 +2176,34 @@ def jastrow_f_term_gradient_parameters_d1(self, e_powers, n_powers, e_vectors, n
                 res[n] += self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
                 self.f_cutoff[i] -= delta
 
-            if self.f_form[i] == PRODUCT:
+            if is_product(self.f_form[i]):
                 saved = self.f_term_product_only()
                 f_product = self.f_product[i]
+                n_gh = f_parameters.shape[1] + f_parameters.shape[2]
                 for j1 in range(f_product.shape[0]):
                     for j2 in range(f_product.shape[1]):
                         if self.f_product_available[i][j1, j2]:
                             n += 1
-                            f_parameters[j1] = product_tensor_d1(f_product[j1], f_parameters.shape[2], j2)
-                            res[n] = self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3)
+                            if j2 == n_gh:
+                                # ln of the Gaussian width: central difference with this spin set alone
+                                f_parameters[j1] = saved[i][j1]
+                                width = f_product[j1, j2]
+                                f_product[j1, j2] = width * np.exp(delta)
+                                res[n] = self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
+                                f_product[j1, j2] = width * np.exp(-delta)
+                                res[n] -= self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
+                                f_product[j1, j2] = width
+                            else:
+                                f_parameters[j1] = product_tensor_d1(f_product[j1, :n_gh], f_parameters.shape[2], j2)
+                                res[n] = self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3)
                             f_parameters[j1] = 0
                 self.f_term_restore(saved)
                 continue
 
             n_start = n
             L = self.f_cutoff[i]
+            f_form = self.f_form[i]
+            f_product = self.f_product[i]
             for label in f_labels:
                 for e1 in range(1, self.neu + self.ned):
                     for e2 in range(e1):
@@ -2065,9 +2214,15 @@ def jastrow_f_term_gradient_parameters_d1(self, e_powers, n_powers, e_vectors, n
                         r_e1I_vec = n_vectors[label, e1] / r_e1I
                         r_e2I_vec = n_vectors[label, e2] / r_e2I
                         r_ee_vec = e_vectors[e1, e2] / r_ee
-                        cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
                         if r_e1I < L and r_e2I < L:
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % f_parameters.shape[0]
+                            a = f_width(f_product, f_set, f_form)
+                            envelope_e1I, envelope_diff_e1I, _ = f_envelope(r_e1I, L, C, a, f_form)
+                            envelope_e2I, envelope_diff_e2I, _ = f_envelope(r_e2I, L, C, a, f_form)
+                            cutoff = envelope_e1I * envelope_e2I
+                            # d ln(envelope)/dr
+                            cutoff_diff_e1I = envelope_diff_e1I / r_e1I
+                            cutoff_diff_e2I = envelope_diff_e2I / r_e2I
                             for j1 in range(f_parameters.shape[0]):
                                 for j2 in range(f_parameters.shape[1]):
                                     for j3 in range(f_parameters.shape[2]):
@@ -2079,17 +2234,33 @@ def jastrow_f_term_gradient_parameters_d1(self, e_powers, n_powers, e_vectors, n
                                                     poly_2 = cutoff * e_powers[e1, e2, j2] * n_powers[label, e1, j4] * n_powers[label, e2, j3]
                                                     # workaround to not create temporary 1-d numpy array
                                                     for t1 in range(3):
-                                                        e1_gradient = r_e1I_vec[t1] * (C / (r_e1I - L) + j3 / r_e1I)
-                                                        e2_gradient = r_e2I_vec[t1] * (C / (r_e2I - L) + j4 / r_e2I)
+                                                        e1_gradient = r_e1I_vec[t1] * (cutoff_diff_e1I + j3 / r_e1I)
+                                                        e2_gradient = r_e2I_vec[t1] * (cutoff_diff_e2I + j4 / r_e2I)
                                                         ee_gradient = r_ee_vec[t1] * j2 / r_ee
                                                         res[n, e1, t1] += (e1_gradient + ee_gradient) * poly_1
                                                         res[n, e2, t1] += (e2_gradient - ee_gradient) * poly_1
 
                                                         if j3 != j4:
-                                                            e1_gradient = r_e1I_vec[t1] * (C / (r_e1I - L) + j4 / r_e1I)
-                                                            e2_gradient = r_e2I_vec[t1] * (C / (r_e2I - L) + j3 / r_e2I)
+                                                            e1_gradient = r_e1I_vec[t1] * (cutoff_diff_e1I + j4 / r_e1I)
+                                                            e2_gradient = r_e2I_vec[t1] * (cutoff_diff_e2I + j3 / r_e2I)
                                                             res[n, e1, t1] += (e1_gradient + ee_gradient) * poly_2
                                                             res[n, e2, t1] += (e2_gradient - ee_gradient) * poly_2
+            n = n_start + f_parameters_available.sum()
+            if f_form == UNCUT_POLYNOMIAL and self.cutoffs_optimizable:
+                saved = self.f_term_product_only()
+                for j1 in range(f_product.shape[0]):
+                    if self.f_product_available[i][j1, 0]:
+                        n += 1
+                        # ln of the Gaussian width: central difference with this spin set alone
+                        f_parameters[j1] = saved[i][j1]
+                        width = f_product[j1, 0]
+                        f_product[j1, 0] = width * np.exp(delta)
+                        res[n] = self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
+                        f_product[j1, 0] = width * np.exp(-delta)
+                        res[n] -= self.f_term_gradient(e_powers, n_powers, e_vectors, n_vectors).reshape((self.neu + self.ned), 3) / delta / 2
+                        f_product[j1, 0] = width
+                        f_parameters[j1] = 0
+                self.f_term_restore(saved)
         return res.reshape(size, (self.neu + self.ned) * 3)
 
     return impl
@@ -2228,21 +2399,34 @@ def jastrow_f_term_laplacian_parameters_d1(self, e_powers, n_powers, e_vectors, 
                 res[n] += self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
                 self.f_cutoff[i] -= delta
 
-            if self.f_form[i] == PRODUCT:
+            if is_product(self.f_form[i]):
                 saved = self.f_term_product_only()
                 f_product = self.f_product[i]
+                n_gh = f_parameters.shape[1] + f_parameters.shape[2]
                 for j1 in range(f_product.shape[0]):
                     for j2 in range(f_product.shape[1]):
                         if self.f_product_available[i][j1, j2]:
                             n += 1
-                            f_parameters[j1] = product_tensor_d1(f_product[j1], f_parameters.shape[2], j2)
-                            res[n] = self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
+                            if j2 == n_gh:
+                                # ln of the Gaussian width: central difference with this spin set alone
+                                f_parameters[j1] = saved[i][j1]
+                                width = f_product[j1, j2]
+                                f_product[j1, j2] = width * np.exp(delta)
+                                res[n] = self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                                f_product[j1, j2] = width * np.exp(-delta)
+                                res[n] -= self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                                f_product[j1, j2] = width
+                            else:
+                                f_parameters[j1] = product_tensor_d1(f_product[j1, :n_gh], f_parameters.shape[2], j2)
+                                res[n] = self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors)
                             f_parameters[j1] = 0
                 self.f_term_restore(saved)
                 continue
 
             n_start = n
             L = self.f_cutoff[i]
+            f_form = self.f_form[i]
+            f_product = self.f_product[i]
             for label in f_labels:
                 r_e1I_vec_dot_r_e2I_vec = n_vectors[label] @ n_vectors[label].T
                 for e1 in range(1, self.neu + self.ned):
@@ -2254,11 +2438,14 @@ def jastrow_f_term_laplacian_parameters_d1(self, e_powers, n_powers, e_vectors, 
                         r_e1I = n_powers[label, e1, 1]
                         r_e2I = n_powers[label, e2, 1]
                         r_ee = e_powers[e1, e2, 1]
-                        cutoff = (r_e1I - L) ** C * (r_e2I - L) ** C
                         vec_1 = 1 - r_e1I_vec_dot_r_e2I_vec[e1, e2] / r_e1I**2
                         vec_2 = 1 - r_e1I_vec_dot_r_e2I_vec[e1, e2] / r_e2I**2
                         if r_e1I < L and r_e2I < L:
                             f_set = (int(e1 >= self.neu) + int(e2 >= self.neu)) % f_parameters.shape[0]
+                            a = f_width(f_product, f_set, f_form)
+                            envelope_e1I, cutoff_diff_e1I, cutoff_diff_2_e1I = f_envelope(r_e1I, L, C, a, f_form)
+                            envelope_e2I, cutoff_diff_e2I, cutoff_diff_2_e2I = f_envelope(r_e2I, L, C, a, f_form)
+                            cutoff = envelope_e1I * envelope_e2I
                             for j1 in range(f_parameters.shape[0]):
                                 for j2 in range(f_parameters.shape[1]):
                                     for j3 in range(f_parameters.shape[2]):
@@ -2267,44 +2454,46 @@ def jastrow_f_term_laplacian_parameters_d1(self, e_powers, n_powers, e_vectors, 
                                                 n += 1
                                                 if f_set == j1:
                                                     poly = cutoff * e_powers[e1, e2, j2] * n_powers[label, e1, j3] * n_powers[label, e2, j4]
-                                                    diff_1 = (
-                                                        (C * r_e1I / (r_e1I - L) + j3) / r_e1I**2
-                                                        + (C * r_e2I / (r_e2I - L) + j4) / r_e2I**2
-                                                        + 2 * j2 / r_ee**2
-                                                    )
+                                                    diff_1 = (cutoff_diff_e1I + j3) / r_e1I**2 + (cutoff_diff_e2I + j4) / r_e2I**2 + 2 * j2 / r_ee**2
                                                     diff_2 = (
-                                                        C * (C - 1) / (r_e1I - L) ** 2
-                                                        + C * (C - 1) / (r_e2I - L) ** 2
+                                                        cutoff_diff_2_e1I
+                                                        + cutoff_diff_2_e2I
                                                         + (j3 * (j3 - 1) / r_e1I**2 + j4 * (j4 - 1) / r_e2I**2 + 2 * j2 * (j2 - 1) / r_ee**2)
-                                                        + 2 * C / (r_e1I - L) * j3 / r_e1I
-                                                        + 2 * C / (r_e2I - L) * j4 / r_e2I
+                                                        + 2 * cutoff_diff_e1I * j3 / r_e1I**2
+                                                        + 2 * cutoff_diff_e2I * j4 / r_e2I**2
                                                     )
-                                                    dot_product = (
-                                                        (vec_1 * (C * r_e1I / (r_e1I - L) + j3) + vec_2 * (C * r_e2I / (r_e2I - L) + j4))
-                                                        * j2
-                                                        / r_ee**2
-                                                    )
+                                                    dot_product = (vec_1 * (cutoff_diff_e1I + j3) + vec_2 * (cutoff_diff_e2I + j4)) * j2 / r_ee**2
                                                     res[n] += (diff_2 + 2 * diff_1 + 2 * dot_product) * poly
                                                     if j3 != j4:
                                                         poly = cutoff * e_powers[e1, e2, j2] * n_powers[label, e1, j4] * n_powers[label, e2, j3]
                                                         diff_1 = (
-                                                            (C * r_e1I / (r_e1I - L) + j4) / r_e1I**2
-                                                            + (C * r_e2I / (r_e2I - L) + j3) / r_e2I**2
-                                                            + 2 * j2 / r_ee**2
+                                                            (cutoff_diff_e1I + j4) / r_e1I**2 + (cutoff_diff_e2I + j3) / r_e2I**2 + 2 * j2 / r_ee**2
                                                         )
                                                         diff_2 = (
-                                                            C * (C - 1) / (r_e1I - L) ** 2
-                                                            + C * (C - 1) / (r_e2I - L) ** 2
+                                                            cutoff_diff_2_e1I
+                                                            + cutoff_diff_2_e2I
                                                             + (j4 * (j4 - 1) / r_e1I**2 + j3 * (j3 - 1) / r_e2I**2 + 2 * j2 * (j2 - 1) / r_ee**2)
-                                                            + 2 * C / (r_e1I - L) * j4 / r_e1I
-                                                            + 2 * C / (r_e2I - L) * j3 / r_e2I
+                                                            + 2 * cutoff_diff_e1I * j4 / r_e1I**2
+                                                            + 2 * cutoff_diff_e2I * j3 / r_e2I**2
                                                         )
-                                                        dot_product = (
-                                                            (vec_1 * (C * r_e1I / (r_e1I - L) + j4) + vec_2 * (C * r_e2I / (r_e2I - L) + j3))
-                                                            * j2
-                                                            / r_ee**2
-                                                        )
+                                                        dot_product = (vec_1 * (cutoff_diff_e1I + j4) + vec_2 * (cutoff_diff_e2I + j3)) * j2 / r_ee**2
                                                         res[n] += (diff_2 + 2 * diff_1 + 2 * dot_product) * poly
+            n = n_start + f_parameters_available.sum()
+            if f_form == UNCUT_POLYNOMIAL and self.cutoffs_optimizable:
+                saved = self.f_term_product_only()
+                for j1 in range(f_product.shape[0]):
+                    if self.f_product_available[i][j1, 0]:
+                        n += 1
+                        # ln of the Gaussian width: central difference with this spin set alone
+                        f_parameters[j1] = saved[i][j1]
+                        width = f_product[j1, 0]
+                        f_product[j1, 0] = width * np.exp(delta)
+                        res[n] = self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                        f_product[j1, 0] = width * np.exp(-delta)
+                        res[n] -= self.f_term_laplacian(e_powers, n_powers, e_vectors, n_vectors) / delta / 2
+                        f_product[j1, 0] = width
+                        f_parameters[j1] = 0
+                self.f_term_restore(saved)
         return res
 
     return impl
@@ -2496,11 +2685,12 @@ def jastrow_f_term_parameters_d2(self, e_powers, n_powers):
                 self.f_cutoff[i] -= delta
                 res[:, n] = res[n, :]
                 n += 1
-            if self.f_form[i] == PRODUCT:
+            if is_product(self.f_form[i]):
                 # the product is nonlinear in g and h, different spin sets do not mix
                 saved = self.f_term_product_only()
                 f_product = self.f_product[i]
                 f_product_available = self.f_product_available[i]
+                n_gh = f_parameters.shape[1] + f_parameters.shape[2]
                 for j1 in range(f_product.shape[0]):
                     m1 = n
                     for j2 in range(f_product.shape[1]):
@@ -2508,8 +2698,28 @@ def jastrow_f_term_parameters_d2(self, e_powers, n_powers):
                             m2 = n
                             for j3 in range(j2 + 1):
                                 if f_product_available[j1, j3]:
-                                    f_parameters[j1] = product_tensor_d2(f_product[j1], f_parameters.shape[2], j2, j3)
-                                    res[m1, m2] = res[m2, m1] = self.f_term(e_powers, n_powers)
+                                    if j2 == n_gh:
+                                        # the ln of the Gaussian width is the last parameter: central differences
+                                        width = f_product[j1, j2]
+                                        if j3 == n_gh:
+                                            f_parameters[j1] = saved[i][j1]
+                                            value = -2 * self.f_term(e_powers, n_powers)
+                                            f_product[j1, j2] = width * np.exp(delta_2)
+                                            value += self.f_term(e_powers, n_powers)
+                                            f_product[j1, j2] = width * np.exp(-delta_2)
+                                            value += self.f_term(e_powers, n_powers)
+                                            value /= delta_2**2
+                                        else:
+                                            f_parameters[j1] = product_tensor_d1(f_product[j1, :n_gh], f_parameters.shape[2], j3)
+                                            f_product[j1, j2] = width * np.exp(delta)
+                                            value = self.f_term(e_powers, n_powers) / delta / 2
+                                            f_product[j1, j2] = width * np.exp(-delta)
+                                            value -= self.f_term(e_powers, n_powers) / delta / 2
+                                        f_product[j1, j2] = width
+                                    else:
+                                        f_parameters[j1] = product_tensor_d2(f_product[j1, :n_gh], f_parameters.shape[2], j2, j3)
+                                        value = self.f_term(e_powers, n_powers)
+                                    res[m1, m2] = res[m2, m1] = value
                                     m2 += 1
                             m1 += 1
                     f_parameters[j1] = 0
@@ -2517,6 +2727,20 @@ def jastrow_f_term_parameters_d2(self, e_powers, n_powers):
                 self.f_term_restore(saved)
                 continue
             n += f_parameters_available.sum()
+            if self.f_form[i] == UNCUT_POLYNOMIAL and self.cutoffs_optimizable:
+                # linear in gamma: the only second derivatives are those with the ln of a Gaussian width,
+                # the central difference of the first derivatives
+                f_product = self.f_product[i]
+                for j1 in range(f_product.shape[0]):
+                    if self.f_product_available[i][j1, 0]:
+                        width = f_product[j1, 0]
+                        f_product[j1, 0] = width * np.exp(delta_2)
+                        res[n] = self.f_term_parameters_d1(e_powers, n_powers) / delta_2 / 2
+                        f_product[j1, 0] = width * np.exp(-delta_2)
+                        res[n] -= self.f_term_parameters_d1(e_powers, n_powers) / delta_2 / 2
+                        f_product[j1, 0] = width
+                        res[:, n] = res[n, :]
+                        n += 1
 
         return res
 
