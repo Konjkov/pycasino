@@ -1,0 +1,563 @@
+
+ ------------------------------------------------------------------------------
+ ########::'##:::'##::'######:::::'###:::::'######::'####:'##::: ##::'#######::
+ ##.... ##:. ##:'##::'##... ##:::'## ##:::'##... ##:. ##:: ###:: ##:'##.... ##:
+ ##:::: ##::. ####::: ##:::..:::'##:. ##:: ##:::..::: ##:: ####: ##: ##:::: ##:
+ ########::::. ##:::: ##:::::::'##:::. ##:. ######::: ##:: ## ## ##: ##:::: ##:
+ ##.....:::::: ##:::: ##::::::: #########::..... ##:: ##:: ##. ####: ##:::: ##:
+ ##::::::::::: ##:::: ##::: ##: ##.... ##:'##::: ##:: ##:: ##:. ###: ##:::: ##:
+ ##::::::::::: ##::::. ######:: ##:::: ##:. ######::'####: ##::. ##:. #######::
+ .::::::::::::..::::::......:::..:::::..:::......:::....::..::::..:::.......:::
+
+                     Python Quantum Monte Carlo Package
+                        v 0.4.0 [Vladimir Konkov]
+
+    Main Author : Vladimir Konkov
+ ------------------------------------------------------------------------------
+ Started 2026/09/10 11:06:35
+
+ Python 3.12.3 (main, Jul 15 2026, 23:46:41) [GCC 13.3.0]
+ Numba 0.63.1
+ Numpy 2.2.6
+ Scipy 1.13.1
+
+ Running in parallel using 4 MPI processes.
+
+ Warning: keywords not read by pycasino: newrun periodic writeout_vmc_hist
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  2
+ NED (num down spin electrons)            :  2
+ RUNTYPE (type of run)                    :  vmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  F
+ BACKFLOW (use backflow corrections)      :  T
+ USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  T
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ RELATIVISTIC                             :  F
+
+ VMC input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  0.02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  500000
+ VMC_NCONFIG_WRITE (num configs to write) :  0
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  10
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ Gaussian cusp correction
+ ========================
+ Activated.
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Median sigma = 1/|grad ln psi| : 1.93273e-01 bohr
+
+ ==============================
+ PERFORMING A |PSI| CALCULATION.
+ ==============================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 5.00000e-01   DTVMC: 1.54028e-02
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 7.00000e-01   DTVMC: 1.51675e-02
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 1.00000e+00   DTVMC: 1.12811e-02
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 1.40000e+00   DTVMC: 9.65500e-03
+
+ =========================================================================
+ WEIGHTED NODAL DOMAIN AVERAGES
+
+  Number of |psi| steps                   = 500000
+
+  zeta                          (au^-1) =           0.500000000000
+  Effective sample size                   = 500000
+  Potential component                (au) =         -14.776470803647
+  Standard error                        +/-           0.016728079074
+  e-e interaction                    (au) =           3.274424495380
+  e-n interaction                    (au) =         -20.058166056030
+  Sum of e-n distances             (bohr) =           7.353592303222
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    1.933e-03          0       0.000000 +/- 0.000000     -14.776471
+    2.650e-03          1       0.201010 +/- 0.201010     -14.575461
+    3.634e-03          5       0.431435 +/- 0.241394     -14.345036
+    4.983e-03          7       0.532267 +/- 0.229736     -14.244204
+    6.833e-03         18       0.608726 +/- 0.184594     -14.167744
+    9.370e-03         37       0.711372 +/- 0.146754     -14.065099
+    1.285e-02         56       0.714056 +/- 0.112445     -14.062415
+    1.762e-02        111       0.699427 +/- 0.082262     -14.077044
+    2.416e-02        209       0.706152 +/- 0.060088     -14.070318
+
+  zeta                          (au^-1) =           0.700000000000
+  Effective sample size                   = 500000
+  Potential component                (au) =         -15.130596490519
+  Standard error                        +/-           0.015019541084
+  e-e interaction                    (au) =           3.588504242634
+  e-n interaction                    (au) =         -21.501940282610
+  Sum of e-n distances             (bohr) =           6.623326846049
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    1.933e-03          3       2.000141 +/- 1.326958     -13.130455
+    2.650e-03          6       1.773622 +/- 0.915567     -13.356974
+    3.634e-03          6       1.425874 +/- 0.621353     -13.704722
+    4.983e-03         14       1.178194 +/- 0.408584     -13.952402
+    6.833e-03         28       1.211751 +/- 0.282069     -13.918845
+    9.370e-03         60       1.294096 +/- 0.207117     -13.836501
+    1.285e-02         99       1.267479 +/- 0.152421     -13.863118
+    1.762e-02        157       1.157767 +/- 0.108929     -13.972829
+    2.416e-02        299       1.060783 +/- 0.076174     -14.069814
+
+  zeta                          (au^-1) =           1.000000000000
+  Effective sample size                   = 500000
+  Potential component                (au) =         -15.705083799693
+  Standard error                        +/-           0.014159604880
+  e-e interaction                    (au) =           4.073703170184
+  e-n interaction                    (au) =         -23.705049293169
+  Sum of e-n distances             (bohr) =           5.746696565199
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    1.933e-03          2       0.655101 +/- 0.643879     -15.049983
+    2.650e-03          3       0.808262 +/- 0.543374     -14.896822
+    3.634e-03          5       0.702004 +/- 0.408789     -15.003080
+    4.983e-03         18       0.973493 +/- 0.312227     -14.731591
+    6.833e-03         37       1.322204 +/- 0.263564     -14.382880
+    9.370e-03         69       1.510117 +/- 0.214463     -14.194967
+    1.285e-02        121       1.478691 +/- 0.162625     -14.226392
+    1.762e-02        231       1.474004 +/- 0.119263     -14.231080
+    2.416e-02        447       1.491128 +/- 0.087167     -14.213956
+
+  zeta                          (au^-1) =           1.400000000000
+  Effective sample size                   = 500000
+  Potential component                (au) =         -16.526889400603
+  Standard error                        +/-           0.013386764212
+  e-e interaction                    (au) =           4.695451020490
+  e-n interaction                    (au) =         -26.618985263219
+  Sum of e-n distances             (bohr) =           4.927116881933
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    1.933e-03          2       0.388166 +/- 0.281131     -16.138724
+    2.650e-03          2       0.613092 +/- 0.434162     -15.913798
+    3.634e-03          8       0.913114 +/- 0.397177     -15.613776
+    4.983e-03         16       1.186458 +/- 0.345655     -15.340431
+    6.833e-03         42       1.443425 +/- 0.279464     -15.083464
+    9.370e-03         89       1.722168 +/- 0.227164     -14.804722
+    1.285e-02        164       1.895145 +/- 0.178200     -14.631744
+    1.762e-02        363       2.092574 +/- 0.136747     -14.434315
+    2.416e-02        665       2.235419 +/- 0.104350     -14.291471
+
+ Time taken in nodal domain averages : : :    111.6946
+
+ Warning: keywords not read by pycasino: newrun periodic writeout_vmc_hist
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  2
+ NED (num down spin electrons)            :  2
+ RUNTYPE (type of run)                    :  vmc_opt
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  F
+ BACKFLOW (use backflow corrections)      :  T
+ USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  T
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ RELATIVISTIC                             :  F
+
+ VMC/optimization input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  0.02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  500000
+ VMC_NCONFIG_WRITE (num configs to write) :  10000
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  10
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ OPT_CYCLES (num optimization cycles)     :  2
+ POSTFIT_VMC (perform post-fit VMC calc)  :  T
+ POSTFIT_KEEP_CFG (keep post-fit VMC cfgs):  F
+ OPT_NOCTF_CYCLES (fixed cutoff cycles)   :  0
+ OPT_INFO (information level)             :  2
+ OPT_JASTROW (opt Jastrow factor)         :  F
+ OPT_DET_COEFF (opt det coeffs)           :  F
+ OPT_ORBITALS (opt orbitals)              :  F
+ OPT_BACKFLOW (opt backflow params)       :  T
+ OPT_FIXNL (fix nonlocal energy)          :  T
+ OPT_MAXITER (max num iterations)         :  10
+ OPT_MAXEVAL (max num evaluations)        :  200
+ VM_SMOOTH_LIMITS (smooth limiting)       :  F
+ VM_REWEIGHT (reweighting)                :  F
+ VM_FILTER (filter outlying configs)      :  F
+ VM_USE_E_GUESS (use guess energy)        :  F
+ EMIN_XI_VALUE (xi parameter)             :  1.0
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ Gaussian cusp correction
+ ========================
+ Activated.
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Median sigma = 1/|grad ln psi| : 1.91487e-01 bohr
+
+ ==============================
+ PERFORMING A |PSI| CALCULATION.
+ ==============================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 5.00000e-01   DTVMC: 1.52305e-02
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 7.00000e-01   DTVMC: 1.47971e-02
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 1.00000e+00   DTVMC: 1.15313e-02
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 1.40000e+00   DTVMC: 9.80249e-03
+
+ =========================================================================
+ WEIGHTED NODAL DOMAIN AVERAGES
+
+  Number of |psi| steps                   = 500000
+
+  zeta                          (au^-1) =           0.500000000000
+  Effective sample size                   = 500000
+  Potential component                (au) =         -15.107094531657
+  Standard error                        +/-           0.015449808550
+  e-e interaction                    (au) =           3.345765175845
+  e-n interaction                    (au) =         -20.517553951431
+  Sum of e-n distances             (bohr) =           7.231600484825
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    1.915e-03          2       1.525815 +/- 1.505603     -13.581279
+    2.626e-03          2       1.062993 +/- 0.854904     -14.044101
+    3.601e-03          7       0.998657 +/- 0.527624     -14.108438
+    4.937e-03         10       0.926286 +/- 0.355984     -14.180808
+    6.770e-03         20       0.919615 +/- 0.248883     -14.187480
+    9.283e-03         34       0.878342 +/- 0.178314     -14.228752
+    1.273e-02         69       0.834369 +/- 0.126217     -14.272726
+    1.746e-02        138       0.868649 +/- 0.091985     -14.238445
+    2.394e-02        260       0.897882 +/- 0.067914     -14.209213
+
+  zeta                          (au^-1) =           0.700000000000
+  Effective sample size                   = 500000
+  Potential component                (au) =         -15.469203033679
+  Standard error                        +/-           0.014479110916
+  e-e interaction                    (au) =           3.673237914036
+  e-n interaction                    (au) =         -22.015079936625
+  Sum of e-n distances             (bohr) =           6.492372873224
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    1.915e-03          1       1.427624 +/- 1.427624     -14.041579
+    2.626e-03          4       1.186548 +/- 0.823376     -14.282655
+    3.601e-03         11       1.431991 +/- 0.560416     -14.037212
+    4.937e-03         18       1.491449 +/- 0.422766     -13.977754
+    6.770e-03         25       1.351960 +/- 0.306638     -14.117243
+    9.283e-03         43       1.134590 +/- 0.210403     -14.334613
+    1.273e-02         85       1.057072 +/- 0.144769     -14.412131
+    1.746e-02        180       1.125751 +/- 0.104156     -14.343452
+    2.394e-02        334       1.163977 +/- 0.077206     -14.305226
+
+  zeta                          (au^-1) =           1.000000000000
+  Effective sample size                   = 500000
+  Potential component                (au) =         -16.011133353277
+  Standard error                        +/-           0.014442776039
+  e-e interaction                    (au) =           4.164826024045
+  e-n interaction                    (au) =         -24.234612503096
+  Sum of e-n distances             (bohr) =           5.611869472731
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    1.915e-03          3       1.482404 +/- 0.940869     -14.528729
+    2.626e-03          4       1.391460 +/- 0.763311     -14.619674
+    3.601e-03          8       1.236596 +/- 0.550526     -14.774537
+    4.937e-03         18       1.334961 +/- 0.398757     -14.676172
+    6.770e-03         39       1.477181 +/- 0.300294     -14.533953
+    9.283e-03         71       1.594600 +/- 0.229094     -14.416533
+    1.273e-02        128       1.585972 +/- 0.170669     -14.425162
+    1.746e-02        236       1.569664 +/- 0.124452     -14.441470
+    2.394e-02        439       1.554702 +/- 0.090472     -14.456431
+
+  zeta                          (au^-1) =           1.400000000000
+  Effective sample size                   = 500000
+  Potential component                (au) =         -16.696599768409
+  Standard error                        +/-           0.013607276274
+  e-e interaction                    (au) =           4.788404844257
+  e-n interaction                    (au) =         -27.023084019486
+  Sum of e-n distances             (bohr) =           4.809327792043
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    1.915e-03          4       2.399991 +/- 1.614106     -14.296609
+    2.626e-03          9       2.286177 +/- 1.058526     -14.410422
+    3.601e-03         16       2.425659 +/- 0.749537     -14.270940
+    4.937e-03         24       2.358442 +/- 0.546719     -14.338158
+    6.770e-03         59       2.364746 +/- 0.392856     -14.331853
+    9.283e-03        117       2.465828 +/- 0.288756     -14.230771
+    1.273e-02        210       2.633693 +/- 0.216666     -14.062907
+    1.746e-02        367       2.555972 +/- 0.159246     -14.140628
+    2.394e-02        715       2.482749 +/- 0.114906     -14.213851
+
+ Time taken in nodal domain averages : : :    110.9186
+
+ Warning: keywords not read by pycasino: newrun periodic writeout_vmc_hist
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  2
+ NED (num down spin electrons)            :  2
+ RUNTYPE (type of run)                    :  vmc_opt
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  gaussian
+ INTERACTION (interaction type)           :  coulomb
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  F
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  F
+ BACKFLOW (use backflow corrections)      :  T
+ USE_ORBMODS (use orbitals modifications) :  F
+ CUSP_CORRECTION                          :  T
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ GAUTOL  (Gaussian evaluation tolerance)  :  7.0
+ SPARSE                                   :  F
+ DIPOLE_MOMENT                            :  F
+ RELATIVISTIC                             :  F
+
+ VMC/optimization input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  3
+ DTVMC (VMC time step)                    :  0.02
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  500000
+ VMC_NCONFIG_WRITE (num configs to write) :  10000
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  10
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ OPT_CYCLES (num optimization cycles)     :  4
+ POSTFIT_VMC (perform post-fit VMC calc)  :  T
+ POSTFIT_KEEP_CFG (keep post-fit VMC cfgs):  F
+ OPT_NOCTF_CYCLES (fixed cutoff cycles)   :  0
+ OPT_INFO (information level)             :  2
+ OPT_JASTROW (opt Jastrow factor)         :  F
+ OPT_DET_COEFF (opt det coeffs)           :  F
+ OPT_ORBITALS (opt orbitals)              :  F
+ OPT_BACKFLOW (opt backflow params)       :  T
+ OPT_FIXNL (fix nonlocal energy)          :  F
+ OPT_MAXITER (max num iterations)         :  10
+ OPT_MAXEVAL (max num evaluations)        :  200
+ VM_SMOOTH_LIMITS (smooth limiting)       :  F
+ VM_REWEIGHT (reweighting)                :  F
+ VM_FILTER (filter outlying configs)      :  F
+ VM_USE_E_GUESS (use guess energy)        :  F
+ EMIN_XI_VALUE (xi parameter)             :  1.0
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ Gaussian cusp correction
+ ========================
+ Activated.
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ Median sigma = 1/|grad ln psi| : 1.91837e-01 bohr
+
+ ==============================
+ PERFORMING A |PSI| CALCULATION.
+ ==============================
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 5.00000e-01   DTVMC: 1.77376e-02
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 7.00000e-01   DTVMC: 1.45048e-02
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 1.00000e+00   DTVMC: 1.18810e-02
+
+ Running VMC equilibration (5000 moves).
+ Performing time-step optimization.
+ zeta of the walk: 1.40000e+00   DTVMC: 9.38868e-03
+
+ =========================================================================
+ WEIGHTED NODAL DOMAIN AVERAGES
+
+  Number of |psi| steps                   = 500000
+
+  zeta                          (au^-1) =           0.500000000000
+  Effective sample size                   = 500000
+  Potential component                (au) =         -15.122480166125
+  Standard error                        +/-           0.014144512566
+  e-e interaction                    (au) =           3.363400778356
+  e-n interaction                    (au) =         -20.555292507979
+  Sum of e-n distances             (bohr) =           7.202150461706
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    1.918e-03          7       3.674794 +/- 1.846879     -11.447686
+    2.631e-03          9       3.154953 +/- 1.254297     -11.967527
+    3.607e-03         12       2.451306 +/- 0.828542     -12.671174
+    4.946e-03         16       1.935612 +/- 0.540624     -13.186869
+    6.782e-03         25       1.433941 +/- 0.345202     -13.688539
+    9.300e-03         41       1.156360 +/- 0.221512     -13.966120
+    1.275e-02         81       1.024495 +/- 0.146522     -14.097985
+    1.749e-02        143       0.986640 +/- 0.101473     -14.135840
+    2.398e-02        253       0.940880 +/- 0.071680     -14.181600
+
+  zeta                          (au^-1) =           0.700000000000
+  Effective sample size                   = 500000
+  Potential component                (au) =         -15.426025851537
+  Standard error                        +/-           0.014072323630
+  e-e interaction                    (au) =           3.687774655085
+  e-n interaction                    (au) =         -21.980364250450
+  Sum of e-n distances             (bohr) =           6.446513444595
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    1.918e-03          0       0.000000 +/- 0.000000     -15.426026
+    2.631e-03          1       0.000590 +/- 0.000590     -15.425435
+    3.607e-03          5       0.354644 +/- 0.181497     -15.071381
+    4.946e-03         12       0.727909 +/- 0.234704     -14.698117
+    6.782e-03         22       0.842560 +/- 0.214185     -14.583466
+    9.300e-03         47       0.912932 +/- 0.169949     -14.513094
+    1.275e-02         86       1.021336 +/- 0.131932     -14.404690
+    1.749e-02        178       1.100592 +/- 0.100742     -14.325434
+    2.398e-02        330       1.144247 +/- 0.075867     -14.281779
+
+  zeta                          (au^-1) =           1.000000000000
+  Effective sample size                   = 500000
+  Potential component                (au) =         -15.926167424548
+  Standard error                        +/-           0.013905102363
+  e-e interaction                    (au) =           4.150025223022
+  e-n interaction                    (au) =         -24.101590196760
+  Sum of e-n distances             (bohr) =           5.644765764092
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    1.918e-03          6       3.066294 +/- 1.558031     -12.859874
+    2.631e-03          7       2.782948 +/- 1.135090     -13.143219
+    3.607e-03         15       2.431017 +/- 0.780698     -13.495150
+    4.946e-03         18       2.036188 +/- 0.536617     -13.889979
+    6.782e-03         39       1.747567 +/- 0.358125     -14.178601
+    9.300e-03         82       1.762643 +/- 0.250311     -14.163525
+    1.275e-02        146       1.805324 +/- 0.182467     -14.120844
+    1.749e-02        262       1.764902 +/- 0.132328     -14.161265
+    2.398e-02        491       1.738214 +/- 0.095794     -14.187953
+
+  zeta                          (au^-1) =           1.400000000000
+  Effective sample size                   = 500000
+  Potential component                (au) =         -16.691446842297
+  Standard error                        +/-           0.013270660916
+  e-e interaction                    (au) =           4.783304364194
+  e-n interaction                    (au) =         -27.007309548446
+  Sum of e-n distances             (bohr) =           4.812289300942
+
+  epsilon (bohr)  inside      E_kin^nda (au)            E^nda (au)
+
+    1.918e-03          2       1.052512 +/- 1.025523     -15.638935
+    2.631e-03          6       1.265015 +/- 0.718491     -15.426432
+    3.607e-03         11       1.577663 +/- 0.563432     -15.113784
+    4.946e-03         28       2.091551 +/- 0.462420     -14.599896
+    6.782e-03         52       2.159076 +/- 0.363325     -14.532371
+    9.300e-03        111       2.399094 +/- 0.277726     -14.292353
+    1.275e-02        196       2.450885 +/- 0.209434     -14.240562
+    1.749e-02        385       2.454475 +/- 0.154214     -14.236972
+    2.398e-02        683       2.417951 +/- 0.112664     -14.273496
+
+ Time taken in nodal domain averages : : :    111.7739
+
+ =========================================================================
+ NODAL SURFACE DESCRIPTOR, zeta = 0.5000
+
+ run                                                 widest tube          1.9x narrower
+
+ gwfn/Be/HF/cc-pVQZ/CBCS/Backflow             0.706152 +/- 0.060088     0.714056 +/- 0.112445
+ gwfn/Be/HF/cc-pVQZ/CBCS/Backflow_varmin      0.897882 +/- 0.067914     0.834369 +/- 0.126217
+ gwfn/Be/HF/cc-pVQZ/CBCS/Backflow_emin        0.940880 +/- 0.071680     1.024495 +/- 0.146522
+
+ =========================================================================
+ NODAL SURFACE DESCRIPTOR, zeta = 0.7000
+
+ run                                                 widest tube          1.9x narrower
+
+ gwfn/Be/HF/cc-pVQZ/CBCS/Backflow             1.060783 +/- 0.076174     1.267479 +/- 0.152421
+ gwfn/Be/HF/cc-pVQZ/CBCS/Backflow_varmin      1.163977 +/- 0.077206     1.057072 +/- 0.144769
+ gwfn/Be/HF/cc-pVQZ/CBCS/Backflow_emin        1.144247 +/- 0.075867     1.021336 +/- 0.131932
+
+ =========================================================================
+ NODAL SURFACE DESCRIPTOR, zeta = 1.0000
+
+ run                                                 widest tube          1.9x narrower
+
+ gwfn/Be/HF/cc-pVQZ/CBCS/Backflow             1.491128 +/- 0.087167     1.478691 +/- 0.162625
+ gwfn/Be/HF/cc-pVQZ/CBCS/Backflow_varmin      1.554702 +/- 0.090472     1.585972 +/- 0.170669
+ gwfn/Be/HF/cc-pVQZ/CBCS/Backflow_emin        1.738214 +/- 0.095794     1.805324 +/- 0.182467
+
+ =========================================================================
+ NODAL SURFACE DESCRIPTOR, zeta = 1.4000
+
+ run                                                 widest tube          1.9x narrower
+
+ gwfn/Be/HF/cc-pVQZ/CBCS/Backflow             2.235419 +/- 0.104350     1.895145 +/- 0.178200
+ gwfn/Be/HF/cc-pVQZ/CBCS/Backflow_varmin      2.482749 +/- 0.114906     2.633693 +/- 0.216666
+ gwfn/Be/HF/cc-pVQZ/CBCS/Backflow_emin        2.417951 +/- 0.112664     2.450885 +/- 0.209434
+

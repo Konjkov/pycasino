@@ -1,0 +1,464 @@
+CASINO v2.13.1025 [Mike Towler] (24 February 2023)
+Running on vladimir-Kubuntu [linuxpc-gcc-parallel.openblas]
+Binary compiled in opt mode
+Job started: Вт 05 сен 2023 19:01:14 +07
+ ------------------------------------------------------------------------------
+
+                   #####
+                  ##   ##    ##     ####   ##  #   ##   ####
+                  ##        ####   ##      ##  ##  ##  ##  ##
+                  ##       ##  ##   ####   ##  ### ##  ##  ##
+                  ##       ######      ##  ##  ## ###  ##  ##
+                  ##   ##  ##  ##  ##  ##  ##  ##  ##  ##  ##
+                   #####   ##  ##   ####   ##  ##   #   ####
+
+                              Quantum Monte Carlo
+               CASINO v2.13.1025 [Mike Towler] (24 February 2023)
+
+    Main Authors : R.J. Needs, M.D. Towler, N.D. Drummond, and P. Lopez Rios
+
+       Required citation in publications arising from the use of CASINO:
+     R.J. Needs, M.D. Towler, N.D. Drummond, P. Lopez Rios, and J.R. Trail,
+                       J. Chem. Phys. 152, 154106 (2020).
+                       https://doi.org/10.1063/1.5144288
+
+                 CASINO web page: https://vallico.net/casinoqmc
+
+                      Current contact: mdt26 at cantab.net
+
+ ------------------------------------------------------------------------------
+ Started 2023/09/05 19:01:15.129
+
+ Running in parallel using 4 MPI processes.
+
+ General input parameters
+ ========================
+ NEU (num up spin electrons)              :  32
+ NED (num down spin electrons)            :  32
+ RUNTYPE (type of run)                    :  vmc
+ PSI_S  (form for [anti]symmetrizing wfn) :  slater
+ ATOM_BASIS_TYPE (atom-centred orb basis) :  plane-wave
+ INTERACTION (interaction type)           :  ewald
+ TESTRUN (read input data,print and stop) :  F
+ PERIODIC                                 :  T
+ NPCELLS (num primitive cells)            :  8
+ COMPLEX_WF (complex Slater wave fn.)     :  F
+ NEIGHPRINT (neighbour analysis)          :  0
+ USE_JASTROW (use Jastrow factor)         :  F
+ BACKFLOW (use backflow corrections)      :  F
+ DBARRC (DBAR recalculation period)       :  100000
+ USE_DETLA (DLA approx. to NL PP)         :  F
+ NON_LOCAL_GRID (NL integration grid)     :  4
+ E_OFFSET (energy offset)                 :  0.0000
+ ESUPERCELL                               :  F
+ SPARSE                                   :  F
+ CHECKPOINT (checkpointing level)         :  1
+ CHECKPOINT_NCPU (chkpnt group size)      :  4
+ CON_LOC (Dir to read/write config.*)     :  ./
+ RELATIVISTIC                             :  F
+
+ VMC input parameters
+ ====================
+ NEWRUN (start new run)                   :  T
+ VMC_METHOD (choice of VMC algorithm)     :  1
+ DTVMC (VMC time step)                    :  1.0000E-01
+ OPT_DTVMC (VMC time-step optimization)   :  1
+ VMC_NSTEP (num VMC steps)                :  10000
+ VMC_NCONFIG_WRITE (num configs to write) :  0
+ VMC_NBLOCK (num VMC blocks)              :  1
+ VMC_EQUIL_NSTEP (num equil steps)        :  5000
+ VMC_DECORR_PERIOD (length of inner loop) :  3
+ VMC_AVE_PERIOD (hist reduction factor)   :  1
+ VMC_SAMPLING                             :  standard
+ MAKEMOVIE                                :  F
+ FORCES                                   :  F
+
+ Particles
+ =========
+ Particle name                 Charge        Mass         Spin   Type
+ -------------------------------------------------------------------------
+ 1: Spin-up electron          -1.00000       1.0000000     0.5   Fermion
+ 2: Spin-down electron        -1.00000       1.0000000    -0.5   Fermion
+ -------------------------------------------------------------------------
+
+ Number of diffusion types : 1
+
+ Single-particle groupings
+ -------------------------
+ Spin dep. 0 : (1,2) [F] [E]
+ Spin dep. 1 : (1) (2)
+
+ NB, partitions defining spin-[F]amilies and [E]quivalent particles flagged.
+
+ Particle-pair groupings
+ -----------------------
+ Spin-pair dep. 0 : (1-1,1-2,2-2)
+ Spin-pair dep. 1 : (1-1,2-2) (1-2)
+ Spin-pair dep. 2 : (1-1) (1-2) (2-2)
+
+ Initialize random number generator
+ ==================================
+ Generator                                 :  RANLUX
+ RANLUX luxury level                       :  3
+ p value                                   :  223
+ Value of random seed on MPI process 0     :  34373963
+
+ Initialized with seed derived from timer.
+
+ Reading correlation.data
+ ========================
+ A Jastrow factor is present in correlation.data.
+ No header is present in correlation.data.
+ No version number supplied.
+
+ No multideterminant/excitation data supplied.
+ Using ground state defined in xwfn.data file.
+
+ Reading plane-wave function and associated data
+ ===============================================
+
+ Title: Si diamond
+ Generating code                           :  K207
+ Method                                    :  DFT
+ DFT functional                            :  unknown
+ Pseudopotential type                      :  LDA TM (1551 coeff)
+ Plane-wave cutoff (au)                    :  7.500
+ Deduced periodicity                       :  3
+
+ Number of k points                        :  8
+ Max # bands per k point                   :  4
+ Number of G vectors                       :  341
+
+ DFT energy and components (au per primitive cell):
+ Total energy                              :  -7.8463551706
+ Kinetic energy                            :  3.2478061562
+ Local potential energy                    :  -1.0350854068
+ Non-local potential energy                :  0.1448987149
+ Electron-electron energy                  :  -1.8029565863
+ Ion-ion energy                            :  -8.4010180486
+
+ Real orbital coefficients ==> inversion symmetry
+ Real plane-wave orbitals will be evaluated.
+ Single determinant :
+
+ Det 1 spin 1           : ground state
+ Det 1 spin 2           : ground state
+ Det 1 coefficient      : 1.00000000
+
+ Pseudopotentials
+ ================
+
+ Ion type 1, atomic no 14, file=si_pp.data
+ Title:  TM silicon pseudopotential
+
+ Number of grid points                   :  1551
+ Pseudo-charge                           :  4.0
+ Local cutoff radius (au)                :  2.658468
+ Non-local cutoff radius (au)            :  1.879646
+ Local potential angular momentum        :  1
+ Deviation from z/r at cutoff radius     :  -.6883834973E-05
+ Non-local potential angular momentum    :  0
+ Deviation from vlocal at cutoff radius  :  0.1335855870E-09
+ Non-local potential angular momentum    :  2
+ Deviation from vlocal at cutoff radius  :  0.9952483282E-11
+
+ Geometry derived from information in pwfn.data
+ ==============================================
+
+ Lattice type    : face-centred cubic
+ Simulation cell : 3D periodic (supercell geometry)
+ Primitive cells : 2 x 2 x 2 = 8
+
+ Primitive cell lattice vectors (au)
+ ------------------------------------------------------------------
+               0.000000000000     5.129662155669     5.129662155669
+               5.129662155669     0.000000000000     5.129662155669
+               5.129662155669     5.129662155669     0.000000000000
+
+ Primitive cell reciprocal lattice vectors (au)
+ ------------------------------------------------------------------
+              -0.612436561756     0.612436561756     0.612436561756
+               0.612436561756    -0.612436561756     0.612436561756
+               0.612436561756     0.612436561756    -0.612436561756
+
+ Primitive cell volume                           0.269958051420E+03
+
+ Simulation cell lattice vectors (au)
+ ------------------------------------------------------------------
+               0.000000000000    10.259324311339    10.259324311339
+              10.259324311339     0.000000000000    10.259324311339
+              10.259324311339    10.259324311339     0.000000000000
+
+ Simulation cell reciprocal lattice vectors (au)
+ ------------------------------------------------------------------
+              -0.306218280878     0.306218280878     0.306218280878
+               0.306218280878    -0.306218280878     0.306218280878
+               0.306218280878     0.306218280878    -0.306218280878
+
+ Simulation cell volume                          0.215966441136E+04
+ Radius of sphere inscribed in Wigner-Seitz cell 0.725443779094E+01
+
+
+ Atom Atno  Type  Position (fractional)            Position (Cartesian au)
+ ------------------------------------------------------------------------------
+    1  14   1     0.1250     0.1250     0.1250     1.2824     1.2824     1.2824
+    2  14   1    -0.1250    -0.1250    -0.1250    -1.2824    -1.2824    -1.2824
+    3  14   1     0.1250     0.1250     1.1250     6.4121     6.4121     1.2824
+    4  14   1    -0.1250    -0.1250     0.8750     3.8472     3.8472    -1.2824
+    5  14   1     0.1250     1.1250     0.1250     6.4121     1.2824     6.4121
+    6  14   1    -0.1250     0.8750    -0.1250     3.8472    -1.2824     3.8472
+    7  14   1     0.1250     1.1250     1.1250    11.5417     6.4121     6.4121
+    8  14   1    -0.1250     0.8750     0.8750     8.9769     3.8472     3.8472
+    9  14   1     1.1250     0.1250     0.1250     1.2824     6.4121     6.4121
+   10  14   1     0.8750    -0.1250    -0.1250    -1.2824     3.8472     3.8472
+   11  14   1     1.1250     0.1250     1.1250     6.4121    11.5417     6.4121
+   12  14   1     0.8750    -0.1250     0.8750     3.8472     8.9769     3.8472
+   13  14   1     1.1250     1.1250     0.1250     6.4121     6.4121    11.5417
+   14  14   1     0.8750     0.8750    -0.1250     3.8472     3.8472     8.9769
+   15  14   1     1.1250     1.1250     1.1250    11.5417    11.5417    11.5417
+   16  14   1     0.8750     0.8750     0.8750     8.9769     8.9769     8.9769
+
+ Crystal appears to have inversion symmetry.
+
+ Neighbour analysis turned off (NEIGHPRINT==0).
+
+
+ Plane-wave setup
+ ================
+
+ Periodicity : 3
+ Real plane-wave orbitals will be used.
+
+ K POINT ANALYSIS
+   k    kx         ky         kz       use pair edge spec
+   1   0.000000   0.000000   0.000000   T    F    T    G
+   2  -0.306218  -0.306218   0.306218   T    F    T
+   3  -0.306218   0.306218  -0.306218   T    F    T
+   4  -0.612437   0.000000   0.000000   T    F    T    X
+   5   0.306218  -0.306218  -0.306218   T    F    T
+   6   0.000000  -0.612437   0.000000   T    F    T
+   7   0.000000   0.000000  -0.612437   T    F    T
+   8  -0.306218  -0.306218  -0.306218   T    F    T    L
+
+ Any k points with edge=F give rise to independent states at both k and -k.
+
+ MAPPING ONTO UNIQUE K_S VECTOR:
+   0.00000000  0.00000000  0.00000000 (Cartesian a.u.)
+
+ INSULATING GROUND STATE DETECTED
+ No. of doubly occupied bands at each k point: 4
+
+ Detailed band-occupancy information
+ -----------------------------------
+ K POINT 1  [not part of a (+/-)k pair] (G)
+ k(au):   0.000000000000000E+00   0.000000000000000E+00   0.000000000000000E+00
+ kfrac:   0.000000000000000E+00   0.000000000000000E+00   0.000000000000000E+00
+ Spin 1:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.41763974589725600
+ Spin 2:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.41763974589725600
+
+ K POINT 2  [not part of a (+/-)k pair]
+ k(au):  -3.062182808781698E-01  -3.062182808781698E-01   3.062182808781698E-01
+ kfrac:   7.290951355652084E-19   2.300220183847847E-17  -5.000000000000002E-01
+ Spin 1:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.37202387790130997
+ Spin 2:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.37202387790130997
+
+ K POINT 3  [not part of a (+/-)k pair]
+ k(au):  -3.062182808781698E-01   3.062182808781698E-01  -3.062182808781698E-01
+ kfrac:  -7.290951355652084E-19  -5.000000000000002E-01  -2.224318776761529E-17
+ Spin 1:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.37202386271472399
+ Spin 2:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.37202386271472399
+
+ K POINT 4  [not part of a (+/-)k pair] (X)
+ k(au):  -6.124365617563396E-01   0.000000000000000E+00   0.000000000000000E+00
+ kfrac:  -9.749634273796114E-18  -5.000000000000002E-01  -5.000000000000002E-01
+ Spin 1:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.30939046664880099
+ Spin 2:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.30939046664880099
+
+ K POINT 5  [not part of a (+/-)k pair]
+ k(au):   3.062182808781698E-01  -3.062182808781698E-01  -3.062182808781698E-01
+ kfrac:  -5.000000000000001E-01  -2.148417369675211E-17   2.224318776761529E-17
+ Spin 1:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.37202387790107899
+ Spin 2:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.37202387790107899
+
+ K POINT 6  [not part of a (+/-)k pair]
+ k(au):   0.000000000000000E+00  -6.124365617563396E-01   0.000000000000000E+00
+ kfrac:  -5.000000000000001E-01   1.518028141726355E-18  -5.000000000000002E-01
+ Spin 1:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.30939048543853598
+ Spin 2:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.30939048543853598
+
+ K POINT 7  [not part of a (+/-)k pair]
+ k(au):   0.000000000000000E+00   0.000000000000000E+00  -6.124365617563396E-01
+ kfrac:  -5.000000000000001E-01  -5.000000000000002E-01   1.518028141726355E-18
+ Spin 1:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.30939046664881098
+ Spin 2:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.30939046664881098
+
+ K POINT 8  [not part of a (+/-)k pair] (L)
+ k(au):  -3.062182808781698E-01  -3.062182808781698E-01  -3.062182808781698E-01
+ kfrac:  -5.000000000000001E-01  -5.000000000000002E-01  -5.000000000000002E-01
+ Spin 1:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.37202386020448402
+ Spin 2:
+ Bands occupied at k: 1 2 3 4
+ Highest occupied band energy: 0.37202386020448402
+
+ Kinetic energy from pwfn.data                 : 3.24780615624099
+ Calculated kinetic energy                     : 3.247806156240991
+ KE check passed.
+
+ Expectation values
+ ==================
+ None requested.
+
+ Interactions
+ ============
+ Interaction type: Coulomb
+
+ Setup 3D Ewald interaction.
+
+ No. of G in reciprocal space sum   :  90
+ No. of vectors in real space sum   :  19
+ Maximum |G|^2 (au)                 :  0.76610058E-01
+ Gamma^(1/2) = Gaussian half-width  :  2.16618698E-01
+ Electron self-image term v_M (au)  :  -0.22344854290684407
+
+ Ionic repulsion energy (au/primitive cell)
+ ==========================================
+ EIONION from file  : -8.401018048580
+ Calculated EIONION : -8.401018049876
+
+ Calculated and input nuclear repulsion energies agree.
+
+ Non-local integration grids
+ ===========================
+ Ion type            :  1
+ Non-local grid no.  :  4
+ Lexact              :  5
+ Number of points    :  12
+
+
+ Setup complete.
+
+ Time taken in setup    : : :        0.1300
+
+ ====================================
+ PERFORMING A SINGLE VMC CALCULATION.
+ ====================================
+
+
+ BEGIN VMC CALCULATION
+ =====================
+
+ No of up/down spin electrons initially associated with each ion:
+ ----------------------------------------------------------------
+ Element, # up-spin, # down-spin
+ Si            2          2
+ [Use edist_by_ion/edist_by_iontype in input to change this]
+
+
+ Running VMC equilibration (5000 moves).
+  Performing time-step optimization.
+  Optimized DTVMC:  9.9913E-01
+ Done. [total CPU time: 4s]
+
+ Kinetic energy check performed.
+  Slater determinants - gradient: optimal, Laplacian: optimal.
+ End of report.
+
+ Starting VMC.
+
+ =========================================================================
+ In block : 1
+
+ Acceptance ratio         (%)  =  50.0009
+ Diffusion constant  (Bohr^2)  = 2.8653E-01
+ Correlation time     (steps)  = 1.2120E+00 +- 5.0212E-02
+ Efficiency      (au^-2 s^-1)  = 4.3553E+01
+ No. of VMC steps per process  = 2500
+
+  Block average energies (au per primitive cell)
+
+  Total energy                       (au) =          -7.630133945369
+  Standard error                        +/-           0.003385512068
+
+  Kinetic energy KEI (used in Total) (au) =           3.241054689556
+  Standard error                        +/-           0.003298213242
+
+  Kinetic energy TI                  (au) =           3.278494230817
+  Standard error                        +/-           0.033814349445
+
+  Kinetic energy FISQ                (au) =           3.315933772078
+  Standard error                        +/-           0.067700010985
+
+  Potential energy                   (au) =          -2.470170585049
+  Standard error                        +/-           0.004619518676
+
+  Ewald e-e interaction              (au) =          -1.591280677869
+  Standard error                        +/-           0.003417420456
+
+  Ewald e-i interaction (local)      (au) =          -1.024114204876
+  Standard error                        +/-           0.003780808190
+
+  Ewald e-i interaction (non-local)  (au) =           0.145224297697
+  Standard error                        +/-           0.002406352258
+
+  Constant energy contributions      (au) =          -8.401018049876
+
+  Var. of local energy per sim. cell (au) =           7.130031364533
+  Standard error                        +/-           0.143889499112
+
+
+ Time taken in block    : : :       26.5700
+
+ =========================================================================
+ FINAL RESULT:
+
+  VMC energy (au)    Standard error      Correction for serial correlation
+
+ -7.630133945369 +/- 0.003385512068      No correction
+ -7.630133945369 +/- 0.003727124443      Correlation time method
+ -7.630133945369 +/- 0.004004126317      On-the-fly reblocking method
+
+  Sample variance of E_L (au^2/sim.cell) : 7.130031364533
+
+ =========================================================================
+
+
+ Total CASINO CPU time  : : :       31.1400
+ Total CASINO real time : : :       39.4680
+
+
+ Subroutine timers deactivated (use TIMING_INFO input keyword)
+
+ =========================================================================
+ Ends 2023/09/05 19:01:54.598
+
+Job finished: Вт 05 сен 2023 19:01:54 +07

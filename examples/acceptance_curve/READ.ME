@@ -1,0 +1,55 @@
+Acceptance ratio and efficiency against dtvmc normalized to dtvmc50, the step that gives 50%
+acceptance. CASINO, He, gwfn cc-pVQZ, Slater only (no Jastrow), runtype vmc,
+vmc_decorr_period 1, 1e7 moves per point, runqmc -p 4 one point at a time.
+
+He/EBES   vmc_method 1, electron by electron:           dtvmc50 = 2.10850e-01
+He/CBCS   vmc_method 3, configuration by configuration: dtvmc50 = 9.38343e-02
+
+`a<A>` is one point of the grid Casino.vmc_step_graph lays out equally in acceptance,
+dtvmc = dtvmc50 * [erfinv(1 - A)/erfinv(1/2)]^2 over the nineteen targets 0.95 ... 0.05, with
+opt_dtvmc 0 so the step is the one asked for. `opt` is the run with opt_dtvmc 1: CASINO
+optimizes the step only under vmc_method 1, where it returned 2.05520e-01 against the
+2.10850e-01 the grid interpolates; under vmc_method 3 it returned the input value untouched, so
+dtvmc50 is the interpolated one in both files.
+
+    examples/acceptance_curve/acceptance_curve.py [SYSTEM ...]
+
+reads the out files and writes He-EBES.dat, He-CBCS.dat and He.png, the latter the efficiency
+against the acceptance ratio. The acceptance against the step is in the tables.
+
+dtvmc is the variance of the Gaussian proposal, and the sum rule shares it between the
+electrons, so EBES should sit at N times the CBCS step: 2.25 measured against N = 2.
+
+What the grid measures is how far the Gaussian law misses the target it was aimed at. It misses
+in one direction on each side of 50% and by more the further out the target is:
+
+    target   0.95    0.75    0.55    0.50    0.45    0.25    0.05
+    CBCS   -0.004  -0.015  -0.007  -0.002  +0.004  +0.037  +0.063
+    EBES   -0.007  -0.023  -0.008  -0.000  +0.009  +0.058  +0.096
+
+The sign flip at 50% is the fat tail of X = ln(Psi'^2/Psi^2): below the target the law
+prescribes too small a step and above it too large a one, and only at 50% does the map's fixed
+point make the error vanish by construction. At the last target the measurement is 0.113 (CBCS)
+and 0.146 (EBES) against the 0.048 and 0.050 the Gaussian law puts there.
+
+The same targets in PyCasino agree with CASINO's numbers to better than 0.001 in acceptance:
+examples/time_step/CBCS/He-gto.dat, whose optimized DTVMC is 9.495e-02 against 9.383e-02 here,
+gives 0.94571 / 0.49723 / 0.11229 at targets 0.95 / 0.50 / 0.05 against 0.94561 / 0.49810 /
+0.11275 here.
+
+The two-parameter form p = C / (C + exp(a*sqrt(dtvmc/dtvmc50)) - 1) fits the whole grid with
+C = 0.997, a = 0.684, rms 0.0045 (EBES) and C = 1.403, a = 0.872, rms 0.0028 (CBCS).
+
+The efficiency CASINO prints, 1 / (err^2 * CPU time), peaks at 3.48e5 at an acceptance of 50.0%
+for EBES and 1.87e5 on a plateau spanning 45 ... 60% for CBCS, EBES being the faster method by
+1.9 at its own optimum. Below 30% acceptance the series are still ragged, the correlation time
+being long there and its estimate noisy, but around the maximum the scatter is a few per cent
+and both maxima are flat: what this measures is that the optimum sits near 50% for He and that
+nothing is lost anywhere in 45 ... 60%. It is not the optimum of examples/step_profile: the
+decorrelation period is held at 1 here, while there it is minimized out at every point.
+
+Run one point at a time with runqmc -p 4, never four single-process points at once: independent
+mpirun instances each bind their rank 0 to the same physical core -- on this box the four jobs
+landed on cpu0 and cpu4, the two threads of core 0 -- and the run then reports half the CPU it
+uses, real time twice CPU time, and an efficiency wrong by a factor that depends on how the
+jobs happened to pair up.

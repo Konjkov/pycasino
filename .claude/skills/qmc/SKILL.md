@@ -7,6 +7,7 @@ description: >
   backflow transformation, drift velocity, branching, trial wave function, VMC,
   DMC, wavefunction optimization, varmin, emin, linear method, stochastic
   reconfiguration, cusp condition, pseudopotential, T-move.
+  See the jastrow-forms skill for the analytic u and chi forms (Functional form 1, 2).
 ---
 
 # QMC: pycasino

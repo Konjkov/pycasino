@@ -1,0 +1,53 @@
+#-------------------#
+# CASINO input file #
+#-------------------#
+
+# Be, HF node, one determinant. The backflow of ../Backflow_emin/correlation.out.4 is re-optimized
+# against the nodal surface integral of Mitas & Annaberdiyev instead of against the energy, so that
+# DMC can be asked which of the two backflows has the better node. The jastrow of that file is read,
+# switched off by nmin while it works - it does not move the node and F is a functional of the
+# determinant part alone - and written back untouched into every correlation.out, which is what the
+# DMC afterwards needs. The VMC energy of each cycle is taken with it.
+
+# SYSTEM
+neu               : 2              #*! Number of up electrons (Integer)
+ned               : 2              #*! Number of down electrons (Integer)
+periodic          : F              #*! Periodic boundary conditions (Boolean)
+atom_basis_type   : slater-type    #*! Basis set type (text)
+
+# RUN
+runtype           : vmc_opt        #*! Type of calculation (Text)
+newrun            : T              #*! New run or continue old (Boolean)
+testrun           : F              #*! Test run flag (Boolean)
+
+# VMC
+vmc_method        : 3              #*! Configuration-by-configuration algorithm
+opt_dtvmc         : 1              #*! VMC time-step optimization (Integer)
+vmc_equil_nstep   : 5000           #*! Number of equilibration steps (Integer)
+vmc_nstep         : 3000000        #*! Number of steps (Integer)
+vmc_nblock        : 1              #*! Number of checkpoints (Integer)
+vmc_nconfig_write : 3000000        #*! Number of configs to write (Integer)
+vmc_decorr_period : 10             #*! VMC decorrelation period (0 - auto)
+writeout_vmc_hist : F              #*! Write vmc.hist file in VMC (Boolean)
+
+# OPTIMIZATION
+opt_method        : nmin           #*! Opt method (varmin/emin/nmin)
+opt_cycles        : 5              #*! Number of optimization cycles (Integer)
+opt_maxeval       : 30             #*! Max evaluations per cycle (Integer)
+opt_jastrow       : F              #*! Optimize Jastrow factor (Boolean)
+opt_backflow      : T              #*! Optimize backflow parameters (Boolean)
+postfit_vmc       : F              #*! Perform a VMC run after the fit (Boolean)
+
+# nmin: zeta 0 asks the method to choose the exponent of the weight Phi = prod exp(-zeta r_iI)
+# itself, by taking the smallest of its grid at which a step of the trust radius leaves the density
+# inside the allowance the trust region enforces. Measured the other way round on this system -
+# Backflow, Backflow_varmin and Backflow_emin compared against each other - the three densities sit
+# within 1 to 3 per cent of one another at every zeta from 0.5 to 1.4, so nothing in the existing
+# wave functions forces a choice; what may is where the optimizer takes the backflow, which is what
+# the scan tests. epsilon 0 takes the tube thickness from a pilot walk.
+nmin_zeta         : 0.0            #*! Exponent of the one-particle weight, 0 to choose (Real)
+nmin_epsilon      : 0.0            #*! Tube half-thickness, 0 for automatic (Real)
+
+# GENERAL PARAMETERS
+use_jastrow       : T              #*! Use a Jastrow function (Boolean)
+backflow          : T              #*! Use backflow corrections (Boolean)
